@@ -357,10 +357,22 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	defer failoverCancel()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 
-	resp, _, _, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
+	resp, providerType, _, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
 	if !ok {
 		return outcomeFailover
 	}
+
+	// MiniMax reports business errors (rate limit, exhausted plan balance, auth
+	// failures) inside an HTTP 200 envelope, so the status has to be normalised
+	// before anything is judged from it — exactly as attemptCandidate,
+	// probeStreamingCandidate and probeModel all do.
+	//
+	// This loop was the one that did not, and until the retirement work that only
+	// cost a spurious breaker success. It costs more now: the 2xx branch below
+	// clears the model's gone-strike streak, so a refusal wrapped in a 200 was
+	// being recorded as the model answering and resetting the consecutive count
+	// that a retirement depends on.
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 	hasMoreCandidates := attempt < totalCandidates-1

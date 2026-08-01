@@ -487,6 +487,12 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
+		// Whether the model actually answered, judged where the decoded body is
+		// in hand. The failover loop clears the model's gone-strike streak on it
+		// (see attemptCandidate): a 200 is a status, and a decodable-but-empty
+		// completion is one an aggregator in front of a retired model can return
+		// all day, resetting the count so the model is never nominated.
+		logData.deliveredContent = chatAnswerCarriesContent(chatResp)
 		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
 		// The async INSERT is very likely complete by now; if not, the
 		// UPDATE simply affects 0 rows (harmless, logged as warning).

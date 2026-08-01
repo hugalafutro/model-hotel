@@ -79,6 +79,12 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.tokensCompletion = outputTokens
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
+	// The same signal the OpenAI-shaped path records, at the same bar the
+	// pass-through commit points use: bytes arrived from the provider. It is
+	// what clears the model's gone-strike streak (see attemptCandidate), and it
+	// is deliberately not a parse of Anthropic's content array — a body this
+	// path forwards verbatim is not one it should be judging the shape of.
+	logData.deliveredContent = len(body) > 0
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	if st.vkHash != "" {

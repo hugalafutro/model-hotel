@@ -431,11 +431,11 @@ func TestVerdictForStream(t *testing.T) {
 	}
 }
 
-// TestStreamProducedOutput covers the two independent signals that a stream
+// TestProducedOutput covers the two independent signals that a stream
 // actually delivered content. Neither is reliable alone: completion tokens are
 // absent when a provider omits the usage chunk, TTFT is zero when the probe is
 // disabled.
-func TestStreamProducedOutput(t *testing.T) {
+func TestProducedOutput(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -459,8 +459,8 @@ func TestStreamProducedOutput(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := streamProducedOutput(tc.log); got != tc.want {
-				t.Errorf("streamProducedOutput() = %v, want %v", got, tc.want)
+			if got := producedOutput(tc.log); got != tc.want {
+				t.Errorf("producedOutput() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -1497,6 +1497,113 @@ func TestAttemptCandidate_ATranslationFailureKeepsTheStreak(t *testing.T) {
 	}
 }
 
+// TestAttemptCandidate_AnEmptyCompletionKeepsTheStreak pins that the
+// non-streaming chat path judges the answer rather than the status.
+//
+// `200 {"choices":[]}` decodes, is forwarded to the client as a normal
+// completion, and is exactly what an aggregator in front of a retired model can
+// return between its gone-shaped 404s. Crediting it resets the count, so the
+// three refusals never land consecutively and the model is never nominated,
+// probed or retired. Every other path on this branch already draws this line.
+func TestAttemptCandidate_AnEmptyCompletionKeepsTheStreak(t *testing.T) {
+	cases := []struct {
+		name       string
+		answer     string
+		wantStreak int64
+	}{
+		{"empty completion", `{"id":"x","object":"chat.completion","choices":[]}`, 1},
+		// The control, without which this test would also pass against a path
+		// that had simply stopped clearing streaks altogether.
+		{"real completion", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"completion_tokens":1}}`, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandler(h)
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, tc.answer)
+			}))
+			defer srv.Close()
+
+			m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", InputModalities: `["text"]`, OutputModalities: `["text"]`}
+			cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+			// One real refusal, so there is a streak for the 200 to clear.
+			h.noteModelGone(cand, endpointTypeChat)
+			streak := goneStreakFor(t, h, m.ID, probeChatEndpoint)
+
+			st := &requestState{
+				startTime:       time.Now(),
+				reqModel:        "gpt-5.6-sol",
+				bodyBytes:       []byte(`{"model":"gpt-5.6-sol","messages":[{"role":"user","content":"hi"}]}`),
+				failoverTimeout: 30 * time.Second,
+				logData:         &requestLogData{modelID: "gpt-5.6-sol", endpointType: endpointTypeChat},
+			}
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+			if got := h.attemptCandidate(w, r, st, cand, 0, 1); got != outcomeServed {
+				t.Fatalf("outcome = %v, want served", got)
+			}
+			if n := streak.count(); n != tc.wantStreak {
+				t.Fatalf("streak = %d, want %d", n, tc.wantStreak)
+			}
+		})
+	}
+}
+
+// TestNoteModelGone_ARetirementThatStandsIsStillAnnounced pins that a disable
+// which stuck gets its follow-through.
+//
+// Once AutoRetireIfConfirmed commits, the row is off. Three of the four ways out
+// of the post-commit cancelled branch leave it off — no revert attempted, a
+// revert that errored, a revert the row had moved past — and all three used to
+// return before the custom-group revalidation and the alert. The revalidation is
+// the load-bearing half: a disabled member does not resize the groups it belongs
+// to, so skipping it leaves a group enabled with fewer than two routable members
+// until an unrelated scan notices.
+//
+// The arm driven here is the one where the model is refusing again, which is
+// also the one where the retirement is most clearly real.
+func TestNoteModelGone_ARetirementThatStandsIsStillAnnounced(t *testing.T) {
+	// Not parallel: it subscribes to the process-wide event bus.
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
+
+	// A success lands inside the commit window and fresh refusals rebuild the
+	// case behind it, so the revert stands down and the model stays retired.
+	repo.afterConfirm = func() {
+		h.noteModelServed(m, endpointTypeChat)
+		for range goneStrikeThreshold {
+			h.noteModelGone(cand, endpointTypeChat)
+		}
+	}
+
+	ch := events.Subscribe()
+	defer events.Unsubscribe(ch)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type != "model.auto_disabled_gone" || ev.Metadata["model_uuid"] != m.ID.String() {
+				continue
+			}
+			return
+		case <-deadline:
+			t.Fatal("a retirement that was never reverted was never announced")
+		}
+	}
+}
+
 // TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount pins that the
 // number an operator reads is the number the decision was made on.
 //
@@ -1698,7 +1805,7 @@ func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
 }
 
 // TestNoteStreamOutcome_NilLogDataIsIgnored pins a guard that has to live at the
-// dereference. streamProducedOutput checks for nil as well, but noteStreamOutcome
+// dereference. producedOutput checks for nil as well, but noteStreamOutcome
 // builds its arguments from logData in the same expression that calls it, and Go
 // evaluates all of them first — so on this path the helper's check could never
 // run and a nil would panic before reaching it.

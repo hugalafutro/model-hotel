@@ -500,6 +500,58 @@ func TestEmbeddings_ResponsesThatCarryNothingKeepTheGoneStrikes(t *testing.T) {
 	}
 }
 
+// TestAttemptPassthroughCandidate_AMiniMaxRefusalInsideA200KeepsTheStreak pins
+// that the pass-through loop normalises MiniMax's 200-wrapped errors like every
+// other attempt path does.
+//
+// MiniMax reports rate limits, an exhausted plan balance and auth failures
+// inside an HTTP 200 envelope. attemptCandidate, probeStreamingCandidate and
+// probeModel all remap them before judging anything; this loop did not, and
+// until the retirement work that only cost a spurious breaker success. Now the
+// 2xx branch clears the model's gone-strike streak, so a refusal wrapped in a
+// 200 was recorded as the model answering and reset the consecutive count a
+// retirement depends on.
+func TestAttemptPassthroughCandidate_AMiniMaxRefusalInsideA200KeepsTheStreak(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// A 200 whose envelope says rate-limited, which remaps to 429.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"base_resp":{"status_code":1002,"status_msg":"rate limit exceeded"}}`)
+	}))
+	defer srv.Close()
+	// The hostname decides the provider dialect, so the transport dials the test
+	// server regardless of it. Plain http, because that dial hands back a TCP
+	// connection to an httptest server that speaks no TLS.
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "MiniMax-Text-01", InputModalities: `["text"]`, OutputModalities: `["embedding"]`}
+	cand := goneCandidateAt(m, "MiniMax", "http://api.minimax.io/v1")
+
+	// One real refusal, so there is a streak for the 200 to clear.
+	h.noteModelGone(cand, endpointTypeEmbeddings)
+	streak := goneStreakFor(t, h, m.ID, probeEmbeddingsEndpoint)
+
+	st := &requestState{
+		startTime:       time.Now(),
+		reqModel:        "MiniMax-Text-01",
+		endpointPath:    "/embeddings",
+		bodyBytes:       []byte(`{"model":"MiniMax-Text-01","input":"hi"}`),
+		failoverTimeout: 30 * time.Second,
+		logData:         &requestLogData{modelID: "MiniMax-Text-01", endpointType: endpointTypeEmbeddings},
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody)
+
+	if got := h.attemptPassthroughCandidate(w, r, st, cand, 0, 1); got != outcomeFatal {
+		t.Fatalf("outcome = %v, want a terminal error for a remapped 429", got)
+	}
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want the strike kept: a refusal inside a 200 is not the model answering", n)
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

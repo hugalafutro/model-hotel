@@ -723,6 +723,51 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// getting — least of all an upstream round trip to a third party.
 	modelID, modelName, provider := m.ID, m.ModelID, candidate.provider.Name
 
+	// announceRetirement is everything a disable owes the rest of the system once
+	// the row is actually off, and it is one function because the goroutine below
+	// has four exits that leave it off and only one that does not.
+	//
+	// The revalidation is unconditional among those four. Disabling a member does
+	// not resize the custom failover groups it belongs to, so a group can be left
+	// enabled while it no longer has two routable members. Discovery already
+	// revalidates after it disables a model (see discovery_diff.go); this path has
+	// to do the same or an undersized group stays enabled until some unrelated
+	// scan happens to fix it. Best-effort: a failure here must not undo the
+	// disable.
+	//
+	// The alert is not, which is why it is a parameter rather than assumed. It
+	// asserts that THIS model is retired, so it is published only where the
+	// goroutine still knows that to be true — not where the row has moved on
+	// under someone else, and not where the retirement was successfully undone.
+	announceRetirement := func(publish bool) {
+		if h.failoverRepo != nil {
+			vctx, vcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
+			_, verr := h.failoverRepo.RevalidateCustomGroups(vctx)
+			vcancel()
+			if verr != nil {
+				debuglog.Error("proxy: custom-group revalidation after auto-disable failed", "model", modelName, "error", verr)
+			}
+		}
+		if !publish {
+			return
+		}
+		events.Publish(events.Event{
+			Type:     "model.auto_disabled_gone",
+			Severity: "warning",
+			Source:   "proxy",
+			Message:  fmt.Sprintf("Disabled %s: %s reports it is no longer served", modelName, provider),
+			Metadata: map[string]any{
+				"model_id":      modelName,
+				"model_uuid":    modelID.String(),
+				"provider_name": provider,
+				"strikes":       strikes,
+				"reason":        string(KindProviderModelGone),
+				"probe_verdict": probeRefused.String(),
+				"endpoint_type": endpointType,
+			},
+		})
+	}
+
 	go func() {
 		// The slot belongs to the upstream request, not to the whole retirement.
 		// It is released explicitly the moment the probe returns, below; this is
@@ -927,8 +972,23 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// lookup by model id could only ever return the same struct, and
 			// supersede's single critical section is what guarantees the count
 			// read here is the one that belongs to the tombstone read above.
+			// Three of the four ways out of here leave the model DISABLED, and
+			// each of them still owes the retirement its follow-through. The
+			// revalidation is the load-bearing half: a disabled member does not
+			// resize the custom groups it belongs to, so skipping it leaves a
+			// group enabled with fewer than two routable members until some
+			// unrelated scan happens to notice — which is the whole reason the
+			// call exists. Only a revert that actually landed is exempt, because
+			// then nothing happened as far as anyone outside this goroutine is
+			// concerned.
+			//
+			// The alert is judged separately, because it asserts something
+			// stronger than the revalidation does. It says this model is retired,
+			// so it is published only where that is known to be true: the two
+			// arms below where the row is still exactly as this write left it.
 			if streak.count() >= goneStrikeThreshold {
 				debuglog.Info("proxy: not reverting the auto-disable, the model is refusing again", "model", modelName, "provider", provider)
+				announceRetirement(true)
 				return
 			}
 
@@ -943,13 +1003,21 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			switch {
 			case rerr != nil:
 				// Nothing safe is left to try. Log loudly: the model is
-				// disabled and the gateway believes it should not be.
+				// disabled and the gateway believes it should not be. The
+				// retirement is still announced, because it is what happened —
+				// an operator reading only the error line would have a model
+				// disabled by this path with no event to match it to.
 				debuglog.Error("proxy: model answered while its auto-disable was in flight, and re-enabling it failed", "model", modelName, "provider", provider, "error", rerr)
+				announceRetirement(true)
 				return
 			case !reverted:
 				// Someone else owns the row's state now. Leaving it alone is
-				// the whole point of the condition.
+				// the whole point of the condition — and it is also why this
+				// one revalidates without alerting: the groups have to be
+				// re-checked whatever the row ended up as, but this goroutine
+				// no longer knows what to claim about it.
 				debuglog.Info("proxy: auto-disable was superseded before it could be reverted", "model", modelName, "provider", provider)
+				announceRetirement(false)
 				return
 			}
 			debuglog.Info("proxy: reverted auto-disable, model answered while the write was in flight", "model", modelName, "provider", provider)
@@ -990,36 +1058,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// the decision was being made — which is the opposite of "how was this
 		// decision reached".
 		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", strikes, "endpoint", endpointType, "probe_verdict", probeRefused.String())
-
-		// Disabling a member does not resize the custom failover groups it
-		// belongs to, so a group can be left enabled while it no longer has two
-		// routable members. Discovery already revalidates after it disables a
-		// model (see discovery_diff.go); this path has to do the same or an
-		// undersized group stays enabled until some unrelated scan happens to
-		// fix it. Best-effort: a failure here must not undo the disable.
-		if h.failoverRepo != nil {
-			vctx, vcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
-			_, verr := h.failoverRepo.RevalidateCustomGroups(vctx)
-			vcancel()
-			if verr != nil {
-				debuglog.Error("proxy: custom-group revalidation after auto-disable failed", "model", modelName, "error", verr)
-			}
-		}
-		events.Publish(events.Event{
-			Type:     "model.auto_disabled_gone",
-			Severity: "warning",
-			Source:   "proxy",
-			Message:  fmt.Sprintf("Disabled %s: %s reports it is no longer served", modelName, provider),
-			Metadata: map[string]any{
-				"model_id":      modelName,
-				"model_uuid":    modelID.String(),
-				"provider_name": provider,
-				"strikes":       strikes,
-				"reason":        string(KindProviderModelGone),
-				"probe_verdict": probeRefused.String(),
-				"endpoint_type": endpointType,
-			},
-		})
+		announceRetirement(true)
 	}()
 }
 
@@ -1154,8 +1193,11 @@ func verdictForStream(kind, upstreamKind ErrorKind, producedOutput bool) streamV
 	}
 }
 
-// streamProducedOutput reports whether a finished stream actually delivered
-// content.
+// producedOutput reports whether a response actually delivered content.
+//
+// Used by the stream verdict and by the non-streaming chat path, which ask the
+// same question of the same fields: a 200 is a status, and what clears a
+// retirement streak has to be an answer.
 //
 // deliveredContent is the authoritative signal, set where the content itself is
 // observed. The other two are corroboration and neither can be relied on alone:
@@ -1170,7 +1212,7 @@ func verdictForStream(kind, upstreamKind ErrorKind, producedOutput bool) streamV
 // evidence rather than absence of an error: a stream can open, emit nothing and
 // end without recording anything, and crediting that would clear a retirement
 // streak on the strength of an empty response.
-func streamProducedOutput(logData *requestLogData) bool {
+func producedOutput(logData *requestLogData) bool {
 	if logData == nil {
 		return false
 	}
@@ -1182,7 +1224,7 @@ func streamProducedOutput(logData *requestLogData) bool {
 // the hedged path previously returned without recording any verdict at all, so
 // a model retired mid-stream stayed routable whenever hedging was enabled.
 func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCandidate) {
-	// The guard belongs here, not in streamProducedOutput. That function checks
+	// The guard belongs here, not in producedOutput. That function checks
 	// for nil too and is tested for it, but this expression dereferences logData
 	// to build its arguments, and Go evaluates all of them before the call — so
 	// on this path the helper's guard could never run and a nil would panic
@@ -1191,7 +1233,7 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 	if logData == nil {
 		return
 	}
-	switch verdictForStream(logData.errorKind, logData.upstreamKind, streamProducedOutput(logData)) {
+	switch verdictForStream(logData.errorKind, logData.upstreamKind, producedOutput(logData)) {
 	case verdictGone:
 		// The endpoint family comes off the log entry rather than being assumed:
 		// it is what decides whether this refusal can be adjudicated at all, and

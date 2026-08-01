@@ -505,7 +505,7 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 //
 // A 200 that carries nothing is NOT a success. A stream can open, emit nothing
 // and end cleanly, and crediting that is the same bug an earlier review round
-// caught on the streaming path (see streamProducedOutput in model_gone.go).
+// caught on the streaming path (see producedOutput in model_gone.go).
 // It is not a refusal either — the provider did not say the model is gone — so
 // an empty answer postpones like every other unproven case.
 func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCandidate, endpointType string) probeVerdict {
@@ -611,6 +611,19 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 	if json.Unmarshal(body, &out) != nil {
 		return false
 	}
+	return chatAnswerCarriesContent(out)
+}
+
+// chatAnswerCarriesContent reports whether a decoded chat completion carries
+// something the model produced.
+//
+// Shared with the non-streaming request path, which asks the same question of
+// the same shape for the same reason: a 200 that carries nothing is not the
+// model answering, and crediting one would let a provider intermittently
+// returning an empty completion reset a retired model's strike count forever.
+// One judgement rather than two, so the probe and the traffic cannot drift into
+// disagreeing about what an answer is.
+func chatAnswerCarriesContent(out ChatCompletionResponse) bool {
 	for _, choice := range out.Choices {
 		if s, ok := choice.Message.Content.(string); ok && s != "" {
 			return true

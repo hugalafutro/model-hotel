@@ -250,40 +250,41 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			return outcomeFailover
 		}
 	}
-	// A non-streaming 200 that survived the dialect translation above means the
-	// model answered, so any gone-strike streak it had accumulated is stale.
-	// Streaming cannot be judged yet: the provider can send 200 headers and only
-	// then report the model gone in an SSE error, so that verdict is deferred to
-	// dispatchStreaming once the stream has ended.
-	//
-	// After the two translations rather than on the 200, and that is the whole
-	// point of where it sits. Either of them reads the body, fails, and sends the
-	// attempt to FAILOVER — a provider that answered 200 with something that is
-	// not a Responses object or not a Gemini answer has not served the model, and
-	// crediting it there cleared the streak of a model the gateway was in the act
-	// of giving up on.
-	//
-	// It is still ahead of the non-streaming handler's own decode, which is the
-	// last place a plain 200 can turn out to be empty. That is deliberate rather
-	// than overlooked: this path records its breaker outcome from the status too
-	// (see recordBreakerOutcome above), no failover follows the decode, and the
-	// only cost of being wrong is a cleared streak on a response the client got a
-	// 502 for — the direction that leaves a model enabled. Threading a served
-	// signal back out of handleNonStreamingResponse and its native twin would buy
-	// precision this path does not otherwise keep.
-	if !st.isStreaming {
-		h.noteModelServed(candidate.model, logData.endpointType)
-	}
-
 	if st.isStreaming {
+		// Streaming cannot be judged yet: the provider can send 200 headers and
+		// only then report the model gone in an SSE error, so that verdict is
+		// deferred to dispatchStreaming once the stream has ended.
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
+	// A non-streaming answer clears any gone-strike streak the model had — and
+	// it is judged AFTER the handler, on what the handler decoded, rather than
+	// on the 200 that preceded it.
+	//
+	// Both halves of that placement are load-bearing. It is below the dialect
+	// translations because either of them reads the body, fails, and sends the
+	// attempt to FAILOVER: a provider that answered 200 with something that is
+	// not a Responses object or not a Gemini answer has not served the model,
+	// and crediting it there cleared the streak of a model the gateway was in
+	// the act of giving up on. And it is below the handler because a status is
+	// not an answer: `200 {"choices":[]}` decodes, is forwarded to the client as
+	// a normal completion, and is exactly what an aggregator in front of a
+	// retired model can return between its gone-shaped 404s — resetting the
+	// count so the three never land consecutively and the model is never
+	// nominated. Every other path on this branch already draws that line;
+	// producedOutput is where it is drawn.
 	if st.anthropicNativeAttempt {
-		return h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		if producedOutput(logData) {
+			h.noteModelServed(candidate.model, logData.endpointType)
+		}
+		return outcome
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	if producedOutput(logData) {
+		h.noteModelServed(candidate.model, logData.endpointType)
+	}
 	return outcomeServed
 }
 
