@@ -511,10 +511,11 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// not, and turning the breaker off must not silently stop strikes being
 	// cleared.
 	//
-	// Unconditional on the family, unlike the strike. A strike has to be gated
-	// because it cannot be adjudicated for an image or TTS model, but a served
-	// body from any surface is evidence the provider still serves the model, and
-	// clearing a streak can only ever PREVENT a retirement.
+	// Family-gated on the way in, exactly as the strike is: noteModelServed
+	// resolves the endpoint family to a probe surface and clears that one streak,
+	// so an embeddings 200 says nothing about the chat surface and an image or
+	// TTS 200 says nothing about either. A response is evidence about the
+	// question it answers, and the retirement question is per surface.
 	//
 	// Gated on bytes having arrived, exactly as the streamed twin gates on its
 	// first byte. A 200 with an empty body reads as a successful read here, and
@@ -591,7 +592,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// The streamed commit point, matching the buffered one: a first byte out of
 	// the provider is where a 200 stops being a promise. See the twin call in
 	// serveBufferedJSONPassthrough for why it is here, ungated by the breaker
-	// setting, and ungated by the endpoint family.
+	// setting, and gated by the endpoint family inside noteModelServed.
 	//
 	// Gated on a byte having actually arrived, which the breaker call above is
 	// deliberately not. They are answering different questions. A 204 that

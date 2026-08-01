@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -570,15 +571,32 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 // retires: an unreadable answer is not the provider saying the model is gone.
 func probeDeliveredContent(endpointType string, body []byte) bool {
 	if endpointType == endpointTypeEmbeddings {
+		// The vector is left undecoded on purpose. Typing it as []float64 made
+		// the whole document fail to parse when a provider answered with
+		// base64-encoded embeddings — a JSON string where the struct wanted an
+		// array — so a live embeddings model came back inconclusive, its streak
+		// was never parked, and every refusal past the cooldown bought another
+		// upstream request indefinitely. It is the same shape of mistake the
+		// chat side made by accepting only a string content.
+		//
+		// Raw and non-empty is still a real bar: an absent vector, a null, an
+		// empty array and an empty string are all "the provider answered with
+		// nothing", which is not evidence the model is served. What it stops
+		// doing is judging the ENCODING, which is the provider's choice and says
+		// nothing about whether the model exists.
 		var out struct {
 			Data []struct {
-				Embedding []float64 `json:"embedding"`
+				Embedding json.RawMessage `json:"embedding"`
 			} `json:"data"`
 		}
-		if json.Unmarshal(body, &out) != nil {
+		if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
 			return false
 		}
-		return len(out.Data) > 0 && len(out.Data[0].Embedding) > 0
+		switch string(bytes.TrimSpace(out.Data[0].Embedding)) {
+		case "", "null", "[]", `""`:
+			return false
+		}
+		return true
 	}
 
 	var out ChatCompletionResponse

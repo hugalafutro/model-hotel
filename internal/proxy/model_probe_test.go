@@ -507,7 +507,16 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"nothing at all", endpointTypeChat, `{"choices":[]}`, false},
 		{"unparseable", endpointTypeChat, `<html>502 Bad Gateway</html>`, false},
 		{"embedding vector", endpointTypeEmbeddings, `{"data":[{"embedding":[0.5]}]}`, true},
+		// A provider may answer with the vector base64-encoded, which is a JSON
+		// string rather than an array. Decoding it as []float64 made the whole
+		// document fail to parse, so a live embeddings model came back
+		// inconclusive, its streak was never parked, and every refusal past the
+		// cooldown bought another upstream request indefinitely.
+		{"base64 embedding", endpointTypeEmbeddings, `{"data":[{"embedding":"eNqLZoAAAA=="}]}`, true},
 		{"empty embedding vector", endpointTypeEmbeddings, `{"data":[{"embedding":[]}]}`, false},
+		{"empty base64 embedding", endpointTypeEmbeddings, `{"data":[{"embedding":""}]}`, false},
+		{"null embedding", endpointTypeEmbeddings, `{"data":[{"embedding":null}]}`, false},
+		{"embedding key absent", endpointTypeEmbeddings, `{"data":[{}]}`, false},
 		{"no embedding data", endpointTypeEmbeddings, `{"data":[]}`, false},
 		{"unparseable embeddings", endpointTypeEmbeddings, `<html>502 Bad Gateway</html>`, false},
 	}
