@@ -962,3 +962,46 @@ func TestProbeForRetirement_UnprobeableCandidateRecordsNothing(t *testing.T) {
 		}
 	}
 }
+
+// TestJudgeProbeSuccess_TranslatesResponsesDialect pins the probe's dialect
+// translation for the OpenAI Responses shape.
+//
+// The re-route cannot fire for the probe as its body stands today — it also
+// requires tools in the request — so this is guarding a future change rather
+// than current traffic, which is exactly why it is worth pinning. The flag is
+// set by buildCandidateRequest, not by anything in the probe, so if the
+// re-route rules ever widen to admit a probe body, an untranslated Responses
+// object reads as a chat completion with no choices: probeDeliveredContent
+// returns false, the verdict is inconclusive, and every retirement behind that
+// provider is postponed forever with nothing in the logs to say why.
+func TestJudgeProbeSuccess_TranslatesResponsesDialect(t *testing.T) {
+	t.Parallel()
+
+	const body = `{"id":"resp_1","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":2}}`
+
+	candidate := probeCandidateFor("http://provider.invalid", "gpt-5.6-sol")
+	st := newProbeState(candidate, endpointTypeChat, probeChatEndpoint)
+	st.responsesAttempt = true
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	if got := judgeProbeSuccess(resp, st, candidate, endpointTypeChat); got != probeServed {
+		t.Fatalf("verdict = %s, want served: a translated Responses answer carries content", got)
+	}
+
+	// The same body without the translation is the failure this guards against,
+	// and it must not read as an answer.
+	plain := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+	untranslated := newProbeState(candidate, endpointTypeChat, probeChatEndpoint)
+	if got := judgeProbeSuccess(plain, untranslated, candidate, endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive for an untranslated Responses object", got)
+	}
+}

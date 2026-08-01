@@ -2647,3 +2647,93 @@ func TestNoteStreamOutcome_GoneVerdictReachesTheProbe(t *testing.T) {
 		t.Fatalf("the stream verdict must be adjudicated by a probe on %s, got %v", probeChatEndpoint, paths)
 	}
 }
+
+// TestNoteModelGone_BurstIssuesOneProbeAndLeaksNoSlots pins the two things a
+// concurrent burst against a dead model must not do.
+//
+// A dead model is exactly the one that gets hammered: clients retry it and a
+// failover group can try it on several requests at once. Every one of those
+// refusals arrives at the threshold and asks for a probe, so the claim decides
+// which single caller may spend an upstream request.
+//
+// The second assertion is the one with teeth. The provider's slot is taken
+// BEFORE the model's claim, so a caller that loses the claim is holding a slot
+// it must give back on a path that returns without ever probing. A leak there
+// is permanent and silent: after goneProbeMaxConcurrent losers the provider has
+// no slots left, every later nomination reports "too many retirement probes are
+// already in flight", and no model on that provider is ever adjudicated again
+// for the life of the process. Nothing else in the suite would notice, because
+// every other test issues one probe at a time.
+//
+// Its sensitivity is deliberately stated rather than assumed, because the loser
+// path is a race and cannot be entered on demand: the window is between
+// canClaimProbe and claimProbe, and the seeding plus the start barrier below are
+// what widen it enough to be entered at all. Measured by deleting the release():
+// caught 5 runs in 6 at this burst size, 4 in 5 at a quarter of it, and 0 in 5
+// before the streak was pre-seeded (the burst spent itself building the count
+// and never reached the claim).
+//
+// The error is one-sided, which is what makes that acceptable. Correct code
+// always passes — the slots always come back — so this can miss a regression but
+// cannot invent one. The first two assertions are exact and hold every run.
+func TestNoteModelGone_BurstIssuesOneProbeAndLeaksNoSlots(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "burst-model-1"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("burst-model-1"))
+	candidate := goneCandidateAt(m, "Burst Provider", srv.URL)
+
+	// Three strikes first, so every goroutine below arrives at a streak that is
+	// already at the threshold and reaches the claim. Without this the burst
+	// spends most of itself building the count, and the contended window this
+	// test exists for is never entered.
+	raw, _ := h.goneStrikes.LoadOrStore(goneStreakKey{model: m.ID, endpoint: probeChatEndpoint}, &goneStreak{})
+	seeded, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatal("the streak map holds something that is not a streak")
+	}
+	for range goneStrikeThreshold {
+		seeded.strike(time.Now())
+	}
+
+	// Released together, so the callers hit canClaimProbe at the same moment
+	// rather than in the staggered order goroutine startup gives. That is what
+	// puts more than one of them past the cooldown read and into the claim,
+	// which is the only path that takes a provider slot and can then lose.
+	const burst = 256
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(burst)
+	for range burst {
+		go func() {
+			defer wg.Done()
+			<-start
+			h.noteModelGone(candidate, endpointTypeChat)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("recorded %d disables, want exactly 1", len(calls))
+	}
+	if paths := script.requestedPaths(); len(paths) != 1 {
+		t.Errorf("provider was probed %d times, want exactly 1: %v", len(paths), paths)
+	}
+
+	// Every slot must be back. Taking all of them proves it; the acquires are
+	// non-blocking, so a leaked slot fails here rather than hanging.
+	var releases []func()
+	for i := range goneProbeMaxConcurrent {
+		release, ok := h.acquireProbeSlot(candidate.provider.ID)
+		if !ok {
+			t.Fatalf("slot %d of %d could not be acquired after the burst: a loser kept its slot", i+1, goneProbeMaxConcurrent)
+		}
+		releases = append(releases, release)
+	}
+	for _, release := range releases {
+		release()
+	}
+}

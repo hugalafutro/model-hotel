@@ -1025,3 +1025,58 @@ func TestVersionSuffixIdentity(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_ModelNamedAfterThePhrase covers the attribution
+// direction real providers use in their terser messages: the verb first and the
+// model id after it, as a colon-delimited tail.
+//
+// phraseIsAbout measures the gap on whichever side the id falls, and the two
+// sides are separate branches. Only the id-before-phrase order was exercised, so
+// the "does not exist: <model>" shape rested on an untested branch — a shape
+// that classifies today and would silently stop if the gap measurement for it
+// regressed, taking every retirement behind it with it. Failing safe is why it
+// would be silent: the refusals would simply stop counting.
+func TestClassifyUpstreamError_ModelNamedAfterThePhrase(t *testing.T) {
+	t.Parallel()
+
+	const modelID = "gpt-4o-mini"
+
+	cases := []struct {
+		name string
+		body string
+		want ErrorKind
+	}{
+		{
+			name: "colon tail",
+			body: `{"error":{"message":"does not exist: gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "phrase then id",
+			body: `{"error":{"message":"model not found: gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			// The clause break is the whole point of the gap rule: two claims,
+			// and the retirement is not about the model named in the second.
+			name: "clause break breaks attribution",
+			body: `{"error":{"message":"does not exist. Try gpt-4o-mini instead"}}`,
+			want: KindProviderError,
+		},
+		{
+			// Far enough away that proximity is not attribution.
+			name: "distant id is not the subject",
+			body: `{"error":{"message":"does not exist - the upstream account has no entitlement for any model in this region so gpt-4o-mini cannot be served"}}`,
+			want: KindProviderError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, modelID); got != tc.want {
+				t.Errorf("classify(%s) = %s, want %s", tc.body, got, tc.want)
+			}
+		})
+	}
+}

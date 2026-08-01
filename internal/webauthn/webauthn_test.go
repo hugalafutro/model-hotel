@@ -70,18 +70,28 @@ func TestStoreAndListCredentials(t *testing.T) {
 		t.Fatalf("ListCredentials: %v", err)
 	}
 
-	if len(creds) != 1 {
-		t.Fatalf("expected 1 credential, got %d", len(creds))
+	// Found by id rather than asserted at a position or a total. ListCredentials
+	// is not scoped to this test — it returns every credential in the shared
+	// database — so the sibling tests below, and this test's own earlier run
+	// under `-count=2`, both put rows in front of this one. Asserting "exactly 1"
+	// made the test report a real bug only when it happened to run first:
+	// `go test ./internal/webauthn/ -count=2` failed it with "got 8".
+	var stored *CredentialRecord
+	for _, c := range creds {
+		if string(c.ID) == "test-cred-id-1" {
+			stored = c
+			break
+		}
+	}
+	if stored == nil {
+		t.Fatalf("stored credential is not in the listing of %d credentials", len(creds))
 	}
 
-	if string(creds[0].ID) != "test-cred-id-1" {
-		t.Errorf("expected credential ID 'test-cred-id-1', got %q", string(creds[0].ID))
+	if stored.AttestationType != "none" {
+		t.Errorf("expected attestation type 'none', got %q", stored.AttestationType)
 	}
-	if creds[0].AttestationType != "none" {
-		t.Errorf("expected attestation type 'none', got %q", creds[0].AttestationType)
-	}
-	if len(creds[0].Transport) != 1 || creds[0].Transport[0] != "internal" {
-		t.Errorf("expected transport ['internal'], got %v", creds[0].Transport)
+	if len(stored.Transport) != 1 || stored.Transport[0] != "internal" {
+		t.Errorf("expected transport ['internal'], got %v", stored.Transport)
 	}
 }
 
