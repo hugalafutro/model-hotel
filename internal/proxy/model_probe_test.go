@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -819,5 +820,145 @@ func TestProbeModel_DialectAnswerIsBounded(t *testing.T) {
 	}
 	if n := written.Load(); n >= flood {
 		t.Fatalf("the provider sent all %d bytes, so nothing bounded the read; the cap is %d", n, goneProbeMaxBody)
+	}
+}
+
+// probeModelIDSeq numbers the model ids used in the metric assertions below, so
+// each invocation of a test gets series of its own on the process-wide registry.
+//
+// Deliberately NOT a uuid, and the reason is a production behaviour worth
+// knowing about: judgeProbeFailure classifies the body through
+// util.SanitizeLogBody, which redacts anything uuid-shaped. A uuid-suffixed
+// model id is therefore erased from the refusal that names it, the classifier
+// finds nothing to attribute the gone-phrase to, and a refused probe reads as
+// inconclusive. That is real behaviour for any provider whose model ids look
+// like uuids; here it would just make the test lie.
+var probeModelIDSeq atomic.Uint64
+
+func uniqueProbeModelID(prefix string) string {
+	return prefix + "-" + strconv.FormatUint(probeModelIDSeq.Add(1), 10)
+}
+
+// scrapeMetrics renders the process's Prometheus exposition through the real
+// handler, which is the only read path the metrics package offers and the same
+// one an operator's scrape takes.
+func scrapeMetrics(t *testing.T) string {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("metrics scrape returned status %d", rr.Code)
+	}
+	return rr.Body.String()
+}
+
+// TestProbeForRetirement_RecordsItsVerdict pins that a probe accounts for
+// itself. The counter is the only place an operator can see a probe that did
+// NOT retire anything: a served verdict means the classifier nominated a live
+// model, and neither that nor an inconclusive run leaves any trace but a log
+// line.
+//
+// It drives probeForRetirement rather than probeModel because that is where the
+// recording lives and where production enters, and it reads the count back
+// through the real exposition handler rather than the counter variable, so the
+// series name and its labels are pinned as the public contract they are.
+//
+// The exact count of 1 is the assertion worth having — it is what would catch a
+// probe recorded twice — and holding it requires a model id that is unique per
+// INVOCATION, not merely per case. The registry is process-wide and counters
+// only ever accumulate, so a fixed id pins a value that is right on the first
+// run and wrong on every one after it: `go test -count=2` failed all three
+// subtests before probeModelIDSeq existed.
+func TestProbeForRetirement_RecordsItsVerdict(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		status int
+		// Taken as a function because the refusal has to name the very model
+		// the probe asked for, and that id is not known until the subtest
+		// builds its own.
+		body func(modelID string) string
+		want probeVerdict
+	}{
+		{
+			name:   "refused",
+			status: http.StatusNotFound,
+			body:   goneRefusalBody,
+			want:   probeRefused,
+		},
+		{
+			name:   "served",
+			status: http.StatusOK,
+			body: func(string) string {
+				return `{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}`
+			},
+			want: probeServed,
+		},
+		{
+			// A 500 is a provider fault rather than a statement about the
+			// model, so it establishes nothing and must be counted as such.
+			name:   "inconclusive",
+			status: http.StatusInternalServerError,
+			body: func(string) string {
+				return `{"error":{"message":"internal error"}}`
+			},
+			want: probeInconclusive,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			modelID := uniqueProbeModelID("verdict-metric-" + tc.name)
+			srv, _ := probeServer(t, tc.status, tc.body(modelID))
+			h := newProbeHandler(t)
+			candidate := probeCandidateFor(srv.URL, modelID)
+
+			if got := h.probeForRetirement(candidate, endpointTypeChat); got != tc.want {
+				t.Fatalf("verdict = %s, want %s", got, tc.want)
+			}
+
+			want := fmt.Sprintf(
+				`modelhotel_retirement_probes_total{model=%q,provider="Probe Provider",verdict=%q} 1`,
+				modelID, tc.want.String(),
+			)
+			if out := scrapeMetrics(t); !strings.Contains(out, want) {
+				t.Errorf("metrics scrape missing %q", want)
+			}
+		})
+	}
+}
+
+// TestProbeForRetirement_UnprobeableCandidateRecordsNothing guards the seam's
+// one deliberate omission: the nil-candidate return has no provider or model to
+// label, so it must not manufacture an "unknown" series. Every probe the
+// gateway actually spends a request on has both.
+func TestProbeForRetirement_UnprobeableCandidateRecordsNothing(t *testing.T) {
+	t.Parallel()
+
+	h := newProbeHandler(t)
+	if got := h.probeForRetirement(modelCandidate{}, endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+
+	// Scoped to this metric's own lines. Other counters run their empty labels
+	// through the same labelOrUnknown fallback, so an unqualified search for
+	// provider="unknown" would answer for the whole exposition.
+	//
+	// Still a claim about the whole PROCESS, not just this call: the registry is
+	// shared, so a future test that probes with a blank provider name would fail
+	// HERE rather than where it was written (and, being parallel, would do so
+	// only when it happened to record before this scrape). Nothing in the package
+	// does that today. If one ever needs to, give it its own registry rather than
+	// loosening this.
+	for _, line := range strings.Split(scrapeMetrics(t), "\n") {
+		if !strings.HasPrefix(line, "modelhotel_retirement_probes_total{") {
+			continue
+		}
+		if strings.Contains(line, `provider="unknown"`) || strings.Contains(line, `model="unknown"`) {
+			t.Errorf("a candidate with nothing to label recorded a series: %s", line)
+		}
 	}
 }

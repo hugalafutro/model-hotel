@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -934,7 +935,34 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 
 	pctx, pcancel := context.WithTimeout(context.Background(), goneProbeTimeout)
 	defer pcancel()
-	return h.probeModel(pctx, candidate, endpointType)
+	verdict := h.probeModel(pctx, candidate, endpointType)
+
+	// The metric is recorded HERE rather than at probeModel's many exits or at
+	// the caller's switch, because this is the one function every production
+	// probe passes through exactly once and it holds the verdict whole. The
+	// switch in noteModelGone would need four call sites and would miss the
+	// default arm's meaning; probeModel would need one per early return.
+	//
+	// Above the nil guard there is deliberately nothing to count: that return
+	// has no provider or model to label, and it is defensive rather than
+	// reachable — noteModelGone checks both before spawning the goroutine.
+	//
+	// What is counted is one ADJUDICATION ATTEMPT: a nomination that got past
+	// every gate in noteModelGone and spent the model's five-minute claim. The
+	// postponements before that point — a busy semaphore, an open circuit, a
+	// cooldown still running — cost nothing and are deliberately not counted.
+	//
+	// Not the same as "an upstream request was sent", and the difference is the
+	// inconclusive bucket's. probeModel returns inconclusive from a few paths
+	// that bail before the request leaves the process: a request that would not
+	// build, a missing transport, or the circuit opening in the window after
+	// noteModelGone's own check. Those are rarer than the network cases and
+	// indistinguishable from them here, which is why neither this metric nor the
+	// wiki describes inconclusive as a spend figure. It is inexact in the other
+	// direction too: a panic inside probeModel is caught by the goroutine's
+	// recover, so a request that WAS sent can end up counted as nothing at all.
+	metrics.RecordRetirementProbe(candidate.provider.Name, candidate.model.ModelID, verdict.String())
+	return verdict
 }
 
 // acquireProbeSlot takes one of the provider's goneProbeMaxConcurrent probe

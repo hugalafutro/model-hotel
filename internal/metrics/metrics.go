@@ -52,6 +52,11 @@ var (
 		Name: "modelhotel_responses_reroute_total",
 		Help: "Attempts routed via the OpenAI Responses API instead of chat completions, by provider, model, and mode (learned = healed from a live 400, preemptive = cache-driven).",
 	}, []string{"provider", "model", "mode"})
+
+	retirementProbesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_retirement_probes_total",
+		Help: "Pre-retirement probes by provider, model, and verdict. refused = the provider refused the model by name, so a retirement was attempted (it can still be called off, so this is not a count of retirements; use the model.auto_disabled_gone event for those). served = the model answered and the retirement was called off. inconclusive = nothing was established and the retirement was postponed. model is the provider-side model id, not the name a client asked for.",
+	}, []string{"provider", "model", "verdict"})
 )
 
 func init() {
@@ -62,6 +67,7 @@ func init() {
 		tokensTotal,
 		failoverAttemptsTotal,
 		responsesRerouteTotal,
+		retirementProbesTotal,
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
@@ -114,6 +120,40 @@ func Record(o Observation) {
 // when the cached requirement redirected the attempt up front.
 func RecordResponsesReroute(provider, model, mode string) {
 	responsesRerouteTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), mode).Inc()
+}
+
+// RecordRetirementProbe counts one completed pre-retirement probe. verdict is
+// the probe's own name for what it established ("refused", "served",
+// "inconclusive"); the caller owns that vocabulary, because the verdict type
+// lives in the proxy and this package must stay importable by it.
+//
+// One series per (provider, model, verdict), and only for models the gateway
+// actually probed: a probe is rate-limited to one per model per cooldown, and
+// only a model drawing repeated gone-classified refusals is ever nominated. The
+// bound is the catalog, and in practice a small fraction of it.
+//
+// The model label is the PROVIDER-SIDE id, while requestsTotal carries the name
+// the CLIENT asked for. For direct "provider/model" traffic those are the same
+// string — resolution matched the model row on that exact id, and the request
+// log keeps the post-slash part — so the two counters join. They diverge on
+// exactly two shapes: a request routed through a failover group is "hotel/<group>"
+// on requestsTotal and the real id here, and a validation failure is collapsed
+// there to "unresolved". A PromQL join is therefore sound but silently
+// incomplete, missing precisely the group-routed traffic.
+//
+// Counting VERDICTS rather than retirements is deliberate. A retirement is
+// visible in the model row and in the model.auto_disabled_gone event; what
+// neither records is the probe that did NOT retire anything — a "served" is the
+// classifier having nominated a live model, and a run of "inconclusive" is the
+// gateway paying for an answer it is not getting. Those two are the reason this
+// metric exists, and they leave no other trace than a log line.
+//
+// A refused verdict is not the same thing as a completed retirement: the write
+// that follows can still be superseded by a success, refused by the repository,
+// or reverted. Alert on the ratio between verdicts, not on refused as a
+// retirement count.
+func RecordRetirementProbe(provider, model, verdict string) {
+	retirementProbesTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), verdict).Inc()
 }
 
 // Handler returns the HTTP handler that serves the metrics in Prometheus text
