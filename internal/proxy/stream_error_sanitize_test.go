@@ -67,6 +67,41 @@ func TestDeriveStreamError_SanitizesProviderMessage(t *testing.T) {
 	// If the retirement verdict were read from errorKind, the client would be
 	// suppressing the evidence by reacting to it, and a retired model would stay
 	// routable for as long as clients kept disconnecting on its errors.
+	t.Run("a failover request is classified by the upstream id, not the alias", func(t *testing.T) {
+		t.Parallel()
+
+		// What a hotel/ request's log entry actually holds: modelID is the
+		// client-facing alias, and the committed candidate's real id is in
+		// resolvedModelID (beginAttempt sets it only on the failover path).
+		st := &streamState{lastErrMsg: "Model claude-sonnet-4 is no longer available"}
+		logData := &requestLogData{statusCode: 404, modelID: "hotel/claude", resolvedModelID: "claude-sonnet-4"}
+
+		deriveStreamError(st, nil, streamOptions{}, logData)
+
+		// Classified against "hotel/claude", modelGoneAbout trims to the last
+		// path segment and looks for "claude" inside "claude-sonnet-4", does not
+		// find a whole-id match, and the retirement signal is lost — for the one
+		// routing mode this feature exists for.
+		if logData.upstreamKind != KindProviderModelGone {
+			t.Errorf("upstreamKind = %q, want %q: a model retired mid-stream inside a failover group must still strike", logData.upstreamKind, KindProviderModelGone)
+		}
+	})
+
+	t.Run("a direct request still classifies by its own id", func(t *testing.T) {
+		t.Parallel()
+
+		// resolvedModelID is empty off the failover path, so the fallback is
+		// what keeps every non-failover stream classifying as it always did.
+		st := &streamState{lastErrMsg: "Model gemini-2.0-flash is no longer available"}
+		logData := &requestLogData{statusCode: 404, modelID: "gemini-2.0-flash"}
+
+		deriveStreamError(st, nil, streamOptions{}, logData)
+
+		if logData.upstreamKind != KindProviderModelGone {
+			t.Errorf("upstreamKind = %q, want %q", logData.upstreamKind, KindProviderModelGone)
+		}
+	})
+
 	t.Run("a client hangup does not erase the provider's retirement verdict", func(t *testing.T) {
 		t.Parallel()
 

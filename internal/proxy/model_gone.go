@@ -565,7 +565,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// faithfully. What each surface demands of the catalog, and why the two
 	// differ, is argued in modalityRulesOutSurface.
 	if modalityRulesOutSurface(m, probeEndpoint) {
-		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not known to serve", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
+		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not known to serve", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "input_modalities", m.InputModalities, "output_modalities", m.OutputModalities)
 		return
 	}
 
@@ -575,7 +575,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// probeable surfaces those two are not the same scope. See
 	// modalityAdmitsBothProbeSurfaces.
 	if modalityAdmitsBothProbeSurfaces(m) {
-		debuglog.Debug("proxy: ignoring a gone-classified refusal on a model that serves both probeable surfaces, which one disable cannot separate", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
+		debuglog.Debug("proxy: ignoring a gone-classified refusal on a model that serves both probeable surfaces, which one disable cannot separate", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "input_modalities", m.InputModalities, "output_modalities", m.OutputModalities)
 		return
 	}
 
@@ -671,6 +671,17 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// The read cannot replace the claim — two callers can both see true and only
 	// one may proceed — which is why claimProbe still decides below.
 	if !streak.canClaimProbe(now) {
+		// The only postponement on this path that used to be silent, and the one
+		// an operator is most likely to be looking at: it is the steady state
+		// for every refusal against a model already at the threshold. Without a
+		// line here, strikes 1 and 2 log at Info and then five minutes go quiet,
+		// with nothing to distinguish waiting out the cooldown from a strike
+		// dropped by one of the gates above.
+		//
+		// Debug for the same reason as the semaphore line below: nothing
+		// throttles it, and a client retry loop against a dead model reaches it
+		// on every request.
+		debuglog.Debug("proxy: postponing auto-disable, the model is inside its probe cooldown", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "strikes", strikes, "retry_after", goneProbeCooldown.String())
 		return
 	}
 
