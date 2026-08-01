@@ -998,6 +998,119 @@ In summary:
 - **Auto-disabled** models (removed from the provider API) have `disabled_manually = false` and are re-enabled if they reappear.
 - **Manually disabled** models have `disabled_manually = true` and stay disabled even if the model reappears in the provider API.
 
+### Traffic-driven retirement: verified before it is written
+
+Discovery can only act when a model leaves a provider's listing. Some providers
+keep serving a listing entry for a model they have already shut down (Google
+kept `gemini-2.0-flash` listed for two months after retirement, OpenCode Zen
+lists `claude-sonnet-4` and refuses it), so the only thing that knows such a
+model is dead is a real request to it. The proxy therefore also retires models
+from traffic, and every one of those retirements is verified with an upstream
+request before anything is written.
+
+How a retirement is reached:
+
+1. **Nomination.** A request that the provider refuses with retirement-shaped
+   prose counts one strike against that model. Three strikes nominate it, with no
+   successful request in between and no more than 30 minutes between one strike
+   and the next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes
+   are one streak of three, while a model refused once an hour never accumulates
+   one. Strikes are in-memory and per gateway instance: they are not persisted,
+   and each HA member reaches its own conclusion from its own traffic.
+
+   Strikes are counted per surface, and a refusal only counts on a surface the
+   model is known to serve. Chat and embeddings keep separate counts, because the
+   probe asks on the surface the strikes came from and the two are different
+   questions. Sending a chat model to `/v1/embeddings` draws a capability error
+   that names the model, which reads exactly like a retirement, and a
+   misconfigured client must not be able to disable a model that serves chat
+   perfectly.
+
+   The two surfaces treat a silent catalog differently, on purpose. A refusal on
+   `/v1/embeddings` only counts when the model's `output_modalities` say it
+   produces embeddings, so an embeddings model whose catalog entry declares
+   nothing is never auto-retired. A refusal on chat counts unless the entry
+   positively describes something a chat completion cannot be about: an image,
+   video, audio, embedding or rerank output, or an input that admits no text
+   (a speech-to-text model produces text like any chat model and gives itself
+   away on the input side). Chat is what most models are and where most refusals
+   arrive, so requiring a declared modality there would switch traffic-driven
+   retirement off for every uncatalogued model at once, while guessing wrong on
+   embeddings retires a working chat model everywhere.
+
+   A success clears the surface it arrived on and only that one, for the same
+   reason the counts are separate: a provider can retire a model's chat surface
+   while still serving its embeddings, and a global clear would let the healthy
+   surface hold the dead one open forever. Traffic on a surface that is never
+   auto-retired (images, speech, rerank) clears nothing at all.
+
+   A model the catalog says serves BOTH chat and embeddings is never
+   auto-retired. Disabling turns off the model row, so it cannot express "gone on
+   chat, still serving embeddings", and no probe can catch that: the probe would
+   be right about the surface it asked, and the disable simply broader than what
+   was found. Such a model stays enabled until discovery drops it or you disable
+   it by hand. It needs a provider serving one model id on both surfaces, which
+   is rare.
+2. **Adjudication.** At the threshold the gateway sends a real, minimal request
+   to the model itself (a 64-token chat completion, or a one-input embedding),
+   off the request path. Content coming back means the model works: the strike
+   count is cleared, nothing is disabled, and a warning is logged because a model
+   that refuses real traffic and answers a probe is worth a look. Such a model
+   needs three fresh strikes AND the probe cooldown below before it is asked
+   again, which matters because a provider whose prose disagrees with its own
+   behaviour keeps producing this outcome. The provider
+   refusing the model by name is what writes the disable. Anything else (a 429,
+   a 5xx, an entitlement failure, a timeout, an unreadable answer) establishes
+   nothing and postpones.
+3. **The write.** A confirmed retirement sets `enabled = false` and stamps
+   `auto_retired_at`, revalidates the custom failover groups the model belonged
+   to, and publishes a `model.auto_disabled_gone` event.
+
+Two consequences worth knowing about before you upgrade:
+
+- **Every retirement decision costs one upstream request.** It is a call you did
+  not make, so it is logged as one: the `proxy: auto-disabled retired model`
+  line and the `model.auto_disabled_gone` event both carry `probe_verdict` and
+  the endpoint family. A retirement without `probe_verdict: refused` did not
+  come from this path. The rate is bounded on two axes: a model is probed at
+  most once every 5 minutes however hard it is being retried, and at most 4
+  probes are in flight against any one provider at a time. Probes deliberately
+  skip rate limiting and circuit-breaker accounting (a verification must not be
+  able to sideline a healthy provider), but they do respect an already-open
+  circuit and postpone instead of calling a provider the gateway has sidelined.
+
+  A model whose probe can never answer keeps its strikes and keeps paying that
+  cost. After three postponements in a row the line escalates from info to
+  warning (`proxy: auto-disable postponed repeatedly`, carrying
+  `inconclusive_probes`), so a provider that rate limits the gateway, or a model
+  that cannot be reached on the surface the probe asks, shows up as itself rather
+  than as ordinary noise. Nothing is retired on the strength of it; the run ends
+  as soon as the model answers.
+- **Some endpoint families are never auto-retired from traffic.** Only chat,
+  messages and embeddings models can be verified cheaply and safely. Image, TTS,
+  STT and rerank models are never auto-retired at all, because a chat probe
+  against one fails for reasons that have nothing to do with retirement and that
+  failure would read as confirmation. Retiring them without verification is the
+  guessing this design exists to remove, so a retired image or TTS model stays
+  enabled until discovery drops it from the listing or you disable it by hand.
+  Refusals on those families are logged at debug level and no strikes are kept.
+
+A model retired this way is distinct from both a manual disable and a discovery
+disable (see migration `063`): re-appearing in a listing does not revive it,
+because the provider was refusing it while still listing it. Enabling it by hand
+clears the stamp, and if the model really is gone it is retired again with a
+fresh alert, always behind a fresh probe. What differs is how it gets there.
+Strikes are kept in memory (see above), so if the count was cleared (the gateway
+restarted, 30 minutes passed with no further refusal, or a request to the model
+succeeded) the model re-earns its three strikes before the next probe. If the
+count is still parked at the threshold in the same running process, with no
+successful request in between, the first refusal past the probe cooldown claims
+a probe directly instead of re-earning three strikes; that is also how a disable
+that failed to write is retried. Either way, nothing is retired without a probe
+confirming it first, and the probe cooldown applies to every one of those
+routes. A success resets what the model is accused of, not the rate at which the
+gateway may ask the provider about it.
+
 ### Manual Enable/Disable (API)
 
 Users can manually enable or disable a model via:

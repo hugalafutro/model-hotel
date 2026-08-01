@@ -24,6 +24,29 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// failoverErrorClassifyCap bounds how much of a discarded failover error body is
+// held in memory long enough to be classified.
+//
+// The client is served by the next candidate, and the only thing still wanted
+// from the body is whether the provider said the model is retired.
+// classifyUpstreamError never sees more than util.SanitizeLogBody's own 10 000
+// characters, so everything above this cap is read and discarded rather than
+// retained.
+//
+// Shared by the chat loop and the multimodal pass-through loop, which run the
+// same drain-and-classify block. Sixteen kibibytes is comfortably above any
+// error message and well below the multi-megabyte bodies the image endpoints can
+// answer with.
+const failoverErrorClassifyCap = 16 << 10
+
+// responsesLearnBodyCap bounds a 400 that has to be parsed rather than scanned.
+//
+// openairesponses.RequiresResponsesAPI json.Unmarshals the whole error document,
+// so the classifier's window is the wrong size for it: a body cut off mid-JSON
+// does not parse, and the /v1/responses requirement would silently stop being
+// learned. A megabyte is far past any real 400 and still bounded.
+const responsesLearnBodyCap = 1 << 20
+
 // paramRetryResult is the outcome of the 400 param-stripping auto-retry
 // (retryWithStrippedParams). It tells the failover loop how to proceed:
 //   - resp: the response to continue handling with — the retry's response on a
@@ -164,14 +187,26 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 	if shouldFailoverNow {
-		drained, _ := io.ReadAll(resp.Body)
+		// Read only what can be classified, then drain the rest straight to
+		// Discard so the connection stays reusable without the body being held in
+		// memory. Everything above the cap was being retained to be thrown away —
+		// once per concurrent failing request, on the request path, at whatever
+		// size the provider chose to send.
+		drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		// The body is being discarded anyway, so classify it on the way out.
 		// A retired model usually answers 404, which is failover-eligible, so
 		// without this the "model gone" signal would be lost precisely when
 		// there is another candidate to fall back to.
+		//
+		// The whole candidate goes through, not just the model: the retirement is
+		// adjudicated by a real request to this provider, so it needs the provider
+		// and the decrypted key already in hand here. The endpoint family comes
+		// off the log entry and decides whether the refusal can be adjudicated at
+		// all.
 		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
-			h.noteModelGone(candidate.model, candidate.provider.Name)
+			h.noteModelGone(candidate, logData.endpointType)
 		}
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -181,14 +216,6 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	if resp.StatusCode != http.StatusOK {
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
-	}
-
-	// A non-streaming 200 means the model answered, so any gone-strike streak it
-	// had accumulated is stale. Streaming cannot be judged yet: the provider can
-	// send 200 headers and only then report the model gone in an SSE error, so
-	// that verdict is deferred to dispatchStreaming once the stream has ended.
-	if !st.isStreaming {
-		h.noteModelServed(candidate.model)
 	}
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -220,14 +247,39 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		}
 	}
 	if st.isStreaming {
+		// Streaming cannot be judged yet: the provider can send 200 headers and
+		// only then report the model gone in an SSE error, so that verdict is
+		// deferred to dispatchStreaming once the stream has ended.
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
+	// A non-streaming answer clears any gone-strike streak the model had, judged
+	// AFTER the handler on what the handler decoded rather than on the 200 that
+	// preceded it. Both halves of that placement are load-bearing:
+	//
+	//   - Below the dialect translations, because either of them can read the
+	//     body, fail, and send the attempt to FAILOVER. A provider that answered
+	//     200 with something that is not a Responses object or a Gemini answer has
+	//     not served the model.
+	//   - Below the handler, because a status is not an answer. `200
+	//     {"choices":[]}` decodes and is forwarded as a normal completion, and is
+	//     what an aggregator in front of a retired model returns between its
+	//     gone-shaped 404s — resetting the count so three never land
+	//     consecutively and the model is never nominated.
+	//
+	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
-		return h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		if producedOutput(logData) {
+			h.noteModelServed(candidate.model, logData.endpointType)
+		}
+		return outcome
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	if producedOutput(logData) {
+		h.noteModelServed(candidate.model, logData.endpointType)
+	}
 	return outcomeServed
 }
 
@@ -634,14 +686,29 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 // returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, hasMoreCandidates bool, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
-	body, _ := io.ReadAll(resp.Body)
+	// How much of the body is worth holding depends on what happens to it below,
+	// which hasMoreCandidates already decides. Forwarded, it is read whole:
+	// truncating on the way to the client would hand them invalid JSON where the
+	// provider sent something complete. Discarded, it is read under the same cap
+	// as the two drain sites, since all that is left to take from it is a
+	// classification and the first 10 000 bytes of request log.
+	var body []byte
+	if hasMoreCandidates {
+		body, _ = io.ReadAll(resp.Body)
+	} else {
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		_, _ = io.Copy(io.Discard, resp.Body)
+	}
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
 	// Classify for the request log and metrics only — routing is unaffected,
 	// hasMoreCandidates was already decided from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
 	if kind == KindProviderModelGone {
-		h.noteModelGone(candidate.model, candidate.provider.Name)
+		// Same as the drain path above: the candidate carries what the
+		// pre-retirement probe needs, and logData.endpointType is the family
+		// that decides whether this model can be adjudicated at all.
+		h.noteModelGone(candidate, logData.endpointType)
 	}
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)

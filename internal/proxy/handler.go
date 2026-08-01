@@ -53,14 +53,23 @@ type Handler struct {
 	// "providerType:modelID". Value: map[string]string of old->new param names.
 	paramRenameCache sync.Map
 	// goneStrikes counts consecutive KindProviderModelGone responses per model
-	// UUID, so a model the provider has retired is disabled after
-	// goneStrikeThreshold refusals. Deliberately in-memory and per-instance;
-	// see noteModelGone for why it is not persisted.
+	// UUID, so a model the provider has retired is probed and then disabled
+	// after goneStrikeThreshold refusals. Deliberately in-memory and
+	// per-instance; see noteModelGone for why it is not persisted.
 	//
-	// Value: *atomic.Int64, not a plain int. A retired model is precisely the
-	// one taking concurrent refusals, so the increment has to be atomic or
-	// racing strikes overwrite each other and the streak never lands.
+	// Value: *goneStreak, not a plain int. A retired model is precisely the one
+	// taking concurrent refusals, so the increment has to be atomic or racing
+	// strikes overwrite each other and the streak never lands. The struct also
+	// carries the time of the last strike, which bounds how far apart the
+	// refusals in one streak may be, and the tombstone a success uses to stand
+	// down a disable that has been decided but not yet written.
 	goneStrikes sync.Map
+	// goneProbeSlots bounds how many pre-retirement probes may be in flight
+	// against one provider at once, keyed by provider UUID. Value: a
+	// chan struct{} of goneProbeMaxConcurrent capacity, used as a non-blocking
+	// semaphore (see acquireProbeSlot). Per gateway instance, like goneStrikes
+	// beside it: the cap describes what THIS gateway will aim at a provider.
+	goneProbeSlots sync.Map
 	// responsesRequiredCache remembers models whose upstream 400'd
 	// tools+reasoning over chat-completions and demanded /v1/responses (OpenAI
 	// gpt-5.4+/gpt-5.6 families), keyed by "providerType:modelID". Once a model

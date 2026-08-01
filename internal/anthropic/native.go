@@ -44,6 +44,23 @@ func ParseResponseUsage(body []byte) (inputTokens, outputTokens int) {
 	return resp.Usage.InputTokens, resp.Usage.OutputTokens
 }
 
+// ResponseCarriesContent reports whether a non-streaming Messages response holds
+// any content block. A 200 with an empty content array is a status rather than
+// an answer, and the proxy's model-retirement path needs the difference: an
+// empty completion must not count as the model answering.
+//
+// The blocks are left undecoded — a block of any type is the model producing
+// something, and their vocabulary is Anthropic's to extend.
+func ResponseCarriesContent(body []byte) bool {
+	var resp struct {
+		Content []json.RawMessage `json:"content"`
+	}
+	if json.Unmarshal(body, &resp) != nil {
+		return false
+	}
+	return len(resp.Content) > 0
+}
+
 // StreamEvent is the decoded summary of a single Anthropic stream event,
 // produced by InspectStreamEvent for the native passthrough path. It carries
 // everything that path needs from one parse: the event Type (so the terminal

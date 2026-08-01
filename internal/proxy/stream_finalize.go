@@ -194,7 +194,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// intact — a provider is free to echo the request back inside an error,
 		// and an unbounded provider string must not land in the log either way.
 		errMsg = util.SanitizeLogBody(errMsg, 10000)
-		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, logData.modelID)
+		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, upstreamModelID(logData))
 		// Kept separately as well, because everything below can overwrite
 		// errorKind with a later cause. A client that receives this error chunk
 		// and hangs up — which is exactly what a client does on seeing an error
@@ -253,4 +253,26 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
 	}
 	return errMsg
+}
+
+// upstreamModelID is the id the PROVIDER knows this request by, which is not
+// always the one the client asked for.
+//
+// modelID is the client's spelling: for a failover request it is the literal
+// "hotel/<group>", and resolvedModelID is where the committed candidate's real
+// id lands (beginAttempt sets it only on that path, which is why the fallback is
+// not a convenience). Handing the alias to classifyUpstreamError meant its
+// gone-phrase test looked for "claude" — modelGoneAbout trims to the last path
+// segment — inside "Model claude-sonnet-4 is no longer available", and did not
+// find it, so a model retired inside a failover group recorded no strike and was
+// never probed.
+//
+// Every other classification site passes candidate.model.ModelID directly. This
+// one runs at stream teardown with no candidate in hand, so it reads the same
+// fact off the log entry.
+func upstreamModelID(logData *requestLogData) string {
+	if logData.resolvedModelID != "" {
+		return logData.resolvedModelID
+	}
+	return logData.modelID
 }

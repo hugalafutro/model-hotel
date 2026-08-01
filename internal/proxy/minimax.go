@@ -23,6 +23,46 @@ var miniMaxStatusToHTTP = map[int]int{
 	1004: http.StatusUnauthorized,
 }
 
+// miniMaxEnvelopeCap bounds how much of a 200 body is read looking for the
+// base_resp envelope. The envelope is a status code and a message; a body that
+// has not produced one in 64 KiB is an answer rather than a refusal, and is left
+// to stream.
+const miniMaxEnvelopeCap = 64 << 10
+
+// miniMaxRestoredBody is the body handed back after the envelope check: the
+// bytes already read, then the rest of the upstream stream, closing the real one.
+type miniMaxRestoredBody struct {
+	io.Reader
+	io.Closer
+}
+
+// miniMaxEnvelopePossible reports whether a 200 with this content type could
+// carry a base_resp envelope, and so whether it is worth reading any of it.
+//
+// A deny-list rather than a "must say json" allow-list. The types below cannot
+// contain an envelope and must not be read: SSE carries none by protocol, and
+// the multimodal pass-through routes audio, image and octet-stream answers
+// through here, where buffering to look for a field the content type says is not
+// there would defeat the streaming that path exists to do. A missing, empty or
+// text/plain content type says nothing about the body, and an intermediary
+// returning the envelope under one of those is the empty-200-forwarded-as-success
+// bug this function exists to fix — an allow-list would quietly restore it.
+//
+// Reading a little of an unlabelled body is cheap because the read is bounded
+// and prepended back: the worst case is 64 KiB held for one envelope check.
+func miniMaxEnvelopePossible(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	switch {
+	case strings.Contains(ct, "text/event-stream"),
+		strings.HasPrefix(ct, "audio/"),
+		strings.HasPrefix(ct, "image/"),
+		strings.HasPrefix(ct, "video/"),
+		strings.HasPrefix(ct, "application/octet-stream"):
+		return false
+	}
+	return true
+}
+
 // remapMiniMaxBusinessError converts a MiniMax "HTTP 200 base_resp error"
 // response into one carrying the equivalent HTTP status, so the failover,
 // circuit-breaker, and error-forwarding paths — all keyed on status codes — see
@@ -40,16 +80,38 @@ func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Res
 	if resp == nil || providerType != "minimax" || resp.StatusCode != http.StatusOK {
 		return resp
 	}
-	// Streaming responses carry no base_resp envelope; never consume their body.
-	if strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+	if !miniMaxEnvelopePossible(resp.Header.Get("Content-Type")) {
 		return resp
 	}
-	body, err := io.ReadAll(resp.Body)
+
+	// Bounded, because an envelope is a sentence and a JSON response is not
+	// necessarily one: MiniMax returns base64 audio inside JSON and the image
+	// endpoints can answer with megabytes of b64_json, so reading to the end
+	// would hold all of it in memory and make TTFB wait for the last upstream
+	// byte — on a path that otherwise caps its buffering at
+	// passthroughJSONBufferCap and streams the remainder.
+	//
+	// One byte past the cap, so "the whole body is in hand" is something this can
+	// know rather than assume.
+	head, err := io.ReadAll(io.LimitReader(resp.Body, miniMaxEnvelopeCap+1))
+	if err != nil || len(head) > miniMaxEnvelopeCap {
+		// Either the body is bigger than any envelope, or it failed mid-read.
+		// Both are handed back as a stream: the bytes already taken, then
+		// whatever the connection does next.
+		//
+		// Prepending rather than replacing is what keeps a read error in the
+		// stream. Discarding it would hand downstream a partial body as a
+		// complete answer — a truncated 200, which the pass-through path would
+		// then count as the model having answered.
+		rest := resp.Body
+		resp.Body = miniMaxRestoredBody{Reader: io.MultiReader(bytes.NewReader(head), rest), Closer: rest}
+		return resp
+	}
+
+	// The whole body fits, so it is buffered and the upstream one is closed.
+	body := head
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(body))
-	if err != nil {
-		return resp
-	}
 	var envelope struct {
 		BaseResp *struct {
 			StatusCode int    `json:"status_code"`

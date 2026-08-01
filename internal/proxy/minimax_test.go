@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -143,6 +144,107 @@ func TestRemapMiniMaxBusinessError_InvalidJSONPassthrough(t *testing.T) {
 	}
 	if string(body) != "not json" {
 		t.Errorf("body altered: %s", body)
+	}
+}
+
+// 7. A binary or streamed 200 is left alone and its body is never read.
+//
+// This function is on the multimodal pass-through path as well as the chat one,
+// where a 200 can be an audio stream or a multi-megabyte image payload. Reading
+// one to look for a field its content type says cannot be there would buffer in
+// full what that path exists to stream, and make TTFB wait for the last upstream
+// byte.
+func TestRemapMiniMaxBusinessError_BinaryUntouched(t *testing.T) {
+	for _, contentType := range []string{"audio/mpeg", "image/png", "video/mp4", "application/octet-stream", "AUDIO/MPEG"} {
+		resp, rr := minimaxTestResp(http.StatusOK, contentType,
+			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
+		out := remapMiniMaxBusinessError("minimax", "mm", resp)
+		if out.StatusCode != http.StatusOK {
+			t.Errorf("content type %q: status = %d, want 200 (untouched)", contentType, out.StatusCode)
+		}
+		if rr.read {
+			t.Errorf("content type %q: body was consumed", contentType)
+		}
+	}
+}
+
+// 7b. An envelope that arrives without a JSON content type is still remapped.
+//
+// The bound above is a deny-list on purpose. Skipping everything that does not
+// say "json" would also skip a missing, empty or text/plain content type — and a
+// base_resp arriving under one of those is exactly the empty-200-forwarded-as-a-
+// success this function exists to prevent. An unlabelled body says nothing about
+// itself, and reading a bounded prefix of one is cheap.
+func TestRemapMiniMaxBusinessError_UnlabelledEnvelopeStillRemapped(t *testing.T) {
+	for _, contentType := range []string{"", "text/plain", "application/json; charset=utf-8"} {
+		resp, _ := minimaxTestResp(http.StatusOK, contentType,
+			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
+		if got := remapMiniMaxBusinessError("minimax", "mm", resp).StatusCode; got != http.StatusTooManyRequests {
+			t.Errorf("content type %q: status = %d, want 429", contentType, got)
+		}
+	}
+}
+
+// 8. A JSON body past the envelope cap streams through whole.
+//
+// MiniMax answers with base64 audio inside JSON and the image endpoints can
+// return megabytes of b64_json, so "it is JSON" is not "it is small". What must
+// not happen is the two failure modes the unbounded read had: holding all of it
+// in memory, and — since the bytes were replaced rather than prepended —
+// delivering a truncated body as a complete answer.
+func TestRemapMiniMaxBusinessError_OversizedJSONStreamsThrough(t *testing.T) {
+	payload := `{"data":[{"b64_json":"` + strings.Repeat("A", 2*miniMaxEnvelopeCap) + `"}]}`
+	resp, _ := minimaxTestResp(http.StatusOK, "application/json", payload)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	if out.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", out.StatusCode)
+	}
+	body, err := io.ReadAll(out.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(body) != payload {
+		t.Fatalf("body altered: read %d bytes, want %d", len(body), len(payload))
+	}
+}
+
+// failAfterReader delivers a prefix and then fails, standing in for a connection
+// that dies mid-body.
+type failAfterReader struct {
+	head io.Reader
+	err  error
+}
+
+func (f *failAfterReader) Read(p []byte) (int, error) {
+	n, err := f.head.Read(p)
+	if err == io.EOF {
+		return n, f.err
+	}
+	return n, err
+}
+
+func (f *failAfterReader) Close() error { return nil }
+
+// 9. A body that dies mid-read still dies downstream.
+//
+// The old shape read the body, ignored the error and handed back whatever it
+// had, so a truncated response was forwarded as a complete 200 — and on the
+// pass-through path that also credited the model as having answered. Restoring
+// the remaining stream rather than replacing it keeps the failure where the
+// handlers can see it.
+func TestRemapMiniMaxBusinessError_MidBodyFailureSurfaces(t *testing.T) {
+	wantErr := io.ErrUnexpectedEOF
+	h := make(http.Header)
+	h.Set("Content-Type", "application/json")
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     h,
+		Body:       &failAfterReader{head: strings.NewReader(`{"data":[`), err: wantErr},
+	}
+
+	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	if _, err := io.ReadAll(out.Body); !errors.Is(err, wantErr) {
+		t.Fatalf("downstream read error = %v, want %v: a truncated body must not read as a complete one", err, wantErr)
 	}
 }
 
