@@ -339,6 +339,20 @@ var genericNotFoundTypes = map[string]bool{
 
 // structuredError is what a provider said about WHY it refused, in fields rather
 // than prose.
+//
+// The three fields must come from ONE object. That is the invariant this type
+// exists to carry, and it has been broken three separate ways while this was
+// being written: a message read from anywhere in the body, then from a different
+// level of the same document, then from a sibling object of the right one. Each
+// is the same mistake — a code or type is a claim about whatever its own object
+// is describing, and pairing it with a message from elsewhere invents a
+// statement no provider made. The identity check that bounds a generic
+// not-found type then reads the wrong text and retires a model nobody said
+// anything about.
+//
+// Both extractors enforce it and neither may relax it: the parse takes the error
+// object whole or the top level whole, and the scan works inside one delimited
+// region.
 type structuredError struct {
 	code    string
 	typ     string
@@ -347,14 +361,61 @@ type structuredError struct {
 
 // The scan fallback's patterns: a quoted string field by name, anchored on the
 // key so a value that merely looks like one cannot be picked up.
+//
+// The value may contain escaped quotes, which is not a nicety: providers quote
+// the model name inside the message they are already sending as JSON, so
+// `"message":"model \"gpt-4\" not found"` is an ordinary shape, and a pattern
+// that stopped at the first quote captured `model \` and lost the id. The escape
+// handling matches jsonObjectBody's, so the region walker and the field readers
+// agree about where a string ends.
 var (
-	scanCode    = regexp.MustCompile(`"code"\s*:\s*"([^"]*)"`)
-	scanType    = regexp.MustCompile(`"type"\s*:\s*"([^"]*)"`)
-	scanMessage = regexp.MustCompile(`"message"\s*:\s*"([^"]*)"`)
+	scanCode    = regexp.MustCompile(`"code"\s*:\s*"((?:[^"\\]|\\.)*)"`)
+	scanType    = regexp.MustCompile(`"type"\s*:\s*"((?:[^"\\]|\\.)*)"`)
+	scanMessage = regexp.MustCompile(`"message"\s*:\s*"((?:[^"\\]|\\.)*)"`)
 	// errorObjectStart finds where the error object opens, so the scan reads
 	// the fields belonging to it rather than the first ones in the document.
 	errorObjectStart = regexp.MustCompile(`"error"\s*:\s*\{`)
 )
+
+// jsonObjectBody returns the contents of the object whose opening brace ends at
+// start, up to its matching close brace, or to the end of the input when the
+// object never closes.
+//
+// The unclosed case is not an error path, it is the point: this only runs on a
+// body no parser would accept, which usually means SanitizeLogBody cut it
+// mid-object. A truncated object has no siblings after it, so running to the end
+// is exactly right there — and where the object DOES close, stopping at the brace
+// is what keeps a sibling's message from being read as this error's.
+//
+// Braces inside strings are skipped, because a provider message is free to
+// contain one ("expected { at position 4"), and a quote is only a delimiter when
+// it is not escaped. Anything more than that — numbers, nesting rules, escape
+// semantics beyond \" — belongs to the parser this function is the fallback for.
+func jsonObjectBody(body string, start int) string {
+	depth := 1
+	inString, escaped := false, false
+	for i := start; i < len(body); i++ {
+		c := body[i]
+		switch {
+		case escaped:
+			escaped = false
+		case c == '\\' && inString:
+			escaped = true
+		case c == '"':
+			inString = !inString
+		case inString:
+			// Braces inside a string are text, not structure.
+		case c == '{':
+			depth++
+		case c == '}':
+			depth--
+			if depth == 0 {
+				return body[start:i]
+			}
+		}
+	}
+	return body[start:]
+}
 
 // scanStructuredError extracts the three fields from a body no parser would
 // accept, scoped to the error object when one can be found.
@@ -378,7 +439,7 @@ func scanStructuredError(body string) structuredError {
 	// that do not travel together are not evidence about each other.
 	region := body
 	if at := errorObjectStart.FindStringIndex(body); at != nil {
-		region = body[at[1]:]
+		region = jsonObjectBody(body, at[1])
 	}
 	first := func(re *regexp.Regexp) string {
 		if m := re.FindStringSubmatch(region); m != nil {

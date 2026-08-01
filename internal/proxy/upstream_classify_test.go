@@ -859,6 +859,77 @@ func TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies(t *testing
 	}
 }
 
+// TestScanStructuredError_ReadsOneObject pins the invariant structuredError
+// exists to carry: the three fields come from ONE object.
+//
+// It has been broken three ways while this was written — a message read from
+// anywhere in the body, then from another level of the same document, then from
+// a SIBLING of the right object — and each time the identity check that bounds a
+// generic not-found type ended up reading text no provider had attached to it.
+// These are the sibling cases, which only the scan can reach: the parse rejects
+// them by construction, and the scan is what runs on a truncated body, which is
+// the normal case for a large error.
+func TestScanStructuredError_ReadsOneObject(t *testing.T) {
+	t.Parallel()
+
+	runClassifyCases(t, []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "a sibling object's message is not this error's",
+			body:      `{"error":{"type":"not_found_error"},"hint":{"message":"try claude-sonnet-4 instead"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "nor is a later echo of the request",
+			body:      `{"error":{"type":"not_found_error"},"request":{"message":"claude-sonnet-4 hello"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// The object closes, so the walker stops there even though the id
+			// appears afterwards.
+			name:      "a closed error object does not reach past its brace",
+			body:      `{"error":{"type":"not_found_error","message":"nothing \"here\""},"z":{"message":"claude-sonnet-4-20250514"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// An object nested INSIDE the error object must not end the region
+			// early, or the fields after it are lost.
+			name:      "a nested object does not end the region",
+			body:      `{"error":{"details":{"foo":"bar"},"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"x":1`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			// A brace inside a message is text, not structure. A CLOSING one is
+			// what proves it: counted as structure it ends the region mid-value,
+			// the message loses its closing quote, and the field reader finds
+			// nothing. An opening brace would not show this, since the region
+			// merely runs long and the right message is still the first one in
+			// it.
+			name:      "a closing brace inside a message is not a delimiter",
+			body:      `{"error":{"type":"not_found_error","message":"unexpected } in model claude-sonnet-4-20250514"},"y":{"message":"nope"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			// Providers quote the model name inside a message that is itself
+			// JSON, so a field reader that stopped at the first quote lost the
+			// id it was looking for.
+			name:      "escaped quotes around the id still name it",
+			body:      `{"error":{"type":"not_found_error","message":"model \"claude-sonnet-4-20250514\" not found"},"z":{"message":"nope"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+	})
+}
+
 // TestClassifyUpstreamError_ProseNamingADatedSnapshot pins that the alias rule
 // reaches the prose path too.
 //
