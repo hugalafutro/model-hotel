@@ -387,128 +387,116 @@ func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
 	}
 }
 
-// TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes is the other half of the
-// test above: which 200 counts.
+// TestEmbeddings_ResponsesThatCarryNothingKeepTheGoneStrikes is the other half
+// of the test above: which 2xx counts as the model answering.
 //
-// 200 headers are a promise. The provider can send them and then die before a
-// byte of body arrives, which this file already treats as a provider FAILURE
-// everywhere else — the breaker records one, and the client gets a 502. Clearing
-// the streak on the headers would let a model that never actually answers keep
-// resetting its own count between refusals, so it would never reach three
-// consecutive strikes, never be probed, and never be retired: exactly the state
-// the strike machinery exists to escape.
-func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
-	var goneModelName atomic.Value
-	var refuse atomic.Bool
-	refuse.Store(true)
-	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if refuse.Load() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			name, _ := goneModelName.Load().(string)
-			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
-			return
-		}
-		// 200 headers, a promise of 1000 bytes, and then the connection dies
-		// nine bytes in.
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			t.Error("test server does not support hijacking")
-			return
-		}
-		conn, buf, err := hj.Hijack()
-		if err != nil {
-			t.Errorf("hijack: %v", err)
-			return
-		}
-		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{\"object\":")
-		_ = buf.Flush()
-		_ = conn.Close()
-	}), `["embedding"]`)
-	goneModelName.Store(env.modelName)
-
-	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
-	embed := func() int {
-		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
-		w := httptest.NewRecorder()
-		env.handler.Embeddings(w, req)
-		return w.Code
-	}
-
-	if code := embed(); code != http.StatusNotFound {
-		t.Fatalf("status = %d, want the provider's 404", code)
-	}
-	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
-	if !ok {
-		t.Fatal("the refusal accrued no strike")
-	}
-	streak, ok := raw.(*goneStreak)
-	if !ok {
-		t.Fatalf("unexpected streak type %T", raw)
-	}
-
-	refuse.Store(false)
-	if code := embed(); code != http.StatusBadGateway {
-		t.Fatalf("status = %d, want 502 for a body that died mid-read", code)
-	}
-	if n := streak.count(); n != 1 {
-		t.Fatalf("streak = %d, want the strike kept: a 200 that produced no body is not the model answering", n)
-	}
-}
-
-// TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes is the streamed
-// commit point's version of the question the test above asks of the buffered
-// one: a 2xx that carried no bytes is not the model answering.
+// A status is a promise; bytes are the evidence. All three cases below are
+// responses the pass-through path is perfectly happy with and none of them
+// carried an answer, so none may reset a strike count. Crediting any of them
+// would let a provider — or a CDN in front of one — that intermittently returns
+// an empty success keep a retired model from ever reaching three CONSECUTIVE
+// strikes: it would never be nominated, never probed, and never retired, which
+// is exactly the state the strike machinery exists to escape.
 //
-// A 204 is a legitimate HTTP success and belongs in the breaker's ledger — the
-// provider is plainly alive. It says nothing whatever about whether this MODEL
-// is still served, which is the same distinction judgeProbeSuccess draws for the
-// probe's own 200s. Clearing the streak on it credits the model with an answer
-// nobody received.
-func TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes(t *testing.T) {
-	var goneModelName atomic.Value
-	var refuse atomic.Bool
-	refuse.Store(true)
-	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if refuse.Load() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			name, _ := goneModelName.Load().(string)
-			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
-			return
-		}
-		// No content type and no body: the pass-through takes its streamed
-		// branch and finds nothing to commit on.
-		w.WriteHeader(http.StatusNoContent)
-	}), `["embedding"]`)
-	goneModelName.Store(env.modelName)
+// The three cover both commit points. The first two take the buffered JSON
+// branch (a body that dies mid-read, and a clean 200 that carries nothing), the
+// third takes the streamed branch, and the point of running them together is
+// that the two branches must answer the same way.
+func TestEmbeddings_ResponsesThatCarryNothingKeepTheGoneStrikes(t *testing.T) {
+	cases := []struct {
+		name       string
+		answer     func(t *testing.T, w http.ResponseWriter)
+		wantStatus int
+	}{
+		{
+			// 200 headers, a promise of 1000 bytes, and then the connection
+			// dies nine bytes in. The breaker already records this as a
+			// provider failure and the client gets a 502.
+			name: "body dies mid-read",
+			answer: func(t *testing.T, w http.ResponseWriter) {
+				hj, ok := w.(http.Hijacker)
+				if !ok {
+					t.Error("test server does not support hijacking")
+					return
+				}
+				conn, buf, err := hj.Hijack()
+				if err != nil {
+					t.Errorf("hijack: %v", err)
+					return
+				}
+				_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{\"object\":")
+				_ = buf.Flush()
+				_ = conn.Close()
+			},
+			wantStatus: http.StatusBadGateway,
+		},
+		{
+			// A clean, complete, entirely contentless 200. The read succeeds,
+			// which is what makes this the easiest of the three to credit by
+			// accident.
+			name: "empty json 200",
+			answer: func(_ *testing.T, w http.ResponseWriter) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			// A 204 is a legitimate HTTP success and belongs in the breaker's
+			// ledger, because the provider is plainly alive. It still says
+			// nothing about whether this MODEL is served.
+			name: "204 no content",
+			answer: func(_ *testing.T, w http.ResponseWriter) {
+				w.WriteHeader(http.StatusNoContent)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var goneModelName atomic.Value
+			var refuse atomic.Bool
+			refuse.Store(true)
+			env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if refuse.Load() {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					name, _ := goneModelName.Load().(string)
+					_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+					return
+				}
+				tc.answer(t, w)
+			}), `["embedding"]`)
+			goneModelName.Store(env.modelName)
 
-	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
-	embed := func() int {
-		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
-		w := httptest.NewRecorder()
-		env.handler.Embeddings(w, req)
-		return w.Code
-	}
+			body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+			embed := func() int {
+				req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+				w := httptest.NewRecorder()
+				env.handler.Embeddings(w, req)
+				return w.Code
+			}
 
-	if code := embed(); code != http.StatusNotFound {
-		t.Fatalf("status = %d, want the provider's 404", code)
-	}
-	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
-	if !ok {
-		t.Fatal("the refusal accrued no strike")
-	}
-	streak, ok := raw.(*goneStreak)
-	if !ok {
-		t.Fatalf("unexpected streak type %T", raw)
-	}
+			if code := embed(); code != http.StatusNotFound {
+				t.Fatalf("status = %d, want the provider's 404", code)
+			}
+			raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
+			if !ok {
+				t.Fatal("the refusal accrued no strike")
+			}
+			streak, ok := raw.(*goneStreak)
+			if !ok {
+				t.Fatalf("unexpected streak type %T", raw)
+			}
 
-	refuse.Store(false)
-	if code := embed(); code != http.StatusNoContent {
-		t.Fatalf("status = %d, want the provider's 204 forwarded", code)
-	}
-	if n := streak.count(); n != 1 {
-		t.Fatalf("streak = %d, want the strike kept: a response that carried nothing is not evidence about the model", n)
+			refuse.Store(false)
+			if code := embed(); code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", code, tc.wantStatus)
+			}
+			if n := streak.count(); n != 1 {
+				t.Fatalf("streak = %d, want the strike kept: a response that carried nothing is not the model answering", n)
+			}
+		})
 	}
 }
 

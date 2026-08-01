@@ -515,7 +515,22 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// because it cannot be adjudicated for an image or TTS model, but a served
 	// body from any surface is evidence the provider still serves the model, and
 	// clearing a streak can only ever PREVENT a retirement.
-	h.noteModelServed(candidate.model)
+	//
+	// Gated on bytes having arrived, exactly as the streamed twin gates on its
+	// first byte. A 200 with an empty body reads as a successful read here, and
+	// crediting it would let a provider (or a CDN in front of one) that
+	// intermittently answers 200 with nothing reset the count between genuine
+	// refusals, so a retired model would never reach three CONSECUTIVE strikes
+	// and would never be nominated at all.
+	//
+	// Bytes and not content, which is where this stops. The pass-through path
+	// forwards every family verbatim and does not know the shape of an
+	// embeddings, image or audio answer; judging one here would mean teaching it
+	// response schemas it deliberately does not have. "The provider sent
+	// something" is the same bar its neighbour applies.
+	if len(body) > 0 {
+		h.noteModelServed(candidate.model)
+	}
 	copyPassthroughHeaders(w, resp, contentType)
 
 	if len(body) > passthroughJSONBufferCap {
