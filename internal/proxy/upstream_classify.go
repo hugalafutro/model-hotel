@@ -232,22 +232,39 @@ func isClauseBreak(b byte) bool {
 // looksLikeAModelID reports whether s contains a token shaped like a model id.
 // Digits and hyphens are the tell: "gpt-4", "retired-model" and "llama3" all
 // qualify, while ordinary words and vendor prefixes like "openai/" do not.
+//
+// A token also has to carry a letter or a digit, which is what stops PUNCTUATION
+// being read as an identifier. Without it a lone "-" qualified on the dash
+// alone, so the dash in "unknown model - gpt-4o-mini" counted as a competing id
+// sitting between the phrase and its subject, gapBindsPhrase refused to bind,
+// and a plainly-worded refusal never classified. Providers punctuate that way
+// (an em-dash, a bulleted list, an arrow), and each spelling silently switched
+// retirement off for that provider.
+//
+// The direction matters: this makes fewer gaps look like they hold a competing
+// id, so it can only make MORE bodies classify as gone. It is kept to the one
+// case that cannot be an identifier under any reading — a run with no
+// alphanumeric character in it at all. A gap holding a real second id still has
+// letters or digits in it and still blocks attribution, which is the whole job
+// of this check.
 func looksLikeAModelID(s string) bool {
-	tokenHasDigit, tokenHasDash := false, false
+	tokenHasDigit, tokenHasDash, tokenHasAlnum := false, false, false
 	for i := 0; i <= len(s); i++ {
 		if i < len(s) && (isModelIDChar(s[i]) || s[i] == '/') {
 			switch {
 			case s[i] >= '0' && s[i] <= '9':
-				tokenHasDigit = true
+				tokenHasDigit, tokenHasAlnum = true, true
 			case s[i] == '-':
 				tokenHasDash = true
+			case s[i] >= 'a' && s[i] <= 'z', s[i] >= 'A' && s[i] <= 'Z':
+				tokenHasAlnum = true
 			}
 			continue
 		}
-		if tokenHasDigit || tokenHasDash {
+		if tokenHasAlnum && (tokenHasDigit || tokenHasDash) {
 			return true
 		}
-		tokenHasDigit, tokenHasDash = false, false
+		tokenHasDigit, tokenHasDash, tokenHasAlnum = false, false, false
 	}
 	return false
 }

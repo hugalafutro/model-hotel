@@ -1080,3 +1080,100 @@ func TestClassifyUpstreamError_ModelNamedAfterThePhrase(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_PunctuationDoesNotBlockAttribution pins the fix for
+// a false negative that switched retirement off for whole providers.
+//
+// gapBindsPhrase refuses to bind when a COMPETING model id sits between the
+// phrase and its subject, and looksLikeAModelID took a bare "-" for one, on the
+// strength of the hyphen alone. So every provider that punctuates a refusal
+// ("unknown model - gpt-4o-mini", an arrow, an em dash, a bullet) had that
+// refusal read as provider_error. It failed safe, which is why it went unnoticed:
+// nothing was retired, the strikes simply never accumulated.
+//
+// The guard cases are the other half and matter more than the fix, because the
+// change can only make MORE bodies classify as gone: a gap holding a real second
+// id must still block, in both word orders.
+func TestClassifyUpstreamError_PunctuationDoesNotBlockAttribution(t *testing.T) {
+	t.Parallel()
+
+	const modelID = "gpt-4o-mini"
+
+	cases := []struct {
+		name string
+		body string
+		want ErrorKind
+	}{
+		{
+			name: "hyphen between phrase and id",
+			body: `{"error":{"message":"unknown model - gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "arrow between phrase and id",
+			body: `{"error":{"message":"model not found -> gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "em dash between phrase and id",
+			body: `{"error":{"message":"unknown model — gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "id before the phrase, hyphen after it",
+			body: `{"error":{"message":"gpt-4o-mini - does not exist"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			// The guard: a real id in the gap is still a competing subject, and
+			// binding here would retire the model named in the OTHER clause.
+			name: "competing id in the gap still blocks, id last",
+			body: `{"error":{"message":"does not exist for other-model-7 gpt-4o-mini"}}`,
+			want: KindProviderError,
+		},
+		{
+			name: "competing id in the gap still blocks, id first",
+			body: `{"error":{"message":"healthy-model was routed but retired-x9 does not exist"}}`,
+			want: KindProviderError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, modelID); got != tc.want {
+				t.Errorf("classify(%s) = %s, want %s", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLooksLikeAModelID_RequiresAnAlphanumeric pins the rule directly, because
+// the classifier cases above can only reach it through a gap and would not
+// distinguish "punctuation is not an id" from "the gap was short enough".
+func TestLooksLikeAModelID_RequiresAnAlphanumeric(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]bool{
+		// Punctuation alone is never an identifier, whatever it is made of.
+		" - ":  false,
+		" -- ": false,
+		" -> ": false,
+		"-":    false,
+		" ":    false,
+		"":     false,
+		// The tell still has to be there: a plain word is not an id.
+		" model ": false,
+		// Unchanged: a letter or digit plus the digit-or-dash tell.
+		"gpt-4":         true,
+		"llama3":        true,
+		"retired-model": true,
+		" 4 ":           true,
+	}
+
+	for in, want := range cases {
+		if got := looksLikeAModelID(in); got != want {
+			t.Errorf("looksLikeAModelID(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
