@@ -56,9 +56,16 @@ runs:
         BASE_REF: ${{ github.base_ref }}
         BEFORE_SHA: ${{ github.event.before }}
         HEAD_SHA: ${{ github.sha }}
-      # No `set -e`: every failure path is handled explicitly by run_everything,
-      # so this cannot die half-way and leave callers reading an empty (and
-      # therefore run-everything) output set by accident.
+      # `set -e` IS in effect and cannot be opted out of here: `shell: bash` runs
+      # this as `bash --noprofile --norc -e -o pipefail`, so -e arrives from the
+      # shell directive rather than from the script. The line below adds -u and
+      # is deliberately not `set +e` — failing on an unhandled error beats
+      # continuing with a half-built output set that callers would read as
+      # "nothing changed".
+      #
+      # What that costs: any command whose non-zero exit is EXPECTED has to say
+      # so. A bare `grep -v` that filters everything out exits 1 and killed this
+      # step for every test-only PR until it was guarded (see src= below).
       run: |
         set -uo pipefail
 
@@ -162,7 +169,20 @@ runs:
         # but the -q below can, so both use herestrings for the same reason as
         # match() above. An all-test-files diff filters to empty, which correctly
         # yields image=false.
-        src=$(grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' <<< "$changed")
+        #
+        # The status has to be caught, and an unguarded assignment here made every
+        # test-only PR unmergeable: grep exits 1 when it prints nothing, `shell:
+        # bash` runs with -e (see the note above the run block), and the step died
+        # right after printing the changed files. Exit 1 is the expected
+        # all-tests-filtered case; anything higher is a real grep failure, where
+        # the honest answer is the same as any other undeterminable diff.
+        # ci.yml's publish-dev copy of this predicate already guards it with
+        # `|| true`; this is the same guard, told apart from a genuine error.
+        grep_status=0
+        src=$(grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' <<< "$changed") || grep_status=$?
+        if [ "$grep_status" -gt 1 ]; then
+          run_everything "could not filter test files out of the diff"
+        fi
         if grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))' <<< "$src"; then
           image=true
         else

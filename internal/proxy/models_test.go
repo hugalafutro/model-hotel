@@ -2046,11 +2046,12 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 		t.Error("expected disabled-model to NOT be present")
 	}
 
-	// Verify it's the enabled model
-	m := data[0].(map[string]any)
-	if m["id"] != provider.NormalizeName(providerName)+"/enabled-model" {
-		t.Errorf("expected enabled-model, got %v", m["id"])
-	}
+	// Deliberately no assertion about data[0]. The listing is not scoped to this
+	// test's provider and the suite shares one Postgres, so which row lands first
+	// depends on what else has been inserted by the time this runs — the reason
+	// the count assertion above was already relaxed. The loop is the whole test:
+	// what filtering has to guarantee is that the enabled model is present and
+	// the disabled one is not, at any position.
 }
 
 // Test ListModels with failover groups
