@@ -454,6 +454,17 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 	if len(body) == 0 {
 		return false
 	}
+	// Past the buffer cap, body is a PREFIX: the caller read
+	// passthroughJSONBufferCap+1 bytes and streams the remainder. Truncated JSON
+	// never parses, so handing it to the content check below would report that a
+	// provider which just produced megabytes had answered with nothing — and a
+	// batch embeddings call clears 8 MiB at around 140 inputs of 3072
+	// dimensions, which is ordinary document-indexing traffic. The success side
+	// of the streak would be permanently dead on that workload: three refusals
+	// would nominate a live model and spend a probe on it, over and over.
+	if len(body) > passthroughJSONBufferCap {
+		return true
+	}
 	if endpointType == endpointTypeEmbeddings {
 		return probeDeliveredContent(endpointTypeEmbeddings, body)
 	}

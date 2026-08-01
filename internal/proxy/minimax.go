@@ -36,6 +36,35 @@ type miniMaxRestoredBody struct {
 	io.Closer
 }
 
+// miniMaxEnvelopePossible reports whether a 200 with this content type could
+// carry a base_resp envelope, and so whether it is worth reading any of it.
+//
+// A deny-list rather than a "must say json" allow-list, and the difference is
+// the point. The types below cannot contain an envelope and must not be read:
+// SSE carries none by protocol, and the multimodal pass-through routes audio,
+// image and octet-stream answers through this function, where buffering to look
+// for a field the content type says is not there would defeat the streaming that
+// path exists to do. But a missing, empty or text/plain content type says
+// nothing about the body, and MiniMax or an intermediary returning the envelope
+// under one of those is exactly the empty-200-forwarded-as-success bug this
+// function was written to fix — an allow-list would quietly restore it.
+//
+// Reading a little of an unlabelled body is cheap now in a way it was not: the
+// read is bounded and prepended back, so the worst case is 64 KiB held for the
+// length of one envelope check.
+func miniMaxEnvelopePossible(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	switch {
+	case strings.Contains(ct, "text/event-stream"),
+		strings.HasPrefix(ct, "audio/"),
+		strings.HasPrefix(ct, "image/"),
+		strings.HasPrefix(ct, "video/"),
+		strings.HasPrefix(ct, "application/octet-stream"):
+		return false
+	}
+	return true
+}
+
 // remapMiniMaxBusinessError converts a MiniMax "HTTP 200 base_resp error"
 // response into one carrying the equivalent HTTP status, so the failover,
 // circuit-breaker, and error-forwarding paths — all keyed on status codes — see
@@ -53,13 +82,7 @@ func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Res
 	if resp == nil || providerType != "minimax" || resp.StatusCode != http.StatusOK {
 		return resp
 	}
-	// Streaming responses carry no base_resp envelope; never consume their body.
-	// Neither does anything that is not JSON — this function reads bodies, and
-	// the multimodal pass-through routes audio and image responses through it.
-	// Buffering an audio/mpeg answer to look for a field its content type says
-	// cannot be there would defeat the streaming that path exists to do.
-	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/event-stream") || !strings.Contains(contentType, "json") {
+	if !miniMaxEnvelopePossible(resp.Header.Get("Content-Type")) {
 		return resp
 	}
 

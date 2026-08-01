@@ -147,15 +147,15 @@ func TestRemapMiniMaxBusinessError_InvalidJSONPassthrough(t *testing.T) {
 	}
 }
 
-// 7. A non-JSON 200 is left alone and its body is never read.
+// 7. A binary or streamed 200 is left alone and its body is never read.
 //
 // This function is on the multimodal pass-through path as well as the chat one,
 // where a 200 can be an audio stream or a multi-megabyte image payload. Reading
 // one to look for a field its content type says cannot be there would buffer in
 // full what that path exists to stream, and make TTFB wait for the last upstream
 // byte.
-func TestRemapMiniMaxBusinessError_NonJSONUntouched(t *testing.T) {
-	for _, contentType := range []string{"audio/mpeg", "application/octet-stream", ""} {
+func TestRemapMiniMaxBusinessError_BinaryUntouched(t *testing.T) {
+	for _, contentType := range []string{"audio/mpeg", "image/png", "video/mp4", "application/octet-stream", "AUDIO/MPEG"} {
 		resp, rr := minimaxTestResp(http.StatusOK, contentType,
 			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
 		out := remapMiniMaxBusinessError("minimax", "mm", resp)
@@ -164,6 +164,23 @@ func TestRemapMiniMaxBusinessError_NonJSONUntouched(t *testing.T) {
 		}
 		if rr.read {
 			t.Errorf("content type %q: body was consumed", contentType)
+		}
+	}
+}
+
+// 7b. An envelope that arrives without a JSON content type is still remapped.
+//
+// The bound above is a deny-list on purpose. Skipping everything that does not
+// say "json" would also skip a missing, empty or text/plain content type — and a
+// base_resp arriving under one of those is exactly the empty-200-forwarded-as-a-
+// success this function exists to prevent. An unlabelled body says nothing about
+// itself, and reading a bounded prefix of one is cheap.
+func TestRemapMiniMaxBusinessError_UnlabelledEnvelopeStillRemapped(t *testing.T) {
+	for _, contentType := range []string{"", "text/plain", "application/json; charset=utf-8"} {
+		resp, _ := minimaxTestResp(http.StatusOK, contentType,
+			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
+		if got := remapMiniMaxBusinessError("minimax", "mm", resp).StatusCode; got != http.StatusTooManyRequests {
+			t.Errorf("content type %q: status = %d, want 429", contentType, got)
 		}
 	}
 }

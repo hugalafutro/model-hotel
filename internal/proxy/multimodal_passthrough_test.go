@@ -565,6 +565,64 @@ func TestAttemptPassthroughCandidate_AMiniMaxRefusalInsideA200KeepsTheStreak(t *
 	}
 }
 
+// TestEmbeddings_AnOversizedAnswerStillClearsTheGoneStrikes pins the one case
+// where the buffered pass-through must NOT ask what the body contains.
+//
+// Past passthroughJSONBufferCap the buffered body is a prefix and the remainder
+// is streamed, so a content check would be parsing truncated JSON — which never
+// parses, so a provider that had just produced megabytes would read as having
+// answered with nothing. A batch embeddings call clears 8 MiB at around 140
+// inputs of 3072 dimensions, which is ordinary document-indexing traffic: the
+// success side of the streak would be permanently dead on that workload, and a
+// live model would be nominated and probed over and over.
+func TestEmbeddings_AnOversizedAnswerStillClearsTheGoneStrikes(t *testing.T) {
+	var goneModelName atomic.Value
+	var refuse atomic.Bool
+	refuse.Store(true)
+	// A real embeddings answer, past the buffer cap.
+	oversized := `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[` +
+		strings.Repeat("0.1,", (passthroughJSONBufferCap/4)+16) + `0.2]}]}`
+	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if refuse.Load() {
+			w.WriteHeader(http.StatusNotFound)
+			name, _ := goneModelName.Load().(string)
+			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+			return
+		}
+		_, _ = io.WriteString(w, oversized)
+	}), `["embedding"]`)
+	goneModelName.Store(env.modelName)
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	embed := func() int {
+		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.Embeddings(w, req)
+		return w.Code
+	}
+
+	if code := embed(); code != http.StatusNotFound {
+		t.Fatalf("status = %d, want the provider's 404", code)
+	}
+	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
+	if !ok {
+		t.Fatal("the refusal accrued no strike")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+
+	refuse.Store(false)
+	if code := embed(); code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", code)
+	}
+	if n := streak.count(); n != 0 {
+		t.Fatalf("streak = %d, want 0: a provider that produced %d bytes answered", n, len(oversized))
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

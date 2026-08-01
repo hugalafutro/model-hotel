@@ -515,6 +515,12 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"base64 embedding", endpointTypeEmbeddings, `{"data":[{"embedding":"eNqLZoAAAA=="}]}`, true},
 		{"empty embedding vector", endpointTypeEmbeddings, `{"data":[{"embedding":[]}]}`, false},
 		{"empty base64 embedding", endpointTypeEmbeddings, `{"data":[{"embedding":""}]}`, false},
+		// Emptiness is judged structurally, not against the spellings
+		// encoding/json happens to emit: a provider whose encoder pads still
+		// answered with nothing.
+		{"padded empty vector", endpointTypeEmbeddings, `{"data":[{"embedding":[ ]}]}`, false},
+		{"newline-padded empty vector", endpointTypeEmbeddings, "{\"data\":[{\"embedding\":[\n]}]}", false},
+		{"padded empty base64", endpointTypeEmbeddings, `{"data":[{"embedding":"  "}]}`, false},
 		{"null embedding", endpointTypeEmbeddings, `{"data":[{"embedding":null}]}`, false},
 		{"embedding key absent", endpointTypeEmbeddings, `{"data":[{}]}`, false},
 		{"no embedding data", endpointTypeEmbeddings, `{"data":[]}`, false},

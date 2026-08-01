@@ -947,10 +947,16 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// so it is undone instead.
 		//
 		// Serialising would close it, and is not available here.
-		// noteModelServed runs on the request path BEFORE a non-streaming
-		// response is written to the client (see proxy_failover.go), so holding
-		// a lock across the write would put client latency behind a database
-		// write belonging to an unrelated request's error path.
+		// noteModelServed runs on the request path (see proxy_failover.go), so
+		// holding a lock across the write would put client latency behind a
+		// database write belonging to an unrelated request's error path.
+		//
+		// It runs AFTER the non-streaming response is written now, not before:
+		// the clear is judged on what the handler decoded rather than on the 200
+		// that preceded it. That widens this window slightly — the cancel signal
+		// lands later, so AutoRetireIfConfirmed has more room to commit before a
+		// success is observed — which changes nothing here, because the window
+		// this comment is about is the one the revert below exists for.
 		//
 		// The disabled state IS briefly visible on this path, which is what the
 		// staging above exists to avoid. Accepted, because the alternative is
@@ -1079,6 +1085,17 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 // and a probe that times out on a slow but living model postpones the
 // retirement rather than confirming it, which is the safe direction but still a
 // wasted call. Nothing on the request path is waiting on any of it.
+//
+// The context is Background and not tied to server shutdown, which is what the
+// detachment costs and is worth stating rather than leaving to be discovered.
+// The retirement's worst case is now this probe plus up to three ten-second
+// writes, so a nomination that lands just before shutdown can spend one upstream
+// request and then find a closing pool. What that produces is a failed write on
+// a path that already treats a failed write as "change nothing and retry": the
+// streak keeps its strikes, nothing is disabled, and the next process re-earns
+// the decision from its own traffic. Closing it properly means a handler-scoped
+// parent context, which is a lifecycle this Handler does not have and is not
+// worth inventing for one background probe.
 func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType string) probeVerdict {
 	// Before anything is dereferenced, and that is the point of it being here.
 	// probeModel makes the same check, but the fields this function touches on

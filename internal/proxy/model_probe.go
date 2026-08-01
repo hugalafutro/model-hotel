@@ -600,11 +600,7 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
 			return false
 		}
-		switch string(bytes.TrimSpace(out.Data[0].Embedding)) {
-		case "", "null", "[]", `""`:
-			return false
-		}
-		return true
+		return !jsonValueIsEmpty(out.Data[0].Embedding)
 	}
 
 	var out ChatCompletionResponse
@@ -612,6 +608,25 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		return false
 	}
 	return chatAnswerCarriesContent(out)
+}
+
+// jsonValueIsEmpty reports whether a raw JSON value carries nothing: absent,
+// null, an array with no elements, or a string with no characters.
+//
+// Structural rather than a comparison against the spellings encoding/json
+// happens to emit. `[]` and `[ ]` are the same empty array, and a provider whose
+// encoder pads is not a provider whose model answered — the exact-string version
+// of this read `[ ]` as content and reported a served model on an answer that
+// carried none, which is the one thing the check exists to reject.
+func jsonValueIsEmpty(raw json.RawMessage) bool {
+	v := bytes.TrimSpace(raw)
+	if len(v) == 0 || bytes.Equal(v, []byte("null")) {
+		return true
+	}
+	if len(v) >= 2 && (v[0] == '[' && v[len(v)-1] == ']' || v[0] == '"' && v[len(v)-1] == '"') {
+		return len(bytes.TrimSpace(v[1:len(v)-1])) == 0
+	}
+	return false
 }
 
 // chatAnswerCarriesContent reports whether a decoded chat completion carries
