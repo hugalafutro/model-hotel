@@ -1043,6 +1043,14 @@ How a retirement is reached:
    while still serving its embeddings, and a global clear would let the healthy
    surface hold the dead one open forever. Traffic on a surface that is never
    auto-retired (images, speech, rerank) clears nothing at all.
+
+   A model the catalog says serves BOTH chat and embeddings is never
+   auto-retired. Disabling turns off the model row, so it cannot express "gone on
+   chat, still serving embeddings", and no probe can catch that: the probe would
+   be right about the surface it asked, and the disable simply broader than what
+   was found. Such a model stays enabled until discovery drops it or you disable
+   it by hand. It needs a provider serving one model id on both surfaces, which
+   is rare.
 2. **Adjudication.** At the threshold the gateway sends a real, minimal request
    to the model itself (a 64-token chat completion, or a one-input embedding),
    off the request path. Content coming back means the model works: the strike

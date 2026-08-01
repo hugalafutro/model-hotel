@@ -198,6 +198,31 @@ type goneStreakKey struct {
 // declares image alone is an images-endpoint model whatever it can be coaxed
 // into. See canonicalModalityRank in internal/provider for the full vocabulary
 // these are drawn from.
+// modalityAdmitsBothProbeSurfaces reports whether the catalog says this model
+// serves chat AND embeddings.
+//
+// Such a model is not auto-retired at all, and the reason is the mismatch
+// between what the evidence is about and what the action does. Strikes, probes
+// and successes are all per surface, because a provider can retire one surface
+// of a model and keep serving the other — but AutoRetireIfConfirmed disables the
+// model ROW, so a chat retirement would take the working embeddings surface with
+// it. That is a false positive of exactly the kind this whole path exists to
+// stop writing, and no probe can catch it: the probe is right, the model really
+// is gone on chat, and the disable is simply broader than the finding.
+//
+// Retiring per surface is the honest fix and the schema does not offer it: one
+// row is one model, enabled or not. So this takes the same trade as every other
+// case where the verdict cannot justify the action — image, TTS, STT and rerank
+// models are not auto-retired either — and leaves the model enabled until
+// discovery drops it or an operator disables it by hand.
+//
+// It costs almost nothing: it needs a provider serving one model id on both
+// surfaces, which is rare, and the undeclared case is unaffected because an
+// empty modality list already rules the embeddings surface out.
+func modalityAdmitsBothProbeSurfaces(m *model.Model) bool {
+	return !modalityRulesOutSurface(m, probeChatEndpoint) && !modalityRulesOutSurface(m, probeEmbeddingsEndpoint)
+}
+
 func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
 	out := declaredModalities(m.OutputModalities)
 	if probeEndpoint == probeEmbeddingsEndpoint {
@@ -524,6 +549,16 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		return
 	}
 
+	// The third gate, and the one that is about the ACTION rather than the
+	// evidence. Everything above decides which surface a refusal is about; the
+	// disable it can lead to is model-wide, and for a model that serves both
+	// probeable surfaces those two are not the same scope. See
+	// modalityAdmitsBothProbeSurfaces.
+	if modalityAdmitsBothProbeSurfaces(m) {
+		debuglog.Debug("proxy: ignoring a gone-classified refusal on a model that serves both probeable surfaces, which one disable cannot separate", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
+		return
+	}
+
 	// The counter must be incremented atomically, not read-modify-written. A
 	// dead model is exactly the one that gets hammered concurrently — clients
 	// retry it, and a failover group can try it on several requests at once — so
@@ -753,8 +788,13 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			return
 		case probeInconclusive:
 			// Nothing was established: a 429, a 5xx, an entitlement failure, a
-			// connection that never landed, an expired deadline, or no probe
-			// slot free. Postpone.
+			// connection that never landed, or an expired deadline. Postpone.
+			//
+			// Deliberately NOT the postponements that happen before this
+			// goroutine exists — a busy provider semaphore, an open circuit, a
+			// cooldown still running. Those return on the request path without
+			// producing a verdict at all, and each says so on its own Debug line;
+			// looking for them here is looking in the wrong place.
 			//
 			// The count is left exactly where it is, and neither half of that is
 			// incidental. Postponing means postponing: the strikes were real

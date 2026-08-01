@@ -421,6 +421,14 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		// goneProbeMaxBody costs the connection its reuse and nothing else,
 		// which is the cheaper of the two ways to be wrong here.
 		//
+		// "No more than the judgement read" bounds this copy, not the total: the
+		// judgement has already taken its own goneProbeMaxBody out of rawBody, so
+		// a large answer is pulled off the socket twice over. What the constant
+		// promises is memory, and that still holds — what is retained is the
+		// judgement's read, while this streams to io.Discard through one 32 KiB
+		// buffer. Bytes off a socket on a detached goroutine, four at a time per
+		// provider, are not the resource being bounded.
+		//
 		// It is a plain-path drain and knowingly a no-op elsewhere: MiniMax and
 		// both dialect translators read the body to EOF and CLOSE it themselves,
 		// so on those candidates this copy reads an already-closed body and

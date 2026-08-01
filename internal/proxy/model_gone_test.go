@@ -2131,9 +2131,12 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 		{"image-emitting chat model", `["text"]`, `["text","image"]`, endpointTypeChat, probeChatEndpoint, true},
 		{"vision chat model", `["text","image"]`, `["text"]`, endpointTypeChat, probeChatEndpoint, true},
 		{"code model on chat", `["text"]`, `["code"]`, endpointTypeChat, probeChatEndpoint, true},
-		// A model that produces both is not evidence against either surface.
-		{"multimodal on chat", `["text"]`, `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, true},
-		{"multimodal on embeddings", `["text"]`, `["text","embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		// A model that serves BOTH probeable surfaces strikes on neither, and
+		// that is the third gate rather than this one: the refusal is about one
+		// surface and the disable it could lead to is about the row, which for
+		// this model is two surfaces. See modalityAdmitsBothProbeSurfaces.
+		{"serves both surfaces, refused on chat", `["text"]`, `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, false},
+		{"serves both surfaces, refused on embeddings", `["text"]`, `["text","embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
 		// The two surfaces answer to different burdens of proof when the catalog
 		// says nothing, and this is where that shows. liveModelStub writes "[]"
 		// for every model no catalog covers, so failing open on embeddings would
@@ -2175,49 +2178,46 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 	}
 }
 
-// TestNoteModelGone_SurfacesDoNotPoolTheirStrikes pins that a streak is about
-// one surface.
+// TestNoteModelGone_AModelServingBothSurfacesIsNeverRetired pins the gate that
+// is about the ACTION rather than the evidence.
 //
-// The streak used to be keyed by model UUID alone while the probe endpoint came
-// from whichever refusal crossed the threshold, so two chat refusals plus one
-// embeddings refusal bought an EMBEDDINGS probe — a question nobody had
-// accumulated evidence for. Keyed per surface, each counter means one thing and
-// the probe always asks what the strikes were about.
-func TestNoteModelGone_SurfacesDoNotPoolTheirStrikes(t *testing.T) {
+// Strikes, probes and successes are per surface, because a provider can retire
+// one surface of a model and keep serving the other. The disable is not: it
+// turns the model ROW off. For a model the catalog says serves chat AND
+// embeddings those two scopes disagree, and no probe can catch it — the probe is
+// right, the model really is gone on that surface, and the disable is simply
+// broader than the finding. So nothing is written at all, and the model stays
+// enabled until discovery drops it or an operator does.
+//
+// The refusals here would otherwise retire it: the fixture refuses by name, and
+// the same sequence against a chat-only model disables it (see
+// TestNoteModelGone_DisablesAfterThreshold).
+func TestNoteModelGone_AModelServingBothSurfacesIsNeverRetired(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
-	// A model the catalog says produces both, so neither surface is ruled out
-	// and the split is the only thing keeping the two counters apart.
-	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", OutputModalities: `["text","embedding"]`}
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", InputModalities: `["text"]`, OutputModalities: `["text","embedding"]`}
 	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gpt-5.6-sol"))
 	cand := goneCandidateAt(m, "OpenAI", srv.URL)
 
-	// Two on chat, two on embeddings: four refusals, and neither surface has
-	// reached the threshold.
-	for range goneStrikeThreshold - 1 {
+	// Well past the threshold on both surfaces: the gate is unconditional, not
+	// a delay.
+	for range goneStrikeThreshold + 3 {
 		h.noteModelGone(cand, endpointTypeChat)
 		h.noteModelGone(cand, endpointTypeEmbeddings)
 	}
+
 	if calls := waitForDisable(t, repo); len(calls) != 0 {
-		t.Fatalf("no surface reached the threshold, so nothing may be probed or retired, got %+v", calls)
+		t.Fatalf("a disable cannot separate the surfaces, so it must not be written, got %+v", calls)
 	}
 	if paths := script.requestedPaths(); len(paths) != 0 {
-		t.Fatalf("pooled strikes bought a probe, got %v", paths)
+		t.Fatalf("a refusal that can never be acted on must not spend an upstream request, got %v", paths)
 	}
-	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold-1 {
-		t.Errorf("chat streak = %d, want %d", n, goneStrikeThreshold-1)
-	}
-	if n := goneStreakFor(t, h, m.ID, probeEmbeddingsEndpoint).count(); n != goneStrikeThreshold-1 {
-		t.Errorf("embeddings streak = %d, want %d", n, goneStrikeThreshold-1)
-	}
-
-	// The third chat refusal completes the CHAT streak, so the probe goes to
-	// the chat surface.
-	h.noteModelGone(cand, endpointTypeChat)
-	if paths := waitForProbes(t, script, 1); len(paths) != 1 || paths[0] != probeChatEndpoint {
-		t.Fatalf("expected one probe on %s, got %v", probeChatEndpoint, paths)
+	for _, endpoint := range []string{probeChatEndpoint, probeEmbeddingsEndpoint} {
+		if _, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint}); ok {
+			t.Errorf("a streak that can never fire is not evidence, and one was recorded on %s", endpoint)
+		}
 	}
 }
 
@@ -2238,20 +2238,26 @@ func TestNoteModelServed_ClearsOnlyItsOwnSurface(t *testing.T) {
 
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
-	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", OutputModalities: `["text","embedding"]`}
+	// A chat model. Nothing filters a request by modality on the way in, so it
+	// can still be sent to /v1/embeddings and can still be served there — the
+	// refusals that arrive on that surface are ignored, but a SUCCESS on it is
+	// what this test is about.
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", InputModalities: `["text"]`, OutputModalities: `["text"]`}
 	cand := goneCandidateFor(t, m, "OpenAI")
 
 	h.noteModelGone(cand, endpointTypeChat)
-	h.noteModelGone(cand, endpointTypeEmbeddings)
 
-	// An embeddings request succeeds. It says nothing about the chat surface.
+	// An embeddings request to the same model succeeds. It says nothing about
+	// the chat surface, which is the one accused.
 	h.noteModelServed(m, endpointTypeEmbeddings)
-
-	if n := goneStreakFor(t, h, m.ID, probeEmbeddingsEndpoint).count(); n != 0 {
-		t.Errorf("embeddings streak = %d, want 0 after an embeddings success", n)
-	}
 	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != 1 {
 		t.Errorf("chat streak = %d, want the strike kept: an embeddings success is not evidence about chat", n)
+	}
+
+	// Nor does traffic on a surface that is never auto-retired.
+	h.noteModelServed(m, endpointTypeImage)
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != 1 {
+		t.Errorf("chat streak = %d, want the strike kept after an image success", n)
 	}
 
 	// And the mirror: /v1/messages resolves to the chat surface, so a success
