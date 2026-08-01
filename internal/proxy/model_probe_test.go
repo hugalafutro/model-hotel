@@ -823,6 +823,22 @@ func TestProbeModel_DialectAnswerIsBounded(t *testing.T) {
 	}
 }
 
+// probeModelIDSeq numbers the model ids used in the metric assertions below, so
+// each invocation of a test gets series of its own on the process-wide registry.
+//
+// Deliberately NOT a uuid, and the reason is a production behaviour worth
+// knowing about: judgeProbeFailure classifies the body through
+// util.SanitizeLogBody, which redacts anything uuid-shaped. A uuid-suffixed
+// model id is therefore erased from the refusal that names it, the classifier
+// finds nothing to attribute the gone-phrase to, and a refused probe reads as
+// inconclusive. That is real behaviour for any provider whose model ids look
+// like uuids; here it would just make the test lie.
+var probeModelIDSeq atomic.Uint64
+
+func uniqueProbeModelID(prefix string) string {
+	return prefix + "-" + strconv.FormatUint(probeModelIDSeq.Add(1), 10)
+}
+
 // scrapeMetrics renders the process's Prometheus exposition through the real
 // handler, which is the only read path the metrics package offers and the same
 // one an operator's scrape takes.
@@ -847,40 +863,47 @@ func scrapeMetrics(t *testing.T) string {
 // through the real exposition handler rather than the counter variable, so the
 // series name and its labels are pinned as the public contract they are.
 //
-// The model ids are unique per case, which is what keeps the assertions exact
-// while the package's tests run in parallel against one process-wide registry.
+// The exact count of 1 is the assertion worth having — it is what would catch a
+// probe recorded twice — and holding it requires a model id that is unique per
+// INVOCATION, not merely per case. The registry is process-wide and counters
+// only ever accumulate, so a fixed id pins a value that is right on the first
+// run and wrong on every one after it: `go test -count=2` failed all three
+// subtests before probeModelIDSeq existed.
 func TestProbeForRetirement_RecordsItsVerdict(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name    string
-		modelID string
-		status  int
-		body    string
-		want    probeVerdict
+		name   string
+		status int
+		// Taken as a function because the refusal has to name the very model
+		// the probe asked for, and that id is not known until the subtest
+		// builds its own.
+		body func(modelID string) string
+		want probeVerdict
 	}{
 		{
-			name:    "refused",
-			modelID: "verdict-metric-refused-1",
-			status:  http.StatusNotFound,
-			body:    goneRefusalBody("verdict-metric-refused-1"),
-			want:    probeRefused,
+			name:   "refused",
+			status: http.StatusNotFound,
+			body:   goneRefusalBody,
+			want:   probeRefused,
 		},
 		{
-			name:    "served",
-			modelID: "verdict-metric-served-1",
-			status:  http.StatusOK,
-			body:    `{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}`,
-			want:    probeServed,
+			name:   "served",
+			status: http.StatusOK,
+			body: func(string) string {
+				return `{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}`
+			},
+			want: probeServed,
 		},
 		{
 			// A 500 is a provider fault rather than a statement about the
 			// model, so it establishes nothing and must be counted as such.
-			name:    "inconclusive",
-			modelID: "verdict-metric-inconclusive-1",
-			status:  http.StatusInternalServerError,
-			body:    `{"error":{"message":"internal error"}}`,
-			want:    probeInconclusive,
+			name:   "inconclusive",
+			status: http.StatusInternalServerError,
+			body: func(string) string {
+				return `{"error":{"message":"internal error"}}`
+			},
+			want: probeInconclusive,
 		},
 	}
 
@@ -888,9 +911,10 @@ func TestProbeForRetirement_RecordsItsVerdict(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			srv, _ := probeServer(t, tc.status, tc.body)
+			modelID := uniqueProbeModelID("verdict-metric-" + tc.name)
+			srv, _ := probeServer(t, tc.status, tc.body(modelID))
 			h := newProbeHandler(t)
-			candidate := probeCandidateFor(srv.URL, tc.modelID)
+			candidate := probeCandidateFor(srv.URL, modelID)
 
 			if got := h.probeForRetirement(candidate, endpointTypeChat); got != tc.want {
 				t.Fatalf("verdict = %s, want %s", got, tc.want)
@@ -898,7 +922,7 @@ func TestProbeForRetirement_RecordsItsVerdict(t *testing.T) {
 
 			want := fmt.Sprintf(
 				`modelhotel_retirement_probes_total{model=%q,provider="Probe Provider",verdict=%q} 1`,
-				tc.modelID, tc.want.String(),
+				modelID, tc.want.String(),
 			)
 			if out := scrapeMetrics(t); !strings.Contains(out, want) {
 				t.Errorf("metrics scrape missing %q", want)

@@ -1,12 +1,33 @@
 package metrics
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
+
+// labelSeq numbers the label values below so each test invocation gets its own
+// series.
+//
+// The registry is process-wide and counters only accumulate, so every exact-count
+// assertion in this file is a claim about how many times its test has ever run.
+// With fixed labels `go test -count=2` failed all of them, which matters because
+// re-running under -count is how a flake is hunted here: the whole package looked
+// broken the moment anyone did it.
+//
+// A counter rather than a random suffix, because it keeps a failed assertion
+// readable and cannot collide. It is shared across tests, so the numbers a given
+// test sees are not contiguous; nothing depends on that.
+var labelSeq atomic.Uint64
+
+func uniqueLabel(prefix string) string {
+	return prefix + "-" + strconv.FormatUint(labelSeq.Add(1), 10)
+}
 
 func scrape(t *testing.T) string {
 	t.Helper()
@@ -36,10 +57,14 @@ func TestStatusClass(t *testing.T) {
 // (so the assertions are isolated from any other test's counters) and verifies
 // the exposition output parses and carries every expected series.
 func TestRecordEmitsMetrics(t *testing.T) {
-	const prov = "test-prov-emit"
+	prov := uniqueLabel("test-prov-emit")
+	// The model label has to be unique too: the failover counter is keyed by
+	// model alone, so a shared id would accumulate across runs even under a
+	// fresh provider.
+	mdl := uniqueLabel("llama-3")
 	Record(Observation{
 		Provider:         prov,
-		Model:            "llama-3",
+		Model:            mdl,
 		StatusCode:       200,
 		DurationSeconds:  0.5,
 		Streaming:        true,
@@ -52,13 +77,13 @@ func TestRecordEmitsMetrics(t *testing.T) {
 
 	out := scrape(t)
 	wantSubstrings := []string{
-		`modelhotel_requests_total{error_kind="",model="llama-3",provider="test-prov-emit",status_class="2xx"} 1`,
-		`modelhotel_request_duration_seconds_bucket{model="llama-3",provider="test-prov-emit",`,
-		`modelhotel_ttft_seconds_bucket{model="llama-3",provider="test-prov-emit",`,
-		`modelhotel_tokens_total{kind="completion",model="llama-3",provider="test-prov-emit"} 20`,
-		`modelhotel_tokens_total{kind="prompt",model="llama-3",provider="test-prov-emit"} 10`,
-		`modelhotel_tokens_total{kind="reasoning",model="llama-3",provider="test-prov-emit"} 5`,
-		`modelhotel_failover_attempts_total{model="llama-3"} 1`,
+		fmt.Sprintf(`modelhotel_requests_total{error_kind="",model=%q,provider=%q,status_class="2xx"} 1`, mdl, prov),
+		fmt.Sprintf(`modelhotel_request_duration_seconds_bucket{model=%q,provider=%q,`, mdl, prov),
+		fmt.Sprintf(`modelhotel_ttft_seconds_bucket{model=%q,provider=%q,`, mdl, prov),
+		fmt.Sprintf(`modelhotel_tokens_total{kind="completion",model=%q,provider=%q} 20`, mdl, prov),
+		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 10`, mdl, prov),
+		fmt.Sprintf(`modelhotel_tokens_total{kind="reasoning",model=%q,provider=%q} 5`, mdl, prov),
+		fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q} 1`, mdl),
 		`go_goroutines`, // Go runtime collector is registered
 	}
 	for _, w := range wantSubstrings {
@@ -71,7 +96,7 @@ func TestRecordEmitsMetrics(t *testing.T) {
 // TestRecordSkipsZeroTokensAndNonStreamingTTFT verifies we don't emit token or
 // TTFT series for values that don't apply.
 func TestRecordSkipsZeroTokensAndNonStreamingTTFT(t *testing.T) {
-	const prov = "test-prov-skip"
+	prov := uniqueLabel("test-prov-skip")
 	Record(Observation{
 		Provider:        prov,
 		Model:           "m",
@@ -82,10 +107,10 @@ func TestRecordSkipsZeroTokensAndNonStreamingTTFT(t *testing.T) {
 		TTFTSeconds:     0.3, // ignored because not streaming
 	})
 	out := scrape(t)
-	if strings.Contains(out, `provider="test-prov-skip"`) && strings.Contains(out, `modelhotel_ttft_seconds_bucket{model="m",provider="test-prov-skip"`) {
+	if strings.Contains(out, fmt.Sprintf(`modelhotel_ttft_seconds_bucket{model="m",provider=%q`, prov)) {
 		t.Error("ttft must not be recorded for a non-streaming request")
 	}
-	if !strings.Contains(out, `modelhotel_requests_total{error_kind="provider_error",model="m",provider="test-prov-skip",status_class="5xx"} 1`) {
+	if !strings.Contains(out, fmt.Sprintf(`modelhotel_requests_total{error_kind="provider_error",model="m",provider=%q,status_class="5xx"} 1`, prov)) {
 		t.Errorf("missing 5xx provider_error series:\n%s", out)
 	}
 }
@@ -93,14 +118,14 @@ func TestRecordSkipsZeroTokensAndNonStreamingTTFT(t *testing.T) {
 // TestRecordResponsesReroute verifies the OpenAI Responses re-route counter
 // tracks learned and preemptive attempts as separate series.
 func TestRecordResponsesReroute(t *testing.T) {
-	const prov = "test-prov-responses"
+	prov := uniqueLabel("test-prov-responses")
 	RecordResponsesReroute(prov, "gpt-5.6-sol", "learned")
 	RecordResponsesReroute(prov, "gpt-5.6-sol", "preemptive")
 	RecordResponsesReroute(prov, "gpt-5.6-sol", "preemptive")
 	out := scrape(t)
 	wantSubstrings := []string{
-		`modelhotel_responses_reroute_total{mode="learned",model="gpt-5.6-sol",provider="test-prov-responses"} 1`,
-		`modelhotel_responses_reroute_total{mode="preemptive",model="gpt-5.6-sol",provider="test-prov-responses"} 2`,
+		fmt.Sprintf(`modelhotel_responses_reroute_total{mode="learned",model="gpt-5.6-sol",provider=%q} 1`, prov),
+		fmt.Sprintf(`modelhotel_responses_reroute_total{mode="preemptive",model="gpt-5.6-sol",provider=%q} 2`, prov),
 	}
 	for _, w := range wantSubstrings {
 		if !strings.Contains(out, w) {
@@ -114,21 +139,24 @@ func TestRecordResponsesReroute(t *testing.T) {
 // operator question is the RATIO between them, so a refused that could not be
 // told from a served would answer nothing.
 func TestRecordRetirementProbe(t *testing.T) {
-	const prov = "test-prov-retirement"
+	prov := uniqueLabel("test-prov-retirement")
 	RecordRetirementProbe(prov, "gemini-2.0-flash", "refused")
 	RecordRetirementProbe(prov, "gemini-2.0-flash", "inconclusive")
 	RecordRetirementProbe(prov, "gemini-2.0-flash", "inconclusive")
 	RecordRetirementProbe(prov, "claude-sonnet-4", "served")
 	// An empty provider still has to produce a usable series rather than a
-	// blank label, exactly as the request counter does.
-	RecordRetirementProbe("", "orphan-model", "inconclusive")
+	// blank label, exactly as the request counter does. The model carries the
+	// run's own suffix because the provider label — the usual isolator — is the
+	// very thing under test here.
+	orphan := uniqueLabel("orphan-model")
+	RecordRetirementProbe("", orphan, "inconclusive")
 
 	out := scrape(t)
 	wantSubstrings := []string{
-		`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider="test-prov-retirement",verdict="refused"} 1`,
-		`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider="test-prov-retirement",verdict="inconclusive"} 2`,
-		`modelhotel_retirement_probes_total{model="claude-sonnet-4",provider="test-prov-retirement",verdict="served"} 1`,
-		`modelhotel_retirement_probes_total{model="orphan-model",provider="unknown",verdict="inconclusive"} 1`,
+		fmt.Sprintf(`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider=%q,verdict="refused"} 1`, prov),
+		fmt.Sprintf(`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider=%q,verdict="inconclusive"} 2`, prov),
+		fmt.Sprintf(`modelhotel_retirement_probes_total{model="claude-sonnet-4",provider=%q,verdict="served"} 1`, prov),
+		fmt.Sprintf(`modelhotel_retirement_probes_total{model=%q,provider="unknown",verdict="inconclusive"} 1`, orphan),
 	}
 	for _, w := range wantSubstrings {
 		if !strings.Contains(out, w) {
