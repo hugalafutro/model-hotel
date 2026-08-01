@@ -391,13 +391,22 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 // walk past the cheap check and go take a provider slot, to be turned away by
 // the claim a moment later — which is the shape of waste this read exists to
 // stop.
-func (s *goneStreak) canClaimProbe(now time.Time) bool {
+// The reason is returned alongside the answer because the caller logs it, and
+// the two are not the same event: a cooldown is a deliberate wait, while a count
+// below the threshold means a success cleared the evidence between the strike
+// and this read. Reporting the first for the second told an operator a model was
+// waiting out five minutes when its streak had in fact gone back to zero — the
+// distinction the line exists to make.
+func (s *goneStreak) canClaimProbe(now time.Time) (ok bool, reason string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.n < goneStrikeThreshold {
-		return false
+		return false, "the strikes were cleared while this refusal was being recorded"
 	}
-	return s.nextProbeAt.IsZero() || !now.Before(s.nextProbeAt)
+	if !s.nextProbeAt.IsZero() && now.Before(s.nextProbeAt) {
+		return false, "the model is inside its probe cooldown"
+	}
+	return true, ""
 }
 
 // park clears the evidence a streak has accumulated and keeps the probe
@@ -670,7 +679,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// costs, and deny them to the one model whose cooldown has actually expired.
 	// The read cannot replace the claim — two callers can both see true and only
 	// one may proceed — which is why claimProbe still decides below.
-	if !streak.canClaimProbe(now) {
+	if claimable, reason := streak.canClaimProbe(now); !claimable {
 		// The only postponement on this path that used to be silent, and the one
 		// an operator is most likely to be looking at: it is the steady state
 		// for every refusal against a model already at the threshold. Without a
@@ -681,7 +690,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// Debug for the same reason as the semaphore line below: nothing
 		// throttles it, and a client retry loop against a dead model reaches it
 		// on every request.
-		debuglog.Debug("proxy: postponing auto-disable, the model is inside its probe cooldown", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "strikes", strikes, "retry_after", goneProbeCooldown.String())
+		debuglog.Debug("proxy: postponing auto-disable, "+reason, "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "strikes", streak.count(), "retry_after", goneProbeCooldown.String())
 		return
 	}
 

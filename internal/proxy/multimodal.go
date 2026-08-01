@@ -511,7 +511,15 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 		contentType = "application/octet-stream"
 	}
 	isSSE := strings.HasPrefix(contentType, "text/event-stream")
-	isJSON := !isSSE && strings.Contains(contentType, "json")
+	// An embeddings answer is JSON by definition, so it takes the buffered
+	// branch whatever an aggregator or CDN in front of the provider labelled it.
+	// Letting the content type decide sent an unlabelled one to the streamed
+	// twin, which commits on the first byte and cannot judge what it never
+	// holds — so `{"data":[]}` is eleven bytes and clears the streak, routing
+	// around the check passthroughAnswered exists to make. Embeddings is the
+	// only pass-through family that can be auto-retired, which is why it is the
+	// only one this says anything about.
+	isJSON := !isSSE && (strings.Contains(contentType, "json") || st.logData.endpointType == endpointTypeEmbeddings)
 
 	if isJSON {
 		h.serveBufferedJSONPassthrough(w, st, candidate, resp, contentType, attempt, responseHeaderMs)

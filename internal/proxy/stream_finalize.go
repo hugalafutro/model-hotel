@@ -185,30 +185,6 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 // was derived so far, and finally a stall overrides the raw IO error produced
 // by the watchdog's body.Close(). The missing-[DONE] diagnosis is NOT handled
 // here — it may write to the client, so it stays in finalizeStream.
-// upstreamModelID is the id the PROVIDER knows this request by, which is not
-// always the one the client asked for.
-//
-// modelID is the client's spelling: for a failover request it is the literal
-// "hotel/<group>", and resolvedModelID is where the committed candidate's real
-// id lands (beginAttempt sets it only on that path, which is why the fallback is
-// not a convenience). Handing the alias to classifyUpstreamError meant its
-// gone-phrase test looked for "claude" — modelGoneAbout trims to the last path
-// segment — inside "Model claude-sonnet-4 is no longer available", and did not
-// find it. Mid-stream retirement therefore could not fire for the one routing
-// mode this whole feature exists for: a model retired inside a failover group
-// recorded no strike, was never nominated, and was never probed.
-//
-// Every classification site added by the retirement work passes
-// candidate.model.ModelID directly. This one has no candidate in hand — it runs
-// at stream teardown, off the log entry — so it reads the same fact from where
-// the log entry keeps it.
-func upstreamModelID(logData *requestLogData) string {
-	if logData.resolvedModelID != "" {
-		return logData.resolvedModelID
-	}
-	return logData.modelID
-}
-
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
 	errMsg := st.lastErrMsg
 	if errMsg != "" {
@@ -277,4 +253,28 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
 	}
 	return errMsg
+}
+
+// upstreamModelID is the id the PROVIDER knows this request by, which is not
+// always the one the client asked for.
+//
+// modelID is the client's spelling: for a failover request it is the literal
+// "hotel/<group>", and resolvedModelID is where the committed candidate's real
+// id lands (beginAttempt sets it only on that path, which is why the fallback is
+// not a convenience). Handing the alias to classifyUpstreamError meant its
+// gone-phrase test looked for "claude" — modelGoneAbout trims to the last path
+// segment — inside "Model claude-sonnet-4 is no longer available", and did not
+// find it. Mid-stream retirement therefore could not fire for the one routing
+// mode this whole feature exists for: a model retired inside a failover group
+// recorded no strike, was never nominated, and was never probed.
+//
+// Every classification site added by the retirement work passes
+// candidate.model.ModelID directly. This one has no candidate in hand — it runs
+// at stream teardown, off the log entry — so it reads the same fact from where
+// the log entry keeps it.
+func upstreamModelID(logData *requestLogData) string {
+	if logData.resolvedModelID != "" {
+		return logData.resolvedModelID
+	}
+	return logData.modelID
 }

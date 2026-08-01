@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1735,8 +1736,10 @@ func TestGoneStreak_ASuccessBetweenTheStrikeAndTheClaimWins(t *testing.T) {
 	// The success lands after the last strike and before the claim.
 	s.supersede()
 
-	if s.canClaimProbe(now) {
+	if ok, reason := s.canClaimProbe(now); ok {
 		t.Error("the cheap read admitted a claim on evidence a success had already cleared")
+	} else if !strings.Contains(reason, "cleared") {
+		t.Errorf("reason = %q, want the cleared-strikes reason rather than the cooldown one", reason)
 	}
 	if s.claimProbe(now) {
 		t.Fatal("claimed a probe on evidence a success had already cleared")
@@ -1776,10 +1779,10 @@ func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
 		s.strike(now)
 	}
 
-	if !s.canClaimProbe(now) {
+	if ok, _ := s.canClaimProbe(now); !ok {
 		t.Fatal("a streak at the threshold that has never been probed must admit a claim")
 	}
-	if !s.canClaimProbe(now) {
+	if ok, _ := s.canClaimProbe(now); !ok {
 		t.Fatal("asking twice was refused, so the read spent the claim it was asking about")
 	}
 	if !s.claimProbe(now) {
@@ -1787,8 +1790,10 @@ func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
 	}
 
 	// And now both must see the cooldown.
-	if s.canClaimProbe(now) {
+	if ok, reason := s.canClaimProbe(now); ok {
 		t.Fatal("the read did not see the claim that was just taken")
+	} else if !strings.Contains(reason, "cooldown") {
+		t.Errorf("reason = %q, want the cooldown reason", reason)
 	}
 	if s.claimProbe(now) {
 		t.Fatal("claimProbe granted a second claim inside the cooldown")
@@ -1796,7 +1801,7 @@ func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
 
 	// They agree on the far side of it too.
 	lapsed := now.Add(goneProbeCooldown)
-	if !s.canClaimProbe(lapsed) {
+	if ok, _ := s.canClaimProbe(lapsed); !ok {
 		t.Fatal("the read must admit a claim once the cooldown has lapsed")
 	}
 	if !s.claimProbe(lapsed) {

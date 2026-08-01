@@ -455,6 +455,20 @@ func TestEmbeddings_ResponsesThatCarryNothingKeepTheGoneStrikes(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			// The same empty payload, unlabelled. Which twin runs was decided by
+			// the content type alone, so an aggregator or CDN that drops the
+			// header sent an embeddings answer to the streamed path — which
+			// commits on the first byte and cannot judge what it never holds, so
+			// eleven bytes cleared the streak through the one door that skips
+			// passthroughAnswered.
+			name: "empty embeddings payload, unlabelled",
+			answer: func(_ *testing.T, w http.ResponseWriter) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = io.WriteString(w, `{"object":"list","data":[]}`)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
 			// A 204 is a legitimate HTTP success and belongs in the breaker's
 			// ledger, because the provider is plainly alive. It still says
 			// nothing about whether this MODEL is served.
