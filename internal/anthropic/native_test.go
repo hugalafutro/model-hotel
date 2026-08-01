@@ -44,6 +44,38 @@ func TestParseResponseUsage(t *testing.T) {
 	}
 }
 
+// ResponseCarriesContent decides whether a native 200 counts as the model
+// answering, which is what clears its gone-strike streak in the proxy. The
+// distinction that matters is a nonempty body carrying an empty content array:
+// an aggregator in front of a retired model returns exactly that between its
+// refusals, and crediting it would stop the streak ever reaching three
+// consecutive strikes.
+func TestResponseCarriesContent(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"text block", `{"id":"m","type":"message","content":[{"type":"text","text":"hi"}]}`, true},
+		// Any block type is the model producing something; the vocabulary is
+		// Anthropic's to extend, so the blocks are deliberately not decoded.
+		{"tool_use block", `{"id":"m","type":"message","content":[{"type":"tool_use","id":"toolu_1","name":"f"}]}`, true},
+		{"unknown block type still counts", `{"id":"m","type":"message","content":[{"type":"something_new"}]}`, true},
+		{"empty content array", `{"id":"m","type":"message","content":[]}`, false},
+		{"content absent", `{"id":"m","type":"message","usage":{"output_tokens":3}}`, false},
+		{"content null", `{"id":"m","type":"message","content":null}`, false},
+		{"not json", `not json`, false},
+		{"empty body", ``, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResponseCarriesContent([]byte(tt.body)); got != tt.want {
+				t.Errorf("ResponseCarriesContent(%s) = %v, want %v", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestStreamTranslator_ToolWithoutID_AndIdempotentFinish(t *testing.T) {
 	tr := NewStreamTranslator("msg_t", "m")
 	// A tool-call fragment with no id forces id synthesis; arguments stream as
