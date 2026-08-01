@@ -264,14 +264,12 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 // not a convenience). Handing the alias to classifyUpstreamError meant its
 // gone-phrase test looked for "claude" — modelGoneAbout trims to the last path
 // segment — inside "Model claude-sonnet-4 is no longer available", and did not
-// find it. Mid-stream retirement therefore could not fire for the one routing
-// mode this whole feature exists for: a model retired inside a failover group
-// recorded no strike, was never nominated, and was never probed.
+// find it, so a model retired inside a failover group recorded no strike and was
+// never probed.
 //
-// Every classification site added by the retirement work passes
-// candidate.model.ModelID directly. This one has no candidate in hand — it runs
-// at stream teardown, off the log entry — so it reads the same fact from where
-// the log entry keeps it.
+// Every other classification site passes candidate.model.ModelID directly. This
+// one runs at stream teardown with no candidate in hand, so it reads the same
+// fact off the log entry.
 func upstreamModelID(logData *requestLogData) string {
 	if logData.resolvedModelID != "" {
 		return logData.resolvedModelID

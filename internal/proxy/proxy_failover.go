@@ -27,11 +27,11 @@ import (
 // failoverErrorClassifyCap bounds how much of a discarded failover error body is
 // held in memory long enough to be classified.
 //
-// The body is on its way to being thrown away: the client is served by the next
-// candidate, and the only thing still wanted from it is whether the provider
-// said the model is retired. classifyUpstreamError never sees more than
-// util.SanitizeLogBody's own 10 000 characters, so everything above this cap is
-// read and discarded rather than retained.
+// The client is served by the next candidate, and the only thing still wanted
+// from the body is whether the provider said the model is retired.
+// classifyUpstreamError never sees more than util.SanitizeLogBody's own 10 000
+// characters, so everything above this cap is read and discarded rather than
+// retained.
 //
 // Shared by the chat loop and the multimodal pass-through loop, which run the
 // same drain-and-classify block. Sixteen kibibytes is comfortably above any
@@ -44,9 +44,7 @@ const failoverErrorClassifyCap = 16 << 10
 // openairesponses.RequiresResponsesAPI json.Unmarshals the whole error document,
 // so the classifier's window is the wrong size for it: a body cut off mid-JSON
 // does not parse, and the /v1/responses requirement would silently stop being
-// learned. A megabyte is far past any real 400 (they are sentences) and still
-// bounded, which is more than the sequential path that learns the same thing
-// gives itself.
+// learned. A megabyte is far past any real 400 and still bounded.
 const responsesLearnBodyCap = 1 << 20
 
 // paramRetryResult is the outcome of the 400 param-stripping auto-retry
@@ -190,11 +188,10 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	if shouldFailoverNow {
 		// Read only what can be classified, then drain the rest straight to
-		// Discard so the connection stays reusable without the body being held
-		// in memory. The classifier never sees past util.SanitizeLogBody's own
-		// 10 000 characters, so everything above the cap was being retained to
-		// be thrown away — once per concurrent failing request, on the request
-		// path, at whatever size the provider chose to send.
+		// Discard so the connection stays reusable without the body being held in
+		// memory. Everything above the cap was being retained to be thrown away —
+		// once per concurrent failing request, on the request path, at whatever
+		// size the provider chose to send.
 		drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
@@ -203,12 +200,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// without this the "model gone" signal would be lost precisely when
 		// there is another candidate to fall back to.
 		//
-		// The whole candidate goes through, not just the model: the retirement
-		// is adjudicated by a real request to this provider, so it needs the
-		// provider and the decrypted key that are already in hand here. The
-		// endpoint family comes off the log entry, which ingest stamped from the
-		// surface the request arrived on, and decides whether the refusal can be
-		// adjudicated at all.
+		// The whole candidate goes through, not just the model: the retirement is
+		// adjudicated by a real request to this provider, so it needs the provider
+		// and the decrypted key already in hand here. The endpoint family comes
+		// off the log entry and decides whether the refusal can be adjudicated at
+		// all.
 		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
 			h.noteModelGone(candidate, logData.endpointType)
 		}
@@ -257,22 +253,21 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
-	// A non-streaming answer clears any gone-strike streak the model had — and
-	// it is judged AFTER the handler, on what the handler decoded, rather than
-	// on the 200 that preceded it.
+	// A non-streaming answer clears any gone-strike streak the model had, judged
+	// AFTER the handler on what the handler decoded rather than on the 200 that
+	// preceded it. Both halves of that placement are load-bearing:
 	//
-	// Both halves of that placement are load-bearing. It is below the dialect
-	// translations because either of them reads the body, fails, and sends the
-	// attempt to FAILOVER: a provider that answered 200 with something that is
-	// not a Responses object or not a Gemini answer has not served the model,
-	// and crediting it there cleared the streak of a model the gateway was in
-	// the act of giving up on. And it is below the handler because a status is
-	// not an answer: `200 {"choices":[]}` decodes, is forwarded to the client as
-	// a normal completion, and is exactly what an aggregator in front of a
-	// retired model can return between its gone-shaped 404s — resetting the
-	// count so the three never land consecutively and the model is never
-	// nominated. Every other path on this branch already draws that line;
-	// producedOutput is where it is drawn.
+	//   - Below the dialect translations, because either of them can read the
+	//     body, fail, and send the attempt to FAILOVER. A provider that answered
+	//     200 with something that is not a Responses object or a Gemini answer has
+	//     not served the model.
+	//   - Below the handler, because a status is not an answer. `200
+	//     {"choices":[]}` decodes and is forwarded as a normal completion, and is
+	//     what an aggregator in front of a retired model returns between its
+	//     gone-shaped 404s — resetting the count so three never land
+	//     consecutively and the model is never nominated.
+	//
+	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
 		if producedOutput(logData) {
@@ -693,12 +688,10 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	logData := st.logData
 	// How much of the body is worth holding depends on what happens to it below,
 	// which hasMoreCandidates already decides. Forwarded, it is read whole:
-	// truncating a body on its way to the client would hand them invalid JSON
-	// where the provider sent something complete. Discarded, it is read under the
-	// same cap as the two drain sites, because all that is left to take from it
-	// is a classification and the first 10 000 bytes of request log — and on the
-	// multimodal endpoints the body behind an error status can be an image
-	// payload rather than a sentence.
+	// truncating on the way to the client would hand them invalid JSON where the
+	// provider sent something complete. Discarded, it is read under the same cap
+	// as the two drain sites, since all that is left to take from it is a
+	// classification and the first 10 000 bytes of request log.
 	var body []byte
 	if hasMoreCandidates {
 		body, _ = io.ReadAll(resp.Body)

@@ -93,21 +93,19 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// *st.logData copy is impossible: requestLogData embeds a sync.WaitGroup.
 		// The orchestrator keeps using the real st for all terminal logging.)
 		//
-		// endpointType is copied across and is load-bearing, not decoration: a
-		// losing candidate's refusal is classified against this throwaway (see
+		// endpointType is load-bearing, not decoration: a losing candidate's
+		// refusal is classified against this throwaway (see
 		// probeStreamingCandidate), and an empty endpoint family switches
 		// auto-retirement off SILENTLY — noteModelGone's family gate rejects it
-		// before recording a strike and says so only at Debug, so hedged streams
-		// would quietly stop retiring dead models with nothing in the logs to
-		// show for it. It is safe to copy where the rest is not: ingest stamps it
-		// once and nothing writes it afterwards, so it cannot race
-		// serveHedgeWinner the way providerName and the timings would.
+		// before recording a strike and says so only at Debug. It is safe to copy
+		// where the rest is not, because ingest stamps it once and nothing writes
+		// it afterwards, so it cannot race serveHedgeWinner the way providerName
+		// and the timings would.
 		//
-		// Constraint on future edits: this throwaway must still never reach
+		// Constraint on future edits: this throwaway must never reach
 		// noteStreamOutcome, which judges a finished stream from fields the probe
 		// never fills in (upstreamKind, the content flag). serveHedgeWinner
-		// deliberately re-binds logData to the real st.logData before it judges
-		// the model; keep it that way.
+		// re-binds logData to the real st.logData before judging the model.
 		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name, endpointType: st.logData.endpointType}
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
@@ -246,14 +244,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// write if every candidate fails; drain so the connection can be reused,
 		// keeping only as much as the two readers below can use.
 		//
-		// The two readers want different amounts, so the cap follows the status.
-		// classifyUpstreamError never sees past SanitizeLogBody's 10 000 bytes,
-		// which is what failoverErrorClassifyCap is sized against; but a 400 is
-		// also handed to learnResponsesRequirement, which json.Unmarshals it, and
-		// a document cut short does not parse at all. Capping a 400 at 16 KiB
-		// would silently stop teaching the /v1/responses requirement, and the
-		// sequential path that learns the same thing reads unbounded — the two
-		// must not disagree about the same learner.
+		// The cap follows the status because the two readers want different
+		// amounts. classifyUpstreamError never sees past SanitizeLogBody's 10 000
+		// bytes, which failoverErrorClassifyCap is sized against; but a 400 also
+		// goes to learnResponsesRequirement, which json.Unmarshals it, and a
+		// document cut short does not parse at all.
 		readCap := int64(failoverErrorClassifyCap)
 		if resp.StatusCode == http.StatusBadRequest {
 			readCap = responsesLearnBodyCap
@@ -268,13 +263,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// subsequent request — hedged or sequential — routes preemptively.
 			h.learnResponsesRequirement(st, candidate, providerType, errBody)
 		}
-		// The third and last place a retired model's refusal was being thrown
-		// away. A hedged race drops every candidate but the winner here, so
-		// without this a dead model in a hedged group accrued strikes only on
-		// the runs it happened to win — which is to say almost never, since a
-		// model answering 404 loses the TTFT contest to anything that works.
-		// Same classification the sequential and pass-through loops do, on a
-		// body that is being discarded either way.
+		// A hedged race drops every candidate but the winner here, so without
+		// this a dead model in a hedged group accrued strikes only on the runs it
+		// happened to win — almost never, since a model answering 404 loses the
+		// TTFT contest to anything that works. Same classification the sequential
+		// and pass-through loops do, on a body being discarded either way.
 		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(errBody), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
 		}

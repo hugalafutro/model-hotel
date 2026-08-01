@@ -364,14 +364,10 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 
 	// MiniMax reports business errors (rate limit, exhausted plan balance, auth
 	// failures) inside an HTTP 200 envelope, so the status has to be normalised
-	// before anything is judged from it — exactly as attemptCandidate,
-	// probeStreamingCandidate and probeModel all do.
-	//
-	// This loop was the one that did not, and until the retirement work that only
-	// cost a spurious breaker success. It costs more now: the 2xx branch below
-	// clears the model's gone-strike streak, so a refusal wrapped in a 200 was
-	// being recorded as the model answering and resetting the consecutive count
-	// that a retirement depends on.
+	// before anything is judged from it — as attemptCandidate,
+	// probeStreamingCandidate and probeModel all do. This loop was the one that
+	// did not, and the 2xx branch below now clears the model's gone-strike
+	// streak, so a refusal wrapped in a 200 was recorded as the model answering.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
@@ -381,23 +377,17 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	if isFailoverEligible {
 		h.recordBreakerOutcome(st, candidate, resp.StatusCode, true)
 		if hasMoreCandidates {
-			// The body is discarded anyway, so classify it on the way out —
-			// exactly what attemptCandidate does for chat, and for the same
-			// reason: a retired model usually answers 404, which is
-			// failover-eligible, so without this the "model gone" signal is lost
-			// precisely when there is another candidate to fall back to. Only the
-			// LAST candidate in a group reached forwardUpstreamError and struck,
-			// which meant an embeddings model sitting anywhere else in a
-			// multi-candidate group accrued no strikes at all.
-			//
-			// It costs nothing that was not already being spent: the same read,
-			// the same discard, one classifier call on a body the request path
-			// has already given up on.
+			// The body is discarded anyway, so classify it on the way out — what
+			// attemptCandidate does for chat, and for the same reason: a retired
+			// model usually answers 404, which is failover-eligible, so without
+			// this the "model gone" signal is lost precisely when there is another
+			// candidate to fall back to. Only the LAST candidate in a group
+			// reached forwardUpstreamError and struck, so an embeddings model
+			// anywhere else in a multi-candidate group accrued no strikes at all.
 			//
 			// Bounded, and the cap matters more here than on the chat path that
-			// shares it: these are the multimodal endpoints, where the body
-			// behind an error status can be an image payload rather than a
-			// sentence.
+			// shares it: these are the multimodal endpoints, where the body behind
+			// an error status can be an image payload rather than a sentence.
 			drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
@@ -437,19 +427,15 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 //
 // Embeddings is judged on content, by the same function the probe uses. It is
 // the only pass-through family that can be auto-retired, so it is the only one
-// where getting this wrong has a consequence — and the package plainly does know
-// what an embeddings answer looks like, since probeDeliveredContent implements
-// exactly this check and extractPassthroughUsage parses the same document a line
-// later. A provider alternating gone-shaped 404s with 200 {"data":[]} would
-// otherwise reset the count on every empty answer and the model would never be
-// nominated, which is the failure chatAnswerCarriesContent closes on the chat
-// path.
+// where getting this wrong has a consequence: a provider alternating gone-shaped
+// 404s with 200 {"data":[]} would otherwise reset the count on every empty
+// answer and the model would never be nominated. Same failure
+// chatAnswerCarriesContent closes on the chat path.
 //
-// Everything else is judged on bytes, and deliberately: this path forwards image
-// and audio answers verbatim and has no business parsing them. It costs nothing
-// to be generous there, because noteModelServed clears the streak for the
-// surface the response arrived on, and those surfaces have no streak to clear —
-// they are never auto-retired in the first place.
+// Everything else is judged on bytes, deliberately: this path forwards image and
+// audio answers verbatim and has no business parsing them. Being generous there
+// costs nothing, because noteModelServed clears the streak for the surface the
+// response arrived on and those surfaces have no streak to clear.
 func passthroughAnswered(endpointType string, body []byte) bool {
 	if len(body) == 0 {
 		return false
@@ -458,10 +444,8 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 	// passthroughJSONBufferCap+1 bytes and streams the remainder. Truncated JSON
 	// never parses, so handing it to the content check below would report that a
 	// provider which just produced megabytes had answered with nothing — and a
-	// batch embeddings call clears 8 MiB at around 140 inputs of 3072
-	// dimensions, which is ordinary document-indexing traffic. The success side
-	// of the streak would be permanently dead on that workload: three refusals
-	// would nominate a live model and spend a probe on it, over and over.
+	// batch embeddings call clears 8 MiB at around 140 inputs of 3072 dimensions,
+	// which is ordinary document-indexing traffic.
 	if len(body) > passthroughJSONBufferCap {
 		return true
 	}
@@ -511,14 +495,13 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 		contentType = "application/octet-stream"
 	}
 	isSSE := strings.HasPrefix(contentType, "text/event-stream")
-	// An embeddings answer is JSON by definition, so it takes the buffered
-	// branch whatever an aggregator or CDN in front of the provider labelled it.
-	// Letting the content type decide sent an unlabelled one to the streamed
-	// twin, which commits on the first byte and cannot judge what it never
-	// holds — so `{"data":[]}` is eleven bytes and clears the streak, routing
-	// around the check passthroughAnswered exists to make. Embeddings is the
-	// only pass-through family that can be auto-retired, which is why it is the
-	// only one this says anything about.
+	// An embeddings answer is JSON by definition, so it takes the buffered branch
+	// whatever an aggregator or CDN in front of the provider labelled it. Letting
+	// the content type decide sent an unlabelled one to the streamed twin, which
+	// commits on the first byte and cannot judge what it never holds — so
+	// `{"data":[]}` is eleven bytes and clears the streak, routing around the
+	// check passthroughAnswered exists to make. Embeddings is the only
+	// pass-through family that can be auto-retired, hence the only one named.
 	isJSON := !isSSE && (strings.Contains(contentType, "json") || st.logData.endpointType == endpointTypeEmbeddings)
 
 	if isJSON {
@@ -550,41 +533,25 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	if st.circuitBreakerEnabled {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
-	// The commit point is also where the model has proved it is alive, so this
-	// is where its gone-strike streak stops being current. It is the success
-	// half of the signal the failover loop records, and without it "three
-	// CONSECUTIVE refusals" is not true on this path: embeddings is the one
-	// pass-through family that can be auto-retired, and its strikes would
-	// otherwise only expire with goneStrikeWindow, so three refusals scattered
-	// across half an hour of otherwise healthy traffic would reach the threshold
-	// and spend a probe.
+	// The commit point is where the model has proved it is alive, so it is where
+	// its gone-strike streak stops being current. Without it "three CONSECUTIVE
+	// refusals" is not true on this path: embeddings strikes would only expire
+	// with goneStrikeWindow, so three refusals scattered across half an hour of
+	// otherwise healthy traffic would reach the threshold and spend a probe.
 	//
-	// Here rather than on the 200 headers, and NOT beside the breaker call by
-	// coincidence. The read above is what distinguishes a provider that served
-	// the model from one that promised to: a body that died mid-read is the
-	// failure branch, and clearing the streak there would let a model that never
-	// actually answers stay out of reach of a retirement forever.
+	// Here rather than on the 200 headers, because the read above is what
+	// distinguishes a provider that served the model from one that promised to: a
+	// body that died mid-read is the failure branch, and clearing the streak
+	// there would put a model that never actually answers out of reach of a
+	// retirement forever.
 	//
-	// Not gated on circuitBreakerEnabled either, unlike its neighbour. The
-	// breaker is an operator's routing choice; whether a model still exists is
-	// not, and turning the breaker off must not silently stop strikes being
-	// cleared.
+	// Not gated on circuitBreakerEnabled, unlike its neighbour: the breaker is an
+	// operator's routing choice, and whether a model still exists is not.
 	//
-	// Family-gated on the way in, exactly as the strike is: noteModelServed
-	// resolves the endpoint family to a probe surface and clears that one streak,
-	// so an embeddings 200 says nothing about the chat surface and an image or
-	// TTS 200 says nothing about either. A response is evidence about the
-	// question it answers, and the retirement question is per surface.
-	//
-	// Gated on bytes having arrived, exactly as the streamed twin gates on its
-	// first byte. A 200 with an empty body reads as a successful read here, and
-	// crediting it would let a provider (or a CDN in front of one) that
-	// intermittently answers 200 with nothing reset the count between genuine
-	// refusals, so a retired model would never reach three CONSECUTIVE strikes
-	// and would never be nominated at all.
-	//
-	// And judged by the same rule the probe uses, for the one family this can
-	// matter to. See passthroughAnswered.
+	// Family-gated inside noteModelServed, exactly as the strike is, so an
+	// embeddings 200 says nothing about the chat surface and an image or TTS 200
+	// says nothing about either. And gated on bytes having arrived, judged by the
+	// same rule the probe uses — see passthroughAnswered.
 	if passthroughAnswered(logData.endpointType, body) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
@@ -647,17 +614,13 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of
 	// the provider is where a 200 stops being a promise. See the twin call in
-	// serveBufferedJSONPassthrough for why it is here, ungated by the breaker
-	// setting, and gated by the endpoint family inside noteModelServed.
+	// serveBufferedJSONPassthrough.
 	//
-	// Gated on a byte having actually arrived, which the breaker call above is
-	// deliberately not. They are answering different questions. A 204 that
-	// carries nothing is a legitimate HTTP success and the provider is plainly
-	// alive, so it belongs in the breaker's ledger; but it says nothing whatever
-	// about whether this MODEL is still served, and "a response that carried
-	// nothing is not evidence" is the same rule judgeProbeSuccess applies to the
-	// probe's own 200s. Clearing a streak on it would credit the model with an
-	// answer nobody received.
+	// Gated on a byte having arrived, which the breaker call above deliberately
+	// is not: they answer different questions. A 204 carrying nothing is a
+	// legitimate HTTP success and the provider is plainly alive, so it belongs in
+	// the breaker's ledger, but it says nothing about whether this MODEL is still
+	// served — the same rule judgeProbeSuccess applies to the probe's own 200s.
 	if n > 0 {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
