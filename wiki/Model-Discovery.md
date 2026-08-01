@@ -1029,11 +1029,14 @@ How a retirement is reached:
    The two surfaces treat a silent catalog differently, on purpose. A refusal on
    `/v1/embeddings` only counts when the model's `output_modalities` say it
    produces embeddings, so an embeddings model whose catalog entry declares
-   nothing is never auto-retired. A refusal on chat counts unless the entry says
-   the model produces embeddings and nothing else. Chat is what most models are
-   and where most refusals arrive, so requiring a declared modality there would
-   switch traffic-driven retirement off for every uncatalogued model at once,
-   while guessing wrong on embeddings retires a working chat model everywhere.
+   nothing is never auto-retired. A refusal on chat counts unless the entry
+   positively describes something a chat completion cannot be about: an image,
+   video, audio, embedding or rerank output, or an input that admits no text
+   (a speech-to-text model produces text like any chat model and gives itself
+   away on the input side). Chat is what most models are and where most refusals
+   arrive, so requiring a declared modality there would switch traffic-driven
+   retirement off for every uncatalogued model at once, while guessing wrong on
+   embeddings retires a working chat model everywhere.
 
    A success clears the surface it arrived on and only that one, for the same
    reason the counts are separate: a provider can retire a model's chat surface

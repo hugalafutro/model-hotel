@@ -73,6 +73,16 @@ func waitForStreakCount(t *testing.T, h *Handler, id uuid.UUID, endpoint string,
 	t.Fatalf("the streak never settled at %d strikes", want)
 }
 
+// probeClaimAt reports when the model's streak will next admit a probe. The zero
+// time means no claim has been spent on this surface.
+func probeClaimAt(t *testing.T, h *Handler, id uuid.UUID, endpoint string) time.Time {
+	t.Helper()
+	streak := goneStreakFor(t, h, id, endpoint)
+	streak.mu.Lock()
+	defer streak.mu.Unlock()
+	return streak.nextProbeAt
+}
+
 // expireProbeCooldown ages the model's probe claim so the next refusal may spend
 // a probe, standing in for goneProbeCooldown having elapsed.
 //
@@ -1927,11 +1937,18 @@ func TestNoteModelGone_ExhaustedProbeSlotsPostponeWithoutAsking(t *testing.T) {
 	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold {
 		t.Fatalf("the strikes must survive so the retry is reachable, got a streak of %d", n)
 	}
+	// And the model's own claim was not spent on it. A refused slot costs
+	// nothing: no upstream request was made, so there is nothing for the
+	// five-minute cooldown to be bounding. Charging it anyway is what turned a
+	// provider-wide nomination event into four models per cooldown — the very
+	// burst the semaphore exists for, converging in hours instead of minutes.
+	if next := probeClaimAt(t, h, m.ID, probeChatEndpoint); !next.IsZero() {
+		t.Fatalf("a refused slot burnt the probe cooldown until %s", next)
+	}
 
-	// A slot frees up and the cooldown lapses: the retirement lands on the
-	// evidence that was already there.
+	// A slot frees up: the very next refusal probes, with no cooldown to wait
+	// out, and the retirement lands on the evidence that was already there.
 	<-full
-	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	calls := waitForDisable(t, repo)
@@ -1964,6 +1981,7 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 
 	cases := []struct {
 		name             string
+		inputModalities  string
 		outputModalities string
 		endpointType     string
 		endpoint         string
@@ -1971,27 +1989,47 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 	}{
 		// A chat model sent to the embeddings surface: the refusal is about the
 		// misuse, not about the model.
-		{"text model on embeddings", `["text"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"text model on embeddings", `["text"]`, `["text"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
 		// And the mirror image, which is just as wrong.
-		{"embedding model on chat", `["embedding"]`, endpointTypeChat, probeChatEndpoint, false},
+		{"embedding model on chat", `["text"]`, `["embedding"]`, endpointTypeChat, probeChatEndpoint, false},
+		// Every other non-chat class is the same mistake with a different noun,
+		// and all of them are reachable: nothing filters a request by modality on
+		// the way in, and a provider that answers "Model 'flux-1.1-pro' is not
+		// supported for chat completions" has named the model beside a
+		// gone-phrase.
+		{"image model on chat", `["text"]`, `["image"]`, endpointTypeChat, probeChatEndpoint, false},
+		{"video model on chat", `["text"]`, `["video"]`, endpointTypeChat, probeChatEndpoint, false},
+		{"tts model on chat", `["text"]`, `["audio"]`, endpointTypeChat, probeChatEndpoint, false},
+		{"rerank model on chat", `["text"]`, `["rerank"]`, endpointTypeChat, probeChatEndpoint, false},
+		// Speech-to-text produces text like any chat model and gives itself away
+		// on the input side, which is why both arrays are read.
+		{"stt model on chat", `["audio"]`, `["text"]`, endpointTypeChat, probeChatEndpoint, false},
 		// The same refusals on the surfaces the models are for.
-		{"text model on chat", `["text"]`, endpointTypeChat, probeChatEndpoint, true},
-		{"embedding model on embeddings", `["embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		{"text model on chat", `["text"]`, `["text"]`, endpointTypeChat, probeChatEndpoint, true},
+		{"embedding model on embeddings", `["text"]`, `["embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		// A chat model that also emits images is a chat model; the text admits
+		// it, and so does a vision model's image INPUT.
+		{"image-emitting chat model", `["text"]`, `["text","image"]`, endpointTypeChat, probeChatEndpoint, true},
+		{"vision chat model", `["text","image"]`, `["text"]`, endpointTypeChat, probeChatEndpoint, true},
+		{"code model on chat", `["text"]`, `["code"]`, endpointTypeChat, probeChatEndpoint, true},
 		// A model that produces both is not evidence against either surface.
-		{"multimodal on chat", `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, true},
-		{"multimodal on embeddings", `["text","embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		{"multimodal on chat", `["text"]`, `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, true},
+		{"multimodal on embeddings", `["text"]`, `["text","embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
 		// The two surfaces answer to different burdens of proof when the catalog
 		// says nothing, and this is where that shows. liveModelStub writes "[]"
 		// for every model no catalog covers, so failing open on embeddings would
 		// leave the whole misuse case reachable for exactly those rows; failing
 		// closed on chat would switch traffic-driven retirement off for them
 		// altogether.
-		{"unknown modality on embeddings", "", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
-		{"empty modality on embeddings", "[]", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
-		{"unparseable modality on embeddings", `{"not":"a list"}`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
-		{"unknown modality on chat", "", endpointTypeChat, probeChatEndpoint, true},
-		{"empty modality on chat", "[]", endpointTypeChat, probeChatEndpoint, true},
-		{"unparseable modality on chat", `{"not":"a list"}`, endpointTypeChat, probeChatEndpoint, true},
+		{"unknown modality on embeddings", "", "", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"empty modality on embeddings", "[]", "[]", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"unparseable modality on embeddings", `{"not":"a list"}`, `{"not":"a list"}`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"unknown modality on chat", "", "", endpointTypeChat, probeChatEndpoint, true},
+		{"empty modality on chat", "[]", "[]", endpointTypeChat, probeChatEndpoint, true},
+		{"unparseable modality on chat", `{"not":"a list"}`, `{"not":"a list"}`, endpointTypeChat, probeChatEndpoint, true},
+		// A declared output with an undeclared input is still admitted: an
+		// unreadable array is not evidence, and only evidence rules a surface out.
+		{"text out, unknown in, on chat", "", `["text"]`, endpointTypeChat, probeChatEndpoint, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1999,7 +2037,7 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 
 			repo := &mockModelRepo{}
 			h := newGoneHandler(t, repo)
-			m := &model.Model{ID: uuid.New(), ModelID: "gpt-4o", OutputModalities: tc.outputModalities}
+			m := &model.Model{ID: uuid.New(), ModelID: "gpt-4o", InputModalities: tc.inputModalities, OutputModalities: tc.outputModalities}
 			cand := goneCandidateFor(t, m, "OpenAI")
 
 			h.noteModelGone(cand, tc.endpointType)

@@ -176,25 +176,56 @@ type goneStreakKey struct {
 // invert. Chat is what most models are and what most refusals arrive on, so
 // demanding a declared modality would switch traffic-driven retirement off for
 // every uncatalogued model at once — silently, and precisely where it does the
-// most work. Only a positively embedding-ONLY model rules the chat surface out.
+// most work. So a silent catalog is allowed to strike on chat, and a catalog
+// that positively describes something a chat completion cannot be about is not.
 //
-// Reading output modalities rather than input: discovery classifies an
-// embeddings model by what it PRODUCES (["embedding"]), which is the only field
-// that separates it from a chat model taking the same text input.
+// "Something a chat completion cannot be about" is read from both arrays,
+// because either one can settle it and neither can on its own. An image model
+// declares output ["image"] and a TTS model ["audio"]; a speech-to-text model
+// declares output ["text"] like any chat model and gives itself away on the
+// INPUT side with ["audio"]. All four are reachable: nothing filters a request
+// by modality on the way in, so POST /v1/chat/completions naming flux-1.1-pro is
+// forwarded, and a provider answering "Model 'flux-1.1-pro' is not supported for
+// chat completions" has named the model beside a gone-phrase. Three of those and
+// the probe re-sends the same misuse, draws the same refusal, and retires a
+// working image model on every surface including the one it serves.
+//
+// Text and code are the whole allow-list, and it is deliberately not the
+// vocabulary of things a chat completion can CARRY. A chat model that also emits
+// images declares ["text","image"] and is admitted by the text; a model that
+// declares image alone is an images-endpoint model whatever it can be coaxed
+// into. See canonicalModalityRank in internal/provider for the full vocabulary
+// these are drawn from.
 func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
-	var out []string
-	if m.OutputModalities != "" && m.OutputModalities != "[]" {
-		if json.Unmarshal([]byte(m.OutputModalities), &out) != nil {
-			out = nil
-		}
-	}
-	embeds := slices.Contains(out, "embedding")
+	out := declaredModalities(m.OutputModalities)
 	if probeEndpoint == probeEmbeddingsEndpoint {
-		return !embeds
+		// Positive evidence, so an undeclared list rules the surface out.
+		return !slices.Contains(out, "embedding")
 	}
-	// A model that produces embeddings alongside text says nothing against the
-	// chat surface; only an embedding-only one does.
-	return embeds && len(out) == 1
+	return !admitsChatModalities(out) || !admitsChatModalities(declaredModalities(m.InputModalities))
+}
+
+// declaredModalities parses one of the model's modality columns, returning nil
+// for anything it cannot read as a list. Callers treat nil as "the catalog says
+// nothing", which is not the same as "the catalog says no".
+func declaredModalities(raw string) []string {
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	var list []string
+	if json.Unmarshal([]byte(raw), &list) != nil {
+		return nil
+	}
+	return list
+}
+
+// admitsChatModalities reports whether a declared modality list leaves room for
+// a chat completion. An empty list does: nothing declared is not evidence.
+func admitsChatModalities(list []string) bool {
+	if len(list) == 0 {
+		return true
+	}
+	return slices.Contains(list, "text") || slices.Contains(list, "code")
 }
 
 // goneStreak is one model's consecutive-refusal count plus a tombstone for the
@@ -536,7 +567,31 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// strike it again, and a straggler that arrives past the cooldown finds
 	// AutoRetireIfConfirmed refusing to write over an already-retired row, which
 	// reports as an uncommitted attempt and publishes no second alert.
+	// The provider's slot is taken BEFORE the model's claim, and the order is the
+	// whole point. Both are non-blocking, but only one of them is spent: the
+	// claim stamps a five-minute cooldown on the model, while a refused slot
+	// costs nothing at all.
+	//
+	// Taking the claim first meant a model that lost the race for a slot had
+	// already burnt its cooldown for zero upstream work — and that is exactly the
+	// event goneProbeMaxConcurrent exists for. A provider incident nominating two
+	// hundred models adjudicates four of them and pushes every other one out a
+	// full cooldown, so a batch that should converge in the time it takes the
+	// four slots to turn over (a probe is ≤30s) instead converges at four models
+	// per five minutes. Hours rather than minutes, with the gateway idle in
+	// between.
+	//
+	// This way the refused caller leaves the streak untouched and the next
+	// refusal tries again immediately, which is safe because the semaphore is
+	// itself the rate bound in that window: no upstream request can be spent
+	// without a slot, whatever the retry rate.
+	release, ok := h.acquireProbeSlot(candidate.provider.ID)
+	if !ok {
+		debuglog.Info("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent)
+		return
+	}
 	if !streak.claimProbe(now) {
+		release()
 		return
 	}
 
@@ -546,6 +601,12 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	modelID, modelName, provider := m.ID, m.ModelID, candidate.provider.Name
 
 	go func() {
+		// The slot belongs to the upstream request, not to the whole retirement.
+		// It is released explicitly the moment the probe returns, below; this is
+		// the net for the paths that never get there — the cancelled check, and
+		// a panic. release is idempotent, so both firing is fine.
+		defer release()
+
 		// Every other detached goroutine in this package recovers
 		// (touchProviderLastUsed, the log writer, the usage recorder) and this
 		// one now has far more reason to. It used to call repository methods and
@@ -584,11 +645,17 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// on an answer already in hand. Before, because the whole point is that
 		// the write is not made on the classifier's reading alone.
 		//
-		// The deadline and the concurrency cap live in probeForRetirement, which
-		// is still this file rather than probeModel: the production budget stays
-		// with the decision that owns it, and probeModel stays a helper that
-		// issues one request and reports what came back.
+		// The deadline lives in probeForRetirement, which is still this file
+		// rather than probeModel: the production budget stays with the decision
+		// that owns it, and probeModel stays a helper that issues one request and
+		// reports what came back.
 		verdict := h.probeForRetirement(candidate, endpointType)
+		// The upstream request is over, so the provider's slot goes back now
+		// rather than at the end of the write. Holding it across
+		// AutoRetireIfConfirmed and the revalidation would tie a cap on
+		// CONNECTIONS to how fast the database is, and halve what four slots can
+		// adjudicate during exactly the provider event they exist for.
+		release()
 
 		switch verdict {
 		case probeServed:
@@ -828,23 +895,18 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	}()
 }
 
-// probeForRetirement runs the pre-retirement probe under the per-provider
-// concurrency cap and the production deadline, and reports what it found.
+// probeForRetirement runs the pre-retirement probe under the production
+// deadline and reports what it found.
 //
-// It is a separate function because two budgets belong here and neither belongs
-// inside probeModel: the deadline, so the number the operator's cost depends on
-// stays beside the decision that spends it rather than buried in a helper (and
-// so a test can drive the real probe with a deadline measured in milliseconds),
-// and the semaphore, which is about how many retirements may be adjudicated at
-// once and says nothing about how one request is made.
+// It is a separate function because the deadline belongs here and not inside
+// probeModel: the number the operator's cost depends on stays beside the
+// decision that spends it rather than buried in a helper, and a test can still
+// drive the real probe with a deadline measured in milliseconds.
 //
-// A slot that is not free returns probeInconclusive, which is the honest answer
-// and not a fallback: no request was sent, so nothing was established, and the
-// caller's postpone branch is exactly the right handling. The acquire does not
-// block. The streak's nextProbeAt was stamped before this goroutine was
-// spawned, so the model is already scheduled to be re-probed after the cooldown
-// — waiting here would hold a goroutine open to arrive at the same answer
-// later, during the same burst that made slots scarce.
+// The per-provider slot is NOT taken here. It is taken by the caller before the
+// model's claim is spent, because a refused slot must cost nothing — see
+// noteModelGone for what taking them in the other order did to a provider-wide
+// nomination event.
 //
 // The deadline is generous. A cold model can take tens of seconds to answer,
 // and a probe that times out on a slow but living model postpones the
@@ -852,9 +914,8 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 // wasted call. Nothing on the request path is waiting on any of it.
 func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType string) probeVerdict {
 	// Before anything is dereferenced, and that is the point of it being here.
-	// probeModel makes the same check, but every field this function touches on
-	// the way there — the provider's id for the semaphore, the model's id for
-	// the log line — would already have panicked, so the guard downstream was
+	// probeModel makes the same check, but the fields this function touches on
+	// the way there would already have panicked, so the guard downstream was
 	// promising a postponement it could never deliver. A panic here is caught by
 	// the disable goroutine's recover and reported as a panic, which is the
 	// wrong answer to "is this model still served": nothing was established, and
@@ -863,13 +924,6 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 		return probeInconclusive
 	}
 
-	release, ok := h.acquireProbeSlot(candidate.provider.ID)
-	if !ok {
-		debuglog.Info("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", candidate.model.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent, "retry_after", goneProbeCooldown.String())
-		return probeInconclusive
-	}
-	defer release()
-
 	pctx, pcancel := context.WithTimeout(context.Background(), goneProbeTimeout)
 	defer pcancel()
 	return h.probeModel(pctx, candidate, endpointType)
@@ -877,6 +931,13 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 
 // acquireProbeSlot takes one of the provider's goneProbeMaxConcurrent probe
 // slots without waiting, returning the release for it.
+//
+// The release is idempotent, because the caller has two of them: an explicit one
+// the moment the upstream request is done, so the slot is not held across a
+// database write, and a deferred one covering the paths that never reach it.
+// Without sync.OnceFunc the second call would drain a slot belonging to somebody
+// else's probe, which is the kind of bug that only shows up under the burst the
+// semaphore exists for.
 //
 // Load is tried first and LoadOrStore only on a miss, so the common case — a
 // provider whose semaphore already exists, which is every probe after the
@@ -910,7 +971,7 @@ func (h *Handler) acquireProbeSlot(providerID uuid.UUID) (release func(), ok boo
 	}
 	select {
 	case sem <- struct{}{}:
-		return func() { <-sem }, true
+		return sync.OnceFunc(func() { <-sem }), true
 	default:
 		return nil, false
 	}
