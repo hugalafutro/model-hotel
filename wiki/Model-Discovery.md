@@ -1123,7 +1123,9 @@ Two consequences worth knowing about before you upgrade:
   metrics join cleanly. They part company on requests routed through a failover
   group, which `modelhotel_requests_total` labels `hotel/<group>` while this
   counter uses the real model id, so a join covers direct traffic and silently
-  drops the group-routed kind.
+  drops the group-routed kind. (Validation failures are labelled `unresolved`
+  there and are the other place the two label spaces differ, but they never
+  reached a provider, so there is no probe for them to have joined to.)
 - **Some endpoint families are never auto-retired from traffic.** Only chat,
   messages and embeddings models can be verified cheaply and safely. Image, TTS,
   STT and rerank models are never auto-retired at all, because a chat probe
