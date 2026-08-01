@@ -1605,6 +1605,67 @@ func TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking(t *testing.T
 	}
 }
 
+// TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim pins the read that lets the
+// cheap per-model reason to stop be checked before the shared per-provider one.
+//
+// It has to agree with claimProbe and it has to take nothing. If it stamped, a
+// refusal that only asked whether a probe was possible would extend the cooldown
+// it was asking about; if it disagreed, a model would either be denied a probe
+// it had earned or reach the semaphore on every refusal, which is what put the
+// per-provider slots in the path of traffic that was never going to spend one.
+func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
+	t.Parallel()
+
+	s := &goneStreak{}
+	now := time.Now()
+
+	if !s.canClaimProbe(now) {
+		t.Fatal("a streak that has never been probed must admit a claim")
+	}
+	if !s.canClaimProbe(now) {
+		t.Fatal("asking twice was refused, so the read spent the claim it was asking about")
+	}
+	if !s.claimProbe(now) {
+		t.Fatal("the real claim must still be available after the read")
+	}
+
+	// And now both must see the cooldown.
+	if s.canClaimProbe(now) {
+		t.Fatal("the read did not see the claim that was just taken")
+	}
+	if s.claimProbe(now) {
+		t.Fatal("claimProbe granted a second claim inside the cooldown")
+	}
+
+	// They agree on the far side of it too.
+	lapsed := now.Add(goneProbeCooldown)
+	if !s.canClaimProbe(lapsed) {
+		t.Fatal("the read must admit a claim once the cooldown has lapsed")
+	}
+	if !s.claimProbe(lapsed) {
+		t.Fatal("claimProbe must grant one once the cooldown has lapsed")
+	}
+}
+
+// TestNoteStreamOutcome_NilLogDataIsIgnored pins a guard that has to live at the
+// dereference. streamProducedOutput checks for nil as well, but noteStreamOutcome
+// builds its arguments from logData in the same expression that calls it, and Go
+// evaluates all of them first — so on this path the helper's check could never
+// run and a nil would panic before reaching it.
+func TestNoteStreamOutcome_NilLogDataIsIgnored(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	h.noteStreamOutcome(nil, goneCandidateFor(t, m, "Google AI Studio (Gemini)"))
+
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("a stream with no log entry establishes nothing, got %+v", calls)
+	}
+}
+
 // TestGoneStreak_SupersedeReportsWhetherItChangedAnything pins the report the
 // log line depends on.
 //

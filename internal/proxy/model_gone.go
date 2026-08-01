@@ -334,6 +334,25 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 	return true
 }
 
+// canClaimProbe answers the same question as claimProbe without taking anything.
+//
+// It is not a substitute for the claim and cannot be: two callers can both read
+// true and only one of them may proceed, which is what claimProbe's single
+// critical section decides. It exists so the cheap, per-model reason to stop can
+// be checked before the shared, per-provider one — a refusal inside its cooldown
+// then never touches the semaphore at all.
+//
+// That ordering is what keeps the semaphore counting adjudications rather than
+// refusals. Without it, a retry storm across models that are all inside their
+// cooldowns can hold all four slots for the microseconds each take-and-release
+// costs, and the one model whose cooldown HAS expired is denied a genuine probe
+// by traffic that was never going to spend one.
+func (s *goneStreak) canClaimProbe(now time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.nextProbeAt.IsZero() || !now.Before(s.nextProbeAt)
+}
+
 // park clears the evidence a streak has accumulated and keeps the probe
 // cooldown it has earned. It is what "clear the streak" means everywhere in
 // this file; nothing removes the entry.
@@ -585,12 +604,33 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// refusal tries again immediately, which is safe because the semaphore is
 	// itself the rate bound in that window: no upstream request can be spent
 	// without a slot, whatever the retry rate.
+	//
+	// The cooldown is still read FIRST, without taking anything, so a refusal
+	// that could not have probed anyway never reaches the semaphore. Otherwise
+	// the shared, per-provider resource ends up counting refusals rather than
+	// adjudications: a retry storm across models that are all inside their
+	// cooldowns can hold the four slots for the moment each take-and-release
+	// costs, and deny them to the one model whose cooldown has actually expired.
+	// The read cannot replace the claim — two callers can both see true and only
+	// one may proceed — which is why claimProbe still decides below.
+	if !streak.canClaimProbe(now) {
+		return
+	}
 	release, ok := h.acquireProbeSlot(candidate.provider.ID)
 	if !ok {
-		debuglog.Info("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent)
+		// Debug, for the same reason the family gate above is: nothing throttles
+		// this line. Since the slot is taken before the claim is spent, every
+		// refusal past the cooldown reaches it, and the case it reports is a
+		// provider-wide nomination event under a client's retry loop — thousands
+		// of lines a second describing a condition an operator can already see in
+		// the probes that ARE going out. The postponement itself costs nothing
+		// and is retried by the next refusal.
+		debuglog.Debug("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent)
 		return
 	}
 	if !streak.claimProbe(now) {
+		// Another refusal won the claim between the read above and here. It owns
+		// the probe; this one gives the slot back and drops out.
 		release()
 		return
 	}
@@ -1054,6 +1094,15 @@ func streamProducedOutput(logData *requestLogData) bool {
 // the hedged path previously returned without recording any verdict at all, so
 // a model retired mid-stream stayed routable whenever hedging was enabled.
 func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCandidate) {
+	// The guard belongs here, not in streamProducedOutput. That function checks
+	// for nil too and is tested for it, but this expression dereferences logData
+	// to build its arguments, and Go evaluates all of them before the call — so
+	// on this path the helper's guard could never run and a nil would panic
+	// before reaching it. Same shape as probeForRetirement's: a check downstream
+	// of the dereference promises something it cannot deliver.
+	if logData == nil {
+		return
+	}
 	switch verdictForStream(logData.errorKind, logData.upstreamKind, streamProducedOutput(logData)) {
 	case verdictGone:
 		// The endpoint family comes off the log entry rather than being assumed:
