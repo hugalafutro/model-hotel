@@ -1118,10 +1118,12 @@ Two consequences worth knowing about before you upgrade:
   retirements: the write that follows can still be called off by a late success
   or refused by the database, so count retirements with the
   `model.auto_disabled_gone` event instead. And `model` here is the provider-side
-  model id, whereas `modelhotel_requests_total` carries the name the client
-  asked for, so a model routed through a failover group appears as
-  `hotel/<group>` in one and under its real id in the other. The two do not join
-  on `model`.
+  model id, whereas `modelhotel_requests_total` carries the name the client asked
+  for. For ordinary `provider/model` traffic those are the same string and the two
+  metrics join cleanly. They part company on requests routed through a failover
+  group, which `modelhotel_requests_total` labels `hotel/<group>` while this
+  counter uses the real model id, so a join covers direct traffic and silently
+  drops the group-routed kind.
 - **Some endpoint families are never auto-retired from traffic.** Only chat,
   messages and embeddings models can be verified cheaply and safely. Image, TTS,
   STT and rerank models are never auto-retired at all, because a chat probe

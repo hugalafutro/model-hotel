@@ -132,12 +132,14 @@ func RecordResponsesReroute(provider, model, mode string) {
 // only a model drawing repeated gone-classified refusals is ever nominated. The
 // bound is the catalog, and in practice a small fraction of it.
 //
-// The model label is the PROVIDER-SIDE id, which is not the label space
-// requestsTotal uses: that one carries the name the client asked for, so a model
-// reached through a failover group is counted there as "hotel/<group>" (and a
-// validation failure as "unresolved") while it appears here under its real id.
-// The two counters therefore do not join on model, which is worth knowing before
-// writing a PromQL query that expects them to.
+// The model label is the PROVIDER-SIDE id, while requestsTotal carries the name
+// the CLIENT asked for. For direct "provider/model" traffic those are the same
+// string — resolution matched the model row on that exact id, and the request
+// log keeps the post-slash part — so the two counters join. They diverge on
+// exactly two shapes: a request routed through a failover group is "hotel/<group>"
+// on requestsTotal and the real id here, and a validation failure is collapsed
+// there to "unresolved". A PromQL join is therefore sound but silently
+// incomplete, missing precisely the group-routed traffic.
 //
 // Counting VERDICTS rather than retirements is deliberate. A retirement is
 // visible in the model row and in the model.auto_disabled_gone event; what

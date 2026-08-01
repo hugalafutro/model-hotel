@@ -946,6 +946,13 @@ func TestProbeForRetirement_UnprobeableCandidateRecordsNothing(t *testing.T) {
 	// Scoped to this metric's own lines. Other counters run their empty labels
 	// through the same labelOrUnknown fallback, so an unqualified search for
 	// provider="unknown" would answer for the whole exposition.
+	//
+	// Still a claim about the whole PROCESS, not just this call: the registry is
+	// shared, so a future test that probes with a blank provider name would fail
+	// HERE rather than where it was written (and, being parallel, would do so
+	// only when it happened to record before this scrape). Nothing in the package
+	// does that today. If one ever needs to, give it its own registry rather than
+	// loosening this.
 	for _, line := range strings.Split(scrapeMetrics(t), "\n") {
 		if !strings.HasPrefix(line, "modelhotel_retirement_probes_total{") {
 			continue

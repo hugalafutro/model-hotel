@@ -958,7 +958,9 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 	// build, a missing transport, or the circuit opening in the window after
 	// noteModelGone's own check. Those are rarer than the network cases and
 	// indistinguishable from them here, which is why neither this metric nor the
-	// wiki describes inconclusive as a spend figure.
+	// wiki describes inconclusive as a spend figure. It is inexact in the other
+	// direction too: a panic inside probeModel is caught by the goroutine's
+	// recover, so a request that WAS sent can end up counted as nothing at all.
 	metrics.RecordRetirementProbe(candidate.provider.Name, candidate.model.ModelID, verdict.String())
 	return verdict
 }
