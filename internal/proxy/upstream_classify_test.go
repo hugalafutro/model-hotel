@@ -671,3 +671,357 @@ func runClassifyCases(t *testing.T, tests []struct {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_StructuredRetirementSignals covers the payload shape
+// that prose matching cannot reach at all: the retirement is a JSON field, and
+// the model id is in a different one.
+//
+// The captured body is from issue #595 — OpenCode Zen forwarding Anthropic's own
+// error verbatim for claude-sonnet-4, a model Zen lists and refuses. It accrued
+// no strike and was never retired, because modelGoneAbout requires the id
+// adjacent to a verb with no clause break between them, and here the two are
+// separated by the comma between two JSON fields.
+//
+// The negatives are the point of this test rather than the positives. Each of
+// them is a body that says something is missing, or names a model, or both, and
+// none of them is this model being retired.
+func TestClassifyUpstreamError_StructuredRetirementSignals(t *testing.T) {
+	t.Parallel()
+
+	// The exact body captured on dev, whitespace and all.
+	zenBody := `{"type":"error","error":{"type":"not_found_error",` +
+		`"message":"Error from provider (Anthropic): model: claude-sonnet-4-20250514"},` +
+		`"request_id":"req_011CdaLiCduCzdJHbasS6cWF"}`
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "the captured Zen body, asked for by its alias",
+			body:      zenBody,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "the same body, asked for by the snapshot it names",
+			body:      zenBody,
+			requested: "claude-sonnet-4-20250514",
+			want:      KindProviderModelGone,
+		},
+		{
+			// A model-scoped code names its own subject, so no identity check
+			// applies and none is wanted.
+			name:      "a model-scoped code needs no prose",
+			body:      `{"error":{"code":"model_not_found","message":"no such model"}}`,
+			requested: "hy3-preview",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "a model-scoped code at the top level",
+			body:      `{"code":"model_not_supported","message":"unavailable"}`,
+			requested: "hy3-preview",
+			want:      KindProviderModelGone,
+		},
+
+		// --- negatives: something is missing, but not this model ---
+		{
+			// The whole reason not_found_error needs identity: it is used for
+			// any absent entity.
+			name:      "a not-found type naming a different model",
+			body:      `{"error":{"type":"not_found_error","message":"model: some-other-model-20250101"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "a not-found type about something that is not a model",
+			body:      `{"error":{"type":"not_found_error","message":"conversation conv_0192 not found"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// The model is named, but in the request echo rather than in the
+			// error. Matching anywhere in the body would retire it.
+			name:      "a not-found type with the model named only outside the error",
+			body:      `{"model":"claude-sonnet-4","error":{"type":"not_found_error","message":"file file_01 not found"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// The same hole through a different door: the error object supplies
+			// the type and says nothing else, and a top-level message mentions
+			// the model. Reading a field from each level pairs two unrelated
+			// statements, and the identity check meant to bound the type then
+			// answers about the wrong text.
+			name:      "a not-found type paired with a top-level message",
+			body:      `{"message":"please retry claude-sonnet-4 later","error":{"type":"not_found_error"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// And the truncated form of it, which takes the scan rather than
+			// the parse.
+			name:      "a truncated not-found type paired with a top-level message",
+			body:      `{"message":"claude-sonnet-4 was requested","error":{"type":"not_found_error"`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// A provider that reports at the top level still works, because
+			// then the error object said nothing to prefer.
+			name:      "a top-level not-found type naming the model",
+			body:      `{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "an invalid-request type naming the model",
+			body:      `{"error":{"type":"invalid_request_error","message":"model: claude-sonnet-4-20250514 rejected"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "a server-error type naming the model",
+			body:      `{"error":{"type":"server_error","message":"model: claude-sonnet-4-20250514 failed"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// Providers invent codes. An unknown model-ish one is a transient
+			// fault about a model that plainly still exists.
+			name:      "an unknown model-ish code is not an allowlisted one",
+			body:      `{"error":{"code":"model_overloaded","message":"try again"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// SanitizeLogBody truncates at 10 000 bytes and will cut JSON
+			// mid-structure. The parse must degrade to "no structured signal"
+			// rather than matching on a fragment.
+			name:      "a truncated body carrying the words but no parseable structure",
+			body:      `{"error":{"type":"not_found_erro`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, _ := classifyUpstreamError(404, tc.body, tc.requested)
+			if got != tc.want {
+				t.Errorf("classifyUpstreamError(404, %q, %q) = %q, want %q", tc.body, tc.requested, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies pins the
+// fallback the parse degrades to when SanitizeLogBody has cut the document.
+//
+// A truncated body is the normal case for a large error, not an exotic one, and
+// the signal is usually near the front while the truncation is at the end. The
+// key scan is looser than the parse, which is why what it finds only counts
+// against an allowlisted code or beside the model's own id.
+//
+// The fixture is the REAL captured body, envelope and all, because the envelope
+// is what makes this hard: `{"type":"error","error":{"type":"not_found_error"`
+// puts a decoy in front of the signal, and a scan of the whole document reads
+// the outer one and finds "error", which retires nothing. An earlier version of
+// this test dropped the outer field and passed against a scan that could not
+// handle the payload it was written for.
+func TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "the captured body, cut mid-tail",
+			body: `{"type":"error","error":{"type":"not_found_error",` +
+				`"message":"error from provider (anthropic): model: claude-sonnet-4-20250514"},"request_id":"req_011Cda`,
+		},
+		{
+			name: "an error object with no envelope around it",
+			body: `{"error":{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"usage":{"input_tok`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, "claude-sonnet-4"); got != KindProviderModelGone {
+				t.Errorf("kind = %q, want %q: the signal was in the part that survived truncation", got, KindProviderModelGone)
+			}
+		})
+	}
+}
+
+// TestScanStructuredError_ReadsOneObject pins the invariant structuredError
+// exists to carry: the three fields come from ONE object.
+//
+// It has been broken three ways while this was written — a message read from
+// anywhere in the body, then from another level of the same document, then from
+// a SIBLING of the right object — and each time the identity check that bounds a
+// generic not-found type ended up reading text no provider had attached to it.
+// These are the sibling cases, which only the scan can reach: the parse rejects
+// them by construction, and the scan is what runs on a truncated body, which is
+// the normal case for a large error.
+func TestScanStructuredError_ReadsOneObject(t *testing.T) {
+	t.Parallel()
+
+	runClassifyCases(t, []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "a sibling object's message is not this error's",
+			body:      `{"error":{"type":"not_found_error"},"hint":{"message":"try claude-sonnet-4 instead"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "nor is a later echo of the request",
+			body:      `{"error":{"type":"not_found_error"},"request":{"message":"claude-sonnet-4 hello"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// The object closes, so the walker stops there even though the id
+			// appears afterwards.
+			name:      "a closed error object does not reach past its brace",
+			body:      `{"error":{"type":"not_found_error","message":"nothing \"here\""},"z":{"message":"claude-sonnet-4-20250514"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// An object nested INSIDE the error object must not end the region
+			// early, or the fields after it are lost.
+			name:      "a nested object does not end the region",
+			body:      `{"error":{"details":{"foo":"bar"},"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"x":1`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			// A brace inside a message is text, not structure. A CLOSING one is
+			// what proves it: counted as structure it ends the region mid-value,
+			// the message loses its closing quote, and the field reader finds
+			// nothing. An opening brace would not show this, since the region
+			// merely runs long and the right message is still the first one in
+			// it.
+			name:      "a closing brace inside a message is not a delimiter",
+			body:      `{"error":{"type":"not_found_error","message":"unexpected } in model claude-sonnet-4-20250514"},"y":{"message":"nope"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			// Providers quote the model name inside a message that is itself
+			// JSON, so a field reader that stopped at the first quote lost the
+			// id it was looking for.
+			name:      "escaped quotes around the id still name it",
+			body:      `{"error":{"type":"not_found_error","message":"model \"claude-sonnet-4-20250514\" not found"},"z":{"message":"nope"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+	})
+}
+
+// TestClassifyUpstreamError_ProseNamingADatedSnapshot pins that the alias rule
+// reaches the prose path too.
+//
+// A provider that resolves the alias and says so in a sentence is making the
+// same claim as one that says so in a JSON field, and identity is the thing that
+// was failing in both. Handling only the structured half would have left the
+// other silently unfixed, which is the shape of the bug this whole change came
+// from.
+//
+// The negatives are the ones that matter: extending an occurrence over a dated
+// tail must not extend it over anything else.
+func TestClassifyUpstreamError_ProseNamingADatedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	runClassifyCases(t, []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "prose naming a dated snapshot of the requested alias",
+			body:      "the model `gpt-4-0613` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "prose naming a segmented-date snapshot",
+			body:      "model gpt-4-turbo-2024-04-09 is no longer available",
+			requested: "gpt-4-turbo",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "prose naming a sibling family member is still not us",
+			body:      "the model `gpt-4.1` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "prose naming a named variant is still not us",
+			body:      "the model `gemini-3-flash-lite` does not exist",
+			requested: "gemini-3-flash",
+			want:      KindProviderError,
+		},
+		{
+			name:      "prose naming a size variant is still not us",
+			body:      "the model `gpt-4-32k` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+	})
+}
+
+// TestVersionSuffixIdentity is the table from the plan, and the negatives in it
+// are the regression that five rounds of review produced.
+//
+// Widening identity is the dangerous half of this change: every one of those
+// rounds was about a false retirement, and the whole-identifier rule is what
+// stops an error about gpt-4.1 from disabling gpt-4. The suffix rule is additive
+// to that rule rather than a relaxation of it, and any doubt resolves toward
+// rejecting.
+func TestVersionSuffixIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		requested string
+		body      string
+		want      bool
+	}{
+		{"dated snapshot", "claude-sonnet-4", "model: claude-sonnet-4-20250514", true},
+		{"short dated snapshot", "gpt-4", "model: gpt-4-0613", true},
+		{"segmented date", "gpt-4-turbo", "model: gpt-4-turbo-2024-04-09", true},
+		{"exact id", "gpt-4", "model: gpt-4", true},
+		{"id at the very end", "gpt-4", "gpt-4", true},
+
+		{"a sibling family member is not an alias", "gpt-4", "model: gpt-4.1", false},
+		{"a named variant is not a date", "gemini-3-flash", "model: gemini-3-flash-lite", false},
+		{"a size suffix is not a date", "gpt-4", "model: gpt-4-32k", false},
+		{"too few digits to be a date", "llama-3", "model: llama-3-70", false},
+		{"a shorter id is never an alias of a longer one", "gpt-4.1", "model: gpt-4", false},
+		{"a variant of a snapshot is not the model", "gpt-4", "model: gpt-4-0613-preview", false},
+		{"a longer id that merely starts the same", "gpt-4", "model: gpt-4o", false},
+		{"the id inside a longer word", "gpt-4", "not-gpt-4", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := namesModelAllowingVersion(tc.body, tc.requested); got != tc.want {
+				t.Errorf("namesModelAllowingVersion(%q, %q) = %v, want %v", tc.body, tc.requested, got, tc.want)
+			}
+		})
+	}
+}

@@ -1010,13 +1010,24 @@ request before anything is written.
 
 How a retirement is reached:
 
-1. **Nomination.** A request that the provider refuses with retirement-shaped
-   prose counts one strike against that model. Three strikes nominate it, with no
-   successful request in between and no more than 30 minutes between one strike
-   and the next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes
-   are one streak of three, while a model refused once an hour never accumulates
-   one. Strikes are in-memory and per gateway instance: they are not persisted,
-   and each HA member reaches its own conclusion from its own traffic.
+1. **Nomination.** A request the provider refuses as a retirement counts one
+   strike against that model. Three strikes nominate it, with no successful
+   request in between and no more than 30 minutes between one strike and the
+   next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes are one
+   streak of three, while a model refused once an hour never accumulates one.
+   Strikes are in-memory and per gateway instance: they are not persisted, and
+   each HA member reaches its own conclusion from its own traffic.
+
+   A refusal is read two ways. In prose, the model's own id has to sit beside the
+   phrase that retires it, with no clause break between them, and a phrase that
+   only refuses one capability ("not supported for this endpoint") does not
+   count. In fields, a model-scoped error code (`model_not_found`,
+   `model_not_supported`) is a retirement on its own because it names its own
+   subject, and a generic `not_found_error` counts only when the error's message
+   also names the model. That name may be a dated snapshot, since providers
+   resolve an alias like `claude-sonnet-4` and answer about
+   `claude-sonnet-4-20250514`. Only dash-separated digit runs are accepted as
+   that kind of suffix, so `gpt-4.1` still cannot retire `gpt-4`.
 
    Strikes are counted per surface, and a refusal only counts on a surface the
    model is known to serve. Chat and embeddings keep separate counts, because the
