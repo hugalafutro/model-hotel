@@ -13,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -119,11 +120,12 @@ const goneProbeCooldown = 5 * time.Minute
 //
 // Four slots, following the argon2 semaphore in internal/user: enough that an
 // ordinary trickle of retirements never queues, small enough that the worst case
-// is a handful of extra connections. The acquire is non-blocking on purpose (see
-// probeForRetirement): a probe that cannot get a slot postpones rather than
-// waiting, because the streak's nextProbeAt is already stamped and the retry
-// arrives on its own after the cooldown. Blocking would hold goroutines and
-// slots for work whose whole justification is that it is not urgent.
+// is a handful of extra connections. The acquire is non-blocking on purpose: a
+// probe that cannot get a slot drops out rather than waiting, and costs nothing
+// on the way — the slot is taken before the model's claim is spent, so the next
+// refusal retries immediately (see noteModelGone). Blocking would hold
+// goroutines and slots for work whose whole justification is that it is not
+// urgent.
 const goneProbeMaxConcurrent = 4
 
 // goneWriteTimeout bounds each out-of-band write the auto-disable makes.
@@ -616,6 +618,32 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	if !streak.canClaimProbe(now) {
 		return
 	}
+
+	// And the breaker is read before the claim for the same reason the cooldown
+	// is: a claim must only ever be spent on a probe that can actually leave the
+	// process. probeModel asks this too, but it asks from inside the goroutine,
+	// by which point the five minutes are already gone — so a model whose third
+	// strike landed in the gap between the provider's last answer and its circuit
+	// opening bought nothing with them.
+	//
+	// The window is narrow rather than open-ended, and worth naming so the check
+	// is not read as more than it is: resolveCandidates skips providers whose
+	// circuit is open, so while it stays open nothing is routed to them, no
+	// refusal is classified and no strike is recorded. Only nominations already
+	// at the threshold when the circuit opened are affected, and each is delayed
+	// once.
+	//
+	// GetState rather than IsOpen, exactly as probeModel does: IsOpen is the
+	// routing gate and performs the Open->HalfOpen transition, which would spend
+	// the provider's one half-open trial slot on a request the operator never
+	// made. GetState derives the same logical state under a read lock and touches
+	// nothing. The check inside probeModel stays where it is — it is that
+	// function's own contract, and it is what any future caller gets.
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
+		debuglog.Debug("proxy: postponing auto-disable, the provider's circuit is open", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
+		return
+	}
+
 	release, ok := h.acquireProbeSlot(candidate.provider.ID)
 	if !ok {
 		// Debug, for the same reason the family gate above is: nothing throttles

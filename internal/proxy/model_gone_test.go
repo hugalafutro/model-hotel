@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -2022,6 +2023,63 @@ func TestNoteModelGone_ExhaustedProbeSlotsPostponeWithoutAsking(t *testing.T) {
 	if paths := waitForProbes(t, script, 1); len(paths) != 1 {
 		t.Errorf("expected exactly one probe, got %v", paths)
 	}
+}
+
+// TestNoteModelGone_AnOpenCircuitCostsNoClaim pins that the cooldown is only
+// spent on a probe that can actually leave the process.
+//
+// probeModel asks the breaker too, but it asks from inside the detached
+// goroutine — by which point the five minutes are gone. A model whose third
+// strike landed in the gap between its provider's last answer and its circuit
+// opening would buy nothing with them and wait out the full cooldown before it
+// could be adjudicated, once the provider came back.
+//
+// The strikes must survive either way: an open circuit says something about the
+// provider and nothing about the model.
+func TestNoteModelGone_AnOpenCircuitCostsNoClaim(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	h.circuitBreaker = failover.NewCircuitBreaker(nil)
+	m := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("claude-sonnet-4"))
+	cand := goneCandidateAt(m, "OpenCode Zen", srv.URL)
+
+	// Driven through the breaker's own API rather than by reaching into its
+	// state: this check has to agree with what the routing path sees, and the
+	// threshold is the breaker's to define.
+	for range h.circuitBreaker.Threshold {
+		h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name)
+	}
+	if state := h.circuitBreaker.GetState(cand.provider.ID); state != failover.StateOpen {
+		t.Fatalf("fixture: the circuit did not open, state = %v", state)
+	}
+
+	// The provider WOULD refuse this model, so a probe that went out would
+	// retire it.
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("nothing may be retired on a probe that was never sent, got %+v", calls)
+	}
+	if paths := script.requestedPaths(); len(paths) != 0 {
+		t.Fatalf("a sidelined provider must not be asked, got %v", paths)
+	}
+	if next := probeClaimAt(t, h, m.ID, probeChatEndpoint); !next.IsZero() {
+		t.Fatalf("the claim was spent on a probe that never left the process, cooldown until %s", next)
+	}
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold {
+		t.Fatalf("the strikes must survive: an open circuit is evidence about the provider, got %d", n)
+	}
+	// Between them, those two assertions are the whole property: the evidence is
+	// intact and nothing stands between it and the next refusal, so the
+	// retirement is adjudicated as soon as the provider is routable again rather
+	// than a cooldown later. The recovery itself is not driven here because the
+	// breaker only leaves the open state through its own cooldown, which is the
+	// breaker's business and not this path's.
 }
 
 // TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes pins the second gate.
