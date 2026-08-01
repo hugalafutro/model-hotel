@@ -1097,6 +1097,31 @@ Two consequences worth knowing about before you upgrade:
   that cannot be reached on the surface the probe asks, shows up as itself rather
   than as ordinary noise. Nothing is retired on the strength of it; the run ends
   as soon as the model answers.
+
+  Every finished probe is also counted, so the cost and the classifier's accuracy
+  can be watched without reading logs:
+
+  ```
+  modelhotel_retirement_probes_total{provider,model,verdict}
+  ```
+
+  `verdict` is `refused`, `served` or `inconclusive`. The interesting figure is
+  the ratio rather than any single series: a rising `served` count means the
+  classifier keeps nominating models that are alive, and a rising `inconclusive`
+  count means those nominations are not being settled, so the model keeps its
+  strikes and comes back every cooldown. Most inconclusive verdicts cost an
+  upstream request, but not all of them do (a request that cannot be built for
+  that provider, for instance, is counted without anything being sent), so read
+  the series as unanswered questions rather than as a spend figure.
+
+  Two things it does not say. `refused` counts verdicts, not completed
+  retirements: the write that follows can still be called off by a late success
+  or refused by the database, so count retirements with the
+  `model.auto_disabled_gone` event instead. And `model` here is the provider-side
+  model id, whereas `modelhotel_requests_total` carries the name the client
+  asked for, so a model routed through a failover group appears as
+  `hotel/<group>` in one and under its real id in the other. The two do not join
+  on `model`.
 - **Some endpoint families are never auto-retired from traffic.** Only chat,
   messages and embeddings models can be verified cheaply and safely. Image, TTS,
   STT and rerank models are never auto-retired at all, because a chat probe

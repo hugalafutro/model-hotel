@@ -109,6 +109,34 @@ func TestRecordResponsesReroute(t *testing.T) {
 	}
 }
 
+// TestRecordRetirementProbe verifies the pre-retirement probe counter keeps the
+// three verdicts as separate series, which is the whole point of the metric: the
+// operator question is the RATIO between them, so a refused that could not be
+// told from a served would answer nothing.
+func TestRecordRetirementProbe(t *testing.T) {
+	const prov = "test-prov-retirement"
+	RecordRetirementProbe(prov, "gemini-2.0-flash", "refused")
+	RecordRetirementProbe(prov, "gemini-2.0-flash", "inconclusive")
+	RecordRetirementProbe(prov, "gemini-2.0-flash", "inconclusive")
+	RecordRetirementProbe(prov, "claude-sonnet-4", "served")
+	// An empty provider still has to produce a usable series rather than a
+	// blank label, exactly as the request counter does.
+	RecordRetirementProbe("", "orphan-model", "inconclusive")
+
+	out := scrape(t)
+	wantSubstrings := []string{
+		`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider="test-prov-retirement",verdict="refused"} 1`,
+		`modelhotel_retirement_probes_total{model="gemini-2.0-flash",provider="test-prov-retirement",verdict="inconclusive"} 2`,
+		`modelhotel_retirement_probes_total{model="claude-sonnet-4",provider="test-prov-retirement",verdict="served"} 1`,
+		`modelhotel_retirement_probes_total{model="orphan-model",provider="unknown",verdict="inconclusive"} 1`,
+	}
+	for _, w := range wantSubstrings {
+		if !strings.Contains(out, w) {
+			t.Errorf("scrape output missing %q", w)
+		}
+	}
+}
+
 func TestBreakerCollector(t *testing.T) {
 	RegisterBreakerCollector(func() []BreakerState {
 		return []BreakerState{

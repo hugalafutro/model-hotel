@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -819,5 +820,114 @@ func TestProbeModel_DialectAnswerIsBounded(t *testing.T) {
 	}
 	if n := written.Load(); n >= flood {
 		t.Fatalf("the provider sent all %d bytes, so nothing bounded the read; the cap is %d", n, goneProbeMaxBody)
+	}
+}
+
+// scrapeMetrics renders the process's Prometheus exposition through the real
+// handler, which is the only read path the metrics package offers and the same
+// one an operator's scrape takes.
+func scrapeMetrics(t *testing.T) string {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("metrics scrape returned status %d", rr.Code)
+	}
+	return rr.Body.String()
+}
+
+// TestProbeForRetirement_RecordsItsVerdict pins that a probe accounts for
+// itself. The counter is the only place an operator can see a probe that did
+// NOT retire anything: a served verdict means the classifier nominated a live
+// model, and neither that nor an inconclusive run leaves any trace but a log
+// line.
+//
+// It drives probeForRetirement rather than probeModel because that is where the
+// recording lives and where production enters, and it reads the count back
+// through the real exposition handler rather than the counter variable, so the
+// series name and its labels are pinned as the public contract they are.
+//
+// The model ids are unique per case, which is what keeps the assertions exact
+// while the package's tests run in parallel against one process-wide registry.
+func TestProbeForRetirement_RecordsItsVerdict(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		modelID string
+		status  int
+		body    string
+		want    probeVerdict
+	}{
+		{
+			name:    "refused",
+			modelID: "verdict-metric-refused-1",
+			status:  http.StatusNotFound,
+			body:    goneRefusalBody("verdict-metric-refused-1"),
+			want:    probeRefused,
+		},
+		{
+			name:    "served",
+			modelID: "verdict-metric-served-1",
+			status:  http.StatusOK,
+			body:    `{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}`,
+			want:    probeServed,
+		},
+		{
+			// A 500 is a provider fault rather than a statement about the
+			// model, so it establishes nothing and must be counted as such.
+			name:    "inconclusive",
+			modelID: "verdict-metric-inconclusive-1",
+			status:  http.StatusInternalServerError,
+			body:    `{"error":{"message":"internal error"}}`,
+			want:    probeInconclusive,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv, _ := probeServer(t, tc.status, tc.body)
+			h := newProbeHandler(t)
+			candidate := probeCandidateFor(srv.URL, tc.modelID)
+
+			if got := h.probeForRetirement(candidate, endpointTypeChat); got != tc.want {
+				t.Fatalf("verdict = %s, want %s", got, tc.want)
+			}
+
+			want := fmt.Sprintf(
+				`modelhotel_retirement_probes_total{model=%q,provider="Probe Provider",verdict=%q} 1`,
+				tc.modelID, tc.want.String(),
+			)
+			if out := scrapeMetrics(t); !strings.Contains(out, want) {
+				t.Errorf("metrics scrape missing %q", want)
+			}
+		})
+	}
+}
+
+// TestProbeForRetirement_UnprobeableCandidateRecordsNothing guards the seam's
+// one deliberate omission: the nil-candidate return has no provider or model to
+// label, so it must not manufacture an "unknown" series. Every probe the
+// gateway actually spends a request on has both.
+func TestProbeForRetirement_UnprobeableCandidateRecordsNothing(t *testing.T) {
+	t.Parallel()
+
+	h := newProbeHandler(t)
+	if got := h.probeForRetirement(modelCandidate{}, endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+
+	// Scoped to this metric's own lines. Other counters run their empty labels
+	// through the same labelOrUnknown fallback, so an unqualified search for
+	// provider="unknown" would answer for the whole exposition.
+	for _, line := range strings.Split(scrapeMetrics(t), "\n") {
+		if !strings.HasPrefix(line, "modelhotel_retirement_probes_total{") {
+			continue
+		}
+		if strings.Contains(line, `provider="unknown"`) || strings.Contains(line, `model="unknown"`) {
+			t.Errorf("a candidate with nothing to label recorded a series: %s", line)
+		}
 	}
 }
