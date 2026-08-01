@@ -432,6 +432,34 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	return outcomeServed
 }
 
+// passthroughAnswered reports whether a buffered pass-through response is the
+// model answering, for the purpose of clearing its gone-strike streak.
+//
+// Embeddings is judged on content, by the same function the probe uses. It is
+// the only pass-through family that can be auto-retired, so it is the only one
+// where getting this wrong has a consequence — and the package plainly does know
+// what an embeddings answer looks like, since probeDeliveredContent implements
+// exactly this check and extractPassthroughUsage parses the same document a line
+// later. A provider alternating gone-shaped 404s with 200 {"data":[]} would
+// otherwise reset the count on every empty answer and the model would never be
+// nominated, which is the failure chatAnswerCarriesContent closes on the chat
+// path.
+//
+// Everything else is judged on bytes, and deliberately: this path forwards image
+// and audio answers verbatim and has no business parsing them. It costs nothing
+// to be generous there, because noteModelServed clears the streak for the
+// surface the response arrived on, and those surfaces have no streak to clear —
+// they are never auto-retired in the first place.
+func passthroughAnswered(endpointType string, body []byte) bool {
+	if len(body) == 0 {
+		return false
+	}
+	if endpointType == endpointTypeEmbeddings {
+		return probeDeliveredContent(endpointTypeEmbeddings, body)
+	}
+	return true
+}
+
 // passthroughJSONBufferCap bounds how much of a JSON pass-through response is
 // buffered for token-usage extraction. Bodies beyond the cap (e.g. multi-image
 // b64_json payloads) are streamed through unbuffered with usage skipped,
@@ -536,12 +564,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// refusals, so a retired model would never reach three CONSECUTIVE strikes
 	// and would never be nominated at all.
 	//
-	// Bytes and not content, which is where this stops. The pass-through path
-	// forwards every family verbatim and does not know the shape of an
-	// embeddings, image or audio answer; judging one here would mean teaching it
-	// response schemas it deliberately does not have. "The provider sent
-	// something" is the same bar its neighbour applies.
-	if len(body) > 0 {
+	// And judged by the same rule the probe uses, for the one family this can
+	// matter to. See passthroughAnswered.
+	if passthroughAnswered(logData.endpointType, body) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
 	copyPassthroughHeaders(w, resp, contentType)

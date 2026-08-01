@@ -442,6 +442,19 @@ func TestEmbeddings_ResponsesThatCarryNothingKeepTheGoneStrikes(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			// A well-formed embeddings response carrying no embedding. The
+			// probe already refuses to credit this shape; the traffic path has
+			// to agree, or an aggregator alternating gone-shaped 404s with an
+			// empty 200 resets the count on every other request and the model is
+			// never nominated.
+			name: "empty embeddings payload",
+			answer: func(_ *testing.T, w http.ResponseWriter) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, `{"object":"list","data":[]}`)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
 			// A 204 is a legitimate HTTP success and belongs in the breaker's
 			// ledger, because the provider is plainly alive. It still says
 			// nothing about whether this MODEL is served.
