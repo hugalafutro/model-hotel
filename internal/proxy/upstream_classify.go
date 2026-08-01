@@ -290,6 +290,33 @@ func gapBindsPhrase(gap string) bool {
 	return !looksLikeAModelID(gap)
 }
 
+// vendorPrefixStart walks back from an id occurrence over the vendor prefix
+// attached to it, returning where the whole identifier starts.
+//
+// "openai/gpt-4o" is one identifier, and the search term is only ever its tail
+// (see normalizeModelID), so every caller matching inside the body has to be
+// able to find the head again. Only ONE prefix segment is taken: publisher/model
+// is the shape registries use, and walking further would swallow a preceding
+// word that merely ended in a slash.
+//
+// It returns pos unchanged when there is no prefix, so callers can use it
+// unconditionally.
+func vendorPrefixStart(body string, pos int) int {
+	if pos == 0 || body[pos-1] != '/' {
+		return pos
+	}
+	start := pos - 1
+	for start > 0 && isModelIDChar(body[start-1]) {
+		start--
+	}
+	// A slash with nothing identifier-shaped in front of it is punctuation
+	// ("try: /models"), not a vendor prefix.
+	if start == pos-1 {
+		return pos
+	}
+	return start
+}
+
 // phraseIsAbout reports whether the phrase occupying [verbPos, verbEnd) is the
 // provider talking about id, searching the surrounding window for an occurrence
 // bound tightly enough to be its subject or object.
@@ -311,12 +338,25 @@ func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
 		// is the same claim as an error.message saying so — and reading only one
 		// of the two would leave the other silently unhandled.
 		if occEnd, ok := idEndAllowingVersion(body, pos, pos+len(id)); ok {
+			// The vendor prefix in front of the occurrence belongs to THIS id,
+			// so the gap has to start before it. modelGoneAbout searches for the
+			// normalized id, which is the part after the last slash, while the
+			// body carries the id whole — so "model not found: ai21/jamba-1.7"
+			// matched at "jamba-1.7" and left "ai21/" sitting in the gap, where
+			// looksLikeAModelID read it as a RIVAL id and refused to bind.
+			//
+			// It only bit prefixes carrying a digit or a hyphen, which is why it
+			// looked arbitrary: openai/ and google/ classified while ai21/,
+			// meta-llama/, LLM360/ and aion-labs/ did not. Measured against the
+			// dev catalogue, 125 of 1141 model ids could not be retired by either
+			// phrase-first refusal shape.
+			idStart := vendorPrefixStart(body, pos)
 			var gap string
 			switch {
 			case occEnd <= verbPos:
 				gap = body[occEnd:verbPos]
-			case pos >= verbEnd:
-				gap = body[verbEnd:pos]
+			case idStart >= verbEnd:
+				gap = body[verbEnd:idStart]
 			default:
 				// Overlapping the phrase itself; treat as bound.
 				return true

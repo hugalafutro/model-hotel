@@ -1177,3 +1177,113 @@ func TestLooksLikeAModelID_RequiresAnAlphanumeric(t *testing.T) {
 		}
 	}
 }
+
+// TestClassifyUpstreamError_VendorPrefixIsNotARivalID pins the fix for a false
+// negative that hid behind the vendor prefix.
+//
+// modelGoneAbout searches for the NORMALIZED id — the part after the last slash
+// — while the body carries the id whole. So "model not found: ai21/jamba-1.7"
+// matched at "jamba-1.7" and left "ai21/" sitting in the gap between the phrase
+// and its subject, where looksLikeAModelID read it as a rival id and refused to
+// bind.
+//
+// It only bit prefixes carrying a digit or a hyphen, which is what made it look
+// arbitrary rather than systematic: openai/ and google/ classified, ai21/,
+// meta-llama/, LLM360/ and aion-labs/ did not. Swept against the dev catalogue,
+// 125 of 1141 real model ids could not be retired by either phrase-first refusal
+// shape, and nothing complained because the failure is silent: no attribution,
+// no strike, no retirement.
+func TestClassifyUpstreamError_VendorPrefixIsNotARivalID(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		modelID string
+		body    string
+		want    ErrorKind
+	}{
+		{
+			name:    "digit in the vendor prefix",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: ai21/jamba-large-1.7"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			name:    "hyphen in the vendor prefix",
+			modelID: "meta-llama/llama-3-8b",
+			body:    `{"error":{"message":"unknown model - meta-llama/llama-3-8b"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			name:    "uppercase and digits in the vendor prefix",
+			modelID: "LLM360/K2-Think",
+			body:    `{"error":{"message":"model not found: LLM360/K2-Think"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			// The control: this shape always worked, because "openai" carries
+			// neither of the tells looksLikeAModelID looks for.
+			name:    "plain vendor prefix still classifies",
+			modelID: "openai/gpt-4o",
+			body:    `{"error":{"message":"model not found: openai/gpt-4o"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			// The guard that matters: only the prefix ATTACHED to this id is
+			// absorbed. A genuine second id in the gap is still a rival subject.
+			name:    "rival id before the vendor prefix still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3 ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// A different vendor's model being retired says nothing about ours.
+			name:    "another vendor's model is not ours",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: other-vendor/some-model-9"}}`,
+			want:    KindProviderError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, tc.modelID); got != tc.want {
+				t.Errorf("classify(%s) for %s = %s, want %s", tc.body, tc.modelID, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestVendorPrefixStart pins the walk directly, including the two ways it must
+// decline: no slash at all, and a slash that is punctuation rather than the end
+// of a vendor segment.
+func TestVendorPrefixStart(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		body string
+		pos  int
+		want int
+	}{
+		{name: "no prefix", body: "gpt-4o", pos: 0, want: 0},
+		{name: "vendor prefix absorbed", body: "ai21/jamba", pos: 5, want: 0},
+		{name: "prefix mid-body", body: "x: ai21/jamba", pos: 8, want: 3},
+		// Only one segment: a preceding word that happens to end in a slash is
+		// not part of the identifier.
+		{name: "one segment only", body: "see docs/ai21/jamba", pos: 14, want: 9},
+		// A bare slash is punctuation, not a vendor.
+		{name: "bare slash is punctuation", body: "try /jamba", pos: 5, want: 5},
+		{name: "slash at body start", body: "/jamba", pos: 1, want: 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := vendorPrefixStart(tc.body, tc.pos); got != tc.want {
+				t.Errorf("vendorPrefixStart(%q, %d) = %d, want %d", tc.body, tc.pos, got, tc.want)
+			}
+		})
+	}
+}
