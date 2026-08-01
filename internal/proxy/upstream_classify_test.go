@@ -671,3 +671,183 @@ func runClassifyCases(t *testing.T, tests []struct {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_StructuredRetirementSignals covers the payload shape
+// that prose matching cannot reach at all: the retirement is a JSON field, and
+// the model id is in a different one.
+//
+// The captured body is from issue #595 — OpenCode Zen forwarding Anthropic's own
+// error verbatim for claude-sonnet-4, a model Zen lists and refuses. It accrued
+// no strike and was never retired, because modelGoneAbout requires the id
+// adjacent to a verb with no clause break between them, and here the two are
+// separated by the comma between two JSON fields.
+//
+// The negatives are the point of this test rather than the positives. Each of
+// them is a body that says something is missing, or names a model, or both, and
+// none of them is this model being retired.
+func TestClassifyUpstreamError_StructuredRetirementSignals(t *testing.T) {
+	t.Parallel()
+
+	// The exact body captured on dev, whitespace and all.
+	zenBody := `{"type":"error","error":{"type":"not_found_error",` +
+		`"message":"Error from provider (Anthropic): model: claude-sonnet-4-20250514"},` +
+		`"request_id":"req_011CdaLiCduCzdJHbasS6cWF"}`
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "the captured Zen body, asked for by its alias",
+			body:      zenBody,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "the same body, asked for by the snapshot it names",
+			body:      zenBody,
+			requested: "claude-sonnet-4-20250514",
+			want:      KindProviderModelGone,
+		},
+		{
+			// A model-scoped code names its own subject, so no identity check
+			// applies and none is wanted.
+			name:      "a model-scoped code needs no prose",
+			body:      `{"error":{"code":"model_not_found","message":"no such model"}}`,
+			requested: "hy3-preview",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "a model-scoped code at the top level",
+			body:      `{"code":"model_not_supported","message":"unavailable"}`,
+			requested: "hy3-preview",
+			want:      KindProviderModelGone,
+		},
+
+		// --- negatives: something is missing, but not this model ---
+		{
+			// The whole reason not_found_error needs identity: it is used for
+			// any absent entity.
+			name:      "a not-found type naming a different model",
+			body:      `{"error":{"type":"not_found_error","message":"model: some-other-model-20250101"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "a not-found type about something that is not a model",
+			body:      `{"error":{"type":"not_found_error","message":"conversation conv_0192 not found"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// The model is named, but in the request echo rather than in the
+			// error. Matching anywhere in the body would retire it.
+			name:      "a not-found type with the model named only outside the error",
+			body:      `{"model":"claude-sonnet-4","error":{"type":"not_found_error","message":"file file_01 not found"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "an invalid-request type naming the model",
+			body:      `{"error":{"type":"invalid_request_error","message":"model: claude-sonnet-4-20250514 rejected"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "a server-error type naming the model",
+			body:      `{"error":{"type":"server_error","message":"model: claude-sonnet-4-20250514 failed"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// Providers invent codes. An unknown model-ish one is a transient
+			// fault about a model that plainly still exists.
+			name:      "an unknown model-ish code is not an allowlisted one",
+			body:      `{"error":{"code":"model_overloaded","message":"try again"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// SanitizeLogBody truncates at 10 000 bytes and will cut JSON
+			// mid-structure. The parse must degrade to "no structured signal"
+			// rather than matching on a fragment.
+			name:      "a truncated body carrying the words but no parseable structure",
+			body:      `{"error":{"type":"not_found_erro`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, _ := classifyUpstreamError(404, tc.body, tc.requested)
+			if got != tc.want {
+				t.Errorf("classifyUpstreamError(404, %q, %q) = %q, want %q", tc.body, tc.requested, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies pins the
+// fallback the parse degrades to when SanitizeLogBody has cut the document.
+//
+// A truncated body is the normal case for a large error, not an exotic one, and
+// the signal is usually near the front while the truncation is at the end. The
+// key scan is looser than the parse, which is why what it finds only counts
+// against an allowlisted code or beside the model's own id.
+func TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies(t *testing.T) {
+	t.Parallel()
+
+	// A complete error object followed by a cut-off tail: valid JSON never
+	// arrives, so json.Unmarshal fails and the scan is what is left.
+	body := `{"error":{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"usage":{"input_tok`
+	if got, _ := classifyUpstreamError(404, body, "claude-sonnet-4"); got != KindProviderModelGone {
+		t.Errorf("kind = %q, want %q: the signal was in the part that survived truncation", got, KindProviderModelGone)
+	}
+}
+
+// TestVersionSuffixIdentity is the table from the plan, and the negatives in it
+// are the regression that five rounds of review produced.
+//
+// Widening identity is the dangerous half of this change: every one of those
+// rounds was about a false retirement, and the whole-identifier rule is what
+// stops an error about gpt-4.1 from disabling gpt-4. The suffix rule is additive
+// to that rule rather than a relaxation of it, and any doubt resolves toward
+// rejecting.
+func TestVersionSuffixIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		requested string
+		body      string
+		want      bool
+	}{
+		{"dated snapshot", "claude-sonnet-4", "model: claude-sonnet-4-20250514", true},
+		{"short dated snapshot", "gpt-4", "model: gpt-4-0613", true},
+		{"segmented date", "gpt-4-turbo", "model: gpt-4-turbo-2024-04-09", true},
+		{"exact id", "gpt-4", "model: gpt-4", true},
+		{"id at the very end", "gpt-4", "gpt-4", true},
+
+		{"a sibling family member is not an alias", "gpt-4", "model: gpt-4.1", false},
+		{"a named variant is not a date", "gemini-3-flash", "model: gemini-3-flash-lite", false},
+		{"a size suffix is not a date", "gpt-4", "model: gpt-4-32k", false},
+		{"too few digits to be a date", "llama-3", "model: llama-3-70", false},
+		{"a shorter id is never an alias of a longer one", "gpt-4.1", "model: gpt-4", false},
+		{"a variant of a snapshot is not the model", "gpt-4", "model: gpt-4-0613-preview", false},
+		{"a longer id that merely starts the same", "gpt-4", "model: gpt-4o", false},
+		{"the id inside a longer word", "gpt-4", "not-gpt-4", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := namesModelAllowingVersion(tc.body, tc.requested); got != tc.want {
+				t.Errorf("namesModelAllowingVersion(%q, %q) = %v, want %v", tc.body, tc.requested, got, tc.want)
+			}
+		})
+	}
+}

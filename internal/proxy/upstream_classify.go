@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -115,6 +116,96 @@ func isWholeIDAt(body string, pos, end int) bool {
 	return startsClean && endsClean
 }
 
+// versionSuffix matches the tail a provider adds when it resolves an alias to a
+// dated snapshot: dash-separated runs of digits, at most three of them.
+//
+// The run count is bounded and the digits are counted separately (see
+// minVersionSuffixDigits) rather than being spelled `(-\d{4,}){1,3}`, because
+// a segmented date does not have four digits in every run: "-2024-04-09" is
+// "-2024", "-04", "-09". Requiring four per run rejected exactly that case.
+var versionSuffix = regexp.MustCompile(`^(-\d+){1,3}`)
+
+// minVersionSuffixDigits is what separates a date from a size or a variant
+// number, and it is the whole safety of the alias rule.
+//
+// "-20250514" and "-0613" and "-2024-04-09" are dates; "-70" (llama-3-70) and
+// "-32" are not, and neither is ".1" (gpt-4.1), which the pattern rejects on
+// shape before this is consulted. Four is the smallest threshold that admits a
+// bare year and excludes the two-digit variant numbers providers actually use.
+// It is the one number here I would expect to revisit, and it should be revisited
+// from a real payload rather than from speculation.
+const minVersionSuffixDigits = 4
+
+// idEndAllowingVersion reports where an occurrence of the requested id at
+// [pos, end) really ends, allowing the provider to have named a dated snapshot
+// of it, and whether that occurrence names the requested model at all.
+//
+// The problem it solves is asymmetric, which is why it is a separate predicate
+// from isWholeIDAt rather than a loosening of it. We ask for "claude-sonnet-4";
+// the provider resolves the alias and answers about "claude-sonnet-4-20250514".
+// Whole-identifier matching rejects that, correctly by its own rule, and that
+// same rejection is what stops an error about "gpt-4.1" from retiring "gpt-4".
+// So the boundary rule cannot be relaxed: what is added is one narrow shape on
+// top of it.
+//
+// The start must still be clean. Only the tail may differ, and only by digits:
+// an id is never a suffix of another id's dated form, so nothing that ends in
+// letters ("-lite", "-32k") or in a decimal (".1") can reach this at all.
+func idEndAllowingVersion(body string, pos, end int) (int, bool) {
+	if pos != 0 && isModelIDChar(body[pos-1]) {
+		return 0, false
+	}
+	if end == len(body) || !isModelIDChar(body[end]) {
+		return end, true
+	}
+	suffix := versionSuffix.FindString(body[end:])
+	if suffix == "" {
+		return 0, false
+	}
+	digits := 0
+	for i := range len(suffix) {
+		if suffix[i] >= '0' && suffix[i] <= '9' {
+			digits++
+		}
+	}
+	if digits < minVersionSuffixDigits {
+		return 0, false
+	}
+	extended := end + len(suffix)
+	// Whatever follows the snapshot must not continue the identifier:
+	// "gpt-4-0613-preview" is a variant of a snapshot, not the model we asked
+	// for.
+	if extended != len(body) && isModelIDChar(body[extended]) {
+		return 0, false
+	}
+	return extended, true
+}
+
+// namesModelAllowingVersion reports whether body names the requested model
+// anywhere in it, as a whole identifier or as a dated snapshot of one.
+//
+// No proximity, deliberately, and it is only used where proximity cannot apply:
+// a structured error puts the type in one JSON field and the id in another, so
+// there is no adjacency to measure. The callers that DO have prose to work with
+// keep using phraseIsAbout, which is stricter.
+func namesModelAllowingVersion(body, id string) bool {
+	if id == "" || body == "" {
+		return false
+	}
+	for off := 0; off+len(id) <= len(body); {
+		at := strings.Index(body[off:], id)
+		if at < 0 {
+			return false
+		}
+		pos := off + at
+		if _, ok := idEndAllowingVersion(body, pos, pos+len(id)); ok {
+			return true
+		}
+		off = pos + 1
+	}
+	return false
+}
+
 // maxAttributionGap bounds the text allowed between the model id and the phrase
 // that retires it. Real payloads put them adjacent or a few words apart ("The
 // model `gpt-4` has been deprecated and does not exist"); anything longer is a
@@ -214,6 +305,160 @@ func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
 	return false
 }
 
+// modelScopedErrorCodes name the model in the field itself, so a body carrying
+// one is talking about the model the request asked for by construction.
+//
+// A deliberately small allowlist rather than a "model_*" pattern. A provider is
+// free to invent "model_overloaded" or "model_rate_limited", and those are
+// transient faults about a model that very much still exists — matching them by
+// prefix would retire it. The list grows from payloads observed in /api/logs,
+// which is the rule this whole change came from.
+var modelScopedErrorCodes = map[string]bool{
+	"model_not_found":     true,
+	"model_not_supported": true,
+}
+
+// genericNotFoundTypes say something is missing without saying what, so they
+// only count as a retirement alongside the requested model's own id.
+//
+// not_found_error is Anthropic's, forwarded verbatim by aggregators. It is used
+// for any absent entity — a conversation, a file, a batch — so on its own it is
+// far too weak to disable a model on.
+var genericNotFoundTypes = map[string]bool{
+	"not_found_error": true,
+}
+
+// structuredError is what a provider said about WHY it refused, in fields rather
+// than prose.
+type structuredError struct {
+	code    string
+	typ     string
+	message string
+}
+
+// structuredFieldScan finds a quoted string field by name in a body that could
+// not be parsed. Deliberately anchored on the key so it cannot pick up a value
+// that merely looks like one.
+var structuredFieldScan = map[string]*regexp.Regexp{
+	"code":    regexp.MustCompile(`"code"\s*:\s*"([^"]*)"`),
+	"type":    regexp.MustCompile(`"type"\s*:\s*"([^"]*)"`),
+	"message": regexp.MustCompile(`"message"\s*:\s*"([^"]*)"`),
+}
+
+// parseStructuredError pulls the error code, type and message out of a body,
+// and never fails: an absent field means no signal, which every caller treats as
+// "nothing established".
+//
+// Two passes, because the input cannot be trusted to be a document. The body
+// reaching the classifier has been through util.SanitizeLogBody, which truncates
+// at 10 000 bytes and will happily cut JSON mid-structure, and plenty of
+// providers answer with HTML or plain text. So the parse is tried first, for its
+// precision — it reads error.code and error.type from the error OBJECT, not from
+// anywhere the strings happen to appear — and a key scan is the fallback.
+//
+// The fallback is the looser of the two and is scoped by what the callers do
+// with it rather than by the scan itself: a code only counts if it is in a small
+// allowlist, and a type only counts alongside the model's own id. A stray
+// "type":"function" in an echoed tool definition matches neither.
+func parseStructuredError(body string) structuredError {
+	var envelope struct {
+		Error struct {
+			Code    any    `json:"code"`
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"error"`
+		Code    any    `json:"code"`
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}
+	if json.Unmarshal([]byte(body), &envelope) == nil {
+		// A code may be a string ("model_not_found") or a number; only the
+		// string form carries a name worth matching.
+		codeOf := func(v any) string {
+			s, _ := v.(string)
+			return s
+		}
+		return structuredError{
+			code:    firstNonEmpty(codeOf(envelope.Error.Code), codeOf(envelope.Code)),
+			typ:     firstNonEmpty(envelope.Error.Type, envelope.Type),
+			message: firstNonEmpty(envelope.Error.Message, envelope.Message),
+		}
+	}
+
+	var found structuredError
+	for field, re := range structuredFieldScan {
+		m := re.FindStringSubmatch(body)
+		if m == nil {
+			continue
+		}
+		switch field {
+		case "code":
+			found.code = m[1]
+		case "type":
+			found.typ = m[1]
+		case "message":
+			found.message = m[1]
+		}
+	}
+	return found
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// normalizeModelID reduces an upstream model id to the form the body is matched
+// against: lowercased, trimmed, and cut to the last path segment, because
+// providers report Google models with the "models/" prefix the id omits and the
+// distinctive part is the tail either way.
+func normalizeModelID(modelID string) string {
+	id := strings.ToLower(strings.TrimSpace(modelID))
+	if i := strings.LastIndex(id, "/"); i >= 0 && i+1 < len(id) {
+		id = id[i+1:]
+	}
+	return id
+}
+
+// structuredModelGone reports whether the body's ERROR FIELDS say the requested
+// model is gone, for the providers that answer with a code rather than a
+// sentence.
+//
+// It exists because prose matching cannot reach these payloads at all. Zen
+// forwards Anthropic's error verbatim, and the only retirement signal in it is
+// error.type; the model id lives in error.message. modelGoneAbout requires the
+// two to be adjacent with no clause break between them — a rule that is right
+// for prose and structurally impossible to satisfy across two JSON fields, which
+// are separated by the comma isClauseBreak treats as a boundary by design.
+//
+// Two tiers, and the difference between them is whether the field already names
+// its subject:
+//
+//   - A model-scoped code is about the model by construction. There is no prose
+//     to anchor to and none is wanted.
+//   - A generic not-found type could as easily be a missing conversation, so it
+//     needs the requested model named in the error's own message. Not merely
+//     somewhere in the body: a provider echoing the request back would name the
+//     model in it, and a not_found_error about something else entirely would
+//     then read as this model's retirement.
+//
+// An empty model id claims nothing, for the same reason modelGoneAbout claims
+// nothing: a retirement that cannot be attributed is not one this gateway will
+// assert.
+func structuredModelGone(body, modelID string) bool {
+	id := normalizeModelID(modelID)
+	if id == "" || body == "" {
+		return false
+	}
+	e := parseStructuredError(body)
+	if modelScopedErrorCodes[e.code] {
+		return true
+	}
+	return genericNotFoundTypes[e.typ] && namesModelAllowingVersion(e.message, id)
+}
+
 // modelGoneAbout reports whether the body is the provider asserting that THIS
 // model — the one the request asked for — is gone.
 //
@@ -229,14 +474,9 @@ func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
 // be verified, so nothing is claimed: the caller gets the generic provider
 // error rather than a retirement it cannot substantiate.
 func modelGoneAbout(body, modelID string) bool {
-	id := strings.ToLower(strings.TrimSpace(modelID))
+	id := normalizeModelID(modelID)
 	if id == "" || body == "" {
 		return false
-	}
-	// Providers report Google models with the "models/" prefix the id omits, so
-	// compare on the last path segment; it is the distinctive part either way.
-	if i := strings.LastIndex(id, "/"); i >= 0 && i+1 < len(id) {
-		id = id[i+1:]
 	}
 
 	for _, verb := range modelGoneVerbs {
@@ -295,6 +535,20 @@ func modelGoneAbout(body, modelID string) bool {
 // response.
 func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string) {
 	b := strings.ToLower(body)
+
+	// Model retired or never served by this provider, said in fields rather than
+	// in a sentence. Ahead of the prose path because it is the more specific
+	// claim: a provider that names a model-scoped code has already told us what
+	// its message can only imply.
+	//
+	// The capability veto deliberately does not apply here. It exists to stop
+	// "is not supported for this endpoint" reading as a retirement, which is a
+	// property of prose; a structured model_not_supported is the provider
+	// answering the question directly, and there is no qualifying clause to
+	// misread.
+	if structuredModelGone(b, modelID) {
+		return KindProviderModelGone, "the provider no longer serves this model"
+	}
 
 	// Model retired or never served by this provider. modelGoneAbout requires
 	// the requested model's own id beside the phrase AND that the phrase is not
