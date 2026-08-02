@@ -11,7 +11,19 @@
 -- unresolvable id silently vanishes from the envelope, which is how a restricted
 -- key once round-tripped as unrestricted.
 --
--- Why this is only safe to do now: pruning can empty an array, and until
+-- This migration repairs the rows an upgrading install already carries. Keeping
+-- it true from here on is done in Go, at the two delete sites, by
+-- provider.PruneAllowLists (internal/provider/allowlists.go). A database trigger
+-- would also have covered raw SQL, but every model-hotel pg_dump would then
+-- carry a FUNCTION and a TRIGGER, and the backup restore endpoint rejects any
+-- dump containing either (checkDangerousObjects in
+-- internal/api/backup_restore.go). Exempting them would have meant a
+-- hand-maintained list of object names that a pg_restore TOC listing cannot
+-- tell apart from a tampered dump reusing those same names, and verifying the
+-- bodies would mean parsing SQL out of a custom-format dump. That is a
+-- permanently wider security boundary than two known call sites are worth.
+--
+-- Why this cleanup is only safe now: pruning can empty an array, and until
 -- recently a non-NULL empty allowed_providers read as "every provider allowed"
 -- at the proxy. Emptying an array would have been an escalation. The proxy now
 -- treats any non-NULL list as "exactly these members, including none of them"
@@ -34,10 +46,11 @@
 -- typing "restrict to nothing" is far more likely a mistake than an intent;
 -- that is a UI guard, not a storage invariant, and it does not apply here.
 
--- One-time cleanup of ids that are already dangling. Rewrites only rows that
--- carry a restriction; NULL (unrestricted) rows are left alone. A row whose ids
--- are all dangling becomes '{}' and therefore denies everything, which matches
--- what it already did at runtime, so no live behaviour changes.
+-- Rewrites only rows that carry a restriction; NULL (unrestricted) rows are left
+-- alone. A row whose ids are all dangling becomes '{}' and therefore denies
+-- everything, which matches what it already did at runtime, so no live
+-- behaviour changes. Both statements are idempotent: a second run finds nothing
+-- dangling left and writes each surviving list back unchanged.
 UPDATE virtual_keys vk
    SET allowed_providers = COALESCE((
            SELECT array_agg(elem)
@@ -53,45 +66,3 @@ UPDATE users u
             WHERE elem IN (SELECT id::text FROM providers)
        ), '{}'::text[])
  WHERE u.allowed_providers IS NOT NULL;
-
--- Keep it true from here on.
---
--- THIS IS THE ONLY TRIGGER IN THE SCHEMA. Nothing in the Go code says these two
--- UPDATEs happen, so a reader of provider.Repository.Delete or of the
--- config-sync declarative replace will not see them. A trigger is used anyway
--- because it is the only mechanism that is atomic with the delete by
--- construction and that covers every path: the admin delete
--- (internal/provider/provider.go), the config-sync bulk delete
--- (`DELETE FROM providers WHERE name <> ALL($1)` in
--- internal/api/configsync_apply.go, which runs inside the import transaction),
--- any future delete path, and manual SQL. Go-side pruning at the two known call
--- sites would shrink the problem rather than remove it.
---
--- AFTER DELETE so the provider row is already gone; the return value of an
--- AFTER FOR EACH ROW trigger is ignored, hence NULL. FOR EACH ROW rather than a
--- statement-level trigger so the bulk delete prunes every removed provider, not
--- just one; provider counts are small, so the per-row cost is irrelevant.
---
--- array_remove on a NULL array yields NULL, and the WHERE clauses skip NULL rows
--- anyway (NULL @> ARRAY[...] is NULL, not true), so an unrestricted key or
--- account is never converted into a restricted one. Pruning the last element
--- yields '{}', not NULL, which is the whole point: the row stays restricted.
-CREATE OR REPLACE FUNCTION prune_provider_from_allowlists() RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE virtual_keys
-       SET allowed_providers = array_remove(allowed_providers, OLD.id::text)
-     WHERE allowed_providers @> ARRAY[OLD.id::text];
-
-    UPDATE users
-       SET allowed_providers = array_remove(allowed_providers, OLD.id::text)
-     WHERE allowed_providers @> ARRAY[OLD.id::text];
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS providers_prune_allowlists ON providers;
-CREATE TRIGGER providers_prune_allowlists
-    AFTER DELETE ON providers
-    FOR EACH ROW
-    EXECUTE FUNCTION prune_provider_from_allowlists();

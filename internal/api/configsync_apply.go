@@ -55,8 +55,23 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	// to their discovered models (FK ON DELETE CASCADE) but request_logs are
 	// preserved: their provider_id FK is ON DELETE SET NULL (migration 010), so
 	// history stays and only the provider link is nulled.
+	//
+	// RETURNING the deleted ids so their references can be pruned out of the two
+	// allow-list columns, which no foreign key covers. Already inside the import
+	// transaction, so the delete and the prune commit together. Ordering matters
+	// as well: this runs BEFORE upsertVirtualKeys and applyUsers, so a row the
+	// envelope also rewrites ends up with the envelope's value rather than a
+	// pruned one, and a row the envelope skips still gets cleaned.
 	providerNames := names(env.Config.Providers, func(p ExportProvider) string { return p.Name })
-	if _, err := tx.Exec(ctx, `DELETE FROM providers WHERE name <> ALL($1)`, providerNames); err != nil {
+	deletedRows, err := tx.Query(ctx, `DELETE FROM providers WHERE name <> ALL($1) RETURNING id::text`, providerNames)
+	if err != nil {
+		return err
+	}
+	deletedProviderIDs, err := pgx.CollectRows(deletedRows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	if err := provider.PruneAllowLists(ctx, tx, deletedProviderIDs); err != nil {
 		return err
 	}
 

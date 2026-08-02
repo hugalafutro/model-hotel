@@ -11,10 +11,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// Migration 066 puts an AFTER DELETE trigger on providers that strips the
-// deleted provider's UUID out of virtual_keys.allowed_providers and
-// users.allowed_providers. These tests pin the two properties that now mean
-// opposite things and are trivial to conflate:
+// Deleting a provider strips its UUID out of virtual_keys.allowed_providers and
+// users.allowed_providers, via provider.PruneAllowLists called at each delete
+// site. These tests pin the two properties that now mean opposite things and are
+// trivial to conflate:
 //
 //	NULL  -> unrestricted (every provider)
 //	'{}'  -> restricted to nothing (deny everything)
@@ -73,8 +73,9 @@ func seedCappedUser(t *testing.T, username string, providerIDs []string) {
 }
 
 // deleteProviderViaRepo removes a provider through the same repository call the
-// admin DELETE /api/providers/{id} endpoint uses, so the trigger is exercised on
-// the real path rather than on hand-written SQL.
+// admin DELETE /api/providers/{id} endpoint uses. Deliberately not raw SQL:
+// pruning is Go-side now, so a hand-written DELETE would bypass it entirely and
+// these tests would be asserting against a path no user can reach.
 func deleteProviderViaRepo(t *testing.T, id string) {
 	t.Helper()
 	if err := provider.NewRepository(apiTestDB.Pool()).Delete(context.Background(), uuid.MustParse(id)); err != nil {
@@ -162,9 +163,10 @@ func TestProviderPrune_EmptiedUserCapIsEmptyNotNull(t *testing.T) {
 }
 
 // The other direction, and the one that would be a silent disaster: a key or
-// account that was never restricted must stay NULL. array_remove on a NULL array
-// yields NULL and the trigger's WHERE clauses skip NULL rows anyway, so an open
-// key must not come out of a provider delete restricted to nothing.
+// account that was never restricted must stay NULL. The prune's WHERE clause is
+// an array-overlap test, and NULL && anything is NULL rather than true, so an
+// unrestricted row is never selected and an open key must not come out of a
+// provider delete restricted to nothing.
 func TestProviderPrune_UnrestrictedRowsStayNull(t *testing.T) {
 	cleanConfigTables(t)
 
@@ -185,22 +187,23 @@ func TestProviderPrune_UnrestrictedRowsStayNull(t *testing.T) {
 	}
 }
 
-// The path that motivated a trigger rather than Go-side pruning: config-sync's
+// The second delete path, and the one easiest to forget: config-sync's
 // declarative replace drops providers in ONE bulk statement
-// (`DELETE FROM providers WHERE name <> ALL($1)`, configsync_apply.go), inside
-// the import transaction. A FOR EACH ROW trigger has to fire once per deleted
-// provider for that to prune anything.
+// (`DELETE FROM providers WHERE name <> ALL($1) RETURNING id`, in
+// configsync_apply.go), inside the import transaction. It has to prune the whole
+// returned set, not just one id, and it is a separate call site from the admin
+// delete, so nothing about the repository test above covers it.
 //
 // Two keys, because they prove different halves:
 //
-//   - "both" is the brief's case: the surviving id alone remains. The import
-//     also rewrites this key (its names resolve to the survivor), so on its own
-//     it cannot tell the trigger from the upsert.
+//   - "both" ends up holding the surviving id alone. The import also rewrites
+//     this key (its names resolve to the survivor), so on its own it cannot tell
+//     the prune from the upsert.
 //   - "solo" is the unconfounded one. Its only name is the deleted provider, so
 //     upsertVirtualKeys resolves nothing and SKIPS the row entirely rather than
-//     writing NULL over a restriction. Nothing in the import touches it, so its
-//     stored value after the import is the trigger's work and nothing else.
-//     Without the trigger it would still hold the dangling UUID.
+//     writing NULL over a restriction. Nothing else in the import touches it, so
+//     its stored value afterwards is the prune's work and nothing else. Without
+//     the prune it would still hold the dangling UUID.
 func TestProviderPrune_ConfigSyncBulkDeletePrunes(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)

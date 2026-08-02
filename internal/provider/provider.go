@@ -257,19 +257,47 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	return p, nil
 }
 
-// Delete removes a provider by ID.
+// Delete removes a provider by ID, along with every reference to it in the
+// allow-list columns.
+//
+// The transaction is the point: virtual_keys.allowed_providers and
+// users.allowed_providers hold provider UUIDs in a TEXT[], which cannot carry a
+// foreign key, so pruning them is this function's job rather than the database's
+// (see PruneAllowLists). Doing the delete and the prunes in one transaction is
+// what stops a failure between them leaving the provider gone with its id still
+// referenced, which is the exact dangling state the pruning exists to prevent.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM providers WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		debuglog.Error("provider: delete failed to begin transaction", "id", id, "error", err)
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	result, err := tx.Exec(ctx, `DELETE FROM providers WHERE id = $1`, id)
 	if err != nil {
 		debuglog.Error("provider: delete failed", "id", id, "error", err)
 		return err
 	}
 
+	// Before the prune, so a missing provider is still ErrNoRows and does not
+	// pay for two pointless UPDATEs.
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
 
+	if err := PruneAllowLists(ctx, tx, []string{id.String()}); err != nil {
+		debuglog.Error("provider: pruning allow-lists failed", "id", id, "error", err)
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		debuglog.Error("provider: delete failed to commit", "id", id, "error", err)
+		return err
+	}
+
+	// Caches are dropped only after the commit: invalidating earlier would let a
+	// concurrent read repopulate them from a transaction that then rolled back.
 	InvalidateProviderCache()
 	// The DB cascade removes this provider's models; drop their cached rows too.
 	model.InvalidateModelCache()

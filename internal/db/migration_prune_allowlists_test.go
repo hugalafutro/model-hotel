@@ -9,9 +9,9 @@ import (
 const pruneAllowlistsMigration = "migrations/066_prune_provider_allowlists.sql"
 
 // readPruneAllowlistsMigration returns the embedded migration's SQL. The
-// migration is exercised directly rather than via runMigrations, which has
-// already applied it to the shared test database: once its trigger is in place
-// the dangling ids it exists to clean can no longer be created.
+// migration is exercised by replaying it directly, because runMigrations has
+// already applied it to the shared test database long before any test data
+// exists, so the rows it repairs can only be seeded afterwards.
 func readPruneAllowlistsMigration(t *testing.T) string {
 	t.Helper()
 	b, err := fs.ReadFile(embeddedMigrations, pruneAllowlistsMigration)
@@ -21,24 +21,22 @@ func readPruneAllowlistsMigration(t *testing.T) string {
 	return string(b)
 }
 
-// The half of migration 066 that a fresh database never exercises: the one-time
-// UPDATE that cleans ids left dangling by every provider deleted before the
-// trigger existed. The trigger covers deletions from here on; only this arm
-// repairs the rows already in an upgrading install.
+// Migration 066 repairs the rows an upgrading install already carries: ids left
+// dangling by every provider deleted before provider.PruneAllowLists existed. A
+// fresh database never exercises it, since there is nothing to repair, so it is
+// replayed here against rows seeded to look like a pre-066 install.
 //
 // Both stored meanings are asserted separately, because they are opposites:
 // NULL is "unrestricted" and '{}' is "restricted to nothing". A row whose ids
 // are all dangling must land on '{}', since that is what it already did at
 // runtime (a dangling id matches no provider); turning it into NULL would hand
 // the key or account every provider instead.
+//
+// Seeding a dangling id needs no special setup: pruning lives in Go now, so
+// nothing in the database stops one being written.
 func TestPruneAllowlistsMigrationCleansDanglingIDs(t *testing.T) {
 	ctx := context.Background()
 	sql := readPruneAllowlistsMigration(t)
-
-	// Pre-066 shape, so a dangling id can be seeded at all.
-	if _, err := testPool.Exec(ctx, `DROP TRIGGER IF EXISTS providers_prune_allowlists ON providers`); err != nil {
-		t.Fatalf("drop trigger: %v", err)
-	}
 
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),
@@ -46,11 +44,6 @@ func TestPruneAllowlistsMigrationCleansDanglingIDs(t *testing.T) {
 		_, _ = testPool.Exec(context.Background(),
 			`DELETE FROM users WHERE username IN ('prune-mixed-user', 'prune-dangling-user', 'prune-open-user')`)
 		_, _ = testPool.Exec(context.Background(), `DELETE FROM providers WHERE name = 'prune-live-provider'`)
-		// Leave the shared database with the trigger the migration installs,
-		// whatever this test did to it.
-		if _, err := testPool.Exec(context.Background(), sql); err != nil {
-			t.Errorf("restore migration: %v", err)
-		}
 	})
 
 	var live string

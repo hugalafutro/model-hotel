@@ -120,10 +120,13 @@ func TestConfigSync_EmptyUserCapImportsAsEmptyArray(t *testing.T) {
 		t.Fatalf("set cap: %v", err)
 	}
 	// The operator action that motivates this case: delete the only provider in
-	// alice's cap. Since migration 066 the AFTER DELETE trigger on providers
-	// prunes the id out, so the cap is left as '{}' rather than as a dangling
-	// UUID. Either way it exports as present-but-empty, which is what this test
-	// is about; the row simply arrives there now instead of at export time.
+	// alice's cap, leaving a dangling UUID behind (the column has no FK).
+	//
+	// Raw SQL on purpose. provider.PruneAllowLists would strip the id if this
+	// went through the repository, and the dangling row is exactly the state
+	// under test: pruning is Go-side, so nothing repairs a provider deleted
+	// outside the two call sites, and the export still has to refuse to widen
+	// alice's cap when it meets one.
 	if _, err := apiTestDB.Pool().Exec(context.Background(),
 		`DELETE FROM providers WHERE id = $1`, gone); err != nil {
 		t.Fatalf("delete provider: %v", err)

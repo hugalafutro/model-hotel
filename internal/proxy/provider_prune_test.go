@@ -11,10 +11,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
-// Behaviour preservation for migration 066. Deleting a provider now prunes its
-// UUID out of every allow-list, and a key scoped solely to that provider is left
-// holding '{}' rather than a dangling UUID. That rewrite must not change what
-// the proxy does, in either direction:
+// Behaviour preservation for the allow-list pruning. Deleting a provider now
+// prunes its UUID out of every allow-list, and a key scoped solely to that
+// provider is left holding '{}' rather than a dangling UUID. That rewrite must
+// not change what the proxy does, in either direction:
 //
 //   - before the delete the key names a provider that cannot serve the requested
 //     model, so the request is refused;
@@ -58,7 +58,9 @@ func TestChatCompletions_KeyPrunedToNothingStaysDenied(t *testing.T) {
 		t.Fatalf("before the delete: status = %d, want 403; body %s", w.Code, w.Body.String())
 	}
 
-	// The admin delete path, which is where the trigger fires.
+	// The admin delete path, which is one of the two call sites that prune.
+	// A raw `DELETE FROM providers` would not prune at all, so it would leave the
+	// dangling id in place and test nothing.
 	if err := provider.NewRepository(pool).Delete(ctx, doomedID); err != nil {
 		t.Fatalf("delete doomed provider: %v", err)
 	}
