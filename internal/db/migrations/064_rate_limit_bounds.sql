@@ -1,12 +1,20 @@
 -- Normalize per-key and per-user rate limits that are out of bounds, then make
 -- the bounds true at rest.
 --
--- The interactive API has enforced rps >= 0, burst >= 1 and tpm >= 1
--- (validateRateLimits, internal/api/virtualkeys.go) since PR #226 — but the
--- per-key rps/burst columns shipped in PR #1 with the looser check, so an
--- install from that window can hold a virtual key with burst = 0, and nothing
--- ever cleaned those rows up. A restored old backup or a hand-edited row lands
--- in the same state.
+-- The interactive API never opened a window for these rows: validateRateLimits
+-- (internal/api/virtualkeys.go) enforced rps >= 0 and burst >= 1 in the very
+-- commit that added those columns (PR #1), tpm >= 1 arrived with the tpm column
+-- itself (migration 046, PR #226), and the per-user columns were validated at
+-- introduction (migration 051). Each bound has been true of that path from the
+-- day the column existed.
+--
+-- The config-sync import path is the one that stayed open. It shipped in PR
+-- #297 writing rate_limit_rps/burst/tpm straight through with no numeric
+-- validation at all and stayed that way until the commit this migration
+-- accompanies, so any member that accepted an envelope carrying burst = 0 or a
+-- negative tpm persisted it, and nothing ever cleaned those rows up. A
+-- hand-edited row, or a dump restored from a database in that state, lands in
+-- the same place.
 --
 -- That legacy row is now a fleet-wide hazard rather than a local curiosity: the
 -- config-sync import path validates the same bounds and refuses the ENTIRE
@@ -35,8 +43,9 @@ UPDATE users SET rate_limit_tpm   = NULL WHERE rate_limit_tpm   < 1;
 -- behind validateRateLimits, config-sync behind validateSyncedRateLimits), so
 -- this constraint should never fire; it exists so the next writer cannot
 -- reintroduce the state that made a whole fleet stop syncing, and so a
--- pg_restore of a pre-#226 dump is normalized by this migration on the way back
--- up rather than silently reseeding it.
+-- pg_restore of a dump taken while the import path was unvalidated is
+-- normalized by this migration on the way back up rather than silently
+-- reseeding it.
 --
 -- NULL passes: a CHECK that evaluates to NULL is not a violation, and the
 -- IS NULL arms are spelled out so a reader does not have to know that.

@@ -23,8 +23,8 @@ func readRateLimitBoundsMigration(t *testing.T) string {
 }
 
 // dropRateLimitBoundsConstraints puts the schema back into its pre-064 shape so
-// a pre-#226 row can be seeded, and restores it afterwards by replaying the
-// migration.
+// a legacy out-of-bounds row can be seeded, and restores it afterwards by
+// replaying the migration.
 func dropRateLimitBoundsConstraints(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -39,9 +39,10 @@ func dropRateLimitBoundsConstraints(t *testing.T) {
 }
 
 // TestRateLimitBoundsMigrationNormalizesLegacyRows covers the reason the
-// migration exists: an install from before PR #226 can hold a virtual key with
-// rate_limit_burst = 0, and config sync now refuses the whole envelope over it,
-// so one stale row on the primary stops the entire fleet converging.
+// migration exists: an install that took an envelope through the unvalidated
+// config-sync import path can hold a virtual key with rate_limit_burst = 0, and
+// config sync now refuses the whole envelope over it, so one stale row on the
+// primary stops the entire fleet converging.
 func TestRateLimitBoundsMigrationNormalizesLegacyRows(t *testing.T) {
 	ctx := context.Background()
 	sql := readRateLimitBoundsMigration(t)
@@ -95,7 +96,7 @@ func TestRateLimitBoundsMigrationNormalizesLegacyRows(t *testing.T) {
 // A migration that only cleaned up would leave the next writer free to
 // reintroduce the row, so the bounds have to hold in the schema too. Every
 // in-tree writer already validates; this is the backstop for the one that does
-// not, and for a restored pre-#226 dump.
+// not, and for a dump restored from an install that predates that validation.
 func TestRateLimitBoundsMigrationRejectsNewOutOfBoundsRows(t *testing.T) {
 	ctx := context.Background()
 
