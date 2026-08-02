@@ -96,10 +96,15 @@ const UserRateLimitBurstKey contextKey = "user_rate_limit_burst"
 // cap (*int, nil when unset). No global fallback, same as the RPS cap.
 const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
 
-// UserAllowedProvidersKey is the context key under which the proxy's virtual
-// key middleware stores the OWNER account's provider cap (*[]string, nil when
-// the key is unowned or the owner has no cap). Intersected with the key's own
-// list at candidate resolution.
+// UserAllowedProvidersKey is the context key under which an account's provider
+// cap is published (*[]string, nil when there is no cap). Intersected with the
+// key's own list at candidate resolution. Two middlewares write it, for the two
+// surfaces that can reach a provider:
+//
+//   - the proxy's ProxyKeyMiddleware, from the virtual key's OWNER (absent when
+//     the key is unowned);
+//   - internal/api's ChatProviderCapMiddleware on /api/chat/*, from the CALLER's
+//     own users row, since that surface has a session rather than a key.
 const UserAllowedProvidersKey contextKey = "user_allowed_providers"
 
 // CancelOriginKey is the context key under which the proxy handler stores a
