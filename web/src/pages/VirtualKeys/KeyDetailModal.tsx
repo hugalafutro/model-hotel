@@ -82,7 +82,7 @@ export function KeyDetailModal({
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
-	const { isAdmin } = useIdentity();
+	const { isAdmin, me } = useIdentity();
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState(vk.name);
 	const [editOwnerId, setEditOwnerId] = useState(vk.owner_user_id ?? "");
@@ -113,6 +113,33 @@ export function KeyDetailModal({
 	const sortedProviders = (providers ?? [])
 		.slice()
 		.sort((a, b) => a.name.localeCompare(b.name));
+
+	// A virtual key can never name a provider outside its OWNER's account cap:
+	// the API resolves the write against that cap and the proxy intersects it
+	// again per request. Mirroring it here only saves the user a round trip into
+	// a rejection; it decides nothing.
+	const ownerAccount = editOwnerId
+		? (users ?? []).find((u) => u.id === editOwnerId)
+		: undefined;
+	const ownerCap = ownerAccount?.allowed_providers ?? null;
+	// Non-admins cannot reassign a key (the server writes it to them whatever the
+	// body says), so their own account cap is the one that will apply.
+	const cap = ownerCap ?? (isAdmin ? null : (me?.allowed_providers ?? null));
+	const capIsOtherOwner =
+		ownerCap !== null && ownerAccount?.username !== me?.username;
+	const isOutsideCap = (id: string) => cap !== null && !cap.includes(id);
+	const outsideCapIds = sortedProviders
+		.map((p) => p.id)
+		.filter((id) => isOutsideCap(id));
+	// An out-of-cap provider is always excluded, on top of whatever the user
+	// picked. This is derived rather than seeded into excludedProviders so that
+	// providersChanged keeps tracking user intent alone (an untouched picker
+	// stays untouched) and so a cap that resolves after edit mode opened still
+	// applies.
+	const effectiveExcluded =
+		outsideCapIds.length > 0
+			? Array.from(new Set([...excludedProviders, ...outsideCapIds]))
+			: excludedProviders;
 
 	const toggleProvider = (providerId: string) => {
 		setExcludedProviders((prev) =>
@@ -181,9 +208,9 @@ export function KeyDetailModal({
 		setProviderError("");
 		const allProviderIds = sortedProviders.map((p) => p.id);
 		let allowedProviders: string[] | null;
-		if (excludedProviders.length > 0) {
+		if (effectiveExcluded.length > 0) {
 			allowedProviders = allProviderIds.filter(
-				(id) => !excludedProviders.includes(id),
+				(id) => !effectiveExcluded.includes(id),
 			);
 		} else if (providersChanged) {
 			// User removed all exclusions → send null (no restriction)
@@ -410,6 +437,16 @@ export function KeyDetailModal({
 							<p className="text-xs text-gray-500 mb-2">
 								{t("virtualkeys.modal.form.providerInstructions")}
 							</p>
+							{outsideCapIds.length > 0 && (
+								<p
+									data-testid="vk-provider-cap-note"
+									className="text-xs text-gray-500 italic mb-2"
+								>
+									{capIsOtherOwner
+										? t("virtualkeys.modal.form.providerOutsideOwnerAccess")
+										: t("virtualkeys.modal.form.providerOutsideAccountAccess")}
+								</p>
+							)}
 							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
 									{t("virtualkeys.modal.form.noProviders")}
@@ -417,19 +454,35 @@ export function KeyDetailModal({
 							) : (
 								<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
 									{sortedProviders.map((provider) => {
-										const isExcluded = excludedProviders.includes(provider.id);
+										const outsideCap = isOutsideCap(provider.id);
+										const isExcluded = effectiveExcluded.includes(provider.id);
 										return (
 											<button
 												key={provider.id}
 												type="button"
+												data-testid={`vk-provider-option-${provider.id}`}
+												{...(outsideCap ? { "data-outside-cap": "true" } : {})}
+												disabled={outsideCap}
+												title={
+													outsideCap
+														? capIsOtherOwner
+															? t(
+																	"virtualkeys.modal.form.providerOutsideOwnerAccess",
+																)
+															: t(
+																	"virtualkeys.modal.form.providerOutsideAccountAccess",
+																)
+														: undefined
+												}
 												onClick={() => toggleProvider(provider.id)}
 												aria-pressed={isExcluded}
 												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium transition-colors ui-badge
 													${
 														isExcluded
-															? "ui-badge-neutral line-through opacity-60 hover:brightness-125"
+															? "ui-badge-neutral line-through opacity-60"
 															: "ui-badge-accent"
-													}`}
+													}
+													${outsideCap ? "cursor-not-allowed" : isExcluded ? "hover:brightness-125" : ""}`}
 											>
 												{provider.name}
 											</button>

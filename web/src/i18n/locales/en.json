@@ -1209,6 +1209,8 @@
 				"providerInstructions": "Click a provider to restrict access. All are accessible by default.",
 				"noProviders": "No providers available.",
 				"restoreAccess": "Restore access to all providers",
+				"providerOutsideAccountAccess": "Blocked by your account access",
+				"providerOutsideOwnerAccess": "Blocked by the owner's account access",
 				"stripReasoning": "Strip Reasoning",
 				"stripReasoningDescription": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
 				"enableStripReasoning": "Enable strip reasoning",
