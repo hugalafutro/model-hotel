@@ -2896,11 +2896,6 @@
 			"fuchsia": "Фуксија"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Кликните да копирате и отклоните"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p је застарео на тренутним Anthropic моделима; уместо тога користите top_k",

@@ -2835,11 +2835,6 @@
 			"fuchsia": "Màu fuchsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Nhấp để sao chép và đóng"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p hiện đã không còn được khuyến nghị sử dụng trên các mô hình Anthropic hiện tại; hãy sử dụng top_k thay thế",

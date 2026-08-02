@@ -2835,11 +2835,6 @@
 			"fuchsia": "Fuchsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Klikkaa kopioidaksesi ja hylätäksesi"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p on vanhentunut nykyisissä Anthropic-malleissa; käytä sen sijaan top_k",

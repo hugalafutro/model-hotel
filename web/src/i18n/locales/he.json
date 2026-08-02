@@ -2896,11 +2896,6 @@
 			"fuchsia": "פוקסיה"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "לחץ כדי להעתיק ולסגור"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "השימוש ב-top_p אינו מומלץ עוד במודלים הנוכחיים של Anthropic; יש להשתמש ב-top_k במקום זאת",

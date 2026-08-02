@@ -2957,11 +2957,6 @@
 			"fuchsia": "Fuchsiová"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Kliknutím skopírujete a zatvoríte"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "Funkcia top_p je v súčasných modeloch Anthropic zastaraná; namiesto nej použite top_k",

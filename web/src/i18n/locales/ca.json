@@ -2896,11 +2896,6 @@
 			"fuchsia": "Fúcsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Feu clic per copiar i descartar"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p està obsolet en els models actuals d'Anthropic; utilitzeu top_k en el seu lloc.",

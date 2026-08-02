@@ -2835,11 +2835,6 @@
 			"fuchsia": "Fuchsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "单击以复制并取消"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p 在当前 Anthropic 模型上已弃用；请改用 top_k",

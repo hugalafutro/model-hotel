@@ -2835,11 +2835,6 @@
 			"fuchsia": "푸시아"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "클릭하여 복사하고 닫기"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "현재 Anthropic 모델에서는 top_p가 더 이상 권장되지 않으므로, 대신 top_k를 사용하십시오.",
