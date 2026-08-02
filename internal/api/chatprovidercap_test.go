@@ -175,17 +175,33 @@ func (e *chatCapEnv) chatUser(t *testing.T, name string, providerCap *[]string) 
 	return u
 }
 
-// chat drives a non-streaming completion at the dashboard chat endpoint with the
+// adminChatRoutes is every path RegisterAdminChat mounts (internal/proxy/handler.go),
+// and they are the only routes under /api/chat: nothing else registers into that
+// group. All three POST to the same h.ChatCompletions today, so one middleware
+// covers all three — but that is a property of the current wiring, not something
+// the production code pins. Giving arena its own handler, or mounting it outside
+// the group, would silently drop the cap on that surface. Asserting per route is
+// what turns that into a test failure instead of a quiet regression.
+var adminChatRoutes = []string{"/api/chat/chat", "/api/chat/arena", "/api/chat/completions"}
+
+// chatAt drives a non-streaming completion at one dashboard chat route with the
 // given bearer token.
-func (e *chatCapEnv) chat(t *testing.T, token string) *httptest.ResponseRecorder {
+func (e *chatCapEnv) chatAt(t *testing.T, token, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	body := fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}],"stream":false}`, e.Model)
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/chat", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	e.Router.ServeHTTP(w, req)
 	return w
+}
+
+// chat is chatAt on the plain Chat page route, for the cases that are about the
+// cap rather than about route coverage.
+func (e *chatCapEnv) chat(t *testing.T, token string) *httptest.ResponseRecorder {
+	t.Helper()
+	return e.chatAt(t, token, "/api/chat/chat")
 }
 
 // An uncapped account is unaffected: nil allowed_providers means no cap, and the
@@ -204,32 +220,51 @@ func TestAdminChat_UncappedCallerReachesTheProvider(t *testing.T) {
 // The gap this closes: `chat` is an ordinary assignable grant, so before the cap
 // reached this surface a user capped to one provider could pick any other
 // provider's model on the Chat page and reach it.
+//
+// Asserted on EVERY route RegisterAdminChat mounts, not just the one the Chat
+// page uses. Arena and completions are separate paths that happen to share a
+// handler; "happens to share a handler" is not something a test should be
+// willing to assume on a security boundary.
 func TestAdminChat_CappedCallerDeniedProviderOutsideTheCap(t *testing.T) {
 	env := setupChatCapTest(t)
 	// The cap names some other provider entirely, so nothing serving this model
 	// survives the filter.
 	u := env.chatUser(t, "chat-cap-outside", &[]string{uuid.New().String()})
+	token := env.LoginAs(u.ID.String())
 
-	w := env.chat(t, env.LoginAs(u.ID.String()))
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403; body %s", w.Code, w.Body.String())
-	}
-	// The refusal comes from the proxy's existing candidate filter, not from a
-	// second bespoke rule that could drift away from the /v1 behaviour.
-	if !strings.Contains(w.Body.String(), "does not have access to any provider") {
-		t.Errorf("unexpected body: %s", w.Body.String())
+	for _, path := range adminChatRoutes {
+		t.Run(path, func(t *testing.T) {
+			w := env.chatAt(t, token, path)
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want 403; body %s", w.Code, w.Body.String())
+			}
+			// The refusal comes from the proxy's existing candidate filter, not
+			// from a second bespoke rule that could drift away from the /v1
+			// behaviour. It also rules out a 403 from some unrelated guard.
+			if !strings.Contains(w.Body.String(), "does not have access to any provider") {
+				t.Errorf("unexpected body: %s", w.Body.String())
+			}
+		})
 	}
 }
 
-// The other half of the same account: a provider inside the cap still works, so
-// the cap narrows the surface rather than closing it.
+// The other half of the same account, on the same three routes: a provider
+// inside the cap still works, so the cap narrows each surface rather than
+// closing it. This is also what makes the denials above meaningful per route -
+// it proves each path really does reach a provider when the cap allows it, so a
+// 403 there is the filter refusing and not the route being broken or unmounted.
 func TestAdminChat_CappedCallerReachesProviderInsideTheCap(t *testing.T) {
 	env := setupChatCapTest(t)
 	u := env.chatUser(t, "chat-cap-inside", &[]string{env.ProviderID.String()})
+	token := env.LoginAs(u.ID.String())
 
-	w := env.chat(t, env.LoginAs(u.ID.String()))
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body %s", w.Code, w.Body.String())
+	for _, path := range adminChatRoutes {
+		t.Run(path, func(t *testing.T) {
+			w := env.chatAt(t, token, path)
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
