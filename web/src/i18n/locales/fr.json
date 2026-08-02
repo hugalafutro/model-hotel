@@ -2978,6 +2978,7 @@
 		"providerAccessEmpty": "Sélectionnez au moins un fournisseur, ou choisissez tous les fournisseurs.",
 		"providerAccessColumn": "Accès aux fournisseurs",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Aucun fournisseur",
 		"table": {
 			"username": "Nom d'utilisateur",
 			"displayName": "Nom affiché",

@@ -286,7 +286,14 @@ export function KeyDetailModal({
 		// Compute excluded providers from the VK's allowed_providers.
 		// If the key has restrictions but providers haven't loaded yet,
 		// we must not proceed — that would silently clear restrictions.
-		if (vk.allowed_providers && vk.allowed_providers.length > 0 && !providers) {
+		//
+		// The test is the LIST'S PRESENCE, not its length. An EMPTY list is a
+		// restriction (deny everything), and it is an ordinary state: deleting the
+		// last provider a key was scoped to prunes the stored list to `{}`. Length-
+		// gating it let a deny-all key fall to the else-branch below, which clears
+		// excludedProviders and paints every provider as allowed, so the first chip
+		// touched would widen the key.
+		if (vk.allowed_providers && !providers) {
 			return;
 		}
 		if (vk.allowed_providers && providers) {
@@ -709,15 +716,13 @@ export function KeyDetailModal({
 							type="button"
 							onClick={startEditing}
 							className="ui-btn ui-btn-secondary"
-							disabled={
-								!!vk.allowed_providers &&
-								vk.allowed_providers.length > 0 &&
-								!providers
-							}
+							// Same presence test as startEditing's guard, deliberately: an
+							// empty allowed_providers is still a restriction, and if this
+							// button stayed enabled for one the click would hit that guard
+							// and silently do nothing.
+							disabled={!!vk.allowed_providers && !providers}
 							title={
-								vk.allowed_providers &&
-								vk.allowed_providers.length > 0 &&
-								!providers
+								vk.allowed_providers && !providers
 									? t("virtualkeys.modal.loadingProviders")
 									: undefined
 							}

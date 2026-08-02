@@ -2978,6 +2978,7 @@
 		"providerAccessEmpty": "Изаберите бар једног провајдера или изаберите све провајдере.",
 		"providerAccessColumn": "Приступ провајдерима",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Нема провајдера",
 		"table": {
 			"username": "Корисничко име",
 			"displayName": "Приказано име",

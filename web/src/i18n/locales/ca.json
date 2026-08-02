@@ -2978,6 +2978,7 @@
 		"providerAccessEmpty": "Seleccioneu almenys un proveïdor, o trieu tots els proveïdors.",
 		"providerAccessColumn": "Accés als proveïdors",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Cap proveïdor",
 		"table": {
 			"username": "Nom d'usuari",
 			"displayName": "Nom visible",

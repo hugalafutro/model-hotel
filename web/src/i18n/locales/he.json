@@ -2978,6 +2978,7 @@
 		"providerAccessEmpty": "בחרו ספק אחד לפחות, או בחרו בכל הספקים.",
 		"providerAccessColumn": "גישה לספקים",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "אין ספקים",
 		"table": {
 			"username": "שם משתמש",
 			"displayName": "שם תצוגה",

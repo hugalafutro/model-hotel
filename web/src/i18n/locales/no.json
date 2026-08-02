@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Velg minst én leverandør, eller velg alle leverandører.",
 		"providerAccessColumn": "Leverandørtilgang",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Ingen leverandører",
 		"table": {
 			"username": "Brukernavn",
 			"displayName": "Visningsnavn",

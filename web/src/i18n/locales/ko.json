@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "제공자를 하나 이상 선택하거나 모든 제공자를 허용하세요.",
 		"providerAccessColumn": "제공자 접근 권한",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "제공자 없음",
 		"table": {
 			"username": "사용자 이름",
 			"displayName": "표시 이름",

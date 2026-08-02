@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "En az bir sağlayıcı seçin veya tüm sağlayıcıları seçin.",
 		"providerAccessColumn": "Sağlayıcı erişimi",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Sağlayıcı yok",
 		"table": {
 			"username": "Kullanıcı adı",
 			"displayName": "Görünen ad",

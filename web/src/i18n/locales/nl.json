@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Selecteer minstens één provider, of kies alle providers.",
 		"providerAccessColumn": "Providertoegang",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Geen providers",
 		"table": {
 			"username": "Gebruikersnaam",
 			"displayName": "Weergavenaam",

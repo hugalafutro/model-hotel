@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Chọn ít nhất một nhà cung cấp, hoặc chọn tất cả nhà cung cấp.",
 		"providerAccessColumn": "Quyền truy cập nhà cung cấp",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Không có nhà cung cấp",
 		"table": {
 			"username": "Tên đăng nhập",
 			"displayName": "Tên hiển thị",

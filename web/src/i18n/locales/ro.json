@@ -2978,6 +2978,7 @@
 		"providerAccessEmpty": "Selectați cel puțin un furnizor sau alegeți toți furnizorii.",
 		"providerAccessColumn": "Acces la furnizori",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Niciun furnizor",
 		"table": {
 			"username": "Nume de utilizator",
 			"displayName": "Nume afișat",

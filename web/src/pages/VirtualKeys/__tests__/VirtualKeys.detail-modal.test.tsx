@@ -1312,6 +1312,45 @@ describe("hasChanges revert", () => {
 		expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
 	});
 
+	// A deny-all key (allowed_providers === []) is a restriction like any other,
+	// and an ordinary one: pruning the last provider a key was scoped to leaves
+	// `{}`. Length-gating the guard let it through, and the else-branch then
+	// cleared the exclusion set, so the modal opened claiming every provider was
+	// allowed and the first chip touched would have widened the key.
+	it("blocks edit for a deny-all key while providers are still loading", async () => {
+		const denyAllKey = {
+			...mockVirtualKeyWithProviders,
+			id: "vk-deny-all",
+			name: "Deny All Key",
+			allowed_providers: [],
+		};
+		server.use(
+			http.get("/api/providers", () => new Promise(() => {})),
+			http.get("/api/virtual-keys", () => HttpResponse.json([denyAllKey])),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Deny All Key")).toBeInTheDocument();
+		});
+		await user.click(screen.getByText("Deny All Key"));
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		const editButton = within(dialog).getByRole("button", { name: "Edit" });
+		expect(editButton).toBeDisabled();
+		await user.click(editButton);
+		expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+	});
+
 	it("shows error when all providers are excluded on save", async () => {
 		const mockProviders = [mockProvider, mockProvider2];
 

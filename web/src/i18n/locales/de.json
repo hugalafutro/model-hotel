@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Wählen Sie mindestens einen Anbieter aus oder erlauben Sie alle Anbieter.",
 		"providerAccessColumn": "Anbieterzugriff",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Keine Anbieter",
 		"table": {
 			"username": "Benutzername",
 			"displayName": "Anzeigename",

@@ -46,6 +46,35 @@ export function Users() {
 		[providers],
 	);
 
+	// A cap has THREE states, not two. NULL means every provider; a non-empty list
+	// means exactly those; an EMPTY list means none of them, which the proxy
+	// enforces as deny-everything (effectiveAllowedProviders in internal/proxy).
+	// The empty state is reached by ordinary admin action, since deleting the last
+	// provider an account was capped to prunes the stored list to `{}`, so it is
+	// labelled explicitly instead of falling through to allowed_providers[0] and
+	// rendering a blank cell for the single most restricted account on the page.
+	const providerAccess = useCallback(
+		(cap: string[] | null | undefined) => {
+			if (cap == null) {
+				return { state: "all", label: t("users.providerAccessAll") };
+			}
+			if (cap.length === 0) {
+				return { state: "none", label: t("users.providerAccessNone") };
+			}
+			if (cap.length === 1) {
+				return { state: "selected", label: providerName(cap[0]) };
+			}
+			return {
+				state: "selected",
+				label: t("users.providerAccessCount", {
+					first: providerName(cap[0]),
+					count: cap.length - 1,
+				}),
+			};
+		},
+		[providerName, t],
+	);
+
 	const handleSort = useCallback((field: UserSortField) => {
 		setSort((prev) => ({
 			field,
@@ -184,17 +213,10 @@ export function Users() {
 										className="px-4 py-3 text-sm text-gray-400 truncate"
 										data-testid={`user-provider-access-${u.id}`}
 										data-provider-access={
-											u.allowed_providers == null ? "all" : "selected"
+											providerAccess(u.allowed_providers).state
 										}
 									>
-										{u.allowed_providers == null
-											? t("users.providerAccessAll")
-											: u.allowed_providers.length > 1
-												? t("users.providerAccessCount", {
-														first: providerName(u.allowed_providers[0]),
-														count: u.allowed_providers.length - 1,
-													})
-												: providerName(u.allowed_providers[0])}
+										{providerAccess(u.allowed_providers).label}
 									</td>
 									<td className="px-4 py-3">
 										<span className="inline-flex items-center gap-1.5">

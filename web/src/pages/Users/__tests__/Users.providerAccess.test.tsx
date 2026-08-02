@@ -37,6 +37,16 @@ const multiCappedUser: DashboardUser = {
 	allowed_providers: ["p1", "p2", "p3"],
 };
 
+// A cap pruned down to nothing. Reachable without touching the database: an
+// admin deleting the last provider this account was capped to leaves `{}`, which
+// the proxy enforces as deny-everything.
+const denyAllUser: DashboardUser = {
+	...uncappedUser,
+	id: "55555555-2222-4333-8444-555555555555",
+	username: "erin",
+	allowed_providers: [],
+};
+
 const providers: Provider[] = [
 	{ ...mockProvider, id: "p1", name: "openai" },
 	{ ...mockProvider, id: "p2", name: "anthropic" },
@@ -97,6 +107,26 @@ describe("Users page provider access column", () => {
 		});
 		expect(cell.textContent).toContain("openai");
 		expect(cell.textContent).toContain("2");
+	});
+
+	it("marks an empty cap as its own deny-everything state rather than rendering a blank cell", async () => {
+		mockUsersApi([uncappedUser, denyAllUser]);
+		renderWithProviders(<Users />);
+
+		const cell = await screen.findByTestId(
+			`user-provider-access-${denyAllUser.id}`,
+		);
+		// Distinguishable from both "all" and "selected": the column exists to make
+		// a capped account visible at a glance, and this is the most capped one.
+		await waitFor(() => {
+			expect(cell).toHaveAttribute("data-provider-access", "none");
+		});
+		expect(cell.textContent?.trim()).not.toBe("");
+		// Locale-independent: it must not read like the uncapped row.
+		const uncapped = screen.getByTestId(
+			`user-provider-access-${uncappedUser.id}`,
+		);
+		expect(cell.textContent).not.toBe(uncapped.textContent);
 	});
 
 	it("renders a raw id when the cap references a deleted provider", async () => {

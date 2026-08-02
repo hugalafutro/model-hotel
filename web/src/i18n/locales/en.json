@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Select at least one provider, or choose all providers.",
 		"providerAccessColumn": "Provider access",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "No providers",
 		"table": {
 			"username": "Username",
 			"displayName": "Display name",

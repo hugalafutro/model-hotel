@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "プロバイダーを1つ以上選択するか、すべてのプロバイダーを許可してください。",
 		"providerAccessColumn": "プロバイダーへのアクセス",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "プロバイダーなし",
 		"table": {
 			"username": "ユーザー名",
 			"displayName": "表示名",

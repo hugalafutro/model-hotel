@@ -3039,6 +3039,7 @@
 		"providerAccessEmpty": "Vyberte alespoň jednoho poskytovatele, nebo zvolte všechny poskytovatele.",
 		"providerAccessColumn": "Přístup k poskytovatelům",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Žádní poskytovatelé",
 		"table": {
 			"username": "Uživatelské jméno",
 			"displayName": "Zobrazované jméno",

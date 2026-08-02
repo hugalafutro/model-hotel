@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "Kies ten minste een verskaffer, of kies alle verskaffers.",
 		"providerAccessColumn": "Verskaffertoegang",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Geen verskaffers nie",
 		"table": {
 			"username": "Gebruikersnaam",
 			"displayName": "Vertoonnaam",

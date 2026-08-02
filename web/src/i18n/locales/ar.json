@@ -3161,6 +3161,7 @@
 		"providerAccessEmpty": "حدد مزودًا واحدًا على الأقل، أو اختر جميع المزودين.",
 		"providerAccessColumn": "وصول المزودين",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "لا يوجد مزودون",
 		"table": {
 			"username": "اسم المستخدم",
 			"displayName": "الاسم المعروض",

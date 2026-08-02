@@ -2917,6 +2917,7 @@
 		"providerAccessEmpty": "请至少选择一个提供者，或选择所有提供者。",
 		"providerAccessColumn": "提供者访问权限",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "无提供者",
 		"table": {
 			"username": "用户名",
 			"displayName": "显示名称",

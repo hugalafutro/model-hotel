@@ -3039,6 +3039,7 @@
 		"providerAccessEmpty": "Виберіть щонайменше одного постачальника або дозвольте всіх постачальників.",
 		"providerAccessColumn": "Доступ до постачальників",
 		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Немає постачальників",
 		"table": {
 			"username": "Ім'я користувача",
 			"displayName": "Відображуване ім'я",
