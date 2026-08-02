@@ -35,6 +35,16 @@ export function Users() {
 		queryKey: ["users"],
 		queryFn: () => api.users.list(),
 	});
+	// Resolves capped-account provider ids to names for the column below; also
+	// consumed by UserModal, so this is the same cache entry, not a refetch.
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
+	const providerName = useCallback(
+		(id: string) => providers?.find((p) => p.id === id)?.name ?? id,
+		[providers],
+	);
 
 	const handleSort = useCallback((field: UserSortField) => {
 		setSort((prev) => ({
@@ -95,13 +105,14 @@ export function Users() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[18%]" />
-							<col className="w-[18%]" />
-							<col className="w-[22%]" />
-							<col className="w-[10%]" />
+							<col className="w-[16%]" />
 							<col className="w-[14%]" />
+							<col className="w-[18%]" />
 							<col className="w-[8%]" />
-							<col className="w-[10%]" />
+							<col className="w-[12%]" />
+							<col className="w-[12%]" />
+							<col className="w-[8%]" />
+							<col className="w-[12%]" />
 						</colgroup>
 						<thead>
 							<tr>
@@ -124,6 +135,7 @@ export function Users() {
 								<StaticHeader tooltip={t("users.table.grantsTooltip")}>
 									{t("users.table.grants")}
 								</StaticHeader>
+								<StaticHeader>{t("users.providerAccessColumn")}</StaticHeader>
 								<SortableHeader
 									label={t("users.table.status")}
 									field="enabled"
@@ -167,6 +179,22 @@ export function Users() {
 														)
 														.join(", ")
 												: t("users.table.noGrants")}
+									</td>
+									<td
+										className="px-4 py-3 text-sm text-gray-400 truncate"
+										data-testid={`user-provider-access-${u.id}`}
+										data-provider-access={
+											u.allowed_providers == null ? "all" : "selected"
+										}
+									>
+										{u.allowed_providers == null
+											? t("users.providerAccessAll")
+											: u.allowed_providers.length > 1
+												? t("users.providerAccessCount", {
+														first: providerName(u.allowed_providers[0]),
+														count: u.allowed_providers.length - 1,
+													})
+												: providerName(u.allowed_providers[0])}
 									</td>
 									<td className="px-4 py-3">
 										<span className="inline-flex items-center gap-1.5">
