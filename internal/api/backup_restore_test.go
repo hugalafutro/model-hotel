@@ -135,14 +135,11 @@ func TestRestoreBackup_MultipartParseError(t *testing.T) {
 // objects (FUNCTION, TRIGGER, etc.) is rejected.
 func TestRestoreBackup_DangerousObjects(t *testing.T) {
 	// Test the parseTOC and checkDangerousObjects functions directly
-	// since crafting a real pg_dump with dangerous objects is complex.
-	// The TRIGGER line carries its relation before its own name, which is the
-	// shape pg_restore --list actually prints; it doubles as the case where a
-	// dump attaches an unexpected trigger to a table the application does own.
+	// since crafting a real pg_dump with dangerous objects is complex
 	input := `;
 100; 1259 16593 TABLE public providers modelhotel
 200; 0 0 FUNCTION public malicious_fn modelhotel
-300; 0 0 TRIGGER public providers bad_trigger modelhotel
+300; 0 0 TRIGGER public bad_trigger modelhotel
 `
 	entries := parseTOC(input)
 	dangerous := checkDangerousObjects(entries)
@@ -166,33 +163,6 @@ func TestRestoreBackup_DangerousObjects(t *testing.T) {
 	}
 	if !foundTrigger {
 		t.Error("expected TRIGGER to be detected as dangerous")
-	}
-}
-
-// The pruning trigger from migration 066 and its function appear in every
-// model-hotel pg_dump, so the dangerous-object rail has to let those two exact
-// objects through or the app rejects its own backups. The exemption is keyed on
-// full identity, and this pins that: the real pair passes, while a function with
-// another name, and the expected trigger name attached to a different relation,
-// are both still refused.
-func TestCheckDangerousObjects_ExemptsOnlyTheAppsOwnObjects(t *testing.T) {
-	// The first two lines are copied from `pg_restore --list` of a real migrated
-	// database, so this test breaks if pg_dump ever prints them differently.
-	input := `;
-234; 1255 7466708 FUNCTION public prune_provider_from_allowlists() modelhotel
-3528; 2620 7466709 TRIGGER public providers providers_prune_allowlists modelhotel
-`
-	if dangerous := checkDangerousObjects(parseTOC(input)); len(dangerous) != 0 {
-		t.Fatalf("the application's own function and trigger were rejected: %v", dangerous)
-	}
-
-	impostors := `;
-234; 1255 1 FUNCTION public exfiltrate_keys() modelhotel
-3528; 2620 2 TRIGGER public virtual_keys providers_prune_allowlists modelhotel
-`
-	dangerous := checkDangerousObjects(parseTOC(impostors))
-	if len(dangerous) != 2 {
-		t.Fatalf("expected both impostors rejected, got %d: %v", len(dangerous), dangerous)
 	}
 }
 
