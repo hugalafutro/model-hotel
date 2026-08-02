@@ -1225,7 +1225,20 @@ func TestChatCompletions_AllowedProviders_NilAllowsAll(t *testing.T) {
 	}
 }
 
-func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
+// A non-nil EMPTY allowed_providers denies every provider. This assertion used
+// to be the exact opposite: the filter gated on len(*allowed) > 0, so an empty
+// list read as "unrestricted" and a key that named nothing reached everything.
+// That fail-open was deliberately closed when the owner account cap landed,
+// because the two lists are intersected and a disjoint pair necessarily
+// produces an empty one: had empty kept meaning "allow all", every denial the
+// intersection computes would have inverted into a grant.
+//
+// No deployment changes behaviour: migration 065 runs
+// `UPDATE virtual_keys SET allowed_providers = NULL WHERE allowed_providers IS
+// NOT NULL AND cardinality(allowed_providers) = 0` before the new semantics
+// take effect, and both the virtual-key and user endpoints reject an empty
+// list, so the ambiguous row cannot be written back.
+func TestChatCompletions_AllowedProviders_EmptySliceDeniesAll(t *testing.T) {
 	pool := testDB.Pool()
 	ctx := context.Background()
 
@@ -1303,9 +1316,12 @@ func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	// empty slice allowed_providers → len==0 check skips filter → request succeeds
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200 (empty slice allowed_providers skips filter), got %d; body: %s", w.Code, w.Body.String())
+	// empty slice allowed_providers → the list restricts to nothing → 403
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 (empty slice allowed_providers allows no provider), got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "virtual key does not have access to any provider") {
+		t.Errorf("expected 403 error message, got: %s", w.Body.String())
 	}
 }
 

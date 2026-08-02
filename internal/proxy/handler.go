@@ -119,11 +119,12 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	}
 	if vk.Owner != nil && vk.OwnerUserID != nil {
 		info.Owner = &OwnerInfo{
-			ID:             vk.OwnerUserID.String(),
-			Enabled:        vk.Owner.Enabled,
-			RateLimitRPS:   vk.Owner.RateLimitRPS,
-			RateLimitBurst: vk.Owner.RateLimitBurst,
-			RateLimitTPM:   vk.Owner.RateLimitTPM,
+			ID:               vk.OwnerUserID.String(),
+			Enabled:          vk.Owner.Enabled,
+			RateLimitRPS:     vk.Owner.RateLimitRPS,
+			RateLimitBurst:   vk.Owner.RateLimitBurst,
+			RateLimitTPM:     vk.Owner.RateLimitTPM,
+			AllowedProviders: vk.Owner.AllowedProviders,
 		}
 	}
 	return info, nil
@@ -306,6 +307,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, vk.Owner.RateLimitRPS)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, vk.Owner.RateLimitBurst)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, vk.Owner.RateLimitTPM)
+			ctx = context.WithValue(ctx, ctxkeys.UserAllowedProvidersKey, vk.Owner.AllowedProviders)
 		}
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot

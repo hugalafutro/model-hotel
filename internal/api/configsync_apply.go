@@ -492,10 +492,11 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 			}
 		}
 		// Privilege-safety: if this key was restricted to providers but none of
-		// them resolve on this member, do NOT import it. An empty/nil
-		// allowed_providers means "all providers allowed" (the proxy only filters
-		// on a non-empty list), so writing it would silently turn a restricted key
-		// into an unrestricted one. Skipping leaves the restricted key absent
+		// them resolve on this member, do NOT import it. A nil allowed_providers
+		// means "all providers allowed" (pgx writes the nil slice as NULL, and
+		// the proxy treats only NULL as unrestricted), so writing it would
+		// silently turn a restricted key into an unrestricted one. Skipping
+		// leaves the restricted key absent
 		// rather than over-privileged. In the normal flow this never triggers:
 		// providers are upserted in the same transaction before this runs, so
 		// every name resolves.

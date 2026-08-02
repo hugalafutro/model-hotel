@@ -36,12 +36,16 @@ type VirtualKey struct {
 }
 
 // Owner is the slice of the owning users row the proxy needs: whether the
-// account is enabled and its aggregate per-user limits.
+// account is enabled, its aggregate per-user limits, and its provider cap.
 type Owner struct {
 	Enabled        bool
 	RateLimitRPS   *float64
 	RateLimitBurst *int
 	RateLimitTPM   *int
+	// AllowedProviders is the account-level provider cap (nil = no cap). The
+	// proxy intersects it with the key's own list, so it must come from the
+	// live row here rather than from anything copied onto the key at write time.
+	AllowedProviders *[]string
 }
 
 // CreateVirtualKeyRequest is the request body for creating a virtual key.
@@ -243,15 +247,16 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 	var ownerEnabled *bool
 	var ownerRPS *float64
 	var ownerBurst, ownerTPM *int
+	var ownerAllowed *[]string
 	err := r.pool.QueryRow(ctx,
 		`SELECT vk.id, vk.name, vk.key_hash, vk.key_preview, vk.tokens_used, vk.last_used_at, vk.created_at,
 		        vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm, vk.allowed_providers, vk.strip_reasoning,
-		        vk.owner_user_id, u.enabled, u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm
+		        vk.owner_user_id, u.enabled, u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm, u.allowed_providers
 		 FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
 		 WHERE vk.key_hash = $1`, keyHash).Scan(
 		&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt,
 		&vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning,
-		&vk.OwnerUserID, &ownerEnabled, &ownerRPS, &ownerBurst, &ownerTPM)
+		&vk.OwnerUserID, &ownerEnabled, &ownerRPS, &ownerBurst, &ownerTPM, &ownerAllowed)
 	if err != nil {
 		// Translate a miss into ErrNotFound (like Get/Update) so the proxy returns
 		// a clean "invalid virtual key" 401 instead of surfacing the raw pgx "no
@@ -263,10 +268,11 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 	}
 	if vk.OwnerUserID != nil && ownerEnabled != nil {
 		vk.Owner = &Owner{
-			Enabled:        *ownerEnabled,
-			RateLimitRPS:   ownerRPS,
-			RateLimitBurst: ownerBurst,
-			RateLimitTPM:   ownerTPM,
+			Enabled:          *ownerEnabled,
+			RateLimitRPS:     ownerRPS,
+			RateLimitBurst:   ownerBurst,
+			RateLimitTPM:     ownerTPM,
+			AllowedProviders: ownerAllowed,
 		}
 	}
 	return &vk, nil

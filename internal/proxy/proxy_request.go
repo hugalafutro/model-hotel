@@ -225,35 +225,77 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		st.logData.providerName = "hotel"
 	}
 
-	// Filter candidates by virtual key's allowed_providers.
-	// If the key has a non-nil allowed list, remove candidates whose
-	// provider ID is not in the list. nil = all providers allowed.
-	if v := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey); v != nil {
-		if allowed, ok := v.(*[]string); ok && allowed != nil && len(*allowed) > 0 {
-			allowedSet := make(map[string]struct{}, len(*allowed))
-			for _, id := range *allowed {
-				allowedSet[id] = struct{}{}
-			}
-			filtered := candidates[:0]
-			for _, c := range candidates {
-				if _, ok := allowedSet[c.provider.ID.String()]; ok {
-					filtered = append(filtered, c)
-				}
-			}
-			if len(filtered) == 0 {
-				h.failRequest(st.logData, 403, KindAuth, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
-				writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
-				return nil, false
-			}
-			debuglog.Info("proxy: filtered candidates by allowed_providers", "before", len(candidates), "after", len(filtered), "key", st.logData.virtualKeyName)
-			candidates = filtered
+	// Filter candidates by the effective provider allow-list: the virtual key's
+	// own list intersected with its owner account's cap. nil means no
+	// restriction; a non-nil list restricts to exactly its members, so an empty
+	// one denies everything rather than allowing everything.
+	keyAllowed, _ := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey).(*[]string)
+	ownerAllowed, _ := r.Context().Value(ctxkeys.UserAllowedProvidersKey).(*[]string)
+	if allowed := effectiveAllowedProviders(keyAllowed, ownerAllowed); allowed != nil {
+		allowedSet := make(map[string]struct{}, len(*allowed))
+		for _, id := range *allowed {
+			allowedSet[id] = struct{}{}
 		}
+		filtered := candidates[:0]
+		for _, c := range candidates {
+			if _, ok := allowedSet[c.provider.ID.String()]; ok {
+				filtered = append(filtered, c)
+			}
+		}
+		if len(filtered) == 0 {
+			h.failRequest(st.logData, 403, KindAuth, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
+			return nil, false
+		}
+		// owner_capped records which side narrowed the list, since a key that
+		// has always worked can start refusing purely because its owner's cap
+		// moved. The response body deliberately does not say this: a proxy
+		// client learns it lacks access, not whose rule denied it.
+		debuglog.Info("proxy: filtered candidates by allowed_providers",
+			"before", len(candidates), "after", len(filtered),
+			"owner_capped", ownerAllowed != nil, "key", st.logData.virtualKeyName)
+		candidates = filtered
 	}
 
 	st.timings = timings
 	st.cacheHits = cacheHits
 	st.isFailover = isFailover
 	return candidates, true
+}
+
+// effectiveAllowedProviders intersects a virtual key's provider allow-list with
+// its owner's account cap. Either side being nil means that side imposes no
+// restriction; a non-nil list restricts to exactly its members INCLUDING when
+// empty, which is what makes the pair fail-closed.
+//
+// This is the enforcement point for the per-user provider cap, and it is the
+// only one that runs on every request. The write-time check in
+// internal/api/virtualkeys.go merely produces a friendly refusal on the two
+// dashboard write paths, so a stored list wider than its owner's cap is a
+// normal state, not a corruption: upsertVirtualKeys in
+// internal/api/configsync_apply.go writes virtual_keys rows straight from a
+// fleet import without consulting the cap, and narrowing users.allowed_providers
+// updates only the users row, leaving that owner's existing keys untouched.
+func effectiveAllowedProviders(key, owner *[]string) *[]string {
+	switch {
+	case key == nil && owner == nil:
+		return nil
+	case owner == nil:
+		return key
+	case key == nil:
+		return owner
+	}
+	ownerSet := make(map[string]struct{}, len(*owner))
+	for _, id := range *owner {
+		ownerSet[id] = struct{}{}
+	}
+	out := []string{}
+	for _, id := range *key {
+		if _, ok := ownerSet[id]; ok {
+			out = append(out, id)
+		}
+	}
+	return &out
 }
 
 // loadFailoverConfig performs phase C of ChatCompletions: finalize the

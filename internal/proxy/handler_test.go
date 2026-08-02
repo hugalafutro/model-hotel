@@ -1690,19 +1690,22 @@ func TestProxyKeyMiddleware_OwnerContextPropagated(t *testing.T) {
 	rps := 2.0
 	burst := 3
 	tpm := 6000
+	ownerCap := []string{"prov-a"}
 	h.virtualKeyRepo = &ownerAwareVKRepo{vk: &VirtualKeyInfo{
 		ID: "vk-1", Name: "owned", KeyHash: "hash-1",
-		Owner: &OwnerInfo{ID: "uid-1", Enabled: true, RateLimitRPS: &rps, RateLimitBurst: &burst, RateLimitTPM: &tpm},
+		Owner: &OwnerInfo{ID: "uid-1", Enabled: true, RateLimitRPS: &rps, RateLimitBurst: &burst, RateLimitTPM: &tpm, AllowedProviders: &ownerCap},
 	}}
 
 	var gotUID string
 	var gotRPS *float64
 	var gotBurst, gotTPM *int
+	var gotCap *[]string
 	handler := h.ProxyKeyMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		gotUID, _ = r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
 		gotRPS, _ = r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64)
 		gotBurst, _ = r.Context().Value(ctxkeys.UserRateLimitBurstKey).(*int)
 		gotTPM, _ = r.Context().Value(ctxkeys.UserRateLimitTPMKey).(*int)
+		gotCap, _ = r.Context().Value(ctxkeys.UserAllowedProvidersKey).(*[]string)
 	}))
 	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
 	req.Header.Set("Authorization", "Bearer sk-owned-key")
@@ -1723,6 +1726,11 @@ func TestProxyKeyMiddleware_OwnerContextPropagated(t *testing.T) {
 	}
 	if gotTPM == nil || *gotTPM != tpm {
 		t.Errorf("user tpm = %v, want %v", gotTPM, tpm)
+	}
+	// The cap must reach the context, not just OwnerInfo: candidate filtering
+	// reads it from there and has no other route to the owner's row.
+	if gotCap == nil || len(*gotCap) != 1 || (*gotCap)[0] != "prov-a" {
+		t.Errorf("user allowed_providers = %v, want [prov-a]", gotCap)
 	}
 }
 
@@ -1761,10 +1769,11 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 	burst := 7
 	tpm := 9000
 	var ownerID uuid.UUID
+	ownerCap := []string{uuid.New().String()}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm)
-		 VALUES ($1, 'x', true, $2, $3, $4) RETURNING id`,
-		"adapter-owner-"+suffix, rps, burst, tpm).Scan(&ownerID); err != nil {
+		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
+		 VALUES ($1, 'x', true, $2, $3, $4, $5) RETURNING id`,
+		"adapter-owner-"+suffix, rps, burst, tpm, ownerCap).Scan(&ownerID); err != nil {
 		t.Fatalf("seed owner: %v", err)
 	}
 	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, ownerID) })
@@ -1796,5 +1805,11 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 		info.Owner.RateLimitBurst == nil || *info.Owner.RateLimitBurst != burst ||
 		info.Owner.RateLimitTPM == nil || *info.Owner.RateLimitTPM != tpm {
 		t.Errorf("owner limits not carried: %+v", info.Owner)
+	}
+	// The provider cap rides the same join. It has to come from the live users
+	// row on every request, since nothing copies it onto the key at write time.
+	if info.Owner.AllowedProviders == nil || len(*info.Owner.AllowedProviders) != 1 ||
+		(*info.Owner.AllowedProviders)[0] != ownerCap[0] {
+		t.Errorf("owner allowed_providers = %v, want %v", info.Owner.AllowedProviders, ownerCap)
 	}
 }

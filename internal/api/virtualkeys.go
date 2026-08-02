@@ -178,8 +178,10 @@ func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
 // ON DELETE SET NULL (migration 051), so a reference to a deleted user cannot
 // persist. The only way to observe one is a delete racing this write, and there
 // the uncapped list reaches Create/Update, violates the FK, and comes back 400.
-// This is deliberately NOT justified by a runtime intersection in the proxy:
-// none exists yet, so at this commit the write-time check is the only wall.
+// The foreign key, not the proxy, is what is being relied on here: the runtime
+// intersection (effectiveAllowedProviders in internal/proxy) does exist now and
+// is the enforcement wall, but it only ever narrows a request, so it cannot
+// undo a too-wide list this function let through.
 func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]string, error) {
 	if ownerID == nil || h.userRepo == nil {
 		return nil, nil //nolint:nilnil // nil cap = unrestricted, not an error sentinel
