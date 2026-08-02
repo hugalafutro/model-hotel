@@ -133,37 +133,39 @@ func TestPruneAllowLists_RemovesOnlyTheNamedIDs(t *testing.T) {
 	}
 }
 
-// Every config-sync import that deletes no providers reaches this with an empty
-// set. It must be a true no-op rather than a statement that rewrites every
-// allow-list row in both tables on every sync.
-func TestPruneAllowLists_NoIDsIsANoOp(t *testing.T) {
-	ctx := context.Background()
-	keep := uuid.New().String()
-	seedAllowListRows(t, "noop", []string{keep})
-
-	if err := PruneAllowLists(ctx, testDB.Pool(), nil); err != nil {
-		t.Fatalf("PruneAllowLists with no ids: %v", err)
-	}
-
-	isNull, card, members := readAllowList(t, pruneTestKeyQuery, "restricted-noop")
-	if isNull || card != 1 || members[0] != keep {
-		t.Fatalf("allow-list = %v (cardinality %d, null %v), want it untouched as [%s]", members, card, isNull, keep)
-	}
-}
-
-// failingExecer fails the nth Exec, so both statements' error paths can be
-// reached without breaking the real database.
-type failingExecer struct {
+// stubExecer counts Exec calls and fails the nth one. failAt 0 never fails, so
+// the same stub serves both as a call counter and as a fault injector.
+type stubExecer struct {
 	calls  int
 	failAt int
 }
 
-func (f *failingExecer) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	f.calls++
-	if f.calls == f.failAt {
+func (s *stubExecer) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	s.calls++
+	if s.calls == s.failAt {
 		return pgconn.CommandTag{}, errors.New("simulated database failure")
 	}
 	return pgconn.CommandTag{}, nil
+}
+
+// The empty-set early return is a round-trip saver, NOT a correctness guard, and
+// this test is written to pin only what it really does. Removing the guard would
+// still touch zero rows, because the WHERE clause is an array-overlap test and
+// ARRAY['a','b'] && '{}' is false; a test asserting "the rows are unchanged"
+// would therefore stay green with the guard deleted and pin nothing at all.
+//
+// So the assertion is on the number of statements issued, which is the thing the
+// guard actually controls: every config-sync import that deletes no providers
+// reaches this, and without the early return each one would pay for two
+// pointless round trips.
+func TestPruneAllowLists_NoIDsIssuesNoStatements(t *testing.T) {
+	db := &stubExecer{}
+	if err := PruneAllowLists(context.Background(), db, nil); err != nil {
+		t.Fatalf("PruneAllowLists with no ids: %v", err)
+	}
+	if db.calls != 0 {
+		t.Fatalf("issued %d statements for an empty id set, want 0", db.calls)
+	}
 }
 
 // A swallowed error here would be worse than a loud failure: the caller runs
@@ -180,7 +182,7 @@ func TestPruneAllowLists_PropagatesDatabaseErrors(t *testing.T) {
 		{"users statement fails", 2},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			db := &failingExecer{failAt: tt.failAt}
+			db := &stubExecer{failAt: tt.failAt}
 			err := PruneAllowLists(context.Background(), db, []string{uuid.New().String()})
 			if err == nil {
 				t.Fatal("PruneAllowLists reported success despite a failing statement")

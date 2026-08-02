@@ -19,7 +19,11 @@ type execer interface {
 // The rewrite is set-based rather than one array_remove call per id, so a bulk
 // delete costs one statement per table however many providers went away:
 //
-//   - array_agg over unnest keeps the surviving members in their original order;
+//   - array_agg collects the survivors. Their ORDER is not specified: Postgres
+//     leaves aggregate input order undefined without an explicit ORDER BY, so do
+//     not lean on it. Nothing does today, because both consumers care only about
+//     membership (the proxy filters candidates by id, the config-sync export
+//     translates ids to names);
 //   - COALESCE(..., '{}') is what makes a fully pruned list come back as an
 //     EMPTY array rather than NULL, which is the entire point (see below);
 //   - the && overlap test skips rows referencing none of the deleted ids, and
@@ -47,6 +51,14 @@ const pruneUsersSQL = `
 // allowed_providers and every user account's allowed_providers. Call it in the
 // same transaction as the DELETE that removed those providers, so a failure
 // cannot leave the providers gone with their ids still referenced.
+//
+// Layering exception, deliberate: this writes virtual_keys and users, which
+// AGENTS.md's package-per-concern split assigns to internal/virtualkey and
+// internal/user. It lives here because the rule it implements is keyed on
+// provider identity rather than on either of those entities, both callers
+// already depend on this package, and splitting it in two would mean two
+// implementations of one rule, which is exactly the drift a single set-based
+// statement pair was chosen to avoid.
 //
 // It MUST be called by any future code path that deletes a provider, and
 // NOTHING ENFORCES THAT. A Postgres array cannot carry a foreign key, so there

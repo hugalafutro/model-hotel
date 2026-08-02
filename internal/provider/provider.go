@@ -266,6 +266,29 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 // (see PruneAllowLists). Doing the delete and the prunes in one transaction is
 // what stops a failure between them leaving the provider gone with its id still
 // referenced, which is the exact dangling state the pruning exists to prevent.
+//
+// Concurrency note, because this changed when the transaction was introduced.
+// This used to be one autocommit statement holding a single row lock for its
+// duration. It now holds row locks on providers, then virtual_keys, then users
+// until commit, and a config-sync import writes those same three tables in one
+// transaction, so the two contend where they never used to.
+//
+// No deadlock cycle between them looks reachable today, and the reason is worth
+// recording because it is not obvious: config-sync takes locks on EVERY provider
+// row before it touches either allow-list column (upsertProviders upserts the
+// providers in the envelope and the declarative delete removes the rest), while
+// this function's first lock is a provider row. So config-sync can only be
+// waiting on a provider row at a point where it holds no allow-list locks, and
+// it can only hold every provider row once this transaction has committed and
+// released its own. Note this does NOT come from uniform lock ordering: after
+// pruning, config-sync writes users and then virtual_keys, the opposite of the
+// order here.
+//
+// That invariant is a property of config-sync's statement order, not something
+// enforced anywhere, so reordering internal/api/configsync_apply.go's apply()
+// means re-checking it. If a cycle ever did form, Postgres detects it and aborts
+// one side with SQLSTATE 40P01; both operations are safely retriable (a repeated
+// delete returns pgx.ErrNoRows, and a refused import is re-pushed by autosync).
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
