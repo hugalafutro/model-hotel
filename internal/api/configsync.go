@@ -87,6 +87,15 @@ var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provi
 // CWE-918). Import maps it to a 400 refusal.
 var errInvalidSyncedURL = errors.New("configsync: refusing to apply a setting with an invalid URL")
 
+// errInvalidSyncedRateLimit is returned by apply when a virtual key or user in
+// the envelope carries a rate limit the interactive API would reject. The values
+// are not merely cosmetic: rate_limit_tpm <= 0 is the TPMLimiter's "no cap"
+// sentinel, so a negative one bought this member unmetered token spend past the
+// global default, and a negative rate_limit_burst alongside a positive RPS makes
+// rate.NewLimiter refuse every request (a per-key denial of service). Import
+// maps it to a 400 refusal.
+var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
+
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
 // requires the admin token (or a session when TOTP is on): a caller able to

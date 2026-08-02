@@ -214,6 +214,39 @@ func validateSyncedSettingURL(key, value string) error {
 	return nil
 }
 
+// validateSyncedRateLimits applies the same bounds to an imported rate limit
+// that the interactive virtual-key and user endpoints enforce via
+// validateRateLimits (virtualkeys.go), so a config-sync import cannot write a
+// per-key or per-user limit the interactive endpoint would reject. subject
+// names the row for the error message. Nil values mean "fall back to the global
+// setting" and are always fine.
+//
+// This is the same defense-in-depth shape as validateSyncedSettingURL: a
+// legitimate primary already validated these on the way in, so anything out of
+// bounds here means a compromised or corrupt envelope, and the limits it would
+// relax are the ones metering the data plane.
+//
+// Deliberately NOT mirrored on the import path: the interactive API's username
+// length/whitespace rules, display-name length, role allowlist, virtual-key
+// reserved names, and user.ValidateGrants. Those are cosmetic or structural
+// rather than security bounds (a compromised primary that could exploit them can
+// already push an admin user outright), and porting the allowlists specifically
+// would break rolling upgrades: a newer primary pushing a grant or role an older
+// member does not know yet would fail the ENTIRE import rather than degrade one
+// field. Only bounds that change runtime enforcement belong here.
+func validateSyncedRateLimits(subject string, rps *float64, burst, tpm *int) error {
+	if rps != nil && *rps < 0 {
+		return fmt.Errorf("%w: %s rate_limit_rps must be >= 0, got %f", errInvalidSyncedRateLimit, subject, *rps)
+	}
+	if burst != nil && *burst < 1 {
+		return fmt.Errorf("%w: %s rate_limit_burst must be >= 1, got %d", errInvalidSyncedRateLimit, subject, *burst)
+	}
+	if tpm != nil && *tpm < 1 {
+		return fmt.Errorf("%w: %s rate_limit_tpm must be >= 1, got %d", errInvalidSyncedRateLimit, subject, *tpm)
+	}
+	return nil
+}
+
 // postImportRefresh runs the best-effort post-commit steps of an import: the
 // core config is already durable, so nothing here can fail the sync.
 func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) {
@@ -372,6 +405,9 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 		return err
 	}
 	for _, u := range users {
+		if err := validateSyncedRateLimits("user "+strconv.Quote(u.Username), u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
+			return err
+		}
 		grants := u.Grants
 		if grants == nil {
 			grants = []string{}
@@ -420,6 +456,9 @@ func usernameToID(ctx context.Context, tx pgx.Tx) (map[string]string, error) {
 
 func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID, userNameToID map[string]string) error {
 	for _, v := range vks {
+		if err := validateSyncedRateLimits("virtual key "+strconv.Quote(v.Name), v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM); err != nil {
+			return err
+		}
 		var allowed []string // target provider UUIDs; nil => all allowed
 		for _, name := range v.AllowedProviderNames {
 			if id, ok := nameToID[name]; ok {
