@@ -231,6 +231,20 @@ func TestVirtualKey_OwnerCapLookupFailsClosed(t *testing.T) {
 	}
 }
 
+// A store that reports neither a row nor an error yields no cap, and the
+// foreign key is what stops the write. The real repository returns ErrNotFound,
+// but the cap lookup must not nil-deref if it ever gets the other shape.
+func TestVirtualKey_OwnerCapToleratesRowlessUserStore(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+	h.SetUserAuth(failingUserStore{}, nil)
+
+	w := doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken,
+		`{"name":"ghost-owner-key","owner_user_id":"00000000-0000-0000-0000-000000000001"}`)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 from the owner foreign key; body %s", w.Code, w.Body.String())
+	}
+}
+
 // The error-message helpers degrade rather than panic when nothing is wired:
 // they only decide how friendly a refusal reads, never whether it happens.
 func TestOwnerCapMessageHelpers_FallBackToIDs(t *testing.T) {

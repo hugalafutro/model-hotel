@@ -171,9 +171,15 @@ func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
 
 // ownerProviderCap returns the account-level provider cap of a key's owner, or
 // nil when the key is unowned, the user store is not wired, or the owner has no
-// cap. A missing owner row reports no cap rather than failing the write: the
-// proxy intersects against the live row on every request, so this lookup only
-// decides whether the caller gets a friendly error, never whether the rule holds.
+// cap.
+//
+// A missing owner row reports no cap rather than failing the write, and the
+// foreign key is what makes that safe: virtual_keys.owner_user_id is
+// ON DELETE SET NULL (migration 051), so a reference to a deleted user cannot
+// persist. The only way to observe one is a delete racing this write, and there
+// the uncapped list reaches Create/Update, violates the FK, and comes back 400.
+// This is deliberately NOT justified by a runtime intersection in the proxy:
+// none exists yet, so at this commit the write-time check is the only wall.
 func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]string, error) {
 	if ownerID == nil || h.userRepo == nil {
 		return nil, nil //nolint:nilnil // nil cap = unrestricted, not an error sentinel
@@ -181,9 +187,15 @@ func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]
 	u, err := h.userRepo.Get(ctx, *ownerID)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
-			return nil, nil //nolint:nilnil // stale owner reference; the proxy is the wall
+			return nil, nil //nolint:nilnil // deleted owner; the FK rejects the write
 		}
 		return nil, err
+	}
+	if u == nil {
+		// A store that reports neither a row nor an error. The real repository
+		// returns ErrNotFound, but ownerUsername guards this too and an
+		// authorization input must not depend on which of the two it gets.
+		return nil, nil //nolint:nilnil // no row = no cap to enforce
 	}
 	return u.AllowedProviders, nil
 }
@@ -201,7 +213,11 @@ func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]
 //
 // A nil `requested` with a capped owner resolves to the cap itself rather than
 // erroring: "no providers named" unambiguously means "everything I may reach",
-// and writing the cap makes that explicit in the stored row.
+// and writing the cap makes that explicit in the stored row. That step relies on
+// a cap never being a non-nil EMPTY slice: users.go rejects an empty
+// allowed_providers on both create and update, exactly as this file's endpoints
+// do, so the deny-all row both declare impossible cannot be written here either.
+// If that rejection is ever relaxed, this line has to grow an empty-slice case.
 //
 // The parameter is ownerCap, not cap: cap is a Go builtin and shadowing it here
 // would trip revive's redefines-builtin-id rule.
@@ -218,7 +234,10 @@ func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerN
 	}
 	for _, id := range *requested {
 		if _, ok := allowed[id]; !ok {
-			return nil, fmt.Errorf("%s is outside %s's account provider access. Raise it on their account first",
+			// Both remedies are named because either can be the right one: a
+			// lowered cap makes an untouched key refuse a plain rename, and
+			// there the fix is to narrow the key, not to widen the account.
+			return nil, fmt.Errorf("%s is outside %s's account provider access. Widen their account access or drop that provider from this key",
 				providerName(id), ownerLabel)
 		}
 	}
@@ -501,6 +520,12 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// Deliberately after the owner is resolved: the cap that binds this write
 	// belongs to the owner the row will STORE, not the one it had. Reassigning a
 	// wide-open key to a capped user must not smuggle the old list past the cap.
+	//
+	// Note the write this can perform on an untouched field: when
+	// allowed_providers is omitted, req.AllowedProviders is the stored value
+	// above, so an unrestricted key belonging to a capped owner comes back from
+	// enforceOwnerCap narrowed to the cap. Correct and fail-closed, but a PUT
+	// that only renamed the key does then persist a restriction.
 	ownerCap, err := h.ownerProviderCap(r.Context(), owner)
 	if err != nil {
 		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
