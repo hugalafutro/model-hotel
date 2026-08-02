@@ -217,13 +217,24 @@ export function KeyDetailModal({
 		setProviderError("");
 		// An untouched picker OMITS allowed_providers rather than restating it.
 		// The API reads an absent field as "preserve the stored value" and, since
-		// the request claims nothing about provider access, does not re-check it
-		// against the owner's cap. That is the only spelling that can edit a key
-		// whose owner's cap has since narrowed below its stored list, and the only
-		// one that does not quietly overwrite the operator's stored intent with
-		// the narrowed view this picker is showing.
+		// the request claims nothing about provider access and keeps the key where
+		// it is, does not re-check it against the owner's cap. That is the only
+		// spelling that can edit a key whose owner's cap has since narrowed below
+		// its stored list, and the only one that does not quietly overwrite the
+		// operator's stored intent with the narrowed view this picker is showing.
+		//
+		// A REASSIGNMENT is the exception, and this condition must keep both of
+		// its halves in step with the server's (`req.allowedProvidersPresent ||
+		// !sameOwner(...)` in internal/api/virtualkeys.go). Handing the key to a
+		// different account re-validates the preserved list against the NEW
+		// owner's cap, so omitting the field there gets the stored list refused
+		// with no way back inside this modal: the out-of-cap chips are inert, and
+		// excluding the rest to force a change trips the empty-list guard below.
+		// Restating the narrowed list is also right on the merits, since moving a
+		// key into a narrower account is a deliberate claim, not an untouched
+		// field.
 		let allowedProviders: string[] | null | undefined;
-		if (providersChanged) {
+		if (providersChanged || ownerChanged) {
 			const allProviderIds = sortedProviders.map((p) => p.id);
 			allowedProviders =
 				effectiveExcluded.length > 0
@@ -296,9 +307,14 @@ export function KeyDetailModal({
 		excludedProviders.length !== originalExcluded.length ||
 		excludedProviders.some((id) => !originalExcluded.includes(id));
 
+	// Moving a key to a different account re-opens the provider question even
+	// when the picker was not touched, because the cap that binds the write
+	// changes with it. handleSave uses this to stay in step with the server.
+	const ownerChanged = editOwnerId !== (vk.owner_user_id ?? "");
+
 	const hasChanges =
 		editName !== vk.name ||
-		editOwnerId !== (vk.owner_user_id ?? "") ||
+		ownerChanged ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
 		editTpm !== (vk.rate_limit_tpm?.toString() ?? "") ||

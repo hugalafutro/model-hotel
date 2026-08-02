@@ -537,13 +537,22 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	//
 	// An omitted allowed_providers on a write that KEEPS the same owner is not
 	// re-checked. The stored value is preserved verbatim above and passed
-	// straight through: the request asserts nothing about provider access, and
-	// what it preserves was already enforced against this very owner's cap when
-	// it was written. Re-checking it made a key UNEDITABLE the moment its owner's
-	// cap narrowed below the stored list, because enforceOwnerCap rejects an
-	// over-wide list instead of narrowing it: omitting the field hit that branch
-	// on the preserved value and re-sending the stored list hit it too, so a
-	// plain rename had no legal form at all. Re-checking also quietly rewrote an
+	// straight through: the request asserts nothing about provider access and
+	// leaves the key on the same account, so it proposes no change for a cap to
+	// judge. Note what is NOT being claimed here: the preserved value was not
+	// necessarily vetted against this cap when it was written. A stored list
+	// wider than its owner's cap is a normal state, reachable at least via
+	// upsertVirtualKeys in configsync_apply.go (a fleet import writes rows
+	// without consulting the cap) and by narrowing users.allowed_providers, which
+	// updates only the users row and leaves that owner's existing keys alone. The
+	// exemption rests on the request preserving the status quo, not on the status
+	// quo having been approved.
+	//
+	// Re-checking it made a key UNEDITABLE the moment its owner's cap narrowed
+	// below the stored list, because enforceOwnerCap rejects an over-wide list
+	// instead of narrowing it: omitting the field hit that branch on the
+	// preserved value and re-sending the stored list hit it too, so a plain
+	// rename had no legal form at all. Re-checking also quietly rewrote an
 	// untouched unrestricted key's row down to the cap, destroying the operator's
 	// original intent for good, since widening the cap later cannot restore it.
 	//
@@ -557,9 +566,10 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// Both halves of the condition are load-bearing. An explicit list is a claim
 	// and is always checked (as is every create, where a nil list resolves to the
 	// cap rather than to no restriction). And a write that MOVES the key to a
-	// different owner is checked even with the field omitted: the preserved value
-	// was enforced against the PREVIOUS owner's cap, so against the new owner's
-	// it is an unchecked claim like any other.
+	// different owner is checked even with the field omitted: a reassignment
+	// changes WHICH cap applies, so the preserved list is newly subjected to a
+	// cap it has never been measured against, which is a claim like any other.
+	// KeyDetailModal.handleSave mirrors both halves; they have to move together.
 	if req.allowedProvidersPresent || !sameOwner(owner, existingVK.OwnerUserID) {
 		ownerCap, capErr := h.ownerProviderCap(r.Context(), owner)
 		if capErr != nil {

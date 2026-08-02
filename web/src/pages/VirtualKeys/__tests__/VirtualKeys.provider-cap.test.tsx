@@ -225,6 +225,60 @@ describe("VirtualKeys provider cap", () => {
 		);
 	});
 
+	it("restates the narrowed list when an admin reassigns to a more restrictive owner", async () => {
+		let updateBody: Record<string, unknown> | undefined;
+		server.use(
+			http.get("/api/auth/me", () => HttpResponse.json(ADMIN_ME)),
+			http.get("/api/users", () => HttpResponse.json([cappedOwner])),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			// Unowned key reaching both providers; alice's cap is only provider-001.
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([
+					{
+						...mockVirtualKey,
+						allowed_providers: ["provider-001", "provider-002"],
+						owner_user_id: null,
+						owner_username: null,
+					},
+				]),
+			),
+			http.put("/api/virtual-keys/vk-001", async ({ request }) => {
+				updateBody = (await request.json()) as Record<string, unknown>;
+				return HttpResponse.json(mockVirtualKey);
+			}),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openEdit(user, "Test API Key");
+
+		// Hand the key to alice, touching nothing else.
+		const select = await within(dialog).findByTestId("vk-detail-owner-select");
+		await user.selectOptions(select, cappedOwner.id);
+
+		// Her cap takes hold as soon as she is selected.
+		await waitFor(() => {
+			expect(
+				within(dialog).getByTestId("vk-provider-option-provider-002"),
+			).toHaveAttribute("aria-disabled", "true");
+		});
+
+		await user.click(
+			within(dialog).getByRole("button", { name: "Save Changes" }),
+		);
+
+		await waitFor(() => {
+			expect(updateBody).toBeDefined();
+		});
+		// A reassignment re-validates the preserved list against the NEW owner's
+		// cap, so the field must be present and already narrowed. Omitting it here
+		// gets the stored [p1,p2] refused by enforceOwnerCap, and the modal offers
+		// no way back from that: the out-of-cap chip is inert and excluding the
+		// rest trips the empty-list guard.
+		expect(updateBody).toHaveProperty("allowed_providers");
+		expect(updateBody?.allowed_providers).toEqual(["provider-001"]);
+		expect(updateBody?.owner_user_id).toBe(cappedOwner.id);
+	});
+
 	it("omits allowed_providers entirely when the picker was not touched", async () => {
 		let updateBody: Record<string, unknown> | undefined;
 		server.use(
