@@ -129,10 +129,10 @@ type userRequest struct {
 
 // UnmarshalJSON detects whether allowed_providers was present in the JSON.
 // An explicit null counts as present (it clears the cap), so presence is tested
-// with the two-value map lookup: a JSON null decodes to a NON-NIL
-// json.RawMessage holding the bytes "null", so comparing against nil would
-// report an explicit null as absent and silently preserve a cap the caller
-// asked to clear.
+// with the two-value map lookup rather than comparing the RawMessage against
+// nil: the lookup expresses "was this key present" independently of whatever
+// bytes the value decoded to, so it stays correct even if the decode target
+// changes. Matches the ownerUserIDPresent line in virtualkeys.go.
 func (req *userRequest) UnmarshalJSON(data []byte) error {
 	type plain userRequest
 	if err := json.Unmarshal(data, (*plain)(req)); err != nil {

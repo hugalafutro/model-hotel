@@ -64,3 +64,26 @@ func TestUser_AllowedProvidersEmptyArrayRejected(t *testing.T) {
 		t.Fatalf("status = %d, want 400; body %s", w.Code, w.Body.String())
 	}
 }
+
+// The empty-array rejection is correct by construction today (both handlers
+// call validate() before touching the repository), but that is an
+// implementation detail a future refactor could silently break. Assert the
+// PUT path directly so it stays pinned.
+func TestUpdateUser_AllowedProvidersEmptyArrayRejected(t *testing.T) {
+	router, _, _ := setupOwnershipTest(t)
+	w := doJSON(t, router, http.MethodPost, "/users", envAdminToken,
+		`{"username":"emptyupdate","password":"password123","role":"user","grants":[]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", w.Code, w.Body.String())
+	}
+	var created user.User
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	w = doJSON(t, router, http.MethodPut, "/users/"+created.ID.String(), envAdminToken,
+		`{"username":"emptyupdate","role":"user","grants":[],"enabled":true,"allowed_providers":[]}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body %s", w.Code, w.Body.String())
+	}
+}
