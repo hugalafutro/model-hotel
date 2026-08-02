@@ -125,9 +125,18 @@ var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an inv
 // That is anomalous rather than merely inconvenient: providers are replaced
 // declaratively earlier in the same transaction, so every name a legitimate
 // primary exported resolves. Writing the user with a NULL cap would silently
-// promote them from restricted to unrestricted, and skipping the row would hand
-// it to the declarative delete in applyUsers, so the whole import is refused.
+// promote them from restricted to unrestricted, so the whole import is refused.
 // Import maps it to a 400.
+//
+// Skipping the row is not the escape it looks like. For a user who does not yet
+// exist on this member, skipping means usernameToID cannot find her afterwards,
+// so upsertVirtualKeys imports every key she owns with owner_user_id NULL. The
+// proxy then loads no Owner at all, never populates UserAllowedProvidersKey, and
+// effectiveAllowedProviders takes its owner == nil arm, which drops the owner
+// side of the intersection entirely: a key with no cap of its own ends up
+// completely unrestricted. That is a wider escalation than the one being
+// guarded. For a user who does exist, skipping is merely stale, leaving a
+// pre-existing cap that may be broader than the primary now intends.
 //
 // A present-but-EMPTY cap is deliberately NOT this error: there the primary
 // itself resolves nothing, and applyUsers writes the empty array through so the
@@ -300,13 +309,15 @@ type ExportUser struct {
 	// same three-state contract as ExportVK.AllowedProviderNames (nil = no cap,
 	// non-empty = capped and resolves, present-but-empty = capped with nothing
 	// resolving on the exporting member). Where a key with an unresolvable cap
-	// is skipped, a user cannot be: the declarative replace in applyUsers would
-	// then delete them. So applyUsers splits the third state by which side
-	// failed to resolve - a present-but-empty list is written through as an
-	// empty array (the primary itself resolves nothing, and an empty cap denies
-	// everything), while names that arrive non-empty and resolve to nothing are
-	// anomalous and refuse the import. Writing NULL is never an option: it would
-	// promote a capped account to unrestricted.
+	// is skipped, a user cannot be: skipping a user this member does not have
+	// yet makes her keys import unowned, which removes the owner side of the
+	// proxy's cap intersection outright (see errUnresolvableUserProviders). So
+	// applyUsers splits the third state by which side failed to resolve - a
+	// present-but-empty list is written through as an empty array (the primary
+	// itself resolves nothing, and an empty cap denies everything), while names
+	// that arrive non-empty and resolve to nothing are anomalous and refuse the
+	// import. Writing NULL is never an option: it would promote a capped account
+	// to unrestricted.
 	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
 }
 

@@ -476,6 +476,14 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 			if len(resolved) == 0 && len(*u.AllowedProviderNames) > 0 {
 				return fmt.Errorf("%w: user %s", errUnresolvableUserProviders, strconv.Quote(u.Username))
 			}
+			// A partially resolving list is just as anomalous as a fully
+			// unresolvable one for the same reason, and it narrows the account
+			// silently, so say so. Matches the warn upsertVirtualKeys emits on its
+			// analogous branch. Username only: no request content is ever logged.
+			if len(resolved) < len(*u.AllowedProviderNames) {
+				debuglog.Warn("configsync: some of a user's allowed_providers do not resolve on this member; importing the subset",
+					"user", u.Username, "wanted", len(*u.AllowedProviderNames), "resolved", len(resolved))
+			}
 			allowedProviders = &resolved
 		}
 		if _, err := tx.Exec(ctx, `
@@ -538,9 +546,12 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 		// them resolve on this member, do NOT import it. A nil allowed_providers
 		// means "all providers allowed" (pgx writes the nil slice as NULL, and
 		// the proxy treats only NULL as unrestricted), so writing it would
-		// silently turn a restricted key into an unrestricted one. Skipping
-		// leaves the restricted key absent rather than over-privileged. In the
-		// normal flow this never triggers: providers are upserted in the same
+		// silently turn a restricted key into an unrestricted one. Skipping is
+		// the lesser evil rather than a clean no-op: a key this member does not
+		// have yet simply stays absent, but a key it already has keeps its
+		// existing row, whose allowed_providers may be broader than the primary
+		// now intends. Stale-but-bounded still beats writing NULL. In the normal
+		// flow this never triggers: providers are upserted in the same
 		// transaction before this runs, so every name resolves.
 		//
 		// The presence test is the POINTER, not the length. A key whose providers

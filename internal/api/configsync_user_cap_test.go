@@ -80,13 +80,17 @@ func TestConfigSync_UncappedUserStaysNull(t *testing.T) {
 	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
 	}
-	var got []string
+	// Asserted in SQL, not by scanning the array back into a []string: a codec
+	// that collapsed `{}` to a nil slice would make an empty array read as NULL
+	// here and the test would agree with itself. Same standard as the empty-cap
+	// test below.
+	var isNull bool
 	if err := apiTestDB.Pool().QueryRow(context.Background(),
-		`SELECT allowed_providers FROM users WHERE username = 'alice'`).Scan(&got); err != nil {
+		`SELECT allowed_providers IS NULL FROM users WHERE username = 'alice'`).Scan(&isNull); err != nil {
 		t.Fatalf("read back: %v", err)
 	}
-	if got != nil {
-		t.Fatalf("cap after sync = %v, want NULL", got)
+	if !isNull {
+		t.Fatal("cap after sync is non-NULL; an uncapped account was given a cap")
 	}
 }
 
@@ -158,12 +162,86 @@ func TestConfigSync_EmptyUserCapImportsAsEmptyArray(t *testing.T) {
 	}
 }
 
+// The other leg of the codec contract: a member that stored `{}` under the case
+// above must RE-EXPORT it as present-but-empty, not as nil. This matters the
+// moment such a member is promoted to primary in an HA fleet - if pgx scanned
+// `{}` back into a nil []string, exportUsers would see allowedIDs == nil, emit
+// no cap at all, and the next hop would write NULL. That is the full escalation
+// this branch exists to prevent, laundered through one extra hop.
+//
+// The cap is seeded with a SQL literal rather than a Go empty slice so the write
+// side does not go through the codec under test.
+func TestConfigSync_EmptyUserCapReExportsAsEmpty(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+	seedUser(t, "alice", nil, true, nil)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE users SET allowed_providers = '{}'::text[] WHERE username = 'alice'`); err != nil {
+		t.Fatalf("set empty cap: %v", err)
+	}
+
+	env := doExport(t, r)
+	found := false
+	for _, u := range env.Config.Users {
+		if u.Username != "alice" {
+			continue
+		}
+		found = true
+		if u.AllowedProviderNames == nil {
+			t.Fatal("re-exported cap = nil; pgx scanned an empty array as nil and the cap has been dropped from the wire")
+		}
+		if len(*u.AllowedProviderNames) != 0 {
+			t.Fatalf("re-exported cap = %v, want empty", *u.AllowedProviderNames)
+		}
+	}
+	if !found {
+		t.Fatal("export did not carry user alice")
+	}
+}
+
+// A cap where only SOME names resolve is written as the surviving subset: it
+// narrows the account, which is safe, rather than refusing or widening. Only a
+// hand-crafted envelope can produce this state, because exportUsers already
+// drops names it cannot translate, so a self-consistent export never carries a
+// name the importing member lacks once providers have been replaced.
+func TestConfigSync_PartiallyResolvableUserCapImportsSubset(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	keep := seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+	env := doExport(t, r)
+	mixed := []string{"prov-a", "provider-that-does-not-exist-here"}
+	env.Config.Users = []ExportUser{{
+		Username:             "alice",
+		PasswordHash:         "$argon2id$v=19$m=65536,t=3,p=4$c2VlZHNlZWRzZWVk$c2VlZHNlZWRzZWVkc2VlZHNlZWQ",
+		Role:                 "user",
+		Grants:               []string{},
+		Enabled:              true,
+		AllowedProviderNames: &mixed,
+	}}
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, want 200; body %s", rec.Code, rec.Body.String())
+	}
+	var got []string
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT allowed_providers FROM users WHERE username = 'alice'`).Scan(&got); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if len(got) != 1 || got[0] != keep {
+		t.Fatalf("cap after sync = %v, want just [%s] (the resolvable subset)", got, keep)
+	}
+}
+
 // A capped user naming providers that do not resolve here must REFUSE the
 // import. Unlike the empty-cap case above this is anomalous, not operational:
 // providers are replaced declaratively earlier in the same transaction, so a
 // legitimate primary's names always resolve. It cannot be skipped either, the
-// way a virtual key is: the declarative replace would delete the user, and
-// writing NULL would promote them to unrestricted.
+// way a virtual key is: skipping a user this member does not have yet makes her
+// keys import unowned, which drops the owner side of the proxy's cap
+// intersection outright. Writing NULL would promote her to unrestricted.
 //
 // Refusing must also be total, so the surviving bystander below is the real
 // assertion: the users DELETE runs before the per-user loop, so a partial
