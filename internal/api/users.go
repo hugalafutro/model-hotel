@@ -170,7 +170,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return
 	}
-	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits())
+	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits(), nil)
 	if err != nil {
 		if isUniqueViolation(err) {
 			http.Error(w, "a user with this username or email already exists", http.StatusConflict)
@@ -216,7 +216,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits())
+	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits(), nil)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

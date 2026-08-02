@@ -212,7 +212,7 @@ func mustCreate(t *testing.T, repo *Repository, username string, email *string, 
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
-	u, err := repo.Create(context.Background(), username, "Display "+username, email, hash, role, grants, Limits{})
+	u, err := repo.Create(context.Background(), username, "Display "+username, email, hash, role, grants, Limits{}, nil)
 	if err != nil {
 		t.Fatalf("Create(%s): %v", username, err)
 	}
@@ -267,7 +267,7 @@ func TestRepository_UpdateAndPassword(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	u := mustCreate(t, repo, "carol-"+uuid.NewString(), nil, RoleUser, nil)
 
-	updated, err := repo.Update(context.Background(), u.ID, u.Username, "Carol", nil, RoleAdmin, []string{"logs", "usage"}, false, Limits{})
+	updated, err := repo.Update(context.Background(), u.ID, u.Username, "Carol", nil, RoleAdmin, []string{"logs", "usage"}, false, Limits{}, nil)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestRepository_HasEnabled(t *testing.T) {
 		t.Errorf("HasEnabled(one enabled) = %v, %v; want true", got, err)
 	}
 
-	if _, err := repo.Update(context.Background(), u.ID, u.Username, "", nil, RoleUser, nil, false, Limits{}); err != nil {
+	if _, err := repo.Update(context.Background(), u.ID, u.Username, "", nil, RoleUser, nil, false, Limits{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := repo.HasEnabled(context.Background()); err != nil || got {
@@ -366,7 +366,7 @@ func TestRepository_DuplicateUsername(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Create(context.Background(), name, "", nil, hash, RoleUser, nil, Limits{}); err == nil {
+	if _, err := repo.Create(context.Background(), name, "", nil, hash, RoleUser, nil, Limits{}, nil); err == nil {
 		t.Error("duplicate username accepted")
 	}
 }
@@ -392,10 +392,10 @@ func TestRepository_CancelledContext(t *testing.T) {
 	if _, err := repo.GetByEmail(ctx, "x@example.com"); err == nil {
 		t.Error("GetByEmail(cancelled) err = nil, want error")
 	}
-	if _, err := repo.Create(ctx, "x", "d", nil, "h", RoleUser, nil, Limits{}); err == nil {
+	if _, err := repo.Create(ctx, "x", "d", nil, "h", RoleUser, nil, Limits{}, nil); err == nil {
 		t.Error("Create(cancelled) err = nil, want error")
 	}
-	if _, err := repo.Update(ctx, id, "x", "d", nil, RoleUser, nil, true, Limits{}); err == nil {
+	if _, err := repo.Update(ctx, id, "x", "d", nil, RoleUser, nil, true, Limits{}, nil); err == nil {
 		t.Error("Update(cancelled) err = nil, want error")
 	}
 	if err := repo.SetPassword(ctx, id, "h"); err == nil {
@@ -422,7 +422,7 @@ func TestRepository_Limits_RoundTrip(t *testing.T) {
 	burst := 3
 	tpm := 9000
 	u, err := repo.Create(context.Background(), "limits-"+uuid.NewString(), "", nil, hash, RoleUser, nil,
-		Limits{RPS: &rps, Burst: &burst, TPM: &tpm})
+		Limits{RPS: &rps, Burst: &burst, TPM: &tpm}, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestRepository_Limits_RoundTrip(t *testing.T) {
 	// Update writes new caps; nil clears.
 	newTPM := 12000
 	updated, err := repo.Update(context.Background(), u.ID, u.Username, "", nil, RoleUser, nil, true,
-		Limits{TPM: &newTPM})
+		Limits{TPM: &newTPM}, nil)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -450,5 +450,39 @@ func TestRepository_Limits_RoundTrip(t *testing.T) {
 	}
 	if updated.RateLimitTPM == nil || *updated.RateLimitTPM != newTPM {
 		t.Errorf("RateLimitTPM = %v, want %v", updated.RateLimitTPM, newTPM)
+	}
+}
+
+func TestUserAllowedProviders_RoundTrip(t *testing.T) {
+	repo := NewRepository(testDB.Pool())
+	ctx := context.Background()
+
+	// A user created without a cap is unrestricted (NULL).
+	u, err := repo.Create(ctx, "nocap-"+uuid.NewString(), "No Cap", nil, "hash", RoleUser, []string{}, Limits{}, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Delete(context.Background(), u.ID) })
+	if u.AllowedProviders != nil {
+		t.Fatalf("AllowedProviders = %v, want nil (unrestricted)", *u.AllowedProviders)
+	}
+
+	// A cap round-trips through Update and back out of Get.
+	providers := []string{"p1", "p2"}
+	u, err = repo.Update(ctx, u.ID, u.Username, "No Cap", nil, RoleUser, []string{}, true, Limits{}, &providers)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if u.AllowedProviders == nil || len(*u.AllowedProviders) != 2 {
+		t.Fatalf("AllowedProviders = %v, want [p1 p2]", u.AllowedProviders)
+	}
+
+	// An explicit nil clears it back to unrestricted.
+	u, err = repo.Update(ctx, u.ID, u.Username, "No Cap", nil, RoleUser, []string{}, true, Limits{}, nil)
+	if err != nil {
+		t.Fatalf("update clear: %v", err)
+	}
+	if u.AllowedProviders != nil {
+		t.Fatalf("AllowedProviders = %v, want nil after clear", *u.AllowedProviders)
 	}
 }
