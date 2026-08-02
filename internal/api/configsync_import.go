@@ -114,6 +114,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused import with invalid rate limit", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	case errors.Is(err, errUnresolvableUserProviders):
+		// A capped account whose providers are absent here would import as
+		// unrestricted. Refuse the envelope rather than widen the account: after
+		// the declarative provider replace every name a legitimate primary
+		// exported resolves, so this only fires on a corrupt or tampered one.
+		debuglog.Warn("configsync: refused import with an unresolvable user provider cap", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	case err != nil:
 		debuglog.Error("configsync: apply import", "error", err)
 		http.Error(w, "could not apply config", http.StatusInternalServerError)

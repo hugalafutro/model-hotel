@@ -120,6 +120,15 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 // maps it to a 400 refusal.
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
 
+// errUnresolvableUserProviders is returned by apply when a user in the envelope
+// carries a provider cap whose names do not resolve on this member. Writing the
+// user with a NULL cap would silently promote them from restricted to
+// unrestricted, and the two escapes available to a virtual key are both closed
+// here: skipping the row would hand it to the declarative delete in applyUsers,
+// and there is no third state to fall back to. So the whole import is refused.
+// Import maps it to a 400.
+var errUnresolvableUserProviders = errors.New("configsync: refusing to apply a user whose provider cap does not resolve")
+
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
 // requires the admin token (or a session when TOTP is on): a caller able to
@@ -281,6 +290,14 @@ type ExportUser struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	// AllowedProviderNames carries the account provider cap by NAME, with the
+	// same three-state contract as ExportVK.AllowedProviderNames (nil = no cap,
+	// non-empty = capped and resolves, present-but-empty = capped with nothing
+	// resolving). Unlike a key, an unresolvable cap refuses the whole import
+	// rather than being skipped: a user cannot be skipped (the declarative
+	// replace in applyUsers would then delete them) and writing NULL would
+	// promote a capped account to unrestricted.
+	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
 }
 
 // entityDiff lists the names changed for one entity kind in a sync.

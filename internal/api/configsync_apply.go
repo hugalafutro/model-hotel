@@ -67,7 +67,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	// Users converge before virtual keys so key ownership (carried by
 	// username) resolves against the freshly synced roster.
-	if err := applyUsers(ctx, tx, env.Config.Users); err != nil {
+	if err := applyUsers(ctx, tx, env.Config.Users, nameToID); err != nil {
 		return err
 	}
 	userNameToID, err := usernameToID(ctx, tx)
@@ -418,8 +418,11 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 // lets an email move between two surviving accounts without tripping the
 // unique index mid-upsert (row-by-row upserts would otherwise 23505 on a
 // swap). Sessions of removed or disabled users die at the auth middleware,
-// which re-checks the users row on every request.
-func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
+// which re-checks the users row on every request. nameToID resolves each
+// account's provider cap back to this member's provider UUIDs; it is built
+// after the provider upsert so every name a legitimate primary exported
+// resolves.
+func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map[string]string) error {
 	if users == nil {
 		return nil
 	}
@@ -438,10 +441,34 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 		if grants == nil {
 			grants = []string{}
 		}
+		// Resolve the account provider cap into this member's UUIDs. The presence
+		// test is the POINTER, not the length, for the same reason as
+		// upsertVirtualKeys: an account whose capped providers were all deleted
+		// exports a present-but-empty list, and reading that as "uncapped" is the
+		// escalation being guarded.
+		var allowedProviders *[]string
+		if u.AllowedProviderNames != nil {
+			resolved := []string{}
+			for _, name := range *u.AllowedProviderNames {
+				if id, ok := nameToID[name]; ok {
+					resolved = append(resolved, id)
+				}
+			}
+			// A cap that resolves to nothing must not be written: NULL reads as
+			// "every provider", so importing it would widen the account. Refusing
+			// the whole envelope is the only option left here, because the two
+			// escapes a virtual key has are both closed for a user (see
+			// errUnresolvableUserProviders). The transaction rolls back, so the
+			// declarative delete above is undone with it.
+			if len(resolved) == 0 {
+				return fmt.Errorf("%w: user %s", errUnresolvableUserProviders, strconv.Quote(u.Username))
+			}
+			allowedProviders = &resolved
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled,
-			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (username) DO UPDATE SET
 				display_name = EXCLUDED.display_name,
 				email = EXCLUDED.email,
@@ -452,9 +479,10 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 				rate_limit_rps = EXCLUDED.rate_limit_rps,
 				rate_limit_burst = EXCLUDED.rate_limit_burst,
 				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
+				allowed_providers = EXCLUDED.allowed_providers,
 				updated_at = now()`,
 			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled,
-			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
+			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM, allowedProviders); err != nil {
 			return err
 		}
 	}
