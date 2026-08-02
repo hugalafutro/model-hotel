@@ -1080,3 +1080,262 @@ func TestClassifyUpstreamError_ModelNamedAfterThePhrase(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_PunctuationDoesNotBlockAttribution pins the fix for
+// a false negative that switched retirement off for whole providers.
+//
+// gapBindsPhrase refuses to bind when a COMPETING model id sits between the
+// phrase and its subject, and looksLikeAModelID took a bare "-" for one, on the
+// strength of the hyphen alone. So every provider that punctuates a refusal
+// ("unknown model - gpt-4o-mini", an arrow, an em dash, a bullet) had that
+// refusal read as provider_error. It failed safe, which is why it went unnoticed:
+// nothing was retired, the strikes simply never accumulated.
+//
+// The guard cases are the other half and matter more than the fix, because the
+// change can only make MORE bodies classify as gone: a gap holding a real second
+// id must still block, in both word orders.
+func TestClassifyUpstreamError_PunctuationDoesNotBlockAttribution(t *testing.T) {
+	t.Parallel()
+
+	const modelID = "gpt-4o-mini"
+
+	cases := []struct {
+		name string
+		body string
+		want ErrorKind
+	}{
+		{
+			name: "hyphen between phrase and id",
+			body: `{"error":{"message":"unknown model - gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "arrow between phrase and id",
+			body: `{"error":{"message":"model not found -> gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "em dash between phrase and id",
+			body: `{"error":{"message":"unknown model — gpt-4o-mini"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			name: "id before the phrase, hyphen after it",
+			body: `{"error":{"message":"gpt-4o-mini - does not exist"}}`,
+			want: KindProviderModelGone,
+		},
+		{
+			// The guard: a real id in the gap is still a competing subject, and
+			// binding here would retire the model named in the OTHER clause.
+			name: "competing id in the gap still blocks, id last",
+			body: `{"error":{"message":"does not exist for other-model-7 gpt-4o-mini"}}`,
+			want: KindProviderError,
+		},
+		{
+			name: "competing id in the gap still blocks, id first",
+			body: `{"error":{"message":"healthy-model was routed but retired-x9 does not exist"}}`,
+			want: KindProviderError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, modelID); got != tc.want {
+				t.Errorf("classify(%s) = %s, want %s", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLooksLikeAModelID_RequiresAnAlphanumeric pins the rule directly, because
+// the classifier cases above can only reach it through a gap and would not
+// distinguish "punctuation is not an id" from "the gap was short enough".
+func TestLooksLikeAModelID_RequiresAnAlphanumeric(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]bool{
+		// Punctuation alone is never an identifier, whatever it is made of.
+		" - ":  false,
+		" -- ": false,
+		" -> ": false,
+		"-":    false,
+		" ":    false,
+		"":     false,
+		// The tell still has to be there: a plain word is not an id.
+		" model ": false,
+		// Unchanged: a letter or digit plus the digit-or-dash tell.
+		"gpt-4":         true,
+		"llama3":        true,
+		"retired-model": true,
+		" 4 ":           true,
+	}
+
+	for in, want := range cases {
+		if got := looksLikeAModelID(in); got != want {
+			t.Errorf("looksLikeAModelID(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
+
+// TestClassifyUpstreamError_VendorPrefixIsNotARivalID pins the fix for a false
+// negative that hid behind the vendor prefix.
+//
+// modelGoneAbout searches for the NORMALIZED id — the part after the last slash
+// — while the body carries the id whole. So "model not found: ai21/jamba-1.7"
+// matched at "jamba-1.7" and left "ai21/" sitting in the gap between the phrase
+// and its subject, where looksLikeAModelID read it as a rival id and refused to
+// bind.
+//
+// It only bit prefixes carrying a digit or a hyphen, which is what made it look
+// arbitrary rather than systematic: openai/ and google/ classified, ai21/,
+// meta-llama/, LLM360/ and aion-labs/ did not. Swept against the dev catalogue,
+// 125 of 1141 real model ids could not be retired by either phrase-first refusal
+// shape, and nothing complained because the failure is silent: no attribution,
+// no strike, no retirement.
+func TestClassifyUpstreamError_VendorPrefixIsNotARivalID(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		modelID string
+		body    string
+		want    ErrorKind
+	}{
+		{
+			name:    "digit in the vendor prefix",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: ai21/jamba-large-1.7"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			name:    "hyphen in the vendor prefix",
+			modelID: "meta-llama/llama-3-8b",
+			body:    `{"error":{"message":"unknown model - meta-llama/llama-3-8b"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			name:    "uppercase and digits in the vendor prefix",
+			modelID: "LLM360/K2-Think",
+			body:    `{"error":{"message":"model not found: LLM360/K2-Think"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			// The control: this shape always worked, because "openai" carries
+			// neither of the tells looksLikeAModelID looks for.
+			name:    "plain vendor prefix still classifies",
+			modelID: "openai/gpt-4o",
+			body:    `{"error":{"message":"model not found: openai/gpt-4o"}}`,
+			want:    KindProviderModelGone,
+		},
+		{
+			// The guard that matters: only the prefix ATTACHED to this id is
+			// absorbed. A genuine second id in the gap is still a rival subject.
+			name:    "rival id before the vendor prefix still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3 ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// The same guard, with the rival butted against the vendor instead
+			// of spaced off it. The walk crosses characters, and every character
+			// it crosses is one gapBindsPhrase never gets to see — so it may not
+			// cross a period, which is a CLAUSE BREAK. Absorbing this whole run
+			// as "the vendor" would delete both the boundary and the rival id
+			// from the gap and bind to the wrong subject.
+			name:    "rival joined to the vendor by a period still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3.ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// Same, for a separator that is not a clause break. A colon belongs
+			// to a model TAG ("llama3:8b"), never to a publisher, so the walk
+			// stops there too and the rival stays in the gap.
+			name:    "rival joined to the vendor by a colon still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3:ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// A model id absent from the body cannot be attributed at all: the
+			// occurrence search fails before any gap is measured. Kept as the
+			// floor, NOT as evidence about vendors — the case that actually
+			// exercises the vendor comparison is the one below it.
+			name:    "a model we did not ask for is not ours",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: other-vendor/some-model-9"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// ACCEPTED, and pinned here so that changing it has to be deliberate:
+			// normalizeModelID reduces the request to its tail, so a refusal
+			// naming a DIFFERENT vendor's copy of the same model classifies as
+			// ours. Providers echo the bare name as readily as the prefixed one,
+			// and this needs a provider to name a model the caller never asked
+			// for. It is not new here — "azure/gpt-4o" already bound for a
+			// request for "openai/gpt-4o", because a vendor with no digit and no
+			// hyphen never looked like a rival id. Absorbing the prefix only
+			// removes the accident that made ai21/ and meta-llama/ behave
+			// differently from openai/. A classification still only nominates:
+			// the probe that follows asks the live model.
+			name:    "another vendor's copy of the same model still classifies",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: other-vendor/jamba-large-1.7"}}`,
+			want:    KindProviderModelGone,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, tc.modelID); got != tc.want {
+				t.Errorf("classify(%s) for %s = %s, want %s", tc.body, tc.modelID, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestVendorPrefixStart pins the walk directly, including the two ways it must
+// decline: no slash at all, and a slash that is punctuation rather than the end
+// of a vendor segment.
+func TestVendorPrefixStart(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		body string
+		pos  int
+		want int
+	}{
+		{name: "no prefix", body: "gpt-4o", pos: 0, want: 0},
+		{name: "no slash before the match", body: "gpt-4o", pos: 4, want: 4},
+		{name: "vendor prefix absorbed", body: "ai21/jamba", pos: 5, want: 0},
+		{name: "prefix mid-body", body: "x: ai21/jamba", pos: 8, want: 3},
+		// Only one segment: a preceding word that happens to end in a slash is
+		// not part of the identifier.
+		{name: "one segment only", body: "see docs/ai21/jamba", pos: 14, want: 9},
+		// A bare slash is punctuation, not a vendor.
+		{name: "bare slash is punctuation", body: "try /jamba", pos: 5, want: 5},
+		{name: "slash at body start", body: "/jamba", pos: 1, want: 1},
+		// The walk stops at anything a publisher name cannot contain, so a
+		// preceding id butted straight against the vendor is not swallowed.
+		// A period matters most: it is a clause break, and crossing it would
+		// hide the boundary from gapBindsPhrase.
+		{name: "period stops the walk", body: "other-model-3.ai21/jamba", pos: 19, want: 14},
+		{name: "colon stops the walk", body: "x:ai21/jamba", pos: 7, want: 2},
+		{name: "at-sign stops the walk", body: "x@ai21/jamba", pos: 7, want: 2},
+		// An underscore IS a publisher character, so it is crossed: registries
+		// name organisations that way and there is no id boundary there.
+		{name: "underscore is part of the vendor", body: "meta_llama/x", pos: 11, want: 0},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := vendorPrefixStart(tc.body, tc.pos); got != tc.want {
+				t.Errorf("vendorPrefixStart(%q, %d) = %d, want %d", tc.body, tc.pos, got, tc.want)
+			}
+		})
+	}
+}
