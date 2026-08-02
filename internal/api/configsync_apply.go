@@ -170,11 +170,11 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 		if !isSyncableSetting(k) {
 			continue // skip non-syncable / unknown keys silently
 		}
-		// Mirror the interactive PUT /api/settings URL validation: the config-sync
-		// path also writes url-typed settings (oidc_issuer_url, ...) that the server
-		// later fetches, so a compromised primary must not bypass netguard here
-		// (CWE-918). A legitimate primary already validated these on the way in.
-		if err := validateSyncedSettingURL(k, v); err != nil {
+		// Mirror the interactive PUT /api/settings validation: the config-sync path
+		// writes the same url-typed settings the server later fetches (CWE-918) and
+		// the same numeric limiter settings the data plane enforces on. A legitimate
+		// primary already validated both on the way in.
+		if err := validateSyncedSetting(k, v); err != nil {
 			return nil, err
 		}
 		if err := h.settings.SetTx(ctx, tx, k, v); err != nil {
@@ -191,12 +191,28 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 	return removedSettings, nil
 }
 
-// validateSyncedSettingURL applies the same netguard checks to a url-typed
-// setting that the interactive UpdateSettings handler enforces (settings.go),
-// so a config-sync import cannot write an oidc_issuer_url / apprise base URL the
-// interactive endpoint would reject (reported SSRF bypass, CWE-918). Non-URL and
-// unknown keys pass through untouched; the caller has already gated syncability.
-func validateSyncedSettingURL(key, value string) error {
+// validateSyncedSetting applies the interactive UpdateSettings checks
+// (settings.go) to a setting arriving by config sync, so a compromised primary
+// cannot write through this path what the interactive endpoint would reject.
+// Unknown keys pass through untouched; the caller has already gated syncability.
+//
+// url / url_public get the full netguard treatment: these are values the server
+// itself later fetches or reflects into a redirect URI (reported SSRF bypass,
+// CWE-918).
+//
+// int / float get their MINIMUM enforced, and deliberately not their maximum or
+// their parseability. The floors are the ones that change runtime enforcement:
+// rate_limit_ip_burst is min 1 because IPLimiter.getLimiter passes it to
+// rate.NewLimiter unclamped, so a negative one denies every request from every
+// IP, and rate_limit_burst is the same bug for every virtual key without a
+// per-key override. A value above the ceiling is a capacity/sanity bound that
+// relaxes no enforcement, and an unparseable one is inert because GetInt/GetFloat
+// fall back to the built-in default. Skipping both keeps rolling upgrades
+// working: a newer primary that raises a ceiling (or sends a value shape an older
+// member cannot parse) must not make that member reject the ENTIRE envelope, the
+// same trap validateSyncedRateLimits documents for grants. Floors are the
+// structural end of the range and are not widened downward in practice.
+func validateSyncedSetting(key, value string) error {
 	rule, ok := allowedSettings[key]
 	if !ok {
 		return nil
@@ -210,6 +226,16 @@ func validateSyncedSettingURL(key, value string) error {
 		if err := netguard.ValidatePublicURL(value); err != nil {
 			return fmt.Errorf("%w %q: %w", errInvalidSyncedURL, key, err)
 		}
+	// An unparseable value is left alone rather than rejected: GetInt/GetFloat
+	// answer with the built-in default, so it relaxes nothing.
+	case "int":
+		if v, err := strconv.Atoi(value); err == nil && float64(v) < rule.min {
+			return fmt.Errorf("%w: %s must be >= %d, got %d", errInvalidSyncedSettingBound, key, int(rule.min), v)
+		}
+	case "float":
+		if v, err := strconv.ParseFloat(value, 64); err == nil && v < rule.min {
+			return fmt.Errorf("%w: %s must be >= %g, got %g", errInvalidSyncedSettingBound, key, rule.min, v)
+		}
 	}
 	return nil
 }
@@ -221,7 +247,7 @@ func validateSyncedSettingURL(key, value string) error {
 // names the row for the error message. Nil values mean "fall back to the global
 // setting" and are always fine.
 //
-// This is the same defense-in-depth shape as validateSyncedSettingURL: a
+// This is the same defense-in-depth shape as validateSyncedSetting: a
 // legitimate primary already validated these on the way in, so anything out of
 // bounds here means a compromised or corrupt envelope, and the limits it would
 // relax are the ones metering the data plane.

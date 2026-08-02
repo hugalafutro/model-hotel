@@ -97,6 +97,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused import with invalid URL setting", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	case errors.Is(err, errInvalidSyncedSettingBound):
+		// A syncable numeric setting arrived below the minimum the interactive
+		// settings endpoint enforces. The limiter floors are the dangerous ones: a
+		// negative rate_limit_ip_burst denies every request from every client IP.
+		// Same reasoning as the URL case.
+		debuglog.Warn("configsync: refused import with out-of-range setting", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	case errors.Is(err, errInvalidSyncedRateLimit):
 		// A virtual key or user in the envelope carries a rate limit the
 		// interactive API rejects: a negative TPM would import as "no cap" and a

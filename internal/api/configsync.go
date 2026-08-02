@@ -87,6 +87,15 @@ var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provi
 // CWE-918). Import maps it to a 400 refusal.
 var errInvalidSyncedURL = errors.New("configsync: refusing to apply a setting with an invalid URL")
 
+// errInvalidSyncedSettingBound is returned by apply when a syncable numeric
+// setting in the envelope falls below the minimum the interactive PUT
+// /api/settings handler enforces. Same class of hole as the per-key limits
+// below, one level up and with a wider blast radius: rate_limit_ip_burst is
+// min 1 interactively, and IPLimiter.getLimiter hands a negative one straight to
+// rate.NewLimiter with no clamp, so every client IP is denied. Import maps it to
+// a 400 refusal.
+var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a setting below its minimum")
+
 // errInvalidSyncedRateLimit is returned by apply when a virtual key or user in
 // the envelope carries a rate limit the interactive API would reject. The values
 // are not merely cosmetic: rate_limit_tpm <= 0 is the TPMLimiter's "no cap"

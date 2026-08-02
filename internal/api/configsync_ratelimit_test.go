@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
 // validateSyncedRateLimits must accept exactly what the interactive
 // validateRateLimits accepts, so the import path and the admin API cannot
-// disagree about what a legal limit is.
+// disagree about what a legal limit is. Every case below is run through both
+// validators and their verdicts compared, so the parity is checked rather than
+// restated by a second hand-maintained table.
 func TestValidateSyncedRateLimits(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -36,6 +39,18 @@ func TestValidateSyncedRateLimits(t *testing.T) {
 			}
 			if err != nil && !errors.Is(err, errInvalidSyncedRateLimit) {
 				t.Fatalf("error %v does not wrap errInvalidSyncedRateLimit", err)
+			}
+
+			// Drive the interactive validator over the same input rather than
+			// trusting the table above to stay in step with it. Without this the
+			// two could drift apart silently: someone relaxing or tightening
+			// validateRateLimits would leave this file green while the import path
+			// and the admin API started disagreeing about what a legal limit is,
+			// which is the whole gap this guard closes.
+			interactive := validateRateLimits(tt.rps, tt.burst, tt.tpm, httptest.NewRecorder())
+			if (interactive != nil) != (err != nil) {
+				t.Fatalf("import path and interactive API disagree: validateSyncedRateLimits() = %v, validateRateLimits() = %v",
+					err, interactive)
 			}
 		})
 	}
