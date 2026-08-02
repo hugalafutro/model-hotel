@@ -42,7 +42,22 @@ import (
 const (
 	// configSchemaVersion is the envelope version a member understands. An import
 	// carrying a different version is refused rather than half-applied.
-	configSchemaVersion = 1
+	//
+	// v2 changed what an EXISTING field MEANS, which is why it moved even though
+	// no field was added or removed. In v1 a virtual key's allowed_provider_names
+	// was a plain list and an empty one was indistinguishable from an absent one;
+	// in v2 it is a pointer, and present-but-empty means "restricted, but none of
+	// its providers resolve on this member".
+	//
+	// The bump exists to protect the IMPORTING side, which this repo's fix could
+	// not reach. A v1 member decodes the v2 [] into a zero-length slice and
+	// applies its own guard, `len(v.AllowedProviderNames) > 0 && len(allowed) == 0`
+	// (upsertVirtualKeys before this change): the first conjunct is false, so it
+	// skips nothing and writes a nil allowed_providers, which is SQL NULL, which
+	// the proxy reads as every provider. A stale-only restricted key would land on
+	// that member wide open. Refusing the envelope outright is the only defence,
+	// and configsync_import.go already does it with 422 + SchemaVersionOK: false.
+	configSchemaVersion = 2
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.
@@ -207,8 +222,14 @@ type ExportVK struct {
 	//   ["openai"]     - restricted, and the names resolve here
 	//   [] (non-nil)   - restricted, but NOTHING resolves on this member
 	// Collapsing the last two is a privilege escalation: a key whose providers
-	// were all deleted would import as unrestricted. omitempty keys off the
-	// pointer, so an older primary that omits the field still decodes as nil.
+	// were all deleted would import as unrestricted.
+	//
+	// Two separate JSON mechanisms keep those states distinct on the wire.
+	// Marshalling: omitempty tests the POINTER, not the slice length, so a
+	// present-but-empty restriction is emitted as [] rather than dropped.
+	// Unmarshalling: an absent field leaves the zero value untouched, so an
+	// older primary that never emits the field yields nil and reads as
+	// unrestricted, exactly as it did before this became a pointer.
 	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
 	StripReasoning       bool      `json:"strip_reasoning"`
 	// OwnerUsername carries key ownership by username (user ids are

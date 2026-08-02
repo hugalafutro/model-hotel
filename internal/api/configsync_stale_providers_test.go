@@ -26,10 +26,12 @@ func TestConfigSync_StaleAllowListDoesNotWidenKey(t *testing.T) {
 	}
 
 	env := doExport(t, r)
+	found := false
 	for _, v := range env.Config.VirtualKeys {
 		if v.KeyHash != "hash-restricted" {
 			continue
 		}
+		found = true
 		if v.AllowedProviderNames == nil {
 			t.Fatal("export lost the fact that the key is restricted")
 		}
@@ -37,16 +39,28 @@ func TestConfigSync_StaleAllowListDoesNotWidenKey(t *testing.T) {
 			t.Fatalf("AllowedProviderNames = %v, want present but empty", *v.AllowedProviderNames)
 		}
 	}
+	// Without this the export assertions above are vacuous: an export that
+	// dropped restricted keys entirely would iterate zero matches and pass.
+	if !found {
+		t.Fatal("restricted key missing from the export envelope")
+	}
 
 	rec := doImport(t, r, env, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
 	}
 
+	// The row must still be here: correct behaviour skips the UPDATE, and the
+	// key hash is in the envelope so the declarative delete spares it. Treating a
+	// Scan error as "not escalated" would let a missing row, a typo in the query,
+	// or a dead pool make this regression test pass green forever.
 	var allowed []string
 	err := apiTestDB.Pool().QueryRow(context.Background(),
 		`SELECT allowed_providers FROM virtual_keys WHERE key_hash = 'hash-restricted'`).Scan(&allowed)
-	if err == nil && allowed == nil {
+	if err != nil {
+		t.Fatalf("reading back the restricted key: %v", err)
+	}
+	if allowed == nil {
 		t.Fatal("ESCALATION: restricted key became unrestricted after a config sync")
 	}
 }
@@ -65,10 +79,18 @@ func TestConfigSync_UnrestrictedKeyStaysUnrestricted(t *testing.T) {
 	}
 
 	env := doExport(t, r)
+	found := false
 	for _, v := range env.Config.VirtualKeys {
-		if v.KeyHash == "hash-open" && v.AllowedProviderNames != nil {
+		if v.KeyHash != "hash-open" {
+			continue
+		}
+		found = true
+		if v.AllowedProviderNames != nil {
 			t.Fatalf("unrestricted key exported as restricted: %v", *v.AllowedProviderNames)
 		}
+	}
+	if !found {
+		t.Fatal("unrestricted key missing from the export envelope")
 	}
 	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
