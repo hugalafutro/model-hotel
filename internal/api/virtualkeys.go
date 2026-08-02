@@ -246,6 +246,18 @@ func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerN
 	return requested, nil
 }
 
+// sameOwner reports whether two resolved owners are the same identity, treating
+// nil (an unowned key) as a value rather than as "unknown". It exists so the
+// update path can tell a write that keeps a key where it is from one that hands
+// it to a different account, which is what decides whether an omitted
+// allowed_providers still has to clear the owner's cap.
+func sameOwner(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
 // resolveWriteOwner decides the owner a create/update writes. Non-admins always
 // write their own id: the request-body owner_user_id (the `requested` argument)
 // is deliberately IGNORED for them, so a non-admin can neither assign a key to
@@ -523,20 +535,42 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// belongs to the owner the row will STORE, not the one it had. Reassigning a
 	// wide-open key to a capped user must not smuggle the old list past the cap.
 	//
-	// Note the write this can perform on an untouched field: when
-	// allowed_providers is omitted, req.AllowedProviders is the stored value
-	// above, so an unrestricted key belonging to a capped owner comes back from
-	// enforceOwnerCap narrowed to the cap. Correct and fail-closed, but a PUT
-	// that only renamed the key does then persist a restriction.
-	ownerCap, err := h.ownerProviderCap(r.Context(), owner)
-	if err != nil {
-		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
-		return
-	}
-	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
-	if err != nil {
-		respondBadRequest(w, err.Error(), nil)
-		return
+	// An omitted allowed_providers on a write that KEEPS the same owner is not
+	// re-checked. The stored value is preserved verbatim above and passed
+	// straight through: the request asserts nothing about provider access, and
+	// what it preserves was already enforced against this very owner's cap when
+	// it was written. Re-checking it made a key UNEDITABLE the moment its owner's
+	// cap narrowed below the stored list, because enforceOwnerCap rejects an
+	// over-wide list instead of narrowing it: omitting the field hit that branch
+	// on the preserved value and re-sending the stored list hit it too, so a
+	// plain rename had no legal form at all. Re-checking also quietly rewrote an
+	// untouched unrestricted key's row down to the cap, destroying the operator's
+	// original intent for good, since widening the cap later cannot restore it.
+	//
+	// The invariant that matters survives: no key ROUTES outside its owner's cap.
+	// effectiveAllowedProviders in internal/proxy intersects the two on every
+	// request and is the wall; this line only ever governed what the row stores.
+	// A stored list wider than the cap shows access the proxy denies, and the
+	// dashboard marks exactly those providers as blocked rather than offering
+	// them.
+	//
+	// Both halves of the condition are load-bearing. An explicit list is a claim
+	// and is always checked (as is every create, where a nil list resolves to the
+	// cap rather than to no restriction). And a write that MOVES the key to a
+	// different owner is checked even with the field omitted: the preserved value
+	// was enforced against the PREVIOUS owner's cap, so against the new owner's
+	// it is an unchecked claim like any other.
+	if req.allowedProvidersPresent || !sameOwner(owner, existingVK.OwnerUserID) {
+		ownerCap, capErr := h.ownerProviderCap(r.Context(), owner)
+		if capErr != nil {
+			respondError(w, "failed to update virtual key", capErr, http.StatusInternalServerError)
+			return
+		}
+		req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
+		if err != nil {
+			respondBadRequest(w, err.Error(), nil)
+			return
+		}
 	}
 
 	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)

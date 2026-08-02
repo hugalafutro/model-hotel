@@ -14,7 +14,7 @@ import { VirtualKeys } from "../../VirtualKeys";
 const providers = [mockProvider, mockProvider2];
 
 // capped returns an /api/auth/me payload for a non-admin caller whose account
-// carries the given provider cap (null/omitted = no cap).
+// carries the given provider cap (null = no cap).
 function capped(allowed: string[] | null) {
 	return {
 		username: "alice",
@@ -23,6 +23,24 @@ function capped(allowed: string[] | null) {
 		allowed_providers: allowed,
 	};
 }
+
+const ADMIN_ME = { username: "admin", role: "admin", grants: [] };
+
+// A roster entry for the admin path, where the cap that binds the write belongs
+// to the key's OWNER rather than to the caller.
+const cappedOwner = {
+	id: "11111111-2222-4333-8444-555555555555",
+	username: "alice",
+	display_name: "Alice",
+	email: null,
+	role: "user",
+	grants: ["virtual_keys"],
+	enabled: true,
+	created_at: "2026-07-01T10:00:00Z",
+	updated_at: "2026-07-01T10:00:00Z",
+	last_login_at: null,
+	allowed_providers: ["provider-001"],
+};
 
 function renderPage() {
 	return renderWithProviders(
@@ -76,7 +94,7 @@ describe("VirtualKeys provider cap", () => {
 
 		for (const p of providers) {
 			const chip = within(dialog).getByTestId(`vk-provider-option-${p.id}`);
-			expect(chip).not.toBeDisabled();
+			expect(chip).not.toHaveAttribute("aria-disabled");
 			expect(chip).not.toHaveAttribute("data-outside-cap");
 		}
 		expect(
@@ -84,12 +102,14 @@ describe("VirtualKeys provider cap", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("locks a provider outside the caller's cap", async () => {
+	it("locks a provider outside the caller's cap without making it a pending change", async () => {
 		server.use(
 			http.get("/api/auth/me", () =>
 				HttpResponse.json(capped(["provider-001"])),
 			),
 			http.get("/api/providers", () => HttpResponse.json(providers)),
+			// mockVirtualKey is UNRESTRICTED, so the only thing excluding
+			// provider-002 here is the cap.
 			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
 		);
 
@@ -99,18 +119,37 @@ describe("VirtualKeys provider cap", () => {
 		await waitFor(() => {
 			expect(
 				within(dialog).getByTestId("vk-provider-option-provider-002"),
-			).toBeDisabled();
+			).toHaveAttribute("aria-disabled", "true");
 		});
-		expect(
-			within(dialog).getByTestId("vk-provider-option-provider-002"),
-		).toHaveAttribute("data-outside-cap", "true");
+		const outOfCap = within(dialog).getByTestId(
+			"vk-provider-option-provider-002",
+		);
+		expect(outOfCap).toHaveAttribute("data-outside-cap", "true");
+		expect(outOfCap).toHaveAttribute("aria-pressed", "true");
 
 		const inCap = within(dialog).getByTestId("vk-provider-option-provider-001");
-		expect(inCap).not.toBeDisabled();
+		expect(inCap).not.toHaveAttribute("aria-disabled");
 		expect(inCap).not.toHaveAttribute("data-outside-cap");
+
+		const note = within(dialog).getByTestId("vk-provider-cap-note");
+		expect(note).toHaveAttribute("data-cap-source", "account");
+		// The reason stays reachable: the chip keeps its place in the tab order
+		// and points at the note rather than being dropped from the a11y tree.
+		expect(outOfCap).toHaveAttribute("aria-describedby", note.id);
+
+		// The property the derived design buys, only observable on an
+		// unrestricted key: a cap is not an edit. An implementation that seeded
+		// the cap into excludedProviders would light Save up on open, offering to
+		// persist a narrowing the user never asked for.
 		expect(
-			within(dialog).getByTestId("vk-provider-cap-note"),
-		).toBeInTheDocument();
+			within(dialog).getByRole("button", { name: "Save Changes" }),
+		).toBeDisabled();
+
+		// And it is inert: activating it must not turn the cap into a change.
+		await user.click(outOfCap);
+		expect(
+			within(dialog).getByRole("button", { name: "Save Changes" }),
+		).toBeDisabled();
 	});
 
 	it("still shows a provider the key holds but the cap no longer allows", async () => {
@@ -137,7 +176,7 @@ describe("VirtualKeys provider cap", () => {
 		await waitFor(() => {
 			expect(
 				within(dialog).getByTestId("vk-provider-option-provider-002"),
-			).toBeDisabled();
+			).toHaveAttribute("aria-disabled", "true");
 		});
 		const outOfCap = within(dialog).getByTestId(
 			"vk-provider-option-provider-002",
@@ -147,22 +186,64 @@ describe("VirtualKeys provider cap", () => {
 		expect(outOfCap).toHaveAttribute("aria-pressed", "true");
 	});
 
-	it("does not widen or narrow allowed_providers on a save that leaves the picker alone", async () => {
-		let updateBody: { allowed_providers?: string[] | null } | undefined;
+	it("locks a provider outside the OWNER's cap when an admin edits someone else's key", async () => {
+		server.use(
+			http.get("/api/auth/me", () => HttpResponse.json(ADMIN_ME)),
+			http.get("/api/users", () => HttpResponse.json([cappedOwner])),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([
+					{
+						...mockVirtualKey,
+						owner_user_id: cappedOwner.id,
+						owner_username: cappedOwner.username,
+					},
+				]),
+			),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openEdit(user, "Test API Key");
+
+		// The admin has no cap of their own; the one that binds the write belongs
+		// to alice, and it has to survive the roster query resolving late.
+		await waitFor(() => {
+			expect(
+				within(dialog).getByTestId("vk-provider-option-provider-002"),
+			).toHaveAttribute("aria-disabled", "true");
+		});
+		expect(
+			within(dialog).getByTestId("vk-provider-option-provider-002"),
+		).toHaveAttribute("data-outside-cap", "true");
+		expect(
+			within(dialog).getByTestId("vk-provider-option-provider-001"),
+		).not.toHaveAttribute("aria-disabled");
+		// Sourced from the owner, so the note names the owner rather than "you".
+		expect(within(dialog).getByTestId("vk-provider-cap-note")).toHaveAttribute(
+			"data-cap-source",
+			"owner",
+		);
+	});
+
+	it("omits allowed_providers entirely when the picker was not touched", async () => {
+		let updateBody: Record<string, unknown> | undefined;
 		server.use(
 			http.get("/api/auth/me", () =>
 				HttpResponse.json(capped(["provider-001"])),
 			),
 			http.get("/api/providers", () => HttpResponse.json(providers)),
+			// Stored intent is WIDER than the cap: the state the old code could
+			// neither preserve nor edit.
 			http.get("/api/virtual-keys", () =>
 				HttpResponse.json([
-					{ ...mockVirtualKey, allowed_providers: ["provider-001"] },
+					{
+						...mockVirtualKey,
+						allowed_providers: ["provider-001", "provider-002"],
+					},
 				]),
 			),
 			http.put("/api/virtual-keys/vk-001", async ({ request }) => {
-				updateBody = (await request.json()) as {
-					allowed_providers?: string[] | null;
-				};
+				updateBody = (await request.json()) as Record<string, unknown>;
 				return HttpResponse.json(mockVirtualKey);
 			}),
 		);
@@ -174,7 +255,7 @@ describe("VirtualKeys provider cap", () => {
 		await waitFor(() => {
 			expect(
 				within(dialog).getByTestId("vk-provider-option-provider-002"),
-			).toBeDisabled();
+			).toHaveAttribute("aria-disabled", "true");
 		});
 
 		// Touch only the name, never the picker.
@@ -188,6 +269,42 @@ describe("VirtualKeys provider cap", () => {
 		await waitFor(() => {
 			expect(updateBody).toBeDefined();
 		});
+		// Absent, not null and not the narrowed list. The API reads absent as
+		// "preserve", which is what keeps provider-002 in the stored row; sending
+		// the narrowed list would destroy that intent permanently.
+		expect(updateBody).not.toHaveProperty("allowed_providers");
+		expect(updateBody?.name).toBe("Renamed Key");
+	});
+
+	it("sends allowed_providers when the picker WAS touched", async () => {
+		let updateBody: Record<string, unknown> | undefined;
+		server.use(
+			http.get("/api/auth/me", () =>
+				HttpResponse.json(capped(["provider-001", "provider-002"])),
+			),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+			http.put("/api/virtual-keys/vk-001", async ({ request }) => {
+				updateBody = (await request.json()) as Record<string, unknown>;
+				return HttpResponse.json(mockVirtualKey);
+			}),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openEdit(user, "Test API Key");
+
+		// Both are in cap, so this exclusion is the user's own doing.
+		await user.click(
+			within(dialog).getByTestId("vk-provider-option-provider-002"),
+		);
+		await user.click(
+			within(dialog).getByRole("button", { name: "Save Changes" }),
+		);
+
+		await waitFor(() => {
+			expect(updateBody).toBeDefined();
+		});
+		expect(updateBody).toHaveProperty("allowed_providers");
 		expect(updateBody?.allowed_providers).toEqual(["provider-001"]);
 	});
 });
@@ -221,7 +338,7 @@ describe("CreateKeyModal provider cap", () => {
 		await waitFor(() => {
 			expect(
 				within(dialog).getByTestId("vk-provider-option-provider-002"),
-			).toBeDisabled();
+			).toHaveAttribute("aria-disabled", "true");
 		});
 		expect(
 			within(dialog).getByTestId("vk-provider-option-provider-002"),

@@ -81,6 +81,10 @@ export function CreateKeyModal({
 	const cap = ownerCap ?? (isAdmin ? null : (me?.allowed_providers ?? null));
 	const capIsOtherOwner =
 		ownerCap !== null && ownerAccount?.username !== me?.username;
+	const capNoteId = "vk-create-provider-cap-note";
+	const capNote = capIsOtherOwner
+		? t("virtualkeys.modal.form.providerOutsideOwnerAccess")
+		: t("virtualkeys.modal.form.providerOutsideAccountAccess");
 	const isOutsideCap = (id: string) => cap !== null && !cap.includes(id);
 	const outsideCapIds = sortedProviders
 		.map((p) => p.id)
@@ -94,6 +98,9 @@ export function CreateKeyModal({
 			: excludedProviders;
 
 	const toggleProvider = (providerId: string) => {
+		// Out-of-cap chips stay focusable (aria-disabled, not disabled) so their
+		// explanation is reachable, so the choke point on activating them is here.
+		if (isOutsideCap(providerId)) return;
 		setExcludedProviders((prev) =>
 			prev.includes(providerId)
 				? prev.filter((id) => id !== providerId)
@@ -355,12 +362,12 @@ export function CreateKeyModal({
 						</p>
 						{outsideCapIds.length > 0 && (
 							<p
+								id={capNoteId}
 								data-testid="vk-provider-cap-note"
+								data-cap-source={capIsOtherOwner ? "owner" : "account"}
 								className="text-xs text-gray-500 italic mb-2"
 							>
-								{capIsOtherOwner
-									? t("virtualkeys.modal.form.providerOutsideOwnerAccess")
-									: t("virtualkeys.modal.form.providerOutsideAccountAccess")}
+								{capNote}
 							</p>
 						)}
 						{sortedProviders.length === 0 ? (
@@ -377,19 +384,18 @@ export function CreateKeyModal({
 											key={provider.id}
 											type="button"
 											data-testid={`vk-provider-option-${provider.id}`}
-											{...(outsideCap ? { "data-outside-cap": "true" } : {})}
-											disabled={outsideCap}
-											title={
-												outsideCap
-													? capIsOtherOwner
-														? t(
-																"virtualkeys.modal.form.providerOutsideOwnerAccess",
-															)
-														: t(
-																"virtualkeys.modal.form.providerOutsideAccountAccess",
-															)
-													: undefined
-											}
+											// aria-disabled, not disabled: a disabled button drops out
+											// of the tab order, which would put both the title and the
+											// note out of reach of a keyboard or a screen reader.
+											// toggleProvider is what makes it inert.
+											{...(outsideCap
+												? {
+														"data-outside-cap": "true",
+														"aria-disabled": true,
+														"aria-describedby": capNoteId,
+													}
+												: {})}
+											title={outsideCap ? capNote : undefined}
 											onClick={() => toggleProvider(provider.id)}
 											aria-pressed={isExcluded}
 											className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium transition-colors ui-badge

@@ -174,6 +174,125 @@ func TestUpdateVirtualKey_CapFollowsTheNewOwner(t *testing.T) {
 	}
 }
 
+// Narrowing an owner's cap below what one of their keys already stores must not
+// brick the key. An update that omits allowed_providers asserts nothing about
+// provider access, so it is not re-checked and the stored list survives
+// untouched; the proxy's runtime intersection is what keeps the excess from
+// routing. Before this, the key had no legal edit at all: omitting the field
+// re-validated the preserved value and 400'd, and re-sending the stored list
+// 400'd on the same branch.
+func TestUpdateVirtualKey_OmittedProvidersSurviveANarrowedCap(t *testing.T) {
+	router, _, _ := setupOwnershipTest(t)
+
+	p1 := seedProvider(t, "cap-prov-a", "sk-a", testMasterKey)
+	p2 := seedProvider(t, "cap-prov-b", "sk-b", testMasterKey)
+	w := doJSON(t, router, http.MethodPost, "/users", envAdminToken,
+		`{"username":"cap-alice","password":"password123","role":"user","grants":["virtual_keys"],"allowed_providers":["`+p1+`","`+p2+`"]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
+	}
+	var alice user.User
+	if err := json.Unmarshal(w.Body.Bytes(), &alice); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	// A key using the full width of alice's cap.
+	w = doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken,
+		`{"name":"alice-key","owner_user_id":"`+alice.ID.String()+`","allowed_providers":["`+p1+`","`+p2+`"]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create key: %d %s", w.Code, w.Body.String())
+	}
+	created := decodeVK(t, w.Body.Bytes())
+
+	// Alice's cap is narrowed afterwards; the key's stored list now exceeds it.
+	w = doJSON(t, router, http.MethodPut, "/users/"+alice.ID.String(), envAdminToken,
+		`{"username":"cap-alice","role":"user","grants":["virtual_keys"],"enabled":true,"allowed_providers":["`+p1+`"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("narrow cap: %d %s", w.Code, w.Body.String())
+	}
+
+	// A plain rename, omitting allowed_providers, must succeed.
+	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+created.ID, envAdminToken,
+		`{"name":"alice-key-renamed"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename under a narrowed cap: %d, want 200; body %s", w.Code, w.Body.String())
+	}
+
+	// And the stored intent survives verbatim: the point is preservation, not
+	// merely a 200, so assert what the row actually holds.
+	w = doJSON(t, router, http.MethodGet, "/virtual-keys", envAdminToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", w.Code, w.Body.String())
+	}
+	var keys []struct {
+		ID               string    `json:"id"`
+		Name             string    `json:"name"`
+		AllowedProviders *[]string `json:"allowed_providers"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &keys); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	var found bool
+	for _, k := range keys {
+		if k.ID != created.ID {
+			continue
+		}
+		found = true
+		if k.Name != "alice-key-renamed" {
+			t.Errorf("name = %q, want the rename to have landed", k.Name)
+		}
+		if k.AllowedProviders == nil {
+			t.Fatal("stored allowed_providers was cleared by an untouched field")
+		}
+		if len(*k.AllowedProviders) != 2 {
+			t.Fatalf("stored allowed_providers = %v, want both providers preserved", *k.AllowedProviders)
+		}
+	}
+	if !found {
+		t.Fatal("renamed key missing from the list")
+	}
+
+	// The exemption is only for an untouched field. Naming the over-wide list
+	// explicitly is still a claim, and still refused.
+	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+created.ID, envAdminToken,
+		`{"name":"alice-key-renamed","allowed_providers":["`+p1+`","`+p2+`"]}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("explicit over-wide list: %d, want 400; body %s", w.Code, w.Body.String())
+	}
+}
+
+// A create always makes a claim, so the exemption above must not reach it: a
+// capped owner's new key with no providers named still resolves to the cap
+// rather than to no restriction.
+func TestCreateVirtualKey_OmittedProvidersStillResolveToTheCap(t *testing.T) {
+	router, _, _ := setupOwnershipTest(t)
+
+	p1 := seedProvider(t, "cap-prov-a", "sk-a", testMasterKey)
+	seedProvider(t, "cap-prov-b", "sk-b", testMasterKey)
+	w := doJSON(t, router, http.MethodPost, "/users", envAdminToken,
+		`{"username":"cap-alice","password":"password123","role":"user","grants":["virtual_keys"],"allowed_providers":["`+p1+`"]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
+	}
+	var alice user.User
+	if err := json.Unmarshal(w.Body.Bytes(), &alice); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	w = doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken,
+		`{"name":"alice-key","owner_user_id":"`+alice.ID.String()+`"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create key: %d %s", w.Code, w.Body.String())
+	}
+	created := decodeVK(t, w.Body.Bytes())
+	if created.AllowedProviders == nil {
+		t.Fatal("ESCALATION: a capped owner's key was created unrestricted")
+	}
+	if len(*created.AllowedProviders) != 1 || (*created.AllowedProviders)[0] != p1 {
+		t.Fatalf("allowed_providers = %v, want [%s]", *created.AllowedProviders, p1)
+	}
+}
+
 // failingUserStore breaks only Get, which is the call the cap lookup makes.
 // The other methods are never reached in the test that uses it.
 type failingUserStore struct{ err error }
