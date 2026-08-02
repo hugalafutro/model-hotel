@@ -513,6 +513,64 @@ describe("ToastItem", () => {
 
 		vi.useRealTimers();
 	});
+
+	it("holds the timer while hover and focus overlap, and loses no time to either", () => {
+		vi.useFakeTimers();
+
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Overlapping holds", "error");
+		});
+
+		const toastEl = screen.getByTestId("toast");
+		const copy = screen.getByTestId("toast-copy");
+
+		// Halfway: the pointer pauses. 2000ms of the 4000ms remain.
+		act(() => {
+			vi.advanceTimersByTime(2000);
+			fireEvent.mouseEnter(toastEl);
+		});
+
+		// Clicking Copy with a mouse focuses it while the pointer is still over
+		// the toast, so the clock is now held twice. Pausing again must not
+		// subtract the elapsed span a second time — that used to leave 0ms.
+		act(() => {
+			vi.advanceTimersByTime(100);
+			fireEvent.focus(copy);
+		});
+
+		// The pointer leaves, focus stays inside. The clock is still held, and
+		// the time it kept is the full 2000ms, not what a double subtraction
+		// left behind.
+		act(() => {
+			fireEvent.mouseLeave(toastEl);
+			vi.advanceTimersByTime(10000);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
+
+		// Focus leaves too. Now the clock runs, and it runs for the 2000ms that
+		// were banked at the first pause.
+		act(() => {
+			fireEvent.blur(copy, { relatedTarget: document.body });
+			vi.advanceTimersByTime(1999);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
+
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-0");
+
+		vi.useRealTimers();
+	});
 });
 
 // Helper component for testing toast addition

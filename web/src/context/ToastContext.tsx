@@ -239,16 +239,57 @@ function ToastItem({
 		return () => clearTimeout(timerRef.current);
 	}, [timeout, startTimer]);
 
-	const handleMouseEnter = () => {
+	// Two independent things hold the clock: the pointer being over the toast,
+	// and focus being inside it. They overlap constantly — clicking Copy with a
+	// mouse both hovers and focuses — so the pause is refcounted rather than a
+	// single flag, and the arithmetic runs only on the transitions.
+	//
+	// Pausing has to be idempotent because startTimeRef is only reset when the
+	// timer restarts: subtracting the elapsed span a second time would zero the
+	// remaining time, and the toast would vanish the moment the pointer left
+	// with seconds still on the clock. Resuming has to check the other holder,
+	// or un-hovering would restart the clock under a keyboard user still
+	// focused on Dismiss — the exact thing the focus pause exists to prevent.
+	const hoverRef = useRef(false);
+	const focusRef = useRef(false);
+	const pausedRef = useRef(false);
+
+	const pause = () => {
+		if (pausedRef.current) return;
+		pausedRef.current = true;
 		setPaused(true);
 		clearTimeout(timerRef.current);
 		const elapsed = Date.now() - startTimeRef.current;
 		remainingRef.current = Math.max(0, remainingRef.current - elapsed);
 	};
 
-	const handleMouseLeave = () => {
+	const resume = () => {
+		if (!pausedRef.current || hoverRef.current || focusRef.current) return;
+		pausedRef.current = false;
 		setPaused(false);
 		startTimer(remainingRef.current);
+	};
+
+	const handleMouseEnter = () => {
+		hoverRef.current = true;
+		pause();
+	};
+
+	const handleMouseLeave = () => {
+		hoverRef.current = false;
+		resume();
+	};
+
+	const handleFocus = () => {
+		focusRef.current = true;
+		pause();
+	};
+
+	const handleBlur = (e: React.FocusEvent<HTMLLIElement>) => {
+		// A move between the toast's own buttons is not a departure.
+		if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+		focusRef.current = false;
+		resume();
 	};
 
 	const strokeColors: Record<ToastType, string> = {
@@ -295,19 +336,16 @@ function ToastItem({
 			// Focus pauses the timer for the same reason hover does, and matters
 			// more: a keyboard user tabbing to Dismiss would otherwise have the
 			// button deleted out from under them mid-reach. Capture-phase because
-			// focus lands on the buttons inside, not on this element.
+			// focus lands on the buttons inside, not on this element. See the
+			// refcount above for why the two holders cannot share one flag.
 			//
-			// The relatedTarget check keeps a move between the toast's own buttons
-			// from restarting the clock. It is belt-and-braces rather than
+			// The relatedTarget check in handleBlur is belt-and-braces rather than
 			// load-bearing: blur and the following focus are adjacent, so the
-			// restart would be undone before the timer could advance. Kept because
-			// the alternative is a resume that only happens to be harmless.
-			onFocusCapture={handleMouseEnter}
-			onBlurCapture={(e: React.FocusEvent<HTMLLIElement>) => {
-				if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-					handleMouseLeave();
-				}
-			}}
+			// resume it prevents would be undone before the timer could advance.
+			// Kept because the alternative is a resume that only happens to be
+			// harmless.
+			onFocusCapture={handleFocus}
+			onBlurCapture={handleBlur}
 			className={`relative flex items-start gap-2 px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
 			style={{
 				overflow: "hidden",
