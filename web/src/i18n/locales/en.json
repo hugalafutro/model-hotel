@@ -2908,6 +2908,13 @@
 		"description": "Manage dashboard accounts and what each user can access.",
 		"addButton": "Add user",
 		"emptyState": "No users yet. Add one to give someone limited access to this dashboard.",
+		"providerAccess": "Provider access",
+		"providerAccessAll": "All providers",
+		"providerAccessSelected": "Only selected providers",
+		"providerAccessRequired": "Choose whether this user may reach all providers or only selected ones.",
+		"providerAccessEmpty": "Select at least one provider, or choose all providers.",
+		"providerAccessColumn": "Provider access",
+		"providerAccessCount": "{{first}} +{{count}}",
 		"table": {
 			"username": "Username",
 			"displayName": "Display name",

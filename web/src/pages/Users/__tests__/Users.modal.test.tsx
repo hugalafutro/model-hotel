@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardUser, UserUpsertRequest } from "../../../api/types";
@@ -29,6 +29,20 @@ function mockGrants() {
 	);
 }
 
+/**
+ * Creating a user requires an explicit provider-access choice (see
+ * UserModal.providerAccess.test.tsx). Located by the stable `value` attribute,
+ * never by translated label text.
+ */
+function chooseAllProviders(): HTMLInputElement {
+	const group = screen.getByTestId("provider-access-mode");
+	const found = within(group)
+		.getAllByRole("radio")
+		.find((el) => (el as HTMLInputElement).value === "all");
+	if (!found) throw new Error("no provider-access radio with value all");
+	return found as HTMLInputElement;
+}
+
 describe("UserModal", () => {
 	const onClose = vi.fn();
 	const onToast = vi.fn();
@@ -51,6 +65,7 @@ describe("UserModal", () => {
 			<UserModal user={null} onClose={onClose} onToast={onToast} />,
 		);
 
+		await user.click(chooseAllProviders());
 		await user.type(screen.getByLabelText("Username"), "carol");
 		await user.type(screen.getByLabelText("Password"), "password123");
 		await waitFor(() => {
@@ -77,6 +92,7 @@ describe("UserModal", () => {
 			<UserModal user={null} onClose={onClose} onToast={onToast} />,
 		);
 
+		await user.click(chooseAllProviders());
 		await user.type(screen.getByLabelText("Username"), "carol");
 		await user.type(screen.getByLabelText("Password"), "short");
 		await user.click(screen.getByTestId("user-modal-save"));
@@ -100,6 +116,7 @@ describe("UserModal", () => {
 			<UserModal user={null} onClose={onClose} onToast={onToast} />,
 		);
 
+		await user.click(chooseAllProviders());
 		await user.type(screen.getByLabelText("Username"), "carol");
 		await user.type(screen.getByLabelText("Password"), "password123");
 		await user.click(screen.getByTestId("user-modal-save"));
