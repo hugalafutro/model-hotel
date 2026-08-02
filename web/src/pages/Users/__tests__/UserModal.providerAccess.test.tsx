@@ -96,11 +96,60 @@ describe("UserModal provider access", () => {
 		expect(modeRadio("all").checked).toBe(false);
 		expect(modeRadio("selected").checked).toBe(false);
 
+		await user.type(field("user-username"), "carol");
+		await user.type(field("user-password"), "password123");
 		await user.click(screen.getByTestId("user-modal-save"));
 
-		expect(await screen.findByTestId("provider-access-error")).toBeVisible();
+		expect(await screen.findByTestId("provider-access-error")).toHaveAttribute(
+			"data-error-kind",
+			"required",
+		);
 		expect(bodies).toHaveLength(0);
 		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it("reports the missing username before the provider choice", async () => {
+		mockCatalog();
+		const bodies = captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal user={null} onClose={onClose} onToast={onToast} />,
+		);
+
+		// Field order: a blank form complains about the first empty field, not
+		// about the control at the bottom.
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		expect(await screen.findByTestId("user-modal-error")).toBeVisible();
+		expect(
+			screen.queryByTestId("provider-access-error"),
+		).not.toBeInTheDocument();
+		expect(bodies).toHaveLength(0);
+	});
+
+	it("clears the validation message as soon as a mode is picked", async () => {
+		mockCatalog();
+		captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal user={null} onClose={onClose} onToast={onToast} />,
+		);
+
+		await user.type(field("user-username"), "carol");
+		await user.type(field("user-password"), "password123");
+		await user.click(screen.getByTestId("user-modal-save"));
+		expect(await screen.findByTestId("provider-access-error")).toBeVisible();
+
+		await user.click(modeRadio("selected"));
+		expect(
+			screen.queryByTestId("provider-access-error"),
+		).not.toBeInTheDocument();
+
+		// The empty-selection complaint clears the same way, on the first tick.
+		await user.click(screen.getByTestId("user-modal-save"));
+		expect(await screen.findByTestId("provider-access-error")).toBeVisible();
+		await user.click(await screen.findByTestId("provider-access-option-p1"));
+		expect(
+			screen.queryByTestId("provider-access-error"),
+		).not.toBeInTheDocument();
 	});
 
 	it("sends a null cap when all providers is chosen", async () => {
@@ -134,7 +183,10 @@ describe("UserModal provider access", () => {
 		await user.type(field("user-password"), "password123");
 		await user.click(screen.getByTestId("user-modal-save"));
 
-		expect(await screen.findByTestId("provider-access-error")).toBeVisible();
+		expect(await screen.findByTestId("provider-access-error")).toHaveAttribute(
+			"data-error-kind",
+			"empty",
+		);
 		expect(bodies).toHaveLength(0);
 		expect(onClose).not.toHaveBeenCalled();
 	});
@@ -189,6 +241,72 @@ describe("UserModal provider access", () => {
 		expect(
 			screen.queryByTestId("provider-access-list"),
 		).not.toBeInTheDocument();
+	});
+
+	it("omits the cap so a deny-all user stays editable", async () => {
+		mockCatalog();
+		const bodies = captureWrites();
+		// An empty cap is reachable: pruning the last capped provider empties it.
+		// The control cannot re-state that value, so an untouched edit must omit
+		// the field and let the server preserve it.
+		const { user } = renderWithProviders(
+			<UserModal
+				user={{ ...existing, allowed_providers: [] }}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+
+		expect(modeRadio("selected").checked).toBe(true);
+		await user.type(field("user-display-name"), " renamed");
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		await waitFor(() => expect(bodies).toHaveLength(1));
+		expect(bodies[0]).not.toHaveProperty("allowed_providers");
+		expect(
+			screen.queryByTestId("provider-access-error"),
+		).not.toBeInTheDocument();
+		expect(onClose).toHaveBeenCalled();
+	});
+
+	it("omits an untouched cap but sends it once the selection changes", async () => {
+		mockCatalog();
+		const bodies = captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal
+				user={{ ...existing, allowed_providers: ["p1"] }}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+
+		await user.click(screen.getByTestId("user-modal-save"));
+		await waitFor(() => expect(bodies).toHaveLength(1));
+		expect(bodies[0]).not.toHaveProperty("allowed_providers");
+
+		await user.click(await screen.findByTestId("provider-access-option-p2"));
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		await waitFor(() => expect(bodies).toHaveLength(2));
+		expect(bodies[1].allowed_providers).toEqual(["p1", "p2"]);
+	});
+
+	it("sends an explicit null when an edit lifts the cap", async () => {
+		mockCatalog();
+		const bodies = captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal
+				user={{ ...existing, allowed_providers: ["p1"] }}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+
+		await user.click(modeRadio("all"));
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		await waitFor(() => expect(bodies).toHaveLength(1));
+		expect(bodies[0].allowed_providers).toBeNull();
 	});
 
 	it("disables the control on a managed instance", async () => {

@@ -61,7 +61,9 @@ export function UserModal({
 	const [selectedProviders, setSelectedProviders] = useState<string[]>(
 		user?.allowed_providers ?? [],
 	);
-	const [providerError, setProviderError] = useState<string | null>(null);
+	const [providerError, setProviderError] = useState<
+		"required" | "empty" | null
+	>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [confirmTotpReset, setConfirmTotpReset] = useState(false);
@@ -84,6 +86,20 @@ export function UserModal({
 		.slice()
 		.sort((a, b) => a.name.localeCompare(b.name));
 
+	// True while an edit leaves the stored cap exactly as it was found. Such a
+	// save OMITS allowed_providers, which the API reads as "preserve" (see
+	// UpdateUser: an absent key copies the stored value forward). That is the
+	// only way to edit a user whose stored cap is an empty array, which is a
+	// reachable state -- pruning the last capped provider empties it -- and one
+	// the control cannot re-state without widening the account.
+	const storedCap = user?.allowed_providers ?? null;
+	const capUnchanged =
+		isEdit &&
+		providerMode === (storedCap ? "selected" : "all") &&
+		(providerMode === "all" ||
+			(selectedProviders.length === (storedCap?.length ?? 0) &&
+				selectedProviders.every((id) => storedCap?.includes(id))));
+
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: ["users"] });
 
@@ -104,8 +120,13 @@ export function UserModal({
 		rate_limit_rps: limitRps !== "" ? parseFloat(limitRps) : null,
 		rate_limit_burst: limitBurst !== "" ? parseInt(limitBurst, 10) : null,
 		rate_limit_tpm: limitTpm !== "" ? parseInt(limitTpm, 10) : null,
-		// Explicit null clears the cap; handleSave guarantees a mode was picked.
-		allowed_providers: providerMode === "all" ? null : selectedProviders,
+		// Omitted when untouched (preserve), explicit null clears the cap.
+		// handleSave guarantees a mode was picked before anything is sent.
+		...(capUnchanged
+			? {}
+			: {
+					allowed_providers: providerMode === "all" ? null : selectedProviders,
+				}),
 		...(isEdit ? { enabled } : { password }),
 	});
 
@@ -163,15 +184,6 @@ export function UserModal({
 	const handleSave = () => {
 		setError(null);
 		setProviderError(null);
-		if (providerMode === null) {
-			setProviderError(t("users.providerAccessRequired"));
-			return;
-		}
-		// The API rejects an empty array, so never let one leave the form.
-		if (providerMode === "selected" && selectedProviders.length === 0) {
-			setProviderError(t("users.providerAccessEmpty"));
-			return;
-		}
 		if (!username.trim()) {
 			setError(t("users.validation.usernameRequired"));
 			return;
@@ -180,13 +192,35 @@ export function UserModal({
 			setError(t("users.validation.passwordShort"));
 			return;
 		}
+		// Skipped when the cap is untouched: that save omits the field entirely,
+		// so a stored empty array stays stored instead of blocking every edit.
+		if (!capUnchanged) {
+			if (providerMode === null) {
+				setProviderError("required");
+				return;
+			}
+			// The API rejects an empty array, so never let one leave the form.
+			if (providerMode === "selected" && selectedProviders.length === 0) {
+				setProviderError("empty");
+				return;
+			}
+		}
 		saveMutation.mutate();
 	};
 
-	const toggleProvider = (id: string) =>
+	// Both provider controls clear the validation message as soon as the admin
+	// acts on it, so a stale complaint never outlives the thing it complained about.
+	const chooseProviderMode = (mode: "all" | "selected") => {
+		setProviderError(null);
+		setProviderMode(mode);
+	};
+
+	const toggleProvider = (id: string) => {
+		setProviderError(null);
 		setSelectedProviders((prev) =>
 			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
 		);
+	};
 
 	const toggleGrant = (g: string) =>
 		setGrants((prev) =>
@@ -349,7 +383,7 @@ export function UserModal({
 								name="user-provider-access"
 								value="all"
 								checked={providerMode === "all"}
-								onChange={() => setProviderMode("all")}
+								onChange={() => chooseProviderMode("all")}
 								disabled={managed}
 							/>
 							{t("users.providerAccessAll")}
@@ -360,7 +394,7 @@ export function UserModal({
 								name="user-provider-access"
 								value="selected"
 								checked={providerMode === "selected"}
-								onChange={() => setProviderMode("selected")}
+								onChange={() => chooseProviderMode("selected")}
 								disabled={managed}
 							/>
 							{t("users.providerAccessSelected")}
@@ -393,8 +427,11 @@ export function UserModal({
 						<p
 							className="text-xs text-red-400 mt-2"
 							data-testid="provider-access-error"
+							data-error-kind={providerError}
 						>
-							{providerError}
+							{providerError === "required"
+								? t("users.providerAccessRequired")
+								: t("users.providerAccessEmpty")}
 						</p>
 					)}
 				</fieldset>
