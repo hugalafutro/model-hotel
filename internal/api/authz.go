@@ -115,6 +115,12 @@ type meResponse struct {
 	// UserAccount is true for users-row identities (not the env-token admin),
 	// gating the self-service Security surface in the SPA.
 	UserAccount bool `json:"user_account"`
+	// AllowedProviders is the caller's account provider cap, nil when
+	// uncapped. Drives the key modals' provider picker so it does not offer
+	// choices the server would reject. Advisory only: the server enforces
+	// the cap independently at virtual-key write time and again at the
+	// proxy on every request.
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 }
 
 // Me reports the caller's resolved identity. Mounted inside the
@@ -132,6 +138,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	if id.UserID != nil && h.userRepo != nil {
 		if u, err := h.userRepo.Get(r.Context(), *id.UserID); err == nil {
 			resp.DisplayName = u.DisplayName
+			resp.AllowedProviders = u.AllowedProviders
 		}
 	}
 	writeJSON(w, resp)
