@@ -242,14 +242,20 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning, &v.OwnerUsername); err != nil {
 			return nil, err
 		}
-		// Translate instance-local provider UUIDs to names; drop any that no
-		// longer resolve. A key whose entire allow-list is stale exports an empty
-		// AllowedProviderNames; import refuses to widen it to all-allowed and
-		// skips it instead (see upsertVirtualKeys).
-		for _, id := range allowedIDs {
-			if name, ok := idToName[id]; ok {
-				v.AllowedProviderNames = append(v.AllowedProviderNames, name)
+		// Translate instance-local provider UUIDs to names, dropping any that no
+		// longer resolve. Restriction PRESENCE comes from the column being
+		// non-NULL, not from how many names survive translation: a key whose
+		// providers were all deleted stays restricted (present but empty) so the
+		// import can tell it apart from an unrestricted key and refuse to widen
+		// it (see upsertVirtualKeys).
+		if allowedIDs != nil {
+			names := []string{}
+			for _, id := range allowedIDs {
+				if name, ok := idToName[id]; ok {
+					names = append(names, name)
+				}
 			}
+			v.AllowedProviderNames = &names
 		}
 		out = append(out, v)
 	}

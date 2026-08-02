@@ -486,9 +486,11 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 			return err
 		}
 		var allowed []string // target provider UUIDs; nil => all allowed
-		for _, name := range v.AllowedProviderNames {
-			if id, ok := nameToID[name]; ok {
-				allowed = append(allowed, id)
+		if v.AllowedProviderNames != nil {
+			for _, name := range *v.AllowedProviderNames {
+				if id, ok := nameToID[name]; ok {
+					allowed = append(allowed, id)
+				}
 			}
 		}
 		// Privilege-safety: if this key was restricted to providers but none of
@@ -496,11 +498,14 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 		// means "all providers allowed" (pgx writes the nil slice as NULL, and
 		// the proxy treats only NULL as unrestricted), so writing it would
 		// silently turn a restricted key into an unrestricted one. Skipping
-		// leaves the restricted key absent
-		// rather than over-privileged. In the normal flow this never triggers:
-		// providers are upserted in the same transaction before this runs, so
-		// every name resolves.
-		if len(v.AllowedProviderNames) > 0 && len(allowed) == 0 {
+		// leaves the restricted key absent rather than over-privileged. In the
+		// normal flow this never triggers: providers are upserted in the same
+		// transaction before this runs, so every name resolves.
+		//
+		// The presence test is the POINTER, not the length. A key whose providers
+		// were all deleted upstream exports a present-but-empty list, and reading
+		// that as "unrestricted" is exactly the escalation this guards.
+		if v.AllowedProviderNames != nil && len(allowed) == 0 {
 			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
 			continue
 		}

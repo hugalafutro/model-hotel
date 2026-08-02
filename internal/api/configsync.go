@@ -194,14 +194,23 @@ type ExportProvider struct {
 // server-side). allowed_providers is carried as provider NAMES, resolved back to
 // this member's provider UUIDs on import.
 type ExportVK struct {
-	Name                 string   `json:"name"`
-	KeyHash              string   `json:"key_hash"`
-	KeyPreview           string   `json:"key_preview"`
-	RateLimitRPS         *float64 `json:"rate_limit_rps,omitempty"`
-	RateLimitBurst       *int     `json:"rate_limit_burst,omitempty"`
-	RateLimitTPM         *int     `json:"rate_limit_tpm,omitempty"`
-	AllowedProviderNames []string `json:"allowed_provider_names,omitempty"`
-	StripReasoning       bool     `json:"strip_reasoning"`
+	Name           string   `json:"name"`
+	KeyHash        string   `json:"key_hash"`
+	KeyPreview     string   `json:"key_preview"`
+	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
+	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
+	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	// AllowedProviderNames carries the key's provider restriction by NAME
+	// (UUIDs are instance-local). Three distinct states, and the distinction is
+	// load-bearing:
+	//   nil            - no restriction, every provider
+	//   ["openai"]     - restricted, and the names resolve here
+	//   [] (non-nil)   - restricted, but NOTHING resolves on this member
+	// Collapsing the last two is a privilege escalation: a key whose providers
+	// were all deleted would import as unrestricted. omitempty keys off the
+	// pointer, so an older primary that omits the field still decodes as nil.
+	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
+	StripReasoning       bool      `json:"strip_reasoning"`
 	// OwnerUsername carries key ownership by username (user ids are
 	// instance-local; usernames are the users sync key). Nil = unowned. An
 	// owner that does not resolve on the member imports as unowned rather

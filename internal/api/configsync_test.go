@@ -168,8 +168,9 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 		t.Fatal("provider encrypted key not exported")
 	}
 	if len(env.Config.VirtualKeys) != 1 ||
-		len(env.Config.VirtualKeys[0].AllowedProviderNames) != 1 ||
-		env.Config.VirtualKeys[0].AllowedProviderNames[0] != "openai" {
+		env.Config.VirtualKeys[0].AllowedProviderNames == nil ||
+		len(*env.Config.VirtualKeys[0].AllowedProviderNames) != 1 ||
+		(*env.Config.VirtualKeys[0].AllowedProviderNames)[0] != "openai" {
 		t.Fatalf("vk allowed names not translated to provider name: %+v", env.Config.VirtualKeys)
 	}
 	if env.Config.Settings["hedging_enabled"] != "true" {
@@ -486,9 +487,10 @@ func TestConfigSync_SkipsVirtualKeyWithUnresolvableRestriction(t *testing.T) {
 	ctx := context.Background()
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 
-	// A VK restricted to a provider the envelope does not include would, if
-	// imported, become unrestricted (empty allow-list = all allowed). It must be
-	// skipped instead so a restricted key never silently becomes a master key.
+	// A VK restricted to a provider the envelope does not include resolves to
+	// nothing here, and writing that would store NULL allowed_providers, which
+	// means all providers allowed. It must be skipped instead so a restricted
+	// key never silently becomes a master key.
 	kp, _ := auth.Encrypt("sk", configSyncMasterKey)
 	env := ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
@@ -498,7 +500,7 @@ func TestConfigSync_SkipsVirtualKeyWithUnresolvableRestriction(t *testing.T) {
 			},
 			VirtualKeys: []ExportVK{
 				{Name: "vk-open", KeyHash: "hopen", KeyPreview: "p"}, // unrestricted -> imported
-				{Name: "vk-restricted", KeyHash: "hres", KeyPreview: "p", AllowedProviderNames: []string{"absent-provider"}},
+				{Name: "vk-restricted", KeyHash: "hres", KeyPreview: "p", AllowedProviderNames: &[]string{"absent-provider"}},
 			},
 		},
 	}
