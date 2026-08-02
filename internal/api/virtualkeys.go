@@ -132,6 +132,99 @@ func (h *Handler) ownerUsername(ctx context.Context, ownerID *uuid.UUID) *string
 	return &u.Username
 }
 
+// ownerLabel names a key owner for an error message, falling back to the id.
+func (h *Handler) ownerLabel(ctx context.Context, ownerID *uuid.UUID) string {
+	if name := h.ownerUsername(ctx, ownerID); name != nil {
+		return *name
+	}
+	if ownerID != nil {
+		return ownerID.String()
+	}
+	return "the owner"
+}
+
+// providerNameByID returns a lookup that names a provider for an error message,
+// falling back to the raw id. Best-effort: an unreadable provider list must not
+// fail the write, only make the message less friendly.
+//
+// The provider list is read on first use, not when the lookup is built, so the
+// overwhelmingly common case (a write nobody refuses) costs no query at all.
+func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
+	var names map[string]string
+	return func(id string) string {
+		if names == nil {
+			names = map[string]string{}
+			if h.providerRepo != nil {
+				if ps, err := h.providerRepo.List(ctx); err == nil {
+					for _, p := range ps {
+						names[p.ID.String()] = p.Name
+					}
+				}
+			}
+		}
+		if n, ok := names[id]; ok {
+			return n
+		}
+		return id
+	}
+}
+
+// ownerProviderCap returns the account-level provider cap of a key's owner, or
+// nil when the key is unowned, the user store is not wired, or the owner has no
+// cap. A missing owner row reports no cap rather than failing the write: the
+// proxy intersects against the live row on every request, so this lookup only
+// decides whether the caller gets a friendly error, never whether the rule holds.
+func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]string, error) {
+	if ownerID == nil || h.userRepo == nil {
+		return nil, nil //nolint:nilnil // nil cap = unrestricted, not an error sentinel
+	}
+	u, err := h.userRepo.Get(ctx, *ownerID)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return nil, nil //nolint:nilnil // stale owner reference; the proxy is the wall
+		}
+		return nil, err
+	}
+	return u.AllowedProviders, nil
+}
+
+// enforceOwnerCap resolves the allowed_providers a write should store, given
+// what the caller asked for and the owner's account cap.
+//
+// SECURITY INVARIANT: no virtual key may name a provider outside its owner's
+// cap. Without this, the virtual_keys grant is a privilege escalation: a capped
+// non-admin has full CRUD over their own keys, so they would simply mint a new
+// one with allowed_providers unset and reach everything. The rule binds admins
+// as well as the key's owner, so the dashboard can never display access that the
+// proxy's runtime intersection would deny. An admin is not blocked by this: the
+// cap is an admin-only field, so raising it first is always available.
+//
+// A nil `requested` with a capped owner resolves to the cap itself rather than
+// erroring: "no providers named" unambiguously means "everything I may reach",
+// and writing the cap makes that explicit in the stored row.
+//
+// The parameter is ownerCap, not cap: cap is a Go builtin and shadowing it here
+// would trip revive's redefines-builtin-id rule.
+func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerName func(string) string) (*[]string, error) {
+	if ownerCap == nil {
+		return requested, nil
+	}
+	if requested == nil {
+		return ownerCap, nil
+	}
+	allowed := make(map[string]struct{}, len(*ownerCap))
+	for _, id := range *ownerCap {
+		allowed[id] = struct{}{}
+	}
+	for _, id := range *requested {
+		if _, ok := allowed[id]; !ok {
+			return nil, fmt.Errorf("%s is outside %s's account provider access. Raise it on their account first",
+				providerName(id), ownerLabel)
+		}
+	}
+	return requested, nil
+}
+
 // resolveWriteOwner decides the owner a create/update writes. Non-admins always
 // write their own id: the request-body owner_user_id (the `requested` argument)
 // is deliberately IGNORED for them, so a non-admin can neither assign a key to
@@ -217,6 +310,17 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	caller := user.IdentityFrom(r.Context())
 	owner, err := resolveWriteOwner(caller, req.OwnerUserID)
+	if err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
+	}
+
+	ownerCap, err := h.ownerProviderCap(r.Context(), owner)
+	if err != nil {
+		respondError(w, "failed to create virtual key", err, http.StatusInternalServerError)
+		return
+	}
+	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
 	if err != nil {
 		respondBadRequest(w, err.Error(), nil)
 		return
@@ -392,6 +496,20 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 			respondBadRequest(w, err.Error(), nil)
 			return
 		}
+	}
+
+	// Deliberately after the owner is resolved: the cap that binds this write
+	// belongs to the owner the row will STORE, not the one it had. Reassigning a
+	// wide-open key to a capped user must not smuggle the old list past the cap.
+	ownerCap, err := h.ownerProviderCap(r.Context(), owner)
+	if err != nil {
+		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
+		return
+	}
+	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
+	if err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
 	}
 
 	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
