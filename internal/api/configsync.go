@@ -121,12 +121,18 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
 
 // errUnresolvableUserProviders is returned by apply when a user in the envelope
-// carries a provider cap whose names do not resolve on this member. Writing the
-// user with a NULL cap would silently promote them from restricted to
-// unrestricted, and the two escapes available to a virtual key are both closed
-// here: skipping the row would hand it to the declarative delete in applyUsers,
-// and there is no third state to fall back to. So the whole import is refused.
+// carries a NON-EMPTY provider cap none of whose names resolve on this member.
+// That is anomalous rather than merely inconvenient: providers are replaced
+// declaratively earlier in the same transaction, so every name a legitimate
+// primary exported resolves. Writing the user with a NULL cap would silently
+// promote them from restricted to unrestricted, and skipping the row would hand
+// it to the declarative delete in applyUsers, so the whole import is refused.
 // Import maps it to a 400.
+//
+// A present-but-EMPTY cap is deliberately NOT this error: there the primary
+// itself resolves nothing, and applyUsers writes the empty array through so the
+// member reproduces the primary's deny-everything behaviour instead of wedging
+// fleet sync on an ordinary provider deletion.
 var errUnresolvableUserProviders = errors.New("configsync: refusing to apply a user whose provider cap does not resolve")
 
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
@@ -293,9 +299,13 @@ type ExportUser struct {
 	// AllowedProviderNames carries the account provider cap by NAME, with the
 	// same three-state contract as ExportVK.AllowedProviderNames (nil = no cap,
 	// non-empty = capped and resolves, present-but-empty = capped with nothing
-	// resolving). Unlike a key, an unresolvable cap refuses the whole import
-	// rather than being skipped: a user cannot be skipped (the declarative
-	// replace in applyUsers would then delete them) and writing NULL would
+	// resolving on the exporting member). Where a key with an unresolvable cap
+	// is skipped, a user cannot be: the declarative replace in applyUsers would
+	// then delete them. So applyUsers splits the third state by which side
+	// failed to resolve - a present-but-empty list is written through as an
+	// empty array (the primary itself resolves nothing, and an empty cap denies
+	// everything), while names that arrive non-empty and resolve to nothing are
+	// anomalous and refuse the import. Writing NULL is never an option: it would
 	// promote a capped account to unrestricted.
 	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
 }

@@ -454,13 +454,26 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 					resolved = append(resolved, id)
 				}
 			}
-			// A cap that resolves to nothing must not be written: NULL reads as
-			// "every provider", so importing it would widen the account. Refusing
-			// the whole envelope is the only option left here, because the two
-			// escapes a virtual key has are both closed for a user (see
-			// errUnresolvableUserProviders). The transaction rolls back, so the
-			// declarative delete above is undone with it.
-			if len(resolved) == 0 {
+			// Two ways a cap can resolve to nothing here, and they are NOT the
+			// same thing.
+			//
+			// The wire list is EMPTY: the primary itself resolved nothing, i.e.
+			// every provider in this account's cap has been deleted there. Fall
+			// through and write the empty array. proxy.effectiveAllowedProviders
+			// treats a non-nil cap as "exactly these providers" INCLUDING when
+			// empty, so `{}` reproduces the primary's own effective behaviour
+			// (deny everything) rather than NULL's "every provider". Refusing
+			// instead would wedge fleet sync on an ordinary provider deletion,
+			// and because a refusal fails the ENTIRE import the member would stay
+			// frozen on its previous cap for this account, which may be WIDER
+			// than what the primary now effectively enforces.
+			//
+			// The wire list is NON-EMPTY but none of it resolves: anomalous. The
+			// declarative provider replace runs earlier in this same transaction
+			// and nameToID is built from its result, so every name a legitimate
+			// primary exported resolves here. Refuse the envelope; the rollback
+			// undoes the users delete above with it.
+			if len(resolved) == 0 && len(*u.AllowedProviderNames) > 0 {
 				return fmt.Errorf("%w: user %s", errUnresolvableUserProviders, strconv.Quote(u.Username))
 			}
 			allowedProviders = &resolved
