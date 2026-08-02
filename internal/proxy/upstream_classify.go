@@ -230,8 +230,9 @@ func isClauseBreak(b byte) bool {
 }
 
 // looksLikeAModelID reports whether s contains a token shaped like a model id.
-// Digits and hyphens are the tell: "gpt-4", "retired-model" and "llama3" all
-// qualify, while ordinary words and vendor prefixes like "openai/" do not.
+// A digit is the tell on its own; a hyphen is one only alongside a letter. So
+// "gpt-4", "llama3" and "retired-model" all qualify, while ordinary words and
+// vendor prefixes like "openai/" do not.
 //
 // A token also has to carry a letter or a digit, which is what stops PUNCTUATION
 // being read as an identifier. Without it a lone "-" qualified on the dash
@@ -290,6 +291,30 @@ func gapBindsPhrase(gap string) bool {
 	return !looksLikeAModelID(gap)
 }
 
+// isVendorSegmentChar reports whether b can appear in a vendor namespace.
+//
+// Deliberately NARROWER than isModelIDChar. The walk in vendorPrefixStart
+// removes text from the gap gapBindsPhrase inspects, so every character it is
+// willing to cross is a character that can hide a clause break or a competing
+// id. isModelIDChar also admits '.', ':' and '@', which is how a model names a
+// tag or a snapshot ("llama3:8b") but never how a registry names a publisher:
+// every slashed id in the catalogue has a vendor segment inside [A-Za-z0-9_-].
+//
+// '.' is the one that must not be crossed, because it is also an isClauseBreak
+// character. Crossing it would let the walk step over a clause boundary and hand
+// gapBindsPhrase a gap the boundary had already been removed from — silently
+// undoing the rule it exists to enforce.
+func isVendorSegmentChar(b byte) bool {
+	switch {
+	case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+		return true
+	case b == '-', b == '_':
+		return true
+	default:
+		return false
+	}
+}
+
 // vendorPrefixStart walks back from an id occurrence over the vendor prefix
 // attached to it, returning where the whole identifier starts.
 //
@@ -299,6 +324,12 @@ func gapBindsPhrase(gap string) bool {
 // is the shape registries use, and walking further would swallow a preceding
 // word that merely ended in a slash.
 //
+// The walk is bounded twice over, because both bounds protect the same thing:
+// what it crosses, it deletes from the gap. One segment, and only characters a
+// publisher name can contain (see isVendorSegmentChar) — so a rival id butted
+// against the vendor by a period or a colon stays in the gap and still blocks,
+// exactly as it does when a space separates them.
+//
 // It returns pos unchanged when there is no prefix, so callers can use it
 // unconditionally.
 func vendorPrefixStart(body string, pos int) int {
@@ -306,7 +337,7 @@ func vendorPrefixStart(body string, pos int) int {
 		return pos
 	}
 	start := pos - 1
-	for start > 0 && isModelIDChar(body[start-1]) {
+	for start > 0 && isVendorSegmentChar(body[start-1]) {
 		start--
 	}
 	// A slash with nothing identifier-shaped in front of it is punctuation

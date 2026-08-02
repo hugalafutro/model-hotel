@@ -1237,11 +1237,52 @@ func TestClassifyUpstreamError_VendorPrefixIsNotARivalID(t *testing.T) {
 			want:    KindProviderError,
 		},
 		{
-			// A different vendor's model being retired says nothing about ours.
-			name:    "another vendor's model is not ours",
+			// The same guard, with the rival butted against the vendor instead
+			// of spaced off it. The walk crosses characters, and every character
+			// it crosses is one gapBindsPhrase never gets to see — so it may not
+			// cross a period, which is a CLAUSE BREAK. Absorbing this whole run
+			// as "the vendor" would delete both the boundary and the rival id
+			// from the gap and bind to the wrong subject.
+			name:    "rival joined to the vendor by a period still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3.ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// Same, for a separator that is not a clause break. A colon belongs
+			// to a model TAG ("llama3:8b"), never to a publisher, so the walk
+			// stops there too and the rival stays in the gap.
+			name:    "rival joined to the vendor by a colon still blocks",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found for other-model-3:ai21/jamba-large-1.7"}}`,
+			want:    KindProviderError,
+		},
+		{
+			// A model id absent from the body cannot be attributed at all: the
+			// occurrence search fails before any gap is measured. Kept as the
+			// floor, NOT as evidence about vendors — the case that actually
+			// exercises the vendor comparison is the one below it.
+			name:    "a model we did not ask for is not ours",
 			modelID: "ai21/jamba-large-1.7",
 			body:    `{"error":{"message":"model not found: other-vendor/some-model-9"}}`,
 			want:    KindProviderError,
+		},
+		{
+			// ACCEPTED, and pinned here so that changing it has to be deliberate:
+			// normalizeModelID reduces the request to its tail, so a refusal
+			// naming a DIFFERENT vendor's copy of the same model classifies as
+			// ours. Providers echo the bare name as readily as the prefixed one,
+			// and this needs a provider to name a model the caller never asked
+			// for. It is not new here — "azure/gpt-4o" already bound for a
+			// request for "openai/gpt-4o", because a vendor with no digit and no
+			// hyphen never looked like a rival id. Absorbing the prefix only
+			// removes the accident that made ai21/ and meta-llama/ behave
+			// differently from openai/. A classification still only nominates:
+			// the probe that follows asks the live model.
+			name:    "another vendor's copy of the same model still classifies",
+			modelID: "ai21/jamba-large-1.7",
+			body:    `{"error":{"message":"model not found: other-vendor/jamba-large-1.7"}}`,
+			want:    KindProviderModelGone,
 		},
 	}
 
@@ -1268,6 +1309,7 @@ func TestVendorPrefixStart(t *testing.T) {
 		want int
 	}{
 		{name: "no prefix", body: "gpt-4o", pos: 0, want: 0},
+		{name: "no slash before the match", body: "gpt-4o", pos: 4, want: 4},
 		{name: "vendor prefix absorbed", body: "ai21/jamba", pos: 5, want: 0},
 		{name: "prefix mid-body", body: "x: ai21/jamba", pos: 8, want: 3},
 		// Only one segment: a preceding word that happens to end in a slash is
@@ -1276,6 +1318,16 @@ func TestVendorPrefixStart(t *testing.T) {
 		// A bare slash is punctuation, not a vendor.
 		{name: "bare slash is punctuation", body: "try /jamba", pos: 5, want: 5},
 		{name: "slash at body start", body: "/jamba", pos: 1, want: 1},
+		// The walk stops at anything a publisher name cannot contain, so a
+		// preceding id butted straight against the vendor is not swallowed.
+		// A period matters most: it is a clause break, and crossing it would
+		// hide the boundary from gapBindsPhrase.
+		{name: "period stops the walk", body: "other-model-3.ai21/jamba", pos: 19, want: 14},
+		{name: "colon stops the walk", body: "x:ai21/jamba", pos: 7, want: 2},
+		{name: "at-sign stops the walk", body: "x@ai21/jamba", pos: 7, want: 2},
+		// An underscore IS a publisher character, so it is crossed: registries
+		// name organisations that way and there is no id boundary there.
+		{name: "underscore is part of the vendor", body: "meta_llama/x", pos: 11, want: 0},
 	}
 
 	for _, tc := range cases {
