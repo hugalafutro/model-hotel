@@ -25,9 +25,9 @@ type stubFleetMember struct {
 	gotDryRun  bool
 }
 
-const fleetExportWithKey = `{"schema_version":1,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o","encrypted_key":"AAAA","key_nonce":"BBBB"}],"virtual_keys":[],"settings":{}}}`
+const fleetExportWithKey = `{"schema_version":2,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o","encrypted_key":"AAAA","key_nonce":"BBBB"}],"virtual_keys":[],"settings":{}}}`
 
-const fleetExportKeyless = `{"schema_version":1,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}],"virtual_keys":[],"settings":{}}}`
+const fleetExportKeyless = `{"schema_version":2,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}],"virtual_keys":[],"settings":{}}}`
 
 // importOK is a clean dry-run response: schema + MASTER_KEY good, an empty diff.
 const importOK = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{},"virtual_keys":{},"settings":{}}}`
@@ -192,7 +192,7 @@ func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 func TestFleetStatusEmptyPrimaryExport(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubFleetMember(t, "ptoken")
-	primary.exportBody = `{"schema_version":1,"app_version":"v-test","config":{"providers":[],"virtual_keys":[],"settings":{}}}`
+	primary.exportBody = `{"schema_version":2,"app_version":"v-test","config":{"providers":[],"virtual_keys":[],"settings":{}}}`
 	replica := newStubFleetMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")

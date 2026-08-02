@@ -21,9 +21,14 @@ type execer interface {
 //
 //   - array_agg collects the survivors. Their ORDER is not specified: Postgres
 //     leaves aggregate input order undefined without an explicit ORDER BY, so do
-//     not lean on it. Nothing does today, because both consumers care only about
-//     membership (the proxy filters candidates by id, the config-sync export
-//     translates ids to names);
+//     not lean on it. Nothing CORRECTNESS-critical does: the proxy filters
+//     candidates by id and the config-sync export translates ids to names, and
+//     both care only about membership. One consumer is order-dependent, the Users
+//     page (web/src/pages/Users/index.tsx), which shows a capped account as
+//     allowed_providers[0] plus a remainder count, so a prune can change which
+//     provider name it names first. That is cosmetic and deliberately not worth an
+//     ORDER BY on every pruned row, but it does mean "nothing depends on the
+//     order" is no longer true;
 //   - COALESCE(..., '{}') is what makes a fully pruned list come back as an
 //     EMPTY array rather than NULL, which is the entire point (see below);
 //   - the && overlap test skips rows referencing none of the deleted ids, and

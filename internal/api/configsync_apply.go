@@ -565,13 +565,25 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 		// the lesser evil rather than a clean no-op: a key this member does not
 		// have yet simply stays absent, but a key it already has keeps its
 		// existing row, whose allowed_providers may be broader than the primary
-		// now intends. Stale-but-bounded still beats writing NULL. In the normal
-		// flow this never triggers: providers are upserted in the same
-		// transaction before this runs, so every name resolves.
+		// now intends. Stale-but-bounded still beats writing NULL.
 		//
 		// The presence test is the POINTER, not the length. A key whose providers
 		// were all deleted upstream exports a present-but-empty list, and reading
 		// that as "unrestricted" is exactly the escalation this guards.
+		//
+		// Which is also how this branch is reached in practice. Deleting a provider
+		// on the primary runs provider.PruneAllowLists, so any key scoped solely to
+		// it is left with `{}` and exports an empty list: an ordinary admin action
+		// trips this skip, with its warn, on every sync until the key is repaired or
+		// removed. The other way in, a NON-empty list none of whose names resolve,
+		// stays the rare one: providers are upserted in the same transaction before
+		// this runs, so every name a legitimate primary exported does resolve.
+		//
+		// Note the deliberate difference from applyUsers, which writes an empty wire
+		// cap through as `{}` instead of skipping. A user cannot be skipped: the
+		// declarative replace would delete the row. A key can, and skipping keeps the
+		// member's own row rather than converging it, which is the accepted gap
+		// recorded in the design doc.
 		if v.AllowedProviderNames != nil && len(allowed) == 0 {
 			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
 			continue

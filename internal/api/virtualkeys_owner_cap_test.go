@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -379,6 +380,67 @@ func TestOwnerCapMessageHelpers_FallBackToIDs(t *testing.T) {
 	}
 	if got := h.providerNameByID(ctx)("some-id"); got != "some-id" {
 		t.Errorf("providerNameByID(unknown) = %q, want the raw id", got)
+	}
+}
+
+// An EMPTY owner cap must mint deny-everything keys, never unrestricted ones.
+// The write endpoints refuse to store an empty allowed_providers, but that is a
+// UI guard: provider.PruneAllowLists empties an account scoped solely to a
+// provider that was just deleted, so `{}` is an ordinary state the cap logic has
+// to survive. Both shapes of request are covered, since they take different
+// branches of enforceOwnerCap: an omitted list copies the (empty) cap, and an
+// explicit list is measured against an empty allowed set.
+func TestCreateVirtualKey_EmptyOwnerCapDeniesEverything(t *testing.T) {
+	router, _, _ := setupOwnershipTest(t)
+
+	p1 := seedProvider(t, "cap-prov-a", "sk-a", testMasterKey)
+	p2 := seedProvider(t, "cap-prov-b", "sk-b", testMasterKey)
+	w := doJSON(t, router, http.MethodPost, "/users", envAdminToken,
+		`{"username":"cap-alice","password":"password123","role":"user","grants":["virtual_keys"],"allowed_providers":["`+p1+`"]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create user: %d %s", w.Code, w.Body.String())
+	}
+	var alice user.User
+	if err := json.Unmarshal(w.Body.Bytes(), &alice); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	// Delete the only provider alice may reach, exactly as Repository.Delete does:
+	// the row goes, and the prune leaves her cap as an empty array.
+	ctx := context.Background()
+	if _, err := apiTestDB.Pool().Exec(ctx, `DELETE FROM providers WHERE id = $1`, p1); err != nil {
+		t.Fatalf("delete provider: %v", err)
+	}
+	if err := provider.PruneAllowLists(ctx, apiTestDB.Pool(), []string{p1}); err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	var stored []string
+	if err := apiTestDB.Pool().QueryRow(ctx, `SELECT allowed_providers FROM users WHERE id = $1`, alice.ID).Scan(&stored); err != nil {
+		t.Fatalf("read cap: %v", err)
+	}
+	if stored == nil || len(stored) != 0 {
+		t.Fatalf("cap after prune = %v, want an empty (non-NULL) array", stored)
+	}
+
+	// Omitted list: resolves to the cap, which now denies everything.
+	w = doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken,
+		`{"name":"alice-key","owner_user_id":"`+alice.ID.String()+`"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create key: %d %s", w.Code, w.Body.String())
+	}
+	created := decodeVK(t, w.Body.Bytes())
+	if created.AllowedProviders == nil {
+		t.Fatal("ESCALATION: a deny-everything owner minted an unrestricted key")
+	}
+	if len(*created.AllowedProviders) != 0 {
+		t.Fatalf("allowed_providers = %v, want an empty list", *created.AllowedProviders)
+	}
+
+	// Explicit list: nothing is inside an empty cap, so it is refused.
+	w = doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken,
+		`{"name":"alice-key-2","owner_user_id":"`+alice.ID.String()+`","allowed_providers":["`+p2+`"]}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("explicit list under an empty cap: %d, want 400; body %s", w.Code, w.Body.String())
 	}
 }
 

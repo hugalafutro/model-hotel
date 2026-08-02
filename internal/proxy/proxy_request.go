@@ -247,10 +247,14 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
 			return nil, false
 		}
-		// owner_capped records which side narrowed the list, since a key that
-		// has always worked can start refusing purely because its owner's cap
-		// moved. The response body deliberately does not say this: a proxy
-		// client learns it lacks access, not whose rule denied it.
+		// owner_capped records whether the owner HAS a cap, not which side did
+		// the narrowing: the two lists are intersected before this runs and the
+		// result no longer says where each member came from. It is still the
+		// field worth having, because a key that has always worked can start
+		// refusing purely because its owner's cap moved, and this is the only
+		// signal that an account cap is in play at all. The response body
+		// deliberately says none of it: a proxy client learns it lacks access,
+		// not whose rule denied it.
 		debuglog.Info("proxy: filtered candidates by allowed_providers",
 			"before", len(candidates), "after", len(filtered),
 			"owner_capped", ownerAllowed != nil, "key", st.logData.virtualKeyName)

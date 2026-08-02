@@ -32,7 +32,7 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 	t.Helper()
 	sm := &stubConfigMember{
 		token:      token,
-		exportBody: `{"schema_version":1,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}]}}`,
+		exportBody: `{"schema_version":2,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}]}}`,
 		importCode: http.StatusOK,
 		importBody: `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{"providers":{"added":["openai"]},"virtual_keys":{},"settings":{}}}`,
 	}
@@ -546,7 +546,7 @@ func TestConfigSyncSurvivesClientDisconnect(t *testing.T) {
 		}
 		if r.Method == http.MethodGet && r.URL.Path == "/api/config/export" {
 			cancel() // the requester is gone; the sync must keep going
-			_, _ = w.Write([]byte(`{"schema_version":1,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}]}}`))
+			_, _ = w.Write([]byte(`{"schema_version":2,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}]}}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

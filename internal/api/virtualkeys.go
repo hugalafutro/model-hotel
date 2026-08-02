@@ -176,8 +176,11 @@ func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
 // A missing owner row reports no cap rather than failing the write, and the
 // foreign key is what makes that safe: virtual_keys.owner_user_id is
 // ON DELETE SET NULL (migration 051), so a reference to a deleted user cannot
-// persist. The only way to observe one is a delete racing this write, and there
-// the uncapped list reaches Create/Update, violates the FK, and comes back 400.
+// persist. Two things reach this branch, and neither needs a cap to be resolved
+// here: an admin naming an owner_user_id that parses as a UUID but matches no
+// user (resolveWriteOwner only parses, it never checks existence), and a user
+// delete racing this write. Both let the uncapped list through to Create/Update,
+// where it violates the FK and comes back 400.
 // The foreign key, not the proxy, is what is being relied on here: the runtime
 // intersection (effectiveAllowedProviders in internal/proxy) does exist now and
 // is the enforcement wall, but it only ever narrows a request, so it cannot
@@ -215,11 +218,23 @@ func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]
 //
 // A nil `requested` with a capped owner resolves to the cap itself rather than
 // erroring: "no providers named" unambiguously means "everything I may reach",
-// and writing the cap makes that explicit in the stored row. That step relies on
-// a cap never being a non-nil EMPTY slice: users.go rejects an empty
-// allowed_providers on both create and update, exactly as this file's endpoints
-// do, so the deny-all row both declare impossible cannot be written here either.
-// If that rejection is ever relaxed, this line has to grow an empty-slice case.
+// and writing the cap makes that explicit in the stored row.
+//
+// An EMPTY cap is a live state and this function is already right for it. The
+// interactive API refuses to WRITE one (users.go rejects an empty
+// allowed_providers on create and update, exactly as this file's endpoints do),
+// but that is a UI guard, not a storage invariant, and three paths go around it:
+// provider.PruneAllowLists (internal/provider/allowlists.go) empties an account
+// scoped solely to a provider that was just deleted, migration
+// 066_prune_provider_allowlists.sql does the same to the rows an upgrading
+// install inherits, and applyUsers in configsync_apply.go writes a
+// present-but-empty wire cap through verbatim. So `{}` reaches this function on
+// an ordinary admin action, and copying it into the key is the correct answer:
+// the proxy reads a non-nil list as "exactly these providers" INCLUDING when
+// empty (effectiveAllowedProviders in internal/proxy), so a deny-everything
+// account mints deny-everything keys instead of unrestricted ones. The explicit
+// path agrees without a special case: an empty cap builds an empty allowed set,
+// so every provider `requested` names is refused.
 //
 // The parameter is ownerCap, not cap: cap is a Go builtin and shadowing it here
 // would trip revive's redefines-builtin-id rule.
@@ -560,8 +575,10 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// effectiveAllowedProviders in internal/proxy intersects the two on every
 	// request and is the wall; this line only ever governed what the row stores.
 	// A stored list wider than the cap shows access the proxy denies, and the
-	// dashboard marks exactly those providers as blocked rather than offering
-	// them.
+	// EDITING picker in KeyDetailModal.tsx marks exactly those providers as
+	// blocked rather than offering them. The read-only chip view on that same
+	// modal does not: it renders the stored list verbatim, so the excess reads as
+	// allowed until someone opens the picker.
 	//
 	// Both halves of the condition are load-bearing. An explicit list is a claim
 	// and is always checked (as is every create, where a nil list resolves to the
