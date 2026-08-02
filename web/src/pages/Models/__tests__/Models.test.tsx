@@ -966,12 +966,11 @@ describe("Models", () => {
 			// Click "Delete" in the confirm dialog
 			await user.click(screen.getByRole("button", { name: "Delete" }));
 
-			// Should show success toast
+			// Should show success toast. Matched on text, not on a button role: a
+			// toast is a message in a live region and is not itself a control.
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", {
-						name: /Deleted 2 disabled models/,
-					}),
+					screen.getByText(/Deleted 2 disabled models/),
 				).toBeInTheDocument();
 			});
 		});
@@ -1019,13 +1018,10 @@ describe("Models", () => {
 			// Click "Delete" in the confirm dialog
 			await user.click(screen.getByRole("button", { name: "Delete" }));
 
-			// Should show error toast (the whole request failed atomically)
+			// Should show error toast (the whole request failed atomically).
+			// Text, not button role: see the success case above.
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", {
-						name: /Failed to delete/,
-					}),
-				).toBeInTheDocument();
+				expect(screen.getByText(/Failed to delete/)).toBeInTheDocument();
 			});
 		});
 	});

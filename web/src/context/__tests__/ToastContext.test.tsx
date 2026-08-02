@@ -51,8 +51,7 @@ describe("ToastProvider / addToast", () => {
 			result.current.toast("Default type message");
 		});
 
-		const toast = screen.getByText("Default type message");
-		expect(toast).toHaveClass("bg-emerald-900/70");
+		expect(screen.getByTestId("toast")).toHaveClass("bg-emerald-900/70");
 	});
 
 	it("respects custom type ('error', 'info', 'warning')", () => {
@@ -64,13 +63,16 @@ describe("ToastProvider / addToast", () => {
 			result.current.toast("Warning message", "warning");
 		});
 
-		const errorToast = screen.getByText("Error message");
-		const infoToast = screen.getByText("Info message");
-		const warningToast = screen.getByText("Warning message");
+		// Keyed off data-toast-type rather than the message node: the message
+		// lives in its own span now, and the palette is on the toast root.
+		const byType = (type: string) =>
+			screen
+				.getAllByTestId("toast")
+				.find((el) => el.getAttribute("data-toast-type") === type);
 
-		expect(errorToast).toHaveClass("bg-red-900/70");
-		expect(infoToast).toHaveClass("bg-slate-700/80");
-		expect(warningToast).toHaveClass("bg-amber-900/70");
+		expect(byType("error")).toHaveClass("bg-red-900/70");
+		expect(byType("info")).toHaveClass("bg-slate-700/80");
+		expect(byType("warning")).toHaveClass("bg-amber-900/70");
 	});
 });
 
@@ -93,13 +95,9 @@ describe("removeToast", () => {
 
 		expect(screen.getByText("To be removed")).toBeInTheDocument();
 
-		// Get the toast ID and remove it
-		const toasts = screen.getAllByRole("button");
-		const firstToast = toasts[0];
-
-		// Click to trigger onDone (which calls removeToast)
+		// Dismissal is its own button now, not the toast body.
 		act(() => {
-			firstToast.click();
+			screen.getAllByTestId("toast-dismiss")[0].click();
 		});
 
 		expect(screen.queryByText("To be removed")).not.toBeInTheDocument();
@@ -238,7 +236,7 @@ describe("ToastItem", () => {
 		// Toast fades out (opacity-0) then relies on CSS transitionend to remove.
 		// jsdom doesn't fire real CSS transitions, so simulate the event.
 		const btn = screen.queryByText("Auto-dismiss toast");
-		const toastEl = btn?.closest("button") ?? null;
+		const toastEl = btn?.closest("[data-testid='toast']") ?? null;
 		if (toastEl) {
 			act(() => {
 				fireEvent.transitionEnd(toastEl, {
@@ -265,7 +263,10 @@ describe("ToastItem", () => {
 			result.current.toast("Fuse toast");
 		});
 
-		const svg = document.querySelector("svg[aria-hidden='true']");
+		// Addressed by test id, not by `svg[aria-hidden]`: the toast's own icons
+		// are decorative SVGs and are aria-hidden too, so that selector stopped
+		// identifying the fuse the moment the controls became real buttons.
+		const svg = screen.getByTestId("toast-fuse");
 		expect(svg).toBeInTheDocument();
 
 		const rect = svg?.querySelector("rect");
@@ -289,7 +290,7 @@ describe("ToastItem", () => {
 			result.current.toast("No-fuse toast");
 		});
 
-		expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
+		expect(screen.queryByTestId("toast-fuse")).toBeNull();
 	});
 
 	it("pauses timeout on mouseenter and resumes on mouseleave", () => {
@@ -305,7 +306,9 @@ describe("ToastItem", () => {
 			result.current.toast("Pause test");
 		});
 
-		const toastButton = screen.getByText("Pause test");
+		// The hover handlers live on the toast root. React's onMouseEnter does not
+		// bubble, so firing on the message span would silently no-op.
+		const toastEl = screen.getByTestId("toast");
 
 		// Advance halfway (2000ms of 4000ms)
 		act(() => {
@@ -313,13 +316,13 @@ describe("ToastItem", () => {
 		});
 
 		// Toast still present and not yet fading.
-		expect(toastButton).toHaveClass("opacity-100");
+		expect(toastEl).toHaveClass("opacity-100");
 
 		// Hover to pause. fireEvent.mouseEnter routes through React's synthetic
 		// onMouseEnter (a raw mouseenter dispatch does not), so this actually
 		// exercises the pause handler rather than silently no-opping.
 		act(() => {
-			fireEvent.mouseEnter(toastButton);
+			fireEvent.mouseEnter(toastEl);
 		});
 
 		// Advance past the original 4000ms total while paused: only 2000ms of the
@@ -329,11 +332,11 @@ describe("ToastItem", () => {
 			vi.advanceTimersByTime(2000);
 		});
 
-		expect(screen.getByText("Pause test")).toHaveClass("opacity-100");
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
 
 		// Unhover to resume the remaining time.
 		act(() => {
-			fireEvent.mouseLeave(toastButton);
+			fireEvent.mouseLeave(toastEl);
 		});
 
 		// Advance past remaining time — should now remove
@@ -342,22 +345,18 @@ describe("ToastItem", () => {
 		});
 
 		// jsdom doesn't fire real CSS transitions, simulate transitionend
-		const btn = screen.queryByText("Pause test");
-		const toastEl = btn?.closest("button") ?? null;
-		if (toastEl) {
-			act(() => {
-				fireEvent.transitionEnd(toastEl, {
-					propertyName: "opacity",
-				});
+		act(() => {
+			fireEvent.transitionEnd(toastEl, {
+				propertyName: "opacity",
 			});
-		}
+		});
 
 		expect(screen.queryByText("Pause test")).not.toBeInTheDocument();
 
 		vi.useRealTimers();
 	});
 
-	it("clicking an error toast calls navigator.clipboard.writeText then onDone", async () => {
+	it("the copy button copies the message and leaves the toast up", async () => {
 		// Mock clipboard API
 		const writeTextSpy = vi.fn().mockResolvedValue(undefined);
 		Object.assign(navigator, { clipboard: { writeText: writeTextSpy } });
@@ -372,19 +371,205 @@ describe("ToastItem", () => {
 			result.current.toast("Error to copy", "error");
 		});
 
-		const errorToast = screen.getByText("Error to copy");
-		expect(errorToast).toBeInTheDocument();
-
-		// Click the toast — this triggers clipboard write + onDone (immediate remove)
 		await act(async () => {
-			errorToast.click();
+			screen.getByTestId("toast-copy").click();
 		});
 
-		// Verify clipboard was called with the message
 		expect(writeTextSpy).toHaveBeenCalledWith("Error to copy");
 
-		// Toast should be removed after click
-		expect(screen.queryByText("Error to copy")).not.toBeInTheDocument();
+		// Copy used to dismiss, because it was the same click as the dismissal.
+		// Separating them is the point: the message stays readable after copying.
+		expect(screen.getByText("Error to copy")).toBeInTheDocument();
+	});
+
+	it("offers copy only on errors, and dismiss on every toast", () => {
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Just information", "info");
+		});
+
+		expect(screen.queryByTestId("toast-copy")).toBeNull();
+		expect(screen.getByTestId("toast-dismiss")).toBeInTheDocument();
+	});
+
+	it("the dismiss button removes the toast", () => {
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Dismiss me");
+		});
+
+		act(() => {
+			screen.getByTestId("toast-dismiss").click();
+		});
+
+		expect(screen.queryByText("Dismiss me")).not.toBeInTheDocument();
+	});
+
+	it("is a message, not a control: the body is not a button and holds no fake ones", () => {
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Not a button", "error", {
+				label: "Undo",
+				onClick: () => {},
+			});
+		});
+
+		const toastEl = screen.getByTestId("toast");
+
+		// The regression this pins: the toast body used to be a <button>, which
+		// made every interactive child an invalid content model and forced the
+		// action slot to fake itself with role="button" on a <span>.
+		expect(toastEl.tagName).toBe("LI");
+		expect(toastEl.closest("button")).toBeNull();
+		expect(toastEl.querySelector("[role='button']")).toBeNull();
+		// The list is what makes the stack countable to a screen reader.
+		expect(toastEl.parentElement?.tagName).toBe("OL");
+
+		// And every control inside it is a real button.
+		for (const id of ["toast-action", "toast-copy", "toast-dismiss"]) {
+			expect(screen.getByTestId(id).tagName).toBe("BUTTON");
+		}
+	});
+
+	it("announces through a live region that outlives any single toast", () => {
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		// The region has to exist BEFORE the first toast arrives, or nothing is
+		// announced. Asserting it while the stack is empty is the whole point.
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		const region = document.querySelector("[aria-live='polite']");
+		expect(region).toBeInTheDocument();
+		expect(region).toHaveAttribute("aria-atomic", "false");
+		expect(screen.queryByTestId("toast")).toBeNull();
+
+		act(() => {
+			result.current.toast("Announce me");
+		});
+
+		expect(region).toContainElement(screen.getByTestId("toast"));
+	});
+
+	it("focus pauses the auto-dismiss timer until focus leaves the toast", () => {
+		vi.useFakeTimers();
+
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Keyboard reach", "error");
+		});
+
+		const copy = screen.getByTestId("toast-copy");
+		const dismiss = screen.getByTestId("toast-dismiss");
+
+		// Tab to Copy at the halfway mark.
+		act(() => {
+			vi.advanceTimersByTime(2000);
+			fireEvent.focus(copy);
+		});
+
+		// Move on to Dismiss. Blur and the following focus are adjacent, so no
+		// time passes between them and the timer cannot advance either way —
+		// this leg is here because it is the real keyboard path, not because it
+		// discriminates the relatedTarget guard in ToastContext (verified: that
+		// guard can be removed without failing this test; it prevents a
+		// redundant restart, which the timer never gets a chance to show).
+		act(() => {
+			fireEvent.blur(copy, { relatedTarget: dismiss });
+			fireEvent.focus(dismiss);
+			vi.advanceTimersByTime(4000);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
+
+		// Focus leaves the toast entirely: the remaining 2000ms resumes.
+		act(() => {
+			fireEvent.blur(dismiss, { relatedTarget: document.body });
+			vi.advanceTimersByTime(2000);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-0");
+
+		vi.useRealTimers();
+	});
+
+	it("holds the timer while hover and focus overlap, and loses no time to either", () => {
+		vi.useFakeTimers();
+
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Overlapping holds", "error");
+		});
+
+		const toastEl = screen.getByTestId("toast");
+		const copy = screen.getByTestId("toast-copy");
+
+		// Halfway: the pointer pauses. 2000ms of the 4000ms remain.
+		act(() => {
+			vi.advanceTimersByTime(2000);
+			fireEvent.mouseEnter(toastEl);
+		});
+
+		// Clicking Copy with a mouse focuses it while the pointer is still over
+		// the toast, so the clock is now held twice. Pausing again must not
+		// subtract the elapsed span a second time — that used to leave 0ms.
+		act(() => {
+			vi.advanceTimersByTime(100);
+			fireEvent.focus(copy);
+		});
+
+		// The pointer leaves, focus stays inside. The clock is still held, and
+		// the time it kept is the full 2000ms, not what a double subtraction
+		// left behind.
+		act(() => {
+			fireEvent.mouseLeave(toastEl);
+			vi.advanceTimersByTime(10000);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
+
+		// Focus leaves too. Now the clock runs, and it runs for the 2000ms that
+		// were banked at the first pause.
+		act(() => {
+			fireEvent.blur(copy, { relatedTarget: document.body });
+			vi.advanceTimersByTime(1999);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-100");
+
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+
+		expect(screen.getByTestId("toast")).toHaveClass("opacity-0");
+
+		vi.useRealTimers();
 	});
 });
 

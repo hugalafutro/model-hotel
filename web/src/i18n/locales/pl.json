@@ -2957,11 +2957,6 @@
 			"fuchsia": "Fuchsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Kliknij, aby skopiować i odrzucić"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p jest przestarzały w aktualnych modelach Anthropic; użyj zamiast tego top_k",

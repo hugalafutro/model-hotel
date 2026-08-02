@@ -2835,11 +2835,6 @@
 			"fuchsia": "Fuşya"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Kopyalayıp kapatmak için tıklayın"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p, güncel Anthropic modellerinde artık kullanılmamaktadır; bunun yerine top_k'yi kullanın",

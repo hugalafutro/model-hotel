@@ -343,10 +343,9 @@ describe("TotpSettings", () => {
 		await user.click(verifyBtn);
 
 		// enrollVerifyMutation.onError fires a toast with failedToVerify text.
-		// Toast renders a <button> whose accessible name is the message.
-		expect(
-			await screen.findByRole("button", { name: /Invalid TOTP code/i }),
-		).toBeInTheDocument();
+		// Asserted as text: a toast is a message in a live region, not a control,
+		// so it has no button role and no accessible name of its own.
+		expect(await screen.findByText(/Invalid TOTP code/i)).toBeInTheDocument();
 	});
 
 	it("renders nothing sensitive in initial disabled state", async () => {

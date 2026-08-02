@@ -2835,11 +2835,6 @@
 			"fuchsia": "Fuchsia"
 		}
 	},
-	"context": {
-		"toast": {
-			"clickToCopyDismiss": "Click to copy and dismiss"
-		}
-	},
 	"paramCompat": {
 		"anthropic": {
 			"topP": "top_p is deprecated on current Anthropic models; use top_k instead",

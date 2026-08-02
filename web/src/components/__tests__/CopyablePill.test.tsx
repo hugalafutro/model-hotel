@@ -3,7 +3,13 @@ import { renderWithProviders } from "../../test/utils";
 import { CopyablePill } from "../CopyablePill";
 
 // Stub Lucide icons
-vi.mock("@/lib/icons", () => ({
+// Partial mock, spreading the real barrel. A bare object mock breaks any
+// component this test happens to render that reaches for a different icon —
+// the toast this file asserts on draws its own dismiss and copy controls, and a
+// missing export there throws out of React's render rather than failing an
+// assertion, which reads as an unrelated crash.
+vi.mock("@/lib/icons", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/icons")>()),
 	Briefcase: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="stub-icon" />
 	),

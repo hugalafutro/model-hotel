@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { Copy, X } from "../lib/icons";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -152,8 +153,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 			    modal card as a colored blob), and a filtered ancestor would also
 			    trap the fixed-position container. Same fix Modal uses. */}
 			{createPortal(
-				<div
-					className={`${containerClass} z-[70] flex flex-col ${alignClass} gap-2`}
+				// The live region is THIS container, not the individual toast, and it
+				// is mounted for the life of the app whether or not a toast exists.
+				// That is the part that makes announcements work: a live region has to
+				// be in the accessibility tree BEFORE its content changes, so marking
+				// up each toast as it appears announces nothing reliably. Before this
+				// the toasts were never announced at all — they were buttons that
+				// silently appeared, which a screen reader has no reason to read out.
+				//
+				// Polite rather than assertive, including for errors: a toast reports
+				// something that already happened, and interrupting whatever the user
+				// is reading to say so is worse than waiting for the next pause.
+				// aria-atomic="false" so adding a second toast announces only the new
+				// one instead of re-reading the whole stack.
+				//
+				// A real <ol>, so the stack is countable — "list, 3 items", steppable
+				// — rather than three unrelated blocks of text arriving from nowhere.
+				// It also lets each toast be an <li> instead of a div wearing a role
+				// attribute to look like one.
+				<ol
+					aria-live="polite"
+					aria-atomic="false"
+					className={`${containerClass} z-[70] m-0 flex list-none flex-col ${alignClass} gap-2 p-0`}
 				>
 					{toasts.map((t) => (
 						<ToastItem
@@ -164,7 +185,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 							onDone={() => removeToast(t.id)}
 						/>
 					))}
-				</div>,
+				</ol>,
 				document.body,
 			)}
 		</ToastContext.Provider>
@@ -218,16 +239,57 @@ function ToastItem({
 		return () => clearTimeout(timerRef.current);
 	}, [timeout, startTimer]);
 
-	const handleMouseEnter = () => {
+	// Two independent things hold the clock: the pointer being over the toast,
+	// and focus being inside it. They overlap constantly — clicking Copy with a
+	// mouse both hovers and focuses — so the pause is refcounted rather than a
+	// single flag, and the arithmetic runs only on the transitions.
+	//
+	// Pausing has to be idempotent because startTimeRef is only reset when the
+	// timer restarts: subtracting the elapsed span a second time would zero the
+	// remaining time, and the toast would vanish the moment the pointer left
+	// with seconds still on the clock. Resuming has to check the other holder,
+	// or un-hovering would restart the clock under a keyboard user still
+	// focused on Dismiss — the exact thing the focus pause exists to prevent.
+	const hoverRef = useRef(false);
+	const focusRef = useRef(false);
+	const pausedRef = useRef(false);
+
+	const pause = () => {
+		if (pausedRef.current) return;
+		pausedRef.current = true;
 		setPaused(true);
 		clearTimeout(timerRef.current);
 		const elapsed = Date.now() - startTimeRef.current;
 		remainingRef.current = Math.max(0, remainingRef.current - elapsed);
 	};
 
-	const handleMouseLeave = () => {
+	const resume = () => {
+		if (!pausedRef.current || hoverRef.current || focusRef.current) return;
+		pausedRef.current = false;
 		setPaused(false);
 		startTimer(remainingRef.current);
+	};
+
+	const handleMouseEnter = () => {
+		hoverRef.current = true;
+		pause();
+	};
+
+	const handleMouseLeave = () => {
+		hoverRef.current = false;
+		resume();
+	};
+
+	const handleFocus = () => {
+		focusRef.current = true;
+		pause();
+	};
+
+	const handleBlur = (e: React.FocusEvent<HTMLLIElement>) => {
+		// A move between the toast's own buttons is not a departure.
+		if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+		focusRef.current = false;
+		resume();
 	};
 
 	const strokeColors: Record<ToastType, string> = {
@@ -244,27 +306,47 @@ function ToastItem({
 		warning: "bg-amber-900/70 text-amber-200",
 	};
 
-	const handleClick = () => {
-		if (toast.type === "error") {
-			navigator.clipboard.writeText(toast.message).catch(() => {});
-		}
-		onDone();
+	const handleCopy = () => {
+		navigator.clipboard.writeText(toast.message).catch(() => {});
 	};
 
 	const { t } = useTranslation();
 
 	return (
-		<button
-			type="button"
+		// A toast is a message, not a control, so the body is a plain <li> in the
+		// live-region list above, and every action on it is its own real <button>.
+		//
+		// It used to be one big <button>: clicking anywhere dismissed it, and for
+		// errors also copied the message. That made the whole content model invalid
+		// the moment anything interactive went inside it — the reason the action
+		// slot below had to fake itself with role="button" on a <span>, which
+		// screen readers expose unreliably. It also put every visible toast in the
+		// tab order announced as "button" with the whole message as its name, and a
+		// stack of four toasts meant four tab stops in front of the page.
+		//
+		// The tradeoff, stated plainly: clicking the body no longer dismisses. The
+		// dismiss button is always there, errors get an explicit copy button
+		// instead of a hidden click-to-copy discoverable only through a tooltip,
+		// and the auto-dismiss timer is unchanged.
+		<li
 			data-testid="toast"
 			data-toast-type={toast.type}
-			onClick={handleClick}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
-			{...(toast.type === "error"
-				? { title: t("context.toast.clickToCopyDismiss") }
-				: {})}
-			className={`relative px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium hover:brightness-125 whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
+			// Focus pauses the timer for the same reason hover does, and matters
+			// more: a keyboard user tabbing to Dismiss would otherwise have the
+			// button deleted out from under them mid-reach. Capture-phase because
+			// focus lands on the buttons inside, not on this element. See the
+			// refcount above for why the two holders cannot share one flag.
+			//
+			// The relatedTarget check in handleBlur is belt-and-braces rather than
+			// load-bearing: blur and the following focus are adjacent, so the
+			// resume it prevents would be undone before the timer could advance.
+			// Kept because the alternative is a resume that only happens to be
+			// harmless.
+			onFocusCapture={handleFocus}
+			onBlurCapture={handleBlur}
+			className={`relative flex items-start gap-2 px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
 			style={{
 				overflow: "hidden",
 				transition: "opacity 300ms ease",
@@ -277,47 +359,56 @@ function ToastItem({
 					: undefined
 			}
 		>
-			{toast.message}
+			<span data-testid="toast-message" className="min-w-0 flex-1">
+				{toast.message}
+			</span>
 			{toast.action ? (
-				// KNOWN LIMITATION, not a solved problem. The toast body is itself a
-				// <button> (clicking it dismisses, and copies for errors), so this is
-				// an interactive descendant of an interactive element either way:
-				// role="button" + tabIndex is exactly as invalid per the HTML content
-				// model as a nested <button> would be, and screen readers expose it
-				// unreliably. The span merely avoids the parse-level button-in-button.
-				// The honest fix is to stop making the toast body a button, which is a
-				// change to every existing toast and out of scope here.
-				// biome-ignore lint/a11y/useSemanticElements: nesting a real <button> inside the toast <button> is invalid; this span is a knowingly imperfect stand-in, see the note above
-				<span
-					role="button"
-					tabIndex={0}
+				<button
+					type="button"
 					data-testid="toast-action"
-					onClick={(e) => {
-						e.stopPropagation();
+					onClick={() => {
 						toast.action?.onClick();
 						onDone();
 					}}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" || e.key === " ") {
-							e.preventDefault();
-							e.stopPropagation();
-							toast.action?.onClick();
-							onDone();
-						}
-					}}
-					className="ui-btn ui-btn-ghost ui-btn-compact ml-2 inline-flex cursor-pointer items-center underline"
+					className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center underline"
 				>
 					{toast.action.label}
-				</span>
+				</button>
 			) : null}
+			{toast.type === "error" ? (
+				// Copy does NOT dismiss. It used to, because it was the same click;
+				// separating them means an operator can copy a stack trace and still
+				// read the toast it came from.
+				<button
+					type="button"
+					data-testid="toast-copy"
+					onClick={handleCopy}
+					aria-label={t("common.copy")}
+					title={t("common.copy")}
+					className="ui-icon-btn shrink-0"
+				>
+					<Copy className="h-4 w-4" aria-hidden="true" />
+				</button>
+			) : null}
+			<button
+				type="button"
+				data-testid="toast-dismiss"
+				onClick={onDone}
+				aria-label={t("common.close")}
+				title={t("common.close")}
+				className="ui-icon-btn shrink-0"
+			>
+				<X className="h-4 w-4" aria-hidden="true" />
+			</button>
 			{fuse && (
 				<FuseOutline
+					data-testid="toast-fuse"
 					color={strokeColors[toast.type]}
 					durationMs={timeout}
 					paused={paused}
 				/>
 			)}
-		</button>
+		</li>
 	);
 }
 
