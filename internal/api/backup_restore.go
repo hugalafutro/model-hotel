@@ -30,11 +30,26 @@ type tocEntry struct {
 	ObjectType  string
 	Schema      string
 	Name        string
+	// Table is the relation an object hangs off, for the types where pg_restore
+	// prints one before the object's own name (CONSTRAINT, FK CONSTRAINT,
+	// TRIGGER). Empty for everything else.
+	Table string
+}
+
+// relationScopedTypes are the object types pg_restore prints as
+// "schema table object_name [owner]" rather than "schema object_name [owner]",
+// so their own name is the last field before the owner and the field after the
+// schema is the relation they belong to.
+var relationScopedTypes = map[string]bool{
+	"CONSTRAINT":    true,
+	"FK CONSTRAINT": true,
+	"TRIGGER":       true,
 }
 
 // dangerousObjectTypes are PostgreSQL object types that should not appear
-// in a legitimate model-hotel backup. Their presence suggests a tampered
-// or non-application dump.
+// in a legitimate model-hotel backup, beyond the specific objects listed in
+// expectedSchemaObjects. Their presence suggests a tampered or
+// non-application dump.
 var dangerousObjectTypes = map[string]bool{
 	"FUNCTION":          true,
 	"AGGREGATE":         true,
@@ -68,12 +83,13 @@ var twoWordPrefixes = map[string]map[string]bool{
 }
 
 // parseTOC parses the output of pg_restore --list into structured entries.
-// Only extracts entry number, object type, schema, and name. The name
-// extraction varies by type: for TABLE/TABLE DATA it's the table name,
-// for CONSTRAINT/FK CONSTRAINT it's the constraint name (last before owner).
-// For other types with 4+ after-type fields (e.g. INDEX), the Name field
-// may be incorrect; only TABLE, TABLE DATA, and CONSTRAINT names are
-// considered reliable for lookups.
+// Only extracts entry number, object type, schema, owning relation and name.
+// The name extraction varies by type: for TABLE/TABLE DATA it's the table name,
+// for the relationScopedTypes (CONSTRAINT, FK CONSTRAINT, TRIGGER) it's the
+// object's own name, last before the owner, with the relation it hangs off
+// captured separately in Table. For other types with 4+ after-type fields
+// (e.g. INDEX), the Name field may be incorrect; only TABLE, TABLE DATA,
+// CONSTRAINT and TRIGGER names are considered reliable for lookups.
 func parseTOC(listOutput string) []tocEntry {
 	var entries []tocEntry
 	scanner := bufio.NewScanner(strings.NewReader(listOutput))
@@ -104,29 +120,32 @@ func parseTOC(listOutput string) []tocEntry {
 
 		// After type: schema [table_name] object_name [owner]
 		// For TABLE/TABLE DATA: schema name owner
-		// For CONSTRAINT/FK CONSTRAINT: schema table_name constraint_name owner
+		// For CONSTRAINT/FK CONSTRAINT/TRIGGER: schema table_name object_name owner
 		// For INDEX: schema index_name owner (or schema table_name index_name for some)
 		// Name extraction varies by type and field count:
 		// TABLE/TABLE DATA/SEQUENCE: schema name [owner] -> name is afterType[1]
-		// CONSTRAINT/FK CONSTRAINT: schema table_name constraint_name [owner]
+		// relationScopedTypes: schema table_name object_name [owner]
 		//   -> with owner (4+): name is afterType[len-2]
 		//   -> without owner (3): name is afterType[2]
 		schema := ""
 		name := ""
+		table := ""
 		afterType := fields[2+typeWordCount:]
 		switch {
 		case len(afterType) >= 4:
-			// schema table_name object_name owner (constraint types with owner)
+			// schema table_name object_name owner (relation-scoped types with owner)
 			schema = afterType[0]
-			if objType == "FK CONSTRAINT" || objType == "CONSTRAINT" {
+			if relationScopedTypes[objType] {
+				table = afterType[1]
 				name = afterType[len(afterType)-2]
 			} else {
 				name = afterType[1]
 			}
 		case len(afterType) == 3:
-			// schema table_name object_name (constraint types without owner)
+			// schema table_name object_name (relation-scoped types without owner)
 			schema = afterType[0]
-			if objType == "FK CONSTRAINT" || objType == "CONSTRAINT" {
+			if relationScopedTypes[objType] {
+				table = afterType[1]
 				name = afterType[2]
 			} else {
 				name = afterType[1]
@@ -144,19 +163,64 @@ func parseTOC(listOutput string) []tocEntry {
 			ObjectType:  objType,
 			Schema:      schema,
 			Name:        name,
+			Table:       table,
 		})
 	}
 	return entries
 }
 
+// schemaObject identifies one object exactly: its type, schema, owning relation
+// (empty unless the type is relation-scoped) and name.
+type schemaObject struct {
+	Type   string
+	Schema string
+	Table  string
+	Name   string
+}
+
+// expectedSchemaObjects are the objects this application's own migrations
+// create that happen to fall into dangerousObjectTypes. Every model-hotel
+// pg_dump contains them, so without this exemption the restore endpoint would
+// reject the application's own backups.
+//
+// They also cannot simply be stripped from a dump instead. The restore runs
+// pg_restore --clean, and the migration that creates them is already recorded in
+// the dump's schema_migrations, so a restore that dropped them would never run
+// that migration again and the database would come back permanently missing the
+// pruning trigger.
+//
+// The entries are matched on full identity, not on type alone: a dump may carry
+// a trigger called providers_prune_allowlists on public.providers and nothing
+// else. Any other function, or the same name attached to a different relation,
+// is still rejected. This does leave one residual: a tampered dump could ship
+// these exact two names with different bodies, which a TOC listing cannot
+// distinguish. That is bounded by the surrounding checks (the dump must also
+// carry a schema_migrations set this build recognises) and by the fact that
+// restoring any dump is already a full, admin-authenticated replacement of the
+// database.
+//
+// Keep this in step with the migrations: adding another function, trigger, or
+// other dangerous-typed object to internal/db/migrations means adding it here,
+// or backup restore starts refusing every dump taken after that migration.
+var expectedSchemaObjects = map[schemaObject]bool{
+	// migration 066_prune_provider_allowlists.sql
+	{Type: "FUNCTION", Schema: "public", Name: "prune_provider_from_allowlists()"}:              true,
+	{Type: "TRIGGER", Schema: "public", Table: "providers", Name: "providers_prune_allowlists"}: true,
+}
+
 // checkDangerousObjects scans TOC entries for object types that should
-// not appear in a legitimate application backup.
+// not appear in a legitimate application backup, excusing only the exact
+// objects this application's own migrations create.
 func checkDangerousObjects(entries []tocEntry) []string {
 	var found []string
 	for _, e := range entries {
-		if dangerousObjectTypes[e.ObjectType] {
-			found = append(found, fmt.Sprintf("%s %s.%s", e.ObjectType, e.Schema, e.Name))
+		if !dangerousObjectTypes[e.ObjectType] {
+			continue
 		}
+		if expectedSchemaObjects[schemaObject{Type: e.ObjectType, Schema: e.Schema, Table: e.Table, Name: e.Name}] {
+			continue
+		}
+		found = append(found, fmt.Sprintf("%s %s.%s", e.ObjectType, e.Schema, e.Name))
 	}
 	return found
 }
