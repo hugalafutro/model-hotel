@@ -194,9 +194,15 @@ func (l *TPMLimiter) UserMiddleware(enabled bool) func(http.Handler) http.Handle
 				next.ServeHTTP(w, r)
 				return
 			}
-			// The reservation is intentionally discarded: this surface has no
-			// later gate that could reject the request, so there is nothing to
-			// cancel it for.
+			// The reservation is intentionally discarded: this is the last
+			// MIDDLEWARE on the group, so nothing downstream of here can hand
+			// the token back. The handler still rejects some requests after
+			// this point — 403 when the caller's provider cap excludes every
+			// candidate (resolveCandidates), 404 for an unknown model, 400 for
+			// an unparseable body — and each of those keeps the 1-token
+			// placeholder. That is the same behaviour as /v1, where only the
+			// per-key middleware stage ever cancels an owner reservation, and
+			// it is symmetric on purpose.
 			if _, ok := l.admitUserTPM(r.Context(), w, time.Now()); !ok {
 				return
 			}
@@ -336,8 +342,14 @@ func (l *TPMLimiter) setAssoc(keyHash, userKey string) {
 }
 
 // userBucketKey namespaces an owner's aggregate bucket away from the key-hash
-// buckets sharing the same map. Every writer and reader of that bucket must go
-// through it, or an admission and its debit land on two different buckets.
+// buckets sharing TPMLimiter's map. Every TPMLimiter writer and reader of that
+// bucket must go through it, or an admission and its debit land on two
+// different buckets.
+//
+// Scoped to TPMLimiter deliberately: Limiter (limiter.go) builds the same
+// "user:"+uid string inline for its own RPS map, which this helper does not
+// reach and does not need to. The two maps are independent, so a divergence
+// could not cross-fault a bucket, but the spellings must stay identical.
 func userBucketKey(userID string) string {
 	return "user:" + userID
 }

@@ -24,9 +24,16 @@ import (
 // (VirtualKeyAllowedProvidersKey, VirtualKeyRateLimit*Key) are therefore
 // deliberately left unset, and each consumer already handles their absence:
 // effectiveAllowedProviders reads a nil key-side cap as "this side restricts
-// nothing" and returns the account cap unchanged, while the rate limiters fall
-// back to the global settings defaults for the per-key stage, which is what an
-// unkeyed request on this surface already got before this middleware existed.
+// nothing" and returns the account cap unchanged, while the two rate limiters
+// handle it differently and neither is left guessing. ratelimit.Limiter keeps
+// its per-key stage on this surface: extractKey falls back to r.RemoteAddr and
+// the bucket is sized from the global settings defaults, which is exactly what
+// an unkeyed request here already got before this middleware existed.
+// ratelimit.TPMLimiter has NO per-key stage here at all — RegisterAdminChat
+// mounts UserMiddleware rather than Middleware precisely because that same
+// address-keyed fallback bucket would be admitted against and never debited
+// (Debit is driven by the virtual-key hash), i.e. a cap that looks enforced and
+// is not.
 //
 // Without this the `chat` grant was an escape hatch around all of them: it is an
 // ordinary assignable non-admin grant (internal/user/grants.go), so a user could

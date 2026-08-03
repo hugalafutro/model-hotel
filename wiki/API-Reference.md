@@ -38,6 +38,8 @@ All endpoints share the same model routing (`hotel/<model>` failover or `<provid
 
 Returns the model list in OpenAI-compatible format.
 
+The list is scoped to what the calling key may actually call: the key's own `allowed_providers` intersected with its owner account's provider cap, the same pair a chat request is routed through. A key restricted on neither side sees the whole catalogue, so this is a no-op unless an operator has deliberately restricted access. A `hotel/` failover group stays listed while any entry in its priority order sits on a provider the caller may reach, and is described by the entry that would actually serve the request.
+
 **Response:**
 ```json
 {

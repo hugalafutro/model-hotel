@@ -166,9 +166,12 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
 	}
 
-	// Always record token usage against the virtual key quota, even on
-	// client disconnect. The upstream provider already billed for these
-	// tokens; not counting them would cause quota drift (provider bill > VK meter).
+	// Always record token usage, even on client disconnect. The upstream
+	// provider already billed for these tokens; not counting them would cause
+	// quota drift (provider bill > meter). recordTokenUsage picks the meter:
+	// a keyed request charges the virtual key's quota and TPM bucket, while a
+	// keyless one (admin chat) has no virtual key quota to charge and debits
+	// the owner's aggregate TPM bucket instead.
 	if st.clientDisconnected && (st.promptTokens > 0 || st.completionTokens > 0) {
 		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}

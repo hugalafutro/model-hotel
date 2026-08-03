@@ -36,8 +36,13 @@ func providerAllowFunc(allowed *[]string) func(uuid.UUID) bool {
 // The catalogue is scoped by the same pair a chat request is filtered by: the
 // key's own allowed_providers intersected with its owner account's cap
 // (effectiveAllowedProviders, then the candidate filter in resolveCandidates).
-// Both context values are populated by ProxyKeyMiddleware, which runs on every
-// /v1 route including this one. An unrestricted caller produces a nil effective
+// ProxyKeyMiddleware runs on every /v1 route including this one and always
+// publishes the key's own list, but it publishes the OWNER cap only inside its
+// `if vk.Owner != nil` block, so that value is simply absent for an unowned
+// key. The comma-ok reads below turn that absence into a nil cap, which
+// effectiveAllowedProviders already reads as "this side restricts nothing" —
+// the same shape /api/chat/* relies on from the other direction, where the key
+// side is the missing one. An unrestricted caller produces a nil effective
 // list and still sees the whole catalogue, so this narrows the response only
 // for a key an operator has deliberately restricted, and what it hides is
 // exactly what would have come back as a 403.
