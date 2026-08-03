@@ -408,65 +408,87 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	NewFleetHandler(h.settingsRepo).Register(r)
 }
 
+// resolveCredentials authenticates the request and returns the caller's
+// identity. cookieAuth reports that the identity came from the session cookie,
+// the only ambient-credential path and therefore the only one needing a CSRF
+// check; the caller applies that check because only it can answer with a 403.
+//
+// Shared by AuthMiddleware and by the long-lived SSE stream, which re-runs it
+// mid-connection so a revoked session or changed grants take effect without
+// waiting for the client to disconnect. Purely a lookup: it writes nothing and
+// has no side effects, so it is safe to call repeatedly.
+func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookieAuth, ok bool) {
+	// Cookie path (browser). The session token rides an HttpOnly cookie. This
+	// branch is additive: an invalid/expired cookie falls through to the header
+	// logic below, and header (admin-token / bearer) callers are unaffected.
+	if tok, found := authcookie.SessionToken(r); found && h.webauthnSessionMgr != nil {
+		if sessionUserID, valid := h.webauthnSessionMgr.TokenUser(r.Context(), tok); valid {
+			if id, resolved := h.resolveIdentity(r.Context(), sessionUserID); resolved {
+				return id, true, true
+			}
+		}
+		// Invalid/expired cookie: fall through to header logic.
+	}
+
+	token, found := util.ParseBearerToken(r)
+	if !found {
+		return nil, false, false
+	}
+
+	// Fast path: admin token (in-memory hash comparison) -- only when TOTP
+	// 2FA is disabled. With TOTP enabled, the raw admin token is a first
+	// factor only and must be exchanged for a session token via POST
+	// /api/totp/login; a bare admin token bearer is rejected so the second
+	// factor cannot be bypassed.
+	if !h.TotpEnabled() && h.adminMgr.Validate(token) {
+		return user.AdminIdentity(), false, true
+	}
+
+	// Fallback: session token (DB-backed SHA-256 hash lookup). The session's
+	// user handle resolves to an identity: legacy admin sessions stay admin,
+	// UUID handles must match an enabled users row (disabled/deleted users
+	// are rejected here even if their token has not been revoked yet).
+	if h.webauthnSessionMgr != nil {
+		if sessionUserID, valid := h.webauthnSessionMgr.TokenUser(r.Context(), token); valid {
+			if id, resolved := h.resolveIdentity(r.Context(), sessionUserID); resolved {
+				return id, false, true
+			}
+		}
+	}
+
+	return nil, false, false
+}
+
 // AuthMiddleware validates admin token or webAuthn session token authentication.
 // Admin token has priority (fast in-memory hash comparison).
 // If the admin token is invalid, the session-based token is tried as a fallback.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Cookie path (browser). The session token rides an HttpOnly cookie;
-		// unsafe methods must also present a matching CSRF header. This branch
-		// is additive: an invalid/expired cookie falls through to the header
-		// logic below, and header (admin-token / bearer) callers are unaffected.
-		if tok, ok := authcookie.SessionToken(r); ok && h.webauthnSessionMgr != nil {
-			if sessionUserID, ok := h.webauthnSessionMgr.TokenUser(r.Context(), tok); ok {
-				if id, ok := h.resolveIdentity(r.Context(), sessionUserID); ok {
-					if !authcookie.IsSafeMethod(r.Method) && !authcookie.ValidCSRF(r) {
-						debuglog.Warn("auth: CSRF check failed", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
-						http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
-						return
-					}
-					next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))
-					return
-				}
-			}
-			// Invalid/expired cookie: fall through to header logic.
-		}
-
-		token, ok := util.ParseBearerToken(r)
+		id, cookieAuth, ok := h.resolveCredentials(r)
 		if !ok {
 			// Warn (not Error) with the remote address — never the token — so
 			// repeated admin-auth failures are visible for abuse detection
 			// without polluting the operator-actionable Error stream.
-			debuglog.Warn("auth: admin request missing bearer token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
-			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
-			return
-		}
-
-		// Fast path: admin token (in-memory hash comparison) -- only when TOTP
-		// 2FA is disabled. With TOTP enabled, the raw admin token is a first
-		// factor only and must be exchanged for a session token via POST
-		// /api/totp/login; a bare admin token bearer is rejected so the second
-		// factor cannot be bypassed.
-		if !h.TotpEnabled() && h.adminMgr.Validate(token) {
-			next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), user.AdminIdentity())))
-			return
-		}
-
-		// Fallback: session token (DB-backed SHA-256 hash lookup). The session's
-		// user handle resolves to an identity: legacy admin sessions stay admin,
-		// UUID handles must match an enabled users row (disabled/deleted users
-		// are rejected here even if their token has not been revoked yet).
-		if h.webauthnSessionMgr != nil {
-			if sessionUserID, ok := h.webauthnSessionMgr.TokenUser(r.Context(), token); ok {
-				if id, ok := h.resolveIdentity(r.Context(), sessionUserID); ok {
-					next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))
-					return
-				}
+			if _, hasBearer := util.ParseBearerToken(r); !hasBearer {
+				debuglog.Warn("auth: admin request missing bearer token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+				http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
+				return
 			}
+			debuglog.Warn("auth: admin request with invalid token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+			http.Error(w, "Invalid admin token", http.StatusUnauthorized)
+			return
 		}
 
-		debuglog.Warn("auth: admin request with invalid token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
-		http.Error(w, "Invalid admin token", http.StatusUnauthorized)
+		// Cookie-authenticated unsafe methods must also present a matching CSRF
+		// header. Bearer callers are exempt: an explicit header is not a
+		// credential the browser attaches on its own.
+		if cookieAuth && !authcookie.IsSafeMethod(r.Method) && !authcookie.ValidCSRF(r) {
+			debuglog.Warn("auth: CSRF check failed", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+			http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))
 	})
 }
 

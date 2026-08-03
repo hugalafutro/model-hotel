@@ -7,10 +7,28 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// sseHeartbeatInterval is how often an idle SSE stream emits a keepalive
+// comment, and therefore also how often the caller's credentials are re-checked.
+const sseHeartbeatInterval = 30 * time.Second
+
+// sseReauthFailuresBeforeClose is how many consecutive failed credential
+// re-checks close a stream, bounding authorization staleness at
+// sseHeartbeatInterval * this.
+//
+// Tolerance rather than fail-fast because resolveCredentials cannot distinguish
+// "this session was revoked" from "the store could not be asked": both surface
+// as a plain false. A revoked session fails every check and is dropped on the
+// second, while a transient store failure (Postgres restart, pool exhaustion)
+// recovers on the next tick. Failing on the first miss would turn a brief
+// outage into a fleet-wide forced logout, since the dashboard's SSE reconnect
+// treats a 401 as "session gone" and reloads to the login screen.
+const sseReauthFailuresBeforeClose = 2
 
 // eventVisible decides whether one bus event may be forwarded to the caller.
 // The bus itself is identity-blind, so the SSE handler filters per subscriber:
@@ -49,7 +67,54 @@ func eventOwnedBy(id *user.Identity, ev events.Event) bool {
 }
 
 // StreamEvents handles server-sent events for real-time dashboard updates.
+//
+// The caller's identity is re-checked on every heartbeat rather than pinned at
+// connect. AuthMiddleware only runs once, so a stream opened before a session
+// was revoked, or before a user was disabled or had a grant taken away, would
+// otherwise keep delivering events under its connect-time permissions for as
+// long as the client held the socket open - unbounded, since the heartbeat
+// keeps it alive. Re-resolving costs one session lookup per stream per
+// heartbeat interval; once the credential stops resolving the stream closes and
+// the client's normal SSE reconnect then fails at the middleware.
 func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
+	h.streamEvents(w, r, sseHeartbeatInterval)
+}
+
+// reauthLoop re-resolves the caller's credentials on every tick and reports the
+// result on out: the refreshed identity, or nil when the credentials did not
+// resolve. Exits when the request context is cancelled.
+//
+// Runs off the read loop deliberately. resolveCredentials makes a session-store
+// round-trip (plus a users lookup for a UUID handle), and the event bus drops
+// events for any subscriber that is not draining its channel
+// (internal/events/bus.go), so doing this inline would trade a slow credential
+// lookup for lost live log rows on a busy gateway.
+func (h *Handler) reauthLoop(r *http.Request, every time.Duration, out chan<- *user.Identity) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			id, _, ok := h.resolveCredentials(r)
+			if !ok {
+				id = nil
+			}
+			select {
+			case out <- id:
+			case <-r.Context().Done():
+				return
+			}
+		}
+	}
+}
+
+// streamEvents is StreamEvents with the heartbeat cadence supplied by the
+// caller, so the keepalive/re-auth tick can be driven without waiting out the
+// production interval.
+func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatEvery time.Duration) {
 	identity := user.IdentityFrom(r.Context())
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -69,9 +134,12 @@ func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)
 
-	heartbeat := time.NewTicker(30 * time.Second)
-	defer heartbeat.Stop()
+	// Buffered so a re-auth result never parks its goroutine while this loop is
+	// busy writing an event; the loop drains it on the next pass.
+	reauth := make(chan *user.Identity, 1)
+	go h.reauthLoop(r, heartbeatEvery, reauth)
 
+	failures := 0
 	for {
 		select {
 		case <-r.Context().Done():
@@ -86,7 +154,21 @@ func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 			}
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
-		case <-heartbeat.C:
+		case id := <-reauth:
+			// A re-auth result doubles as the keepalive tick. nil means the
+			// credentials did not resolve; a live one refreshes the identity, so
+			// a user who lost a grant stops seeing what it no longer covers.
+			if id == nil {
+				failures++
+				if failures >= sseReauthFailuresBeforeClose {
+					debuglog.Info("events: stream closed, credentials no longer valid",
+						"remote_addr", r.RemoteAddr, "consecutive_failures", failures)
+					return
+				}
+			} else {
+				failures = 0
+				identity = id
+			}
 			_, _ = fmt.Fprint(w, ": heartbeat\n\n")
 			flusher.Flush()
 		}
