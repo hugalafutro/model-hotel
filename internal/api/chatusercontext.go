@@ -46,9 +46,12 @@ import (
 //   - UserAllowedProvidersKey — read by resolveCandidates
 //     (internal/proxy/proxy_request.go) via effectiveAllowedProviders.
 //   - VirtualKeyOwnerIDKey — the shared "user:<uuid>" bucket identity for both
-//     rate limiters, and the owner stamped on the request lifecycle SSE events
-//     (newPendingRequestLog), which is what scopes a non-admin's live log feed
-//     (eventOwnedBy in events.go).
+//     rate limiters, and the owner stamped by newPendingRequestLog on the
+//     request lifecycle SSE events (which is what scopes a non-admin's live log
+//     feed, eventOwnedBy in events.go) and, because this surface has no key to
+//     resolve an owner through, on request_logs.owner_user_id itself, which is
+//     what puts chat traffic in the caller's own REST logs and stats
+//     (migration 067).
 //   - UserRateLimitRPSKey / UserRateLimitBurstKey — read by
 //     ratelimit.Limiter.Middleware, which RegisterAdminChat already mounts.
 //   - UserRateLimitTPMKey — read by ratelimit.TPMLimiter.UserMiddleware, mounted

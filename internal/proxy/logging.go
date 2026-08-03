@@ -56,6 +56,7 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	streaming := logEntry.streaming
 	virtualKeyName := logEntry.virtualKeyName
 	virtualKeyID := logEntry.virtualKeyID
+	ownerUserID := logEntry.ownerUserID
 	failoverAttempt := logEntry.failoverAttempt
 	state := logEntry.state
 	endpointType := logEntry.endpointType
@@ -78,10 +79,19 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		if virtualKeyID != "" {
 			vkID = virtualKeyID
 		}
+		// owner_user_id is stored ONLY for keyless rows (dashboard chat/arena,
+		// which authenticate a session instead of a virtual key). A keyed row
+		// leaves it NULL and keeps resolving through the key's CURRENT owner, so
+		// reassigning a key still moves its whole log history; see migration 067
+		// for why the two row shapes are attributed differently.
+		var ownerID any
+		if vkID == nil && ownerUserID != "" {
+			ownerID = ownerUserID
+		}
 		_, err := h.dbPool.Exec(ctx, `
-			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType,
+			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type, owner_user_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType, ownerID,
 		)
 		if err != nil {
 			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)

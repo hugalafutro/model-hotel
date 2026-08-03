@@ -136,7 +136,9 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 		vkHash, _ = v.(string)
 	}
 	// The owning user's UUID (empty for unowned keys) scopes the SSE request
-	// events to that user, matching the owner-scoping the logs REST API applies.
+	// events to that user, and is persisted on the log row itself when there is
+	// no virtual key to resolve an owner through (dashboard chat/arena), which is
+	// what lets the owner-scoped logs REST API see those rows at all.
 	var ownerUserID string
 	if v := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey); v != nil {
 		ownerUserID, _ = v.(string)

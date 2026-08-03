@@ -153,8 +153,12 @@ func vkScope(excludeDeleted bool) (join, filter string) {
 	return "", ""
 }
 
-// ownerFilterFragment returns a WHERE fragment restricting rows to virtual
-// keys owned by ownerID, or "" when unscoped (empty ownerID). The id is inlined
+// ownerFilterFragment returns a WHERE fragment restricting rows to traffic
+// belonging to ownerID, or "" when unscoped (empty ownerID). It matches the two
+// disjoint row shapes the same way appendLogFilters does: keyed rows through the
+// key's CURRENT owner (so reassigning a key moves its history), keyless rows
+// (dashboard chat/arena) through the request-time owner_user_id stamped on the
+// row itself; see migration 067. The id is inlined
 // as a literal because threading an extra bind arg through every stats query
 // would touch a dozen call sites, so this is the one place that must guarantee
 // the value can never carry SQL. Today the only caller feeds logOwnerScope,
@@ -172,7 +176,8 @@ func ownerFilterFragment(ownerID string) string {
 	if err != nil {
 		return " AND 1=0"
 	}
-	return " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + u.String() + "')"
+	return " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + u.String() + "')" +
+		" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = '" + u.String() + "'))"
 }
 
 // metricValueSelect returns the aggregate column expression (aliased "val") for

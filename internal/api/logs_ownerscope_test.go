@@ -13,13 +13,17 @@ import (
 )
 
 // logScopeFixture is the harness state for the owner-scope tests: two
-// log-granted users, one owned virtual key each, and four request_logs rows
-// (two for alice, one for bob, one with no virtual key at all).
+// log-granted users, one owned virtual key each, and six request_logs rows
+// covering both attribution shapes — two keyed rows for alice and one for bob
+// (owner resolved through the key), one keyless dashboard-chat row for each of
+// them (owner stamped on the row, migration 067), and one keyless row with no
+// owner at all, which stays admin-only.
 type logScopeFixture struct {
-	router               chi.Router
-	aliceToken, bobToken string
-	aliceID, bobID       string
-	aliceLogID, bobLogID string
+	router                       chi.Router
+	aliceToken, bobToken         string
+	aliceID, bobID               string
+	aliceLogID, bobLogID         string
+	aliceChatLogID, bobChatLogID string
 }
 
 func setupLogScopeTest(t *testing.T) logScopeFixture {
@@ -50,20 +54,27 @@ func setupLogScopeTest(t *testing.T) logScopeFixture {
 	aliceKey := mkKey("alice-key", fx.aliceID)
 	bobKey := mkKey("bob-key", fx.bobID)
 
-	insert := func(vkID any, vkName, model string) string {
+	// Mirrors what insertRequestLogAsync writes: a keyed row carries no
+	// owner_user_id (it resolves through the key), a keyless row carries the
+	// request-time owner and no key.
+	insert := func(vkID any, vkName, model string, ownerID any) string {
 		var id string
 		err := pool.QueryRow(context.Background(),
-			`INSERT INTO request_logs (model_id, status_code, virtual_key_id, virtual_key_name, created_at)
-			 VALUES ($1, 200, $2, $3, NOW()) RETURNING id`, model, vkID, vkName).Scan(&id)
+			`INSERT INTO request_logs (model_id, status_code, virtual_key_id, virtual_key_name, owner_user_id, created_at)
+			 VALUES ($1, 200, $2, $3, $4, NOW()) RETURNING id`, model, vkID, vkName, ownerID).Scan(&id)
 		if err != nil {
 			t.Fatalf("insert log: %v", err)
 		}
 		return id
 	}
-	fx.aliceLogID = insert(aliceKey, "alice-key", "alice-model-1")
-	insert(aliceKey, "alice-key", "alice-model-2")
-	fx.bobLogID = insert(bobKey, "bob-key", "bob-model")
-	insert(nil, "", "unkeyed-model") // admin chat / arena style row
+	fx.aliceLogID = insert(aliceKey, "alice-key", "alice-model-1", nil)
+	insert(aliceKey, "alice-key", "alice-model-2", nil)
+	fx.bobLogID = insert(bobKey, "bob-key", "bob-model", nil)
+	// Dashboard chat / arena rows: no virtual key, owner stamped at request time.
+	fx.aliceChatLogID = insert(nil, "", "alice-chat-model", fx.aliceID)
+	fx.bobChatLogID = insert(nil, "", "bob-chat-model", fx.bobID)
+	// Pre-067 keyless row: no key and no owner, so it stays admin-only.
+	insert(nil, "", "unattributed-model", nil)
 
 	return fx
 }
@@ -86,35 +97,131 @@ func listLogEntries(t *testing.T, router chi.Router, path, token string) []LogEn
 func TestLogs_OwnerScope_NonAdminSeesOnlyOwnTraffic(t *testing.T) {
 	fx := setupLogScopeTest(t)
 
+	// Alice owns two keyed rows plus one keyless chat row; bob one of each. The
+	// unattributed keyless row belongs to neither.
+	want := map[string]map[string]bool{
+		fx.aliceToken: {"alice-model-1": true, "alice-model-2": true, "alice-chat-model": true},
+		fx.bobToken:   {"bob-model": true, "bob-chat-model": true},
+	}
 	for _, path := range []string{"/logs?per_page=50", "/logs/cursor?limit=50"} {
-		entries := listLogEntries(t, fx.router, path, fx.aliceToken)
-		if len(entries) != 2 {
-			t.Fatalf("%s as alice: %d entries, want 2", path, len(entries))
-		}
-		for _, e := range entries {
-			if e.VirtualKeyName != "alice-key" {
-				t.Errorf("%s leaked foreign row: %+v", path, e)
+		for token, models := range want {
+			entries := listLogEntries(t, fx.router, path, token)
+			if len(entries) != len(models) {
+				t.Fatalf("%s: %d entries, want %d", path, len(entries), len(models))
+			}
+			for _, e := range entries {
+				if !models[e.ModelID] {
+					t.Errorf("%s leaked foreign row: %+v", path, e)
+				}
 			}
 		}
-		if got := listLogEntries(t, fx.router, path, fx.bobToken); len(got) != 1 {
-			t.Fatalf("%s as bob: %d entries, want 1", path, len(got))
+	}
+}
+
+// TestLogs_OwnerScope_ChatRowsVisibleToTheirOwner is the gap this column
+// closes: dashboard chat has no virtual key, so before request_logs.owner_user_id
+// existed a non-admin's own chat traffic could not satisfy the key-join
+// predicate and was invisible to them in the REST logs and stats.
+func TestLogs_OwnerScope_ChatRowsVisibleToTheirOwner(t *testing.T) {
+	fx := setupLogScopeTest(t)
+
+	hasModel := func(entries []LogEntry, model string) bool {
+		for _, e := range entries {
+			if e.ModelID == model {
+				return true
+			}
 		}
+		return false
+	}
+
+	for _, path := range []string{"/logs?per_page=50", "/logs/cursor?limit=50"} {
+		alice := listLogEntries(t, fx.router, path, fx.aliceToken)
+		if !hasModel(alice, "alice-chat-model") {
+			t.Errorf("%s: alice cannot see her own chat row", path)
+		}
+		if hasModel(alice, "bob-chat-model") {
+			t.Errorf("%s: alice sees bob's chat row", path)
+		}
+		if hasModel(alice, "unattributed-model") {
+			t.Errorf("%s: alice sees an ownerless keyless row", path)
+		}
+	}
+
+	// The single-row fetch applies the same disjunction.
+	if w := doJSON(t, fx.router, http.MethodGet, "/logs/"+fx.aliceChatLogID, fx.aliceToken, ""); w.Code != http.StatusOK {
+		t.Errorf("own chat row: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, fx.router, http.MethodGet, "/logs/"+fx.bobChatLogID, fx.aliceToken, ""); w.Code != http.StatusNotFound {
+		t.Errorf("foreign chat row: %d, want 404", w.Code)
+	}
+}
+
+// TestLogs_OwnerScope_KeyReassignmentMovesHistory guards the half of the
+// predicate that did NOT change. Keyed rows resolve through the key's CURRENT
+// owner, so reassigning a key hands its whole log history to the new owner.
+// Widening the predicate to a disjunction must not have turned that into
+// request-time attribution, and must not have widened what either user sees.
+func TestLogs_OwnerScope_KeyReassignmentMovesHistory(t *testing.T) {
+	fx := setupLogScopeTest(t)
+
+	keys := listLogEntries(t, fx.router, "/logs/cursor?limit=50", fx.aliceToken)
+	if len(keys) != 3 {
+		t.Fatalf("alice before reassignment: %d entries, want 3", len(keys))
+	}
+
+	// Find alice's key and hand it to bob.
+	w := doJSON(t, fx.router, http.MethodGet, "/virtual-keys", envAdminToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("list keys: %d %s", w.Code, w.Body.String())
+	}
+	var listed []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil {
+		t.Fatalf("decode keys: %v", err)
+	}
+	aliceKeyID := ""
+	for _, k := range listed {
+		if k.Name == "alice-key" {
+			aliceKeyID = k.ID
+		}
+	}
+	if aliceKeyID == "" {
+		t.Fatalf("alice-key not found in %+v", listed)
+	}
+	w = doJSON(t, fx.router, http.MethodPut, "/virtual-keys/"+aliceKeyID, envAdminToken,
+		fmt.Sprintf(`{"name":"alice-key","owner_user_id":%q}`, fx.bobID))
+	if w.Code != http.StatusOK {
+		t.Fatalf("reassign key: %d %s", w.Code, w.Body.String())
+	}
+	globalLogsCache.clear()
+
+	// Alice keeps only her keyless chat row; the two keyed rows followed the key.
+	after := listLogEntries(t, fx.router, "/logs/cursor?limit=50", fx.aliceToken)
+	if len(after) != 1 || after[0].ModelID != "alice-chat-model" {
+		t.Fatalf("alice after reassignment: %+v, want only alice-chat-model", after)
+	}
+	if got := listLogEntries(t, fx.router, "/logs/cursor?limit=50", fx.bobToken); len(got) != 4 {
+		t.Fatalf("bob after reassignment: %d entries, want 4", len(got))
 	}
 }
 
 func TestLogs_OwnerScope_AdminSeesAllAndCanFilter(t *testing.T) {
 	fx := setupLogScopeTest(t)
 
-	if got := listLogEntries(t, fx.router, "/logs/cursor?limit=50", envAdminToken); len(got) != 4 {
-		t.Fatalf("admin unfiltered: %d entries, want 4", len(got))
+	if got := listLogEntries(t, fx.router, "/logs/cursor?limit=50", envAdminToken); len(got) != 6 {
+		t.Fatalf("admin unfiltered: %d entries, want 6", len(got))
 	}
+	// The admin owner filter uses the same disjunction, so it picks up alice's
+	// keyed rows and her chat row.
 	filtered := listLogEntries(t, fx.router, "/logs/cursor?limit=50&owner_user_id="+fx.aliceID, envAdminToken)
-	if len(filtered) != 2 {
-		t.Fatalf("admin owner filter: %d entries, want 2", len(filtered))
+	if len(filtered) != 3 {
+		t.Fatalf("admin owner filter: %d entries, want 3", len(filtered))
 	}
 	// A malformed owner filter is ignored, like the other lenient filters.
-	if got := listLogEntries(t, fx.router, "/logs/cursor?limit=50&owner_user_id=nonsense", envAdminToken); len(got) != 4 {
-		t.Fatalf("admin bogus owner filter: %d entries, want 4", len(got))
+	if got := listLogEntries(t, fx.router, "/logs/cursor?limit=50&owner_user_id=nonsense", envAdminToken); len(got) != 6 {
+		t.Fatalf("admin bogus owner filter: %d entries, want 6", len(got))
 	}
 }
 
@@ -139,11 +246,11 @@ func TestLogs_OwnerScope_CacheDoesNotLeakAcrossIdentities(t *testing.T) {
 	// Prime the offset-list cache as admin, then request the byte-identical
 	// query as a scoped user: the cache key carries the owner scope, so alice
 	// must not be served the admin's 4-row page.
-	if got := listLogEntries(t, fx.router, "/logs?per_page=50", envAdminToken); len(got) != 4 {
-		t.Fatalf("admin prime: %d entries, want 4", len(got))
+	if got := listLogEntries(t, fx.router, "/logs?per_page=50", envAdminToken); len(got) != 6 {
+		t.Fatalf("admin prime: %d entries, want 6", len(got))
 	}
-	if got := listLogEntries(t, fx.router, "/logs?per_page=50", fx.aliceToken); len(got) != 2 {
-		t.Fatalf("alice after admin prime: %d entries, want 2 (cache leak?)", len(got))
+	if got := listLogEntries(t, fx.router, "/logs?per_page=50", fx.aliceToken); len(got) != 3 {
+		t.Fatalf("alice after admin prime: %d entries, want 3 (cache leak?)", len(got))
 	}
 }
 
@@ -162,11 +269,11 @@ func TestStats_OwnerScope(t *testing.T) {
 		return s
 	}
 
-	// Alice sees only her own two requests; the by-key breakdown never names
-	// a foreign key.
+	// Alice sees her two keyed requests plus her own chat request; the by-key
+	// breakdown never names a foreign key.
 	s := getStats("/stats?period=7d", fx.aliceToken)
-	if s.TotalRequestsLast7d != 2 {
-		t.Errorf("alice total7d = %d, want 2", s.TotalRequestsLast7d)
+	if s.TotalRequestsLast7d != 3 {
+		t.Errorf("alice total7d = %d, want 3", s.TotalRequestsLast7d)
 	}
 	if _, leaked := s.ByVirtualKey["bob-key"]; leaked {
 		t.Error("alice by_virtual_key leaked bob-key")
@@ -175,12 +282,12 @@ func TestStats_OwnerScope(t *testing.T) {
 		t.Errorf("alice by_virtual_key[alice-key] = %d, want 2", s.ByVirtualKey["alice-key"])
 	}
 
-	// Admin is unscoped (4 rows incl. the unkeyed one) and can filter.
-	if s := getStats("/stats?period=7d", envAdminToken); s.TotalRequestsLast7d != 4 {
-		t.Errorf("admin total7d = %d, want 4", s.TotalRequestsLast7d)
+	// Admin is unscoped (6 rows incl. the ownerless keyless one) and can filter.
+	if s := getStats("/stats?period=7d", envAdminToken); s.TotalRequestsLast7d != 6 {
+		t.Errorf("admin total7d = %d, want 6", s.TotalRequestsLast7d)
 	}
-	if s := getStats("/stats?period=7d&owner_user_id="+fx.bobID, envAdminToken); s.TotalRequestsLast7d != 1 {
-		t.Errorf("admin owner-filtered total7d = %d, want 1", s.TotalRequestsLast7d)
+	if s := getStats("/stats?period=7d&owner_user_id="+fx.bobID, envAdminToken); s.TotalRequestsLast7d != 2 {
+		t.Errorf("admin owner-filtered total7d = %d, want 2", s.TotalRequestsLast7d)
 	}
 }
 
@@ -203,14 +310,14 @@ func TestStats_TimeSeries_OwnerScope(t *testing.T) {
 		return total
 	}
 
-	if got := sumCounts(fx.aliceToken, "/stats/timeseries"); got != 2 {
-		t.Errorf("alice timeseries total = %d, want 2", got)
+	if got := sumCounts(fx.aliceToken, "/stats/timeseries"); got != 3 {
+		t.Errorf("alice timeseries total = %d, want 3", got)
 	}
-	if got := sumCounts(envAdminToken, "/stats/timeseries"); got != 4 {
-		t.Errorf("admin timeseries total = %d, want 4", got)
+	if got := sumCounts(envAdminToken, "/stats/timeseries"); got != 6 {
+		t.Errorf("admin timeseries total = %d, want 6", got)
 	}
-	if got := sumCounts(envAdminToken, "/stats/timeseries?owner_user_id="+fx.aliceID); got != 2 {
-		t.Errorf("admin filtered timeseries total = %d, want 2", got)
+	if got := sumCounts(envAdminToken, "/stats/timeseries?owner_user_id="+fx.aliceID); got != 3 {
+		t.Errorf("admin filtered timeseries total = %d, want 3", got)
 	}
 
 	// The provider-distribution path applies the same scope (fixture rows have
