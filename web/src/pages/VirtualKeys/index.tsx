@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, KeyRound, ShieldCheck } from "@/lib/icons";
+import { Brain, KeyRound, ShieldCheck, ShieldOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -251,17 +251,41 @@ export function VirtualKeys() {
 									    overflow, not on the icon-only regions of the cell */}
 									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
 										<div className="flex items-center gap-1.5">
+											{/* The marker is gated on the LIST'S PRESENCE, never its
+											    length. A non-NULL allowed_providers restricts the key to
+											    exactly its members, so an EMPTY one denies every provider
+											    (effectiveAllowedProviders in internal/proxy). That state is
+											    reached by ordinary admin action: deleting the last provider
+											    a key was scoped to prunes the stored list to `{}` (see
+											    provider.PruneAllowLists). Length-gating it left the single
+											    most restricted key on the page looking unrestricted, which
+											    is the opposite of what an operator chasing a 403 needs.
+											    It gets its own icon rather than the plain shield, matching
+											    how the Users page renders the same three-state cap. */}
 											{vk.allowed_providers &&
-												vk.allowed_providers.length > 0 && (
+												(vk.allowed_providers.length === 0 ? (
+													<span
+														title={t("virtualkeys.tooltip.providerDenyAll")}
+														data-testid={`vk-provider-access-${vk.id}`}
+														data-provider-access="none"
+													>
+														<ShieldOff
+															size={14}
+															className="text-red-400 shrink-0"
+														/>
+													</span>
+												) : (
 													<span
 														title={t("virtualkeys.tooltip.providerRestricted")}
+														data-testid={`vk-provider-access-${vk.id}`}
+														data-provider-access="selected"
 													>
 														<ShieldCheck
 															size={14}
 															className="text-(--accent) shrink-0"
 														/>
 													</span>
-												)}
+												))}
 											{vk.strip_reasoning && (
 												<span
 													title={t("virtualkeys.tooltip.reasoningStripped")}

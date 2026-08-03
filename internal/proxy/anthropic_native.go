@@ -88,9 +88,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-	if st.vkHash != "" {
-		h.recordTokenUsage(st.vkHash, inputTokens, outputTokens, 0, logData.virtualKeyName)
-	}
+	h.recordTokenUsage(st.vkHash, logData, inputTokens, outputTokens, 0)
 
 	debuglog.Info("proxy: native anthropic non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "duration_ms", totalDuration, "input_tokens", inputTokens, "output_tokens", outputTokens)
 

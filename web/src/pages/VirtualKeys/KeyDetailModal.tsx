@@ -82,7 +82,7 @@ export function KeyDetailModal({
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
-	const { isAdmin } = useIdentity();
+	const { isAdmin, me } = useIdentity();
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState(vk.name);
 	const [editOwnerId, setEditOwnerId] = useState(vk.owner_user_id ?? "");
@@ -114,7 +114,41 @@ export function KeyDetailModal({
 		.slice()
 		.sort((a, b) => a.name.localeCompare(b.name));
 
+	// A virtual key can never name a provider outside its OWNER's account cap:
+	// the API resolves the write against that cap and the proxy intersects it
+	// again per request. Mirroring it here only saves the user a round trip into
+	// a rejection; it decides nothing.
+	const ownerAccount = editOwnerId
+		? (users ?? []).find((u) => u.id === editOwnerId)
+		: undefined;
+	const ownerCap = ownerAccount?.allowed_providers ?? null;
+	// Non-admins cannot reassign a key (the server writes it to them whatever the
+	// body says), so their own account cap is the one that will apply.
+	const cap = ownerCap ?? (isAdmin ? null : (me?.allowed_providers ?? null));
+	const capIsOtherOwner =
+		ownerCap !== null && ownerAccount?.username !== me?.username;
+	const capNoteId = "vk-detail-provider-cap-note";
+	const capNote = capIsOtherOwner
+		? t("virtualkeys.modal.form.providerOutsideOwnerAccess")
+		: t("virtualkeys.modal.form.providerOutsideAccountAccess");
+	const isOutsideCap = (id: string) => cap !== null && !cap.includes(id);
+	const outsideCapIds = sortedProviders
+		.map((p) => p.id)
+		.filter((id) => isOutsideCap(id));
+	// An out-of-cap provider is always excluded, on top of whatever the user
+	// picked. This is derived rather than seeded into excludedProviders so that
+	// providersChanged keeps tracking user intent alone (an untouched picker
+	// stays untouched) and so a cap that resolves after edit mode opened still
+	// applies.
+	const effectiveExcluded =
+		outsideCapIds.length > 0
+			? Array.from(new Set([...excludedProviders, ...outsideCapIds]))
+			: excludedProviders;
+
 	const toggleProvider = (providerId: string) => {
+		// Out-of-cap chips stay focusable (aria-disabled, not disabled) so their
+		// explanation is reachable, so the choke point on activating them is here.
+		if (isOutsideCap(providerId)) return;
 		setExcludedProviders((prev) =>
 			prev.includes(providerId)
 				? prev.filter((id) => id !== providerId)
@@ -159,7 +193,9 @@ export function KeyDetailModal({
 				rate_limit_rps,
 				rate_limit_burst,
 				rate_limit_tpm,
-				allowed_providers,
+				// Both are omitted-means-preserve on the API; keep them off the
+				// wire entirely rather than sending an explicit undefined.
+				...(allowed_providers !== undefined ? { allowed_providers } : {}),
 				strip_reasoning,
 				...(owner_user_id !== undefined ? { owner_user_id } : {}),
 			}),
@@ -179,29 +215,45 @@ export function KeyDetailModal({
 	const handleSave = () => {
 		if (!editName.trim()) return;
 		setProviderError("");
-		const allProviderIds = sortedProviders.map((p) => p.id);
-		let allowedProviders: string[] | null;
-		if (excludedProviders.length > 0) {
-			allowedProviders = allProviderIds.filter(
-				(id) => !excludedProviders.includes(id),
-			);
-		} else if (providersChanged) {
-			// User removed all exclusions → send null (no restriction)
-			allowedProviders = null;
-		} else {
-			// No change to providers → preserve original value
-			allowedProviders = vk.allowed_providers ?? null;
-		}
-		if (allowedProviders && allowedProviders.length === 0) {
-			setProviderError(t("virtualKeys.create.providerRequired"));
-			return;
+		// An untouched picker OMITS allowed_providers rather than restating it.
+		// The API reads an absent field as "preserve the stored value" and, since
+		// the request claims nothing about provider access and keeps the key where
+		// it is, does not re-check it against the owner's cap. That is the only
+		// spelling that can edit a key whose owner's cap has since narrowed below
+		// its stored list, and the only one that does not quietly overwrite the
+		// operator's stored intent with the narrowed view this picker is showing.
+		//
+		// A REASSIGNMENT is the exception, and this condition must keep both of
+		// its halves in step with the server's (`req.allowedProvidersPresent ||
+		// !sameOwner(...)` in internal/api/virtualkeys.go). Handing the key to a
+		// different account re-validates the preserved list against the NEW
+		// owner's cap, so omitting the field there gets the stored list refused
+		// with no way back inside this modal: the out-of-cap chips are inert, and
+		// excluding the rest to force a change trips the empty-list guard below.
+		// Restating the narrowed list is also right on the merits, since moving a
+		// key into a narrower account is a deliberate claim, not an untouched
+		// field.
+		let allowedProviders: string[] | null | undefined;
+		if (providersChanged || ownerChanged) {
+			const allProviderIds = sortedProviders.map((p) => p.id);
+			allowedProviders =
+				effectiveExcluded.length > 0
+					? allProviderIds.filter((id) => !effectiveExcluded.includes(id))
+					: // User removed all exclusions → send null (no restriction)
+						null;
+			if (allowedProviders && allowedProviders.length === 0) {
+				setProviderError(t("virtualKeys.create.providerRequired"));
+				return;
+			}
 		}
 		updateMutation.mutate({
 			name: editName.trim(),
 			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
 			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
 			rate_limit_tpm: editTpm !== "" ? parseInt(editTpm, 10) : null,
-			allowed_providers: allowedProviders,
+			...(allowedProviders !== undefined
+				? { allowed_providers: allowedProviders }
+				: {}),
 			strip_reasoning: editStripReasoning,
 			// Non-admins omit the field entirely; the server preserves the
 			// current owner (and would force self anyway).
@@ -234,7 +286,14 @@ export function KeyDetailModal({
 		// Compute excluded providers from the VK's allowed_providers.
 		// If the key has restrictions but providers haven't loaded yet,
 		// we must not proceed — that would silently clear restrictions.
-		if (vk.allowed_providers && vk.allowed_providers.length > 0 && !providers) {
+		//
+		// The test is the LIST'S PRESENCE, not its length. An EMPTY list is a
+		// restriction (deny everything), and it is an ordinary state: deleting the
+		// last provider a key was scoped to prunes the stored list to `{}`. Length-
+		// gating it let a deny-all key fall to the else-branch below, which clears
+		// excludedProviders and paints every provider as allowed, so the first chip
+		// touched would widen the key.
+		if (vk.allowed_providers && !providers) {
 			return;
 		}
 		if (vk.allowed_providers && providers) {
@@ -255,9 +314,14 @@ export function KeyDetailModal({
 		excludedProviders.length !== originalExcluded.length ||
 		excludedProviders.some((id) => !originalExcluded.includes(id));
 
+	// Moving a key to a different account re-opens the provider question even
+	// when the picker was not touched, because the cap that binds the write
+	// changes with it. handleSave uses this to stay in step with the server.
+	const ownerChanged = editOwnerId !== (vk.owner_user_id ?? "");
+
 	const hasChanges =
 		editName !== vk.name ||
-		editOwnerId !== (vk.owner_user_id ?? "") ||
+		ownerChanged ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
 		editTpm !== (vk.rate_limit_tpm?.toString() ?? "") ||
@@ -410,6 +474,16 @@ export function KeyDetailModal({
 							<p className="text-xs text-gray-500 mb-2">
 								{t("virtualkeys.modal.form.providerInstructions")}
 							</p>
+							{outsideCapIds.length > 0 && (
+								<p
+									id={capNoteId}
+									data-testid="vk-provider-cap-note"
+									data-cap-source={capIsOtherOwner ? "owner" : "account"}
+									className="text-xs text-gray-500 italic mb-2"
+								>
+									{capNote}
+								</p>
+							)}
 							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
 									{t("virtualkeys.modal.form.noProviders")}
@@ -417,19 +491,34 @@ export function KeyDetailModal({
 							) : (
 								<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
 									{sortedProviders.map((provider) => {
-										const isExcluded = excludedProviders.includes(provider.id);
+										const outsideCap = isOutsideCap(provider.id);
+										const isExcluded = effectiveExcluded.includes(provider.id);
 										return (
 											<button
 												key={provider.id}
 												type="button"
+												data-testid={`vk-provider-option-${provider.id}`}
+												// aria-disabled, not disabled: a disabled button drops
+												// out of the tab order, which would put both the title
+												// and the note out of reach of a keyboard or a screen
+												// reader. toggleProvider is what makes it inert.
+												{...(outsideCap
+													? {
+															"data-outside-cap": "true",
+															"aria-disabled": true,
+															"aria-describedby": capNoteId,
+														}
+													: {})}
+												title={outsideCap ? capNote : undefined}
 												onClick={() => toggleProvider(provider.id)}
 												aria-pressed={isExcluded}
 												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium transition-colors ui-badge
 													${
 														isExcluded
-															? "ui-badge-neutral line-through opacity-60 hover:brightness-125"
+															? "ui-badge-neutral line-through opacity-60"
 															: "ui-badge-accent"
-													}`}
+													}
+													${outsideCap ? "cursor-not-allowed" : isExcluded ? "hover:brightness-125" : ""}`}
 											>
 												{provider.name}
 											</button>
@@ -570,26 +659,57 @@ export function KeyDetailModal({
 									{t("virtualkeys.modal.noProvidersConfigured")}
 								</p>
 							) : (
-								<div className="flex flex-wrap gap-1.5">
-									{sortedProviders.map((provider) => {
-										const isAllowed =
-											!vk.allowed_providers ||
-											vk.allowed_providers.includes(provider.id);
-										return (
-											<span
-												key={provider.id}
-												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
-													${
-														isAllowed
-															? "ui-badge-accent"
-															: "ui-badge-neutral line-through opacity-60"
-													}`}
-											>
-												{provider.name}
-											</span>
-										);
-									})}
-								</div>
+								<>
+									{outsideCapIds.length > 0 && (
+										<p
+											id={capNoteId}
+											data-testid="vk-detail-readonly-cap-note"
+											data-cap-source={capIsOtherOwner ? "owner" : "account"}
+											className="text-xs text-gray-500 italic mb-1.5"
+										>
+											{capNote}
+										</p>
+									)}
+									<div className="flex flex-wrap gap-1.5">
+										{sortedProviders.map((provider) => {
+											const outsideCap = isOutsideCap(provider.id);
+											// Being named by the key is not the same as being
+											// granted. A stored list wider than the owner's cap is a
+											// deliberate, ordinary state here (the key keeps its
+											// stored intent and effectiveAllowedProviders in
+											// internal/proxy intersects the two on every request),
+											// so a provider the cap excludes reads as denied however
+											// the stored list spells it. Both reasons strike the
+											// chip through; only the cap adds the note, since that
+											// is the one the stored list cannot explain.
+											const isAllowed =
+												!outsideCap &&
+												(!vk.allowed_providers ||
+													vk.allowed_providers.includes(provider.id));
+											return (
+												<span
+													key={provider.id}
+													data-testid={`vk-detail-provider-${provider.id}`}
+													{...(outsideCap
+														? {
+																"data-outside-cap": "true",
+																"aria-describedby": capNoteId,
+															}
+														: {})}
+													title={outsideCap ? capNote : undefined}
+													className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
+														${
+															isAllowed
+																? "ui-badge-accent"
+																: "ui-badge-neutral line-through opacity-60"
+														}`}
+												>
+													{provider.name}
+												</span>
+											);
+										})}
+									</div>
+								</>
 							)}
 						</DetailItem>
 					</div>
@@ -627,15 +747,13 @@ export function KeyDetailModal({
 							type="button"
 							onClick={startEditing}
 							className="ui-btn ui-btn-secondary"
-							disabled={
-								!!vk.allowed_providers &&
-								vk.allowed_providers.length > 0 &&
-								!providers
-							}
+							// Same presence test as startEditing's guard, deliberately: an
+							// empty allowed_providers is still a restriction, and if this
+							// button stayed enabled for one the click would hit that guard
+							// and silently do nothing.
+							disabled={!!vk.allowed_providers && !providers}
 							title={
-								vk.allowed_providers &&
-								vk.allowed_providers.length > 0 &&
-								!providers
+								vk.allowed_providers && !providers
 									? t("virtualkeys.modal.loadingProviders")
 									: undefined
 							}

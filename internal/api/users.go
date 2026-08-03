@@ -118,6 +118,32 @@ type userRequest struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps"`
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm"`
+	// AllowedProviders caps every key this user owns. Null (or omitted on
+	// create) means no cap. On update, OMITTED preserves the stored value and
+	// an explicit null clears it, which is why presence is tracked separately.
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
+	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	allowedProvidersPresent bool
+}
+
+// UnmarshalJSON detects whether allowed_providers was present in the JSON.
+// An explicit null counts as present (it clears the cap), so presence is tested
+// with the two-value map lookup rather than comparing the RawMessage against
+// nil: the lookup expresses "was this key present" independently of whatever
+// bytes the value decoded to, so it stays correct even if the decode target
+// changes. Matches the ownerUserIDPresent line in virtualkeys.go.
+func (req *userRequest) UnmarshalJSON(data []byte) error {
+	type plain userRequest
+	if err := json.Unmarshal(data, (*plain)(req)); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	_, req.allowedProvidersPresent = raw["allowed_providers"]
+	return nil
 }
 
 func (req *userRequest) limits() user.Limits {
@@ -142,6 +168,11 @@ func (req *userRequest) validate() (user.Role, error) {
 	}
 	if err := user.ValidateGrants(req.Grants); err != nil {
 		return "", err
+	}
+	// nil means "no cap"; an empty list would be an ambiguous third state.
+	// Same wording as the virtual-key endpoints.
+	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
+		return "", errors.New("allowed_providers must be null or contain at least one provider ID")
 	}
 	return role, nil
 }
@@ -170,7 +201,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return
 	}
-	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits())
+	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits(), req.AllowedProviders)
 	if err != nil {
 		if isUniqueViolation(err) {
 			http.Error(w, "a user with this username or email already exists", http.StatusConflict)
@@ -216,7 +247,22 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits())
+	// Omitted preserves the stored cap; an explicit null clears it.
+	allowedProviders := req.AllowedProviders
+	if !req.allowedProvidersPresent {
+		existing, gerr := h.userRepo.Get(r.Context(), id)
+		if gerr != nil {
+			if errors.Is(gerr, user.ErrNotFound) {
+				http.Error(w, "user not found", http.StatusNotFound)
+				return
+			}
+			respondError(w, "failed to update user", gerr, http.StatusInternalServerError)
+			return
+		}
+		allowedProviders = existing.AllowedProviders
+	}
+
+	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits(), allowedProviders)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

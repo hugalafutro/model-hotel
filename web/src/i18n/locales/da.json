@@ -1175,7 +1175,8 @@
 			"keyHashed": "Nøglen er hashet og kan ikke gendannes",
 			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt",
 			"id": "Klik for at kopiere nøgle-ID",
-			"owner": "Ejet af {{name}}"
+			"owner": "Ejet af {{name}}",
+			"providerDenyAll": "Nøglen tillader ingen udbydere"
 		},
 		"emptyState": "Ingen virtuelle nøgler. Opret en for at begynde at bruge proxy.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Klik på en udbyder for at begrænse adgang. Alle er tilgængelige som standard.",
 				"noProviders": "Ingen tilgængelige udbydere.",
 				"restoreAccess": "Gendan adgang til alle udbydere",
+				"providerOutsideAccountAccess": "Blokeret af din kontoadgang",
+				"providerOutsideOwnerAccess": "Blokeret af ejerens kontoadgang",
 				"stripReasoning": "Fjern ræsonnement",
 				"stripReasoningDescription": "Når aktiveret, ræsonnement/tænkning tokens fjernes fra streaming svar for kunder, der ikke kan håndtere dem.",
 				"enableStripReasoning": "Aktiver fjernelse af ræsonnement",
@@ -2908,6 +2911,14 @@
 		"description": "Administrer dashboardkonti og hvad hver bruger har adgang til.",
 		"addButton": "Tilføj bruger",
 		"emptyState": "Ingen brugere endnu. Tilføj en for at give nogen begrænset adgang til dette dashboard.",
+		"providerAccess": "Udbyderadgang",
+		"providerAccessAll": "Alle udbydere",
+		"providerAccessSelected": "Kun valgte udbydere",
+		"providerAccessRequired": "Vælg, om denne bruger må nå alle udbydere eller kun de valgte.",
+		"providerAccessEmpty": "Vælg mindst én udbyder, eller vælg alle udbydere.",
+		"providerAccessColumn": "Udbyderadgang",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Ingen udbydere",
 		"table": {
 			"username": "Brugernavn",
 			"displayName": "Visningsnavn",

@@ -42,7 +42,22 @@ import (
 const (
 	// configSchemaVersion is the envelope version a member understands. An import
 	// carrying a different version is refused rather than half-applied.
-	configSchemaVersion = 1
+	//
+	// v2 changed what an EXISTING field MEANS, which is why it moved even though
+	// no field was added or removed. In v1 a virtual key's allowed_provider_names
+	// was a plain list and an empty one was indistinguishable from an absent one;
+	// in v2 it is a pointer, and present-but-empty means "restricted, but none of
+	// its providers resolve on this member".
+	//
+	// The bump exists to protect the IMPORTING side, which this repo's fix could
+	// not reach. A v1 member decodes the v2 [] into a zero-length slice and
+	// applies its own guard, `len(v.AllowedProviderNames) > 0 && len(allowed) == 0`
+	// (upsertVirtualKeys before this change): the first conjunct is false, so it
+	// skips nothing and writes a nil allowed_providers, which is SQL NULL, which
+	// the proxy reads as every provider. A stale-only restricted key would land on
+	// that member wide open. Refusing the envelope outright is the only defence,
+	// and configsync_import.go already does it with 422 + SchemaVersionOK: false.
+	configSchemaVersion = 2
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.
@@ -104,6 +119,30 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 // rate.NewLimiter refuse every request (a per-key denial of service). Import
 // maps it to a 400 refusal.
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
+
+// errUnresolvableUserProviders is returned by apply when a user in the envelope
+// carries a NON-EMPTY provider cap none of whose names resolve on this member.
+// That is anomalous rather than merely inconvenient: providers are replaced
+// declaratively earlier in the same transaction, so every name a legitimate
+// primary exported resolves. Writing the user with a NULL cap would silently
+// promote them from restricted to unrestricted, so the whole import is refused.
+// Import maps it to a 400.
+//
+// Skipping the row is not the escape it looks like. For a user who does not yet
+// exist on this member, skipping means usernameToID cannot find her afterwards,
+// so upsertVirtualKeys imports every key she owns with owner_user_id NULL. The
+// proxy then loads no Owner at all, never populates UserAllowedProvidersKey, and
+// effectiveAllowedProviders takes its owner == nil arm, which drops the owner
+// side of the intersection entirely: a key with no cap of its own ends up
+// completely unrestricted. That is a wider escalation than the one being
+// guarded. For a user who does exist, skipping is merely stale, leaving a
+// pre-existing cap that may be broader than the primary now intends.
+//
+// A present-but-EMPTY cap is deliberately NOT this error: there the primary
+// itself resolves nothing, and applyUsers writes the empty array through so the
+// member reproduces the primary's deny-everything behaviour instead of wedging
+// fleet sync on an ordinary provider deletion.
+var errUnresolvableUserProviders = errors.New("configsync: refusing to apply a user whose provider cap does not resolve")
 
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
@@ -194,14 +233,29 @@ type ExportProvider struct {
 // server-side). allowed_providers is carried as provider NAMES, resolved back to
 // this member's provider UUIDs on import.
 type ExportVK struct {
-	Name                 string   `json:"name"`
-	KeyHash              string   `json:"key_hash"`
-	KeyPreview           string   `json:"key_preview"`
-	RateLimitRPS         *float64 `json:"rate_limit_rps,omitempty"`
-	RateLimitBurst       *int     `json:"rate_limit_burst,omitempty"`
-	RateLimitTPM         *int     `json:"rate_limit_tpm,omitempty"`
-	AllowedProviderNames []string `json:"allowed_provider_names,omitempty"`
-	StripReasoning       bool     `json:"strip_reasoning"`
+	Name           string   `json:"name"`
+	KeyHash        string   `json:"key_hash"`
+	KeyPreview     string   `json:"key_preview"`
+	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
+	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
+	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	// AllowedProviderNames carries the key's provider restriction by NAME
+	// (UUIDs are instance-local). Three distinct states, and the distinction is
+	// load-bearing:
+	//   nil            - no restriction, every provider
+	//   ["openai"]     - restricted, and the names resolve here
+	//   [] (non-nil)   - restricted, but NOTHING resolves on this member
+	// Collapsing the last two is a privilege escalation: a key whose providers
+	// were all deleted would import as unrestricted.
+	//
+	// Two separate JSON mechanisms keep those states distinct on the wire.
+	// Marshalling: omitempty tests the POINTER, not the slice length, so a
+	// present-but-empty restriction is emitted as [] rather than dropped.
+	// Unmarshalling: an absent field leaves the zero value untouched, so an
+	// older primary that never emits the field yields nil and reads as
+	// unrestricted, exactly as it did before this became a pointer.
+	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
+	StripReasoning       bool      `json:"strip_reasoning"`
 	// OwnerUsername carries key ownership by username (user ids are
 	// instance-local; usernames are the users sync key). Nil = unowned. An
 	// owner that does not resolve on the member imports as unowned rather
@@ -251,6 +305,20 @@ type ExportUser struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	// AllowedProviderNames carries the account provider cap by NAME, with the
+	// same three-state contract as ExportVK.AllowedProviderNames (nil = no cap,
+	// non-empty = capped and resolves, present-but-empty = capped with nothing
+	// resolving on the exporting member). Where a key with an unresolvable cap
+	// is skipped, a user cannot be: skipping a user this member does not have
+	// yet makes her keys import unowned, which removes the owner side of the
+	// proxy's cap intersection outright (see errUnresolvableUserProviders). So
+	// applyUsers splits the third state by which side failed to resolve - a
+	// present-but-empty list is written through as an empty array (the primary
+	// itself resolves nothing, and an empty cap denies everything), while names
+	// that arrive non-empty and resolve to nothing are anomalous and refuse the
+	// import. Writing NULL is never an option: it would promote a capped account
+	// to unrestricted.
+	AllowedProviderNames *[]string `json:"allowed_provider_names,omitempty"`
 }
 
 // entityDiff lists the names changed for one entity kind in a sync.

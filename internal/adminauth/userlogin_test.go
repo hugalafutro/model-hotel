@@ -637,7 +637,7 @@ func TestUserLogin_TotpPostgresStoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
-	u, err := userRepo.Create(ctx, "totp-roundtrip", "", nil, hash, user.RoleUser, []string{"chat"}, user.Limits{})
+	u, err := userRepo.Create(ctx, "totp-roundtrip", "", nil, hash, user.RoleUser, []string{"chat"}, user.Limits{}, nil)
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}

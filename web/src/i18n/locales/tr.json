@@ -1175,7 +1175,8 @@
 			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez",
 			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir",
 			"id": "Anahtar kimliğini kopyalamak için tıklayın",
-			"owner": "Sahibi: {{name}}"
+			"owner": "Sahibi: {{name}}",
+			"providerDenyAll": "Anahtar hiçbir sağlayıcıya izin vermez"
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Erişimi kısıtlamak için bir sağlayıcıya tıklayın. Varsayılan olarak hepsine erişim açıktır.",
 				"noProviders": "Mevcut sağlayıcı yok.",
 				"restoreAccess": "Tüm sağlayıcılara erişimi geri yükle",
+				"providerOutsideAccountAccess": "Hesabınızın erişimi tarafından engellendi",
+				"providerOutsideOwnerAccess": "Sahibin hesabının erişimi tarafından engellendi",
 				"stripReasoning": "Akıl Yürütmeyi Kaldır",
 				"stripReasoningDescription": "Etkinleştirildiğinde, akış yanıtlarından, bunları işleyemeyen istemciler için akıl yürütme/düşünme belirteçleri kaldırılır.",
 				"enableStripReasoning": "Akıl yürütme kaldırmayı etkinleştir",
@@ -2908,6 +2911,14 @@
 		"description": "Pano hesaplarını ve her kullanıcının nelere erişebileceğini yönetin.",
 		"addButton": "Kullanıcı ekle",
 		"emptyState": "Henüz kullanıcı yok. Birine bu panoya sınırlı erişim vermek için bir kullanıcı ekleyin.",
+		"providerAccess": "Sağlayıcı erişimi",
+		"providerAccessAll": "Tüm sağlayıcılar",
+		"providerAccessSelected": "Yalnızca seçili sağlayıcılar",
+		"providerAccessRequired": "Bu kullanıcının tüm sağlayıcılara mı yoksa yalnızca seçili olanlara mı erişebileceğini belirleyin.",
+		"providerAccessEmpty": "En az bir sağlayıcı seçin veya tüm sağlayıcıları seçin.",
+		"providerAccessColumn": "Sağlayıcı erişimi",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Sağlayıcı yok",
 		"table": {
 			"username": "Kullanıcı adı",
 			"displayName": "Görünen ad",

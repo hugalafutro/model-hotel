@@ -84,7 +84,7 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
-	users, err := exportUsers(ctx, pool)
+	users, err := exportUsers(ctx, pool, idToName)
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
@@ -242,14 +242,20 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning, &v.OwnerUsername); err != nil {
 			return nil, err
 		}
-		// Translate instance-local provider UUIDs to names; drop any that no
-		// longer resolve. A key whose entire allow-list is stale exports an empty
-		// AllowedProviderNames; import refuses to widen it to all-allowed and
-		// skips it instead (see upsertVirtualKeys).
-		for _, id := range allowedIDs {
-			if name, ok := idToName[id]; ok {
-				v.AllowedProviderNames = append(v.AllowedProviderNames, name)
+		// Translate instance-local provider UUIDs to names, dropping any that no
+		// longer resolve. Restriction PRESENCE comes from the column being
+		// non-NULL, not from how many names survive translation: a key whose
+		// providers were all deleted stays restricted (present but empty) so the
+		// import can tell it apart from an unrestricted key and refuse to widen
+		// it (see upsertVirtualKeys).
+		if allowedIDs != nil {
+			names := []string{}
+			for _, id := range allowedIDs {
+				if name, ok := idToName[id]; ok {
+					names = append(names, name)
+				}
 			}
+			v.AllowedProviderNames = &names
 		}
 		out = append(out, v)
 	}
@@ -259,10 +265,12 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 // exportUsers carries every dashboard user account, keyed by username. The
 // argon2id password hash rides verbatim so a member can authenticate the same
 // credentials; grants and role port as-is (no instance-local IDs involved).
-func exportUsers(ctx context.Context, q querier) ([]ExportUser, error) {
+// idToName translates the account provider cap out of instance-local UUIDs, the
+// same way exportVirtualKeys translates a key's.
+func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]ExportUser, error) {
 	rows, err := q.Query(ctx, `
 		SELECT username, display_name, email, password_hash, role, grants, enabled,
-		       rate_limit_rps, rate_limit_burst, rate_limit_tpm
+		       rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers
 		FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
@@ -271,10 +279,25 @@ func exportUsers(ctx context.Context, q querier) ([]ExportUser, error) {
 	out := []ExportUser{}
 	for rows.Next() {
 		var u ExportUser
+		var allowedIDs []string
 		if err := rows.Scan(&u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
 			&u.Role, &u.Grants, &u.Enabled,
-			&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM); err != nil {
+			&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &allowedIDs); err != nil {
 			return nil, err
+		}
+		// Same nullness-driven rule as exportVirtualKeys: cap PRESENCE comes from
+		// the column being non-NULL, never from how many names survive
+		// translation. An account whose capped providers were all deleted stays
+		// capped (present but empty) so the import can tell it apart from an
+		// uncapped account instead of widening it.
+		if allowedIDs != nil {
+			names := []string{}
+			for _, id := range allowedIDs {
+				if name, ok := idToName[id]; ok {
+					names = append(names, name)
+				}
+			}
+			u.AllowedProviderNames = &names
 		}
 		out = append(out, u)
 	}

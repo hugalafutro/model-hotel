@@ -439,7 +439,7 @@ Content-Type: application/json
 
 Two additional per-key controls:
 
-- **`allowed_providers`** restricts which providers a key may route to. When set, requests resolving to a provider outside the list are rejected, and `hotel/` failover candidates from disallowed providers are skipped. `null` means all providers are accessible; an empty array is rejected on create/update (use `null` to clear the restriction).
+- **`allowed_providers`** restricts which providers a key may route to. When set, requests resolving to a provider outside the list are rejected, and `hotel/` failover candidates from disallowed providers are skipped. `GET /v1/models` is filtered by the same list, so a restricted key lists only the models it could actually call; a key restricted on neither its own list nor its owner's account cap is unaffected and still sees the whole catalogue. `null` means all providers are accessible; an empty array is rejected on create/update (use `null` to clear the restriction).
 - **`strip_reasoning`** removes `reasoning`/`reasoning_content` fields from streaming output for that key - useful for clients that mishandle reasoning deltas from thinking models. Token counting is unaffected.
 
 Both are configurable on key creation and update (API or dashboard).

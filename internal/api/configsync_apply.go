@@ -55,8 +55,23 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	// to their discovered models (FK ON DELETE CASCADE) but request_logs are
 	// preserved: their provider_id FK is ON DELETE SET NULL (migration 010), so
 	// history stays and only the provider link is nulled.
+	//
+	// RETURNING the deleted ids so their references can be pruned out of the two
+	// allow-list columns, which no foreign key covers. Already inside the import
+	// transaction, so the delete and the prune commit together. Ordering matters
+	// as well: this runs BEFORE upsertVirtualKeys and applyUsers, so a row the
+	// envelope also rewrites ends up with the envelope's value rather than a
+	// pruned one, and a row the envelope skips still gets cleaned.
 	providerNames := names(env.Config.Providers, func(p ExportProvider) string { return p.Name })
-	if _, err := tx.Exec(ctx, `DELETE FROM providers WHERE name <> ALL($1)`, providerNames); err != nil {
+	deletedRows, err := tx.Query(ctx, `DELETE FROM providers WHERE name <> ALL($1) RETURNING id::text`, providerNames)
+	if err != nil {
+		return err
+	}
+	deletedProviderIDs, err := pgx.CollectRows(deletedRows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	if err := provider.PruneAllowLists(ctx, tx, deletedProviderIDs); err != nil {
 		return err
 	}
 
@@ -67,7 +82,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	// Users converge before virtual keys so key ownership (carried by
 	// username) resolves against the freshly synced roster.
-	if err := applyUsers(ctx, tx, env.Config.Users); err != nil {
+	if err := applyUsers(ctx, tx, env.Config.Users, nameToID); err != nil {
 		return err
 	}
 	userNameToID, err := usernameToID(ctx, tx)
@@ -418,8 +433,11 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 // lets an email move between two surviving accounts without tripping the
 // unique index mid-upsert (row-by-row upserts would otherwise 23505 on a
 // swap). Sessions of removed or disabled users die at the auth middleware,
-// which re-checks the users row on every request.
-func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
+// which re-checks the users row on every request. nameToID resolves each
+// account's provider cap back to this member's provider UUIDs; it is built
+// after the provider upsert so every name a legitimate primary exported
+// resolves.
+func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map[string]string) error {
 	if users == nil {
 		return nil
 	}
@@ -438,10 +456,55 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 		if grants == nil {
 			grants = []string{}
 		}
+		// Resolve the account provider cap into this member's UUIDs. The presence
+		// test is the POINTER, not the length, for the same reason as
+		// upsertVirtualKeys: an account whose capped providers were all deleted
+		// exports a present-but-empty list, and reading that as "uncapped" is the
+		// escalation being guarded.
+		var allowedProviders *[]string
+		if u.AllowedProviderNames != nil {
+			resolved := []string{}
+			for _, name := range *u.AllowedProviderNames {
+				if id, ok := nameToID[name]; ok {
+					resolved = append(resolved, id)
+				}
+			}
+			// Two ways a cap can resolve to nothing here, and they are NOT the
+			// same thing.
+			//
+			// The wire list is EMPTY: the primary itself resolved nothing, i.e.
+			// every provider in this account's cap has been deleted there. Fall
+			// through and write the empty array. proxy.effectiveAllowedProviders
+			// treats a non-nil cap as "exactly these providers" INCLUDING when
+			// empty, so `{}` reproduces the primary's own effective behaviour
+			// (deny everything) rather than NULL's "every provider". Refusing
+			// instead would wedge fleet sync on an ordinary provider deletion,
+			// and because a refusal fails the ENTIRE import the member would stay
+			// frozen on its previous cap for this account, which may be WIDER
+			// than what the primary now effectively enforces.
+			//
+			// The wire list is NON-EMPTY but none of it resolves: anomalous. The
+			// declarative provider replace runs earlier in this same transaction
+			// and nameToID is built from its result, so every name a legitimate
+			// primary exported resolves here. Refuse the envelope; the rollback
+			// undoes the users delete above with it.
+			if len(resolved) == 0 && len(*u.AllowedProviderNames) > 0 {
+				return fmt.Errorf("%w: user %s", errUnresolvableUserProviders, strconv.Quote(u.Username))
+			}
+			// A partially resolving list is just as anomalous as a fully
+			// unresolvable one for the same reason, and it narrows the account
+			// silently, so say so. Matches the warn upsertVirtualKeys emits on its
+			// analogous branch. Username only: no request content is ever logged.
+			if len(resolved) < len(*u.AllowedProviderNames) {
+				debuglog.Warn("configsync: some of a user's allowed_providers do not resolve on this member; importing the subset",
+					"user", u.Username, "wanted", len(*u.AllowedProviderNames), "resolved", len(resolved))
+			}
+			allowedProviders = &resolved
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled,
-			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (username) DO UPDATE SET
 				display_name = EXCLUDED.display_name,
 				email = EXCLUDED.email,
@@ -452,9 +515,10 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 				rate_limit_rps = EXCLUDED.rate_limit_rps,
 				rate_limit_burst = EXCLUDED.rate_limit_burst,
 				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
+				allowed_providers = EXCLUDED.allowed_providers,
 				updated_at = now()`,
 			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled,
-			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
+			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM, allowedProviders); err != nil {
 			return err
 		}
 	}
@@ -486,20 +550,41 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 			return err
 		}
 		var allowed []string // target provider UUIDs; nil => all allowed
-		for _, name := range v.AllowedProviderNames {
-			if id, ok := nameToID[name]; ok {
-				allowed = append(allowed, id)
+		if v.AllowedProviderNames != nil {
+			for _, name := range *v.AllowedProviderNames {
+				if id, ok := nameToID[name]; ok {
+					allowed = append(allowed, id)
+				}
 			}
 		}
 		// Privilege-safety: if this key was restricted to providers but none of
-		// them resolve on this member, do NOT import it. An empty/nil
-		// allowed_providers means "all providers allowed" (the proxy only filters
-		// on a non-empty list), so writing it would silently turn a restricted key
-		// into an unrestricted one. Skipping leaves the restricted key absent
-		// rather than over-privileged. In the normal flow this never triggers:
-		// providers are upserted in the same transaction before this runs, so
-		// every name resolves.
-		if len(v.AllowedProviderNames) > 0 && len(allowed) == 0 {
+		// them resolve on this member, do NOT import it. A nil allowed_providers
+		// means "all providers allowed" (pgx writes the nil slice as NULL, and
+		// the proxy treats only NULL as unrestricted), so writing it would
+		// silently turn a restricted key into an unrestricted one. Skipping is
+		// the lesser evil rather than a clean no-op: a key this member does not
+		// have yet simply stays absent, but a key it already has keeps its
+		// existing row, whose allowed_providers may be broader than the primary
+		// now intends. Stale-but-bounded still beats writing NULL.
+		//
+		// The presence test is the POINTER, not the length. A key whose providers
+		// were all deleted upstream exports a present-but-empty list, and reading
+		// that as "unrestricted" is exactly the escalation this guards.
+		//
+		// Which is also how this branch is reached in practice. Deleting a provider
+		// on the primary runs provider.PruneAllowLists, so any key scoped solely to
+		// it is left with `{}` and exports an empty list: an ordinary admin action
+		// trips this skip, with its warn, on every sync until the key is repaired or
+		// removed. The other way in, a NON-empty list none of whose names resolve,
+		// stays the rare one: providers are upserted in the same transaction before
+		// this runs, so every name a legitimate primary exported does resolve.
+		//
+		// Note the deliberate difference from applyUsers, which writes an empty wire
+		// cap through as `{}` instead of skipping. A user cannot be skipped: the
+		// declarative replace would delete the row. A key can, and skipping keeps the
+		// member's own row rather than converging it, which is the accepted gap
+		// recorded in the design doc.
+		if v.AllowedProviderNames != nil && len(allowed) == 0 {
 			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
 			continue
 		}

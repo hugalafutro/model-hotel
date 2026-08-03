@@ -290,6 +290,44 @@ Automatic sync is **off by default**: it trades the per-change diff review for
 convenience. Leave it off to approve every fleet-wide change by hand, or turn it
 on once you trust the primary as the source of truth.
 
+### Upgrade the whole fleet before expecting config sync to run
+
+Config sync carries a schema version in every envelope, and a member applies an
+envelope only when that version is exactly the one it understands. Anything else
+is refused outright rather than half-applied, because a member that guessed at an
+envelope it does not understand could silently widen a restricted virtual key.
+
+The refusal is **symmetric**. It is not "old members are rejected": a new primary
+pushing to an old member and an old primary pushing to a new member both fail, so
+config sync stops fleet-wide the moment two builds disagree. What you see is:
+
+- In the **Config sync wizard**, affected members are flagged with
+  `this member's app version is too old to sync with the primary` (the wording
+  names the member regardless of which side is actually behind).
+- With **automatic sync** on, those members stop converging and report
+  `version mismatch with the primary`. Their **Last Config Sync** column stops
+  advancing.
+- Nothing is written to a refusing member, so no member is left half-converged.
+  Health, traffic, metrics, alerting and Bellhop pairing are unaffected: only
+  config replication pauses.
+
+The fix is to **upgrade every Model Hotel instance to the same build**, primary
+and members alike, then re-run config sync (or wait for automatic sync's next
+pass, which picks the fleet back up on its own). Upgrading the primary first is
+the case that looks alarming, since the whole members list goes red at once, but
+nothing is broken and no config was lost. Front Desk itself relays the primary's
+envelope untouched, so its version is not what matters here.
+
+Schema versions move rarely, and only when the meaning of the config on the wire
+changes rather than when a field is added. The most recent bump is an example:
+a virtual key restricted to providers that no longer exist on the primary now
+travels as an empty provider list instead of an absent one, and an older member
+reads a present-but-empty list as "no restriction", because the guard that would
+have skipped the key only fires once the list has at least one entry. Refusing
+the envelope is what stops that key from landing on the older member wide open,
+and no fix on the sending side can reach a member that is already running the
+older code.
+
 ---
 
 ## TLS Proxy

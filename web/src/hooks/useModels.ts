@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
+import { useIdentity } from "../context/IdentityContext";
 import { isChatModel } from "../utils/model";
 
 /**
@@ -42,14 +43,36 @@ export function useEnabledModels() {
 }
 
 /**
- * Enabled, chat-capable models. Excludes embedding/rerank (and other non-chat)
- * modalities so they don't appear in the Chat and Arena pickers, where they
- * could never be used. The failover group editor and /v1/models keep listing
- * every model.
+ * Enabled, chat-capable models the caller can actually reach. Two constraints,
+ * both of which make a model unusable rather than merely unattractive:
+ *
+ *   - embedding/rerank (and other non-chat) modalities, which the Chat and
+ *     Arena pickers could never send to;
+ *   - providers outside the caller's account cap (users.allowed_providers).
+ *     Both pickers post to /api/chat/*, where the admin-chat middleware
+ *     publishes that same cap and the proxy's candidate filter refuses anything
+ *     outside it with a 403. Listing them only moves the refusal from selection
+ *     time to send time.
+ *
+ * The cap is read by PRESENCE: null or undefined is no cap, and a non-null list
+ * admits exactly its members, so an empty one (reachable when the last provider
+ * a capped account named is deleted) leaves no chat model selectable at all.
+ *
+ * The failover group editor and the Models page keep listing every model: they
+ * are configuration surfaces, not send surfaces.
  */
 export function useChatModels() {
 	const { data: models, ...rest } = useEnabledModels();
-	const chatModels = useMemo(() => models.filter(isChatModel), [models]);
+	const { me } = useIdentity();
+	const cap = me?.allowed_providers ?? null;
+	const chatModels = useMemo(
+		() =>
+			models.filter(
+				(m: Model) =>
+					isChatModel(m) && (cap === null || cap.includes(m.provider_id)),
+			),
+		[models, cap],
+	);
 	return { ...rest, data: chatModels };
 }
 

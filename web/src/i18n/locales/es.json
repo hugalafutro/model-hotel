@@ -1217,7 +1217,8 @@
 			"keyHashed": "La clave está hasheada y no se puede recuperar",
 			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto",
 			"id": "Haga clic para copiar el ID de clave",
-			"owner": "Propiedad de {{name}}"
+			"owner": "Propiedad de {{name}}",
+			"providerDenyAll": "La clave no permite ningún proveedor"
 		},
 		"emptyState": "No hay claves virtuales. Crea una para empezar a usar el proxy.",
 		"steps": {
@@ -1247,6 +1248,8 @@
 				"providerInstructions": "Haga clic en un proveedor para restringir el acceso. Todos son accesibles por defecto.",
 				"noProviders": "No hay proveedores disponibles.",
 				"restoreAccess": "Restaurar acceso a todos los proveedores",
+				"providerOutsideAccountAccess": "Bloqueado por el acceso de su cuenta",
+				"providerOutsideOwnerAccess": "Bloqueado por el acceso de la cuenta del propietario",
 				"stripReasoning": "Eliminar razonamiento",
 				"stripReasoningDescription": "Cuando está activado, los tokens de razonamiento/pensamiento se eliminan de las respuestas de streaming para los clientes que no pueden manejarlos.",
 				"enableStripReasoning": "Activar la eliminación del razonamiento",
@@ -2969,6 +2972,14 @@
 		"description": "Gestiona las cuentas del panel y a qué puede acceder cada usuario.",
 		"addButton": "Añadir usuario",
 		"emptyState": "Aún no hay usuarios. Añade uno para dar a alguien acceso limitado a este panel.",
+		"providerAccess": "Acceso a proveedores",
+		"providerAccessAll": "Todos los proveedores",
+		"providerAccessSelected": "Solo los proveedores seleccionados",
+		"providerAccessRequired": "Elige si este usuario puede acceder a todos los proveedores o solo a los seleccionados.",
+		"providerAccessEmpty": "Selecciona al menos un proveedor o elige todos los proveedores.",
+		"providerAccessColumn": "Acceso a proveedores",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Ningún proveedor",
 		"table": {
 			"username": "Nombre de usuario",
 			"displayName": "Nombre visible",

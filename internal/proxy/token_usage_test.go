@@ -153,7 +153,7 @@ func TestTokenUsage_RecordedOnNonStreamingSuccess(t *testing.T) {
 	}()
 
 	// Call recordTokenUsage directly to verify it works end-to-end.
-	h.recordTokenUsage(keyHash, 50, 25, 0, "nonstream-test-key")
+	h.recordTokenUsage(keyHash, &requestLogData{virtualKeyName: "nonstream-test-key"}, 50, 25, 0)
 
 	refreshed, err := vkRepo.FindByKeyHash(ctx, keyHash)
 	if err != nil {

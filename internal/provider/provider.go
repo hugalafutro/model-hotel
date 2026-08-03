@@ -257,19 +257,98 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	return p, nil
 }
 
-// Delete removes a provider by ID.
+// Delete removes a provider by ID, along with every reference to it in the
+// allow-list columns.
+//
+// The transaction is the point: virtual_keys.allowed_providers and
+// users.allowed_providers hold provider UUIDs in a TEXT[], which cannot carry a
+// foreign key, so pruning them is this function's job rather than the database's
+// (see PruneAllowLists). Doing the delete and the prunes in one transaction is
+// what stops a failure between them leaving the provider gone with its id still
+// referenced, which is the exact dangling state the pruning exists to prevent.
+//
+// Concurrency note, because this changed when the transaction was introduced.
+// This used to be one autocommit statement holding its locks for the length of
+// that statement. It now holds them until commit, and the footprint is wider
+// than the three tables named in this file:
+//
+//   - providers, then virtual_keys, then users, written here directly;
+//   - models and provider_quota_snapshots, deleted by FK CASCADE;
+//   - request_logs, whose provider_id is set to NULL by FK (migration 010).
+//
+// That last one is the largest part of the change: request_logs is the
+// highest-volume table in the schema, every row belonging to this provider is
+// rewritten, and those row locks are now pinned across the two allow-list
+// UPDATEs as well instead of being released with the DELETE. It adds no
+// deadlock risk of its own, because the writer on the other side is a proxy log
+// insert, a single autocommit statement that takes only FOR KEY SHARE on the
+// provider row and so can never hold a lock while waiting for one of ours.
+//
+// A deadlock with a concurrent config-sync import IS possible, though the
+// window is narrow. Config-sync funnels through providers first: upsertProviders
+// locks the envelope's providers and the declarative delete locks the rest,
+// before it touches either allow-list column. But that funnel is SNAPSHOT-
+// SCOPED. It covers every provider row that existed when the import's provider
+// stage ran, and nothing later in apply() locks providers again, so a provider
+// created after that point escapes it entirely. Once it does, the reversed
+// second-half order bites: config-sync writes users and then virtual_keys, the
+// opposite of the order here.
+//
+// The sequence, with T2 the import, T1 this function and T3 an ordinary create:
+//
+//  1. T2 finishes its provider stage, holding every provider row in its snapshot.
+//  2. T3 commits INSERT INTO providers for Q; Q is in no lock set of T2.
+//  3. T2 reaches applyUsers, whose `UPDATE users SET email = NULL` locks every
+//     users row, including U, which caps on Q.
+//  4. T1 deletes Q, uncontested, because T2 never locked it.
+//  5. T1 prunes virtual_keys, locking VK, which allow-lists Q. Uncontested.
+//  6. T1 prunes users, needs U, and blocks on T2.
+//  7. T2 reaches upsertVirtualKeys, touches VK, and blocks on T1.
+//
+// Postgres detects the cycle and aborts one side with SQLSTATE 40P01. Both
+// operations are safely retriable, which is what keeps this a nuisance rather
+// than a correctness problem: the aborted transaction rolled back whole, so a
+// retried delete simply performs the delete (it returns pgx.ErrNoRows only if an
+// earlier attempt actually committed), and a member whose import was aborted is
+// re-pushed on the next auto-sync tick, because RecordAutoSyncHash advances the
+// marker only when every member converged. A one-off manual sync from the wizard
+// is NOT re-pushed and has to be repeated by the operator.
+//
+// All of this is a property of config-sync's statement order rather than
+// anything enforced, so reordering internal/api/configsync_apply.go's apply()
+// means re-deriving it.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM providers WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		debuglog.Error("provider: delete failed to begin transaction", "id", id, "error", err)
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	result, err := tx.Exec(ctx, `DELETE FROM providers WHERE id = $1`, id)
 	if err != nil {
 		debuglog.Error("provider: delete failed", "id", id, "error", err)
 		return err
 	}
 
+	// Before the prune, so a missing provider is still ErrNoRows and does not
+	// pay for two pointless UPDATEs.
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
 
+	if err := PruneAllowLists(ctx, tx, []string{id.String()}); err != nil {
+		debuglog.Error("provider: pruning allow-lists failed", "id", id, "error", err)
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		debuglog.Error("provider: delete failed to commit", "id", id, "error", err)
+		return err
+	}
+
+	// Caches are dropped only after the commit: invalidating earlier would let a
+	// concurrent read repopulate them from a transaction that then rolled back.
 	InvalidateProviderCache()
 	// The DB cascade removes this provider's models; drop their cached rows too.
 	model.InvalidateModelCache()

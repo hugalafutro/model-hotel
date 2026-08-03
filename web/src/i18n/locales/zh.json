@@ -1175,7 +1175,8 @@
 			"keyHashed": "密钥已哈希，无法恢复",
 			"tpm": "每分钟 Token 上限；当分钟预算用尽后，请求将返回 429 状态码",
 			"id": "点击复制密钥 ID",
-			"owner": "所有者：{{name}}"
+			"owner": "所有者：{{name}}",
+			"providerDenyAll": "此密钥不允许任何提供者"
 		},
 		"emptyState": "没有虚拟密钥。创建一个要开始使用代理的密钥。",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "点击提供商限制访问。默认情况下所有都可以访问。",
 				"noProviders": "没有可用的供应商。",
 				"restoreAccess": "恢复所有提供者的访问权限",
+				"providerOutsideAccountAccess": "受您的账户访问权限限制",
+				"providerOutsideOwnerAccess": "受所有者账户访问权限限制",
 				"stripReasoning": "剥离推理内容",
 				"stripReasoningDescription": "启用时，无法处理的客户端的串流响应中会删除推理/思考令牌。",
 				"enableStripReasoning": "启用推理内容剥离",
@@ -2908,6 +2911,14 @@
 		"description": "管理仪表盘账户以及每个用户可访问的内容。",
 		"addButton": "添加用户",
 		"emptyState": "暂无用户。添加一个用户，即可授予其对此仪表盘的受限访问权限。",
+		"providerAccess": "提供者访问权限",
+		"providerAccessAll": "所有提供者",
+		"providerAccessSelected": "仅所选提供者",
+		"providerAccessRequired": "选择该用户可以访问所有提供者，还是仅访问所选提供者。",
+		"providerAccessEmpty": "请至少选择一个提供者，或选择所有提供者。",
+		"providerAccessColumn": "提供者访问权限",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "无提供者",
 		"table": {
 			"username": "用户名",
 			"displayName": "显示名称",

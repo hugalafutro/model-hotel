@@ -1217,7 +1217,8 @@
 			"keyHashed": "La chiave è hashed e non può essere recuperata",
 			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
 			"id": "Clicca per copiare l'ID chiave",
-			"owner": "Di proprietà di {{name}}"
+			"owner": "Di proprietà di {{name}}",
+			"providerDenyAll": "La chiave non consente alcun provider"
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {
@@ -1247,6 +1248,8 @@
 				"providerInstructions": "Fare clic su un provider per limitare l'accesso. Tutti sono accessibili per impostazione predefinita.",
 				"noProviders": "Nessun provider disponibile.",
 				"restoreAccess": "Ripristina l'accesso a tutti i provider",
+				"providerOutsideAccountAccess": "Bloccato dall'accesso del tuo account",
+				"providerOutsideOwnerAccess": "Bloccato dall'accesso dell'account del proprietario",
 				"stripReasoning": "Rimuovi ragionamento",
 				"stripReasoningDescription": "Se abilitato, i token ragionamento/pensiero vengono rimossi dalle risposte di streaming per i client che non possono gestirli.",
 				"enableStripReasoning": "Abilita la rimozione del ragionamento",
@@ -2969,6 +2972,14 @@
 		"description": "Gestisci gli account della dashboard e a cosa può accedere ogni utente.",
 		"addButton": "Aggiungi utente",
 		"emptyState": "Nessun utente per ora. Aggiungine uno per dare a qualcuno un accesso limitato a questa dashboard.",
+		"providerAccess": "Accesso ai provider",
+		"providerAccessAll": "Tutti i provider",
+		"providerAccessSelected": "Solo i provider selezionati",
+		"providerAccessRequired": "Scegli se questo utente può raggiungere tutti i provider o solo quelli selezionati.",
+		"providerAccessEmpty": "Seleziona almeno un provider oppure scegli tutti i provider.",
+		"providerAccessColumn": "Accesso ai provider",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Nessun provider",
 		"table": {
 			"username": "Nome utente",
 			"displayName": "Nome visualizzato",

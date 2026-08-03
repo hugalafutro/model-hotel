@@ -35,6 +35,45 @@ export function Users() {
 		queryKey: ["users"],
 		queryFn: () => api.users.list(),
 	});
+	// Resolves capped-account provider ids to names for the column below; also
+	// consumed by UserModal, so this is the same cache entry, not a refetch.
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
+	const providerName = useCallback(
+		(id: string) => providers?.find((p) => p.id === id)?.name ?? id,
+		[providers],
+	);
+
+	// A cap has THREE states, not two. NULL means every provider; a non-empty list
+	// means exactly those; an EMPTY list means none of them, which the proxy
+	// enforces as deny-everything (effectiveAllowedProviders in internal/proxy).
+	// The empty state is reached by ordinary admin action, since deleting the last
+	// provider an account was capped to prunes the stored list to `{}`, so it is
+	// labelled explicitly instead of falling through to allowed_providers[0] and
+	// rendering a blank cell for the single most restricted account on the page.
+	const providerAccess = useCallback(
+		(cap: string[] | null | undefined) => {
+			if (cap == null) {
+				return { state: "all", label: t("users.providerAccessAll") };
+			}
+			if (cap.length === 0) {
+				return { state: "none", label: t("users.providerAccessNone") };
+			}
+			if (cap.length === 1) {
+				return { state: "selected", label: providerName(cap[0]) };
+			}
+			return {
+				state: "selected",
+				label: t("users.providerAccessCount", {
+					first: providerName(cap[0]),
+					count: cap.length - 1,
+				}),
+			};
+		},
+		[providerName, t],
+	);
 
 	const handleSort = useCallback((field: UserSortField) => {
 		setSort((prev) => ({
@@ -95,13 +134,14 @@ export function Users() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[18%]" />
-							<col className="w-[18%]" />
-							<col className="w-[22%]" />
-							<col className="w-[10%]" />
+							<col className="w-[16%]" />
 							<col className="w-[14%]" />
+							<col className="w-[18%]" />
 							<col className="w-[8%]" />
-							<col className="w-[10%]" />
+							<col className="w-[12%]" />
+							<col className="w-[12%]" />
+							<col className="w-[8%]" />
+							<col className="w-[12%]" />
 						</colgroup>
 						<thead>
 							<tr>
@@ -124,6 +164,7 @@ export function Users() {
 								<StaticHeader tooltip={t("users.table.grantsTooltip")}>
 									{t("users.table.grants")}
 								</StaticHeader>
+								<StaticHeader>{t("users.providerAccessColumn")}</StaticHeader>
 								<SortableHeader
 									label={t("users.table.status")}
 									field="enabled"
@@ -167,6 +208,15 @@ export function Users() {
 														)
 														.join(", ")
 												: t("users.table.noGrants")}
+									</td>
+									<td
+										className="px-4 py-3 text-sm text-gray-400 truncate"
+										data-testid={`user-provider-access-${u.id}`}
+										data-provider-access={
+											providerAccess(u.allowed_providers).state
+										}
+									>
+										{providerAccess(u.allowed_providers).label}
 									</td>
 									<td className="px-4 py-3">
 										<span className="inline-flex items-center gap-1.5">

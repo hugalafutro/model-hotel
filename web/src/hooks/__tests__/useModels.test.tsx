@@ -3,6 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import type { Model, Provider } from "../../api/types";
+import { IdentityProvider, useIdentity } from "../../context/IdentityContext";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import {
@@ -226,6 +227,88 @@ describe("useChatModels", () => {
 
 		expect(result.current.data).toHaveLength(1);
 		expect(result.current.data?.[0].id).toBe(mockModel.id);
+	});
+
+	// The chat surfaces post to /api/chat/*, where the caller's account cap is
+	// enforced, so the picker must not offer a provider that cap denies. These
+	// cases need a real IdentityProvider: without one the context default has no
+	// identity and therefore no cap.
+	describe("account provider cap", () => {
+		const otherProviderModel: Model = {
+			...mockModel,
+			id: "model-002",
+			model_id: "other-model-v1",
+			provider_id: "provider-002",
+			provider_name: "Other Provider",
+		};
+
+		function renderCapped(allowed: string[] | null) {
+			server.use(
+				http.get("/api/auth/me", () =>
+					HttpResponse.json({
+						username: "alice",
+						role: "user",
+						grants: ["chat"],
+						allowed_providers: allowed,
+					}),
+				),
+				http.get("/api/models", () =>
+					HttpResponse.json([mockModel, otherProviderModel], { status: 200 }),
+				),
+			);
+			const Wrapper = createWrapper();
+			// The identity resolves asynchronously and reads as "no cap" until it
+			// does, so every case below settles on `me` before asserting. Without
+			// that, the uncapped case would pass against the pending state alone.
+			return renderHook(
+				() => ({ chat: useChatModels(), me: useIdentity().me }),
+				{
+					wrapper: ({ children }: { children: React.ReactNode }) => (
+						<Wrapper>
+							<IdentityProvider>{children}</IdentityProvider>
+						</Wrapper>
+					),
+				},
+			);
+		}
+
+		async function settled(result: { current: { me: unknown } }) {
+			await waitFor(() => {
+				expect(result.current.me).not.toBeNull();
+			});
+		}
+
+		it("keeps every chat model when the account has no cap", async () => {
+			const { result } = renderCapped(null);
+			await settled(result);
+
+			await waitFor(() => {
+				expect(result.current.chat.isSuccess).toBe(true);
+			});
+			expect(result.current.chat.data).toHaveLength(2);
+		});
+
+		it("drops models whose provider the cap denies", async () => {
+			const { result } = renderCapped(["provider-001"]);
+			await settled(result);
+
+			await waitFor(() => {
+				expect(result.current.chat.data).toHaveLength(1);
+			});
+			expect(result.current.chat.data[0].provider_id).toBe("provider-001");
+		});
+
+		it("drops every model for a deny-all cap", async () => {
+			// An empty cap is a restriction, not the absence of one. A
+			// length-based test would hand this account the full catalogue.
+			const { result } = renderCapped([]);
+			await settled(result);
+
+			await waitFor(() => {
+				expect(result.current.chat.isSuccess).toBe(true);
+			});
+			expect(result.current.chat.data).toEqual([]);
+		});
 	});
 });
 

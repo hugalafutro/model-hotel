@@ -1175,7 +1175,8 @@
 			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa",
 			"tpm": "Tokenien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun",
 			"id": "Klikkaa kopioidaksesi avaimen tunnuksen",
-			"owner": "Omistaja: {{name}}"
+			"owner": "Omistaja: {{name}}",
+			"providerDenyAll": "Avain ei salli yhtään palveluntarjoajaa"
 		},
 		"emptyState": "Ei virtuaalisia avaimia. Luo sellainen, jotta voit aloittaa välityspalvelimen käytön.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Napsauta tarjoajaa rajoittaaksesi pääsyä. Kaikki ovat oletusarvoisesti käytettävissä.",
 				"noProviders": "Ei tarjoajia saatavilla.",
 				"restoreAccess": "Palauta pääsy kaikkiin palveluntarjoajiin",
+				"providerOutsideAccountAccess": "Estetty tilisi käyttöoikeuksien vuoksi",
+				"providerOutsideOwnerAccess": "Estetty omistajan tilin käyttöoikeuksien vuoksi",
 				"stripReasoning": "Poista Perustelu",
 				"stripReasoningDescription": "Kun tämä on käytössä, päättely- ja ajattelutokenit poistetaan suoratoistovastauksista asiakkaille, jotka eivät osaa käsitellä niitä.",
 				"enableStripReasoning": "Ota päättelyn poisto käyttöön",
@@ -2908,6 +2911,14 @@
 		"description": "Hallitse hallintapaneelin tilejä ja sitä, mihin kukin käyttäjä pääsee.",
 		"addButton": "Lisää käyttäjä",
 		"emptyState": "Ei vielä käyttäjiä. Lisää käyttäjä antaaksesi jollekulle rajatun pääsyn tähän hallintapaneeliin.",
+		"providerAccess": "Pääsy palveluntarjoajiin",
+		"providerAccessAll": "Kaikki palveluntarjoajat",
+		"providerAccessSelected": "Vain valitut palveluntarjoajat",
+		"providerAccessRequired": "Valitse, pääseekö tämä käyttäjä kaikkiin palveluntarjoajiin vai vain valittuihin.",
+		"providerAccessEmpty": "Valitse vähintään yksi palveluntarjoaja tai salli kaikki palveluntarjoajat.",
+		"providerAccessColumn": "Pääsy palveluntarjoajiin",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Ei palveluntarjoajia",
 		"table": {
 			"username": "Käyttäjätunnus",
 			"displayName": "Näyttönimi",

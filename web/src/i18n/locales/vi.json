@@ -1175,7 +1175,8 @@
 			"keyHashed": "Khóa đã được băm và không thể khôi phục lại",
 			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết.",
 			"id": "Nhấp để sao chép ID khóa",
-			"owner": "Thuộc sở hữu của {{name}}"
+			"owner": "Thuộc sở hữu của {{name}}",
+			"providerDenyAll": "Khóa không cho phép nhà cung cấp nào"
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Nhấp vào một nhà cung cấp để hạn chế quyền truy cập. Theo mặc định, tất cả đều có thể truy cập được.",
 				"noProviders": "Không có nhà cung cấp nào.",
 				"restoreAccess": "Khôi phục quyền truy cập cho tất cả các nhà cung cấp",
+				"providerOutsideAccountAccess": "Bị chặn bởi quyền truy cập của tài khoản bạn",
+				"providerOutsideOwnerAccess": "Bị chặn bởi quyền truy cập của tài khoản chủ sở hữu",
 				"stripReasoning": "Loại bỏ phần suy luận",
 				"stripReasoningDescription": "Khi tính năng này được bật, các mã thông báo suy luận/suy nghĩ sẽ bị loại bỏ khỏi các phản hồi truyền trực tiếp dành cho những khách hàng không thể xử lý chúng.",
 				"enableStripReasoning": "Bật loại bỏ phần suy luận",
@@ -2908,6 +2911,14 @@
 		"description": "Quản lý tài khoản bảng điều khiển và quyền truy cập của từng người dùng.",
 		"addButton": "Thêm người dùng",
 		"emptyState": "Chưa có người dùng nào. Thêm một người để cấp quyền truy cập hạn chế vào bảng điều khiển này.",
+		"providerAccess": "Quyền truy cập nhà cung cấp",
+		"providerAccessAll": "Tất cả nhà cung cấp",
+		"providerAccessSelected": "Chỉ các nhà cung cấp đã chọn",
+		"providerAccessRequired": "Chọn xem người dùng này có thể dùng tất cả nhà cung cấp hay chỉ những nhà cung cấp đã chọn.",
+		"providerAccessEmpty": "Chọn ít nhất một nhà cung cấp, hoặc chọn tất cả nhà cung cấp.",
+		"providerAccessColumn": "Quyền truy cập nhà cung cấp",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Không có nhà cung cấp",
 		"table": {
 			"username": "Tên đăng nhập",
 			"displayName": "Tên hiển thị",

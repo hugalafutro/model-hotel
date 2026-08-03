@@ -1175,7 +1175,8 @@
 			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden",
 			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist",
 			"id": "Zum Kopieren der Schlüssel-ID hier klicken",
-			"owner": "Gehört {{name}}"
+			"owner": "Gehört {{name}}",
+			"providerDenyAll": "Schlüssel erlaubt keine Anbieter"
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Klicken Sie auf einen Anbieter, um den Zugriff zu beschränken. Alle sind standardmäßig zugänglich.",
 				"noProviders": "Keine Anbieter verfügbar.",
 				"restoreAccess": "Zugriff auf alle Anbieter wiederherstellen",
+				"providerOutsideAccountAccess": "Durch Ihren Kontozugriff blockiert",
+				"providerOutsideOwnerAccess": "Durch den Kontozugriff des Besitzers blockiert",
 				"stripReasoning": "Reasoning entfernen",
 				"stripReasoningDescription": "Wenn aktiviert, werden Reasoning-/Thinking-Token aus Streaming-Antworten für Clients entfernt, die sie nicht verarbeiten können.",
 				"enableStripReasoning": "Strip-Argumentation aktivieren",
@@ -2908,6 +2911,14 @@
 		"description": "Dashboard-Konten und deren Zugriffsrechte verwalten.",
 		"addButton": "Benutzer hinzufügen",
 		"emptyState": "Noch keine Benutzer. Lege einen an, um jemandem eingeschränkten Zugriff auf dieses Dashboard zu geben.",
+		"providerAccess": "Anbieterzugriff",
+		"providerAccessAll": "Alle Anbieter",
+		"providerAccessSelected": "Nur ausgewählte Anbieter",
+		"providerAccessRequired": "Legen Sie fest, ob dieser Benutzer alle Anbieter oder nur ausgewählte erreichen darf.",
+		"providerAccessEmpty": "Wählen Sie mindestens einen Anbieter aus oder erlauben Sie alle Anbieter.",
+		"providerAccessColumn": "Anbieterzugriff",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Keine Anbieter",
 		"table": {
 			"username": "Benutzername",
 			"displayName": "Anzeigename",

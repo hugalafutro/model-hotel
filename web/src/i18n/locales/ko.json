@@ -1175,7 +1175,8 @@
 			"keyHashed": "키가 해시 처리되어 복구할 수 없습니다",
 			"tpm": "분당 토큰 제한; 분당 할당량이 소진되면 요청은 429 오류로 거부됩니다",
 			"id": "키 ID 복사",
-			"owner": "{{name}} 소유"
+			"owner": "{{name}} 소유",
+			"providerDenyAll": "키가 제공자를 허용하지 않음"
 		},
 		"emptyState": "가상 키가 없습니다. 프록시를 사용하려면 키를 생성하세요.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "제공자를 클릭하여 액세스를 제한하세요. 기본적으로 모두 액세스할 수 있습니다.",
 				"noProviders": "제공자가 없습니다.",
 				"restoreAccess": "모든 제공자에 대한 접근 권한 복원",
+				"providerOutsideAccountAccess": "내 계정의 접근 권한으로 차단됨",
+				"providerOutsideOwnerAccess": "소유자 계정의 접근 권한으로 차단됨",
 				"stripReasoning": "추론 제거",
 				"stripReasoningDescription": "이 기능이 활성화되면, 해당 토큰을 처리할 수 없는 클라이언트에 대한 스트리밍 응답에서 추론/사고 토큰이 제거됩니다.",
 				"enableStripReasoning": "추론 제거 활성화",
@@ -2908,6 +2911,14 @@
 		"description": "대시보드 계정과 각 사용자의 접근 범위를 관리합니다.",
 		"addButton": "사용자 추가",
 		"emptyState": "아직 사용자가 없습니다. 사용자를 추가해 이 대시보드에 제한된 접근 권한을 부여하세요.",
+		"providerAccess": "제공자 접근 권한",
+		"providerAccessAll": "모든 제공자",
+		"providerAccessSelected": "선택한 제공자만",
+		"providerAccessRequired": "이 사용자가 모든 제공자를 사용할 수 있는지, 선택한 제공자만 사용할 수 있는지 선택하세요.",
+		"providerAccessEmpty": "제공자를 하나 이상 선택하거나 모든 제공자를 허용하세요.",
+		"providerAccessColumn": "제공자 접근 권한",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "제공자 없음",
 		"table": {
 			"username": "사용자 이름",
 			"displayName": "표시 이름",

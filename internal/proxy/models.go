@@ -4,12 +4,48 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// ListModels returns all available models in OpenAI-compatible format.
+// providerAllowFunc turns a caller's effective provider allow-list into a
+// membership test over provider ids. A nil list is the unrestricted case and
+// admits every provider; a non-nil list admits exactly its members, so an empty
+// one admits none. The test is the list's PRESENCE, never its length.
+func providerAllowFunc(allowed *[]string) func(uuid.UUID) bool {
+	if allowed == nil {
+		return func(uuid.UUID) bool { return true }
+	}
+	set := make(map[string]struct{}, len(*allowed))
+	for _, id := range *allowed {
+		set[id] = struct{}{}
+	}
+	return func(id uuid.UUID) bool {
+		_, ok := set[id.String()]
+		return ok
+	}
+}
+
+// ListModels returns the models this virtual key can actually call, in
+// OpenAI-compatible format.
+//
+// The catalogue is scoped by the same pair a chat request is filtered by: the
+// key's own allowed_providers intersected with its owner account's cap
+// (effectiveAllowedProviders, then the candidate filter in resolveCandidates).
+// ProxyKeyMiddleware runs on every /v1 route including this one and always
+// publishes the key's own list, but it publishes the OWNER cap only inside its
+// `if vk.Owner != nil` block, so that value is simply absent for an unowned
+// key. The comma-ok reads below turn that absence into a nil cap, which
+// effectiveAllowedProviders already reads as "this side restricts nothing" —
+// the same shape /api/chat/* relies on from the other direction, where the key
+// side is the missing one. An unrestricted caller produces a nil effective
+// list and still sees the whole catalogue, so this narrows the response only
+// for a key an operator has deliberately restricted, and what it hides is
+// exactly what would have come back as a 403.
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models, err := h.modelRepo.ListEnabled(r.Context())
 	if err != nil {
@@ -18,8 +54,15 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	keyAllowed, _ := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey).(*[]string)
+	ownerAllowed, _ := r.Context().Value(ctxkeys.UserAllowedProvidersKey).(*[]string)
+	providerAllowed := providerAllowFunc(effectiveAllowedProviders(keyAllowed, ownerAllowed))
+
 	openAIModels := make([]map[string]any, 0, len(models))
 	for _, m := range models {
+		if !providerAllowed(m.ProviderID) {
+			continue
+		}
 		modelID := provider.NormalizeName(m.ProviderName) + "/" + m.ModelID
 		openAIModels = append(openAIModels, modelToOpenAIItem(m, modelID, m.ProviderName))
 	}
@@ -40,6 +83,15 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 				m, err := h.modelRepo.Get(r.Context(), modelUUID)
 				if err != nil || !m.Enabled || !m.ProviderEnabled {
+					continue
+				}
+				if !providerAllowed(m.ProviderID) {
+					// Keep walking the priority order rather than dropping the
+					// group here. A request naming the group is filtered
+					// candidate by candidate, so the group stays reachable while
+					// ANY entry sits on a provider this caller may use, and the
+					// first such entry is the one that would serve it. Only a
+					// group with no reachable entry at all falls out.
 					continue
 				}
 

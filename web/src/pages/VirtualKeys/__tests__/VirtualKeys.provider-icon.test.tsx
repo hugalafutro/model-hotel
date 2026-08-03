@@ -27,9 +27,11 @@ describe("VirtualKeys table provider icon", () => {
 			expect(screen.getByText("Test API Key")).toBeInTheDocument();
 		});
 
-		// Should have the provider-restricted icon - ShieldCheck with title attribute
-		const iconCell = screen.getByTitle("Provider-restricted key");
-		expect(iconCell).toBeInTheDocument();
+		// Asserted through the stable data attribute rather than the tooltip text,
+		// which is translated and therefore not stable across locales.
+		expect(
+			screen.getByTestId(`vk-provider-access-${mockVirtualKey.id}`),
+		).toHaveAttribute("data-provider-access", "selected");
 	});
 
 	it("does not show shield icon for keys without provider filtering", async () => {
@@ -43,13 +45,36 @@ describe("VirtualKeys table provider icon", () => {
 			expect(screen.getByText("Test API Key")).toBeInTheDocument();
 		});
 
-		// Should NOT have the provider-restricted icon
+		// A NULL allowed_providers is the only unrestricted value, so neither
+		// marker is rendered.
 		expect(
-			screen.queryByTitle("Provider-restricted key"),
+			screen.queryByTestId(`vk-provider-access-${mockVirtualKey.id}`),
 		).not.toBeInTheDocument();
 	});
 
-	it("does not show shield icon when allowed_providers is empty array", async () => {
+	// An EMPTY allowed_providers gets its own deny-all marker. This assertion
+	// used to be the exact opposite ("does not show shield icon when
+	// allowed_providers is empty array"), and it was correct when written: the
+	// proxy gated its filter on len(list) > 0, so NULL and [] both meant
+	// "unrestricted" and an empty list genuinely was not a restriction.
+	//
+	// The per-user provider cap changed that. effectiveAllowedProviders
+	// (internal/proxy/proxy_request.go) now reads any non-NULL list as "exactly
+	// these providers, including none of them", because it intersects the key
+	// list with the owner account list and a disjoint pair necessarily yields an
+	// empty one: had empty kept meaning "allow all", every denial the
+	// intersection computes would have inverted into a grant.
+	//
+	// No existing deployment changes behaviour: migration 065
+	// (065_user_allowed_providers.sql) runs `UPDATE virtual_keys SET
+	// allowed_providers = NULL WHERE allowed_providers IS NOT NULL AND
+	// cardinality(allowed_providers) = 0` before the new semantics take effect,
+	// normalising the only rows that relied on the old reading.
+	//
+	// The state is still reachable going forward, which is why it needs a marker:
+	// provider.PruneAllowLists rewrites a key scoped solely to deleted providers
+	// down to `{}`.
+	it("shows the deny-all marker when allowed_providers is an empty array", async () => {
 		const keyWithEmptyProviders = {
 			...mockVirtualKey,
 			allowed_providers: [],
@@ -68,7 +93,7 @@ describe("VirtualKeys table provider icon", () => {
 		});
 
 		expect(
-			screen.queryByTitle("Provider-restricted key"),
-		).not.toBeInTheDocument();
+			screen.getByTestId(`vk-provider-access-${mockVirtualKey.id}`),
+		).toHaveAttribute("data-provider-access", "none");
 	});
 });

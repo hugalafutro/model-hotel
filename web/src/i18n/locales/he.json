@@ -1217,7 +1217,8 @@
 			"keyHashed": "המפתח עבר גיבוב ואינו ניתן לשחזור",
 			"tpm": "מגבלת אסימונים לדקה; בקשות נדחות עם קוד 429 ברגע שהתקציב הדקתי נוצל",
 			"id": "לחץ כדי להעתיק את מזהה המפתח",
-			"owner": "בבעלות {{name}}"
+			"owner": "בבעלות {{name}}",
+			"providerDenyAll": "המפתח אינו מתיר אף ספק"
 		},
 		"emptyState": "אין מפתחות וירטואליים. צור מפתח כדי להתחיל להשתמש בפרוקסי.",
 		"steps": {
@@ -1247,6 +1248,8 @@
 				"providerInstructions": "לחץ על ספק כדי להגביל את הגישה. כברירת מחדל, הגישה פתוחה לכולם.",
 				"noProviders": "אין ספקים זמינים.",
 				"restoreAccess": "להשיב את הגישה לכל הספקים",
+				"providerOutsideAccountAccess": "חסום על ידי הגישה של החשבון שלך",
+				"providerOutsideOwnerAccess": "חסום על ידי הגישה של חשבון הבעלים",
 				"stripReasoning": "הסרת שרשרת חשיבה",
 				"stripReasoningDescription": "כאשר אפשרות זו מופעלת, אסימוני ההיגיון/החשיבה מוסרים מתגובות הזרם עבור לקוחות שאינם מסוגלים לטפל בהם.",
 				"enableStripReasoning": "הפעל הסרת שרשרת חשיבה",
@@ -2969,6 +2972,14 @@
 		"description": "ניהול חשבונות לוח הבקרה והרשאות הגישה של כל משתמש.",
 		"addButton": "הוספת משתמש",
 		"emptyState": "אין עדיין משתמשים. הוסיפו משתמש כדי להעניק למישהו גישה מוגבלת ללוח בקרה זה.",
+		"providerAccess": "גישה לספקים",
+		"providerAccessAll": "כל הספקים",
+		"providerAccessSelected": "רק ספקים נבחרים",
+		"providerAccessRequired": "בחרו אם משתמש זה רשאי לגשת לכל הספקים או רק לנבחרים.",
+		"providerAccessEmpty": "בחרו ספק אחד לפחות, או בחרו בכל הספקים.",
+		"providerAccessColumn": "גישה לספקים",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "אין ספקים",
 		"table": {
 			"username": "שם משתמש",
 			"displayName": "שם תצוגה",

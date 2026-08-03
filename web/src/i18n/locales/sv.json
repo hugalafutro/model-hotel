@@ -1175,7 +1175,8 @@
 			"keyHashed": "Nyckeln är hashad och kan inte återställas",
 			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad",
 			"id": "Klicka för att kopiera nyckel-ID",
-			"owner": "Ägs av {{name}}"
+			"owner": "Ägs av {{name}}",
+			"providerDenyAll": "Nyckeln tillåter inga leverantörer"
 		},
 		"emptyState": "Inga virtuella nycklar. Skapa en för att börja använda proxy.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Klicka på en leverantör för att begränsa åtkomst. Alla är tillgängliga som standard.",
 				"noProviders": "Inga leverantörer tillgängliga.",
 				"restoreAccess": "Återställ åtkomst till alla leverantörer",
+				"providerOutsideAccountAccess": "Blockerad av ditt kontos åtkomst",
+				"providerOutsideOwnerAccess": "Blockerad av ägarens kontoåtkomst",
 				"stripReasoning": "Ta bort resonemang",
 				"stripReasoningDescription": "När detta är aktiverat tas resonemangs-/tanketokens bort från strömmande svar för klienter som inte kan hantera dem.",
 				"enableStripReasoning": "Aktivera borttagning av resonemang",
@@ -2908,6 +2911,14 @@
 		"description": "Hantera dashboardkonton och vad varje användare har åtkomst till.",
 		"addButton": "Lägg till användare",
 		"emptyState": "Inga användare ännu. Lägg till en för att ge någon begränsad åtkomst till denna dashboard.",
+		"providerAccess": "Leverantörsåtkomst",
+		"providerAccessAll": "Alla leverantörer",
+		"providerAccessSelected": "Endast valda leverantörer",
+		"providerAccessRequired": "Välj om den här användaren får nå alla leverantörer eller bara de valda.",
+		"providerAccessEmpty": "Välj minst en leverantör, eller välj alla leverantörer.",
+		"providerAccessColumn": "Leverantörsåtkomst",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Inga leverantörer",
 		"table": {
 			"username": "Användarnamn",
 			"displayName": "Visningsnamn",

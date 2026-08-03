@@ -132,6 +132,147 @@ func (h *Handler) ownerUsername(ctx context.Context, ownerID *uuid.UUID) *string
 	return &u.Username
 }
 
+// ownerLabel names a key owner for an error message, falling back to the id.
+func (h *Handler) ownerLabel(ctx context.Context, ownerID *uuid.UUID) string {
+	if name := h.ownerUsername(ctx, ownerID); name != nil {
+		return *name
+	}
+	if ownerID != nil {
+		return ownerID.String()
+	}
+	return "the owner"
+}
+
+// providerNameByID returns a lookup that names a provider for an error message,
+// falling back to the raw id. Best-effort: an unreadable provider list must not
+// fail the write, only make the message less friendly.
+//
+// The provider list is read on first use, not when the lookup is built, so the
+// overwhelmingly common case (a write nobody refuses) costs no query at all.
+func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
+	var names map[string]string
+	return func(id string) string {
+		if names == nil {
+			names = map[string]string{}
+			if h.providerRepo != nil {
+				if ps, err := h.providerRepo.List(ctx); err == nil {
+					for _, p := range ps {
+						names[p.ID.String()] = p.Name
+					}
+				}
+			}
+		}
+		if n, ok := names[id]; ok {
+			return n
+		}
+		return id
+	}
+}
+
+// ownerProviderCap returns the account-level provider cap of a key's owner, or
+// nil when the key is unowned, the user store is not wired, or the owner has no
+// cap.
+//
+// A missing owner row reports no cap rather than failing the write, and the
+// foreign key is what makes that safe: virtual_keys.owner_user_id is
+// ON DELETE SET NULL (migration 051), so a reference to a deleted user cannot
+// persist. Two things reach this branch, and neither needs a cap to be resolved
+// here: an admin naming an owner_user_id that parses as a UUID but matches no
+// user (resolveWriteOwner only parses, it never checks existence), and a user
+// delete racing this write. Both let the uncapped list through to Create/Update,
+// where it violates the FK and comes back 400.
+// The foreign key, not the proxy, is what is being relied on here: the runtime
+// intersection (effectiveAllowedProviders in internal/proxy) does exist now and
+// is the enforcement wall, but it only ever narrows a request, so it cannot
+// undo a too-wide list this function let through.
+func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]string, error) {
+	if ownerID == nil || h.userRepo == nil {
+		return nil, nil //nolint:nilnil // nil cap = unrestricted, not an error sentinel
+	}
+	u, err := h.userRepo.Get(ctx, *ownerID)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return nil, nil //nolint:nilnil // deleted owner; the FK rejects the write
+		}
+		return nil, err
+	}
+	if u == nil {
+		// A store that reports neither a row nor an error. The real repository
+		// returns ErrNotFound, but ownerUsername guards this too and an
+		// authorization input must not depend on which of the two it gets.
+		return nil, nil //nolint:nilnil // no row = no cap to enforce
+	}
+	return u.AllowedProviders, nil
+}
+
+// enforceOwnerCap resolves the allowed_providers a write should store, given
+// what the caller asked for and the owner's account cap.
+//
+// SECURITY INVARIANT: no virtual key may name a provider outside its owner's
+// cap. Without this, the virtual_keys grant is a privilege escalation: a capped
+// non-admin has full CRUD over their own keys, so they would simply mint a new
+// one with allowed_providers unset and reach everything. The rule binds admins
+// as well as the key's owner, so the dashboard can never display access that the
+// proxy's runtime intersection would deny. An admin is not blocked by this: the
+// cap is an admin-only field, so raising it first is always available.
+//
+// A nil `requested` with a capped owner resolves to the cap itself rather than
+// erroring: "no providers named" unambiguously means "everything I may reach",
+// and writing the cap makes that explicit in the stored row.
+//
+// An EMPTY cap is a live state and this function is already right for it. The
+// interactive API refuses to WRITE one (users.go rejects an empty
+// allowed_providers on create and update, exactly as this file's endpoints do),
+// but that is a UI guard, not a storage invariant, and three paths go around it:
+// provider.PruneAllowLists (internal/provider/allowlists.go) empties an account
+// scoped solely to a provider that was just deleted, migration
+// 066_prune_provider_allowlists.sql does the same to the rows an upgrading
+// install inherits, and applyUsers in configsync_apply.go writes a
+// present-but-empty wire cap through verbatim. So `{}` reaches this function on
+// an ordinary admin action, and copying it into the key is the correct answer:
+// the proxy reads a non-nil list as "exactly these providers" INCLUDING when
+// empty (effectiveAllowedProviders in internal/proxy), so a deny-everything
+// account mints deny-everything keys instead of unrestricted ones. The explicit
+// path agrees without a special case: an empty cap builds an empty allowed set,
+// so every provider `requested` names is refused.
+//
+// The parameter is ownerCap, not cap: cap is a Go builtin and shadowing it here
+// would trip revive's redefines-builtin-id rule.
+func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerName func(string) string) (*[]string, error) {
+	if ownerCap == nil {
+		return requested, nil
+	}
+	if requested == nil {
+		return ownerCap, nil
+	}
+	allowed := make(map[string]struct{}, len(*ownerCap))
+	for _, id := range *ownerCap {
+		allowed[id] = struct{}{}
+	}
+	for _, id := range *requested {
+		if _, ok := allowed[id]; !ok {
+			// Both remedies are named because either can be the right one: a
+			// lowered cap makes an untouched key refuse a plain rename, and
+			// there the fix is to narrow the key, not to widen the account.
+			return nil, fmt.Errorf("%s is outside %s's account provider access. Widen their account access or drop that provider from this key",
+				providerName(id), ownerLabel)
+		}
+	}
+	return requested, nil
+}
+
+// sameOwner reports whether two resolved owners are the same identity, treating
+// nil (an unowned key) as a value rather than as "unknown". It exists so the
+// update path can tell a write that keeps a key where it is from one that hands
+// it to a different account, which is what decides whether an omitted
+// allowed_providers still has to clear the owner's cap.
+func sameOwner(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
 // resolveWriteOwner decides the owner a create/update writes. Non-admins always
 // write their own id: the request-body owner_user_id (the `requested` argument)
 // is deliberately IGNORED for them, so a non-admin can neither assign a key to
@@ -217,6 +358,17 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	caller := user.IdentityFrom(r.Context())
 	owner, err := resolveWriteOwner(caller, req.OwnerUserID)
+	if err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
+	}
+
+	ownerCap, err := h.ownerProviderCap(r.Context(), owner)
+	if err != nil {
+		respondError(w, "failed to create virtual key", err, http.StatusInternalServerError)
+		return
+	}
+	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
 	if err != nil {
 		respondBadRequest(w, err.Error(), nil)
 		return
@@ -388,6 +540,60 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	owner := existingVK.OwnerUserID
 	if caller != nil && !caller.IsAdmin() || req.ownerUserIDPresent {
 		owner, err = resolveWriteOwner(caller, req.OwnerUserID)
+		if err != nil {
+			respondBadRequest(w, err.Error(), nil)
+			return
+		}
+	}
+
+	// Deliberately after the owner is resolved: the cap that binds this write
+	// belongs to the owner the row will STORE, not the one it had. Reassigning a
+	// wide-open key to a capped user must not smuggle the old list past the cap.
+	//
+	// An omitted allowed_providers on a write that KEEPS the same owner is not
+	// re-checked. The stored value is preserved verbatim above and passed
+	// straight through: the request asserts nothing about provider access and
+	// leaves the key on the same account, so it proposes no change for a cap to
+	// judge. Note what is NOT being claimed here: the preserved value was not
+	// necessarily vetted against this cap when it was written. A stored list
+	// wider than its owner's cap is a normal state, reachable at least via
+	// upsertVirtualKeys in configsync_apply.go (a fleet import writes rows
+	// without consulting the cap) and by narrowing users.allowed_providers, which
+	// updates only the users row and leaves that owner's existing keys alone. The
+	// exemption rests on the request preserving the status quo, not on the status
+	// quo having been approved.
+	//
+	// Re-checking it made a key UNEDITABLE the moment its owner's cap narrowed
+	// below the stored list, because enforceOwnerCap rejects an over-wide list
+	// instead of narrowing it: omitting the field hit that branch on the
+	// preserved value and re-sending the stored list hit it too, so a plain
+	// rename had no legal form at all. Re-checking also quietly rewrote an
+	// untouched unrestricted key's row down to the cap, destroying the operator's
+	// original intent for good, since widening the cap later cannot restore it.
+	//
+	// The invariant that matters survives: no key ROUTES outside its owner's cap.
+	// effectiveAllowedProviders in internal/proxy intersects the two on every
+	// request and is the wall; this line only ever governed what the row stores.
+	// A stored list wider than the cap shows access the proxy denies, and the
+	// EDITING picker in KeyDetailModal.tsx marks exactly those providers as
+	// blocked rather than offering them. The read-only chip view on that same
+	// modal does not: it renders the stored list verbatim, so the excess reads as
+	// allowed until someone opens the picker.
+	//
+	// Both halves of the condition are load-bearing. An explicit list is a claim
+	// and is always checked (as is every create, where a nil list resolves to the
+	// cap rather than to no restriction). And a write that MOVES the key to a
+	// different owner is checked even with the field omitted: a reassignment
+	// changes WHICH cap applies, so the preserved list is newly subjected to a
+	// cap it has never been measured against, which is a claim like any other.
+	// KeyDetailModal.handleSave mirrors both halves; they have to move together.
+	if req.allowedProvidersPresent || !sameOwner(owner, existingVK.OwnerUserID) {
+		ownerCap, capErr := h.ownerProviderCap(r.Context(), owner)
+		if capErr != nil {
+			respondError(w, "failed to update virtual key", capErr, http.StatusInternalServerError)
+			return
+		}
+		req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
 		if err != nil {
 			respondBadRequest(w, err.Error(), nil)
 			return

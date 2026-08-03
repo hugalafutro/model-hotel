@@ -1217,7 +1217,8 @@
 			"keyHashed": "A chave é hashed e não pode ser recuperada",
 			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado",
 			"id": "Clique para copiar o ID da chave",
-			"owner": "Propriedade de {{name}}"
+			"owner": "Propriedade de {{name}}",
+			"providerDenyAll": "A chave não permite nenhum provedor"
 		},
 		"emptyState": "Não há chaves virtuais. Crie uma para começar a usar o proxy.",
 		"steps": {
@@ -1247,6 +1248,8 @@
 				"providerInstructions": "Clique em um provedor para restringir o acesso. Todos são acessíveis por padrão.",
 				"noProviders": "Não há provedores disponíveis.",
 				"restoreAccess": "Restaurar acesso a todos os provedores",
+				"providerOutsideAccountAccess": "Bloqueado pelo acesso da sua conta",
+				"providerOutsideOwnerAccess": "Bloqueado pelo acesso da conta do proprietário",
 				"stripReasoning": "Remover raciocínio",
 				"stripReasoningDescription": "Quando habilitado, o raciocínio/pensamento tokens são removidos das respostas de streaming para clientes que não podem lidar com eles.",
 				"enableStripReasoning": "Ativar a remoção do raciocínio",
@@ -2969,6 +2972,14 @@
 		"description": "Gerir as contas do painel e o que cada utilizador pode aceder.",
 		"addButton": "Adicionar utilizador",
 		"emptyState": "Ainda não há utilizadores. Adicione um para dar a alguém acesso limitado a este painel.",
+		"providerAccess": "Acesso a provedores",
+		"providerAccessAll": "Todos os provedores",
+		"providerAccessSelected": "Apenas os provedores selecionados",
+		"providerAccessRequired": "Escolha se este utilizador pode aceder a todos os provedores ou apenas aos selecionados.",
+		"providerAccessEmpty": "Selecione pelo menos um provedor ou escolha todos os provedores.",
+		"providerAccessColumn": "Acesso a provedores",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Nenhum provedor",
 		"table": {
 			"username": "Nome de utilizador",
 			"displayName": "Nome apresentado",

@@ -63,14 +63,17 @@ type VirtualKeyInfo struct {
 }
 
 // OwnerInfo is the owning user's proxy-relevant state: identity for the
-// shared "user:<uuid>" limiter bucket, the account enabled switch, and the
-// aggregate per-user limits.
+// shared "user:<uuid>" limiter bucket, the account enabled switch, the
+// aggregate per-user limits, and the account provider cap.
 type OwnerInfo struct {
 	ID             string
 	Enabled        bool
 	RateLimitRPS   *float64
 	RateLimitBurst *int
 	RateLimitTPM   *int
+	// AllowedProviders is the owner's account-level provider cap (nil = no
+	// cap), intersected with the key's own list by effectiveAllowedProviders.
+	AllowedProviders *[]string
 }
 
 type contextKey string

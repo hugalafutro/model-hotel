@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -52,6 +53,15 @@ func setupOwnershipTest(t *testing.T) (router chi.Router, loginAs func(id string
 		return resp.ID
 	}
 	return router, loginAs, mkUser
+}
+
+// doJSONAs performs a request as a specific non-admin user, minting them a
+// session token first. loginAs comes from setupOwnershipTest: the session
+// manager it closes over is per-test, so it has to be threaded in rather than
+// rediscovered here.
+func doJSONAs(t *testing.T, r chi.Router, method, path string, loginAs func(id string) string, u *user.User, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	return doJSON(t, r, method, path, loginAs(u.ID.String()), body)
 }
 
 func decodeVK(t *testing.T, body []byte) virtualkey.VirtualKeyResponse {

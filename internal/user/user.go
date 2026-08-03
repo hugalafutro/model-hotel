@@ -63,6 +63,12 @@ type User struct {
 	// exposed over the API.
 	SSOProvider *string `json:"-"`
 	SSOSubject  *string `json:"-"`
+	// AllowedProviders caps every virtual key this user owns to a provider
+	// subset. NULL = no cap (every provider). A non-nil list restricts to
+	// exactly its members, including when empty (restricted to nothing).
+	// The proxy intersects this with each key's own list on every request;
+	// see effectiveAllowedProviders in internal/proxy.
+	AllowedProviders *[]string `json:"allowed_providers"`
 }
 
 // Repository provides CRUD over the users table.
@@ -75,13 +81,14 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, sso_provider, sso_subject`
+const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, sso_provider, sso_subject, allowed_providers`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
 		&u.Role, &u.Grants, &u.Enabled, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
-		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &u.SSOProvider, &u.SSOSubject)
+		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &u.SSOProvider, &u.SSOSubject,
+		&u.AllowedProviders)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -106,16 +113,16 @@ func NormalizeEmail(email *string) *string {
 }
 
 // Create inserts a new user. passwordHash must already be argon2id-encoded.
-func (r *Repository) Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role Role, grants []string, limits Limits) (*User, error) {
+func (r *Repository) Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role Role, grants []string, limits Limits, allowedProviders *[]string) (*User, error) {
 	if grants == nil {
 		grants = []string{}
 	}
 	return scanUser(r.pool.QueryRow(ctx,
-		`INSERT INTO users (username, display_name, email, password_hash, role, grants, rate_limit_rps, rate_limit_burst, rate_limit_tpm)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`INSERT INTO users (username, display_name, email, password_hash, role, grants, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 RETURNING `+userColumns,
 		username, displayName, NormalizeEmail(email), passwordHash, role, grants,
-		limits.RPS, limits.Burst, limits.TPM))
+		limits.RPS, limits.Burst, limits.TPM, allowedProviders))
 }
 
 // List returns all users, newest first.
@@ -235,18 +242,18 @@ func (r *Repository) HasEnabled(ctx context.Context) (bool, error) {
 // Update rewrites the mutable profile fields (not the password). Limits are
 // always written: a nil pointer clears the cap, matching the virtual-key
 // update semantics (the UI sends null when the field is emptied).
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role Role, grants []string, enabled bool, limits Limits) (*User, error) {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role Role, grants []string, enabled bool, limits Limits, allowedProviders *[]string) (*User, error) {
 	if grants == nil {
 		grants = []string{}
 	}
 	return scanUser(r.pool.QueryRow(ctx,
 		`UPDATE users
 		 SET username = $2, display_name = $3, email = $4, role = $5, grants = $6, enabled = $7,
-		     rate_limit_rps = $8, rate_limit_burst = $9, rate_limit_tpm = $10, updated_at = NOW()
+		     rate_limit_rps = $8, rate_limit_burst = $9, rate_limit_tpm = $10, allowed_providers = $11, updated_at = NOW()
 		 WHERE id = $1
 		 RETURNING `+userColumns,
 		id, username, displayName, NormalizeEmail(email), role, grants, enabled,
-		limits.RPS, limits.Burst, limits.TPM))
+		limits.RPS, limits.Burst, limits.TPM, allowedProviders))
 }
 
 // Limits bundles the per-user aggregate limit fields for Create/Update.

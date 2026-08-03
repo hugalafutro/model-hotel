@@ -119,11 +119,12 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	}
 	if vk.Owner != nil && vk.OwnerUserID != nil {
 		info.Owner = &OwnerInfo{
-			ID:             vk.OwnerUserID.String(),
-			Enabled:        vk.Owner.Enabled,
-			RateLimitRPS:   vk.Owner.RateLimitRPS,
-			RateLimitBurst: vk.Owner.RateLimitBurst,
-			RateLimitTPM:   vk.Owner.RateLimitTPM,
+			ID:               vk.OwnerUserID.String(),
+			Enabled:          vk.Owner.Enabled,
+			RateLimitRPS:     vk.Owner.RateLimitRPS,
+			RateLimitBurst:   vk.Owner.RateLimitBurst,
+			RateLimitTPM:     vk.Owner.RateLimitTPM,
+			AllowedProviders: vk.Owner.AllowedProviders,
 		}
 	}
 	return info, nil
@@ -219,8 +220,10 @@ func (h *Handler) Register(r chi.Router) {
 	r.Use(h.ProxyKeyMiddleware)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 	// TPM admission runs after RPS: a key must pass the request-rate gate before
-	// its token budget is checked. Only the public proxy enforces TPM; admin
-	// chat (RegisterAdminChat) has no real virtual key, so it is exempt.
+	// its token budget is checked. This is the full two-stage gate (per-key
+	// budget, plus the owner's aggregate budget when the key is owned); admin
+	// chat has no virtual key and so runs only the owner stage, see
+	// RegisterAdminChat.
 	r.Use(h.tpmLimiter.Middleware(h.cfg.RateLimitEnabled))
 
 	r.Get("/models", h.ListModels)
@@ -253,6 +256,14 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 		})
 	})
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
+	// TPM admission after RPS, mirroring Register. Only the owner stage applies
+	// here: this surface authenticates a dashboard session, so there is no
+	// virtual key to carry a per-key budget, and the per-key stage's fallback
+	// bucket (r.RemoteAddr) has no debit path. The caller's own aggregate cap is
+	// published by api.ChatUserContextMiddleware, which main.go mounts ahead of
+	// this group; without both middlewares a user with a TPM cap would meter
+	// nothing here while their /v1 traffic is capped.
+	r.Use(h.tpmLimiter.UserMiddleware(h.cfg.RateLimitEnabled))
 
 	r.Post("/chat", h.ChatCompletions)
 	r.Post("/arena", h.ChatCompletions)
@@ -306,6 +317,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, vk.Owner.RateLimitRPS)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, vk.Owner.RateLimitBurst)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, vk.Owner.RateLimitTPM)
+			ctx = context.WithValue(ctx, ctxkeys.UserAllowedProvidersKey, vk.Owner.AllowedProviders)
 		}
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot

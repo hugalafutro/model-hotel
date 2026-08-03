@@ -1217,7 +1217,8 @@
 			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
 			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
 			"id": "Faceți clic pentru a copia ID-ul cheii",
-			"owner": "Deținută de {{name}}"
+			"owner": "Deținută de {{name}}",
+			"providerDenyAll": "Cheia nu permite niciun furnizor"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {
@@ -1247,6 +1248,8 @@
 				"providerInstructions": "Faceți clic pe un furnizor pentru a restricționa accesul. Toate sunt accesibile în mod implicit.",
 				"noProviders": "Niciun furnizor disponibil.",
 				"restoreAccess": "Restabiliți accesul tuturor furnizorilor",
+				"providerOutsideAccountAccess": "Blocat de accesul contului dumneavoastră",
+				"providerOutsideOwnerAccess": "Blocat de accesul contului proprietarului",
 				"stripReasoning": "Elimină raționamentul",
 				"stripReasoningDescription": "Când este activată, token-urile de raționament/gândire sunt eliminate din răspunsurile în flux pentru clienții care nu le pot gestiona.",
 				"enableStripReasoning": "Activează eliminarea raționamentului",
@@ -2969,6 +2972,14 @@
 		"description": "Gestionați conturile panoului și la ce are acces fiecare utilizator.",
 		"addButton": "Adaugă utilizator",
 		"emptyState": "Niciun utilizator încă. Adăugați unul pentru a oferi cuiva acces limitat la acest panou.",
+		"providerAccess": "Acces la furnizori",
+		"providerAccessAll": "Toți furnizorii",
+		"providerAccessSelected": "Doar furnizorii selectați",
+		"providerAccessRequired": "Alegeți dacă acest utilizator poate accesa toți furnizorii sau doar pe cei selectați.",
+		"providerAccessEmpty": "Selectați cel puțin un furnizor sau alegeți toți furnizorii.",
+		"providerAccessColumn": "Acces la furnizori",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Niciun furnizor",
 		"table": {
 			"username": "Nume de utilizator",
 			"displayName": "Nume afișat",

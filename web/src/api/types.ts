@@ -1005,6 +1005,18 @@ export interface Me {
 	grants: string[];
 	/** True for users-row identities (not the env-token admin); gates the Security page. */
 	user_account?: boolean;
+	/**
+	 * Account provider cap. null/undefined means no cap (every provider); a
+	 * non-null array restricts every key this user owns to exactly its members,
+	 * so an EMPTY array denies every provider. Empty is reachable on READ even
+	 * though the users API refuses to write one: deleting the last provider a
+	 * capped account named rewrites the stored list to `[]`
+	 * (provider.PruneAllowLists), and a fleet config-sync imports one verbatim.
+	 * Test this field's presence, never its length. Advisory only — the server
+	 * is the enforcement point (checked at virtual-key write time and again on
+	 * every proxied request), not this field.
+	 */
+	allowed_providers?: string[] | null;
 }
 
 // DashboardUser is a managed user account (admin-only Users page). The
@@ -1026,6 +1038,18 @@ export interface DashboardUser {
 	rate_limit_tpm?: number | null;
 	/** Whether the account has a confirmed TOTP second factor. */
 	totp_enabled?: boolean;
+	/**
+	 * Account provider cap. null/undefined means no cap (every provider); a
+	 * non-null array restricts every key this user owns to exactly its members,
+	 * so an EMPTY array denies every provider. Empty is reachable on READ even
+	 * though the users API refuses to write one: deleting the last provider a
+	 * capped account named rewrites the stored list to `[]`
+	 * (provider.PruneAllowLists), and a fleet config-sync imports one verbatim.
+	 * Test this field's presence, never its length. Advisory only — the server
+	 * is the enforcement point (checked at virtual-key write time and again on
+	 * every proxied request), not this field.
+	 */
+	allowed_providers?: string[] | null;
 }
 
 // UserUpsertRequest is the create/update body for POST/PUT /api/users.
@@ -1041,4 +1065,11 @@ export interface UserUpsertRequest {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	rate_limit_tpm?: number | null;
+	/**
+	 * Account provider cap. Omit to leave the stored cap unchanged (update
+	 * only); send null to clear it (every provider); send a non-empty array
+	 * to restrict every key this user owns to exactly those provider IDs. An
+	 * empty array is rejected by the API. Advisory only, the server enforces.
+	 */
+	allowed_providers?: string[] | null;
 }

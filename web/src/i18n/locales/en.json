@@ -1175,7 +1175,8 @@
 			"providerRestricted": "Provider-restricted key",
 			"reasoningStripped": "Reasoning stripped",
 			"keyHashed": "Key is hashed and cannot be recovered",
-			"owner": "Owned by {{name}}"
+			"owner": "Owned by {{name}}",
+			"providerDenyAll": "Key allows no providers"
 		},
 		"emptyState": "No virtual keys. Create one to start using the proxy.",
 		"steps": {
@@ -1209,6 +1210,8 @@
 				"providerInstructions": "Click a provider to restrict access. All are accessible by default.",
 				"noProviders": "No providers available.",
 				"restoreAccess": "Restore access to all providers",
+				"providerOutsideAccountAccess": "Blocked by your account access",
+				"providerOutsideOwnerAccess": "Blocked by the owner's account access",
 				"stripReasoning": "Strip Reasoning",
 				"stripReasoningDescription": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
 				"enableStripReasoning": "Enable strip reasoning",
@@ -2908,6 +2911,14 @@
 		"description": "Manage dashboard accounts and what each user can access.",
 		"addButton": "Add user",
 		"emptyState": "No users yet. Add one to give someone limited access to this dashboard.",
+		"providerAccess": "Provider access",
+		"providerAccessAll": "All providers",
+		"providerAccessSelected": "Only selected providers",
+		"providerAccessRequired": "Choose whether this user may reach all providers or only selected ones.",
+		"providerAccessEmpty": "Select at least one provider, or choose all providers.",
+		"providerAccessColumn": "Provider access",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "No providers",
 		"table": {
 			"username": "Username",
 			"displayName": "Display name",

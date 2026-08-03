@@ -66,7 +66,7 @@ func TestResolveSSOIdentity_DisabledDenied(t *testing.T) {
 
 	email := "off-" + uuid.NewString() + "@example.com"
 	u := mustCreate(t, repo, "off-"+uuid.NewString(), &email, RoleUser, []string{"chat"})
-	if _, err := repo.Update(ctx, u.ID, u.Username, u.DisplayName, &email, u.Role, u.Grants, false, Limits{}); err != nil {
+	if _, err := repo.Update(ctx, u.ID, u.Username, u.DisplayName, &email, u.Role, u.Grants, false, Limits{}, nil); err != nil {
 		t.Fatalf("disable: %v", err)
 	}
 	if _, _, err := repo.ResolveSSOIdentity(ctx, "oidc", "iss#abc", email); !errors.Is(err, ErrNotFound) {

@@ -1175,7 +1175,8 @@
 			"keyHashed": "Nøkkelen er hashet og kan ikke gjenopprettes",
 			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp",
 			"id": "Klikk for å kopiere nøkkel-ID",
-			"owner": "Eid av {{name}}"
+			"owner": "Eid av {{name}}",
+			"providerDenyAll": "Nøkkelen tillater ingen leverandører"
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {
@@ -1205,6 +1206,8 @@
 				"providerInstructions": "Klikk på en leverandør for å begrense tilgang. Alle er tilgjengelige som standard.",
 				"noProviders": "Ingen leverandører tilgjengelig.",
 				"restoreAccess": "Gjenopprett tilgang til alle leverandører",
+				"providerOutsideAccountAccess": "Blokkert av kontotilgangen din",
+				"providerOutsideOwnerAccess": "Blokkert av eierens kontotilgang",
 				"stripReasoning": "Fjern resonnering",
 				"stripReasoningDescription": "Når aktivert fjernes begrunning/tenkingstokens fra strømmesvar for klienter som ikke kan håndtere dem.",
 				"enableStripReasoning": "Aktiver fjerning av resonnering",
@@ -2908,6 +2911,14 @@
 		"description": "Administrer dashbordkontoer og hva hver bruker har tilgang til.",
 		"addButton": "Legg til bruker",
 		"emptyState": "Ingen brukere ennå. Legg til en for å gi noen begrenset tilgang til dette dashbordet.",
+		"providerAccess": "Leverandørtilgang",
+		"providerAccessAll": "Alle leverandører",
+		"providerAccessSelected": "Bare valgte leverandører",
+		"providerAccessRequired": "Velg om denne brukeren kan nå alle leverandører eller bare de valgte.",
+		"providerAccessEmpty": "Velg minst én leverandør, eller velg alle leverandører.",
+		"providerAccessColumn": "Leverandørtilgang",
+		"providerAccessCount": "{{first}} +{{count}}",
+		"providerAccessNone": "Ingen leverandører",
 		"table": {
 			"username": "Brukernavn",
 			"displayName": "Visningsnavn",

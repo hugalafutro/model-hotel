@@ -52,6 +52,18 @@ export function UserModal({
 	const [limitTpm, setLimitTpm] = useState(
 		user?.rate_limit_tpm?.toString() ?? "",
 	);
+	// A stored cap is an explicit array; null/absent means "every provider".
+	// On create neither mode is preselected: capping a new account has to be a
+	// deliberate choice, since existing accounts were grandfathered uncapped.
+	const [providerMode, setProviderMode] = useState<"all" | "selected" | null>(
+		user ? (user.allowed_providers ? "selected" : "all") : null,
+	);
+	const [selectedProviders, setSelectedProviders] = useState<string[]>(
+		user?.allowed_providers ?? [],
+	);
+	const [providerError, setProviderError] = useState<
+		"required" | "empty" | null
+	>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [confirmTotpReset, setConfirmTotpReset] = useState(false);
@@ -65,6 +77,28 @@ export function UserModal({
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 	const allGrants = catalog?.grants ?? [];
+
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
+	const sortedProviders = (providers ?? [])
+		.slice()
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+	// True while an edit leaves the stored cap exactly as it was found. Such a
+	// save OMITS allowed_providers, which the API reads as "preserve" (see
+	// UpdateUser: an absent key copies the stored value forward). That is the
+	// only way to edit a user whose stored cap is an empty array, which is a
+	// reachable state -- pruning the last capped provider empties it -- and one
+	// the control cannot re-state without widening the account.
+	const storedCap = user?.allowed_providers ?? null;
+	const capUnchanged =
+		isEdit &&
+		providerMode === (storedCap ? "selected" : "all") &&
+		(providerMode === "all" ||
+			(selectedProviders.length === (storedCap?.length ?? 0) &&
+				selectedProviders.every((id) => storedCap?.includes(id))));
 
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -86,6 +120,13 @@ export function UserModal({
 		rate_limit_rps: limitRps !== "" ? parseFloat(limitRps) : null,
 		rate_limit_burst: limitBurst !== "" ? parseInt(limitBurst, 10) : null,
 		rate_limit_tpm: limitTpm !== "" ? parseInt(limitTpm, 10) : null,
+		// Omitted when untouched (preserve), explicit null clears the cap.
+		// handleSave guarantees a mode was picked before anything is sent.
+		...(capUnchanged
+			? {}
+			: {
+					allowed_providers: providerMode === "all" ? null : selectedProviders,
+				}),
 		...(isEdit ? { enabled } : { password }),
 	});
 
@@ -142,6 +183,7 @@ export function UserModal({
 
 	const handleSave = () => {
 		setError(null);
+		setProviderError(null);
 		if (!username.trim()) {
 			setError(t("users.validation.usernameRequired"));
 			return;
@@ -150,7 +192,34 @@ export function UserModal({
 			setError(t("users.validation.passwordShort"));
 			return;
 		}
+		// Skipped when the cap is untouched: that save omits the field entirely,
+		// so a stored empty array stays stored instead of blocking every edit.
+		if (!capUnchanged) {
+			if (providerMode === null) {
+				setProviderError("required");
+				return;
+			}
+			// The API rejects an empty array, so never let one leave the form.
+			if (providerMode === "selected" && selectedProviders.length === 0) {
+				setProviderError("empty");
+				return;
+			}
+		}
 		saveMutation.mutate();
+	};
+
+	// Both provider controls clear the validation message as soon as the admin
+	// acts on it, so a stale complaint never outlives the thing it complained about.
+	const chooseProviderMode = (mode: "all" | "selected") => {
+		setProviderError(null);
+		setProviderMode(mode);
+	};
+
+	const toggleProvider = (id: string) => {
+		setProviderError(null);
+		setSelectedProviders((prev) =>
+			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+		);
 	};
 
 	const toggleGrant = (g: string) =>
@@ -302,6 +371,70 @@ export function UserModal({
 						</div>
 					</fieldset>
 				)}
+
+				<fieldset>
+					<legend className="block text-sm font-medium text-gray-300 mb-2">
+						{t("users.providerAccess")}
+					</legend>
+					<div className="space-y-2" data-testid="provider-access-mode">
+						<label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+							<input
+								type="radio"
+								name="user-provider-access"
+								value="all"
+								checked={providerMode === "all"}
+								onChange={() => chooseProviderMode("all")}
+								disabled={managed}
+							/>
+							{t("users.providerAccessAll")}
+						</label>
+						<label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+							<input
+								type="radio"
+								name="user-provider-access"
+								value="selected"
+								checked={providerMode === "selected"}
+								onChange={() => chooseProviderMode("selected")}
+								disabled={managed}
+							/>
+							{t("users.providerAccessSelected")}
+						</label>
+					</div>
+					{providerMode === "selected" && (
+						<div
+							className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto"
+							data-testid="provider-access-list"
+						>
+							{sortedProviders.map((p) => (
+								<label
+									key={p.id}
+									className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer"
+								>
+									<input
+										type="checkbox"
+										checked={selectedProviders.includes(p.id)}
+										onChange={() => toggleProvider(p.id)}
+										className="ui-checkbox"
+										data-testid={`provider-access-option-${p.id}`}
+										disabled={managed}
+									/>
+									{p.name}
+								</label>
+							))}
+						</div>
+					)}
+					{providerError && (
+						<p
+							className="text-xs text-red-400 mt-2"
+							data-testid="provider-access-error"
+							data-error-kind={providerError}
+						>
+							{providerError === "required"
+								? t("users.providerAccessRequired")
+								: t("users.providerAccessEmpty")}
+						</p>
+					)}
+				</fieldset>
 
 				<fieldset>
 					<legend className="block text-sm font-medium text-gray-300 mb-1">
