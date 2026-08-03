@@ -1,0 +1,278 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/user"
+)
+
+// revocableSessionMgr is a session manager whose tokens stop resolving once
+// revoke() is called, standing in for an operator revoking a session (or
+// disabling the user behind it) while a stream is open.
+type revocableSessionMgr struct {
+	mu      sync.Mutex
+	revoked bool
+}
+
+func (m *revocableSessionMgr) revoke() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.revoked = true
+}
+
+func (m *revocableSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte) (string, error) {
+	return "stream-token", nil
+}
+
+func (m *revocableSessionMgr) Validate(_ context.Context, _ string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return !m.revoked
+}
+
+func (m *revocableSessionMgr) TokenUser(ctx context.Context, token string) ([]byte, bool) {
+	if m.Validate(ctx, token) {
+		return []byte("admin"), true
+	}
+	return nil, false
+}
+
+func (m *revocableSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
+
+// streamRequest builds a cookie-authenticated SSE request carrying an admin
+// identity, as AuthMiddleware would have left it at connect time.
+func streamRequest(ctx context.Context) *http.Request {
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "stream-token"})
+	return req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+}
+
+// A session revoked after the stream opened must not keep the stream alive:
+// the next heartbeat re-checks the credential and closes the connection.
+func TestStreamEvents_ClosesWhenSessionRevokedMidStream(t *testing.T) {
+	mgr := &revocableSessionMgr{}
+	h := testHandler(nil, nil, nil, nil, nil)
+	h.SetWebAuthnSessionManager(mgr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		h.streamEvents(rec, streamRequest(ctx), 10*time.Millisecond)
+		close(done)
+	}()
+
+	// Let a few heartbeats land while the session is still good, proving the
+	// re-check does not close a valid stream.
+	time.Sleep(60 * time.Millisecond)
+	select {
+	case <-done:
+		t.Fatal("stream closed while the session was still valid")
+	default:
+	}
+
+	mgr.revoke()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("stream stayed open after its session was revoked")
+	}
+
+	if body := rec.Body.String(); !strings.Contains(body, ": heartbeat") {
+		t.Errorf("expected at least one heartbeat before revocation, got: %q", body)
+	}
+}
+
+// syncRecorder is a ResponseWriter whose body can be read while the handler is
+// still writing, so a test can assert on a live stream rather than only after
+// it closes.
+type syncRecorder struct {
+	mu      sync.Mutex
+	hdr     http.Header
+	body    strings.Builder
+	flushed chan struct{}
+	once    sync.Once
+}
+
+func newSyncRecorder() *syncRecorder {
+	return &syncRecorder{hdr: http.Header{}, flushed: make(chan struct{})}
+}
+
+func (s *syncRecorder) Header() http.Header { return s.hdr }
+func (s *syncRecorder) WriteHeader(_ int)   {}
+func (s *syncRecorder) Flush()              { s.once.Do(func() { close(s.flushed) }) }
+
+func (s *syncRecorder) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.body.Write(p)
+}
+
+func (s *syncRecorder) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.body.String()
+}
+
+// uuidSessionMgr resolves its token to a fixed users-table handle, the shape a
+// multi-user (non-admin) session carries.
+type uuidSessionMgr struct{ id uuid.UUID }
+
+func (m *uuidSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte) (string, error) {
+	return "stream-token", nil
+}
+func (m *uuidSessionMgr) Validate(_ context.Context, _ string) bool { return true }
+func (m *uuidSessionMgr) TokenUser(_ context.Context, _ string) ([]byte, bool) {
+	return []byte(m.id.String()), true
+}
+func (m *uuidSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
+
+// mutableUserStore serves one user whose grants a test can change mid-stream,
+// standing in for an operator editing the account while a stream is open.
+type mutableUserStore struct {
+	mu sync.Mutex
+	u  *user.User
+}
+
+func (s *mutableUserStore) setGrants(g []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.u.Grants = g
+}
+
+func (s *mutableUserStore) Get(_ context.Context, id uuid.UUID) (*user.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if id != s.u.ID {
+		return nil, errors.New("user not found")
+	}
+	clone := *s.u
+	clone.Grants = append([]string(nil), s.u.Grants...)
+	return &clone, nil
+}
+
+func (s *mutableUserStore) List(context.Context) ([]*user.User, error) { return nil, nil }
+func (s *mutableUserStore) Create(context.Context, string, string, *string, string, user.Role, []string, user.Limits, *[]string) (*user.User, error) {
+	return nil, nil
+}
+func (s *mutableUserStore) Update(context.Context, uuid.UUID, string, string, *string, user.Role, []string, bool, user.Limits, *[]string) (*user.User, error) {
+	return nil, nil
+}
+func (s *mutableUserStore) SetPassword(context.Context, uuid.UUID, string) error { return nil }
+func (s *mutableUserStore) Delete(context.Context, uuid.UUID) error              { return nil }
+
+// Stripping a grant from a user who already holds an open stream must take
+// effect on that stream: the re-check refreshes the identity, so request events
+// the user can no longer read over REST stop arriving over SSE too. Without the
+// identity refresh the stream keeps delivering under its connect-time grants
+// for as long as the client holds the socket.
+func TestStreamEvents_RefreshesGrantsMidStream(t *testing.T) {
+	uid := uuid.New()
+	store := &mutableUserStore{u: &user.User{
+		ID: uid, Username: "streamer", Role: user.RoleUser,
+		Grants: []string{string(user.GrantLogs)}, Enabled: true,
+	}}
+
+	h := testHandler(nil, nil, nil, nil, nil)
+	h.SetWebAuthnSessionManager(&uuidSessionMgr{id: uid})
+	h.SetUserAuth(store, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "stream-token"})
+	req = req.WithContext(user.WithIdentity(req.Context(),
+		&user.Identity{Role: user.RoleUser, Grants: []string{string(user.GrantLogs)}, UserID: &uid}))
+
+	rec := newSyncRecorder()
+	done := make(chan struct{})
+	go func() {
+		h.streamEvents(rec, req, 20*time.Millisecond)
+		close(done)
+	}()
+	<-rec.flushed
+
+	// The event is owned by this user, so the logs grant makes it visible.
+	owned := events.Event{
+		Type: "request.completed", Severity: "info", Source: "proxy",
+		Metadata: map[string]any{"owner_user_id": uid.String()},
+	}
+
+	events.Publish(owned)
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "request.completed") }) {
+		t.Fatalf("event never reached the stream while the grant was held: %q", rec.String())
+	}
+
+	// Operator strips the logs grant; the next re-check must pick it up.
+	store.setGrants(nil)
+	baseline := len(rec.String())
+	if !waitFor(t, func() bool { return strings.Count(rec.String(), ": heartbeat") >= 2 }) {
+		t.Fatal("no re-check happened after the grant was stripped")
+	}
+
+	events.Publish(owned)
+	time.Sleep(100 * time.Millisecond)
+	delivered := rec.String()[baseline:]
+	if strings.Contains(delivered, "request.completed") {
+		t.Errorf("stream kept delivering request events after the logs grant was revoked: %q", delivered)
+	}
+
+	cancel()
+	<-done
+}
+
+// waitFor polls cond until it holds or a generous deadline passes, so the
+// timing-sensitive stream assertions do not depend on a fixed sleep.
+func waitFor(t *testing.T, cond func() bool) bool {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return false
+}
+
+// A bearer-authenticated stream is re-checked on the same tick. The admin token
+// is validated in memory, so a stream on a still-valid token stays open.
+func TestStreamEvents_ValidBearerStreamSurvivesHeartbeats(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{
+		validateFn: func(token string) bool { return token == "test-admin-token" },
+	}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+
+	rec := httptest.NewRecorder()
+	h.streamEvents(rec, req, 10*time.Millisecond)
+
+	// The handler only returns when the context expires, never earlier, so a
+	// heartbeat re-check never rejected the still-valid admin token.
+	if ctx.Err() == nil {
+		t.Fatal("stream closed before its context expired, so a valid bearer token was rejected")
+	}
+	if body := rec.Body.String(); !strings.Contains(body, ": heartbeat") {
+		t.Errorf("expected heartbeats on a long-lived valid stream, got: %q", body)
+	}
+}
