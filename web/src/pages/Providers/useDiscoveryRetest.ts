@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { DiscoveryDiff } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import type { DiscoverySummaryEntry } from "./DiscoverySummaryModal";
 
 /** Stable key for a summary entry, matching the modal's entryKeyOf. */
@@ -21,6 +22,7 @@ export function useDiscoveryRetest(
 	patchEntry: (key: string, diff: DiscoveryDiff) => void,
 ) {
 	const queryClient = useQueryClient();
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const { toast } = useToast();
 	const { t } = useTranslation();
 	const [retestingKey, setRetestingKey] = useState<string | undefined>(
@@ -72,6 +74,13 @@ export function useDiscoveryRetest(
 		},
 		onSettled: () => {
 			setRetestingKey(undefined);
+			// Here rather than in onSuccess, unlike the two invalidations above: a
+			// discovery run that errors partway has still upserted whatever it got
+			// to before failing, so the claim set can move without a success.
+			//
+			// And here rather than in the callers, so a retest refreshes the badge
+			// from the Providers page as well as from the discrepancy modal.
+			refreshBadge();
 		},
 	});
 

@@ -26,6 +26,7 @@ import { useToast } from "../context/ToastContext";
 import { useManaged } from "../hooks/useManaged";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { useReadOnly } from "../hooks/useReadOnly";
+import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
@@ -43,6 +44,10 @@ import { useDiscoveryRetest } from "./Providers/useDiscoveryRetest";
 
 export function Providers() {
 	const queryClient = useQueryClient();
+	// Discovery and provider deletion both move the claim set the Models nav
+	// badge counts, and the badge is a 60s poll that nothing here otherwise
+	// touches. See useRefreshDiscoveryBadge.
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const { toast } = useToast();
 	const { t } = useTranslation();
 	const readOnly = useReadOnly();
@@ -132,6 +137,7 @@ export function Providers() {
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 			setDiscoverAllCurrentId(null);
 			if (data.failed > 0 && data.succeeded === 0) {
 				toast(
@@ -201,6 +207,7 @@ export function Providers() {
 		onSuccess: (data, id) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 			const providerName = providers?.find((p) => p.id === id)?.name ?? id;
 			setDiscoverySummary([{ providerName, diff: data.diff, providerId: id }]);
 		},
@@ -243,6 +250,8 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			// A deleted provider takes its models, and therefore its claims, with it.
+			refreshBadge();
 			toast(t("providers.toast_provider_deleted"), "success");
 		},
 		onError: (err: Error) => {
@@ -263,12 +272,16 @@ export function Providers() {
 				// burst trips the admin IP rate limiter and reports spurious failures.
 				const { deleted } = await api.models.bulkDelete(ids);
 				queryClient.invalidateQueries({ queryKey: ["models"] });
+				refreshBadge();
 				toast(
 					t("providers.toast_delete_models_success", { count: deleted }),
 					"success",
 				);
 			} catch (err) {
+				// The bulk delete is one request, but a failure does not prove nothing
+				// was deleted, so both paths re-read what the server now has.
 				queryClient.invalidateQueries({ queryKey: ["models"] });
+				refreshBadge();
 				toast(
 					t("providers.toast_delete_failed", {
 						message: (err as Error).message,
@@ -277,7 +290,7 @@ export function Providers() {
 				);
 			}
 		},
-		[queryClient, toast, t],
+		[queryClient, refreshBadge, toast, t],
 	);
 
 	const typeOptions = useMemo(() => {

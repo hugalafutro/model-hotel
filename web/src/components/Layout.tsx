@@ -40,6 +40,7 @@ import {
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useReadOnly } from "../hooks/useReadOnly";
+import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { useDiscoveryRetest } from "../pages/Providers/useDiscoveryRetest";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
@@ -756,6 +757,13 @@ export function Layout({ children }: LayoutProps) {
 	const { toast } = useToast();
 	const readOnly = useReadOnly();
 
+	// Requirement 5 keeps the ?review=1 stamp off the 60s timer; the `exact: true`
+	// inside this hook is what keeps it off a click. See useRefreshDiscoveryBadge.
+	//
+	// Retests do NOT call it from here: useDiscoveryRetest owns that, so a retest
+	// run from the Providers page refreshes the badge too.
+	const refreshBadge = useRefreshDiscoveryBadge();
+
 	// The retest response's own diff is deliberately discarded. It describes what
 	// THAT run changed, which is empty when the model is still missing, and
 	// reading that emptiness as "fixed" is the original defect. Truth comes from
@@ -928,9 +936,15 @@ export function Layout({ children }: LayoutProps) {
 					}),
 					"error",
 				);
+			} finally {
+				// `finally`, not the success path: a request that rejects can still
+				// have landed — the response is what was lost — and the rows correctly
+				// stay actionable either way. Re-reading the badge is how it learns
+				// which of the two happened.
+				refreshBadge();
 			}
 		},
-		[dismissClaim, refresh, toast, t],
+		[dismissClaim, refresh, refreshBadge, toast, t],
 	);
 
 	const onDismissEverything = useCallback(
@@ -952,6 +966,12 @@ export function Layout({ children }: LayoutProps) {
 				dismissClaim(b.providerID, new Set(r.value.dismissed));
 			});
 			await refresh();
+			// After the batches, not per batch: one invalidation covers every
+			// provider's worth of dismissals. Unconditional even when nothing was
+			// confirmed, because a batch that rejects can still have landed — the
+			// response is what was lost — and the badge is better re-read than
+			// inferred from a count the client only partly knows.
+			refreshBadge();
 			if (dismissed === 0) {
 				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
 				return;
@@ -966,7 +986,7 @@ export function Layout({ children }: LayoutProps) {
 				dismissed < total ? "warning" : "success",
 			);
 		},
-		[dismissClaim, refresh, toast, t],
+		[dismissClaim, refresh, refreshBadge, toast, t],
 	);
 
 	const onDismiss = useCallback(
@@ -1011,28 +1031,13 @@ export function Layout({ children }: LayoutProps) {
 					}),
 					"error",
 				);
+			} finally {
+				// See onDismissAll: a rejected request can still have landed.
+				refreshBadge();
 			}
 		},
-		[dismissClaim, refresh, toast, t],
+		[dismissClaim, refresh, refreshBadge, toast, t],
 	);
-
-	// `exact: true` on BOTH invalidations below, and it is not optional.
-	//
-	// TanStack Query matches query keys by PREFIX, and the modal's key is
-	// ["discovery-status", "modal", n] — a prefix child of the poll's
-	// ["discovery-status"]. A non-exact invalidation therefore also refetches the
-	// modal's query whenever the modal is open, and that query calls
-	// api.discovery.status(TRUE), which stamps the server's last-reviewed marker.
-	// The refetch itself is inert (`seeded` is already true, so the snapshot does
-	// not change) but the stamp is not: it moves the "since your last visit"
-	// baseline to now, zeroing every flap_since_review for the next visit.
-	// Requirement 5 keeps that write off the timer; this keeps it off a click.
-	const refreshBadge = useCallback(() => {
-		queryClient.invalidateQueries({
-			queryKey: ["discovery-status"],
-			exact: true,
-		});
-	}, [queryClient]);
 
 	// Expanding the journal is what marks it read; the destructive ack-on-open is
 	// gone, so nothing clears the dot until the operator actually looks.

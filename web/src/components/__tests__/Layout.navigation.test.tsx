@@ -1541,6 +1541,248 @@ describe("Layout", () => {
 			await waitFor(() => expect(bodies).toHaveLength(2));
 			expect(bodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
 		});
+
+		/**
+		 * A status endpoint whose `claim_count` actually falls as models are
+		 * dismissed, the way listClaimRows does (it filters on
+		 * discovery_dismissed_at IS NULL).
+		 *
+		 * A fixed payload cannot test the badge at all: the number it shows would
+		 * be right by accident whether or not anything re-read it.
+		 */
+		function serveDismissable(providers: [string, string, string[]][]) {
+			const dismissed = new Set<string>();
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const live = providers
+						.map(([id, name, models]) =>
+							providerClaims(
+								id,
+								name,
+								models.filter((m) => !dismissed.has(m)).map(claim),
+							),
+						)
+						.filter((p) => p.gone.length > 0);
+					return HttpResponse.json(
+						status({
+							claim_count: live.reduce((n, p) => n + p.gone.length, 0),
+							claims: live,
+						}),
+					);
+				}),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					for (const m of body.model_ids) dismissed.add(m);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
+				}),
+			);
+			return dismissed;
+		}
+
+		/**
+		 * Escape, not the close button: that control is labelled with a translated
+		 * string and this suite stays locale-independent.
+		 *
+		 * Addressed through the modal's own testid rather than by role, because a
+		 * ConfirmDialog is a SIBLING dialog and lingers through its fade-out.
+		 */
+		async function closeDiscrepancyModal() {
+			const dialog = screen
+				.getByTestId("discrepancy-modal")
+				.closest('[role="dialog"]') as HTMLElement;
+			fireEvent.keyDown(dialog, { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
+			);
+		}
+
+		/**
+		 * The badge is hidden while the modal is open, so what it says is only
+		 * observable after a close — which is exactly where the operator reads it,
+		 * and exactly where it used to lie.
+		 *
+		 * `null` means the badge is gone entirely. Every caller below asserts a
+		 * value the STALE poll response would not produce, so none of them can pass
+		 * on a badge that was never re-read.
+		 */
+		async function expectBadgeAfterClose(text: string | null) {
+			await closeDiscrepancyModal();
+			await waitFor(() => {
+				const badge = screen.queryByTestId("discovery-status-badge");
+				if (text === null) expect(badge).toBeNull();
+				else expect(badge).toHaveTextContent(text);
+			});
+		}
+
+		it("re-reads the badge after a single dismissal", async () => {
+			// The modal's own refresh writes to the modal's snapshot alone: a
+			// different query key, fetched straight through the api client. Nothing
+			// it does reaches the nav badge, which otherwise keeps showing whatever
+			// the 60s poll last saw.
+			const dismissed = serveDismissable([["p1", "One", ["a", "b"]]]);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+			await user.click(screen.getByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
+			await user.click(
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "a")
+					?.querySelector('[data-testid="discrepancy-dismiss"]') as HTMLElement,
+			);
+			await waitFor(() => expect(dismissed.size).toBe(1));
+
+			await expectBadgeAfterClose("1");
+		});
+
+		it("re-reads the badge after a dismissal that reports failure", async () => {
+			// A rejected request does not prove the write did not land: the server can
+			// commit and the response be lost. The row correctly stays actionable and
+			// the toast reports the failure, but the badge must not keep asserting a
+			// count it can no longer back.
+			let dismissed = false;
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const gone = dismissed ? [] : [claim("a")];
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: gone.length ? [providerClaims("p1", "One", gone)] : [],
+						}),
+					);
+				}),
+				http.post("/api/discovery/dismiss", () => {
+					dismissed = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
+			await user.click(await screen.findByTestId("discrepancy-dismiss"));
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+
+			await expectBadgeAfterClose(null);
+		});
+
+		it("re-reads the badge after a provider-wide dismiss", async () => {
+			const dismissed = serveDismissable([
+				["p1", "One", ["a", "b"]],
+				["p2", "Two", ["c"]],
+			]);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				(await screen.findAllByTestId("discrepancy-dismiss-all"))[0],
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
+			);
+			// ConfirmDialog confirms through the modal's fade-out, so the request is
+			// a timer away from the click, not a microtask.
+			await waitFor(() => expect(dismissed.size).toBe(2));
+
+			// The other provider's claim survives, so this pins a re-read rather than
+			// a badge that merely happens to be empty.
+			await expectBadgeAfterClose("1");
+		});
+
+		it("clears the badge when a modal-wide dismiss empties it", async () => {
+			// The reported sequence: dismiss everything, close, and find the badge
+			// still lit with a count for claims the server no longer has.
+			const dismissed = serveDismissable([
+				["p1", "One", ["a"]],
+				["p2", "Two", ["b"]],
+			]);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything"),
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+			await waitFor(() => expect(dismissed.size).toBe(2));
+
+			await expectBadgeAfterClose(null);
+		});
+
+		it("re-reads the badge after a single provider retest", async () => {
+			// A retest clears a claim by changing what the server reports, which
+			// leaves the badge exactly as stale as a dismissal does.
+			const gone = new Set(["a", "b"]);
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const rows = [...gone].map(claim);
+					return HttpResponse.json(
+						status({
+							claim_count: rows.length,
+							claims: rows.length ? [providerClaims("p1", "One", rows)] : [],
+						}),
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					gone.delete("a");
+					return HttpResponse.json({ discovered: 1, diff: {} });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest"));
+			await waitFor(() => expect(gone.has("a")).toBe(false));
+
+			await expectBadgeAfterClose("1");
+		});
+
+		it("re-reads the badge once a Retest all walk has finished", async () => {
+			// The walk silences the per-provider refresh and reports once at the end,
+			// so the badge has to be re-read there or not at all.
+			const gone = new Map([
+				["p1", "a"],
+				["p2", "b"],
+			]);
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const live = [...gone].map(([id, model]) =>
+						providerClaims(id, id === "p1" ? "One" : "Two", [claim(model)]),
+					);
+					return HttpResponse.json(
+						status({ claim_count: live.length, claims: live }),
+					);
+				}),
+				http.post("/api/providers/:id/discover", ({ params }) => {
+					gone.delete(String(params.id));
+					return HttpResponse.json({ discovered: 1, diff: {} });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest-all"));
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
+			);
+			expect(gone.size).toBe(0);
+
+			await expectBadgeAfterClose(null);
+		});
+
 		it("treats updated: 0 as a failed dismissal", async () => {
 			// The endpoint 200s with a short `updated` and only 404s when nothing at
 			// all matched, so HTTP status alone would report a phantom success.
