@@ -115,8 +115,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// "user:<uuid>" budget. The key-to-owner association is recorded
 			// (or cleared) on every admission so Debit, which only sees the
 			// key hash, can debit the owner's bucket too.
-			userKey, userTPM := userTPMFromCtx(r.Context())
-			userTPM = fleetShareTPM(r.Context(), l.settings, userTPM)
+			userKey, _ := userTPMFromCtx(r.Context())
 			l.setAssoc(keyHash, userKey)
 			// The owner token is reserved (not committed) here and only kept
 			// once every later gate passes. A request that clears this stage
@@ -132,25 +131,9 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// at cancel would make timeToAct earlier than it, turning Cancel
 			// into a no-op and defeating the whole point.
 			now := time.Now()
-			var userRes *rate.Reservation
-			if userKey != "" {
-				userEntry := l.getEntry(userKey, userTPM)
-				// ReserveN takes one admission token under the limiter's mutex,
-				// so concurrent requests can't all pass the same non-mutating
-				// peek and blow the budget. Unlike Allow() the reservation is
-				// cancellable; !OK() || DelayFrom(now) > 0 is the exact
-				// equivalent of Allow() returning false (no token available
-				// right now). The reserved token is a placeholder that is not
-				// reconciled: Debit later charges the full total on top of it,
-				// a ~1-token restrictive surcharge, negligible at realistic
-				// budgets.
-				userRes = userEntry.limiter.ReserveN(now, 1)
-				if !userRes.OK() || userRes.DelayFrom(now) > 0 {
-					userRes.CancelAt(now)
-					w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
-					util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
-					return
-				}
+			userRes, ok := l.admitUserTPM(r.Context(), w, now)
+			if !ok {
+				return
 			}
 
 			tpm := l.effectiveTPM(r.Context())
@@ -180,6 +163,80 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// UserMiddleware enforces ONLY the owner-level aggregate TPM budget, for
+// surfaces that authenticate a dashboard session rather than a virtual key
+// (/api/chat/*, mounted by proxy.RegisterAdminChat). It shares the same two
+// kill-switches as Middleware.
+//
+// The full Middleware is deliberately NOT reused there. Its per-key stage keys
+// on extractKey, which falls back to r.RemoteAddr when no virtual key is in
+// context, and that bucket has no debit path: the completion half (Debit) is
+// driven by the virtual-key hash, which a session-authenticated request does
+// not have. Mounting the full middleware would therefore create an address-keyed
+// bucket that is admitted against but never charged, i.e. a cap that looks
+// enforced and is not. The owner bucket is charged, via DebitUser.
+//
+// A caller with no owner-level TPM cap passes straight through: user-level caps
+// have no global-settings fallback (see ctxkeys.UserRateLimitTPMKey).
+func (l *TPMLimiter) UserMiddleware(enabled bool) func(http.Handler) http.Handler {
+	if !enabled {
+		debuglog.Info("ratelimit: per-user TPM limiting disabled via env (RATE_LIMIT_ENABLED=false)")
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !enabled {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if !l.settings.GetBool(r.Context(), settingsKeyEnabled, true) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// The reservation is intentionally discarded: this surface has no
+			// later gate that could reject the request, so there is nothing to
+			// cancel it for.
+			if _, ok := l.admitUserTPM(r.Context(), w, time.Now()); !ok {
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// admitUserTPM runs the owner-level aggregate stage of TPM admission: it takes
+// one placeholder token from the caller's "user:<uuid>" bucket, sized to this
+// member's fleet fair share of the owner's cap.
+//
+// It returns (nil, true) when there is nothing to enforce (unowned request, or
+// an owner with no TPM cap), (reservation, true) on admission, and (nil, false)
+// when it has already written the 429 response — in which case the caller must
+// return without serving. The reservation is handed back so a caller with a
+// further gate can CancelAt(now) it and hand the token back; `now` must be the
+// same instant passed in here, or CancelAt silently does nothing.
+func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, now time.Time) (*rate.Reservation, bool) {
+	userKey, userTPM := userTPMFromCtx(ctx)
+	if userKey == "" {
+		return nil, true
+	}
+	userTPM = fleetShareTPM(ctx, l.settings, userTPM)
+	userEntry := l.getEntry(userKey, userTPM)
+	// ReserveN takes one admission token under the limiter's mutex, so
+	// concurrent requests can't all pass the same non-mutating peek and blow
+	// the budget. Unlike Allow() the reservation is cancellable;
+	// !OK() || DelayFrom(now) > 0 is the exact equivalent of Allow() returning
+	// false (no token available right now). The reserved token is a placeholder
+	// that is not reconciled: the debit later charges the full total on top of
+	// it, a ~1-token restrictive surcharge, negligible at realistic budgets.
+	userRes := userEntry.limiter.ReserveN(now, 1)
+	if !userRes.OK() || userRes.DelayFrom(now) > 0 {
+		userRes.CancelAt(now)
+		w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
+		util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
+		return nil, false
+	}
+	return userRes, true
 }
 
 // Allow reports whether a request may be admitted for keyHash under the given
@@ -216,6 +273,22 @@ func (l *TPMLimiter) Debit(keyHash string, tokens int) {
 	if ok && a.userKey != "" {
 		l.debitBucket(a.userKey, tokens)
 	}
+}
+
+// DebitUser removes the actual token total from an owner's aggregate bucket
+// directly, for requests that never had a virtual key to debit through (the
+// admin chat surface). Debit already reaches the owner bucket for keyed
+// requests via the association recorded at admission, so the two are mutually
+// exclusive: calling both for one request would charge the owner twice.
+//
+// No-op when the owner has no bucket, which is what "no owner-level TPM cap"
+// looks like — admission creates the bucket, so a capped request always has one
+// by completion.
+func (l *TPMLimiter) DebitUser(userID string, tokens int) {
+	if userID == "" || tokens <= 0 {
+		return
+	}
+	l.debitBucket(userBucketKey(userID), tokens)
 }
 
 // debitBucket removes tokens from one bucket. No-op when the bucket does not
@@ -262,9 +335,20 @@ func (l *TPMLimiter) setAssoc(keyHash, userKey string) {
 	l.assoc[keyHash] = &assocEntry{userKey: userKey, lastUsed: time.Now()}
 }
 
+// userBucketKey namespaces an owner's aggregate bucket away from the key-hash
+// buckets sharing the same map. Every writer and reader of that bucket must go
+// through it, or an admission and its debit land on two different buckets.
+func userBucketKey(userID string) string {
+	return "user:" + userID
+}
+
 // userTPMFromCtx resolves the owner's aggregate bucket key and TPM cap from
-// the request context. Returns "" when the key is unowned or the owner has no
-// TPM cap (there is no global fallback for user-level caps).
+// the request context. Returns "" when the request is unowned or the owner has
+// no TPM cap (there is no global fallback for user-level caps).
+//
+// Both halves are published by ProxyKeyMiddleware from the virtual key's owner
+// on /v1, and by api.ChatUserContextMiddleware from the session's own account
+// on /api/chat/*.
 func userTPMFromCtx(ctx context.Context) (string, int) {
 	uid, ok := ctx.Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
 	if !ok || uid == "" {
@@ -274,7 +358,7 @@ func userTPMFromCtx(ctx context.Context) (string, int) {
 	if !ok || tpm == nil || *tpm <= 0 {
 		return "", 0
 	}
-	return "user:" + uid, *tpm
+	return userBucketKey(uid), *tpm
 }
 
 // effectiveTPM resolves the per-minute cap for the current request: the per-key

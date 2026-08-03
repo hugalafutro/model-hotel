@@ -169,12 +169,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// Always record token usage against the virtual key quota, even on
 	// client disconnect. The upstream provider already billed for these
 	// tokens; not counting them would cause quota drift (provider bill > VK meter).
-	if opts.vkHash != "" {
-		if st.clientDisconnected && (st.promptTokens > 0 || st.completionTokens > 0) {
-			debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
-		}
-		h.recordTokenUsage(opts.vkHash, st.promptTokens, st.completionTokens, st.reasoningTokens, logData.virtualKeyName)
+	if st.clientDisconnected && (st.promptTokens > 0 || st.completionTokens > 0) {
+		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}
+	h.recordTokenUsage(opts.vkHash, logData, st.promptTokens, st.completionTokens, st.reasoningTokens)
 }
 
 // deriveStreamError classifies how the stream ended into the error message

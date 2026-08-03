@@ -219,24 +219,42 @@ func generateRequestHash() string {
 	return hex.EncodeToString(b)
 }
 
-// recordTokenUsage adds the total token count to a virtual key's usage counter.
-// On failure, it publishes a tokens.error event for the frontend toast system.
-// Extracted from identical blocks in handleStreamingResponse and
-// handleNonStreamingResponse.
-func (h *Handler) recordTokenUsage(vkHash string, promptTokens, completionTokens, reasoningTokens int, virtualKeyName string) {
+// recordTokenUsage charges a completed request's token total against every
+// budget that applies to it: the TPM limiter's minute budget and, when the
+// request came in on a virtual key, that key's usage counter. On a counter
+// failure it publishes a tokens.error event for the frontend toast system.
+//
+// This is the completion half of the TPM limiter's
+// admit-on-past-consumption / debit-on-completion scheme, so which bucket gets
+// charged must match which bucket admission reserved from:
+//
+//   - a keyed request (/v1) debits by key hash, and Debit reaches the owner's
+//     aggregate bucket itself through the association recorded at admission;
+//   - a keyless request (admin chat, session-authenticated) has no key bucket
+//     and debits the owner's bucket directly.
+//
+// The two are exclusive on purpose: running both would charge an owner twice.
+func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promptTokens, completionTokens, reasoningTokens int) {
 	totalTokens := promptTokens + completionTokens + reasoningTokens
-	// Debit the per-minute token budget (no-op when the key has no TPM cap or
-	// the request had no virtual key, e.g. admin chat). This is the completion
-	// half of admit-on-past-consumption / debit-on-completion.
-	if h.tpmLimiter != nil && vkHash != "" {
-		h.tpmLimiter.Debit(vkHash, totalTokens)
+	if h.tpmLimiter != nil {
+		switch {
+		case vkHash != "":
+			h.tpmLimiter.Debit(vkHash, totalTokens)
+		default:
+			h.tpmLimiter.DebitUser(logData.ownerUserID, totalTokens)
+		}
+	}
+	if vkHash == "" {
+		// No key row to meter: the virtual_keys usage counter is keyed by hash,
+		// and admin chat has no key. The TPM debit above is the whole job here.
+		return
 	}
 	tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer tokCancel()
 	if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
 		keyLabel := vkHash
-		if virtualKeyName != "" {
-			keyLabel = virtualKeyName
+		if logData.virtualKeyName != "" {
+			keyLabel = logData.virtualKeyName
 		}
 		events.Publish(events.Event{
 			Type:     "tokens.error",

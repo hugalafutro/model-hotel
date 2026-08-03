@@ -367,15 +367,16 @@ func main() {
 
 	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
 	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
-	// ChatProviderCapMiddleware runs after the grant check because it reads the
+	// ChatUserContextMiddleware runs after the grant check because it reads the
 	// identity AuthMiddleware resolved, and before RegisterAdminChat because the
-	// proxy's candidate filter is the thing consuming what it publishes. Without
-	// it the chat surface would carry no provider cap at all.
+	// consumers of what it publishes (the proxy's candidate filter and both rate
+	// limiters) are mounted in there. Without it the chat surface would carry
+	// neither the caller's provider cap nor their per-user rate limits.
 	r.Route("/api/chat", func(r chi.Router) {
 		r.Use(ipLimiter.Middleware)
 		r.Use(apiHandler.AuthMiddleware)
 		r.Use(apiHandler.RequireGrant(user.GrantChat))
-		r.Use(apiHandler.ChatProviderCapMiddleware)
+		r.Use(apiHandler.ChatUserContextMiddleware)
 		r.Use(streamingAwareTimeout(5 * time.Minute))
 		proxyHandler.RegisterAdminChat(r)
 	})

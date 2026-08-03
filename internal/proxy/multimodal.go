@@ -579,8 +579,8 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-	if st.vkHash != "" && (promptTokens > 0 || completionTokens > 0) {
-		h.recordTokenUsage(st.vkHash, promptTokens, completionTokens, 0, logData.virtualKeyName)
+	if promptTokens > 0 || completionTokens > 0 {
+		h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
 	}
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
 }
@@ -676,8 +676,8 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-	if st.vkHash != "" && (promptTokens > 0 || completionTokens > 0) {
-		h.recordTokenUsage(st.vkHash, promptTokens, completionTokens, 0, logData.virtualKeyName)
+	if promptTokens > 0 || completionTokens > 0 {
+		h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
 	}
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
 }

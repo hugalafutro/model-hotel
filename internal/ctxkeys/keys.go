@@ -73,27 +73,33 @@ const VirtualKeyRateLimitTPMKey contextKey = "virtual_key_rate_limit_tpm"
 // providers.
 const VirtualKeyAllowedProvidersKey contextKey = "virtual_key_allowed_providers"
 
-// VirtualKeyOwnerIDKey is the context key under which the proxy's
-// ProxyKeyMiddleware stores the owning user's UUID as a string (absent when
-// the key is unowned). The rate-limit middlewares derive the shared
-// "user:<uuid>" bucket key from it so one user's traffic aggregates across
-// every key they own.
+// VirtualKeyOwnerIDKey is the context key under which the account behind the
+// request is published as a UUID string (absent when there is none). The
+// rate-limit middlewares derive the shared "user:<uuid>" bucket key from it so
+// one user's traffic aggregates across every surface and key they use, and the
+// proxy stamps it on request lifecycle SSE events so a non-admin's live log
+// feed can be scoped to their own activity.
+//
+// Written by the same two middlewares as UserAllowedProvidersKey below: the
+// proxy's ProxyKeyMiddleware (from the virtual key's OWNER, absent when the key
+// is unowned) and internal/api's ChatUserContextMiddleware (from the CALLER's
+// own row).
 const VirtualKeyOwnerIDKey contextKey = "virtual_key_owner_id"
 
-// UserRateLimitRPSKey is the context key under which the proxy's
-// ProxyKeyMiddleware stores the owning user's aggregate RPS cap (*float64,
-// nil when unset). Unlike the per-key override there is no global-settings
-// fallback: a nil cap simply skips the user-level stage.
+// UserRateLimitRPSKey is the context key under which the account's aggregate
+// RPS cap is published (*float64, nil when unset). Unlike the per-key override
+// there is no global-settings fallback: a nil cap simply skips the user-level
+// stage. Same two writers as VirtualKeyOwnerIDKey.
 const UserRateLimitRPSKey contextKey = "user_rate_limit_rps"
 
-// UserRateLimitBurstKey is the context key under which the proxy's
-// ProxyKeyMiddleware stores the owning user's burst cap (*int, nil when
-// unset; global burst default applies when only RPS is set).
+// UserRateLimitBurstKey is the context key under which the account's burst cap
+// is published (*int, nil when unset; global burst default applies when only
+// RPS is set). Same two writers as VirtualKeyOwnerIDKey.
 const UserRateLimitBurstKey contextKey = "user_rate_limit_burst"
 
-// UserRateLimitTPMKey is the context key under which the proxy's
-// ProxyKeyMiddleware stores the owning user's aggregate tokens-per-minute
-// cap (*int, nil when unset). No global fallback, same as the RPS cap.
+// UserRateLimitTPMKey is the context key under which the account's aggregate
+// tokens-per-minute cap is published (*int, nil when unset). No global
+// fallback, same as the RPS cap. Same two writers as VirtualKeyOwnerIDKey.
 const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
 
 // UserAllowedProvidersKey is the context key under which an account's provider
@@ -103,7 +109,7 @@ const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
 //
 //   - the proxy's ProxyKeyMiddleware, from the virtual key's OWNER (absent when
 //     the key is unowned);
-//   - internal/api's ChatProviderCapMiddleware on /api/chat/*, from the CALLER's
+//   - internal/api's ChatUserContextMiddleware on /api/chat/*, from the CALLER's
 //     own users row, since that surface has a session rather than a key.
 const UserAllowedProvidersKey contextKey = "user_allowed_providers"
 

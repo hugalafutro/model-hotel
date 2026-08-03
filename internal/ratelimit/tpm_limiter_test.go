@@ -576,3 +576,139 @@ func TestEffectiveTPM_FleetDivisorUnlimitedUntouched(t *testing.T) {
 		t.Errorf("effectiveTPM = %d, want 0 (no cap)", got)
 	}
 }
+
+// sessionTPMReq builds a request carrying only owner context and no virtual-key
+// hash, as api.ChatUserContextMiddleware does on /api/chat/*.
+func sessionTPMReq(uid string, userTPM *int) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/api/chat/chat", http.NoBody)
+	ctx := context.WithValue(req.Context(), ctxkeys.VirtualKeyOwnerIDKey, uid)
+	if userTPM != nil {
+		ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, userTPM)
+	}
+	return req.WithContext(ctx)
+}
+
+// The keyless surface's budget is the owner's, drained by DebitUser (its only
+// debit path: Debit is keyed by virtual-key hash, which this surface has none
+// of) and refused by UserMiddleware once it is empty.
+func TestTPMUserMiddleware_OwnerBudgetIsEnforcedWithoutAKey(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	h := l.UserMiddleware(true)(okHandler())
+
+	userTPM := 600
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first request should pass, got %d", rec.Code)
+	}
+
+	l.DebitUser("uid-1", userTPM*2)
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("drained owner budget should reject, got %d", rec.Code)
+	}
+	if rec.Header().Get("Retry-After") == "" {
+		t.Error("user-stage 429 should carry Retry-After")
+	}
+
+	// Another account is untouched: the debit lands on one owner's bucket only.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionTPMReq("uid-2", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("other owner should pass, got %d", rec.Code)
+	}
+}
+
+// DebitUser and Debit must land on the same bucket, or a user's /v1 spend and
+// their dashboard chat spend would be metered separately and neither cap would
+// hold. Draining through the keyed path rejects the keyless one.
+func TestTPMUserMiddleware_SharesTheBucketWithKeyedTraffic(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	userTPM := 600
+
+	// Admit an owned key on the /v1 middleware: creates the owner bucket and
+	// the key->owner association Debit follows.
+	rec := httptest.NewRecorder()
+	l.Middleware(true)(okHandler()).ServeHTTP(rec, ownedTPMReq("key-a", "uid-9", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("keyed request should pass, got %d", rec.Code)
+	}
+	l.Debit("key-a", userTPM*2)
+
+	rec = httptest.NewRecorder()
+	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-9", &userTPM))
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("chat request should hit the budget its owner's key drained, got %d", rec.Code)
+	}
+}
+
+// Everything that means "nothing to enforce here" must pass through untouched.
+// User-level caps have no global-settings fallback, so an account without one
+// is not silently handed the global TPM the way an unowned key is.
+func TestTPMUserMiddleware_PassesThroughWhenThereIsNothingToEnforce(t *testing.T) {
+	zero := 0
+	tpm := 600
+	cases := []struct {
+		name    string
+		enabled bool
+		req     *http.Request
+	}{
+		{"env kill-switch off", false, sessionTPMReq("uid-1", &tpm)},
+		{"no owner in context", true, httptest.NewRequest(http.MethodPost, "/api/chat/chat", http.NoBody)},
+		{"owner has no tpm cap", true, sessionTPMReq("uid-1", nil)},
+		{"owner cap is zero", true, sessionTPMReq("uid-1", &zero)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l, s := newTestTPMLimiter(t)
+			// A global default must not leak into the user stage.
+			s.set(settingsKeyTPM, "1")
+			rec := httptest.NewRecorder()
+			l.UserMiddleware(tc.enabled)(okHandler()).ServeHTTP(rec, tc.req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+		})
+	}
+}
+
+// The runtime toggle is shared with the rest of the rate limiter: switching
+// rate limiting off in settings must stop this stage too, or an operator's
+// kill-switch would leave the chat surface throttled.
+func TestTPMUserMiddleware_RuntimeToggleOff(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	userTPM := 600
+
+	// Admission creates the bucket, so drain it while limiting is still on.
+	rec := httptest.NewRecorder()
+	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	l.DebitUser("uid-1", userTPM*4)
+
+	s.set(settingsKeyEnabled, "false")
+	rec = httptest.NewRecorder()
+	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 with rate limiting toggled off", rec.Code)
+	}
+}
+
+// DebitUser ignores the inputs that cannot name a bucket rather than charging
+// "user:" (which every capless caller would then share).
+func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	userTPM := 600
+	rec := httptest.NewRecorder()
+	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+
+	l.DebitUser("", userTPM*4)
+	l.DebitUser("uid-1", 0)
+	l.DebitUser("uid-1", -5)
+
+	rec = httptest.NewRecorder()
+	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: no-op debits must not drain the budget", rec.Code)
+	}
+}
