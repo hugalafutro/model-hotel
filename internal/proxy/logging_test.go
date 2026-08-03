@@ -151,6 +151,68 @@ func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 	// No panic = pass
 }
 
+// TestInsertRequestLogAsync_OwnerStoredOnlyForKeylessRows pins the attribution
+// split introduced by migration 067: a keyless row (dashboard chat/arena) is the
+// only shape that stores the request-time owner, because it has no virtual key
+// to resolve one through. A keyed row must leave the column NULL so its owner
+// keeps being read from the key's CURRENT owner and reassigning the key still
+// moves its whole log history.
+func TestInsertRequestLogAsync_OwnerStoredOnlyForKeylessRows(t *testing.T) {
+	h := newIntegrationHandler()
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	var ownerID string
+	err := pool.QueryRow(ctx,
+		`INSERT INTO users (username, password_hash) VALUES ($1, 'x') RETURNING id::text`,
+		"log-owner-"+uuid.NewString(),
+	).Scan(&ownerID)
+	if err != nil {
+		t.Fatalf("create owner user: %v", err)
+	}
+
+	storedOwner := func(logEntry *requestLogData) *string {
+		h.insertRequestLogAsync(logEntry)
+		h.WaitForInsert(logEntry)
+		var got *string
+		if err := pool.QueryRow(ctx,
+			`SELECT owner_user_id::text FROM request_logs WHERE id = $1`, logEntry.id,
+		).Scan(&got); err != nil {
+			t.Fatalf("read back row %s: %v", logEntry.id, err)
+		}
+		return got
+	}
+
+	keyless := storedOwner(&requestLogData{
+		modelID:     uuid.NewString(),
+		ownerUserID: ownerID,
+		state:       "pending",
+	})
+	if keyless == nil || *keyless != ownerID {
+		t.Errorf("keyless row owner_user_id = %v, want %q", keyless, ownerID)
+	}
+
+	keyed := storedOwner(&requestLogData{
+		modelID:        uuid.NewString(),
+		virtualKeyName: "some-key",
+		virtualKeyID:   uuid.NewString(),
+		ownerUserID:    ownerID,
+		state:          "pending",
+	})
+	if keyed != nil {
+		t.Errorf("keyed row owner_user_id = %q, want NULL", *keyed)
+	}
+
+	// No owner in context at all (env admin token, unowned key): still NULL.
+	anonymous := storedOwner(&requestLogData{
+		modelID: uuid.NewString(),
+		state:   "pending",
+	})
+	if anonymous != nil {
+		t.Errorf("unattributed row owner_user_id = %q, want NULL", *anonymous)
+	}
+}
+
 func TestInsertRequestLogAsync_ContextCanceled(t *testing.T) {
 	h := newIntegrationHandler()
 

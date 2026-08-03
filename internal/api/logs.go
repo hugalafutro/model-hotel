@@ -97,12 +97,14 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	// Non-admins can only fetch rows from keys they own; a non-owned id scans
-	// zero rows and answers 404 below, so ownership is not an existence oracle.
+	// Non-admins can only fetch their own rows; a non-owned id scans zero rows
+	// and answers 404 below, so ownership is not an existence oracle. Same
+	// two-shape disjunction as appendLogFilters — see the comment there.
 	ownerPredicate := ""
 	ownerArgs := []any{id}
 	if scope := ownerScopeFromIdentity(r); scope != "" {
-		ownerPredicate = " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $2)"
+		ownerPredicate = " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $2)" +
+			" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = $2))"
 		ownerArgs = append(ownerArgs, scope)
 	}
 
@@ -427,12 +429,18 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
 func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
-	// Owner scope first: for non-admins this is mandatory row-level security
-	// (only traffic from keys they own; rows without a virtual_key_id - admin
-	// chat, arena - are invisible by construction), for admins an optional
-	// dashboard filter.
+	// Owner scope first: for non-admins this is mandatory row-level security,
+	// for admins an optional dashboard filter. The two branches cover the two
+	// disjoint row shapes. A KEYED row resolves through the key's CURRENT owner,
+	// so reassigning a key moves its whole history with it. A KEYLESS row
+	// (dashboard chat/arena, which have no key to join through) carries the
+	// owner stamped at request time in request_logs.owner_user_id, written only
+	// for that shape; see migration 067. Rows predating that column stay NULL on
+	// both sides and remain admin-only.
 	if ownerUserID != "" {
-		query += " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + util.IntToStr(argIndex) + ")"
+		ph := util.IntToStr(argIndex)
+		query += " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + ph + ")" +
+			" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = $" + ph + "))"
 		args = append(args, ownerUserID)
 		argIndex++
 	}

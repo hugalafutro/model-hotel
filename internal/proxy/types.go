@@ -128,9 +128,13 @@ type requestLogData struct {
 	streaming                 bool
 	virtualKeyName            string
 	virtualKeyID              string
-	ownerUserID               string // owning dashboard user's UUID; "" for unowned keys (admin-only visibility)
-	errorMessage              string
-	errorKind                 ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
+	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
+	// (admin-only visibility). Persisted to request_logs.owner_user_id only when
+	// there is no virtual key (migration 067); keyed rows resolve their owner
+	// through the key instead.
+	ownerUserID  string
+	errorMessage string
+	errorKind    ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
 	// upstreamKind is what the PROVIDER said, kept apart from errorKind because
 	// errorKind records how the request ended and later causes overwrite earlier
 	// ones. A client that hangs up on receiving an in-stream error turns the
