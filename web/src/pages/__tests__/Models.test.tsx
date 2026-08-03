@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Model } from "../../api/types";
+import { Layout } from "../../components/Layout";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -972,6 +973,263 @@ describe("Models", () => {
 
 			// Should still render models without provider data
 			expect(screen.getByText("Test Model")).toBeInTheDocument();
+		});
+	});
+
+	/**
+	 * The Models nav badge lives in Layout, on its own 60s poll on
+	 * ["discovery-status"]: this page's `["models"]` invalidations never reach
+	 * it. So these mount the page inside the real Layout and read the real badge
+	 * rather than a probe query, and each serves a `claim_count` that actually
+	 * falls once the write lands — a fixed payload would be right by accident
+	 * whether or not anything re-read it.
+	 */
+	describe("Models nav badge", () => {
+		const status = (claim_count: number) => ({
+			claims: [],
+			group_claims: [],
+			informational: [],
+			claim_count,
+			informational_unseen: 0,
+		});
+
+		const disabledModel = {
+			...mockModel,
+			id: "model-002",
+			model_id: "test-model-v2",
+			name: "Retired Model",
+			display_name: "Retired Model v2",
+			enabled: false,
+		};
+
+		function renderInLayout() {
+			return renderWithProviders(
+				<Layout>
+					<Models />
+				</Layout>,
+			);
+		}
+
+		/** Opens the detail modal for the enabled mock model. */
+		async function openDetailModal(
+			user: ReturnType<typeof renderWithProviders>["user"],
+		) {
+			await user.click(
+				(await screen.findByText("Test Model")).closest("tr") as HTMLElement,
+			);
+			return screen.findByRole("dialog");
+		}
+
+		it("re-reads the badge after a model is deleted", async () => {
+			// Deleting a gone model is one way to resolve its claim, and it is done
+			// from this page with the badge in view.
+			let deleted = false;
+			server.use(
+				http.get("/api/models", () =>
+					HttpResponse.json(deleted ? [] : [mockModel]),
+				),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 0 : 1)),
+				),
+				http.delete("/api/models/:id", () => {
+					deleted = true;
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("1");
+
+			const modal = await openDetailModal(user);
+			await user.click(within(modal).getByRole("button", { name: "Delete" }));
+			await user.click(
+				within(modal).getByRole("button", { name: "Confirm delete" }),
+			);
+			await waitFor(() => expect(deleted).toBe(true));
+
+			// Gone entirely, which the stale poll response would never produce.
+			await waitFor(() =>
+				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
+			);
+		});
+
+		it("clears the table row too when a delete reports failure", async () => {
+			// Re-reading only the badge would leave the page contradicting itself:
+			// the count drops to reflect a model that is gone while its row sits
+			// there claiming it still exists. Both re-read on settle.
+			let deleted = false;
+			server.use(
+				http.get("/api/models", () =>
+					HttpResponse.json(deleted ? [] : [mockModel]),
+				),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 0 : 1)),
+				),
+				http.delete("/api/models/:id", () => {
+					deleted = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("1");
+
+			const modal = await openDetailModal(user);
+			await user.click(within(modal).getByRole("button", { name: "Delete" }));
+			await user.click(
+				within(modal).getByRole("button", { name: "Confirm delete" }),
+			);
+			await screen.findByText(/Failed to delete/);
+
+			await waitFor(() => expect(screen.queryByText("Test Model")).toBeNull());
+			expect(screen.queryByTestId("discovery-status-badge")).toBeNull();
+		});
+
+		it("re-reads the badge after the disabled models are bulk deleted", async () => {
+			let deleted = false;
+			server.use(
+				http.get("/api/models", () =>
+					HttpResponse.json(deleted ? [mockModel] : [mockModel, disabledModel]),
+				),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 1 : 2)),
+				),
+				http.post("/api/models/bulk-delete", () => {
+					deleted = true;
+					return HttpResponse.json({ requested: 1, deleted: 1 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			await user.click(await screen.findByText("Delete 1 disabled"));
+			// ConfirmDialog confirms through the modal's fade-out, so the request is
+			// a timer away from the click, not a microtask.
+			await user.click(within(screen.getByRole("dialog")).getByText("Delete"));
+			await waitFor(() => expect(deleted).toBe(true));
+
+			// The enabled model's claim survives, so this pins a re-read rather than
+			// a badge that merely happens to be empty.
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
+		it("re-reads the badge after a model is toggled", async () => {
+			// Toggling reclassifies rather than removes: buildProviderClaims puts an
+			// enabled model in Suspect, and Suspect is not counted, so re-enabling a
+			// Gone model drops claim_count without deleting anything.
+			let enabled = false;
+			server.use(
+				http.get("/api/models", () =>
+					HttpResponse.json([{ ...mockModel, enabled }]),
+				),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(enabled ? 1 : 2)),
+				),
+				http.patch("/api/models/:id", () => {
+					enabled = true;
+					return HttpResponse.json({ ...mockModel, enabled: true });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			const modal = await openDetailModal(user);
+			await user.click(
+				within(modal).getByRole("button", { name: /Enabled|Disabled/i }),
+			);
+			await waitFor(() => expect(enabled).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
+		it("re-reads the badge after a bulk delete that reports failure", async () => {
+			// A rejected request does not prove the write did not land: the server
+			// can commit and the response be lost. The toast reports the failure,
+			// but the badge must not keep asserting a count it can no longer back.
+			let deleted = false;
+			server.use(
+				http.get("/api/models", () =>
+					HttpResponse.json(deleted ? [mockModel] : [mockModel, disabledModel]),
+				),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 1 : 2)),
+				),
+				http.post("/api/models/bulk-delete", () => {
+					deleted = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			await user.click(await screen.findByText("Delete 1 disabled"));
+			await user.click(within(screen.getByRole("dialog")).getByText("Delete"));
+			await screen.findByText(/Failed to delete/);
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
+		it("re-reads the badge after a discover run from the detail modal", async () => {
+			// A discover run can clear a claim by finding the model listed again, or
+			// raise one by confirming it missing. Either way the badge is as stale
+			// as it is after a dismissal.
+			let discovered = false;
+			server.use(
+				http.get("/api/models", () => HttpResponse.json([mockModel])),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(discovered ? 0 : 3)),
+				),
+				http.post("/api/providers/:id/discover", () => {
+					discovered = true;
+					return HttpResponse.json({ discovered: 1, diff: {} });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("3");
+
+			const modal = await openDetailModal(user);
+			await user.click(
+				within(modal).getByRole("button", { name: "Update info" }),
+			);
+			await waitFor(() => expect(discovered).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
+			);
 		});
 	});
 });

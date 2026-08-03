@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
+import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { EditProviderModal } from "../EditProviderModal";
@@ -597,6 +598,49 @@ describe("EditProviderModal", () => {
 			expect(apiKeyInput).toHaveAttribute(
 				"placeholder",
 				"Leave blank to keep current key",
+			);
+		});
+	});
+
+	describe("Models nav badge", () => {
+		it("re-reads the badge when the provider is switched off", async () => {
+			// listClaimRows joins on `p.enabled = true`, so switching a provider off
+			// takes every claim it owns out of claim_count at once (and back on
+			// restores them). The badge is a 60s poll in Layout that this modal's
+			// ["providers"] invalidation never reaches, hence the real Layout here.
+			let disabled = false;
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json({
+						claims: [],
+						group_claims: [],
+						informational: [],
+						claim_count: disabled ? 0 : 3,
+						informational_unseen: 0,
+					}),
+				),
+				http.put("/api/providers/:id", () => {
+					disabled = true;
+					return HttpResponse.json({ ...mockProvider, enabled: false });
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<Layout>
+					<EditProviderModal {...defaultProps} />
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("3");
+
+			await user.click(screen.getByLabelText("Provider enabled"));
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => expect(disabled).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
 			);
 		});
 	});

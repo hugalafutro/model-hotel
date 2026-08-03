@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { Layout } from "../../components/Layout";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -1517,6 +1518,169 @@ describe("Providers", () => {
 			await waitFor(() => {
 				expect(screen.getByText(/Failed to delete/)).toBeInTheDocument();
 			});
+		});
+	});
+
+	/**
+	 * The Models nav badge lives in Layout, on its own 60s poll on
+	 * ["discovery-status"]: this page's ["providers"] and ["models"]
+	 * invalidations never reach it. So these mount the page inside the real
+	 * Layout and read the real badge, against a `claim_count` that actually
+	 * moves once the write lands.
+	 *
+	 * Every one drives a path that REPORTS FAILURE, because that is what the
+	 * onSettled placement buys: a request that rejects can still have landed,
+	 * and a discovery run that errors partway has still upserted whatever it
+	 * reached.
+	 */
+	describe("Models nav badge", () => {
+		const status = (claim_count: number) => ({
+			claims: [],
+			group_claims: [],
+			informational: [],
+			claim_count,
+			informational_unseen: 0,
+		});
+
+		function renderInLayout() {
+			return renderWithProviders(
+				<Layout>
+					<Providers />
+				</Layout>,
+			);
+		}
+
+		it("re-reads the badge after a failed single-provider discover", async () => {
+			let scanned = false;
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(scanned ? 1 : 3)),
+				),
+				http.post("/api/providers/:id/discover", () => {
+					// Errored partway, after upserting part of what it found.
+					scanned = true;
+					return HttpResponse.json({ error: "upstream died" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("3");
+
+			await user.click(
+				await screen.findByRole("button", { name: "Discover Models" }),
+			);
+			await waitFor(() => expect(scanned).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
+		it("re-reads the badge after a failed discover-all sweep", async () => {
+			let swept = false;
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(swept ? 2 : 5)),
+				),
+				http.post("/api/providers/discover-all", () => {
+					swept = true;
+					return HttpResponse.json({ error: "upstream died" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("5");
+
+			await user.click(
+				await screen.findByRole("button", { name: "Discover All Models" }),
+			);
+			await waitFor(() => expect(swept).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"2",
+				),
+			);
+		});
+
+		it("re-reads the badge after a provider delete that reports failure", async () => {
+			// The provider is gone and its claims with it; only the response was
+			// lost. The toast reports the failure, but the badge must not keep
+			// asserting a count it can no longer back.
+			let deleted = false;
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 0 : 2)),
+				),
+				http.delete("/api/providers/:id", () => {
+					deleted = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			await user.click(await screen.findByRole("button", { name: "Delete" }));
+			await user.click(
+				within(await screen.findByRole("dialog")).getByRole("button", {
+					name: "Delete",
+				}),
+			);
+			await waitFor(() => expect(deleted).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
+			);
+		});
+
+		it("clears the provider card too, not just the badge", async () => {
+			// Re-reading only the badge would leave the page contradicting itself:
+			// the sidebar count drops to reflect a provider that is gone while its
+			// card sits there claiming it still exists. Both re-read on settle.
+			let deleted = false;
+			server.use(
+				http.get("/api/providers", () =>
+					HttpResponse.json(deleted ? [] : [mockProvider]),
+				),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 0 : 2)),
+				),
+				http.delete("/api/providers/:id", () => {
+					deleted = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderInLayout();
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+			expect(await screen.findByText("Test Provider")).toBeInTheDocument();
+
+			await user.click(await screen.findByRole("button", { name: "Delete" }));
+			await user.click(
+				within(await screen.findByRole("dialog")).getByRole("button", {
+					name: "Delete",
+				}),
+			);
+			await waitFor(() => expect(deleted).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.queryByText("Test Provider")).toBeNull(),
+			);
+			expect(screen.queryByTestId("discovery-status-badge")).toBeNull();
 		});
 	});
 });

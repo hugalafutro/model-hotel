@@ -7,6 +7,7 @@ import type { Provider } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { isKnownProviderUrl } from "./constants";
 
 export function EditProviderModal({
@@ -19,6 +20,10 @@ export function EditProviderModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	// Claims are read per enabled provider, so switching one off takes every
+	// claim it owns out of the Models nav badge (and back on restores them).
+	// See useRefreshDiscoveryBadge.
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const { t } = useTranslation();
 	const [formData, setFormData] = useState({
 		name: provider.name,
@@ -40,7 +45,6 @@ export function EditProviderModal({
 			autodiscovery_enabled?: boolean;
 		}) => api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			onToast(
 				t("providers.toast_provider_updated", { name: updated.name }),
 				"success",
@@ -53,6 +57,13 @@ export function EditProviderModal({
 				t("providers.toast_update_failed", { message: err.message }),
 				"error",
 			);
+		},
+		onSettled: () => {
+			// A rejected write can still have landed, so the provider list and the
+			// badge are both re-read rather than inferred from a response that
+			// never arrived.
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			refreshBadge();
 		},
 	});
 
@@ -76,7 +87,7 @@ export function EditProviderModal({
 		}
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SubmitEvent) => {
 		e.preventDefault();
 		setError(null);
 		const payload: {

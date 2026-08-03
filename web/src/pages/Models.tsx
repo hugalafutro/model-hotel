@@ -10,6 +10,7 @@ import { PageHeader } from "../components/PageHeader";
 import { VirtualModelTable } from "../components/VirtualModelTable";
 import { useToast } from "../context/ToastContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 
@@ -17,6 +18,10 @@ export function Models() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
 	const queryClient = useQueryClient();
+	// Discovering and deleting both move the claim set behind the Models nav
+	// badge, and the badge is a 60s poll that nothing here otherwise touches.
+	// See useRefreshDiscoveryBadge.
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const [providerFilter, setProviderFilter] = useState("");
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
@@ -40,11 +45,18 @@ export function Models() {
 	const toggleMutation = useMutation({
 		mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
 			api.models.update(id, { enabled }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-		},
 		onError: (err: Error) => {
 			toast(t("models.toast_update_failed", { message: err.message }), "error");
+		},
+		onSettled: () => {
+			// Toggling reclassifies the claim: enabling a Gone model makes it
+			// Suspect, and Suspect does not count towards the badge, while
+			// disabling it by hand drops it from the claim set outright.
+			//
+			// Table and badge re-read together, so a rejected PATCH that landed
+			// cannot leave one showing a state the other contradicts.
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 		},
 	});
 
@@ -98,13 +110,19 @@ export function Models() {
 
 	const handleDiscover = useCallback(
 		async (providerId: string) => {
-			const result = await api.providers.discover(providerId);
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			setModelRefreshTrigger((n) => n + 1);
-			return result;
+			try {
+				return await api.providers.discover(providerId);
+			} finally {
+				// `finally`, like useDiscoveryRetest: a discovery run that errors
+				// partway has still upserted whatever it reached, so table and badge
+				// are re-read either way. The rejection still reaches the caller.
+				queryClient.invalidateQueries({ queryKey: ["models"] });
+				queryClient.invalidateQueries({ queryKey: ["providers"] });
+				setModelRefreshTrigger((n) => n + 1);
+				refreshBadge();
+			}
 		},
-		[queryClient],
+		[queryClient, refreshBadge],
 	);
 
 	const handleTest = useCallback(async (id: string) => {
@@ -114,12 +132,19 @@ export function Models() {
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => api.models.delete(id),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			setModelRefreshTrigger((n) => n + 1);
 			toast(t("models.toast_deleted"), "success");
 		},
 		onError: (err: Error) => {
 			toast(t("models.toast_delete_failed", { message: err.message }), "error");
+		},
+		onSettled: () => {
+			// A deleted model takes its claim with it, and a rejected DELETE can
+			// still have landed — the response is what was lost. Table and badge
+			// re-read together so neither can outlive the other's version of
+			// what exists.
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			setModelRefreshTrigger((n) => n + 1);
+			refreshBadge();
 		},
 	});
 
@@ -130,13 +155,17 @@ export function Models() {
 				// burst trips the admin IP rate limiter and reports spurious failures.
 				const { deleted } = await api.models.bulkDelete(ids);
 				queryClient.invalidateQueries({ queryKey: ["models"] });
+				refreshBadge();
 				setModelRefreshTrigger((n) => n + 1);
 				toast(
 					t("models.toast_delete_bulk_success", { count: deleted }),
 					"success",
 				);
 			} catch (err) {
+				// The bulk delete is one request, but a failure does not prove nothing
+				// was deleted, so both paths re-read what the server now has.
 				queryClient.invalidateQueries({ queryKey: ["models"] });
+				refreshBadge();
 				setModelRefreshTrigger((n) => n + 1);
 				toast(
 					t("models.toast_delete_failed", { message: (err as Error).message }),
@@ -144,7 +173,7 @@ export function Models() {
 				);
 			}
 		},
-		[queryClient, toast, t],
+		[queryClient, refreshBadge, toast, t],
 	);
 
 	if (isLoading && viewMode === "paginate") {

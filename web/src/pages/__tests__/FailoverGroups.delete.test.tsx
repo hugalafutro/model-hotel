@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { Layout } from "../../components/Layout";
 import { mockFailoverGroup } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -657,10 +658,9 @@ describe("FailoverGroups", () => {
 				http.get("/api/failover-groups/candidates", () =>
 					HttpResponse.json([]),
 				),
-				http.delete("/api/failover-groups/:id", () => {
-					return deletePromise.then(
-						() => new HttpResponse(null, { status: 204 }),
-					);
+				http.delete("/api/failover-groups/:id", async () => {
+					await deletePromise;
+					return new HttpResponse(null, { status: 204 });
 				}),
 			);
 
@@ -742,6 +742,120 @@ describe("FailoverGroups", () => {
 			// The confirmBulkDelete function should early return when bulkDeleteIds is null/empty
 			// This is tested implicitly by the absence of any API calls or toasts
 			// when no groups are selected
+		});
+	});
+
+	/**
+	 * An auto-disabled group IS a counted claim: listGroupClaims selects
+	 * `group_enabled = false AND auto_disabled_at IS NOT NULL`, and
+	 * GetDiscoveryStatus adds those to claim_count alongside the model claims.
+	 * So deleting or re-enabling one moves the Models nav badge, which lives in
+	 * Layout on its own 60s poll that this page's ["failover-groups"]
+	 * invalidation never reached.
+	 */
+	describe("Models nav badge", () => {
+		const status = (claim_count: number) => ({
+			claims: [],
+			group_claims: [],
+			informational: [],
+			claim_count,
+			informational_unseen: 0,
+		});
+
+		const groupWithEntries = {
+			...mockFailoverGroup,
+			entries: [
+				{
+					provider_name: "Test Provider",
+					model_id: "test-model",
+					enabled: true,
+					model_uuid: "model-001",
+				},
+			],
+		};
+
+		it("re-reads the badge after a group is deleted", async () => {
+			let deleted = false;
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: deleted ? [] : [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 1 : 2)),
+				),
+				http.delete("/api/failover-groups/:id", () => {
+					deleted = true;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<Layout>
+					<FailoverGroups />
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			await user.click(
+				(await screen.findAllByRole("button", { name: "Delete" }))[0],
+			);
+			await user.click(getModalDeleteButton());
+			await waitFor(() => expect(deleted).toBe(true));
+
+			// A model claim survives, so this pins a re-read rather than a badge
+			// that merely happens to be empty.
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
+		it("re-reads the badge after a group delete that reports failure", async () => {
+			// A rejected DELETE does not prove the row survived, and the bulk
+			// handlers on this page already re-read from their catch.
+			let deleted = false;
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [groupWithEntries],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status(deleted ? 0 : 1)),
+				),
+				http.delete("/api/failover-groups/:id", () => {
+					deleted = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<Layout>
+					<FailoverGroups />
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("1");
+
+			await user.click(
+				(await screen.findAllByRole("button", { name: "Delete" }))[0],
+			);
+			await user.click(getModalDeleteButton());
+			await waitFor(() => expect(deleted).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
+			);
 		});
 	});
 });

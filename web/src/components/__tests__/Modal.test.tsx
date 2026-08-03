@@ -87,6 +87,58 @@ describe("Modal", () => {
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 	});
 
+	it("closes on Escape pressed from outside the dialog subtree", async () => {
+		// The regression this guards: a control that unmounts while focused hands
+		// focus back to <body>, so the key event no longer originates inside the
+		// dialog. With the handler scoped to the dialog node the modal simply
+		// stopped closing on Escape from that point on.
+		render(<Modal onClose={onClose}>Content</Modal>);
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
+	it("gives Escape to the topmost dialog only", async () => {
+		// A nested confirm must close before the dialog that opened it. With a
+		// document-level listener every open modal hears the key, so the stack
+		// order is what decides, and only the last-opened one may act.
+		const onCloseOuter = vi.fn();
+		const onCloseInner = vi.fn();
+		render(
+			<>
+				<Modal onClose={onCloseOuter}>Outer</Modal>
+				<Modal onClose={onCloseInner}>Inner</Modal>
+			</>,
+		);
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		await waitFor(() => expect(onCloseInner).toHaveBeenCalledTimes(1));
+		expect(onCloseOuter).not.toHaveBeenCalled();
+	});
+
+	it("hands Escape back to the opener once the nested dialog unmounts", async () => {
+		// The stack has to shrink on unmount, or the outer dialog stays deaf to
+		// Escape for the rest of its life.
+		const onCloseOuter = vi.fn();
+		function Nested({ showInner }: { showInner: boolean }) {
+			return (
+				<>
+					<Modal onClose={onCloseOuter}>Outer</Modal>
+					{showInner && <Modal onClose={vi.fn()}>Inner</Modal>}
+				</>
+			);
+		}
+		const { rerender } = render(<Nested showInner={true} />);
+		rerender(<Nested showInner={false} />);
+
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		await waitFor(() => expect(onCloseOuter).toHaveBeenCalledTimes(1));
+	});
+
 	it("closes on the opacity transition end and cancels the fallback timer", () => {
 		vi.useFakeTimers();
 		try {

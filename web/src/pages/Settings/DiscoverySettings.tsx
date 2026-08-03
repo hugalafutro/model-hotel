@@ -10,6 +10,7 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
+import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
 import { formatDateTimeShort } from "../../utils/format";
 import { useSettingsMutations } from "./useSettingsMutations";
@@ -30,6 +31,10 @@ export function DiscoverySettings({
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
+	// "Discover all" moves the claim set behind the Models nav badge, and the
+	// badge is a 60s poll that nothing here otherwise touches. See
+	// useRefreshDiscoveryBadge.
+	const refreshBadge = useRefreshDiscoveryBadge();
 
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
@@ -61,8 +66,6 @@ export function DiscoverySettings({
 	const discoverAllMutation = useMutation({
 		mutationFn: () => api.providers.discoverAll(),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
 			toast(t("settings.discovery.discoverAllComplete"), "success");
 		},
 		onError: (err: Error) => {
@@ -70,6 +73,14 @@ export function DiscoverySettings({
 				t("settings.discovery.discoverAllFailed", { message: err.message }),
 				"error",
 			);
+		},
+		onSettled: () => {
+			// `onSettled`, like useDiscoveryRetest: a sweep that errors partway has
+			// still upserted whatever it reached, so the catalogue counts above and
+			// the claim set can both move without a success.
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 		},
 	});
 

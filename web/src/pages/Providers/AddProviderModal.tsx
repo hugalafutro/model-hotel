@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
+import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import {
 	baseUrls,
 	getProviderType,
@@ -49,6 +50,7 @@ export function AddProviderModal({
 	providers,
 }: AddProviderModalProps) {
 	const queryClient = useQueryClient();
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const { t } = useTranslation();
 	const [formData, setFormData] = useState<{
 		name: string;
@@ -86,8 +88,6 @@ export function AddProviderModal({
 			if (shouldDiscover) {
 				try {
 					const result = await api.providers.discover(newProvider.id);
-					queryClient.invalidateQueries({ queryKey: ["models"] });
-					queryClient.invalidateQueries({ queryKey: ["providers"] });
 					onToast(
 						t("providers.add.discoveredModels", { count: result.discovered }),
 						"success",
@@ -100,6 +100,15 @@ export function AddProviderModal({
 						}),
 						"warning",
 					);
+				} finally {
+					// The new provider owns no claims of its own, but the scan re-syncs
+					// failover, and an auto-disabled group IS a counted claim: fresh
+					// members can lift one back over the routable floor and retire its
+					// claim. Re-read here rather than only on success, since a scan that
+					// errors partway has still upserted whatever it reached.
+					queryClient.invalidateQueries({ queryKey: ["models"] });
+					queryClient.invalidateQueries({ queryKey: ["providers"] });
+					refreshBadge();
 				}
 			}
 
@@ -203,7 +212,7 @@ export function AddProviderModal({
 		}));
 	};
 
-	const handleSubmit = (e: FormEvent) => {
+	const handleSubmit = (e: SubmitEvent) => {
 		e.preventDefault();
 		setError(null);
 		createMutation.mutate({

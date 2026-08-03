@@ -8,6 +8,7 @@ import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
 import { useToast } from "../../context/ToastContext";
+import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { isNaEntry, naReasonKey } from "../../utils/failoverEntry";
 import { proxyModelID } from "../../utils/model";
 import {
@@ -31,6 +32,10 @@ export function CreateGroupModal({
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
+	// Editing or deleting a group moves the group claims the Models nav badge
+	// counts, and Retry N/A re-enables models, which reclassifies theirs. See
+	// useRefreshDiscoveryBadge.
+	const refreshBadge = useRefreshDiscoveryBadge();
 	const isEdit = !!group;
 
 	const [displayModel, setDisplayModel] = useState(group?.display_model ?? "");
@@ -108,7 +113,6 @@ export function CreateGroupModal({
 			entry_ids: string[];
 		}) => api.failoverGroups.create(data),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast(t("failover.toast_created"), "success");
 			onCreated?.();
 		},
@@ -131,6 +135,15 @@ export function CreateGroupModal({
 				);
 			}
 		},
+		// A create that lands but loses its response leaves the list a group
+		// short; see the sibling mutations below. The badge is refreshed with it
+		// rather than reasoned about: a new group is enabled, so it is not itself
+		// a claim, but that is a property of the backend's rules, not of this
+		// call site.
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshBadge();
+		},
 	});
 
 	const updateMutation = useMutation({
@@ -139,7 +152,6 @@ export function CreateGroupModal({
 			body: Parameters<typeof api.failoverGroups.update>[1];
 		}) => api.failoverGroups.update(data.id, data.body),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast(t("failover.toast_updated"), "success");
 			onUpdated?.();
 		},
@@ -155,6 +167,12 @@ export function CreateGroupModal({
 					"error",
 				);
 			}
+		},
+		onSettled: () => {
+			// A rejected write can still have landed, so the group list and the
+			// badge are re-read together.
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshBadge();
 		},
 	});
 
@@ -180,7 +198,6 @@ export function CreateGroupModal({
 	const deleteGroupMutation = useMutation({
 		mutationFn: (id: string) => api.failoverGroups.delete(id),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast(t("failover.toast_delete_success"), "success");
 			onUpdated?.();
 		},
@@ -189,6 +206,11 @@ export function CreateGroupModal({
 				t("failover.toast_delete_failed", { message: err.message }),
 				"error",
 			);
+		},
+		onSettled: () => {
+			// See updateMutation: a rejected DELETE can still have landed.
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshBadge();
 		},
 	});
 
@@ -244,6 +266,9 @@ export function CreateGroupModal({
 		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 		queryClient.invalidateQueries({ queryKey: ["failover-candidates"] });
 		queryClient.invalidateQueries({ queryKey: ["models"] });
+		// Re-enabling a member reclassifies its claim: a Gone model becomes
+		// Suspect, which the badge does not count.
+		refreshBadge();
 
 		const byProvider = new Map<
 			string,
@@ -290,7 +315,7 @@ export function CreateGroupModal({
 		});
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SubmitEvent) => {
 		e.preventDefault();
 
 		const entryUuids = selectedProxyIDs

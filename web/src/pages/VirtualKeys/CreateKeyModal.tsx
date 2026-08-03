@@ -150,7 +150,7 @@ export function CreateKeyModal({
 		},
 	});
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SubmitEvent) => {
 		e.preventDefault();
 		if (!name.trim()) return;
 		setProviderError("");
