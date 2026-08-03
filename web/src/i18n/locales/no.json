@@ -1175,7 +1175,8 @@
 			"keyHashed": "Nøkkelen er hashet og kan ikke gjenopprettes",
 			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp",
 			"id": "Klikk for å kopiere nøkkel-ID",
-			"owner": "Eid av {{name}}"
+			"owner": "Eid av {{name}}",
+			"providerDenyAll": "Nøkkelen tillater ingen leverandører"
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {

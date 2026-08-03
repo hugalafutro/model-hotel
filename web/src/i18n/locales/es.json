@@ -1217,7 +1217,8 @@
 			"keyHashed": "La clave está hasheada y no se puede recuperar",
 			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto",
 			"id": "Haga clic para copiar el ID de clave",
-			"owner": "Propiedad de {{name}}"
+			"owner": "Propiedad de {{name}}",
+			"providerDenyAll": "La clave no permite ningún proveedor"
 		},
 		"emptyState": "No hay claves virtuales. Crea una para empezar a usar el proxy.",
 		"steps": {

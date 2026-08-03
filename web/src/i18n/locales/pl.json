@@ -1259,7 +1259,8 @@
 			"keyHashed": "Klucz jest haszowany i nie można go odzyskać",
 			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego",
 			"id": "Kliknij, aby skopiować identyfikator klucza",
-			"owner": "Należy do {{name}}"
+			"owner": "Należy do {{name}}",
+			"providerDenyAll": "Klucz nie zezwala na żadnych dostawców"
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {

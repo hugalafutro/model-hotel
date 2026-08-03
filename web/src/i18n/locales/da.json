@@ -1175,7 +1175,8 @@
 			"keyHashed": "Nøglen er hashet og kan ikke gendannes",
 			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt",
 			"id": "Klik for at kopiere nøgle-ID",
-			"owner": "Ejet af {{name}}"
+			"owner": "Ejet af {{name}}",
+			"providerDenyAll": "Nøglen tillader ingen udbydere"
 		},
 		"emptyState": "Ingen virtuelle nøgler. Opret en for at begynde at bruge proxy.",
 		"steps": {

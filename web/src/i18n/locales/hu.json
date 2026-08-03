@@ -1175,7 +1175,8 @@
 			"keyHashed": "A kulcs hash-elt, és nem állítható vissza",
 			"tpm": "Percenkénti tokenkorlát; a kéréseket 429-es kóddal utasítja el, ha a perces keret kimerült",
 			"id": "Kattintson a kulcsazonosító másolásához",
-			"owner": "Tulajdonos: {{name}}"
+			"owner": "Tulajdonos: {{name}}",
+			"providerDenyAll": "A kulcs egyetlen szolgáltatót sem engedélyez"
 		},
 		"emptyState": "Nincs virtuális kulcs. Hozzon létre egyet a proxy használatához.",
 		"steps": {

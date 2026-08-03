@@ -1175,7 +1175,8 @@
 			"providerRestricted": "Provider-restricted key",
 			"reasoningStripped": "Reasoning stripped",
 			"keyHashed": "Key is hashed and cannot be recovered",
-			"owner": "Owned by {{name}}"
+			"owner": "Owned by {{name}}",
+			"providerDenyAll": "Key allows no providers"
 		},
 		"emptyState": "No virtual keys. Create one to start using the proxy.",
 		"steps": {

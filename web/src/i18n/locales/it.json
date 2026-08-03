@@ -1217,7 +1217,8 @@
 			"keyHashed": "La chiave è hashed e non può essere recuperata",
 			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
 			"id": "Clicca per copiare l'ID chiave",
-			"owner": "Di proprietà di {{name}}"
+			"owner": "Di proprietà di {{name}}",
+			"providerDenyAll": "La chiave non consente alcun provider"
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {

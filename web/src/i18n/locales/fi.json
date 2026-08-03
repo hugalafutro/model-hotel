@@ -1175,7 +1175,8 @@
 			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa",
 			"tpm": "Tokenien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun",
 			"id": "Klikkaa kopioidaksesi avaimen tunnuksen",
-			"owner": "Omistaja: {{name}}"
+			"owner": "Omistaja: {{name}}",
+			"providerDenyAll": "Avain ei salli yhtään palveluntarjoajaa"
 		},
 		"emptyState": "Ei virtuaalisia avaimia. Luo sellainen, jotta voit aloittaa välityspalvelimen käytön.",
 		"steps": {

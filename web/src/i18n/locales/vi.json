@@ -1175,7 +1175,8 @@
 			"keyHashed": "Khóa đã được băm và không thể khôi phục lại",
 			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết.",
 			"id": "Nhấp để sao chép ID khóa",
-			"owner": "Thuộc sở hữu của {{name}}"
+			"owner": "Thuộc sở hữu của {{name}}",
+			"providerDenyAll": "Khóa không cho phép nhà cung cấp nào"
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {

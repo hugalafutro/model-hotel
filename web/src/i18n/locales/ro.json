@@ -1217,7 +1217,8 @@
 			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
 			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
 			"id": "Faceți clic pentru a copia ID-ul cheii",
-			"owner": "Deținută de {{name}}"
+			"owner": "Deținută de {{name}}",
+			"providerDenyAll": "Cheia nu permite niciun furnizor"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {

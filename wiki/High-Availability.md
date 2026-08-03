@@ -322,9 +322,11 @@ Schema versions move rarely, and only when the meaning of the config on the wire
 changes rather than when a field is added. The most recent bump is an example:
 a virtual key restricted to providers that no longer exist on the primary now
 travels as an empty provider list instead of an absent one, and an older member
-reads an absent list as "no restriction". Refusing the envelope is what stops
-that key from landing on the older member wide open, and no fix on the sending
-side can reach a member that is already running the older code.
+reads a present-but-empty list as "no restriction", because the guard that would
+have skipped the key only fires once the list has at least one entry. Refusing
+the envelope is what stops that key from landing on the older member wide open,
+and no fix on the sending side can reach a member that is already running the
+older code.
 
 ---
 

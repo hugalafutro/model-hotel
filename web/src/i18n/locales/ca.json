@@ -1217,7 +1217,8 @@
 			"keyHashed": "La clau s'ha resumit amb un hash i no es pot recuperar",
 			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut",
 			"id": "Feu clic per copiar l'ID de la clau",
-			"owner": "Propietat de {{name}}"
+			"owner": "Propietat de {{name}}",
+			"providerDenyAll": "La clau no permet cap proveïdor"
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {

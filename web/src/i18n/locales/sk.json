@@ -1259,7 +1259,8 @@
 			"keyHashed": "Kľúč je hashovaný a nie je možné ho obnoviť",
 			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429.",
 			"id": "Kliknutím skopírujte ID kľúča",
-			"owner": "Vlastní {{name}}"
+			"owner": "Vlastní {{name}}",
+			"providerDenyAll": "Kľúč nepovoľuje žiadnych poskytovateľov"
 		},
 		"emptyState": "Žiadne virtuálne kľúče. Vytvorte si jeden, aby ste mohli začať používať proxy.",
 		"steps": {

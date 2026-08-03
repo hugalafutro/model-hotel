@@ -1175,7 +1175,8 @@
 			"keyHashed": "密钥已哈希，无法恢复",
 			"tpm": "每分钟 Token 上限；当分钟预算用尽后，请求将返回 429 状态码",
 			"id": "点击复制密钥 ID",
-			"owner": "所有者：{{name}}"
+			"owner": "所有者：{{name}}",
+			"providerDenyAll": "此密钥不允许任何提供者"
 		},
 		"emptyState": "没有虚拟密钥。创建一个要开始使用代理的密钥。",
 		"steps": {
