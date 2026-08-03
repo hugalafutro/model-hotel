@@ -665,6 +665,21 @@ nav ul:has(> li > .sidebar-link) {
 	}
 }
 
+/* Wide but short (1080p and below): the sidebar column is height-constrained,
+   not width-constrained, so the width clamp above hands it its roomiest rows
+   exactly where the nav, the quota badges and the stats stop fitting. Shrink
+   the row padding on viewport height instead, between 1100px and 950px — a
+   1080p screen lands near the bottom of that ramp once browser chrome is off.
+   Scoped to >=1200px wide so it never loosens the narrow-viewport rule. */
+@media (min-width: 1200px) and (max-height: 1100px) {
+	.sidebar-link {
+		padding-block: clamp(0.2rem, 1.13vh - 7.55px, 0.5rem);
+	}
+	nav ul:has(> li > .sidebar-link) {
+		gap: 0;
+	}
+}
+
 .sidebar-link-active {
 	background-color: var(--accent-light);
 	color: var(--accent);
@@ -1298,6 +1313,19 @@ html[data-ui-style="clean-saas"].light .sidebar-quota-pill:hover {
 @media (min-width: 1536px) {
 	.sidebar-stats-content > * + * {
 		margin-top: 0.2rem;
+	}
+}
+
+/* Short viewports (1080p and below) tighten the stat rows: line spacing and
+   row gap scale down between 1100px and 950px of viewport height, font size
+   and colour stay put. Taller viewports keep the roomy spacing above. */
+@media (max-height: 1100px) {
+	.sidebar-stats-content {
+		line-height: clamp(14px, 1.67vh - 1.83px, 16.5px);
+	}
+
+	.sidebar-stats-content > * + * {
+		margin-top: clamp(1px, 1.47vh - 12.93px, 3.2px);
 	}
 }
 
