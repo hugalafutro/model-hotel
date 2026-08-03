@@ -658,10 +658,9 @@ describe("FailoverGroups", () => {
 				http.get("/api/failover-groups/candidates", () =>
 					HttpResponse.json([]),
 				),
-				http.delete("/api/failover-groups/:id", () => {
-					return deletePromise.then(
-						() => new HttpResponse(null, { status: 204 }),
-					);
+				http.delete("/api/failover-groups/:id", async () => {
+					await deletePromise;
+					return new HttpResponse(null, { status: 204 });
 				}),
 			);
 

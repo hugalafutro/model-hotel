@@ -87,7 +87,7 @@ export function EditProviderModal({
 		}
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SubmitEvent) => {
 		e.preventDefault();
 		setError(null);
 		const payload: {

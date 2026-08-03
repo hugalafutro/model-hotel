@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -212,7 +212,7 @@ export function AddProviderModal({
 		}));
 	};
 
-	const handleSubmit = (e: FormEvent) => {
+	const handleSubmit = (e: SubmitEvent) => {
 		e.preventDefault();
 		setError(null);
 		createMutation.mutate({

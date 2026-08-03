@@ -454,7 +454,7 @@ describe("CreateGroupModal", () => {
 	describe("form validation", () => {
 		it("shows error toast when display model name is empty (JS guard)", async () => {
 			// Bypass HTML5 required validation by submitting the form directly
-			renderWithProviders(
+			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
 					onClose={mockOnClose}
@@ -463,8 +463,8 @@ describe("CreateGroupModal", () => {
 			);
 
 			// Select 2 models but leave display model name empty
-			await screen.getByText("Gemma 3 4B").click();
-			await screen.getByText("Gemma 3").click();
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
 
 			// Submit form directly (bypasses browser required check)
 			const form = screen
