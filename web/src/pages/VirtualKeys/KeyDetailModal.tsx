@@ -659,26 +659,57 @@ export function KeyDetailModal({
 									{t("virtualkeys.modal.noProvidersConfigured")}
 								</p>
 							) : (
-								<div className="flex flex-wrap gap-1.5">
-									{sortedProviders.map((provider) => {
-										const isAllowed =
-											!vk.allowed_providers ||
-											vk.allowed_providers.includes(provider.id);
-										return (
-											<span
-												key={provider.id}
-												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
-													${
-														isAllowed
-															? "ui-badge-accent"
-															: "ui-badge-neutral line-through opacity-60"
-													}`}
-											>
-												{provider.name}
-											</span>
-										);
-									})}
-								</div>
+								<>
+									{outsideCapIds.length > 0 && (
+										<p
+											id={capNoteId}
+											data-testid="vk-detail-readonly-cap-note"
+											data-cap-source={capIsOtherOwner ? "owner" : "account"}
+											className="text-xs text-gray-500 italic mb-1.5"
+										>
+											{capNote}
+										</p>
+									)}
+									<div className="flex flex-wrap gap-1.5">
+										{sortedProviders.map((provider) => {
+											const outsideCap = isOutsideCap(provider.id);
+											// Being named by the key is not the same as being
+											// granted. A stored list wider than the owner's cap is a
+											// deliberate, ordinary state here (the key keeps its
+											// stored intent and effectiveAllowedProviders in
+											// internal/proxy intersects the two on every request),
+											// so a provider the cap excludes reads as denied however
+											// the stored list spells it. Both reasons strike the
+											// chip through; only the cap adds the note, since that
+											// is the one the stored list cannot explain.
+											const isAllowed =
+												!outsideCap &&
+												(!vk.allowed_providers ||
+													vk.allowed_providers.includes(provider.id));
+											return (
+												<span
+													key={provider.id}
+													data-testid={`vk-detail-provider-${provider.id}`}
+													{...(outsideCap
+														? {
+																"data-outside-cap": "true",
+																"aria-describedby": capNoteId,
+															}
+														: {})}
+													title={outsideCap ? capNote : undefined}
+													className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
+														${
+															isAllowed
+																? "ui-badge-accent"
+																: "ui-badge-neutral line-through opacity-60"
+														}`}
+												>
+													{provider.name}
+												</span>
+											);
+										})}
+									</div>
+								</>
 							)}
 						</DetailItem>
 					</div>
