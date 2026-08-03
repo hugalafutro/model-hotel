@@ -86,7 +86,11 @@ func TestAuthLogout_BearerToken_ClearsCookieAndRevokes(t *testing.T) {
 	}
 }
 
-func TestAuthLogout_NoToken_StillClearsCookieIdempotently(t *testing.T) {
+// A bare POST is what a forced-logout CSRF looks like from the server's side:
+// SameSite=Strict keeps both auth cookies off a cross-site request, so there is
+// no credential to act on. Answering 200 without any Set-Cookie leaves the
+// victim's cookie jar untouched.
+func TestAuthLogout_NoCredentials_DoesNotClearCookies(t *testing.T) {
 	var called bool
 	h := logoutHandler(t, nil, &called)
 
@@ -101,9 +105,32 @@ func TestAuthLogout_NoToken_StillClearsCookieIdempotently(t *testing.T) {
 	if called {
 		t.Error("RevokeAuthToken should not be called when no token is presented")
 	}
+	if got := rec.Result().Header.Values("Set-Cookie"); len(got) != 0 {
+		t.Errorf("Set-Cookie = %v, want none (a credential-less request must not expire the caller's cookies)", got)
+	}
+}
+
+// A CSRF cookie without a session is leftover same-site state (only a same-site
+// request can present it at all), so logout still clears it.
+func TestAuthLogout_CSRFCookieOnly_ClearsCookies(t *testing.T) {
+	var called bool
+	h := logoutHandler(t, nil, &called)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.CSRFCookie, Value: "csrf-tok"})
+	rec := httptest.NewRecorder()
+
+	h.AuthLogout(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("logout = %d, want 200 (%s)", rec.Code, rec.Body.String())
+	}
+	if called {
+		t.Error("RevokeAuthToken should not be called when no session token is presented")
+	}
 	c := cookieByName(rec, authcookie.SessionCookie)
 	if c == nil {
-		t.Fatal("expected an mh_session cookie clear even with no token (idempotent)")
+		t.Fatal("expected an mh_session cookie clear alongside the stray CSRF cookie")
 	}
 	if c.MaxAge >= 0 {
 		t.Errorf("session cookie MaxAge = %d, want negative (expiring)", c.MaxAge)
