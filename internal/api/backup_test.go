@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,7 +11,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -113,6 +117,81 @@ func TestBackupHandler_DownloadBackup(t *testing.T) {
 	if cd := w.Header().Get("Content-Disposition"); cd != `attachment; filename="backup_test.dump"` {
 		t.Errorf("expected Content-Disposition header, got %q", cd)
 	}
+}
+
+// blockingWriter stalls the response body write until release is closed, so a
+// test can inspect handler state mid-transfer.
+type blockingWriter struct {
+	hdr      http.Header
+	started  chan struct{}
+	release  chan struct{}
+	once     sync.Once
+	body     bytes.Buffer
+	code     int
+	codeOnce sync.Once
+}
+
+func newBlockingWriter() *blockingWriter {
+	return &blockingWriter{
+		hdr:     http.Header{},
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+		code:    http.StatusOK,
+	}
+}
+
+func (b *blockingWriter) Header() http.Header { return b.hdr }
+
+func (b *blockingWriter) WriteHeader(code int) {
+	b.codeOnce.Do(func() { b.code = code })
+}
+
+func (b *blockingWriter) Write(p []byte) (int, error) {
+	b.once.Do(func() { close(b.started) })
+	<-b.release
+	return b.body.Write(p)
+}
+
+// A download must not hold backupMu. The create, restore and retention-prune
+// paths all TryLock and abandon their run when the lock is taken, so a download
+// that held it would silently cancel scheduled backups for as long as a slow
+// client took to pull the file down.
+func TestBackupHandler_DownloadBackup_DoesNotHoldBackupMutex(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
+
+	//nolint:gosec // test-only: permissive perms acceptable
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backup_test.dump", http.NoBody)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("filename", "backup_test.dump")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := newBlockingWriter()
+	done := make(chan struct{})
+	go func() {
+		h.DownloadBackup(w, req)
+		close(done)
+	}()
+
+	select {
+	case <-w.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("download never began writing")
+	}
+
+	if !h.backupMu.TryLock() {
+		close(w.release)
+		<-done
+		t.Fatal("backupMu is held during a download; a slow client would block scheduled backups")
+	}
+	h.backupMu.Unlock()
+
+	close(w.release)
+	<-done
 }
 
 func TestBackupHandler_DownloadBackup_NotFound(t *testing.T) {

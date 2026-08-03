@@ -211,6 +211,16 @@ func (h *BackupHandler) validateBackupFilename(filename string) string {
 }
 
 // DownloadBackup serves a backup file for download.
+//
+// Opens the file up front and serves from that handle rather than stat-ing the
+// path and letting http.ServeFile reopen it. A stat-then-open pair races the
+// delete and retention-prune paths: the file can vanish between the two checks
+// and the client gets a truncated or failed transfer. Holding an open
+// descriptor removes the window - an unlink during the transfer leaves this
+// handle readable until it is closed. Deliberately does NOT take backupMu:
+// downloads are long-lived, and the create/restore/prune paths TryLock and give
+// up when busy, so a slow client would silently cancel scheduled backups for
+// the length of its transfer.
 func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	filename := chi.URLParam(r, "filename")
 
@@ -220,8 +230,23 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+	//nolint:gosec // G304: absPath is validated above - a bare .dump basename resolved under backupDir
+	f, err := os.Open(absPath)
+	if os.IsNotExist(err) {
 		http.Error(w, "backup not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		respondError(w, fmt.Sprintf("failed to open backup %q", filename), err, http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	// ServeContent needs a size and modtime for Content-Length and conditional
+	// requests; take them from the open handle so they describe the bytes about
+	// to be sent rather than whatever the path points at now.
+	info, err := f.Stat()
+	if err != nil {
+		respondError(w, fmt.Sprintf("failed to stat backup %q", filename), err, http.StatusInternalServerError)
 		return
 	}
 
@@ -229,7 +254,7 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeFile(w, r, absPath)
+	http.ServeContent(w, r, filename, info.ModTime(), f)
 }
 
 // buildDumpCommand creates a pg_dump command with the password stripped from
