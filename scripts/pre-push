@@ -1,45 +1,62 @@
 #!/usr/bin/env bash
-# Pre-push: a scoped smoke test plus a scoped diff-coverage gate. GitHub CI is
-# still the real gatekeeper; this just catches the common failures before a
-# wasted CI cycle.
+# Pre-push: a scoped smoke test plus a scoped diff-coverage gate. GitHub CI is the
+# real gatekeeper; this catches common failures before a wasted CI cycle.
 #
-# EVERY step is gated on the surface it protects actually having changed, because
-# git opens the connection to the remote BEFORE running this hook and only writes
-# the pack afterwards. A hook that runs for minutes leaves that connection idle
-# for minutes, and a dropped connection kills the push with SIGPIPE (exit 141)
-# after all the work is done. Keeping the hook proportional to the diff is what
-# stops that, so do not add an ungated step here. If you are on a network that
-# drops idle connections anyway, push with:
+# Every step is gated on the surface it protects having changed. git holds the
+# remote connection open across this hook, so a long run risks the remote dropping
+# it and killing the push with SIGPIPE (exit 141). Do not add an ungated step. On a
+# network that drops idle connections anyway:
 #   GIT_SSH_COMMAND="ssh -o ServerAliveInterval=15" git push
 #
-# Frontend checks use local pnpm when web/node_modules exists,
-# otherwise fall back to Docker.
+# Frontend checks use local pnpm when web/node_modules exists, else Docker.
 #
-# The diff-coverage gate (mirrors CI's "Coverage Diff Gate") builds coverage
-# only for the surfaces whose files changed and fails the push if <90% of this
-# branch's changed lines are covered. It runs whole suites, so it can take a
-# few minutes; skip it entirely with NO_COVERAGE_PREPUSH=1.
+# The diff-coverage gate (mirrors CI's "Coverage Diff Gate") builds coverage only
+# for changed surfaces and fails the push under 90% on changed lines. It runs whole
+# suites, so it can take minutes; skip it with NO_COVERAGE_PREPUSH=1.
 
 set -euo pipefail
 
+# Reports an unhandled failure with its line and command; set -e alone exits silent.
+pre_push_abort() {
+	echo "pre-push: ABORTED - unexpected failure (exit $1) at scripts/pre-push:$2" >&2
+	echo "  failing command: $3" >&2
+	echo "  Hook bug, not a rejected push. Nothing was pushed." >&2
+	exit "$1"
+}
+trap 'pre_push_abort $? "$LINENO" "$BASH_COMMAND"' ERR
+
+# gate_status <status> <what> - grep status to boolean: 0 match, 1 no match.
+# Any other status means the test itself broke, and aborts the push rather than
+# reading as "nothing to check". 141 is SIGPIPE under pipefail, so the gates below
+# count with -c and never exit early with -q.
+gate_status() {
+	case "$1" in
+	0) return 0 ;;
+	1) return 1 ;;
+	esac
+	echo "pre-push: ABORTED - $2 exited $1, neither match (0) nor no-match (1)." >&2
+	echo "  Refusing the push rather than skipping a check. Nothing was pushed." >&2
+	if [ "$1" = "141" ]; then
+		echo "  141 is SIGPIPE under pipefail: use 'grep -c', never 'grep -q'." >&2
+	fi
+	exit 1
+}
+
+HOOK_STARTED_AT=$SECONDS
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# README/DOCKERHUB.md sync guard - mirrors .github/workflows/dockerhub-readme-guard.yml
-# so the "you touched README.md, touch DOCKERHUB.md too" decision happens here
-# instead of after a wasted CI cycle. DOCKERHUB.md is the Hub-tailored copy synced
-# to Docker Hub whenever it changes on master (sync-dockerhub-readme.yml). Diff this
-# branch against its merge-base with the default branch (same
-# base..head model the CI uses). Set DOCKERHUB_README_NOT_NEEDED=1 to acknowledge a
-# README change that genuinely doesn't apply to Docker Hub (local stand-in for the
-# 'dockerhub-readme-not-needed' PR label).
+# README/DOCKERHUB.md sync guard - mirrors dockerhub-readme-guard.yml. DOCKERHUB.md
+# is the Hub-tailored README copy, synced on master by sync-dockerhub-readme.yml.
+# DOCKERHUB_README_NOT_NEEDED=1 acknowledges a README change that does not apply to
+# Docker Hub (local stand-in for the 'dockerhub-readme-not-needed' PR label).
 DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-master}"
 # git feeds pre-push the refs actually being pushed on stdin, one line each:
 #   <local ref> <local sha> <remote ref> <remote sha>
-# Gate on THOSE, not on HEAD. `git push origin some-other-branch` and multi-ref
-# pushes never touch HEAD, so a gate reading HEAD would measure an unrelated
-# branch and skip checks the pushed commits actually need. Falls back to HEAD
-# when stdin is empty or a terminal, i.e. the hook was run by hand.
+# Gate on those, not HEAD: a non-HEAD or multi-ref push would otherwise measure an
+# unrelated branch. Falls back to HEAD when stdin is empty or a terminal, i.e. the
+# hook was run by hand.
 PUSH_HEADS=()
 if [ ! -t 0 ]; then
 	while read -r _local_ref local_sha _remote_ref _remote_sha; do
@@ -54,11 +71,10 @@ if [ "${#PUSH_HEADS[@]}" -eq 0 ]; then
 	PUSH_HEADS=("$(git rev-parse HEAD)")
 fi
 
-# One diff for the whole hook: the union of every ref being pushed, each measured
-# against its own merge-base with the default branch (the base..head model CI
-# uses). Every gate below tests against this, so a push only pays for the
-# surfaces it actually touched. SYNC_BASE stays empty when nothing has a
-# merge-base, in which case the gates fall back to running everything.
+# One diff for the whole hook: the union of every ref being pushed, each against its
+# own merge-base with the default branch. Every gate below tests against this, so a
+# push only pays for the surfaces it touched. SYNC_BASE stays empty when nothing has
+# a merge-base, and the gates then fall back to running everything.
 SYNC_BASE=""
 CHANGED=""
 for _sha in "${PUSH_HEADS[@]}"; do
@@ -69,104 +85,70 @@ for _sha in "${PUSH_HEADS[@]}"; do
 done
 CHANGED="$(printf '%s\n' "$CHANGED" | grep -v '^[[:space:]]*$' || true)"
 
-# Is the push exactly HEAD? The lint gates above only need the changed PATHS, which
-# the union covers. The coverage gate is different: it runs the suites against the
-# WORKING TREE and diff_coverage.py maps that coverage onto `base...HEAD`, so its
-# number only describes the push when the pushed ref IS HEAD. On a non-HEAD or
-# multi-ref push it would measure code that was never checked out, and with several
-# refs it would keep only the first merge-base, silently reporting on the wrong
-# range. Skipping beats a confident wrong answer; CI enforces coverage regardless.
+# Is the push exactly HEAD? The lint gates need only the changed paths, which the
+# union covers. The coverage gate runs suites against the WORKING TREE and
+# diff_coverage.py maps that onto base...HEAD, so its number only describes the push
+# when the pushed ref is HEAD; otherwise the gate is skipped rather than reported
+# wrong. CI enforces coverage regardless.
 PUSH_IS_HEAD="no"
 if [ "${#PUSH_HEADS[@]}" -eq 1 ] && [ "${PUSH_HEADS[0]}" = "$(git rev-parse HEAD)" ]; then
 	PUSH_IS_HEAD="yes"
 fi
-# touched <regex> - true when a changed path matches, or when we have no diff to
-# go on (no merge-base), so an unknown state stays conservative and runs the check.
-#
-# `grep -c >/dev/null` rather than `grep -q`, for the reason spelled out on
-# has_measurable_change: -q exits on the first match, and under `set -o pipefail`
-# the SIGPIPE it deals the writer becomes the pipeline's status. See there.
+# touched <regex> - true when a changed path matches, or when there is no diff to go
+# on (no merge-base), so an unknown state stays conservative and runs the check.
 touched() {
 	[ -z "$SYNC_BASE" ] && return 0
-	printf '%s\n' "$CHANGED" | grep -cE "$1" >/dev/null
+	local status=0
+	printf '%s\n' "$CHANGED" | grep -cE "$1" >/dev/null || status=$?
+	gate_status "$status" "touched($1)"
 }
 
 # has_measurable_change <include-regex> <exclude-regex> - true when a changed file
-# matches include and not exclude AND at least one of its changed lines is
-# something a coverage tool could attribute to executable code.
+# matches include, not exclude, and has at least one changed line a coverage tool
+# could attribute to executable code.
 #
-# Why this exists: the coverage suites take minutes, and diff_coverage.py measures
-# CHANGED LINES. Both vitest configs instrument only src/**/*.{ts,tsx} (the emitted
-# lcov carries no other extension) and exclude tests, and no coverage format has
-# ever attributed a blank line or a comment. So a diff limited to locale JSON, to
-# tests, or to comments has ZERO measurable changed lines: the suite runs for
-# minutes and then there is nothing to measure. Skipping it is EQUIVALENT, not
-# weaker. PR #559 paid a full main-dashboard coverage run for a six-line comment.
+# The vitest configs instrument only src/**/*.{ts,tsx} and exclude tests, and no
+# coverage format attributes a blank line or a comment. A diff of only locale JSON,
+# tests or comments therefore has zero measurable changed lines, and skipping the
+# suite is equivalent to running it rather than weaker.
 #
-# Conservative by construction, in three ways: only blank lines and `//` comments
-# are discounted (NOT `/*` or a leading `*`, since a wrapped expression can begin
-# a line with `*`); anything unrecognised counts as code; and if the diff cannot be
-# computed at all we return true so the suite still runs. CI enforces coverage
-# against the real ref regardless.
-#
-# The final grep counts instead of using -q, and that is load-bearing under this
-# script's `set -o pipefail`. `grep -q` exits the moment it matches; the `sed` and
-# `grep` upstream of it then take SIGPIPE and die with 141, and pipefail makes 141
-# the status of the whole pipeline — which is this function's return value. So a
-# diff WITH measurable lines reported "none", and did it only once the diff grew
-# past the 64 KiB pipe buffer (below that the writers finish before the reader
-# closes and nothing is signalled).
-#
-# That inverted the gate exactly where it matters: small changes were measured,
-# large ones skipped, and "no measurable lines" was indistinguishable from "plenty".
-# A 123 KB Go diff on the retirement branch skipped the gate and shipped a file at
-# 0% changed-line coverage, which CI's aggregate threshold then hid.
-#
-# -c reads its input to the end, so nothing upstream is ever signalled, and the
-# exit status is still 0-on-match / 1-on-none. The count itself is unwanted, hence
-# the redirect. The cost is reading the diff in full: ~120 KB, once, per push.
+# Conservative by construction: only blank lines and `//` comments are discounted
+# (not `/*` or a leading `*`, since a wrapped expression can begin a line with `*`),
+# anything unrecognised counts as code, and an uncomputable diff returns true so the
+# suite still runs. CI enforces coverage against the real ref regardless.
 has_measurable_change() {
 	local files
 	files="$(printf '%s\n' "$CHANGED_FILES" | grep -E "$1" | grep -vE "$2" || true)"
 	[ -z "$files" ] && return 1
 	[ -z "$SYNC_BASE" ] && return 0
 	local diff
-	# NUL-delimited rather than `xargs -d '\n'`: -d is a GNU extension BSD xargs
-	# rejects, so on macOS this errored, hit the `|| return 0` below and ran the
-	# suite unconditionally. -r is not needed (files is non-empty by the guard
-	# above) and is itself GNU-only.
+	# NUL-delimited: `xargs -d` is a GNU extension BSD xargs rejects. -r is GNU-only
+	# too, and unnecessary since files is non-empty by the guard above.
 	diff="$(printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 git diff -U0 "$SYNC_BASE...HEAD" -- 2>/dev/null)" || return 0
+	local status=0
 	printf '%s\n' "$diff" |
 		grep -E '^[+-]' |
 		grep -vE '^(\+\+\+|---)' |
 		sed -E 's/^[+-][[:space:]]*//' |
-		grep -cvE '^$|^//' >/dev/null
+		grep -cvE '^$|^//' >/dev/null || status=$?
+	gate_status "$status" "has_measurable_change($1)"
 }
 
 # run_vitest_coverage <app-subdir> <source-file-regex> - build lcov for one
-# frontend, preferring the tests vitest believes the change affects.
+# frontend, preferring the tests vitest believes the change affects (~4x faster).
 #
-# The scoped run is ~4x faster (281s -> 68s for web/ on this repo, 936 of 5481
-# tests). It is NOT trusted on its own, because vitest's affected-test detection
-# misses real dependents: changing web/src/components/CapBadge.tsx did not run
-# ModelTable.test.tsx, despite ModelTable.test.tsx importing ModelTable, which
-# imports CapBadge.
-#
-# That matters because diff_coverage.py SKIPS any changed file it has no
-# coverage for, and reports PASS when that leaves nothing to measure. A file
-# whose tests vitest missed is never loaded, so it never appears in the report,
-# so the gate would wave through a completely untested change. assert_instrumented.py
-# therefore checks every changed file actually got measured, and we rerun the
-# full suite when it did not. Worst case costs both runs; the gate stays honest.
+# The scoped run is not trusted on its own: vitest's affected-test detection misses
+# real dependents, and diff_coverage.py skips any changed file it has no coverage
+# for, reporting PASS when that leaves nothing to measure. assert_instrumented.py
+# checks every changed file was measured, and the full suite reruns when it was not.
+# Worst case costs both runs; the gate stays honest.
 run_vitest_coverage() {
 	local app=$1 include=$2
 	local dir="$REPO_ROOT/$app" lcov="$REPO_ROOT/$app/coverage/lcov.info"
 	local changed_files=""
-	# Keep only files that still exist. The diff lists deleted paths too, and a
-	# deleted file can never appear in an lcov report, so passing it to the guard
-	# would report "unmeasured" every time and rerun the full suite for nothing.
-	# diff_coverage has nothing to measure in it either: its lines are gone from
-	# HEAD, so they are never part of the changed-line set being gated.
+	# Keep only files that still exist. A deleted path can never appear in an lcov
+	# report, so it would read as unmeasured and rerun the full suite for nothing.
+	# Its lines are gone from HEAD, so they are not in the gated changed-line set.
 	while read -r _file; do
 		[ -n "$_file" ] || continue
 		[ -f "$REPO_ROOT/$_file" ] || continue
@@ -201,12 +183,14 @@ run_vitest_coverage() {
 }
 
 if [ -n "$SYNC_BASE" ]; then
-	# -c over -q on both, for the pipefail reason argued on has_measurable_change.
-	# A file list only exceeds the pipe buffer on a very wide change (a locale
-	# sweep, a mass rename), so this one is latent rather than firing — but it is
-	# the same construct, and the way it fails is to wave the guard through.
-	if printf '%s\n' "$CHANGED" | grep -cx "README.md" >/dev/null &&
-		! printf '%s\n' "$CHANGED" | grep -cx "DOCKERHUB.md" >/dev/null; then
+	# -c over -q on both, per gate_status: a truncated read must not read as
+	# "README untouched", which is the answer that skips the guard.
+	README_TOUCHED=0
+	printf '%s\n' "$CHANGED" | grep -cx "README.md" >/dev/null || README_TOUCHED=$?
+	DOCKERHUB_TOUCHED=0
+	printf '%s\n' "$CHANGED" | grep -cx "DOCKERHUB.md" >/dev/null || DOCKERHUB_TOUCHED=$?
+	if gate_status "$README_TOUCHED" "README.md change detection" &&
+		! gate_status "$DOCKERHUB_TOUCHED" "DOCKERHUB.md change detection"; then
 		if [ "${DOCKERHUB_README_NOT_NEEDED:-}" = "1" ]; then
 			echo "pre-push: README.md changed without DOCKERHUB.md - acknowledged (DOCKERHUB_README_NOT_NEEDED=1)"
 			echo "  -> CI uses a LABEL, not this env var: add the 'dockerhub-readme-not-needed'" >&2
@@ -222,10 +206,9 @@ if [ -n "$SYNC_BASE" ]; then
 fi
 
 # DOCKERHUB.md length guard - mirrors the 'length' job in dockerhub-readme-guard.yml.
-# Docker Hub truncates a repository description at 25,000 characters (sliced
-# mid-content, often mid-link), and we never see it locally because the file is
-# uploaded verbatim to Docker Hub. Guard on chars (Docker Hub's unit) AND bytes
-# here so an over-length edit fails before the push, not after a wasted CI cycle.
+# Docker Hub truncates a repository description at 25,000 characters, mid-content,
+# and the file uploads verbatim so it is never visible locally. Guarded on chars
+# (Docker Hub's unit) and bytes.
 DOCKERHUB_LIMIT=25000
 if [ -f "$REPO_ROOT/DOCKERHUB.md" ]; then
 	if command -v python3 >/dev/null 2>&1; then
@@ -242,11 +225,9 @@ if [ -f "$REPO_ROOT/DOCKERHUB.md" ]; then
 	fi
 fi
 
-# Go lint, only when Go actually changed. golangci-lint already runs govet as one
-# of its enabled linters (.golangci.yml), so a separate `go vet` pass was doing
-# the same package-graph analysis twice for no extra signal; it is gone.
-# The linter's own config counts as a Go change: editing .golangci.yml can turn a
-# linter on and make previously-passing code fail, so it has to re-run.
+# Go lint, only when Go changed. golangci-lint runs govet among its enabled linters
+# (.golangci.yml), so there is no separate `go vet` pass. .golangci.yml itself counts
+# as a Go change: enabling a linter can make previously-passing code fail.
 if touched '\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$'; then
 	echo "pre-push: golangci-lint run ./cmd/... ./internal/... (includes govet)"
 	if ! golangci-lint run ./cmd/... ./internal/...; then
@@ -257,11 +238,9 @@ else
 	echo "pre-push: no Go changes, skipping golangci-lint"
 fi
 
-# Main-dashboard lint + typecheck, only when web/ changed. tsc -b runs here (not
-# in the Docker image build) so type errors are caught locally before push; it is
-# incremental (tsbuildinfo), so it is cheap to repeat.
-# This step only ever covered web/. frontdesk/web has never been linted by this
-# hook, so gating on ^web/ takes no protection away from a Front Desk branch.
+# Main-dashboard lint + typecheck, only when web/ changed. tsc -b runs here rather
+# than in the Docker image build, catching type errors before the push, and is
+# incremental (tsbuildinfo). Covers web/ only; frontdesk/web is not linted here.
 if ! touched '^web/'; then
 	echo "pre-push: no web/ changes, skipping pnpm lint + tsc -b"
 elif [ -d "$REPO_ROOT/web/node_modules" ]; then
@@ -309,42 +288,28 @@ else
 	# Go: any non-test .go under internal/ (cmd/ and tools/ are excluded from coverage).
 	if has_measurable_change '^internal/.*\.go$' '_test\.go$'; then
 		if (exec 3<>/dev/tcp/localhost/5433) 2>/dev/null; then
-			# Only the packages whose files changed, not ./internal/... . `go test
-			# -coverprofile` attributes coverage solely to the package under test
-			# unless -coverpkg widens it, which we do not use: a profile built from
-			# one package contains that package's statements and nothing else. So
-			# for a gate that measures CHANGED LINES, a dependent package's tests
-			# contribute exactly nothing to the number, and running them is pure
-			# cost. Verified by measuring internal/{proxy,quota,failover,model}
-			# inside the full tree and in isolation: 94.9/99.3/95.6/95.5% either
-			# way, identical.
+			# Only the packages whose files changed, not ./internal/... .
+			# `go test -coverprofile` attributes coverage solely to the package
+			# under test (no -coverpkg here), so for a gate measuring CHANGED
+			# LINES a dependent package's tests contribute nothing.
 			#
-			# This matters because internal/api costs ~190s of the ~196s a full run
-			# takes, and it sits downstream of 24 of the 33 internal packages.
-			# Go's test cache already spares you when nothing it compiles against
-			# actually changed (adding an unused function is stripped by the
-			# linker, leaving the test binary byte-identical and the cached result
-			# valid), but any REAL change to one of those 24 re-runs it in full.
-			# Editing an error string in internal/db is enough. Now you pay for
-			# internal/api only when you change internal/api. Falls back to the
-			# whole tree when there is no diff to scope by, the same conservative
-			# default touched() uses.
+			# internal/api costs ~190s of the ~196s a full run takes and sits
+			# downstream of 24 of the 33 internal packages, so scoping keeps its
+			# cost on changes to internal/api itself. Falls back to the whole tree
+			# with no diff to scope by, the default touched() uses.
 			GO_PKGS=""
 			if [ -n "$SYNC_BASE" ]; then
-				# The diff lists deleted paths too, and a package whose last file
-				# was removed no longer exists on disk. `go test ./internal/gone`
-				# is a hard error, so an unrelated deletion would block the push
-				# for a reason that has nothing to do with coverage. Keep only
-				# directories that are still there.
+				# Keep only directories that still exist: a package whose last
+				# file was deleted is gone from disk, and `go test
+				# ./internal/gone` is a hard error that would block the push.
 				while read -r _dir; do
 					[ -n "$_dir" ] || continue
 					[ -d "$REPO_ROOT/$_dir" ] || continue
 					GO_PKGS="$GO_PKGS ./$_dir"
-				# sed rather than `xargs -n1 dirname`: -d is a GNU extension that
-				# BSD xargs rejects outright, so on macOS this would print an
-				# option error, leave GO_PKGS empty and quietly fall back to the
-				# full suite -- the exact cost this block exists to avoid. Every
-				# path here matched ^internal/.*\.go$ so it always has a slash.
+				# sed rather than `xargs -n1 dirname`: the GNU-only flags BSD
+				# xargs rejects would leave GO_PKGS empty and fall back to the
+				# full suite. Every path matched ^internal/.*\.go$, so it always
+				# has a slash.
 				done < <(printf '%s\n' "$CHANGED_FILES" |
 					grep -E '^internal/.*\.go$' |
 					grep -vE '_test\.go$' |
@@ -354,9 +319,8 @@ else
 			fi
 			[ -n "$GO_PKGS" ] || GO_PKGS="./internal/..."
 			echo "pre-push: coverage - go test ${GO_PKGS} (Postgres :5433 up)"
-			# -timeout is per package: internal/api alone runs for minutes against
-			# a real Postgres, and at 5m it started tripping the clock in CI with
-			# nothing actually hung. Same headroom as .github/workflows/ci.yml.
+			# -timeout is per package: internal/api alone runs for minutes
+			# against a real Postgres. Same headroom as .github/workflows/ci.yml.
 			# shellcheck disable=SC2086 # deliberate split: one argument per package
 			if go test -timeout 10m -coverprofile="$COV_DIR/go.out" -covermode=atomic $GO_PKGS; then
 				DC_ARGS+=(--go "$COV_DIR/go.out")
@@ -400,4 +364,16 @@ else
 	fi
 fi
 
-echo "pre-push: smoke ok (full CI runs on GitHub)"
+# git holds the remote connection open across this hook and writes the pack after
+# it returns, so a slow hook can leave the push to die of SIGPIPE (141) with every
+# check already passed. Not catchable here, so flag a runtime long enough to cause it.
+HOOK_ELAPSED=$((SECONDS - HOOK_STARTED_AT))
+echo "pre-push: smoke ok in ${HOOK_ELAPSED}s (full CI runs on GitHub)"
+if [ "$HOOK_ELAPSED" -ge 60 ]; then
+	echo "pre-push: NOTE - this hook held the push for ${HOOK_ELAPSED}s, long enough for the" >&2
+	echo "  remote to drop the idle connection. If the push now fails with exit 141, or" >&2
+	echo "  ends with no message at all, that is why and NOTHING was pushed. Confirm with:" >&2
+	echo "    git ls-remote --heads origin <branch>" >&2
+	echo "  and retry with a keepalive:" >&2
+	echo "    GIT_SSH_COMMAND='ssh -o ServerAliveInterval=15' git push" >&2
+fi
