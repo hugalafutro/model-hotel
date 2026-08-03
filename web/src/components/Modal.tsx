@@ -30,6 +30,16 @@ interface ModalProps {
 
 const FADE_DURATION = 200;
 
+/**
+ * Every mounted Modal's dialog node, in mount order, so a document-level
+ * Escape can be given to the topmost one only.
+ *
+ * Module scope rather than context: modals portal to <body> from anywhere in
+ * the tree, including from siblings that share no provider, and nesting is
+ * decided by what is on screen rather than by who rendered whom.
+ */
+const openDialogs: HTMLElement[] = [];
+
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
 		title,
@@ -102,12 +112,41 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		[onClose],
 	);
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Escape") handleClose();
-		},
-		[handleClose],
-	);
+	// Read by the document listener below, which must not re-register when
+	// `onClose` changes identity: re-registering re-pushes this dialog onto
+	// `openDialogs`, and a parent that outranks its own child swallows the
+	// Escape meant to close the child.
+	const closeRef = useRef(handleClose);
+	useEffect(() => {
+		closeRef.current = handleClose;
+	}, [handleClose]);
+
+	// Escape is handled on the DOCUMENT, not on the dialog node.
+	//
+	// A control that unmounts while focused — dismissing the row whose button
+	// you just clicked — hands focus back to <body>, which is outside this
+	// subtree. A dialog-scoped handler never sees the key from there, so the
+	// modal silently stops closing on Escape for the rest of its life.
+	//
+	// Topmost only, so a nested confirm closes before the dialog that opened it.
+	// Mount order is the stacking order: modals portal to <body> in the order
+	// they open, and the one opened last is the one drawn on top.
+	useEffect(() => {
+		const el = dialogRef.current;
+		if (!el) return;
+		openDialogs.push(el);
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			if (openDialogs[openDialogs.length - 1] !== el) return;
+			closeRef.current();
+		};
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("keydown", onKeyDown);
+			const i = openDialogs.indexOf(el);
+			if (i !== -1) openDialogs.splice(i, 1);
+		};
+	}, []);
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
 
@@ -127,7 +166,6 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
 			}}
-			onKeyDown={handleKeyDown}
 			onTransitionEnd={handleTransitionEnd}
 		>
 			<button

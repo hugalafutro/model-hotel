@@ -1641,6 +1641,30 @@ describe("Layout", () => {
 			await expectBadgeAfterClose("1");
 		});
 
+		it("still closes on Escape after a dismissal has unmounted the focused button", async () => {
+			// The row's Dismiss button holds focus when it is clicked, and
+			// dismissing unmounts it, so the browser hands focus back to <body>.
+			// A key pressed from there does not originate inside the dialog, which
+			// is why Escape is handled on the document: scoped to the dialog node
+			// it went unheard and the modal could no longer be closed by keyboard.
+			const dismissed = serveDismissable([["p1", "One", ["a", "b"]]]);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
+			await user.click(
+				(await screen.findAllByTestId("discrepancy-dismiss"))[0],
+			);
+			await waitFor(() => expect(dismissed.size).toBe(1));
+
+			// Dispatched on the body rather than the dialog: addressing the dialog
+			// would sidestep the very thing that broke.
+			fireEvent.keyDown(document.body, { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
+			);
+		});
+
 		it("re-reads the badge after a dismissal that reports failure", async () => {
 			// A rejected request does not prove the write did not land: the server can
 			// commit and the response be lost. The row correctly stays actionable and
