@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
+import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { DiscoverySettings } from "../DiscoverySettings";
@@ -461,6 +462,60 @@ describe("DiscoverySettings", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Discovery complete")).toBeInTheDocument();
 			});
+		});
+
+		/**
+		 * The Models nav badge lives in Layout, on its own 60s poll on
+		 * ["discovery-status"]; the ["providers"] and ["models"] invalidations
+		 * this section fires never reach it. Mounted inside the real Layout so
+		 * the assertion is about the real badge, against a `claim_count` that
+		 * actually falls once the sweep lands.
+		 */
+		it("re-reads the Models nav badge after a sweep", async () => {
+			let swept = false;
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json({
+						claims: [],
+						group_claims: [],
+						informational: [],
+						claim_count: swept ? 1 : 4,
+						informational_unseen: 0,
+					}),
+				),
+				http.post("/api/providers/discover-all", () => {
+					swept = true;
+					return HttpResponse.json({
+						succeeded: 2,
+						failed: 0,
+						discovered: 10,
+						results: [],
+					});
+				}),
+			);
+
+			renderWithProviders(
+				<Layout>
+					<DiscoverySettings collapsed={false} onToggle={() => {}} />
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("4");
+
+			await userEvent
+				.setup()
+				.click(screen.getByRole("button", { name: /discover all models/i }));
+			await waitFor(() => expect(swept).toBe(true));
+
+			// A count the stale poll response would not produce, and not zero: a
+			// surviving claim pins a re-read rather than an empty badge.
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
 		});
 	});
 });

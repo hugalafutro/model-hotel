@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	CheckSquare,
@@ -20,6 +20,7 @@ import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
 import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
+import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
@@ -31,6 +32,16 @@ export function FailoverGroups() {
 	const readOnly = useReadOnly();
 	const managed = useManaged();
 	const queryClient = useQueryClient();
+	const refreshBadge = useRefreshDiscoveryBadge();
+
+	// Group state and the Models nav badge move together: an auto-disabled group
+	// IS a counted claim (see useRefreshDiscoveryBadge), so re-enabling or
+	// deleting one changes claim_count. Paired here rather than at each site so
+	// the next path that re-reads groups cannot forget the badge.
+	const refreshGroups = useCallback(() => {
+		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		refreshBadge();
+	}, [queryClient, refreshBadge]);
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [editGroup, setEditGroup] = useState<FailoverGroup | null>(null);
@@ -205,7 +216,7 @@ export function FailoverGroups() {
 
 		try {
 			await Promise.all(promises);
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			setSelectedGroupIds(new Set());
 			toast(
 				t("failover.toast_bulk_toggle_success", {
@@ -215,7 +226,7 @@ export function FailoverGroups() {
 				"success",
 			);
 		} catch {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			toast(t("failover.toast_bulk_toggle_failed"), "error");
 		}
 	};
@@ -255,7 +266,7 @@ export function FailoverGroups() {
 
 		try {
 			await Promise.all(promises);
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			toast(
 				t("failover.toast_provider_toggle_success", {
 					action: enabled ? t("common.enabled") : t("common.disabled"),
@@ -265,7 +276,7 @@ export function FailoverGroups() {
 				"success",
 			);
 		} catch {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			toast(t("failover.toast_provider_toggle_failed"), "error");
 		}
 	};
@@ -312,7 +323,7 @@ export function FailoverGroups() {
 		try {
 			await Promise.all(promises);
 			// Re-fetch groups; disabledProviders is derived from the result.
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			toast(
 				t("failover.toast_provider_toggle_success", {
 					action: enabled ? t("common.enabled") : t("common.disabled"),
@@ -322,7 +333,7 @@ export function FailoverGroups() {
 				"success",
 			);
 		} catch {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			refreshGroups();
 			toast(t("failover.toast_provider_toggle_failed"), "error");
 		} finally {
 			setIsProviderToggling(false);
@@ -342,7 +353,6 @@ export function FailoverGroups() {
 	const syncMutation = useMutation({
 		mutationFn: () => api.failoverGroups.sync(),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			if (data.deleted_groups && data.deleted_groups.length > 0) {
 				for (const g of data.deleted_groups) {
 					const provs =
@@ -392,6 +402,12 @@ export function FailoverGroups() {
 		onError: (err: Error) => {
 			toast(t("failover.toast_sync_failed", { message: err.message }), "error");
 		},
+		// Sync applies partially by design: it reports the groups it deleted,
+		// purged and disabled, so a run that errors after any of that has still
+		// changed what the list and the badge should say.
+		onSettled: () => {
+			refreshGroups();
+		},
 	});
 
 	const updateMutation = useMutation({
@@ -402,21 +418,22 @@ export function FailoverGroups() {
 			id: string;
 			data: Parameters<typeof api.failoverGroups.update>[1];
 		}) => api.failoverGroups.update(id, data),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-		},
 		onError: (err: Error) => {
 			toast(
 				t("failover.toast_update_failed", { message: err.message }),
 				"error",
 			);
 		},
+		// `onSettled`, matching the bulk handlers above, which re-read from both
+		// their try and their catch: a rejected write can still have landed.
+		onSettled: () => {
+			refreshGroups();
+		},
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => api.failoverGroups.delete(id),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast(t("failover.toast_delete_success"), "success");
 		},
 		onError: (err: Error) => {
@@ -424,6 +441,10 @@ export function FailoverGroups() {
 				t("failover.toast_delete_failed", { message: err.message }),
 				"error",
 			);
+		},
+		// See updateMutation: a rejected DELETE can still have landed.
+		onSettled: () => {
+			refreshGroups();
 		},
 	});
 
@@ -537,7 +558,7 @@ export function FailoverGroups() {
 		);
 		const succeeded = results.filter((r) => r.status === "fulfilled").length;
 		const failed = results.length - succeeded;
-		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		refreshGroups();
 		if (failed === 0) {
 			toast(
 				t("failover.toast_bulk_delete_success", { count: succeeded }),

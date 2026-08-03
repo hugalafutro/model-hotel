@@ -54,8 +54,6 @@ export function useDiscoveryRetest(
 			setRetestingKey(keyOf(entry));
 		},
 		onSuccess: (data, { entry, silent }) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
 			patchEntry(keyOf(entry), data.diff);
 			if (silent) return;
 			toast(
@@ -72,14 +70,19 @@ export function useDiscoveryRetest(
 				"error",
 			);
 		},
-		onSettled: () => {
+		onSettled: (_data, _err, { entry }) => {
 			setRetestingKey(undefined);
-			// Here rather than in onSuccess, unlike the two invalidations above: a
-			// discovery run that errors partway has still upserted whatever it got
-			// to before failing, so the claim set can move without a success.
+			// Skipped when the guard above rejected locally: that request never
+			// left the browser, so nothing can have changed.
+			if (!entry.providerId) return;
+			// Here rather than in onSuccess: a discovery run that errors partway
+			// has still upserted whatever it got to before failing, so the
+			// catalogue and the claim set can both move without a success.
 			//
 			// And here rather than in the callers, so a retest refreshes the badge
 			// from the Providers page as well as from the discrepancy modal.
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			queryClient.invalidateQueries({ queryKey: ["models"] });
 			refreshBadge();
 		},
 	});

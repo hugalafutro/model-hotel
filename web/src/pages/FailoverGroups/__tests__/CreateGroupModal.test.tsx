@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CandidateModel, FailoverGroup } from "../../../api/types";
+import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { CreateGroupModal } from "../CreateGroupModal";
@@ -1306,6 +1307,62 @@ describe("CreateGroupModal", () => {
 			expect(screen.getByText("Re-enabled")).toBeInTheDocument();
 			expect(tested).toBe("uuid-na");
 			expect(patched).toBe("uuid-na");
+		});
+
+		it("re-reads the Models nav badge after Retry N/A re-enables a member", async () => {
+			// Re-enabling reclassifies that member's claim rather than removing it:
+			// buildProviderClaims puts an enabled model in Suspect, and Suspect does
+			// not count towards the badge. The badge is a 60s poll in Layout that
+			// this modal's ["models"] invalidation never reached.
+			let reenabled = false;
+			server.use(
+				http.post("/api/models/:id/test", () =>
+					HttpResponse.json({
+						success: true,
+						streaming: false,
+						ttft_ms: 1,
+						duration_ms: 1,
+						response: "hi",
+					}),
+				),
+				http.patch("/api/models/:id", () => {
+					reenabled = true;
+					return HttpResponse.json({});
+				}),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json({
+						claims: [],
+						group_claims: [],
+						informational: [],
+						claim_count: reenabled ? 1 : 2,
+						informational_unseen: 0,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<Layout>
+					<CreateGroupModal
+						candidates={mockCandidates}
+						group={groupWithNa}
+						onClose={mockOnClose}
+						onUpdated={mockOnUpdated}
+					/>
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("2");
+
+			await user.click(screen.getByRole("button", { name: "Retry N/A" }));
+			await waitFor(() => expect(reenabled).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
 		});
 
 		it("Retry N/A keeps a member out of Re-enabled when the write fails", async () => {

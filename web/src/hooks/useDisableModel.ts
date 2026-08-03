@@ -32,11 +32,19 @@ export function useDisableModel(enabledModels: Model[]) {
 				t("hooks.useDisableModel.success", { model: modelIdentifier }),
 				"success",
 			);
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
 		},
 		onError: (err: Error) => {
 			toast(t("hooks.useDisableModel.error", { error: err.message }), "error");
+		},
+		// No badge refresh, unlike the other model writes: this only ever acts on
+		// a model taken from `enabledModels`, and an enabled model is either
+		// absent from the claim set or Suspect, which the badge does not count.
+		// Disabling it moves it from uncounted to absent, so claim_count cannot
+		// change. UpdateModel does not resync failover either, so no group claim
+		// can move behind it.
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
 		},
 	});
 }

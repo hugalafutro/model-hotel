@@ -135,9 +135,6 @@ export function Providers() {
 			return api.providers.discoverAll();
 		},
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			refreshBadge();
 			setDiscoverAllCurrentId(null);
 			if (data.failed > 0 && data.succeeded === 0) {
 				toast(
@@ -164,6 +161,14 @@ export function Providers() {
 				"error",
 			);
 			setDiscoverAllCurrentId(null);
+		},
+		onSettled: () => {
+			// `onSettled`, like useDiscoveryRetest: a sweep that errors partway has
+			// still upserted whatever it reached, so the catalogue and the claim
+			// set can both move without a success.
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 		},
 	});
 
@@ -205,9 +210,6 @@ export function Providers() {
 			return api.providers.discover(id);
 		},
 		onSuccess: (data, id) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			refreshBadge();
 			const providerName = providers?.find((p) => p.id === id)?.name ?? id;
 			setDiscoverySummary([{ providerName, diff: data.diff, providerId: id }]);
 		},
@@ -219,6 +221,12 @@ export function Providers() {
 		},
 		onSettled: () => {
 			setDiscoveringId(null);
+			// See discoverAllMutation: a discovery run that errors partway has
+			// still upserted whatever it reached, so the lists are re-read here
+			// too and not only when the run reports success.
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			queryClient.invalidateQueries({ queryKey: ["models"] });
+			refreshBadge();
 		},
 	});
 
@@ -241,6 +249,21 @@ export function Providers() {
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => api.providers.delete(id),
 		onSuccess: () => {
+			toast(t("providers.toast_provider_deleted"), "success");
+		},
+		onError: (err: Error) => {
+			toast(
+				t("providers.toast_delete_failed", { message: err.message }),
+				"error",
+			);
+		},
+		// Every re-read together, on settle rather than on success. A rejected
+		// DELETE can still have landed — the response is what was lost — and
+		// re-reading only the badge would leave the card, its models and its
+		// failover groups on screen asserting a provider that no longer exists.
+		// A genuine failure costs a refetch of what is already displayed.
+		onSettled: () => {
+			setDeleteProvider(null);
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
@@ -250,18 +273,7 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			// A deleted provider takes its models, and therefore its claims, with it.
 			refreshBadge();
-			toast(t("providers.toast_provider_deleted"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("providers.toast_delete_failed", { message: err.message }),
-				"error",
-			);
-		},
-		onSettled: () => {
-			setDeleteProvider(null);
 		},
 	});
 

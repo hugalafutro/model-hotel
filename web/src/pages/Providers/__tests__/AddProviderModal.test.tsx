@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AddProviderModal } from "../AddProviderModal";
@@ -654,6 +655,80 @@ describe("AddProviderModal", () => {
 	});
 
 	describe("auto-discovery", () => {
+		it("re-reads the Models nav badge after the discovery that follows a create", async () => {
+			// The new provider owns no claims of its own, but the scan re-syncs
+			// failover, and an auto-disabled group IS a counted claim: fresh members
+			// can lift one back over the routable floor. The badge is a 60s poll in
+			// Layout that this modal's ["providers"]/["models"] invalidations never
+			// reached, hence the real Layout here.
+			//
+			// The discovery is made to FAIL, because the re-read must not depend on
+			// it succeeding: a scan that errors partway has still upserted whatever
+			// it reached.
+			let scanned = false;
+			server.use(
+				http.post("/api/providers", () =>
+					HttpResponse.json(
+						{
+							id: "provider-new",
+							name: "New Provider",
+							base_url: "https://api.example.com/v1",
+							masked_key: "sk_test_••••••••",
+							enabled: true,
+							last_discovered_at: null,
+							last_used_at: null,
+							created_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+							model_count: 0,
+							total_tokens: 0,
+						},
+						{ status: 201 },
+					),
+				),
+				http.post("/api/providers/:id/discover", () => {
+					scanned = true;
+					return HttpResponse.json({ error: "upstream died" }, { status: 500 });
+				}),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json({
+						claims: [],
+						group_claims: [],
+						informational: [],
+						claim_count: scanned ? 1 : 3,
+						informational_unseen: 0,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<Layout>
+					<AddProviderModal
+						{...defaultProps}
+						settings={{ discovery_on_provider_create: "true" }}
+					/>
+				</Layout>,
+			);
+
+			expect(
+				await screen.findByTestId("discovery-status-badge"),
+			).toHaveTextContent("3");
+
+			await user.type(screen.getByLabelText("Name"), "Test Provider");
+			await user.type(
+				screen.getByLabelText("Base URL"),
+				"https://api.test.com/v1",
+			);
+			await user.type(screen.getByLabelText("API Key"), "sk-test-key");
+			await user.click(screen.getByRole("button", { name: "Add Provider" }));
+			await waitFor(() => expect(scanned).toBe(true));
+
+			await waitFor(() =>
+				expect(screen.getByTestId("discovery-status-badge")).toHaveTextContent(
+					"1",
+				),
+			);
+		});
+
 		it("triggers auto-discovery after successful creation when enabled", async () => {
 			server.use(
 				http.post("/api/providers", async ({ request }) => {
