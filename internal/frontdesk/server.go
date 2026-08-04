@@ -82,6 +82,12 @@ type Server struct {
 	// bounded by fleet size; a restart re-emits at most once per still-held member.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
+	// syncIncomplete tracks which members committed a config without materialising
+	// all of it, so config.sync_incomplete fires once on the transition in rather
+	// than on every retry (the loop re-pushes an incomplete member every pass).
+	// In-memory and bounded by fleet size, like syncHeld.
+	syncIncompleteMu sync.Mutex
+	syncIncomplete   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
 	// edge-triggered fleet.state_changed emission. Empty until the first check
 	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
@@ -121,25 +127,26 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:        cfg.Store,
-		poller:       cfg.Poller,
-		bus:          cfg.Bus,
-		adminMgr:     cfg.AdminMgr,
-		sessionMgr:   sessionMgr,
-		totpRepo:     totpRepo,
-		totpStatus:   newTotpEnabledCache(totpRepo),
-		probe:        newProbeClient(httpProbeTimeout),
-		readClient:   newProbeClient(memberReadTimeout),
-		syncClient:   newProbeClient(memberSyncTimeout),
-		backupClient: newProbeClient(memberBackupTimeout),
-		lbPort:       lbPort,
-		version:      version,
-		masterKey:    cfg.MasterKey,
-		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		pairing:      newPairingCodes(),
-		ipLimiter:    cfg.IPLimiter,
-		rearmCh:      make(chan struct{}),
-		syncHeld:     make(map[string]bool),
+		store:          cfg.Store,
+		poller:         cfg.Poller,
+		bus:            cfg.Bus,
+		adminMgr:       cfg.AdminMgr,
+		sessionMgr:     sessionMgr,
+		totpRepo:       totpRepo,
+		totpStatus:     newTotpEnabledCache(totpRepo),
+		probe:          newProbeClient(httpProbeTimeout),
+		readClient:     newProbeClient(memberReadTimeout),
+		syncClient:     newProbeClient(memberSyncTimeout),
+		backupClient:   newProbeClient(memberBackupTimeout),
+		lbPort:         lbPort,
+		version:        version,
+		masterKey:      cfg.MasterKey,
+		metricsToken:   strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		pairing:        newPairingCodes(),
+		ipLimiter:      cfg.IPLimiter,
+		rearmCh:        make(chan struct{}),
+		syncHeld:       make(map[string]bool),
+		syncIncomplete: make(map[string]bool),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and

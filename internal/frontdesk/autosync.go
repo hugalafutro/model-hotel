@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"time"
 
@@ -465,6 +466,57 @@ func (s *Server) clearSyncHold(memberID string) {
 	s.syncHeldMu.Lock()
 	delete(s.syncHeld, memberID)
 	s.syncHeldMu.Unlock()
+}
+
+// markMemberIncomplete records a member that committed a config without building
+// all of it and emits config.sync_incomplete once on the transition in. The
+// member is retried on every following pass, so a level-triggered event here
+// would alert on every tick until it converges.
+func (s *Server) markMemberIncomplete(ctx context.Context, m *Member, unapplied []string) {
+	s.syncIncompleteMu.Lock()
+	already := s.syncIncomplete[m.ID]
+	s.syncIncomplete[m.ID] = true
+	s.syncIncompleteMu.Unlock()
+	if already {
+		return
+	}
+	s.emit(ctx, Event{
+		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
+		Message:  fmt.Sprintf("%s applied the config but could not build %d failover group(s)", m.Name, len(unapplied)),
+		MemberID: m.ID,
+		Metadata: map[string]any{"unapplied": unapplied},
+	})
+}
+
+// clearMemberIncomplete forgets a member's incomplete state and emits
+// config.sync_recovered once on the transition out, so a later divergence
+// re-emits config.sync_incomplete. A member that was never incomplete emits
+// nothing, keeping ordinary successful passes quiet.
+func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) {
+	s.syncIncompleteMu.Lock()
+	was := s.syncIncomplete[m.ID]
+	delete(s.syncIncomplete, m.ID)
+	s.syncIncompleteMu.Unlock()
+	if !was {
+		return
+	}
+	s.emit(ctx, Event{
+		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+		Message: fmt.Sprintf("%s now applies the full config", m.Name), MemberID: m.ID,
+	})
+}
+
+// incompleteSnapshot copies the incomplete set under its lock for the fleet
+// state calculation, mirroring heldSnapshot. If auto-sync is disabled while
+// members are incomplete the set stays frozen rather than clearing, so it
+// degrades the fleet state rather than reporting a false ok, and it clears when
+// auto-sync resumes and the member converges.
+func (s *Server) incompleteSnapshot() map[string]bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	out := make(map[string]bool, len(s.syncIncomplete))
+	maps.Copy(out, s.syncIncomplete)
+	return out
 }
 
 // watchRearm cancels a convergence pass the moment its rearm generation goes

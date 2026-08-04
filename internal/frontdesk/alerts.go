@@ -40,6 +40,11 @@ var fdCatalog = []alert.EventDef{
 	// the primary's: pushing an older primary's config could delete settings the
 	// newer member legitimately has, so autosync holds the member until versions align.
 	{Type: "config.sync_held", Category: "Config Sync", Severity: "warning", DefaultOn: true},
+	// A member committed a config sync but could not build every custom failover
+	// group, so it serves 404 for those hotel/<group> models until it converges.
+	// Edge-triggered: the member is retried every pass until it applies everything.
+	{Type: "config.sync_incomplete", Category: "Config Sync", Severity: "warning", DefaultOn: true},
+	{Type: "config.sync_recovered", Category: "Config Sync", Severity: "success", DefaultOn: false},
 	// Version reads: a persistently failing member URL is surfaced here.
 	{Type: "version.fetch_failed", Category: "Member Reads", Severity: "warning", DefaultOn: true},
 	{Type: "version.fetch_recovered", Category: "Member Reads", Severity: "success", DefaultOn: false},

@@ -291,6 +291,8 @@
 				"config_auto_synced": "Automatická synchronizace aplikována na flotilu",
 				"config_autosync_stale": "Automatická synchronizace vypnutá, flotila nesynchronizovaná",
 				"config_sync_held": "Synchronizace pozastavena (rozdílné verze)",
+				"config_sync_incomplete": "Synchronizace neúplná (skupiny nesestaveny)",
+				"config_sync_recovered": "Synchronizace je opět úplná",
 				"version_fetch_failed": "Verze člena nečitelná",
 				"version_fetch_recovered": "Verze člena opět čitelná",
 				"traefik_stale": "Konfigurace Traefik zastaralá",

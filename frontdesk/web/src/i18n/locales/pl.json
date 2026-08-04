@@ -291,6 +291,8 @@
 				"config_auto_synced": "Auto-synchronizacja zastosowana we flocie",
 				"config_autosync_stale": "Auto-synchronizacja wyłączona, flota niezsynchronizowana",
 				"config_sync_held": "Synchronizacja wstrzymana (rozbieżność wersji)",
+				"config_sync_incomplete": "Synchronizacja niepełna (grupy nie zbudowane)",
+				"config_sync_recovered": "Synchronizacja znów pełna",
 				"version_fetch_failed": "Wersja członka nieczytelna",
 				"version_fetch_recovered": "Wersja członka ponownie czytelna",
 				"traefik_stale": "Konfiguracja Traefik nieświeża",

@@ -1421,6 +1421,97 @@ func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	if strings.Contains(res.Error, "0 failover group(s)") {
 		t.Errorf("Error = %q, want a sensible message instead of the empty-unapplied placeholder", res.Error)
 	}
+	const want = "applied, but this member could not build its failover groups"
+	if res.Error != want {
+		t.Errorf("Error = %q, want %q", res.Error, want)
+	}
+}
+
+// countEventsOfType returns how many stored events of the given type the fleet
+// has, so an edge-triggered emission can be asserted across repeated passes.
+func countEventsOfType(t *testing.T, store *Store, typ string) int {
+	t.Helper()
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: typ})
+	if err != nil {
+		t.Fatalf("ListEvents(%s): %v", typ, err)
+	}
+	return len(evs)
+}
+
+// TestAutoSync_IncompleteEventIsEdgeTriggered: an incomplete member is retried on
+// every pass, so config.sync_incomplete must fire once on the transition into
+// incomplete rather than once per retry. The matching config.sync_recovered fires
+// once when the member finally applies everything, and only for a member that was
+// actually incomplete.
+func TestAutoSync_IncompleteEventIsEdgeTriggered(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+		`"incomplete":true,"unapplied":["ds4flash"],"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	for range 3 {
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	}
+
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want exactly 1 across repeated incomplete passes", len(evs))
+	}
+	if evs[0].MemberID != rm.ID {
+		t.Errorf("incomplete event member = %q, want %q", evs[0].MemberID, rm.ID)
+	}
+	if !srv.incompleteSnapshot()[rm.ID] {
+		t.Error("incompleteSnapshot does not hold the incomplete member")
+	}
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events = %d while the member is still incomplete, want 0", n)
+	}
+
+	// The member builds everything on the next pass: recovery fires once, and the
+	// pass after it stays quiet.
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+	for range 2 {
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	}
+
+	rec, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(rec) != 1 {
+		t.Fatalf("config.sync_recovered events = %d, want exactly 1 across repeated healthy passes", len(rec))
+	}
+	if rec[0].MemberID != rm.ID {
+		t.Errorf("recovered event member = %q, want %q", rec[0].MemberID, rm.ID)
+	}
+	if len(srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v after recovery, want empty", srv.incompleteSnapshot())
+	}
+	if n := countEventsOfType(t, store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d after recovery, want the original 1", n)
+	}
+}
+
+// TestAutoSync_RecoveredEventOnlyAfterIncomplete: a member that was never
+// incomplete must not emit config.sync_recovered on an ordinary successful sync,
+// or every healthy pass would toast a recovery.
+func TestAutoSync_RecoveredEventOnlyAfterIncomplete(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	if !res.OK {
+		t.Fatalf("OK = false (%s), want true", res.Error)
+	}
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events = %d for a member that was never incomplete, want 0", n)
+	}
 }
 
 func TestAutoSyncStaleTier(t *testing.T) {

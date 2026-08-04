@@ -301,6 +301,12 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Incomplete = true
 		res.Unapplied = out.Unapplied
 		recordConfigSync("incomplete")
+		// Logged here as well as alerted: this arm returns before the shared failure
+		// branch below, so without this line an incomplete apply would leave no trace
+		// in the logs when alerting is off. res.Error names the groups that were not
+		// built (or reports the whole build failing when the member sends no names).
+		debuglog.Warn("frontdesk: config sync incomplete", "member", m.Name, "error", res.Error)
+		s.markMemberIncomplete(ctx, m, out.Unapplied)
 		return res
 	default:
 		res.OK = true
@@ -324,6 +330,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// A real write also confirms the member is in sync now: advance the live
 		// heartbeat alongside the persisted last_config_sync_at stamp.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
+		// The member built everything this time: close out any open incomplete
+		// state, emitting config.sync_recovered only if it was actually incomplete.
+		s.clearMemberIncomplete(ctx, m)
 		if emitSuccessEvent {
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
