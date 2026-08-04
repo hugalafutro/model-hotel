@@ -14,16 +14,19 @@ import (
 
 // This file implements HA auto config sync: the "set and forget" half of fleet
 // config replication. Where configsync.go runs a manual, wizard-driven, double-
-// confirmed sync, the auto-syncer watches the operator-designated primary on a
-// background tick and, when its config changes, propagates it to every other
-// member by itself.
+// confirmed sync, the auto-syncer reads the operator-designated primary on a
+// background tick and propagates its config to every other member by itself.
 //
-// Drift is detected by the primary's own config hash (GET /api/config/version):
-// the hash is compared against the hash last applied to the fleet, both read
-// from the same instance, so it is a valid "changed since" signal.
+// The pass runs on every settled tick, not only when the primary's config
+// changes. Config drifts in both directions: an edit on the primary, and an edit
+// made directly on a member. Gating the pass on the primary alone would leave the
+// second kind unmeasured for as long as the primary sat still, which is nearly
+// always. A settled fleet is therefore re-measured each tick, and costs only the
+// primary's export plus one hash read per member: a member whose hash matches is
+// skipped before any dry run, import or backup.
 //
-// Whether an individual member holds that config is decided the same way, by
-// reading the member's own hash and comparing it with the primary's. The hash
+// Whether an individual member holds the primary's config is decided by reading
+// the member's own hash (GET /api/config/version) and comparing it. The hash
 // covers the syncable payload alone, which carries names and stable model refs
 // rather than instance-local ids or timestamps, so it is comparable across
 // instances: equal hashes mean identical config. That comparison, not the
@@ -50,8 +53,10 @@ const (
 	autoSyncIntervalSecs = 15
 
 	// autoSyncReason is stamped on each member's last-sync record and shown in the
-	// Members table tooltip, so the operator sees why an automatic sync fired.
-	autoSyncReason = "the primary's config changed"
+	// Members table tooltip, so the operator sees why an automatic sync fired. It
+	// names the condition the loop actually pushes on, which covers a primary the
+	// operator edited and a member that drifted on its own alike.
+	autoSyncReason = "this member did not hold the primary's config"
 
 	// autoSyncKickReason is stamped instead when a sync is triggered by the
 	// operator turning auto-sync on (or repointing the primary), so the marker
@@ -115,10 +120,10 @@ func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now ti
 	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
 }
 
-// RunAutoSync samples the designated primary on a fixed tick and propagates its
-// config to the fleet when it changes. It blocks until ctx is cancelled and is
-// started once, alongside the poller. The loop owns the small amount of state
-// (the previously observed hash) used to coalesce a burst of edits into one sync.
+// RunAutoSync samples the designated primary on a fixed tick and converges the
+// fleet on its config. It blocks until ctx is cancelled and is started once,
+// alongside the poller. The loop owns the small amount of state (the previously
+// observed hash) used to coalesce a burst of edits into one sync.
 func (s *Server) RunAutoSync(ctx context.Context) {
 	ticker := time.NewTicker(autoSyncIntervalSecs * time.Second)
 	defer ticker.Stop()
@@ -137,6 +142,11 @@ func (s *Server) RunAutoSync(ctx context.Context) {
 // observed on the previous tick; the returned value is the hash to carry into
 // the next tick. It never returns an error: every failure path logs and leaves
 // the fleet untouched, to be retried on the next tick.
+//
+// Every tick on which the primary has settled runs a convergence pass, whether or
+// not the primary's config has moved since the fleet last converged. A member is
+// only measured by a pass, so a fleet that stopped running them would stop
+// noticing a member drifting on its own.
 func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
@@ -152,16 +162,6 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return ""
 	}
 
-	// Unchanged since the last fleet-wide apply: nothing to propagate. The fleet
-	// is already converged (LastHash is recorded only once every reachable member
-	// matched it, and the primary still reports it), so this is the quiet steady
-	// state. Advance each reachable member's live "verified in sync" heartbeat so
-	// the Members table shows auto-sync is running even when there is nothing to
-	// write. No DB write, no event: last_config_sync_at moves only on a real sync.
-	if hash == cfg.LastHash {
-		s.markFleetVerified(ctx, cfg.PrimaryID)
-		return hash
-	}
 	// Coalesce: only act once the primary's config has settled (the same hash two
 	// ticks running), so a multi-step edit session triggers one sync rather than
 	// one per intermediate save.
@@ -256,28 +256,6 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 			Type: "config.auto_synced", Severity: "info", Source: "frontdesk",
 			Message: fmt.Sprintf("Auto-synced %d %s: %s", applied, noun, reason),
 		})
-	}
-}
-
-// markFleetVerified advances the live "verified in sync" heartbeat for every
-// reachable, non-primary member. It is called on the quiet auto-sync tick (the
-// fleet is already converged and the primary has not drifted), so the Members
-// table shows auto-sync is running even when nothing needs writing. Members the
-// health poller does not currently see up are skipped: their heartbeat freezes,
-// which honestly says "not verified right now" while the red health badge
-// explains why. In-memory only, no DB write, so it is cheap to run every tick.
-func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
-	members, err := s.store.ListMembers(ctx)
-	if err != nil {
-		debuglog.Debug("frontdesk: auto-sync: list members for verify heartbeat", "error", err)
-		return
-	}
-	now := time.Now().UTC()
-	for _, m := range members {
-		if m.ID == primaryID {
-			continue // the primary is the source; it is not "in sync with" itself
-		}
-		s.poller.SetAutoSyncVerifiedIfReachable(m.ID, now)
 	}
 }
 

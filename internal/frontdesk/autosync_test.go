@@ -56,10 +56,14 @@ type stubAutoMember struct {
 	gotBackup      bool
 	backups        int // how many backups this member was asked to take; must stay 0
 	dryRuns        int // how many dry-run imports this member was asked for
-	gotRealSync    bool
-	realSyncs      int    // how many real (non-dry-run) imports this member accepted
-	gotSourceGen   string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
-	staleImport    bool   // when true, the real import answers with the commit-fence "stale" response
+	// versionReads counts the config-version GETs this member answered. It is the
+	// direct evidence of whether a pass measured this member at all, which is what
+	// separates a convergence pass from a tick that skipped the fleet entirely.
+	versionReads int
+	gotRealSync  bool
+	realSyncs    int    // how many real (non-dry-run) imports this member accepted
+	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
+	staleImport  bool   // when true, the real import answers with the commit-fence "stale" response
 	// incompleteImport makes the real import answer applied-but-incomplete: the
 	// core config committed, one custom failover group could not be built.
 	incompleteImport bool
@@ -93,6 +97,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		defer sm.mu.Unlock()
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/version":
+			sm.versionReads++
 			if sm.versionDelay > 0 {
 				time.Sleep(sm.versionDelay)
 			}
@@ -182,6 +187,12 @@ func (sm *stubAutoMember) dryRunCount() int {
 	return sm.dryRuns
 }
 
+func (sm *stubAutoMember) versionReadCount() int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.versionReads
+}
+
 func (sm *stubAutoMember) realSyncCount() int {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -200,6 +211,15 @@ func (sm *stubAutoMember) setVersionHash(h string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.versionHash = h
+}
+
+// setAppliedHash changes what the member ends up holding after an import. Clearing
+// it between passes turns a member that adopted the primary's config into one that
+// commits every import and never matches.
+func (sm *stubAutoMember) setAppliedHash(h string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.appliedHash = h
 }
 
 const driftDiff = `{"providers":{"added":["anthropic"]},"virtual_keys":{},"settings":{}}`
@@ -628,26 +648,6 @@ func TestAutoSync_MemberVersionUnreadableIsNotSkipped(t *testing.T) {
 	}
 }
 
-// setMemberHealth seeds the poller's in-memory health for a member so tests that
-// gate on reachability (the quiet verify tick) can drive the up, down, and
-// never-probed paths without a live /health probe.
-func setMemberHealth(srv *Server, memberID string, known, healthy bool) {
-	srv.poller.mu.Lock()
-	st := srv.poller.statuses[memberID]
-	st.Health = HealthStatus{Known: known, Healthy: healthy}
-	srv.poller.statuses[memberID] = st
-	srv.poller.mu.Unlock()
-}
-
-// setMemberHealthFailures seeds the poller's consecutive-failure count, so a test
-// can model a member inside the fail-threshold grace window: its badge still
-// reads healthy (last known good) while its latest probe is actually failing.
-func setMemberHealthFailures(srv *Server, memberID string, fails int) {
-	srv.poller.mu.Lock()
-	srv.poller.healthFailures[memberID] = fails
-	srv.poller.mu.Unlock()
-}
-
 // setMemberVersion seeds the poller's last-polled app version for a member, so
 // tests can align (or skew) the fleet against the auto-sync version gate
 // without a live settings probe.
@@ -670,76 +670,6 @@ func alignFleetVersions(t *testing.T, srv *Server, store *Store, ver string) {
 	}
 	for _, m := range members {
 		setMemberVersion(srv, m.ID, ver)
-	}
-}
-
-// TestAutoSyncQuietTickPingsHealthyMembers: on a converged fleet (primary hash
-// unchanged) the loop writes nothing, but it must advance the "verified in sync"
-// heartbeat for each reachable member so the Members table shows it is running.
-// A member Front Desk cannot reach is left frozen, and last_config_sync_at never
-// moves on a quiet tick.
-func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubAutoMember(t, "ptoken")
-	primary.versionHash = "hash-A" // matches LastHash below: nothing to propagate
-
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	up, _ := store.CreateMember(t.Context(), "up", "http://127.0.0.1:9", "utok")
-	down, _ := store.CreateMember(t.Context(), "down", "http://127.0.0.1:10", "dtok")
-	unknown, _ := store.CreateMember(t.Context(), "unknown", "http://127.0.0.1:11", "ktok")
-	// "neverProbed" gets no poller entry at all, exercising the snapshot-miss path.
-	neverProbed, _ := store.CreateMember(t.Context(), "never", "http://127.0.0.1:12", "ntok")
-	// "grace" is inside the fail-threshold window: badge still healthy, but its
-	// latest probe failed, so it must not be stamped as verified.
-	grace, _ := store.CreateMember(t.Context(), "grace", "http://127.0.0.1:13", "gtok")
-	enableAutoSync(t, store, pm.ID, "hash-A")
-	setMemberHealth(srv, up.ID, true, true)
-	setMemberHealth(srv, down.ID, true, false)
-	setMemberHealth(srv, unknown.ID, false, false) // reachable status not yet known
-	setMemberHealth(srv, grace.ID, true, true)
-	setMemberHealthFailures(srv, grace.ID, 1) // one missed probe, still in grace window
-
-	srv.autoSyncOnce(t.Context(), "hash-A") // hash == LastHash: quiet verify tick
-
-	snap := srv.poller.Snapshot()
-	if snap[up.ID].AutoSyncVerifiedAt == nil {
-		t.Error("healthy member AutoSyncVerifiedAt = nil, want the quiet tick to ping it")
-	}
-	if snap[down.ID].AutoSyncVerifiedAt != nil {
-		t.Error("unreachable member AutoSyncVerifiedAt was stamped; want it frozen")
-	}
-	if snap[unknown.ID].AutoSyncVerifiedAt != nil {
-		t.Error("unknown-health member AutoSyncVerifiedAt was stamped; want it frozen until a health probe confirms it")
-	}
-	if snap[neverProbed.ID].AutoSyncVerifiedAt != nil {
-		t.Error("never-probed member AutoSyncVerifiedAt was stamped; want it frozen with no health entry")
-	}
-	if snap[grace.ID].AutoSyncVerifiedAt != nil {
-		t.Error("grace-window member AutoSyncVerifiedAt was stamped; want it frozen while a probe is failing")
-	}
-	if snap[pm.ID].AutoSyncVerifiedAt != nil {
-		t.Error("primary AutoSyncVerifiedAt was stamped; the primary is the source, not a synced member")
-	}
-	// A quiet tick writes nothing to the DB.
-	if rm, _ := store.GetMember(t.Context(), up.ID); rm.LastConfigSyncAt != nil {
-		t.Error("quiet tick stamped last_config_sync_at; want it left for real writes only")
-	}
-}
-
-// TestMarkFleetVerifiedListErrorIsSafe: if the member list cannot be read, the
-// verify heartbeat pass logs and returns without panicking or stamping anything.
-func TestMarkFleetVerifiedListErrorIsSafe(t *testing.T) {
-	srv, store := newTestServer(t)
-	m, _ := store.CreateMember(t.Context(), "m", "http://127.0.0.1:9", "tok")
-	setMemberHealth(srv, m.ID, true, true)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel() // a cancelled context makes ListMembers error before returning rows
-
-	srv.markFleetVerified(ctx, "")
-
-	if snap := srv.poller.Snapshot(); snap[m.ID].AutoSyncVerifiedAt != nil {
-		t.Error("heartbeat was stamped despite the member list read failing")
 	}
 }
 
@@ -962,18 +892,22 @@ func TestAutoSyncDisabledIsNoop(t *testing.T) {
 	}
 }
 
-// TestAutoSyncNoChangeWhenHashUnchanged: when the primary's hash already equals
-// the last applied hash, the loop short-circuits without touching any member.
+// TestAutoSyncNoChangeWhenHashUnchanged: a primary that has not moved still hands
+// its hash to the next tick's coalescing window, and the member already holding
+// that config is measured rather than written to, however much its presence-based
+// dry-run diff would claim otherwise.
 func TestAutoSyncNoChangeWhenHashUnchanged(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-A"
 	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-A" // already holds the primary's config
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")                             // last applied == current
+	alignFleetVersions(t, srv, store, "dev")
 
 	if got := srv.autoSyncOnce(t.Context(), "hash-A"); got != "hash-A" {
 		t.Errorf("autoSyncOnce = %q, want hash-A carried forward", got)
@@ -2077,6 +2011,225 @@ func TestAutoSync_HashMatchAfterPushConvergesTheFleet(t *testing.T) {
 	}
 	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt == nil {
 		t.Error("verified member AutoSyncVerifiedAt = nil, want the heartbeat stamped")
+	}
+}
+
+// TestAutoSync_ConvergedFleetKeepsMeasuringItsMembers: convergence is a
+// measurement with a shelf life. Once the fleet holds the primary's config the
+// pass keeps running on every tick, so each member's own hash is read again and
+// again. The cost of that steady state is exactly those reads: a member that
+// matches is never dry-run, never imported into, and never asked to snapshot
+// itself, and the tick emits nothing.
+func TestAutoSync_ConvergedFleetKeepsMeasuringItsMembers(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-B" // already holds the primary's config
+		r.dryDiff = driftDiff    // a presence-based diff would claim otherwise
+	})
+
+	f.tick(t)
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Fatalf("fleet hash = %q after the first pass, want hash-B (the member already matches)", got)
+	}
+	base := f.replica.versionReadCount()
+	if base == 0 {
+		t.Fatalf("member hash reads = 0 on the converging pass, want at least 1")
+	}
+
+	const ticks = 3
+	for range ticks {
+		f.tick(t)
+	}
+
+	if got, want := f.replica.versionReadCount(), base+ticks; got != want {
+		t.Errorf("member hash reads = %d after %d further ticks, want %d: a settled fleet is re-measured every tick",
+			got, ticks, want)
+	}
+	if got := f.replica.dryRunCount(); got != 0 {
+		t.Errorf("dry-runs = %d, want 0: a matching member is skipped before the diff", got)
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: a matching member is never written to", got)
+	}
+	if got := f.replica.backupCount(); got != 0 {
+		t.Errorf("member backups requested = %d, want 0", got)
+	}
+	for _, typ := range []string{"config.auto_synced", "config.sync_incomplete", "config.sync_recovered", "config.sync_held"} {
+		if n := countEventsOfType(t, f.store, typ); n != 0 {
+			t.Errorf("%s events = %d on a settled fleet, want 0", typ, n)
+		}
+	}
+	// Nothing was written to the member, so its persisted stamp stays put while the
+	// live verify heartbeat keeps advancing.
+	rm, err := f.store.GetMember(t.Context(), f.replicaM.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if rm.LastConfigSyncAt != nil {
+		t.Error("a re-measured member had last_config_sync_at stamped; want it left for real writes only")
+	}
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt == nil {
+		t.Error("verified member AutoSyncVerifiedAt = nil, want the heartbeat stamped every pass")
+	}
+}
+
+// TestAutoSync_ConvergedFleetDoesNotFlap: running a pass on every tick must not
+// make a settled fleet twitch. Across several passes no member is ever flagged,
+// no event fires, and the fleet state stays ok.
+func TestAutoSync_ConvergedFleetDoesNotFlap(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-B"
+		r.dryDiff = driftDiff
+	})
+
+	for i := range 5 {
+		f.tick(t)
+		if len(f.srv.incompleteSnapshot()) != 0 {
+			t.Fatalf("tick %d: incompleteSnapshot = %v, want empty", i, f.srv.incompleteSnapshot())
+		}
+		if len(f.srv.heldSnapshot()) != 0 {
+			t.Fatalf("tick %d: heldSnapshot = %v, want empty", i, f.srv.heldSnapshot())
+		}
+		state, reasons, err := f.srv.fleetStateNow(t.Context())
+		if err != nil {
+			t.Fatalf("tick %d: fleetStateNow: %v", i, err)
+		}
+		if state != FleetOK {
+			t.Fatalf("tick %d: fleet state = %q %v, want ok", i, state, reasons)
+		}
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d across five settled ticks, want 0", got)
+	}
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Errorf("fleet hash = %q, want hash-B held across repeated passes", got)
+	}
+}
+
+// TestAutoSync_DriftAfterConvergenceIsCorrected: a member edited directly, after
+// the fleet converged and the primary settled, is the drift nothing else can
+// catch. The primary's hash never moves, so only a pass that keeps measuring the
+// members sees it at all. The pass measures it, pushes the primary's config back
+// over it, and reports the re-sync in the event log.
+//
+// It is not flagged on that tick, and that is the no-flap guard doing its job: a
+// member that converged has no retry timer, so it is both re-pushed at once and
+// treated as one nobody has given this config yet. Drift Front Desk fixes inside a
+// tick therefore raises no warning; drift it cannot fix is flagged on the next
+// pass (TestAutoSync_DriftThatDoesNotCorrectIsFlagged).
+func TestAutoSync_DriftAfterConvergenceIsCorrected(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B" // it genuinely holds the primary's config afterwards
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t) // pushes
+	f.tick(t) // verifies: the fleet is converged and the primary has settled
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Fatalf("fleet hash = %q, want hash-B before the drift", got)
+	}
+	reads := f.replica.versionReadCount()
+
+	// The operator edits a synced setting on the member itself, so its config
+	// diverges from the primary's while the primary's own hash stays put.
+	f.replica.setVersionHash("hash-drifted")
+
+	f.tick(t)
+
+	if got := f.replica.versionReadCount(); got <= reads {
+		t.Fatalf("member hash reads = %d, want more than the %d before the drift: a converged fleet must keep "+
+			"measuring its members or local drift is invisible", got, reads)
+	}
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports = %d, want 2: the drifted member is given the primary's config again", got)
+	}
+	if n := countEventsOfType(t, f.store, "config.auto_synced"); n != 2 {
+		t.Errorf("config.auto_synced events = %d, want 2: the corrective re-sync is reported too", n)
+	}
+
+	f.tick(t) // verifies the correction
+
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Errorf("fleet hash = %q, want hash-B once the member held the primary's config again", got)
+	}
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v after drift was corrected, want empty", f.srv.incompleteSnapshot())
+	}
+	for _, typ := range []string{"config.sync_incomplete", "config.sync_recovered"} {
+		if n := countEventsOfType(t, f.store, typ); n != 0 {
+			t.Errorf("%s events = %d for drift corrected within a tick, want 0", typ, n)
+		}
+	}
+}
+
+// TestAutoSync_DriftThatDoesNotCorrectIsFlagged: the warning is reserved for drift
+// Front Desk cannot fix. A member that drifts after converging and then refuses to
+// take the primary's config back is pushed on the pass that measures the drift and
+// flagged on the pass after it, which is the same "it has had its chance" rule
+// that governs a member which never converged in the first place.
+func TestAutoSync_DriftThatDoesNotCorrectIsFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t) // pushes
+	f.tick(t) // verifies: converged
+
+	// The member drifts and stops adopting what it is given, so no push can bring
+	// it back.
+	f.replica.setAppliedHash("")
+	f.replica.setVersionHash("hash-drifted")
+
+	f.tick(t) // measures the drift and re-pushes; nobody is flagged yet
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports = %d, want 2 on the pass that measured the drift", got)
+	}
+	if f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("member flagged on the pass that first measured the drift; want the re-push to be given its chance")
+	}
+
+	f.tick(t) // it still does not hold the config: now it is a measured failure
+
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Fatal("the drifted member is not flagged; the fleet badge would stay green while it serves another config")
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d, want 1 for the drifted member", n)
+	}
+	state, reasons, err := f.srv.fleetStateNow(t.Context())
+	if err != nil {
+		t.Fatalf("fleetStateNow: %v", err)
+	}
+	if state == FleetOK {
+		t.Errorf("fleet state = %q %v while a member holds a different config, want degraded", state, reasons)
+	}
+}
+
+// TestAutoSync_MidEditPrimaryRunsNoPass: the coalescing gate outlives the change.
+// A primary whose hash differs from the previous tick's is mid-edit, so the tick
+// observes and returns: no member is measured and none is written to, however
+// settled the fleet was before.
+func TestAutoSync_MidEditPrimaryRunsNoPass(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-B"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t) // converged
+	reads := f.replica.versionReadCount()
+
+	f.primary.setVersionHash("hash-C") // the operator is part-way through an edit
+
+	if got := f.srv.autoSyncOnce(t.Context(), "hash-B"); got != "hash-C" {
+		t.Fatalf("autoSyncOnce = %q, want hash-C carried into the next tick", got)
+	}
+	if got := f.replica.versionReadCount(); got != reads {
+		t.Errorf("member hash reads = %d on a mid-edit tick, want them held at %d", got, reads)
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d on a mid-edit tick, want 0", got)
 	}
 }
 

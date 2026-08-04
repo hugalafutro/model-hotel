@@ -98,8 +98,8 @@ func (s *Store) SetAlertEvents(ctx context.Context, csv string) error {
 
 // AutoSyncConfig is the operator's automatic config-propagation setup: a master
 // on/off plus the designated source-of-truth member. LastHash is the internal
-// drift marker (the primary config hash last applied to the fleet) and is never
-// surfaced to the UI.
+// convergence marker (the primary config hash the whole reachable fleet was last
+// measured holding) and is never surfaced to the UI.
 type AutoSyncConfig struct {
 	Enabled   bool   `json:"enabled"`
 	PrimaryID string `json:"primary_id"`
@@ -127,12 +127,11 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 }
 
 // SetAutoSync persists the operator's auto-sync choice (enabled + designated
-// primary) and clears the last-applied hash in the same write. Resetting the
-// marker re-arms the poller: without it, re-enabling auto-sync or switching to a
-// primary whose config hash already equals the stored value would return early on
-// the next tick and never run a convergence pass, leaving replicas that drifted
-// while sync was off (or that should now follow the new primary) stale until the
-// primary's config next changed.
+// primary) and clears the last-applied hash in the same write, bumping the rearm
+// generation. Clearing the marker keeps it honest: enabling auto-sync or
+// repointing the primary redefines what the fleet is supposed to hold, so the
+// fleet no longer counts as converged on the hash recorded before the change, and
+// a pass still in flight for the old primary cannot record over it.
 func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?,
@@ -195,8 +194,8 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 	return n > 0, nil
 }
 
-// RecordAutoSyncHash records the primary config hash a convergence pass just
-// applied to the fleet, so the next tick can detect a change cheaply. The write
+// RecordAutoSyncHash records the primary config hash the fleet was just measured
+// holding, the durable marker of the last full convergence. The write
 // is guarded by gen: it applies only when the rearm generation still matches the
 // value the pass captured before it read the member list. If a rearm (member
 // add, token update, enable, or repoint) landed mid-pass it bumped the
@@ -234,9 +233,10 @@ func (s *Store) AutoSyncGen(ctx context.Context) (int64, error) {
 }
 
 // RearmAutoSync clears the last-applied config hash and bumps the rearm
-// generation in one statement, so the auto-sync loop runs a fresh pass and any
-// convergence pass already in flight cannot record its (now stale) hash over the
-// clear. Called when the fleet's membership or the designated primary changes.
+// generation in one statement, so a convergence pass already in flight aborts
+// rather than recording its (now stale) hash over the clear, and the fleet stops
+// counting as converged on a member list that has changed. Called when the
+// fleet's membership or the designated primary changes.
 func (s *Store) RearmAutoSync(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET auto_sync_last_hash = '', auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
