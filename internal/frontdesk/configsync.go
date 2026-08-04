@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,6 +58,13 @@ type syncResultItem struct {
 	// entries than the primary sent. It rides alongside a successful result: the
 	// member applied everything it was asked to, it just holds fewer models.
 	Partial []string `json:"partial,omitempty"`
+	// TimedOut marks a push whose deadline expired before the member answered.
+	// The member may well have committed the config and simply taken longer than
+	// memberSyncTimeout to say so, which is what an import that runs a long model
+	// discovery looks like from here. Not surfaced on the wire: the operator sees
+	// Error, and this only tells the auto-sync loop that this member did receive
+	// the config, so a re-push is rate-limited rather than repeated every tick.
+	TimedOut bool `json:"-"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -238,7 +246,11 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, results []syncResultItem) {
 	changed := false
 	for _, r := range results {
-		if r.OK {
+		// An incomplete member counts as a config write like any other: it committed
+		// the config and only failed to materialise part of it. Excluding it would
+		// freeze the fleet marker for as long as one member stayed diverged, and the
+		// staleness watchdog reads that marker.
+		if r.OK || r.Incomplete {
 			changed = true
 			break
 		}
@@ -272,6 +284,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	// names to make its divergence alert specific.
 	res.Partial = out.Partial
 	switch {
+	case err != nil && status == 0 && isTimeout(err):
+		// The deadline expired with the member still working. Unlike a refusal or an
+		// unreachable host, this push may have landed: a member running a long model
+		// discovery commits the config and then keeps the connection open past
+		// memberSyncTimeout. Reported as its own thing so the loop rate-limits the
+		// re-push instead of re-importing every tick and restarting that discovery.
+		res.Error = "this member did not answer in time"
+		res.TimedOut = true
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:
@@ -318,6 +338,16 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Incomplete = true
 		res.Unapplied = out.Unapplied
 		recordConfigSync("incomplete")
+		// The member did commit this config, so its last-sync marker advances even
+		// though res.OK stays false. Without this, a member that can never build one
+		// group would show "Last Config Sync" frozen at whenever it last managed a
+		// clean apply, and the fleet-level staleness watchdog would raise
+		// config.autosync_stale a day later on top of the divergence alert already
+		// naming the real problem. A failure to write it is logged and dropped: the
+		// member is being reported as diverged either way.
+		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
+			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		}
 		// Logged here as well as alerted: this arm returns before the shared failure
 		// branch below, so without this line an incomplete apply would leave no trace
 		// in the logs when alerting is off. res.Error names the groups that were not
@@ -359,7 +389,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
 				Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,
 				// reason carries who/why (e.g. "manual sync by Pixel (operator)" or
-				// "the primary's config changed"), so the event log attributes the run.
+				// "did not hold the primary's config"), so the event log attributes the run.
 				Metadata: map[string]any{"reason": reason},
 			})
 		}
@@ -373,6 +403,19 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		})
 	}
 	return res
+}
+
+// isTimeout reports whether a member call failed because its deadline expired,
+// as opposed to being refused, unreachable, or cancelled. Both shapes count: the
+// client's own Timeout (a net.Error that reports Timeout) and an expired context
+// deadline. A cancelled context is deliberately not a timeout, so a convergence
+// pass aborted by a rearm is never mistaken for a slow member.
+func isTimeout(err error) bool {
+	var nerr net.Error
+	if errors.As(err, &nerr) && nerr.Timeout() {
+		return true
+	}
+	return errors.Is(err, context.DeadlineExceeded)
 }
 
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be

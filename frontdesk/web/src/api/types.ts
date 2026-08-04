@@ -16,8 +16,8 @@ export interface Member {
 	token_warning?: string;
 	// When Front Desk last applied config to this member (wizard or automatic),
 	// RFC3339; absent until the first sync. last_config_sync_reason explains why
-	// (e.g. the primary's config changed). Both drive the "Last Config Sync"
-	// column on the Members tab.
+	// (e.g. it did not hold the primary's config). Both drive the "Last Config
+	// Sync" column on the Members tab.
 	last_config_sync_at?: string;
 	last_config_sync_reason?: string;
 }

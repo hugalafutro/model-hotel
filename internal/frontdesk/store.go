@@ -70,8 +70,8 @@ type Member struct {
 	UpdatedAt time.Time   `json:"updated_at"`
 	// LastConfigSyncAt is when Front Desk last applied config to this member
 	// (wizard or automatic); nil until the first sync. LastConfigSyncReason
-	// explains why (e.g. the primary's config changed). Both power the Members
-	// table "Last Config Sync" column.
+	// explains why (e.g. it did not hold the primary's config). Both power the
+	// Members table "Last Config Sync" column.
 	LastConfigSyncAt     *time.Time `json:"last_config_sync_at,omitempty"`
 	LastConfigSyncReason string     `json:"last_config_sync_reason,omitempty"`
 	// InstanceID is the stable identity of the model-hotel instance behind this
