@@ -84,10 +84,10 @@ type Server struct {
 	syncHeld   map[string]bool
 	// syncIncomplete tracks which members committed a config without materialising
 	// all of it, so config.sync_incomplete fires once on the transition in rather
-	// than on every retry (the loop re-pushes an incomplete member every pass).
-	// In-memory and bounded by fleet size, like syncHeld.
+	// than on every retry, and so the retry itself can be rate-limited (see
+	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
 	syncIncompleteMu sync.Mutex
-	syncIncomplete   map[string]bool
+	syncIncomplete   map[string]incompleteState
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
 	// edge-triggered fleet.state_changed emission. Empty until the first check
 	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
@@ -146,7 +146,7 @@ func NewServer(cfg ServerConfig) *Server {
 		ipLimiter:      cfg.IPLimiter,
 		rearmCh:        make(chan struct{}),
 		syncHeld:       make(map[string]bool),
-		syncIncomplete: make(map[string]bool),
+		syncIncomplete: make(map[string]incompleteState),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"time"
 
@@ -24,8 +23,9 @@ import (
 // from the same instance, so it is a valid same-instance "changed since" signal.
 // Whether an individual member needs the new config is decided by the member's
 // own dry-run diff (never by comparing hashes across instances, which embed
-// instance-local ids/timestamps), so an already-converged member is skipped with
-// no backup and no import.
+// instance-local ids/timestamps). That diff is presence-based, so it seldom reads
+// as empty; a member that can never converge is instead kept from backing up and
+// re-importing on every tick by incompleteRetryInterval.
 //
 // No request or prompt content is ever read; only provider/key names and counts
 // flow, exactly as in the manual sync.
@@ -64,6 +64,14 @@ const (
 	// primary. A day is long enough that a brief manual-sync gap never trips it,
 	// short enough that a fleet left un-synced surfaces within the same day.
 	autoSyncStaleThreshold = 24 * time.Hour
+
+	// incompleteRetryInterval rate-limits the retry of a member that applied a
+	// config without building every custom failover group. The member is never
+	// counted as converged, so the fleet badge, the alert and the unrecorded fleet
+	// hash all persist; this only stops a member that cannot converge from driving
+	// a pre-sync backup and a full re-import on every 15 second tick. A member
+	// whose discovery catches up converges within one interval.
+	incompleteRetryInterval = 10 * time.Minute
 
 	// autoSyncFaultyThreshold is the second staleness tier: with auto-sync off, a
 	// fleet unsynced this long is treated as faulty by the fleet state machine
@@ -154,6 +162,9 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 	// ticks running), so a multi-step edit session triggers one sync rather than
 	// one per intermediate save.
 	if hash != prev {
+		// The primary moved: let every incomplete member retry on the next pass
+		// rather than waiting out its interval.
+		s.resetIncompleteRetries()
 		return hash
 	}
 
@@ -182,6 +193,9 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	if !ok {
 		return
 	}
+	// A kick is a deliberate operator action, so it retries every incomplete
+	// member now rather than leaving it inside its retry interval.
+	s.resetIncompleteRetries()
 	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncKickReason, cfg.Gen)
 }
 
@@ -215,9 +229,10 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
 	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason, gen)
 	// Record the hash as applied only once every reachable member converged onto
-	// it. If a member was unreachable, leave the marker so the next tick retries;
-	// already-converged members are skipped by their dry-run diff, so the retry
-	// costs only cheap probes, never repeated backups or imports.
+	// it. If a member was unreachable, leave the marker so the next tick retries.
+	// A member that is reachable but never converges (an incomplete apply) has its
+	// retry bounded by incompleteRetryInterval, so it cannot drive a backup and an
+	// import on every tick.
 	if allConverged {
 		switch ok, err := s.store.RecordAutoSyncHash(ctx, hash, gen); {
 		case err != nil:
@@ -363,6 +378,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			continue
 		}
 		s.clearSyncHold(m.ID)
+		// An incomplete member is reachable and its dry-run diff is never zero, so
+		// without this it would drive a pre-sync backup and a full re-import every
+		// tick. It stays not-converged (the fleet hash is still withheld and the
+		// badge and alert persist); only the attempt is rate-limited.
+		if s.shouldSkipIncompleteRetry(m.ID, time.Now()) {
+			allConverged = false
+			continue
+		}
 		// Decide whether this member needs the new config from its own dry-run
 		// diff, which compares by name and so is valid across instances. The dry-run
 		// is never fenced, so the generation is not sent on it.
@@ -468,14 +491,25 @@ func (s *Server) clearSyncHold(memberID string) {
 	s.syncHeldMu.Unlock()
 }
 
+// incompleteState is what Front Desk remembers about a member that applied a
+// config without materialising all of it: enough to rate-limit the retry
+// without ever marking the member converged.
+type incompleteState struct {
+	// lastAttempt is when the last real import was pushed to this member while
+	// it was incomplete. Zero means "retry on the next pass".
+	lastAttempt time.Time
+}
+
 // markMemberIncomplete records a member that committed a config without building
 // all of it and emits config.sync_incomplete once on the transition in. The
-// member is retried on every following pass, so a level-triggered event here
-// would alert on every tick until it converges.
+// member is retried on later passes, so a level-triggered event here would alert
+// again on every retry until it converges. The attempt is stamped on every call
+// (this runs after a real import) so shouldSkipIncompleteRetry can bound how
+// often that retry happens.
 func (s *Server) markMemberIncomplete(ctx context.Context, m *Member, unapplied []string) {
 	s.syncIncompleteMu.Lock()
-	already := s.syncIncomplete[m.ID]
-	s.syncIncomplete[m.ID] = true
+	_, already := s.syncIncomplete[m.ID]
+	s.syncIncomplete[m.ID] = incompleteState{lastAttempt: time.Now()}
 	s.syncIncompleteMu.Unlock()
 	if already {
 		return
@@ -507,7 +541,7 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member, unapplied 
 // nothing, keeping ordinary successful passes quiet.
 func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) {
 	s.syncIncompleteMu.Lock()
-	was := s.syncIncomplete[m.ID]
+	_, was := s.syncIncomplete[m.ID]
 	delete(s.syncIncomplete, m.ID)
 	s.syncIncompleteMu.Unlock()
 	if !was {
@@ -528,8 +562,37 @@ func (s *Server) incompleteSnapshot() map[string]bool {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	out := make(map[string]bool, len(s.syncIncomplete))
-	maps.Copy(out, s.syncIncomplete)
+	for id := range s.syncIncomplete {
+		out[id] = true
+	}
 	return out
+}
+
+// shouldSkipIncompleteRetry reports whether an incomplete member's retry is still
+// rate-limited. The caller keeps the member not-converged either way; this only
+// suppresses the backup and import.
+func (s *Server) shouldSkipIncompleteRetry(memberID string, now time.Time) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	st, ok := s.syncIncomplete[memberID]
+	if !ok || st.lastAttempt.IsZero() {
+		return false
+	}
+	return now.Sub(st.lastAttempt) < incompleteRetryInterval
+}
+
+// resetIncompleteRetries drops every retry timer so each incomplete member is
+// pushed again on the next pass. The entries themselves stay, so the fleet badge
+// and the edge-triggered alert are unaffected. Called when the operator's intent
+// changes (the primary's config moved, or auto-sync was just enabled), where
+// waiting out the interval would delay a deliberate edit.
+func (s *Server) resetIncompleteRetries() {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	for id, st := range s.syncIncomplete {
+		st.lastAttempt = time.Time{}
+		s.syncIncomplete[id] = st
+	}
 }
 
 // watchRearm cancels a convergence pass the moment its rearm generation goes

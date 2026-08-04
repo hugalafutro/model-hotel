@@ -35,10 +35,15 @@ type stubAutoMember struct {
 	importBody   string // full dry-run import body; overrides dryDiff when set
 	backupCode   int
 	gotBackup    bool
+	backups      int // how many pre-sync backups this member was asked to take
 	gotRealSync  bool
+	realSyncs    int    // how many real (non-dry-run) imports this member accepted
 	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
 	staleImport  bool   // when true, the real import answers with the commit-fence "stale" response
-	onBackup     func() // fired inside the backup handler, to simulate a rearm landing mid-pass
+	// incompleteImport makes the real import answer applied-but-incomplete: the
+	// core config committed, one custom failover group could not be built.
+	incompleteImport bool
+	onBackup         func() // fired inside the backup handler, to simulate a rearm landing mid-pass
 	// onImport fires inside the real (non-dry-run) import handler. It receives the
 	// request context and returns whether the import should be recorded as applied;
 	// returning false models the import being cancelled in flight before it commits.
@@ -96,6 +101,12 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 				return // import cancelled in flight before commit: record nothing
 			}
 			sm.gotRealSync = true
+			sm.realSyncs++
+			if sm.incompleteImport {
+				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+					`"incomplete":true,"unapplied":["ds4flash"],"diff":` + sm.dryDiff + `}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":` + sm.dryDiff + `}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
 			// The token probe (createMember/patchMember) hits this; 200 = accepted.
@@ -106,6 +117,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			_, _ = w.Write([]byte(`{"fleet":{"is_primary":false},"instance_id":"` + sm.instanceID + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
 			sm.gotBackup = true
+			sm.backups++
 			if sm.onBackup != nil {
 				sm.onBackup() // simulate a rearm/repoint landing after the backup, before the import
 			}
@@ -125,6 +137,18 @@ func (sm *stubAutoMember) didRealSync() bool {
 	defer sm.mu.Unlock()
 	return sm.gotRealSync
 }
+func (sm *stubAutoMember) backupCount() int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.backups
+}
+
+func (sm *stubAutoMember) realSyncCount() int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.realSyncs
+}
+
 func (sm *stubAutoMember) sourceGen() string {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -1543,6 +1567,211 @@ func TestAutoSync_RecoveredEventOnlyAfterIncomplete(t *testing.T) {
 	}
 	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
 		t.Errorf("config.sync_recovered events = %d for a member that was never incomplete, want 0", n)
+	}
+}
+
+// incompleteFleet is a two-member fleet whose replica commits every import but
+// never builds its custom failover group, so the fleet can never converge. The
+// stubs count the pre-sync backups and real imports each pass costs.
+type incompleteFleet struct {
+	srv      *Server
+	store    *Store
+	primary  *stubAutoMember
+	replica  *stubAutoMember
+	replicaM *Member
+}
+
+func newIncompleteFleet(t *testing.T) *incompleteFleet {
+	t.Helper()
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B" // changed vs the recorded last hash
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // presence-based diffs are never zero for a real member
+	replica.incompleteImport = true
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+	return &incompleteFleet{srv: srv, store: store, primary: primary, replica: replica, replicaM: rm}
+}
+
+// settledTick runs one convergence pass the way the loop does once the primary's
+// hash has settled (prev equals the hash the primary reports), so the pass takes
+// the converge path rather than the coalescing branch that clears retry timers.
+func (f *incompleteFleet) settledTick(t *testing.T) {
+	t.Helper()
+	f.srv.autoSyncOnce(t.Context(), f.primary.versionHash)
+}
+
+// backdateIncompleteRetry moves a member's last incomplete retry attempt d into
+// the past, so the next pass sees the rate-limit window as expired.
+func backdateIncompleteRetry(t *testing.T, s *Server, memberID string, d time.Duration) {
+	t.Helper()
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	st, ok := s.syncIncomplete[memberID]
+	if !ok {
+		t.Fatalf("member %s is not marked incomplete", memberID)
+	}
+	st.lastAttempt = st.lastAttempt.Add(-d)
+	s.syncIncomplete[memberID] = st
+}
+
+// TestAutoSync_IncompleteRetryIsRateLimited: an incomplete member is reachable,
+// and its dry-run diff is never zero (diffKeyed is presence-based), so every tick
+// would otherwise take a pre-sync pg_dump and re-import it, forever, on a member
+// that cannot converge. The retry is bounded, and bounding it must not look like
+// convergence: the fleet hash stays unrecorded.
+func TestAutoSync_IncompleteRetryIsRateLimited(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 1 || r != 1 {
+		t.Fatalf("first pass: backups = %d, real imports = %d; want 1 and 1", b, r)
+	}
+
+	for range 3 {
+		f.settledTick(t)
+	}
+	if got := f.replica.backupCount(); got != 1 {
+		t.Errorf("backups = %d after three further ticks, want 1: an unconvergeable member must not dump on every tick", got)
+	}
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d after three further ticks, want 1: the retry is rate-limited", got)
+	}
+
+	cfg, err := f.store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if cfg.LastHash == "hash-B" {
+		t.Error("applied hash recorded on a rate-limited tick; a skipped retry must never count as converged")
+	}
+}
+
+// TestAutoSync_IncompleteRetriesAfterTheInterval: the bound delays the retry, it
+// does not abandon it. Once the interval has passed the member is pushed again,
+// so a member whose discovery catches up converges within one interval.
+func TestAutoSync_IncompleteRetriesAfterTheInterval(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	f.settledTick(t) // still inside the window
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d inside the retry window, want 1", got)
+	}
+
+	backdateIncompleteRetry(t, f.srv, f.replicaM.ID, incompleteRetryInterval+time.Minute)
+	f.settledTick(t)
+
+	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 2 || r != 2 {
+		t.Errorf("past the interval: backups = %d, real imports = %d; want 2 and 2", b, r)
+	}
+}
+
+// TestAutoSync_PrimaryEditClearsIncompleteRetryTimers: an operator edit must
+// propagate at once, not after the retry bound. The tick that observes the
+// primary's hash move clears every timer, so the following (settled) tick
+// re-pushes the incomplete member immediately.
+func TestAutoSync_PrimaryEditClearsIncompleteRetryTimers(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	f.settledTick(t) // rate-limited
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d inside the retry window, want 1", got)
+	}
+
+	// The operator edits the primary, so its config hash moves.
+	f.primary.versionHash = "hash-C"
+
+	prev := f.srv.autoSyncOnce(t.Context(), "hash-B")
+	if prev != "hash-C" {
+		t.Fatalf("coalescing tick returned %q, want hash-C", prev)
+	}
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d on the coalescing tick, want 1: it observes, it does not push", got)
+	}
+
+	f.srv.autoSyncOnce(t.Context(), prev)
+	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 2 || r != 2 {
+		t.Errorf("after the primary moved: backups = %d, real imports = %d; want 2 and 2", b, r)
+	}
+}
+
+// TestAutoSync_IncompleteEventDoesNotRearmOnSkippedTicks: the config.sync_incomplete
+// alert is edge-triggered on the transition into incomplete. A rate-limited tick
+// leaves the member's incomplete entry in place, so it must not re-arm the edge and
+// alert again, either while skipping or on the retry that follows the interval.
+func TestAutoSync_IncompleteEventDoesNotRearmOnSkippedTicks(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	for range 3 {
+		f.settledTick(t)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Fatalf("config.sync_incomplete events = %d across skipped ticks, want exactly 1", n)
+	}
+
+	backdateIncompleteRetry(t, f.srv, f.replicaM.ID, incompleteRetryInterval+time.Minute)
+	f.settledTick(t)
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d after the bounded retry, want the original 1", n)
+	}
+}
+
+// TestAutoSync_IncompleteSnapshotSurvivesRateLimiting: the fleet badge reads the
+// incomplete set, so a member whose retry is bounded must still be reported. If
+// the bound dropped it the fleet would go green while it serves 404s.
+func TestAutoSync_IncompleteSnapshotSurvivesRateLimiting(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	for range 3 {
+		f.settledTick(t)
+	}
+
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("incompleteSnapshot dropped the member while its retry was rate-limited; the fleet badge would clear")
+	}
+}
+
+// TestAutoSync_IncompleteMemberLeavesFleetUnconverged drives the loop's own entry
+// points rather than applyMemberConfig directly: a member that commits the config
+// but cannot build its failover groups leaves the fleet hash unrecorded and its
+// last-sync stamp untouched, and the operator's enable-time kick re-pushes it
+// rather than waiting out the retry bound.
+func TestAutoSync_IncompleteMemberLeavesFleetUnconverged(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.srv.forceAutoSyncNow(t.Context())
+	f.srv.forceAutoSyncNow(t.Context())
+
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Errorf("real imports = %d across two operator kicks, want 2: a deliberate kick retries now", got)
+	}
+	cfg, err := f.store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if cfg.LastHash == "hash-B" {
+		t.Error("applied hash recorded while a member is incomplete; want the fleet left unconverged")
+	}
+	got, err := f.store.GetMember(t.Context(), f.replicaM.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("last-sync marker stamped on an incomplete apply; want left untouched")
+	}
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("incompleteSnapshot does not hold the incomplete member")
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d, want exactly 1 across repeated incomplete passes", n)
 	}
 }
 
