@@ -26,11 +26,16 @@ import (
 // asserting the count is zero) catches a reintroduced pre-sync backup as a counted
 // call rather than as a 404 that some other assertion happens to notice.
 type stubAutoMember struct {
-	mu           sync.Mutex
-	srv          *httptest.Server
-	token        string
-	instanceID   string
-	versionHash  string
+	mu          sync.Mutex
+	srv         *httptest.Server
+	token       string
+	instanceID  string
+	versionHash string
+	// appliedHash, when set, is the config-version hash this member starts
+	// reporting once it accepts a real import: a member that applied the primary's
+	// config hashes identically to it, which is what lets the next pass skip it. An
+	// incomplete import never adopts it, since the member did not build everything.
+	appliedHash  string
 	versionCode  int    // status for the version GET (default 200)
 	versionRaw   string // raw version body; overrides the {"version":...} JSON when set
 	exportBody   string
@@ -116,6 +121,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
 					`"incomplete":true,"unapplied":["ds4flash"],"diff":` + sm.dryDiff + `}`))
 				return
+			}
+			if sm.appliedHash != "" {
+				sm.versionHash = sm.appliedHash // the member now holds the primary's config
 			}
 			_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":` + sm.dryDiff + `}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
@@ -481,6 +489,100 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	// shows auto-sync confirmed the member against the primary.
 	if snap := srv.poller.Snapshot(); snap[replicaMember.ID].AutoSyncVerifiedAt == nil {
 		t.Error("converged member AutoSyncVerifiedAt = nil, want the verify heartbeat stamped")
+	}
+}
+
+// TestAutoSync_MemberHoldingThisConfigIsSkipped: every member serves the same
+// content hash of its syncable config, so a member reporting the primary's hash
+// already holds exactly this config and is skipped outright, without even the
+// dry-run. The dry-run cannot establish that (it keys on presence, so a matching
+// member still reports every shared entity as updated), which is why the member's
+// own hash is read first. The skip must not hold the fleet hash back: a member that
+// matches is genuinely converged.
+func TestAutoSync_MemberHoldingThisConfigIsSkipped(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-B" // this member already holds the primary's config
+	replica.dryDiff = driftDiff    // a presence-based diff would claim it needs syncing
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if got := replica.dryRunCount(); got != 0 {
+		t.Errorf("dry-runs = %d, want 0: a member holding this config is skipped before the diff", got)
+	}
+	if got := replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: the member already holds this config", got)
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-B" {
+		t.Errorf("applied hash = %q, want hash-B: skipping a matching member must not hold the fleet back", cfg.LastHash)
+	}
+	// Nothing was written, so the persisted stamp stays put; only the live
+	// "verified in sync" heartbeat advances.
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a skipped member had last_config_sync_at stamped; want untouched (no write happened)")
+	}
+	if snap := srv.poller.Snapshot(); snap[rm.ID].AutoSyncVerifiedAt == nil {
+		t.Error("skipped member AutoSyncVerifiedAt = nil, want the verify heartbeat stamped")
+	}
+}
+
+// TestAutoSync_MemberWithADifferentConfigIsSynced: the skip is narrow. A member
+// whose own hash differs from the primary's is pushed to as before.
+func TestAutoSync_MemberWithADifferentConfigIsSynced(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-drifted"
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if got := replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d, want 1: a member holding a different config is synced", got)
+	}
+}
+
+// TestAutoSync_MemberVersionUnreadableIsNotSkipped: an unread hash proves nothing,
+// so a member whose config-version endpoint errors falls through to the dry-run
+// path, which reports an unreachable or erroring member properly.
+func TestAutoSync_MemberVersionUnreadableIsNotSkipped(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionCode = http.StatusInternalServerError // its own hash cannot be read
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if got := replica.dryRunCount(); got == 0 {
+		t.Error("dry-runs = 0: a member whose hash could not be read must still be evaluated")
+	}
+	if got := replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d, want 1: an unreadable hash is not a converged member", got)
 	}
 }
 
@@ -1790,6 +1892,64 @@ func TestAutoSync_IncompleteMemberLeavesFleetUnconverged(t *testing.T) {
 	}
 	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
 		t.Errorf("config.sync_incomplete events = %d, want exactly 1 across repeated incomplete passes", n)
+	}
+}
+
+// TestAutoSync_HealthyMemberIsSyncedOnceWhileAnotherIsIncomplete is the headline
+// regression, mirroring the defect measured on a three-member fleet: one member
+// that can never converge held allConverged false, so convergeFleet ran every
+// tick, and every OTHER healthy member was re-imported (and re-ran its model
+// discovery) on each of them. Bounding the incomplete member's retry protects only
+// that member.
+//
+// Across several passes the healthy member must take exactly one import: the one
+// that gives it the config. From then on its own config hash equals the primary's
+// and it is skipped. The incomplete member stays bounded, the fleet hash stays
+// unrecorded (it genuinely has not converged), and no member is asked to snapshot
+// itself.
+func TestAutoSync_HealthyMemberIsSyncedOnceWhileAnotherIsIncomplete(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+
+	incomplete := newStubAutoMember(t, "itoken")
+	incomplete.versionHash = "hash-incomplete" // it never builds the custom groups, so it never matches
+	incomplete.dryDiff = driftDiff
+	incomplete.incompleteImport = true
+
+	healthy := newStubAutoMember(t, "htoken")
+	healthy.versionHash = "hash-stale" // needs the config once
+	healthy.appliedHash = "hash-B"     // and holds it afterwards
+	healthy.dryDiff = driftDiff        // a presence-based diff never reads as converged
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	im, _ := store.CreateMember(t.Context(), "incomplete", incomplete.srv.URL, "itoken")
+	store.CreateMember(t.Context(), "healthy", healthy.srv.URL, "htoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+
+	for range 5 {
+		srv.autoSyncOnce(t.Context(), "hash-B") // settled: every tick runs a convergence pass
+	}
+
+	if got := healthy.realSyncCount(); got != 1 {
+		t.Errorf("healthy member real imports = %d across 5 passes, want 1: an unconvergeable neighbour must not re-import it every tick", got)
+	}
+	if got := healthy.backupCount(); got != 0 {
+		t.Errorf("healthy member backups = %d, want 0: Front Desk takes no pre-sync snapshot", got)
+	}
+	if got := incomplete.realSyncCount(); got != 1 {
+		t.Errorf("incomplete member real imports = %d across 5 passes, want 1: its retry is bounded", got)
+	}
+	cfg, err := store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if cfg.LastHash == "hash-B" {
+		t.Error("applied hash recorded while a member is incomplete; want the fleet left unconverged")
+	}
+	if !srv.incompleteSnapshot()[im.ID] {
+		t.Error("incompleteSnapshot dropped the incomplete member; the fleet badge would clear")
 	}
 }
 

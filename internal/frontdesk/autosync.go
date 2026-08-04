@@ -19,11 +19,17 @@ import (
 //
 // Drift is detected by the primary's own config hash (GET /api/config/version):
 // the hash is compared against the hash last applied to the fleet, both read
-// from the same instance, so it is a valid same-instance "changed since" signal.
-// Whether an individual member needs the new config is decided by the member's
-// own dry-run diff. That diff is presence-based, so it seldom reads as empty; a
-// member that can never converge is instead kept from re-importing on every tick
-// by incompleteRetryInterval.
+// from the same instance, so it is a valid "changed since" signal.
+//
+// Whether an individual member needs that config is decided by reading the
+// member's hash from the same endpoint and comparing it with the primary's. The
+// hash covers the syncable payload alone, which carries names and stable model
+// refs rather than instance-local ids or timestamps, so it is comparable across
+// instances: equal hashes mean identical config, and the member is left alone. A
+// member whose hash differs (or cannot be read) falls back to its own dry-run
+// diff. That diff is presence-based, so it seldom reads as empty; a member that
+// can never converge is kept from re-importing on every tick by
+// incompleteRetryInterval.
 //
 // No request or prompt content is ever read; only provider/key names and counts
 // flow, exactly as in the manual sync.
@@ -220,7 +226,7 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // only if it is still current, so a rearm (member add, token update, enable, or
 // repoint) that landed mid-pass is never clobbered by this older pass.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
-	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason, gen)
+	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
 	// Record the hash as applied only once every reachable member converged onto
 	// it. If a member was unreachable, leave the marker so the next tick retries.
 	// A member that is reachable but never converges (an incomplete apply) has its
@@ -273,8 +279,9 @@ func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
 // applyAutoSync pushes the primary's config to every other tokened member that
 // needs it. It returns how many members it actually re-synced and whether every
 // reachable member ended up converged (the signal autoSyncOnce uses to decide
-// whether to record the applied hash). reason is stamped onto each synced
-// member's last-sync marker.
+// whether to record the applied hash). hash is the primary's current config hash,
+// compared against each member's own to leave a member that already holds this
+// config untouched. reason is stamped onto each synced member's last-sync marker.
 //
 // gen is the rearm generation captured before this pass began. A rearm (member
 // add, token update, enable, or primary repoint) bumps it, so the pass re-checks
@@ -287,7 +294,7 @@ func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
 // that member on the next tick. Members synced before the change were current when
 // written; the rearm's own pass converges the rest. allConverged is forced false
 // on abort so no hash is recorded.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, reason string, gen int64) (applied int, allConverged bool) {
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) (applied int, allConverged bool) {
 	// A transient gen read shouldn't abort a valid pass, so a read error reports
 	// "not stale" and the generation-guarded hash record stays the backstop.
 	stale := func() bool {
@@ -377,6 +384,33 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// rate-limited.
 		if s.shouldSkipIncompleteRetry(m.ID, time.Now()) {
 			allConverged = false
+			continue
+		}
+		// Ask the member what config it actually holds. Every member serves the same
+		// content hash over the same syncable payload (providers, virtual keys,
+		// syncable settings, custom failover groups, users), ordered deterministically
+		// and carrying names and stable model refs rather than instance-local ids or
+		// timestamps, so an equal hash means this member already holds exactly this
+		// config and there is nothing to push. The dry-run cannot establish that:
+		// computeDiff keys on presence, so a member that already matches still reports
+		// every shared entity as updated.
+		//
+		// This is what keeps one member that cannot converge from costing every other
+		// healthy member a full re-import, and the member-side model discovery it runs,
+		// on every 15 second tick. A member skipped here is genuinely converged, so it
+		// must NOT touch allConverged, matching the counts() == 0 branch below.
+		//
+		// A member that did not build a custom failover group hashes differently from
+		// the primary (the groups are part of the hashed payload), so an incomplete
+		// member is never skipped here and stays on the bounded retry above.
+		//
+		// A hash that cannot be read proves nothing, so it is never a skip: the member
+		// falls through to the dry-run, which reports an unreachable or erroring member
+		// properly.
+		if memberHash, err := s.fetchMemberConfigVersion(passCtx, m, token); err != nil {
+			debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
+		} else if memberHash == hash {
+			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			continue
 		}
 		// Decide whether this member needs the new config from its own dry-run
