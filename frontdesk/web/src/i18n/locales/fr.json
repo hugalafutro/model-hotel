@@ -334,6 +334,7 @@
 			"pruneDone_one": "{{count}} sauvegarde supprimée",
 			"pruneDone_many": "{{count}} sauvegardes supprimées",
 			"pruneDone_other": "{{count}} sauvegardes supprimées",
+			"pruneUnknown": "Front Desk a perdu le contact avec cette exécution. Consultez l'onglet Événements pour le résultat.",
 			"pruneFailed": "Impossible d'effacer les sauvegardes"
 		},
 		"wizard": {

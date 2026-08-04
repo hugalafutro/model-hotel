@@ -328,6 +328,7 @@
 			"pruning": "Bezig met verwijderen…",
 			"pruneDone_one": "{{count}} back-up verwijderd",
 			"pruneDone_other": "{{count}} back-ups verwijderd",
+			"pruneUnknown": "Front Desk is het contact met deze actie verloren. Bekijk het tabblad Gebeurtenissen voor het resultaat.",
 			"pruneFailed": "Kon de back-ups niet wissen"
 		},
 		"wizard": {

@@ -328,6 +328,7 @@
 			"pruning": "正在删除…",
 			"pruneDone_one": "已删除 {{count}} 个备份",
 			"pruneDone_other": "已删除 {{count}} 个备份",
+			"pruneUnknown": "Front Desk 与本次操作失去了联系。请在事件标签页查看结果。",
 			"pruneFailed": "无法清除备份"
 		},
 		"wizard": {

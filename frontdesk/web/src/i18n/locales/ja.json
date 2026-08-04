@@ -328,6 +328,7 @@
 			"pruning": "削除中…",
 			"pruneDone_one": "{{count}} 件のバックアップを削除しました",
 			"pruneDone_other": "{{count}} 件のバックアップを削除しました",
+			"pruneUnknown": "Front Desk はこの処理との接続を失いました。結果はイベントタブで確認してください。",
 			"pruneFailed": "バックアップを削除できませんでした"
 		},
 		"wizard": {

@@ -328,6 +328,7 @@
 			"pruning": "Deleting…",
 			"pruneDone_one": "Deleted {{count}} backup",
 			"pruneDone_other": "Deleted {{count}} backups",
+			"pruneUnknown": "Front Desk lost contact with this run. Check the Events tab for the result.",
 			"pruneFailed": "Could not clear the backups"
 		},
 		"wizard": {

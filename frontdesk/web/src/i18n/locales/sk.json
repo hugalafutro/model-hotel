@@ -340,6 +340,7 @@
 			"pruneDone_few": "Zmazané {{count}} zálohy",
 			"pruneDone_many": "Zmazané {{count}} zálohy",
 			"pruneDone_other": "Zmazaných {{count}} záloh",
+			"pruneUnknown": "Front Desk stratil spojenie s touto operáciou. Výsledok nájdete na karte Udalosti.",
 			"pruneFailed": "Zálohy sa nepodarilo zmazať"
 		},
 		"wizard": {

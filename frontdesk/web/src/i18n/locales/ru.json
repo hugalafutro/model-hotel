@@ -340,6 +340,7 @@
 			"pruneDone_few": "Удалены {{count}} резервные копии",
 			"pruneDone_many": "Удалено {{count}} резервных копий",
 			"pruneDone_other": "Удалено {{count}} резервной копии",
+			"pruneUnknown": "Front Desk потерял связь с этой операцией. Результат смотрите на вкладке События.",
 			"pruneFailed": "Не удалось удалить копии"
 		},
 		"wizard": {

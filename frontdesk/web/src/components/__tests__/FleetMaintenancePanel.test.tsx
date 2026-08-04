@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "i18next";
 import { HttpResponse, http } from "msw";
 import { beforeEach, expect, it } from "vitest";
 import { ToastProvider } from "../../context/ToastContext";
@@ -138,4 +139,35 @@ it("notes members whose backups could not be counted", async () => {
 	const dialog = await screen.findByRole("dialog");
 
 	await waitFor(() => expect(dialog.querySelectorAll("p")).toHaveLength(2));
+});
+
+// The server runs the prune detached from the request, so a lost response does
+// not mean a lost run. The toast must point the operator at where the outcome
+// actually lands rather than claiming a failure nobody observed, and the dialog
+// stays open because nothing here proves the run is over.
+it("points a lost prune response at the event log", async () => {
+	server.use(
+		http.post(PRUNE, ({ request }) => {
+			const dry = new URL(request.url).searchParams.has("dryRun");
+			if (dry) {
+				return HttpResponse.json({ deleted: 3, failed: 0, results: [] });
+			}
+			return HttpResponse.error();
+		}),
+	);
+	renderPanel();
+
+	await userEvent.click(screen.getByTestId("prune-frontdesk-backups"));
+	const dialog = await screen.findByRole("dialog");
+	await userEvent.click(confirmButton(dialog));
+
+	// Compared against the resolved translation rather than a literal string, so
+	// the test pins which message fires without depending on the active locale.
+	const toasts = await screen.findByRole("status");
+	await waitFor(() =>
+		expect(toasts).toHaveTextContent(
+			i18n.t("settings.maintenance.pruneUnknown"),
+		),
+	);
+	expect(screen.queryByRole("dialog")).toBeInTheDocument();
 });

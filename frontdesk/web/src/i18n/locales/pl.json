@@ -340,6 +340,7 @@
 			"pruneDone_few": "Usunięto {{count}} kopie zapasowe",
 			"pruneDone_many": "Usunięto {{count}} kopii zapasowych",
 			"pruneDone_other": "Usunięto {{count}} kopii zapasowej",
+			"pruneUnknown": "Front Desk stracił kontakt z tym zadaniem. Wynik znajdziesz na karcie Zdarzenia.",
 			"pruneFailed": "Nie udało się usunąć kopii"
 		},
 		"wizard": {

@@ -328,6 +328,7 @@
 			"pruning": "Wird gelöscht…",
 			"pruneDone_one": "{{count}} Backup gelöscht",
 			"pruneDone_other": "{{count}} Backups gelöscht",
+			"pruneUnknown": "Front Desk hat den Kontakt zu diesem Vorgang verloren. Das Ergebnis steht im Tab Ereignisse.",
 			"pruneFailed": "Backups konnten nicht gelöscht werden"
 		},
 		"wizard": {

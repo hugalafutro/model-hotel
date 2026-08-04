@@ -334,6 +334,7 @@
 			"pruneDone_one": "{{count}} copia eliminada",
 			"pruneDone_many": "{{count}} copias eliminadas",
 			"pruneDone_other": "{{count}} copias eliminadas",
+			"pruneUnknown": "Front Desk perdió el contacto con esta ejecución. Consulta la pestaña Eventos para ver el resultado.",
 			"pruneFailed": "No se pudieron borrar las copias"
 		},
 		"wizard": {

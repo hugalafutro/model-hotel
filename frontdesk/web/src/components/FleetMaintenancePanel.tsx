@@ -42,7 +42,11 @@ export function FleetMaintenancePanel() {
 				res.failed > 0 ? "error" : "success",
 			);
 		} catch {
-			toast(t("settings.maintenance.pruneFailed"), "error");
+			// The run itself is detached from this request, so losing the response
+			// does not mean losing the run: a fleet with thousands of dumps deletes
+			// them one at a time and can outlast the browser's patience. Say where the
+			// outcome actually lands rather than claiming a failure nobody observed.
+			toast(t("settings.maintenance.pruneUnknown"), "error");
 		} finally {
 			setPruning(false);
 		}
