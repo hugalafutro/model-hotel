@@ -61,15 +61,13 @@ var fdCatalog = []alert.EventDef{
 	{Type: "member.state_changed", Category: "Membership", Severity: "info", DefaultOn: false},
 	// A member has no database backup from the last day. Front Desk takes no
 	// snapshot of its own, so a member's scheduled dumps are the only copy of its
-	// config; judging on the age of the newest one catches a member whose backups
-	// are switched off and one whose scheduler is enabled but wedged. Default-on:
-	// an unprotected member is silent until it matters, and migration 019 brings
-	// the seed in line.
+	// config, and the age of the newest catches both switched-off backups and a
+	// wedged scheduler. Default-on; migration 019 brings the seed in line.
 	{Type: "backup.stale", Category: "Backups", Severity: "warning", DefaultOn: true},
 	{Type: "backup.recovered", Category: "Backups", Severity: "success", DefaultOn: false},
 	// An operator ran the fleet-wide delete of the backups Front Desk took. Like
-	// member.removed, it is an audit record of a destructive act an operator may
-	// want to be paged about; off by default, so the seed CSV is unaffected.
+	// member.removed, an audit record of a destructive act; off by default, so the
+	// seed CSV is unaffected.
 	{Type: "backup.pruned", Category: "Backups", Severity: "info", DefaultOn: false},
 }
 

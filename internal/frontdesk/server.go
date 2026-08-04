@@ -82,17 +82,16 @@ type Server struct {
 	// bounded by fleet size; a restart re-emits at most once per still-held member.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
-	// syncIncomplete tracks what auto-sync has done to each member and what it
-	// measured afterwards: which members took a config and when, and which of them
-	// still do not serve the primary's config hash. That drives the once-per-
-	// transition config.sync_incomplete event and the rate-limited re-push (see
+	// syncIncomplete tracks which members took a config and when, and which of them
+	// still do not serve the primary's hash. Drives the once-per-transition
+	// config.sync_incomplete event and the rate-limited re-push (see
 	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
 	syncIncompleteMu sync.Mutex
 	syncIncomplete   map[string]incompleteState
-	// backupStale tracks which members currently have no database backup from the
-	// last memberBackupStaleAfter, so backup.stale fires once on the transition in
-	// and backup.recovered once on the way out. In-memory and bounded by fleet
-	// size, like syncHeld; a restart re-emits at most once per still-stale member.
+	// backupStale tracks which members have no database backup from the last
+	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
+	// backup.recovered once on the way out. In-memory and bounded by fleet size,
+	// like syncHeld; a restart re-emits at most once per still-stale member.
 	backupStaleMu sync.Mutex
 	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the

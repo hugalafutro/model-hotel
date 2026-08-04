@@ -94,10 +94,9 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}
 
-	// gcm.Open panics (rather than erroring) on a wrong-length nonce, so guard it:
-	// a corrupt or truncated stored nonce must surface as an error the caller can
-	// handle, not crash the process. Mirrors decryptWithKey, since every caller of
-	// either function reads the nonce from storage.
+	// gcm.Open panics rather than erroring on a wrong-length nonce, so a corrupt or
+	// truncated stored nonce must be caught here. Mirrors decryptWithKey; every
+	// caller of either reads the nonce from storage.
 	if len(nonce) != gcm.NonceSize() {
 		return "", fmt.Errorf("failed to decrypt: invalid nonce length %d (want %d)", len(nonce), gcm.NonceSize())
 	}

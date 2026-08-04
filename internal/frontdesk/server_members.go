@@ -271,12 +271,11 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// forgetMemberState drops the in-memory per-member state Front Desk keeps
-// outside the store: the version-skew hold, the config divergence, and the
-// backup staleness flag. All three are keyed by member id and read against the
-// live member list, so a leftover entry changes nothing today; it is dropped so
-// a member re-added under a fresh id cannot inherit a predecessor's flags, and
-// so the maps do not grow with every member the operator ever removed.
+// forgetMemberState drops the in-memory per-member state Front Desk keeps outside
+// the store: the version-skew hold, the config divergence, and the backup
+// staleness flag. All three are read against the live member list, so this is
+// hygiene rather than correctness: a re-added member starts clean, and the maps do
+// not grow with every member ever removed.
 func (s *Server) forgetMemberState(id string) {
 	s.syncHeldMu.Lock()
 	delete(s.syncHeld, id)

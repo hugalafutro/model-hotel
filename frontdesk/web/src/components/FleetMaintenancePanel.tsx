@@ -10,9 +10,9 @@ import { ConfirmModal } from "./ConfirmModal";
 //
 // Its only action deletes the frontdesk-origin pg_dumps a member holds. Nothing
 // produces them and member-side rotation prunes only the member's own scheduled
-// files, so they stay on a member until an operator clears them here. Deleting
-// backups is destructive, so the run is two-step: a preview counts what would
-// go, and the confirmation names that number before anything is deleted.
+// files, so they stay until an operator clears them here. Deleting backups is
+// destructive, so the run is two-step: a preview counts what would go, and the
+// confirmation names that number.
 export function FleetMaintenancePanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -42,10 +42,10 @@ export function FleetMaintenancePanel() {
 				res.failed > 0 ? "error" : "success",
 			);
 		} catch {
-			// The run itself is detached from this request, so losing the response
-			// does not mean losing the run: a fleet with thousands of dumps deletes
-			// them one at a time and can outlast the browser's patience. Say where the
-			// outcome actually lands rather than claiming a failure nobody observed.
+			// The run is detached from this request, so a lost response is not a lost
+			// run: a fleet with thousands of dumps deletes them one at a time and can
+			// outlast the browser's patience. Point at where the outcome lands rather
+			// than claiming a failure nobody observed.
 			toast(t("settings.maintenance.pruneUnknown"), "error");
 		} finally {
 			setPruning(false);

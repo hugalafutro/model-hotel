@@ -101,11 +101,11 @@ func (s *Store) SetAlertEvents(ctx context.Context, csv string) error {
 type AutoSyncConfig struct {
 	Enabled   bool   `json:"enabled"`
 	PrimaryID string `json:"primary_id"`
-	// Gen is the rearm generation: every change to what the fleet is supposed to
-	// hold (a member add or removal, a token update, an enable, a primary repoint)
-	// bumps it. A convergence pass captures it before reading the member list and
-	// re-checks it before each mutation, so a pass still in flight for the previous
-	// primary or member list aborts instead of writing a stale config. Not surfaced.
+	// Gen is the rearm generation, bumped by every change to what the fleet is
+	// supposed to hold: a member add or removal, a token update, an enable, a
+	// primary repoint. A convergence pass captures it before reading the member list
+	// and re-checks it before each mutation, so a pass in flight for the previous
+	// primary or member list aborts instead of writing a stale config.
 	Gen int64 `json:"-"`
 }
 
@@ -126,10 +126,9 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 }
 
 // SetAutoSync persists the operator's auto-sync choice (enabled + designated
-// primary) and bumps the rearm generation in the same write. Enabling auto-sync
-// or repointing the primary redefines what the fleet is supposed to hold, so a
-// pass still in flight for the old primary must abort rather than finish pushing
-// a config the operator has just replaced.
+// primary) and bumps the rearm generation in the same write: enabling or
+// repointing redefines what the fleet should hold, so a pass in flight for the old
+// primary must abort rather than finish pushing a config just replaced.
 func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?,

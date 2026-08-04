@@ -44,11 +44,9 @@ const (
 	reasonDrainedToSingle = "drained_to_single"
 	reasonSyncHeld        = "sync_held"
 	reasonAllSyncHeld     = "all_sync_held"
-	// sync_incomplete: at least one member committed a config sync without
-	// building every custom failover group, so it answers 404 for those
-	// hotel/<group> models. It still serves everything else, so this degrades the
-	// fleet and never escalates it to faulty; there is deliberately no
-	// all_sync_incomplete counterpart.
+	// sync_incomplete: at least one member does not hold the primary's config. It
+	// still serves everything else, so this degrades the fleet and never escalates
+	// to faulty; there is deliberately no all_sync_incomplete counterpart.
 	reasonSyncIncomplete    = "sync_incomplete"
 	reasonAutosyncStale     = "autosync_stale"
 	reasonAutosyncStaleLong = "autosync_stale_long"

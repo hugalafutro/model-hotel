@@ -25,15 +25,13 @@ const failoverApplyTimeout = 30 * time.Second
 // postImportRefreshTimeout bounds the whole detached post-commit refresh: model
 // discovery across every imported provider, then the failover group build.
 //
-// It matches Front Desk's incompleteRetryInterval, which is what decides when a
-// member that has not converged is pushed to again. Equal budgets mean a refresh
-// is always finished, or abandoned, before the next push for the same member can
-// arrive, so two discoveries can never run against one member at once.
+// It matches Front Desk's incompleteRetryInterval, so a refresh always finishes or
+// is abandoned before the next push for the same member can arrive and two
+// discoveries can never run against one member at once.
 //
-// It is far longer than Front Desk's 120s import client, so a slow first import
-// answers nobody. That is deliberate: the response fields are diagnostics, and
-// convergence is decided by comparing the member's config hash, which needs no
-// response at all. Finishing the work matters more than reporting it.
+// It is far longer than Front Desk's import client deadline, so a slow first import
+// answers nobody. Deliberate: the response fields are diagnostics, and convergence
+// is decided by the member's config hash, which needs no response at all.
 const postImportRefreshTimeout = 10 * time.Minute
 
 // applyOutcome carries what the post-commit steps of an import could not do.
@@ -49,10 +47,9 @@ type applyOutcome struct {
 	// GroupApplyErr is set when the whole group build failed, in which case no
 	// group was evaluated.
 	GroupApplyErr error
-	// DiscoveryErr is set when post-import discovery failed. It is recorded for
-	// operators but does not on its own mark the import incomplete: a provider
-	// outage is routine, and a discovery failure that actually matters shows up
-	// as skipped groups.
+	// DiscoveryErr is set when post-import discovery failed. Recorded for operators
+	// but does not on its own mark the import incomplete: a provider outage is
+	// routine, and a discovery failure that matters shows up as skipped groups.
 	DiscoveryErr error
 }
 
@@ -60,12 +57,11 @@ type applyOutcome struct {
 // config. Driven by the failover group outcome only: a discovery error alone is
 // a routine provider outage, and one that matters surfaces as skipped groups.
 //
-// PartialGroups is deliberately NOT part of this. A partially built group is not
-// a failure to apply: the member did everything the envelope asked of it and
-// simply holds fewer models, so it built the group with what it has. It is still
-// genuinely configured differently from the primary, and that divergence is
-// established by the config hash, which differs on its own. PartialGroups exists
-// so the operator alert can say which group is short, nothing more.
+// PartialGroups is deliberately NOT part of this. A partially built group is not a
+// failure to apply: the member did everything the envelope asked and simply holds
+// fewer models, so it built the group with what it has. It is still configured
+// differently from the primary, but that divergence is established by the config
+// hash. PartialGroups only lets the operator alert say which group is short.
 func (o applyOutcome) incomplete() bool {
 	return o.GroupApplyErr != nil || len(o.SkippedGroups) > 0
 }
@@ -348,14 +344,13 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	var out applyOutcome
 	// The core config is committed, so the remaining work is not bound to the
 	// caller's request. Front Desk's import client gives up after 120s while
-	// discovery on a fresh member routinely runs longer; inheriting that deadline
-	// starves the group build, which depends on discovery's output. Discovery
-	// keeps its own per-provider deadlines (see discovery.go).
+	// discovery on a fresh member routinely runs longer, and inheriting that
+	// deadline starves the group build, which depends on discovery's output.
+	// Discovery keeps its own per-provider deadlines (see discovery.go).
 	//
-	// Detached, not unbounded: the aggregate still gets a ceiling, so a provider
-	// family that neither answers nor trips its own deadline cannot pin these
-	// steps open indefinitely. This runs inside the import handler, so that
-	// ceiling is also the longest a graceful shutdown can wait on an import in
+	// Detached, not unbounded: a provider family that neither answers nor trips its
+	// own deadline cannot pin these steps open. This runs inside the import handler,
+	// so the ceiling is also the longest a graceful shutdown waits on an import in
 	// flight.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), postImportRefreshTimeout)
 	defer cancel()

@@ -246,9 +246,8 @@ export const api = {
 
 	// Deletes every frontdesk-origin pg_dump from every member Front Desk can
 	// authenticate to. Nothing produces those snapshots and member-side rotation
-	// spares them, so they are dead weight until this clears them. Destructive,
-	// hence operator-triggered only; dryRun counts what would go so the
-	// confirmation can name the number.
+	// spares them, so they stay until this clears them. dryRun counts what would go,
+	// so the confirmation can name the number.
 	pruneFrontDeskBackups: (dryRun = false) =>
 		request<BackupPruneResult>(
 			`/api/fleet/backups/prune-frontdesk${dryRun ? "?dryRun=1" : ""}`,

@@ -296,12 +296,10 @@ func generateBackupFilename(origin string) string {
 	)
 }
 
-// backupOriginFrontDesk marks a backup a fleet caller asked this member to take.
-// It is both the ?origin= value CreateBackup accepts and the value backupOrigin
-// reports for "_frontdesk" files. Front Desk's own sync path no longer calls it
-// (members back themselves up on their own schedule), but the value stays part of
-// the member API: an older Front Desk or an operator tool may still pass it, and
-// existing "_frontdesk" files must keep reading back correctly.
+// backupOriginFrontDesk marks a backup a fleet caller asked this member to take:
+// both the ?origin= value CreateBackup accepts and the value backupOrigin reports
+// for "_frontdesk" files. Front Desk's sync path does not call it, but an older
+// Front Desk or an operator tool may, and existing files must keep reading back.
 const backupOriginFrontDesk = "frontdesk"
 
 // backupOrigin reports who created a backup. The scheduler's files carry "_auto"
