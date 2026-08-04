@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,8 +18,18 @@ import (
 // pointed somewhere hostile cannot bounce the request (carrying the member's
 // admin Bearer token) to another host.
 
-// maxMemberRespBody bounds a member admin-API response read into memory.
+// maxMemberRespBody bounds a member admin-API response read into memory. It
+// suits the small JSON documents every routine call returns (a config hash, a
+// settings object, a stats series); a listing that legitimately grows with the
+// member's own history passes its own limit to callMemberLimited.
 const maxMemberRespBody = 1 << 20
+
+// errMemberRespTooLarge reports a member response that did not fit its read
+// limit. Distinct from a parse failure on purpose: the body is a prefix of valid
+// JSON, so unmarshalling it would fail with a decoder error that reads as "this
+// member sent nonsense" when the truth is "Front Desk refused to read it all".
+// Only the caller knows which of those an operator can act on.
+var errMemberRespTooLarge = errors.New("frontdesk: member response exceeds the read limit")
 
 // callMember performs an admin-authenticated request to a member's API and
 // returns the response status and body (capped). token is sent as the Bearer
@@ -34,6 +45,16 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 // request headers (e.g. the fleet source-generation fence) may be passed as
 // (name, value) pairs; an empty value is skipped.
 func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
+	return s.callMemberLimited(ctx, client, maxMemberRespBody, method, baseURL, path, token, body, headers...)
+}
+
+// callMemberLimited is callMemberWith with an explicit response-body limit, for
+// a call whose response grows with something on the member rather than being a
+// fixed-shape document. A body that reaches the limit is returned as
+// errMemberRespTooLarge with no data, never as a truncated prefix: every caller
+// here decides or deletes, and half a listing would have it act on a fraction of
+// the member while believing it saw all of it.
+func (s *Server) callMemberLimited(ctx context.Context, client *http.Client, limit int64, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
 	if err != nil {
 		return 0, nil, err
@@ -52,9 +73,14 @@ func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method
 		return 0, nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxMemberRespBody))
+	// One byte past the limit, so a body that exactly fills it is still known to
+	// have been complete and only a genuine overrun is reported as one.
+	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return resp.StatusCode, nil, err
+	}
+	if int64(len(data)) > limit {
+		return resp.StatusCode, nil, errMemberRespTooLarge
 	}
 	return resp.StatusCode, data, nil
 }

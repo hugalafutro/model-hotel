@@ -54,6 +54,17 @@ const (
 	// The signal it feeds has a 24 hour threshold, so a tighter tick would only
 	// add member load without making the alert meaningfully earlier.
 	backupWatchInterval = 15 * time.Minute
+
+	// maxMemberBackupListBody is the read limit for a member's backup listing,
+	// far above the shared maxMemberRespBody. This listing is the one member
+	// response whose size tracks the member's own accumulated history rather than
+	// the shape of a document: at roughly 135 bytes per entry, the shared 1 MiB
+	// cap stops at about 7,600 dumps, which the pre-Task-8 pre-sync snapshot could
+	// produce in under two days. Capping the prune at that number would block it
+	// on precisely the members with the most to clear. 16 MiB reaches past
+	// 120,000 entries, and a member beyond that reports errMemberRespTooLarge
+	// rather than a silently truncated listing.
+	maxMemberBackupListBody = 16 << 20
 )
 
 // memberBackupEntry is the subset of a member's backup-listing entry Front Desk
@@ -67,12 +78,13 @@ type memberBackupEntry struct {
 	Origin    string `json:"origin"`
 }
 
-// listMemberBackups reads a member's backup listing. The response is read
-// through the shared body cap, so a listing too large to fit fails to parse and
-// is returned as an error rather than a partial set: every caller here either
-// deletes or judges, and both must act on the whole listing or none of it.
+// listMemberBackups reads a member's backup listing under maxMemberBackupListBody.
+// A listing past even that limit is returned as errMemberRespTooLarge rather than
+// a partial set: every caller here either deletes or judges, and both must act on
+// the whole listing or none of it.
 func (s *Server) listMemberBackups(ctx context.Context, m *Member, token string) ([]memberBackupEntry, error) {
-	status, body, err := s.callMemberWith(ctx, s.backupClient, http.MethodGet, m.URL, memberBackupsPath, token, nil)
+	status, body, err := s.callMemberLimited(ctx, s.backupClient, maxMemberBackupListBody,
+		http.MethodGet, m.URL, memberBackupsPath, token, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +124,10 @@ type backupPruneResult struct {
 // or refuses a delete carries its reason and leaves the rest of the fleet to be
 // pruned.
 func (s *Server) pruneFrontDeskBackups(w http.ResponseWriter, r *http.Request) {
+	// Any value for dryRun means a dry run, so ?dryRun=0 previews rather than
+	// deletes. Deliberately not parsed as a boolean: the failure mode of the
+	// permissive reading is a preview the caller did not want, and of the strict
+	// one a fleet-wide delete from a typo.
 	dryRun := r.URL.Query().Get("dryRun") != ""
 	// The run continues even if the caller hangs up, so a client with a short HTTP
 	// timeout cannot abandon a member half-pruned with no record of the run.
@@ -176,7 +192,14 @@ func (s *Server) pruneMemberFrontDeskBackups(ctx context.Context, m *Member, tok
 	entries, err := s.listMemberBackups(ctx, m, token)
 	if err != nil {
 		debuglog.Debug("frontdesk: backup prune: read listing", "member", m.Name, "error", err)
+		// Separated from an unreadable or malformed listing because the operator's
+		// next move differs: a listing too large to read is a member with more dumps
+		// than Front Desk will enumerate, and clearing some of them on the member
+		// itself brings it back within reach of this action.
 		res.Error = "could not read this member's backup listing"
+		if errors.Is(err, errMemberRespTooLarge) {
+			res.Error = "this member holds more backups than Front Desk can list at once"
+		}
 		return res
 	}
 	for _, e := range entries {

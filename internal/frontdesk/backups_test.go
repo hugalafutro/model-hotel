@@ -286,6 +286,58 @@ func TestPruneFrontDeskBackupsReportsPerMemberFailure(t *testing.T) {
 	}
 }
 
+// TestPruneFrontDeskBackupsHandlesAHugeListing: the prune is needed most on the
+// members that accumulated the most dumps, so the listing read must reach well
+// past the limit an ordinary member response gets. A listing far larger than
+// maxMemberRespBody is read and pruned in full rather than failing to parse.
+func TestPruneFrontDeskBackupsHandlesAHugeListing(t *testing.T) {
+	srv, store := newTestServer(t)
+	// Comfortably past maxMemberRespBody (1 MiB) at roughly 135 bytes an entry, and
+	// past the ~7,600 entries that limit allows.
+	const files = 20000
+	entries := make([]memberBackupEntry, 0, files)
+	for i := range files {
+		entries = append(entries, backupEntryAt(
+			fmt.Sprintf("backup_20260101_%06d_1_frontdesk.dump", i), "frontdesk", time.Hour))
+	}
+	member := newStubBackupMember(t, "tok", entries...)
+	if _, err := store.CreateMember(t.Context(), "packed", member.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
+	if resp.Deleted != files {
+		t.Errorf("dry-run counted %d of %d entries; the listing read stopped short", resp.Deleted, files)
+	}
+	if len(resp.Results) == 1 && resp.Results[0].Error != "" {
+		t.Errorf("member reported an error on a large listing: %q", resp.Results[0].Error)
+	}
+}
+
+// TestPruneFrontDeskBackupsReportsAnUnreadablyLargeListing: past even the
+// listing's own limit the body is refused rather than truncated, and the
+// operator is told that specifically. A truncated prefix would fail to parse and
+// report as a malformed listing, pointing at the wrong problem.
+func TestPruneFrontDeskBackupsReportsAnUnreadablyLargeListing(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	// Valid JSON, just past the read limit: the failure must come from the limit,
+	// not from the shape of the body.
+	member.listBody = "[" + strings.Repeat(`{"filename":"x","created_at":"","origin":"manual"},`,
+		(maxMemberBackupListBody/50)+1) + `{"filename":"y","created_at":"","origin":"manual"}]`
+	if _, err := store.CreateMember(t.Context(), "huge", member.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
+	if len(resp.Results) != 1 {
+		t.Fatalf("results = %+v, want the one member reported", resp.Results)
+	}
+	if got := resp.Results[0].Error; got != "this member holds more backups than Front Desk can list at once" {
+		t.Errorf("error = %q, want the too-large reason rather than a generic read failure", got)
+	}
+}
+
 // TestPruneFrontDeskBackupsCountsFailedDeletes: a member that lists a
 // frontdesk-origin file but refuses to delete it is reported as failed, and the
 // fleet total does not claim it was removed.
