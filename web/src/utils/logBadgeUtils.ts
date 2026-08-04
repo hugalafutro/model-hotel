@@ -64,6 +64,11 @@ export const getSourceBadgeClasses = (source: string) => {
 			// brighter teal than the muted `resolve` teal so the two stay
 			// distinguishable in the source column, mirroring the HA pattern above.
 			return "bg-teal-500/30 text-teal-200";
+		case "netguard":
+			// Outbound network guard: SSRF refusals and pre-connection retries. A
+			// bold red for the guard, kept clear of the muted rose `modelsdev` uses
+			// so the two never read as the same badge.
+			return "bg-red-500/30 text-red-200";
 		case "modelsdev":
 			return "bg-rose-900/30 text-rose-400";
 		case "applogs":

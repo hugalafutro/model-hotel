@@ -22,6 +22,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -1018,5 +1019,33 @@ func TestConsumeLoginStateSingleUseUnderRace(t *testing.T) {
 	// DELETE removed nothing, so the single-use guard must reject it.
 	if _, err := sm.ConsumeLoginState(context.Background(), id); err == nil {
 		t.Fatal("second consume should fail (record already claimed)")
+	}
+}
+
+// TestNewOIDCHandler_UsesRetryingNetguardClient guards the wiring behind the
+// 2026-08-04 prod incident: the token exchange runs after the user has already
+// round-tripped through the IdP, so a transient DNS failure there costs them the
+// entire flow, consent screen included. The client must retry a pre-connection
+// failure and must still refuse the link-local metadata address.
+func TestNewOIDCHandler_UsesRetryingNetguardClient(t *testing.T) {
+	sessionMgr := webauthn.NewSessionManager(newMemStore())
+	h := NewOIDCHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, false, "auto")
+	if h.httpClient == nil {
+		t.Fatal("OIDCHandler.httpClient must be a netguard client, got nil")
+	}
+	if _, ok := h.httpClient.Transport.(*netguard.RetryTransport); !ok {
+		t.Fatalf("httpClient.Transport = %T, want *netguard.RetryTransport", h.httpClient.Transport)
+	}
+	req, err := http.NewRequest(http.MethodGet, "http://169.254.169.254/latest/meta-data/", http.NoBody)
+	if err != nil {
+		t.Fatalf("build metadata request: %v", err)
+	}
+	resp, err := h.httpClient.Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("httpClient reached the link-local metadata address; expected a netguard dial block")
+	}
+	if !errors.Is(err, netguard.ErrBlockedAddress) {
+		t.Fatalf("want netguard.ErrBlockedAddress, got %v", err)
 	}
 }

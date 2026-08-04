@@ -12,6 +12,7 @@
 package netguard
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -51,6 +52,11 @@ func BlockedIP(ip net.IP) bool {
 		ip.IsLinkLocalMulticast()
 }
 
+// ErrBlockedAddress is the dial guard's denial: the resolved address is one
+// netguard refuses to connect to. It is permanent, never transient, so a caller
+// must not retry it.
+var ErrBlockedAddress = errors.New("netguard: refusing to connect to blocked address")
+
 // dialControl is the net.Dialer.Control hook that rejects a connection whose
 // resolved address is a blocked IP. It runs after DNS resolution on the actual
 // dial target, so it also catches DNS rebinding (a hostname that resolves to a
@@ -62,7 +68,7 @@ func dialControl(_, address string, _ syscall.RawConn) error {
 		return err
 	}
 	if ip := net.ParseIP(host); ip != nil && BlockedIP(ip) {
-		return fmt.Errorf("netguard: refusing to connect to blocked address %s", host)
+		return fmt.Errorf("%w %s", ErrBlockedAddress, host)
 	}
 	return nil
 }

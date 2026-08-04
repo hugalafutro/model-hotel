@@ -86,10 +86,12 @@ type OIDCHandler struct {
 	cookieSecure string
 
 	// httpClient is an SSRF-guarded client used for every outbound OIDC request
-	// (discovery, token exchange, UserInfo). Without it go-oidc/oauth2 fall back
-	// to http.DefaultClient, letting an admin-configured (or fleet-synced) issuer
-	// URL reach cloud-metadata/link-local addresses. It allows private/loopback
-	// so an internal IdP (e.g. Authelia on the docker network) still works.
+	// (discovery, token exchange, JWKS, UserInfo). Without it go-oidc/oauth2 fall
+	// back to http.DefaultClient, letting an admin-configured (or fleet-synced)
+	// issuer URL reach cloud-metadata/link-local addresses. It allows
+	// private/loopback so an internal IdP (e.g. Authelia on the docker network)
+	// still works, and retries a request that failed before reaching the IdP so a
+	// momentary DNS or dial fault does not cost the user the whole login.
 	httpClient *http.Client
 
 	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
@@ -123,7 +125,7 @@ func NewOIDCHandler(
 		useCookieAuth: useCookieAuth,
 		cookieSecure:  cookieSecure,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
-		httpClient:    netguard.NewClient(oidcHTTPTimeout),
+		httpClient:    netguard.NewClientWithRetry(oidcHTTPTimeout),
 	}
 }
 

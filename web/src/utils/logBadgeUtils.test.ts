@@ -177,6 +177,14 @@ describe("getSourceBadgeClasses", () => {
 		expect(result).toContain("text-orange-400");
 	});
 
+	it("returns a bold red for netguard, distinct from modelsdev", () => {
+		const result = getSourceBadgeClasses("netguard");
+		expect(result).toContain("bg-red-500/30");
+		expect(result).toContain("text-red-200");
+		// Must not collide with the muted rose used for `modelsdev`.
+		expect(result).not.toBe(getSourceBadgeClasses("modelsdev"));
+	});
+
 	it("returns rose classes for modelsdev", () => {
 		const result = getSourceBadgeClasses("modelsdev");
 		expect(result).toContain("bg-rose-900/30");
