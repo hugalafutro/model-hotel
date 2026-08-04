@@ -398,10 +398,24 @@ func isTimeout(err error) bool {
 	return errors.Is(err, context.DeadlineExceeded)
 }
 
+// maxMemberConfigExportBody is the read limit for a member's config envelope. It
+// matches the member-side import cap (internal/api.maxConfigImportBody), because
+// this body is only ever re-posted to that endpoint: reading less than a member
+// would accept refuses an envelope the fleet could have synced, and reading more
+// buys nothing since the receiving member would reject it.
+//
+// It has to be its own limit rather than the shared maxMemberRespBody, which is
+// eight times smaller and sized for fixed-shape documents. An envelope grows with
+// the fleet's providers, virtual keys, users and groups, and this one is
+// load-bearing for every member: a refused read aborts the whole pass, so no
+// member converges.
+const maxMemberConfigExportBody = 8 << 20
+
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
 // re-posted to replicas verbatim (preserving the base64 key ciphertext).
 func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string) ([]byte, error) {
-	status, body, err := s.callMember(ctx, http.MethodGet, m.URL, memberConfigExportPath, token, nil)
+	status, body, err := s.callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
+		http.MethodGet, m.URL, memberConfigExportPath, token, nil)
 	if err != nil {
 		return nil, err
 	}

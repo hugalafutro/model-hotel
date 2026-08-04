@@ -98,6 +98,14 @@ func (s *Store) SetAlertEvents(ctx context.Context, csv string) error {
 
 // AutoSyncConfig is the operator's automatic config-propagation setup: a master
 // on/off plus the designated source-of-truth member.
+//
+// The settings row also carries auto_sync_last_hash (migration 005), which nothing
+// reads or writes. It recorded the config hash the whole reachable fleet was last
+// measured holding, back when a pass whose primary hash matched it was skipped;
+// the loop now runs every settled tick and records convergence per member. The
+// column is deliberately left in place rather than dropped: SQLite's DROP COLUMN
+// is irreversible, and a binary rolled back to before this change would SELECT a
+// column that no longer existed.
 type AutoSyncConfig struct {
 	Enabled   bool   `json:"enabled"`
 	PrimaryID string `json:"primary_id"`

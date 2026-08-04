@@ -2107,6 +2107,35 @@ func TestAutoSync_TimedOutPushIsRateLimitedAndFlagged(t *testing.T) {
 	}
 }
 
+// TestAutoSync_LargeExportIsStillRead: a config envelope bigger than the shared
+// member-response cap must still be read. The export is the one member response
+// whose size grows with the fleet's own config, and it is load-bearing for every
+// member: a refused read aborts the whole pass, so nothing converges and the
+// failure repeats every tick. Its limit therefore matches what the member-side
+// import will accept, not the cap sized for fixed-shape documents.
+func TestAutoSync_LargeExportIsStillRead(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.appliedHash = "hash-B"
+	})
+	// Comfortably past maxMemberRespBody (1 MiB) and comfortably under the export's
+	// own limit, padded inside the envelope so it stays valid JSON.
+	pad := strings.Repeat("p", 2<<20)
+	f.primary.mu.Lock()
+	f.primary.exportBody = `{"schema_version":2,"pad":"` + pad + `","config":{}}`
+	f.primary.mu.Unlock()
+
+	f.tick(t)
+
+	if got := f.primary.exportCount(); got != 1 {
+		t.Fatalf("primary exports = %d, want 1", got)
+	}
+	if !f.replica.didRealSync() {
+		t.Error("a >1 MiB export was refused, so the member never received the config")
+	}
+}
+
 // TestAutoSync_ConvergedFleetKeepsMeasuringItsMembers: convergence is a
 // measurement with a shelf life. Once the fleet holds the primary's config the
 // pass keeps running on every tick, so each member's own hash is read again and

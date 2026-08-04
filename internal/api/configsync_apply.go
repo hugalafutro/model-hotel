@@ -22,18 +22,6 @@ import (
 // not that the job is large.
 const failoverApplyTimeout = 30 * time.Second
 
-// postImportRefreshTimeout bounds the whole detached post-commit refresh: model
-// discovery across every imported provider, then the failover group build.
-//
-// It matches Front Desk's incompleteRetryInterval, so a refresh always finishes or
-// is abandoned before the next push for the same member can arrive and two
-// discoveries can never run against one member at once.
-//
-// It is far longer than Front Desk's import client deadline, so a slow first import
-// answers nobody. Deliberate: the response fields are diagnostics, and convergence
-// is decided by the member's config hash, which needs no response at all.
-const postImportRefreshTimeout = 10 * time.Minute
-
 // applyOutcome carries what the post-commit steps of an import could not do.
 // The core config is already durable when these run, so none of them fail the
 // import; they travel to Front Desk instead, which retries until they succeed.
@@ -346,14 +334,14 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// caller's request. Front Desk's import client gives up after 120s while
 	// discovery on a fresh member routinely runs longer, and inheriting that
 	// deadline starves the group build, which depends on discovery's output.
-	// Discovery keeps its own per-provider deadlines (see discovery.go).
 	//
-	// Detached, not unbounded: a provider family that neither answers nor trips its
-	// own deadline cannot pin these steps open. This runs inside the import handler,
-	// so the ceiling is also the longest a graceful shutdown waits on an import in
-	// flight.
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), postImportRefreshTimeout)
-	defer cancel()
+	// Detached rather than given an aggregate deadline. A ceiling here would not
+	// bound discovery, which detaches each provider under its own 180s timeout and
+	// never consults this context (discovery.go), so the only thing it could expire
+	// is the group build below: exactly the step that must run. The real bound is
+	// per provider, times a finite provider list, and the group build carries its
+	// own budget.
+	ctx = context.WithoutCancel(ctx)
 
 	// Stamp the HA synced marker AFTER the commit, via Set (not SetTx): this
 	// instance-local, non-syncable key drives the member dashboard's "synced

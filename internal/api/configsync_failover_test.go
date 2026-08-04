@@ -679,6 +679,54 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	}
 }
 
+// An EXPIRED DEADLINE on the caller's context must not reach the group build
+// either, which is the distinct half of the cancellation case above: the build
+// derives its own budget with context.WithTimeout, and a child of an already
+// expired parent is born expired.
+//
+// This is the shape a per-refresh ceiling would create. Discovery detaches every
+// provider under its own timeout and never consults this context, so an aggregate
+// deadline cannot shorten the sweep it is meant to bound; it can only expire while
+// discovery runs long and then fail the one step that has to happen. The member
+// would answer applied-but-incomplete with no groups built, and be re-pushed
+// forever, restarting the same long discovery each time.
+func TestConfigSync_FailoverGroupsSurviveExpiredRequestDeadline(t *testing.T) {
+	cleanConfigTables(t)
+	sr := settings.NewRepository(apiTestDB.Pool())
+	h := NewConfigSyncHandler(apiTestDB, sr, configSyncMasterKey, "v-test", nil, nil)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "survivor",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Hour))
+	defer cancel()
+	if ctx.Err() == nil {
+		t.Fatal("test setup: the context was expected to be already expired")
+	}
+
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+
+	if out.GroupApplyErr != nil {
+		t.Fatalf("group apply inherited the expired deadline: %v", out.GroupApplyErr)
+	}
+	if out.incomplete() {
+		t.Error("an expired caller deadline made the import report incomplete")
+	}
+	if !groupExists(t, "survivor") {
+		t.Fatal("group was not written")
+	}
+}
+
 // upsertFailoverGroups reports the DisplayModel of a group it skips for too few
 // resolvable entries, and that group never also lands in Partial: a group with no
 // entries it can use is Skipped, never Partial, so the two lists stay disjoint.
