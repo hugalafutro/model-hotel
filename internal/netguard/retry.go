@@ -91,10 +91,11 @@ func preConnectionFailure(err error) bool {
 }
 
 // replayable reports whether the request body can be produced a second time.
-// A nil body always can; otherwise it takes GetBody, which http.NewRequest sets
-// for the in-memory body types the oauth2 and oidc packages use.
+// A nil body and http.NoBody are both trivially reproducible; otherwise it
+// takes GetBody, which http.NewRequest sets for the in-memory body types the
+// oauth2 and oidc packages use.
 func replayable(req *http.Request) bool {
-	return req.Body == nil || req.GetBody != nil
+	return req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
 }
 
 // replayRequest clones req with a freshly opened body, because the previous

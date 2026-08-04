@@ -110,20 +110,18 @@ func TestRetryTransport_RetriesDialFailure(t *testing.T) {
 	}
 }
 
-// TestRetryTransport_RetriesBodylessRequest covers a GET with no body: replay
-// takes the req.GetBody == nil branch in replayRequest rather than reopening a
-// body that never existed.
-func TestRetryTransport_RetriesBodylessRequest(t *testing.T) {
+// TestRetryTransport_RetriesNoBodyRequest covers a GET built the idiomatic
+// way, with http.NoBody: net/http leaves req.Body non-nil (http.NoBody) and
+// req.GetBody nil for this case, so it exercises both the req.Body ==
+// http.NoBody clause in replayable and the req.GetBody == nil branch in
+// replayRequest.
+func TestRetryTransport_RetriesNoBodyRequest(t *testing.T) {
 	stub := &stubTransport{results: []stubResult{
 		{err: dnsFailure()},
 		{resp: okResponse()},
 	}}
 	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
-	// A literal nil body (not http.NoBody) is deliberate: it leaves req.GetBody
-	// nil while req.Body is also nil, which is what exercises replayRequest's
-	// req.GetBody == nil branch. http.NoBody would leave req.Body non-nil with
-	// req.GetBody nil, which replayable() correctly treats as unreplayable.
-	req, err := http.NewRequest(http.MethodGet, "https://idp.example.test/jwks", nil) //nolint:gocritic // see comment above: nil body is required to hit the replay branch under test
+	req, err := http.NewRequest(http.MethodGet, "https://idp.example.test/jwks", http.NoBody)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
