@@ -253,6 +253,16 @@ func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applie
 
 // MemberToken decrypts and returns a member's stored admin token. ok is false
 // when no token is stored for the member.
+//
+// It decrypts through the shared key cache, because the background loops read
+// every member's token on every tick (the auto-sync convergence pass, the health
+// poller, the announce loop) and an uncached read is an Argon2id derivation each
+// time. Serving a stale token is not possible: the cache is keyed on the stored
+// ciphertext, nonce and salt, and SetMemberToken re-encrypts under a fresh random
+// salt, so a rotated token cannot collide with the entry cached for the old one. A
+// cleared token returns before any decryption, and a token that fails to decrypt
+// (a MASTER_KEY mismatch) is never cached, so it keeps failing rather than being
+// papered over.
 func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bool, err error) {
 	var cipher, nonce, salt []byte
 	row := s.db.QueryRowContext(ctx, `SELECT token_cipher, token_nonce, token_salt FROM members WHERE id = ?`, id)
@@ -265,7 +275,7 @@ func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bo
 	if len(cipher) == 0 {
 		return "", false, nil
 	}
-	plain, err := auth.Decrypt(cipher, nonce, salt, s.masterKey)
+	plain, err := auth.DecryptCached(cipher, nonce, salt, s.masterKey)
 	if err != nil {
 		return "", false, fmt.Errorf("frontdesk: decrypt member token: %w", err)
 	}

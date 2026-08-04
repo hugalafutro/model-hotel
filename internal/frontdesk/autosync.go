@@ -55,8 +55,11 @@ const (
 	// autoSyncReason is stamped on each member's last-sync record and shown in the
 	// Members table tooltip, so the operator sees why an automatic sync fired. It
 	// names the condition the loop actually pushes on, which covers a primary the
-	// operator edited and a member that drifted on its own alike.
-	autoSyncReason = "this member did not hold the primary's config"
+	// operator edited and a member that drifted on its own alike. Subject-free like
+	// autoSyncKickReason, because the same string is also the tail of the fleet-wide
+	// roll-up event ("Auto-synced 2 members: ..."), where a singular subject would
+	// have no referent.
+	autoSyncReason = "did not hold the primary's config"
 
 	// autoSyncKickReason is stamped instead when a sync is triggered by the
 	// operator turning auto-sync on (or repointing the primary), so the marker
@@ -76,10 +79,10 @@ const (
 
 	// incompleteRetryInterval rate-limits the re-push of a member that committed a
 	// config and still does not hold it. The member is never counted as converged,
-	// so the fleet badge, the alert and the unrecorded fleet hash all persist; this
-	// only stops a member that cannot converge from driving a full re-import, and
-	// the member-side model discovery it runs, on every 15 second tick. A member
-	// whose discovery catches up converges within one interval.
+	// so the fleet badge and the alert persist; this only stops a member that cannot
+	// converge from driving a full re-import, and the member-side model discovery it
+	// runs, on every 15 second tick. A member whose discovery catches up converges
+	// within one interval.
 	incompleteRetryInterval = 10 * time.Minute
 
 	// autoSyncFaultyThreshold is the second staleness tier: with auto-sync off, a
@@ -232,11 +235,10 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // repoint) that landed mid-pass is never clobbered by this older pass.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
 	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
-	// Record the hash as applied only once every reachable member has been seen to
-	// serve it. If a member was unreachable, leave the marker so the next tick
-	// retries. A member that is reachable but never converges has its re-push
-	// bounded by incompleteRetryInterval, so it cannot drive an import on every
-	// tick.
+	// Record the hash only once every reachable member has been seen to serve it, so
+	// the marker never claims a convergence nobody measured. Withholding it does not
+	// schedule anything: the next settled tick runs a pass either way. It is the
+	// durable record of the last full convergence, not a retry latch.
 	if allConverged {
 		switch ok, err := s.store.RecordAutoSyncHash(ctx, hash, gen); {
 		case err != nil:
@@ -261,7 +263,7 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 
 // applyAutoSync pushes the primary's config to every other tokened member that
 // does not already hold it. It returns how many members it actually re-synced and
-// whether every reachable member is verified converged (the signal autoSyncOnce
+// whether every reachable member is verified converged (the signal convergeFleet
 // uses to decide whether to record the applied hash). hash is the primary's
 // current config hash, and comparing it with each member's own is the convergence
 // criterion: a member matching it is converged and left untouched, a member that
@@ -335,11 +337,11 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		if !m.HasToken {
 			// A tokenless member can't be authenticated to, so it is skipped without
-			// flipping allConverged: counting it as not-converged would re-probe the
-			// whole fleet every tick for as long as it stayed tokenless. The skip is
-			// safe because the tokenless -> tokened transition only happens through
-			// createMember / patchMember, both of which call rearmAutoSync to clear the
-			// applied hash and force this pass to re-run once the member is syncable.
+			// flipping allConverged: it can be measured in neither direction, and
+			// counting it as not-converged would withhold the fleet marker for as long as
+			// it stayed tokenless, permanently understating a fleet that is otherwise in
+			// sync. The skip hides nothing, since every pass re-reads the member list and
+			// measures the member like any other from the moment it has a token.
 			continue
 		}
 		token, ok, err := s.store.MemberToken(ctx, m.ID)
@@ -379,9 +381,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		memberHash, verErr := s.fetchMemberConfigVersion(passCtx, m, token)
 		if verErr == nil && memberHash == hash {
 			// Converged, measured rather than claimed. This member must NOT touch
-			// allConverged: counting a matching member as unconverged would leave the
-			// fleet hash unrecorded and put every healthy member back on a per-tick
-			// re-import. Close out any divergence it was carrying, which emits
+			// allConverged: it demonstrably holds this config, so counting it as
+			// unconverged would make the fleet marker understate a fleet that is fully in
+			// sync. Close out any divergence it was carrying, which emits
 			// config.sync_recovered once on the way out.
 			s.clearMemberIncomplete(ctx, m)
 			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
@@ -405,8 +407,8 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		// A member that keeps missing after a push would otherwise drive a full
 		// re-import, and the member-side model discovery it runs, every tick: its
-		// dry-run diff is never zero. It stays not-converged (the fleet hash is still
-		// withheld and the badge and alert persist); only the push is rate-limited.
+		// dry-run diff is never zero. It stays not-converged, so the badge and the
+		// alert persist; only the push is rate-limited.
 		if s.shouldSkipIncompleteRetry(m.ID, time.Now()) {
 			continue
 		}

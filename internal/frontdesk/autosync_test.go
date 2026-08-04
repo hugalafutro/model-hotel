@@ -525,7 +525,7 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	replicaMember, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	// A tokenless member is present too: it must be skipped without blocking the
 	// fleet from being recorded as converged.
-	store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "") //nolint:errcheck // presence is the point
+	tokenless, _ := store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "")
 	enableAutoSync(t, store, pm.ID, "hash-A")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -549,8 +549,18 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	}
 	// Instead, the live "verified in sync" heartbeat advances so the Members table
 	// shows auto-sync confirmed the member against the primary.
-	if snap := srv.poller.Snapshot(); snap[replicaMember.ID].AutoSyncVerifiedAt == nil {
+	snap := srv.poller.Snapshot()
+	if snap[replicaMember.ID].AutoSyncVerifiedAt == nil {
 		t.Error("converged member AutoSyncVerifiedAt = nil, want the verify heartbeat stamped")
+	}
+	// Only a measured member may be stamped. The tokenless one cannot be asked what
+	// it holds, and the primary is the source rather than something in sync with
+	// itself, so neither carries a heartbeat.
+	if snap[tokenless.ID].AutoSyncVerifiedAt != nil {
+		t.Error("tokenless member was stamped verified; it can never be measured")
+	}
+	if snap[pm.ID].AutoSyncVerifiedAt != nil {
+		t.Error("primary was stamped verified; the primary is the source, not a synced member")
 	}
 }
 
@@ -2360,6 +2370,12 @@ func TestAutoSync_UnreadableMemberHashIsNotFlagged(t *testing.T) {
 	}
 	if got := f.lastHash(t); got == "hash-B" {
 		t.Error("fleet hash recorded for a member that could not be verified; want it withheld")
+	}
+	// Nor may its verify heartbeat move: an unread hash is not a confirmation, and a
+	// ticking "verified in sync" beside an unmeasurable member is the false comfort
+	// this criterion exists to remove.
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt != nil {
+		t.Error("member whose hash could not be read was stamped verified; want the heartbeat frozen")
 	}
 }
 

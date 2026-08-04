@@ -251,11 +251,10 @@ provider IDs.
    shows, per member, what will be added, updated, or removed, and flags blocked
    members. Anything the primary lacks is **removed** from a replica that has it,
    so review before confirming.
-3. Confirm. Front Desk imports the config into each member that will actually
-   change; a member already matching the primary is skipped. It takes no snapshot
-   first, so keep member backups enabled if you want a rollback point. Each member
-   is independent, and re-running retries any left behind. Request logs and
-   metering are never touched.
+3. Confirm. Front Desk imports the config into each member the preview lists a
+   change for. It takes no snapshot first, so keep member backups enabled if you
+   want a rollback point. Each member is independent, and re-running retries any
+   left behind. Request logs and metering are never touched.
 
 <p align="center"><a href="screenshots/frontdesk_settings_configsync.png"><img src="screenshots/frontdesk_settings_configsync.png" width="800" alt="Front Desk Settings — Fleet config sync (preview with diff)"></a></p>
 
@@ -274,8 +273,9 @@ What makes this safe to leave running:
 - **Convergence is measured, not assumed.** Every 15 seconds Front Desk reads each
   member's own config hash and compares it with the primary's, so a member is only
   counted in sync when it demonstrably serves the same config. A member that does
-  not is re-pushed; one that still does not match after that is badged amber and
-  raises `config.sync_incomplete`.
+  not is pushed to again, at most once every 10 minutes so a member that cannot
+  converge never re-imports on every tick; one that still does not match after a
+  push is badged amber and raises `config.sync_incomplete`.
 - **No pre-sync snapshot.** Front Desk does not ask a member to back itself up
   before overwriting it. Members back themselves up on their own schedule when you
   have enabled backups, so keep those on if you want a rollback point.
