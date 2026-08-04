@@ -143,6 +143,7 @@
 			"drained_to_single": "仅剩一个活动成员；集群没有冗余",
 			"sync_held": "某个成员的配置同步已暂停（版本不一致）",
 			"all_sync_held": "每个成员的配置同步均已暂停；仅主节点例外",
+			"sync_incomplete": "某个成员已应用配置，但未能构建全部故障转移组",
 			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",
 			"autosync_stale_long": "自动同步已关闭，且集群超过三天未同步",
 			"traefik_config_stale": "Traefik 已停止获取路由配置"

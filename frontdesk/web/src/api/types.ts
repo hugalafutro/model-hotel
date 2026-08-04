@@ -33,9 +33,9 @@ export type FleetState = "ok" | "degraded" | "faulty";
 // (see autoSyncStatus in server_settings.go). stale, last_sync_at, fleet_state,
 // and fleet_state_reasons are all optional so an older backend that omits them
 // still deserializes cleanly. fleet_state_reasons carries wire-constant reason
-// codes (member_down, all_members_down, sync_held, all_sync_held,
-// autosync_stale, autosync_stale_long, traefik_config_stale) that the client
-// translates.
+// codes (member_down, all_members_down, member_drained, drained_to_single,
+// sync_held, all_sync_held, sync_incomplete, autosync_stale,
+// autosync_stale_long, traefik_config_stale) that the client translates.
 export interface AutoSyncConfig {
 	enabled: boolean;
 	primary_id: string;

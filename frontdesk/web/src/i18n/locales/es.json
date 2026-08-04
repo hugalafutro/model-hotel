@@ -143,6 +143,7 @@
 			"drained_to_single": "solo queda un miembro activo; la flota no tiene redundancia",
 			"sync_held": "la sincronización de configuración está retenida para un miembro (desfase de versiones)",
 			"all_sync_held": "la sincronización de configuración está retenida en todos los miembros; el principal es la excepción",
+			"sync_incomplete": "un miembro aplicó la configuración pero no pudo construir todos los grupos de conmutación por error",
 			"autosync_stale": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de un día",
 			"autosync_stale_long": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de tres días",
 			"traefik_config_stale": "Traefik ha dejado de obtener la configuración de enrutamiento"

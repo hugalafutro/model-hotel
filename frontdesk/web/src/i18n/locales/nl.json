@@ -143,6 +143,7 @@
 			"drained_to_single": "er is nog maar één actief lid; de vloot heeft geen redundantie",
 			"sync_held": "config-sync wordt aangehouden voor een member (versieverschil)",
 			"all_sync_held": "config-sync wordt aangehouden voor elke member; de primaire is de uitzondering",
+			"sync_incomplete": "een lid heeft de configuratie toegepast maar kon niet alle failovergroepen opbouwen",
 			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",
 			"autosync_stale_long": "auto-sync staat uit en de vloot is al meer dan drie dagen niet gesynchroniseerd",
 			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
