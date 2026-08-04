@@ -722,8 +722,15 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 // cheap drift signal that starts a pass, and read from an individual member it
 // answers whether that member already holds the primary's config, which is what
 // lets applyAutoSync leave a converged member untouched.
+//
+// It calls through readClient, not the health-probe client: the handler builds
+// the entire config envelope and hashes it, the same work as /api/config/export,
+// so it needs a real interactive-read budget rather than a liveness budget. Every
+// member is read this way once per tick now that its hash is the per-member
+// convergence criterion, not just the primary once as a drift signal, so a probe
+// timeout here would leave a slow-but-healthy member permanently unmeasured.
 func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token string) (string, error) {
-	status, body, err := s.callMember(ctx, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
+	status, body, err := s.callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {
 		return "", err
 	}

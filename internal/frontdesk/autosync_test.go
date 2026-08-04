@@ -38,11 +38,15 @@ type stubAutoMember struct {
 	appliedHash string
 	versionCode int    // status for the version GET (default 200)
 	versionRaw  string // raw version body; overrides the {"version":...} JSON when set
-	exportBody  string
-	exportCode  int    // status for the export GET (default 200)
-	dryDiff     string // diff object returned on a dry-run import
-	importCode  int    // status for the dry-run import (default 200)
-	importBody  string // full dry-run import body; overrides dryDiff when set
+	// versionDelay, when set, holds the version GET response for that long before
+	// answering. It stands in for the envelope-build-and-hash cost the real
+	// endpoint pays, to prove which client (probe vs. read) the caller used.
+	versionDelay time.Duration
+	exportBody   string
+	exportCode   int    // status for the export GET (default 200)
+	dryDiff      string // diff object returned on a dry-run import
+	importCode   int    // status for the dry-run import (default 200)
+	importBody   string // full dry-run import body; overrides dryDiff when set
 	// realImportBody is the full body the real (non-dry-run) import answers with,
 	// overriding the default success response. It is how a test pins exactly what
 	// the member claims about its own apply: an explicit "incomplete":false, or an
@@ -88,6 +92,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		defer sm.mu.Unlock()
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/version":
+			if sm.versionDelay > 0 {
+				time.Sleep(sm.versionDelay)
+			}
 			w.WriteHeader(sm.versionCode)
 			if sm.versionRaw != "" {
 				_, _ = w.Write([]byte(sm.versionRaw))
@@ -2069,6 +2076,32 @@ func TestAutoSync_HashMatchAfterPushConvergesTheFleet(t *testing.T) {
 	}
 	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt == nil {
 		t.Error("verified member AutoSyncVerifiedAt = nil, want the heartbeat stamped")
+	}
+}
+
+// TestAutoSync_ConfigVersionReadUsesReadClientNotProbe proves the config-version
+// read is bound by memberReadTimeout, not the 4s health-probe timeout: the
+// endpoint builds and hashes the whole config envelope, so it is not cheap once
+// every member's hash is read on every tick. The probe is deliberately set
+// shorter than the member's response delay; a converged result (the fleet hash
+// recorded on the first pass, since the replica already matches) proves the read
+// did not route through it.
+func TestAutoSync_ConfigVersionReadUsesReadClientNotProbe(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-B" // already matches the primary: no push needed
+		r.versionDelay = 200 * time.Millisecond
+	})
+	f.srv.probe = newProbeClient(50 * time.Millisecond)
+	f.srv.readClient = newProbeClient(3 * time.Second)
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: an already-matching member is never pushed to", got)
+	}
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Errorf("fleet hash = %q, want hash-B recorded on the first pass; a probe-timeout read would have "+
+			"left it unmeasured and unrecorded", got)
 	}
 }
 
