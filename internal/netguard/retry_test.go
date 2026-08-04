@@ -136,6 +136,37 @@ func TestRetryTransport_RetriesNoBodyRequest(t *testing.T) {
 	}
 }
 
+// TestRetryTransport_RetriesNilBodyRequest covers the shape go-oidc sends for
+// three of the four OIDC hops: discovery, JWKS and UserInfo are built with
+// http.NewRequest and a literal nil body, which leaves both req.Body and
+// req.GetBody nil. That is the req.Body == nil clause in replayable, a different
+// clause from the http.NoBody one GitHub's helpers exercise.
+func TestRetryTransport_RetriesNilBodyRequest(t *testing.T) {
+	stub := &stubTransport{results: []stubResult{
+		{err: dnsFailure()},
+		{resp: okResponse()},
+	}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+	//nolint:gocritic // httpNoBody: go-oidc passes a literal nil body, and the
+	// point of this test is that exact request shape.
+	req, err := http.NewRequest(http.MethodGet, "https://idp.example.test/.well-known/openid-configuration", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if req.Body != nil || req.GetBody != nil {
+		t.Fatalf("Body = %v, GetBody set = %t; want both nil so the nil-body clause is what is under test", req.Body, req.GetBody != nil)
+	}
+
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
+		t.Fatalf("RoundTrip = %v, want success on the retry", err)
+	}
+	_ = resp.Body.Close()
+	if stub.calls != 2 {
+		t.Fatalf("calls = %d, want 2: a nil-body request is replayable", stub.calls)
+	}
+}
+
 // TestRetryTransport_SucceedsWithoutRetry keeps the common path honest: a
 // working request is issued exactly once.
 func TestRetryTransport_SucceedsWithoutRetry(t *testing.T) {
@@ -257,6 +288,42 @@ func TestRetryTransport_StopsOnCancelledContext(t *testing.T) {
 	}
 	if stub.calls != 1 {
 		t.Fatalf("calls = %d, want 1", stub.calls)
+	}
+}
+
+// closeIdleBase is a base transport that also implements the CloseIdleConnections
+// interface http.Client looks for, and records that it was reached.
+type closeIdleBase struct {
+	stubTransport
+	closed int
+}
+
+func (c *closeIdleBase) CloseIdleConnections() { c.closed++ }
+
+// TestRetryTransport_CloseIdleConnectionsReachesBase: http.Client type-asserts
+// its transport for CloseIdleConnections, so without the passthrough the wrapper
+// would silently turn every caller's close into a no-op.
+func TestRetryTransport_CloseIdleConnectionsReachesBase(t *testing.T) {
+	base := &closeIdleBase{}
+	client := &http.Client{Transport: &RetryTransport{Base: base, Attempts: 2, Delay: time.Millisecond}}
+
+	client.CloseIdleConnections()
+
+	if base.closed != 1 {
+		t.Fatalf("base CloseIdleConnections calls = %d, want 1", base.closed)
+	}
+}
+
+// TestRetryTransport_CloseIdleConnectionsIgnoresBaseWithout: a base that does not
+// implement the interface makes the call a no-op, not a panic.
+func TestRetryTransport_CloseIdleConnectionsIgnoresBaseWithout(t *testing.T) {
+	base := &stubTransport{}
+	rt := &RetryTransport{Base: base, Attempts: 2, Delay: time.Millisecond}
+
+	rt.CloseIdleConnections()
+
+	if base.calls != 0 {
+		t.Fatalf("calls = %d, want 0: closing idle connections must not issue a request", base.calls)
 	}
 }
 

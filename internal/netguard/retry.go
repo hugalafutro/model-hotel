@@ -12,24 +12,34 @@ import (
 // retryAttempts is how many times a login-path request is issued in total: the
 // original plus one retry. Every attempt shares the client's single overall
 // timeout, so after a resolver that took seconds to fail there is rarely budget
-// left for a third.
+// left for a third. The retry is best-effort within that budget: a failure that
+// takes the whole timeout to surface leaves no room for it, so this rescues a
+// fast pre-connection failure and not a slow one.
 const retryAttempts = 2
 
 // retryDelay spaces the retry far enough to clear a momentary resolver failure
 // without noticeably lengthening a login the user is already waiting on.
 const retryDelay = 250 * time.Millisecond
 
-// RetryTransport re-issues a request that failed before any byte reached the
-// server: a DNS resolution failure or a dial failure. Both mean the server never
-// saw the request, so re-issuing is safe for any method, including the
-// non-idempotent OIDC token POST.
+// RetryTransport re-issues a request whose error is a DNS resolution or dial
+// failure. Normally that means nothing ever left this process, so re-issuing is
+// safe for any method, including the non-idempotent OIDC token POST.
 //
-// Nothing past connection setup is retried. Once a connection exists a failure
-// may mean the server processed the request and only the response was lost, and
-// replaying a single-use authorization code in that state would turn a transient
-// error into a hard invalid_grant.
+// One shape is not purely pre-connection: net/http re-issues a request itself
+// when a reused connection dies, and if the follow-up dial then fails, that dial
+// error surfaces here even though an earlier attempt was already written to a
+// server. The stdlib only re-issues a request it has deemed replayable (GET,
+// HEAD, OPTIONS, TRACE, or one carrying an Idempotency-Key), so those are
+// idempotent by HTTP semantics and one more issue changes nothing. A
+// non-idempotent POST never reaches that path.
 //
-// Base must be non-nil.
+// Any other error is returned untouched. Once a connection carries the request,
+// a lost response may mean the server processed it, and replaying a single-use
+// authorization code in that state would turn a transient error into a hard
+// invalid_grant.
+//
+// Base must be non-nil. Attempts below 2 issues the request exactly once, which
+// makes the zero value a passthrough.
 type RetryTransport struct {
 	Base     http.RoundTripper
 	Attempts int
@@ -75,8 +85,17 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 }
 
-// preConnectionFailure reports whether err occurred before the request could
-// reach the server, which is what makes re-issuing it safe.
+// CloseIdleConnections keeps (*http.Client).CloseIdleConnections working: the
+// client type-asserts its transport for this method, so a wrapper that omits it
+// turns the call into a silent no-op. Bases without it are left alone.
+func (t *RetryTransport) CloseIdleConnections() {
+	if c, ok := t.Base.(interface{ CloseIdleConnections() }); ok {
+		c.CloseIdleConnections()
+	}
+}
+
+// preConnectionFailure reports whether err is a DNS or dial failure. See
+// RetryTransport for why re-issuing on those is safe.
 func preConnectionFailure(err error) bool {
 	// A blocked address is a permanent security denial, not a transient fault.
 	if errors.Is(err, ErrBlockedAddress) {

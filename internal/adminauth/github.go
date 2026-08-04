@@ -96,7 +96,9 @@ type GitHubHandler struct {
 	// (token exchange, /user, /user/emails). Without it oauth2 falls back to
 	// http.DefaultClient; routing through netguard blocks metadata/link-local
 	// targets and keeps parity with the OIDC handler. github.com is public, so
-	// normal login is unaffected (netguard permits only what it must).
+	// normal login is unaffected (netguard permits only what it must). It also
+	// retries a request that failed before reaching GitHub so a momentary DNS or
+	// dial fault does not cost the user the whole login.
 	httpClient *http.Client
 
 	// cached holds the lazily-built oauth2 config for one config fingerprint,
