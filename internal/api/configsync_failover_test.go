@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -692,5 +693,78 @@ func TestConfigSync_UpsertReportsSkippedGroups(t *testing.T) {
 	}
 	if len(skipped) != 1 || skipped[0] != "ghost-group" {
 		t.Fatalf("skipped = %v, want [ghost-group]", skipped)
+	}
+}
+
+// ghostGroupEnvelope builds an otherwise-minimal envelope (a virtual key keeps
+// it non-empty) carrying one custom failover group whose entries name a
+// provider absent from the member, so upsertFailoverGroups skips it.
+func ghostGroupEnvelope() ConfigEnvelope {
+	return ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config: ConfigPayload{
+			VirtualKeys: []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+			FailoverGroups: []ExportFailoverGroup{{
+				DisplayModel: "ghost-group",
+				GroupEnabled: true,
+				Entries: []ExportFailoverEntry{
+					{ProviderName: "NoSuchProvider", ModelID: "no-such-model-a", Enabled: true},
+					{ProviderName: "NoSuchProvider", ModelID: "no-such-model-b", Enabled: true},
+				},
+			}},
+		},
+	}
+}
+
+// An import that commits but cannot build one of its custom failover groups
+// still answers Applied: true (the core config is durable) and additionally
+// reports Incomplete plus the group's DisplayModel in Unapplied, so a caller
+// like Front Desk can tell a full apply from a partial one.
+func TestConfigSync_ImportReportsIncompleteOnSkippedGroup(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	rec := doImport(t, r, ghostGroupEnvelope(), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Applied {
+		t.Fatal("Applied = false, want true (the core config committed)")
+	}
+	if !got.Incomplete {
+		t.Fatal("Incomplete = false, want true")
+	}
+	if len(got.Unapplied) != 1 || got.Unapplied[0] != "ghost-group" {
+		t.Fatalf("Unapplied = %v, want [ghost-group]", got.Unapplied)
+	}
+}
+
+// A clean import (nothing skipped) must omit incomplete/unapplied from the
+// wire entirely, not emit them as false/null, so an older Front Desk that
+// only checks Applied sees the same shape it always has.
+func TestConfigSync_ImportOmitsIncompleteWhenFullyApplied(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	env := ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config: ConfigPayload{
+			VirtualKeys: []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+		},
+	}
+
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"incomplete"`)) {
+		t.Fatalf("clean import must omit incomplete, got %s", rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"unapplied"`)) {
+		t.Fatalf("clean import must omit unapplied, got %s", rec.Body.String())
 	}
 }

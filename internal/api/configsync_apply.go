@@ -38,6 +38,13 @@ type applyOutcome struct {
 	DiscoveryErr error
 }
 
+// incomplete reports whether the member failed to materialise part of the
+// config. Driven by the failover group outcome only: a discovery error alone is
+// a routine provider outage, and one that matters surfaces as skipped groups.
+func (o applyOutcome) incomplete() bool {
+	return o.GroupApplyErr != nil || len(o.SkippedGroups) > 0
+}
+
 // apply converges this member to the envelope in one transaction, enforcing the
 // commit fence. Under a transaction-scoped advisory lock (so concurrent imports
 // cannot interleave their read-and-decide), it reads the highest source

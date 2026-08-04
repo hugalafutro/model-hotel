@@ -74,7 +74,8 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	// cannot clobber a newer config. The header is absent for an older Front
 	// Desk, in which case sourceGen is nil and the import applies unfenced.
 	sourceGen := parseSourceGen(r.Header.Get(fleetSourceGenHeader))
-	switch _, err := h.apply(ctx, env, sourceGen); {
+	out, err := h.apply(ctx, env, sourceGen)
+	switch {
 	case errors.Is(err, errStaleSourceGen):
 		// Benign: a newer generation already won on this member (or an un-versioned
 		// push arrived after one had). Report it as a non-applied, non-error outcome
@@ -131,7 +132,10 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: true, Diff: diff})
+	writeJSON(w, importResponse{
+		SchemaVersionOK: true, MasterKeyOK: true, Applied: true, Diff: diff,
+		Incomplete: out.incomplete(), Unapplied: out.SkippedGroups,
+	})
 }
 
 // parseSourceGen reads the optional fleet source-generation header. It returns
