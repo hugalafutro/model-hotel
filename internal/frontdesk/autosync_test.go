@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -2525,6 +2526,155 @@ func TestAutoSync_FlagWithoutNamesReadsAsAPlainDivergence(t *testing.T) {
 	}
 	if got, want := string(meta), `{"partial":[],"unapplied":[]}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
+	}
+}
+
+// divergenceCapNames returns n distinct group names built from prefix, numbered
+// from 1, for exercising divergenceMessage's per-clause name cap. The numbering is
+// deterministic so the expected message strings in the cap tests can be written as
+// literals.
+func divergenceCapNames(prefix string, n int) []string {
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("%s%d", prefix, i+1)
+	}
+	return names
+}
+
+// TestDivergenceMessageCaps locks the four alert shapes divergenceMessage renders
+// (unapplied only, partial only, both, neither) and the boundary of its per-clause
+// name cap: a list at the cap prints every name with no truncation marker, and a
+// list one over the cap keeps the true total in the leading count while showing
+// only the capped names plus a trailing "and N more". Both clauses are pushed past
+// the cap together in the last case, so one clause's truncation is checked
+// independently of the other's.
+func TestDivergenceMessageCaps(t *testing.T) {
+	if divergenceMessageMaxNames != 5 {
+		t.Fatalf("divergenceMessageMaxNames = %d; the cases below are written for 5", divergenceMessageMaxNames)
+	}
+
+	atCapUnapplied := divergenceCapNames("u", divergenceMessageMaxNames)
+	overCapUnapplied := divergenceCapNames("u", divergenceMessageMaxNames+1)
+	atCapPartial := divergenceCapNames("p", divergenceMessageMaxNames)
+	overCapPartial := divergenceCapNames("p", divergenceMessageMaxNames+1)
+
+	cases := []struct {
+		name               string
+		unapplied, partial []string
+		want               string
+	}{
+		{
+			name:      "unapplied only",
+			unapplied: []string{"ds4flash"},
+			want:      "replica applied the config but could not build 1 failover group(s): ds4flash",
+		},
+		{
+			name:    "partial only",
+			partial: []string{"testgroup"},
+			want:    "replica applied the config but built testgroup with fewer entries than the primary has",
+		},
+		{
+			name:      "both",
+			unapplied: []string{"ds4flash"},
+			partial:   []string{"testgroup"},
+			want: "replica applied the config but could not build 1 failover group(s): ds4flash, " +
+				"and built testgroup with fewer entries than the primary has",
+		},
+		{
+			name: "neither",
+			want: "replica applied the config but does not match the primary's config",
+		},
+		{
+			name:      "unapplied exactly at the cap: every name shown, no truncation marker",
+			unapplied: atCapUnapplied,
+			want: "replica applied the config but could not build 5 failover group(s): " +
+				"u1, u2, u3, u4, u5",
+		},
+		{
+			name:      "unapplied one over the cap: capped names, true total in the count",
+			unapplied: overCapUnapplied,
+			want: "replica applied the config but could not build 6 failover group(s): " +
+				"u1, u2, u3, u4, u5, and 1 more",
+		},
+		{
+			name:    "partial exactly at the cap: every name shown, no truncation marker",
+			partial: atCapPartial,
+			want: "replica applied the config but built p1, p2, p3, p4, p5 " +
+				"with fewer entries than the primary has",
+		},
+		{
+			name:    "partial one over the cap: capped names, truncation marker",
+			partial: overCapPartial,
+			want: "replica applied the config but built p1, p2, p3, p4, p5, and 1 more " +
+				"with fewer entries than the primary has",
+		},
+		{
+			name:      "both over the cap: each clause caps independently",
+			unapplied: overCapUnapplied,
+			partial:   overCapPartial,
+			want: "replica applied the config but could not build 6 failover group(s): " +
+				"u1, u2, u3, u4, u5, and 1 more, and built p1, p2, p3, p4, p5, and 1 more " +
+				"with fewer entries than the primary has",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := divergenceMessage("replica", tc.unapplied, tc.partial); got != tc.want {
+				t.Errorf("divergenceMessage() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestMarkMemberIncompleteMetadataIsNeverCapped: divergenceMessage's per-clause
+// name cap only shapes the human-readable Message. A member that named more
+// groups than the cap still reports every one of them in the event's Metadata,
+// which is where a consumer reads the complete set.
+func TestMarkMemberIncompleteMetadataIsNeverCapped(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m, err := store.CreateMember(ctx, "replica", "https://replica.example", "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	unapplied := divergenceCapNames("u", divergenceMessageMaxNames+1)
+	partial := divergenceCapNames("p", divergenceMessageMaxNames+1)
+	srv.recordSyncAttempt(m.ID, unapplied, partial)
+	srv.markMemberIncomplete(ctx, m)
+
+	evs, _, err := store.ListEvents(ctx, EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+
+	const wantMsg = "replica applied the config but could not build 6 failover group(s): " +
+		"u1, u2, u3, u4, u5, and 1 more, and built p1, p2, p3, p4, p5, and 1 more " +
+		"with fewer entries than the primary has"
+	if evs[0].Message != wantMsg {
+		t.Fatalf("event message = %q, want %q: the message must stay capped even though metadata will not", evs[0].Message, wantMsg)
+	}
+
+	raw, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	var meta struct {
+		Unapplied []string `json:"unapplied"`
+		Partial   []string `json:"partial"`
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		t.Fatalf("unmarshal event metadata: %v", err)
+	}
+	if !slices.Equal(meta.Unapplied, unapplied) {
+		t.Errorf("metadata unapplied = %v, want %v: the message cap must not reach Metadata", meta.Unapplied, unapplied)
+	}
+	if !slices.Equal(meta.Partial, partial) {
+		t.Errorf("metadata partial = %v, want %v: the message cap must not reach Metadata", meta.Partial, partial)
 	}
 }
 
