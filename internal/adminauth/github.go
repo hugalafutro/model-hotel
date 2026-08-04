@@ -128,7 +128,7 @@ func NewGitHubHandler(
 		masterKey:     masterKey,
 		cookieSecure:  cookieSecure,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
-		httpClient:    netguard.NewClient(githubHTTPTimeout),
+		httpClient:    netguard.NewClientWithRetry(githubHTTPTimeout),
 	}
 }
 

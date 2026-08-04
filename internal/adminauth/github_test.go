@@ -15,6 +15,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -606,6 +607,11 @@ func TestNewGitHubHandler_UsesNetguardClient(t *testing.T) {
 	h := NewGitHubHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, "auto")
 	if h.httpClient == nil {
 		t.Fatal("GitHubHandler.httpClient must be an SSRF-guarded netguard client, got nil")
+	}
+	// GitHub SSO is the same kind of path as OIDC: a pre-connection failure
+	// after the user has already authenticated must not cost them the flow.
+	if _, ok := h.httpClient.Transport.(*netguard.RetryTransport); !ok {
+		t.Fatalf("httpClient.Transport = %T, want *netguard.RetryTransport", h.httpClient.Transport)
 	}
 	// Prove it is genuinely the netguard-guarded client, not merely non-nil: a
 	// plain http.Client would dial the link-local cloud-metadata address; the
