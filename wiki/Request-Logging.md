@@ -276,11 +276,18 @@ case-insensitively). The canonical scopes are:
 
 `proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `backup`,
 `webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
-`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`,
-`netguard`.
+`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`.
 
 Both variables are startup-only (env vars, set via `.env` / compose). See
 [[Configuration]] for the full table.
+
+**Not every source is a debug scope.** These variables gate Debug records only,
+so naming a source that emits none does nothing. `netguard` (the outbound
+connection guard behind SSO and alerting, see
+[Security](Security#netguard-admin-configured-endpoints)) is the current
+example: it tags its lines with the same `netguard:` prefix and appears as a
+source in App Logs and its filters, but it logs at WARN and above, which is
+always emitted and never needs enabling.
 
 #### App Logs Schema
 
