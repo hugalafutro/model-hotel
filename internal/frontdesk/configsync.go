@@ -338,8 +338,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			// holding it, and only the loop's hash comparison establishes that. A member
 			// that can never converge commits every re-push, so stamping here would
 			// refresh "verified in sync" every incompleteRetryInterval, forever, beside
-			// the amber badge that says the member does not match. That display is what
-			// kept the original divergence invisible.
+			// the amber badge that says the member does not match.
 			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
