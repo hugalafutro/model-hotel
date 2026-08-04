@@ -310,9 +310,9 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 // than a correctness problem: the aborted transaction rolled back whole, so a
 // retried delete simply performs the delete (it returns pgx.ErrNoRows only if an
 // earlier attempt actually committed), and a member whose import was aborted is
-// re-pushed on the next auto-sync tick, because RecordAutoSyncHash advances the
-// marker only when every member converged. A one-off manual sync from the wizard
-// is NOT re-pushed and has to be repeated by the operator.
+// re-pushed on the next auto-sync tick, because that tick reads the member's own
+// config hash and finds it still does not match the primary's. A one-off manual
+// sync from the wizard is NOT re-pushed and has to be repeated by the operator.
 //
 // All of this is a property of config-sync's statement order rather than
 // anything enforced, so reordering internal/api/configsync_apply.go's apply()

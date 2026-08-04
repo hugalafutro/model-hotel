@@ -1,0 +1,14 @@
+-- Drop the fleet-wide convergence marker. auto_sync_last_hash (migration 005)
+-- recorded the primary config hash the whole reachable fleet was last measured
+-- holding, and the auto-sync loop skipped a pass whose primary hash matched it.
+--
+-- The loop no longer skips: it runs on every settled tick, because config drifts
+-- on a member as well as on the primary, and a pass gated on the primary alone
+-- left member-side drift unmeasured for as long as the primary sat still. With
+-- the gate gone the column had no reader. Convergence is now measured per member
+-- (each member's own /api/config/version hash against the primary's) and shown
+-- per member, so a fleet-wide marker adds nothing the Members table does not.
+--
+-- auto_sync_gen stays: it is the rearm fence, and it guards mutations rather
+-- than this marker.
+ALTER TABLE settings DROP COLUMN auto_sync_last_hash;

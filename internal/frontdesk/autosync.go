@@ -21,9 +21,10 @@ import (
 // changes. Config drifts in both directions: an edit on the primary, and an edit
 // made directly on a member. Gating the pass on the primary alone would leave the
 // second kind unmeasured for as long as the primary sat still, which is nearly
-// always. A settled fleet is therefore re-measured each tick, and costs only the
-// primary's export plus one hash read per member: a member whose hash matches is
-// skipped before any dry run, import or backup.
+// always. A settled fleet is therefore re-measured each tick, and costs one hash
+// read per member and nothing else: a member whose hash matches is skipped before
+// any dry run or import, and the primary's config export is only read once a
+// member is found that needs it.
 //
 // Whether an individual member holds the primary's config is decided by reading
 // the member's own hash (GET /api/config/version) and comparing it. The hash
@@ -226,29 +227,19 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 	return primary, token, hash, true
 }
 
-// convergeFleet pushes the primary's config to every member that needs it,
-// records the applied hash once the whole reachable fleet has converged, and
+// convergeFleet pushes the primary's config to every member that needs it and
 // emits one roll-up event tagged with reason. Shared by the tick loop and the
-// enable-time kick so both take the identical apply/record/emit path. gen is the
-// rearm generation captured before the member list was read; the hash is recorded
-// only if it is still current, so a rearm (member add, token update, enable, or
-// repoint) that landed mid-pass is never clobbered by this older pass.
+// enable-time kick so both take the identical apply/emit path. gen is the rearm
+// generation captured before the member list was read, and applyAutoSync aborts
+// on it, so a rearm (member add, token update, enable, or repoint) that lands
+// mid-pass stops this older pass rather than letting it finish a stale write.
+//
+// Nothing fleet-wide is recorded. Convergence is per member and measured per
+// pass, so the durable record is each member's own state: the verified-in-sync
+// heartbeat when its hash matches, the diverged flag and amber badge when it
+// does not.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
-	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
-	// Record the hash only once every reachable member has been seen to serve it, so
-	// the marker never claims a convergence nobody measured. Withholding it does not
-	// schedule anything: the next settled tick runs a pass either way. It is the
-	// durable record of the last full convergence, not a retry latch.
-	if allConverged {
-		switch ok, err := s.store.RecordAutoSyncHash(ctx, hash, gen); {
-		case err != nil:
-			debuglog.Warn("frontdesk: auto-sync: record applied hash", "error", err)
-		case !ok:
-			// A rearm landed mid-pass and bumped the generation: leave the cleared
-			// marker so the next tick converges with the fresh member list/primary.
-			debuglog.Debug("frontdesk: auto-sync: skipped stale hash record after rearm")
-		}
-	}
+	applied := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
 	if applied > 0 {
 		noun := "members"
 		if applied == 1 {
@@ -262,13 +253,11 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 }
 
 // applyAutoSync pushes the primary's config to every other tokened member that
-// does not already hold it. It returns how many members it actually re-synced and
-// whether every reachable member is verified converged (the signal convergeFleet
-// uses to decide whether to record the applied hash). hash is the primary's
-// current config hash, and comparing it with each member's own is the convergence
-// criterion: a member matching it is converged and left untouched, a member that
-// differs is not, whatever it reported about its own import. reason is stamped
-// onto each synced member's last-sync marker.
+// does not already hold it, and returns how many members it actually re-synced.
+// hash is the primary's current config hash, and comparing it with each member's
+// own is the convergence criterion: a member matching it is converged and left
+// untouched, a member that differs is not, whatever it reported about its own
+// import. reason is stamped onto each synced member's last-sync marker.
 //
 // The pass that pushes a member does not verify it; the next pass's hash query
 // does. So a fleet converges one tick later than a pass that trusted the member's
@@ -283,9 +272,8 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 // member the operator has just repointed away from. The only window no pre-check
 // can close is the in-flight import call itself; the rearm's own pass converges
 // that member on the next tick. Members synced before the change were current when
-// written; the rearm's own pass converges the rest. allConverged is forced false
-// on abort so no hash is recorded.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) (applied int, allConverged bool) {
+// written; the rearm's own pass converges the rest.
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) (applied int) {
 	// A transient gen read shouldn't abort a valid pass, so a read error reports
 	// "not stale" and the generation-guarded hash record stays the backstop.
 	stale := func() bool {
@@ -293,7 +281,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return err == nil && cur != gen
 	}
 	if stale() {
-		return 0, false // a rearm already landed: don't push the stale export at all
+		return 0 // a rearm already landed: don't push the stale export at all
 	}
 
 	// passCtx is the cancellation point the pre-import gates alone cannot provide: a
@@ -310,61 +298,72 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	defer cancel()
 	go s.watchRearm(passCtx, rearmCh, gen, cancel)
 
-	export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
-	if err != nil {
-		debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
-		return 0, false
+	// The primary's export is fetched on demand, not up front. A settled fleet
+	// takes this branch never: every member's hash matches, nothing is pushed, and
+	// the pass costs one hash read per member. Fetching eagerly would instead have
+	// the primary build and ship its whole config envelope every tick forever,
+	// which is the bulk of what an idle fleet would cost. The result is memoised so
+	// a pass pushing to several members still reads the primary once, and a failed
+	// read is remembered too: it aborts the pass rather than being retried per
+	// member.
+	var (
+		export    []byte
+		exportErr error
+		exported  bool
+	)
+	primaryExport := func() ([]byte, error) {
+		if !exported {
+			export, exportErr = s.fetchMemberExport(passCtx, primary, primaryToken)
+			exported = true
+			if exportErr != nil {
+				debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", exportErr)
+			}
+		}
+		return export, exportErr
 	}
+
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: list members", "error", err)
-		return 0, false
+		return 0
 	}
 
 	primaryVer := s.poller.MemberVersion(primary.ID)
-	allConverged = true
 	for _, m := range members {
 		if m.ID == primary.ID {
 			continue // the source is never written to
 		}
 		if stale() {
 			// A rearm/repoint landed mid-pass: stop before importing the stale export
-			// into any further member. Force not-converged so the hash is not recorded
-			// and the rearm's own pass takes over.
+			// into any further member, and leave the rest to the rearm's own pass.
 			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", applied)
-			allConverged = false
 			break
 		}
 		if !m.HasToken {
-			// A tokenless member can't be authenticated to, so it is skipped without
-			// flipping allConverged: it can be measured in neither direction, and
-			// counting it as not-converged would withhold the fleet marker for as long as
-			// it stayed tokenless, permanently understating a fleet that is otherwise in
-			// sync. The skip hides nothing, since every pass re-reads the member list and
-			// measures the member like any other from the moment it has a token.
+			// A tokenless member can't be authenticated to, so it can be measured in
+			// neither direction and is skipped. The skip hides nothing: every pass
+			// re-reads the member list and measures the member like any other from the
+			// moment it has a token.
 			continue
 		}
 		token, ok, err := s.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
 			// The member has token ciphertext (HasToken was true) but it could not be
 			// loaded or decrypted: a MASTER_KEY mismatch on the stored token, a transient
-			// DB error, or the token cleared in the race after the snapshot. Unlike a
-			// tokenless member there is no membership event that will re-arm the loop, so
-			// this must NOT count as converged: hold off and retry on the next tick.
+			// DB error, or the token cleared in the race after the snapshot. Nothing can
+			// be measured or pushed here, so leave it for the next tick.
 			debuglog.Debug("frontdesk: auto-sync: member token unavailable, will retry", "member", m.Name, "loaded", ok, "error", err)
-			allConverged = false
 			continue
 		}
 		// Version gate: never push the primary's config onto a member running a
 		// different app version. An older primary's export omits settings the newer
 		// member legitimately has, and the member-side converge-delete would drop
-		// them. Hold the member (no push), do not count it converged, and emit
-		// config.sync_held once on the transition into held. Fails closed on an
-		// unknown version. Re-evaluated every pass, so it resumes automatically.
+		// them. Hold the member (no push) and emit config.sync_held once on the
+		// transition into held. Fails closed on an unknown version. Re-evaluated
+		// every pass, so it resumes automatically.
 		memberVer := s.poller.MemberVersion(m.ID)
 		if versionSkew(primaryVer, memberVer) {
 			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
-			allConverged = false
 			continue
 		}
 		s.clearSyncHold(m.ID)
@@ -380,18 +379,15 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// that already matches still reports every shared entity as updated.
 		memberHash, verErr := s.fetchMemberConfigVersion(passCtx, m, token)
 		if verErr == nil && memberHash == hash {
-			// Converged, measured rather than claimed. This member must NOT touch
-			// allConverged: it demonstrably holds this config, so counting it as
-			// unconverged would make the fleet marker understate a fleet that is fully in
-			// sync. Close out any divergence it was carrying, which emits
-			// config.sync_recovered once on the way out.
+			// Converged, measured rather than claimed. Close out any divergence it was
+			// carrying, which emits config.sync_recovered once on the way out, and move
+			// the verified-in-sync heartbeat: this is the only thing that moves it, so
+			// it means "measured holding the primary's config", never "written to".
 			s.clearMemberIncomplete(ctx, m)
 			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			continue
 		}
-		// From here the member does not hold this config (or could not be asked), so
-		// the fleet has not converged this pass whatever else happens below.
-		allConverged = false
+		// From here the member does not hold this config, or could not be asked.
 		if verErr != nil {
 			// An unread hash proves nothing in either direction: the member is neither
 			// counted converged nor flagged as diverged. It falls through to the dry-run,
@@ -411,6 +407,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// alert persist; only the push is rate-limited.
 		if s.shouldSkipIncompleteRetry(m.ID, time.Now()) {
 			continue
+		}
+		// This member needs the primary's config, so the export is read now. It is
+		// the first thing on the pass that requires it, and on a settled fleet the
+		// pass never gets here.
+		export, err := primaryExport()
+		if err != nil {
+			// The source is unreadable, so no member can be converged this pass.
+			break
 		}
 		// Decide whether this member needs the new config from its own dry-run
 		// diff, which compares by name and so is valid across instances. The dry-run
@@ -463,25 +467,35 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// newer generation already won the in-flight race (out.Stale, handled there
 		// as a benign supersede rather than a failure).
 		out := s.applyMemberConfig(passCtx, m, token, export, reason, false, gen)
-		if out.OK || out.Incomplete {
-			// The member took the config, whether or not it built all of it. Remember
-			// when, and what it said it could not build or built short: that stamp
-			// bounds the re-push and tells the next pass this member has had its
-			// chance, so a hash that still differs then is a real failure to converge
-			// rather than a member nobody has reached yet. A push the member refused
-			// or never received is deliberately not stamped, so a transient failure
-			// is retried on the next tick rather than waiting out the interval.
+		if out.OK || out.Incomplete || out.TimedOut {
+			// The member received the config, whether or not it built all of it and
+			// whether or not it answered in time. Remember when, and what it said it
+			// could not build or built short: that stamp bounds the re-push and tells
+			// the next pass this member has had its chance, so a hash that still
+			// differs then is a real failure to converge rather than a member nobody
+			// has reached yet.
+			//
+			// A timed-out push counts, because the member is very likely still
+			// importing: without the stamp, a member whose import runs longer than
+			// memberSyncTimeout would be re-pushed on every tick, restarting its model
+			// discovery each time and never converging, and would never be flagged
+			// either. With it, the member converges quietly if it finishes, and turns
+			// the badge amber if it does not.
+			//
+			// A push the member refused or never received is deliberately not stamped,
+			// so a transient failure is retried on the next tick rather than waiting
+			// out the interval.
 			s.recordSyncAttempt(m.ID, out.Unapplied, out.Partial)
 		}
 		if !out.OK {
 			// Not applied by this pass: a failure (already surfaced by
-			// applyMemberConfig) or a benign fence supersede. Either way the hash is
-			// not recorded for this generation and the authoritative pass takes over.
+			// applyMemberConfig) or a benign fence supersede. The next pass measures
+			// this member again either way.
 			continue
 		}
 		applied++
 	}
-	return applied, allConverged
+	return applied
 }
 
 // holdMemberForSkew marks a member as held for version skew and emits
