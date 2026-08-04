@@ -699,12 +699,98 @@ func TestConfigSync_UpsertReportsSkippedGroups(t *testing.T) {
 		},
 	}}
 
-	skipped, err := upsertFailoverGroups(context.Background(), tx, groups)
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
 	if err != nil {
 		t.Fatalf("upsertFailoverGroups: %v", err)
 	}
-	if len(skipped) != 1 || skipped[0] != "ghost-group" {
-		t.Fatalf("skipped = %v, want [ghost-group]", skipped)
+	if len(res.Skipped) != 1 || res.Skipped[0] != "ghost-group" {
+		t.Fatalf("Skipped = %v, want [ghost-group]", res.Skipped)
+	}
+	if len(res.Partial) != 0 {
+		t.Fatalf("Partial = %v, want none: a group below the two-entry floor is skipped, never partial", res.Partial)
+	}
+}
+
+// A group that resolves two of the three entries the primary sent is built, with
+// the two it has, and reported as partial rather than skipped: this member fails
+// over across fewer providers for that model, which is a real difference from the
+// primary and not a group it failed to build.
+func TestConfigSync_UpsertReportsPartialGroups(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "short-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-absent", Enabled: true},
+		},
+	}}
+
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(res.Partial) != 1 || res.Partial[0] != "short-group" {
+		t.Fatalf("Partial = %v, want [short-group]", res.Partial)
+	}
+	if len(res.Skipped) != 0 {
+		t.Fatalf("Skipped = %v, want none: the group was written, just with fewer entries", res.Skipped)
+	}
+	var priorityJSON []byte
+	if err := tx.QueryRow(context.Background(),
+		`SELECT priority_order FROM model_failover_groups WHERE display_model = 'short-group'`).
+		Scan(&priorityJSON); err != nil {
+		t.Fatalf("a partial group must still be written: %v", err)
+	}
+	var priority []string
+	if err := json.Unmarshal(priorityJSON, &priority); err != nil {
+		t.Fatalf("decode priority_order: %v", err)
+	}
+	if len(priority) != 2 {
+		t.Fatalf("priority_order = %v, want the 2 entries this member could resolve", priority)
+	}
+}
+
+// A fully resolving group is neither skipped nor partial: the member holds
+// exactly what the primary sent.
+func TestConfigSync_UpsertReportsNothingForAFullGroup(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "whole-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(res.Skipped) != 0 || len(res.Partial) != 0 {
+		t.Fatalf("result = %+v, want both lists empty for a fully resolving group", res)
 	}
 }
 
@@ -778,5 +864,55 @@ func TestConfigSync_ImportOmitsIncompleteWhenFullyApplied(t *testing.T) {
 	}
 	if bytes.Contains(rec.Body.Bytes(), []byte(`"unapplied"`)) {
 		t.Fatalf("clean import must omit unapplied, got %s", rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"partial"`)) {
+		t.Fatalf("clean import must omit partial, got %s", rec.Body.String())
+	}
+}
+
+// A member holding fewer of a group's models than the primary builds that group
+// with what it has and names it in Partial. The apply is NOT incomplete: the
+// member did everything it was asked. It is still diverged, which the config
+// hash establishes; Partial only tells the operator which group is short.
+func TestConfigSync_ImportReportsPartialGroup(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	pm3 := seedModel(t, provID, "gpt-4o-nano")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2, pm3}, nil, false)
+	env := doExport(t, exportRouter)
+
+	// Replica has two of the three models, so the group builds short rather than
+	// falling below the two-entry floor.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, rProvID, "gpt-4o")
+	seedModel(t, rProvID, "gpt-4o-mini") // gpt-4o-nano absent here
+
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Applied {
+		t.Fatal("Applied = false, want true")
+	}
+	if len(got.Partial) != 1 || got.Partial[0] != "glm52" {
+		t.Fatalf("Partial = %v, want [glm52]", got.Partial)
+	}
+	if len(got.Unapplied) != 0 {
+		t.Fatalf("Unapplied = %v, want none: the group was built", got.Unapplied)
+	}
+	if got.Incomplete {
+		t.Fatal("Incomplete = true for a partial build; want false: the member applied everything it was asked to")
+	}
+	priority, _, _ := groupPriority(t, "glm52")
+	if len(priority) != 2 {
+		t.Fatalf("priority = %v, want the 2 entries this member could resolve", priority)
 	}
 }

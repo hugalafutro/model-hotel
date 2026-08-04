@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -484,13 +485,13 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		out := s.applyMemberConfig(passCtx, m, token, export, reason, false, gen)
 		if out.OK || out.Incomplete {
 			// The member took the config, whether or not it built all of it. Remember
-			// when, and what it said it could not build: that stamp bounds the re-push
-			// and tells the next pass this member has had its chance, so a hash that
-			// still differs then is a real failure to converge rather than a member
-			// nobody has reached yet. A push the member refused or never received is
-			// deliberately not stamped, so a transient failure is retried on the next
-			// tick rather than waiting out the interval.
-			s.recordSyncAttempt(m.ID, out.Unapplied)
+			// when, and what it said it could not build or built short: that stamp
+			// bounds the re-push and tells the next pass this member has had its
+			// chance, so a hash that still differs then is a real failure to converge
+			// rather than a member nobody has reached yet. A push the member refused
+			// or never received is deliberately not stamped, so a transient failure
+			// is retried on the next tick rather than waiting out the interval.
+			s.recordSyncAttempt(m.ID, out.Unapplied, out.Partial)
 		}
 		if !out.OK {
 			// Not applied by this pass: a failure (already surfaced by
@@ -549,6 +550,12 @@ type incompleteState struct {
 	// specific. Empty when the member named none, which is also what a divergence
 	// with no member-side explanation looks like.
 	lastUnapplied []string
+	// lastPartial names the custom failover groups the member reported it built
+	// with fewer entries than the primary sent. It is kept beside lastUnapplied
+	// for the same reason: a member holding fewer models than the primary is
+	// permanently diverged, and this is what lets the alert name which group is
+	// short rather than only that something differs.
+	lastPartial []string
 	// diverged is true once the member's own config hash has been measured against
 	// the primary's and differed after it took the config. It is what the fleet
 	// badge and the edge-triggered alert read; a member that has merely been pushed
@@ -557,16 +564,18 @@ type incompleteState struct {
 }
 
 // recordSyncAttempt remembers that a member committed a config Front Desk pushed,
-// along with whatever it reported it could not build. The stamp bounds the
-// re-push (shouldSkipIncompleteRetry) and tells the next pass this member has
-// already had this config (hasBeenPushedSinceReset), so a hash that still differs
-// then is a failure to converge rather than a member nobody has reached.
-func (s *Server) recordSyncAttempt(memberID string, unapplied []string) {
+// along with whatever it reported it could not build and whatever it built short.
+// The stamp bounds the re-push (shouldSkipIncompleteRetry) and tells the next pass
+// this member has already had this config (hasBeenPushedSinceReset), so a hash that
+// still differs then is a failure to converge rather than a member nobody has
+// reached.
+func (s *Server) recordSyncAttempt(memberID string, unapplied, partial []string) {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	st := s.syncIncomplete[memberID]
 	st.lastAttempt = time.Now()
 	st.lastUnapplied = unapplied
+	st.lastPartial = partial
 	s.syncIncomplete[memberID] = st
 }
 
@@ -590,28 +599,48 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
 	already := st.diverged
 	st.diverged = true
 	s.syncIncomplete[m.ID] = st
-	// The names ride the metadata as a list either way, never as null, so consumers
-	// see one shape. Copied out under the lock so the emit below reads a stable list.
+	// The names ride the metadata as lists either way, never as null, so consumers
+	// see one shape. Copied out under the lock so the emit below reads stable lists.
 	names := append([]string{}, st.lastUnapplied...)
+	partial := append([]string{}, st.lastPartial...)
 	s.syncIncompleteMu.Unlock()
 	if already {
 		return
 	}
-	// A member that named the groups it could not build gets the specific wording.
-	// Everything else is a divergence Front Desk measured but the member did not
-	// explain: it committed the config, reported nothing wrong (or nothing at all),
-	// and still does not match. A count there would read "could not build 0 failover
-	// group(s)" and tell the operator nothing is wrong while the fleet is degraded.
-	msg := fmt.Sprintf("%s applied the config but does not match the primary's config", m.Name)
-	if len(names) > 0 {
-		msg = fmt.Sprintf("%s applied the config but could not build %d failover group(s)", m.Name, len(names))
-	}
 	s.emit(ctx, Event{
 		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
-		Message:  msg,
+		Message:  divergenceMessage(m.Name, names, partial),
 		MemberID: m.ID,
-		Metadata: map[string]any{"unapplied": names},
+		Metadata: map[string]any{"unapplied": names, "partial": partial},
 	})
+}
+
+// divergenceMessage renders the operator-facing reason a member does not hold the
+// primary's config, from the two things it can report about its own import.
+//
+// unapplied are custom failover groups it could not build at all; partial are
+// groups it built with fewer entries than the primary sent, because it holds
+// fewer of their models, so it fails over across fewer providers for them. The
+// partial ones are named rather than counted: a count of short groups says
+// nothing an operator can act on, while the group name points straight at the
+// model whose routing is thinner here.
+//
+// With neither, the divergence is one Front Desk measured but the member did not
+// explain: it committed the config, reported nothing wrong (or nothing at all),
+// and still does not match. A count there would read "could not build 0 failover
+// group(s)" and tell the operator nothing is wrong while the fleet is degraded.
+func divergenceMessage(member string, unapplied, partial []string) string {
+	var clauses []string
+	if len(unapplied) > 0 {
+		clauses = append(clauses, fmt.Sprintf("could not build %d failover group(s)", len(unapplied)))
+	}
+	if len(partial) > 0 {
+		clauses = append(clauses, fmt.Sprintf("built %s with fewer entries than the primary has", strings.Join(partial, ", ")))
+	}
+	if len(clauses) == 0 {
+		return fmt.Sprintf("%s applied the config but does not match the primary's config", member)
+	}
+	return fmt.Sprintf("%s applied the config but %s", member, strings.Join(clauses, ", and "))
 }
 
 // clearMemberIncomplete forgets everything about a member whose hash now matches

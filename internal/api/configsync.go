@@ -354,6 +354,11 @@ type importResponse struct {
 	Incomplete bool `json:"incomplete,omitempty"`
 	// Unapplied names the custom failover groups this member did not build.
 	Unapplied []string `json:"unapplied,omitempty"`
+	// Partial names custom failover groups this member built with fewer entries
+	// than the primary sent, so it fails over across fewer providers for those
+	// models. Reported alongside Incomplete, never as part of it: the member
+	// applied everything it was asked to.
+	Partial []string `json:"partial,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

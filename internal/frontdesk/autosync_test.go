@@ -2387,8 +2387,109 @@ func TestAutoSync_FlagNamesTheGroupsTheMemberReported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"unapplied":["ds4flash"]}`; got != want {
+	if got, want := string(meta), `{"partial":[],"unapplied":["ds4flash"]}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
+	}
+}
+
+// partialImportBody is a member's answer to a real import that built every group
+// it was sent but built one of them short: it resolved fewer entries for
+// testgroup than the primary has. incomplete stays absent because nothing failed
+// here; the member simply holds fewer models.
+const partialImportBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+	`"partial":["testgroup"],"diff":{}}`
+
+// TestAutoSync_FlagNamesPartiallyBuiltGroups: a member whose model inventory is
+// smaller than the primary's builds a custom failover group with fewer entries.
+// It skipped nothing, so it has no unapplied groups to report, and the generic
+// "does not match" alert would name nothing. The alert must say which group is
+// short.
+func TestAutoSync_FlagNamesPartiallyBuiltGroups(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted" // a short group hashes differently, forever
+		r.dryDiff = driftDiff
+		r.realImportBody = partialImportBody
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+	const wantMsg = "replica applied the config but built testgroup with fewer entries than the primary has"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":[]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
+	}
+}
+
+// TestAutoSync_FlagSaysBothWhenGroupsAreMissingAndShort: a member can be short of
+// models in two ways at once, one group below the two-entry floor and another
+// merely thinner than the primary's. One alert says both.
+func TestAutoSync_FlagSaysBothWhenGroupsAreMissingAndShort(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+			`"incomplete":true,"unapplied":["ds4flash"],"partial":["testgroup"],"diff":{}}`
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+	const wantMsg = "replica applied the config but could not build 1 failover group(s), " +
+		"and built testgroup with fewer entries than the primary has"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":["ds4flash"]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
+	}
+}
+
+// TestAutoSync_PartialBuildStaysUnconverged: a member that built every group it
+// was sent, one of them short, applied the config and says so. It is still
+// configured differently from the primary and fails over across fewer providers,
+// so its hash differs and it must stay unconverged: the fleet hash is withheld
+// and the member is flagged. Reporting a partial build must not become a way to
+// pass as converged.
+func TestAutoSync_PartialBuildStaysUnconverged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportBody = partialImportBody
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded while a member holds a short failover group; want it withheld")
+	}
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("incompleteSnapshot does not hold the partially built member; the fleet badge would stay green")
 	}
 }
 
@@ -2422,7 +2523,7 @@ func TestAutoSync_FlagWithoutNamesReadsAsAPlainDivergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"unapplied":[]}`; got != want {
+	if got, want := string(meta), `{"partial":[],"unapplied":[]}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }

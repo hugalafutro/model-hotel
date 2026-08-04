@@ -53,6 +53,10 @@ type syncResultItem struct {
 	// rejected outright.
 	Incomplete bool     `json:"incomplete,omitempty"`
 	Unapplied  []string `json:"unapplied,omitempty"`
+	// Partial names the custom failover groups the member built with fewer
+	// entries than the primary sent. It rides alongside a successful result: the
+	// member applied everything it was asked to, it just holds fewer models.
+	Partial []string `json:"partial,omitempty"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -70,8 +74,14 @@ type memberImportResult struct {
 	// decodes to false and reads as complete.
 	Incomplete bool `json:"incomplete,omitempty"`
 	// Unapplied names the custom failover groups the member did not build.
-	Unapplied []string         `json:"unapplied,omitempty"`
-	Diff      memberConfigDiff `json:"diff"`
+	Unapplied []string `json:"unapplied,omitempty"`
+	// Partial names the custom failover groups the member built with fewer
+	// entries than the primary sent, because it holds fewer of their models. It
+	// travels with Incomplete = false: the member applied everything it was asked
+	// to, and it is diverged because its config genuinely differs, which the hash
+	// comparison decides. This only makes the alert specific.
+	Partial []string         `json:"partial,omitempty"`
+	Diff    memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -256,6 +266,11 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
+	// Carried whatever else this push did, including on the success path: a group
+	// built with fewer entries than the primary sent is not a failure to apply, so
+	// it never reaches the incomplete arm below, and the auto-sync loop needs the
+	// names to make its divergence alert specific.
+	res.Partial = out.Partial
 	switch {
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"

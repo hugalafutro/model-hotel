@@ -28,6 +28,10 @@ const failoverApplyTimeout = 30 * time.Second
 type applyOutcome struct {
 	// SkippedGroups names custom failover groups this member could not build.
 	SkippedGroups []string
+	// PartialGroups names custom failover groups this member built with fewer
+	// entries than the primary sent, because it holds fewer of the models they
+	// reference. Reported so the operator alert can name them; see incomplete.
+	PartialGroups []string
 	// GroupApplyErr is set when the whole group build failed, in which case no
 	// group was evaluated.
 	GroupApplyErr error
@@ -41,6 +45,13 @@ type applyOutcome struct {
 // incomplete reports whether the member failed to materialise part of the
 // config. Driven by the failover group outcome only: a discovery error alone is
 // a routine provider outage, and one that matters surfaces as skipped groups.
+//
+// PartialGroups is deliberately NOT part of this. A partially built group is not
+// a failure to apply: the member did everything the envelope asked of it and
+// simply holds fewer models, so it built the group with what it has. It is still
+// genuinely configured differently from the primary, and that divergence is
+// established by the config hash, which differs on its own. PartialGroups exists
+// so the operator alert can say which group is short, nothing more.
 func (o applyOutcome) incomplete() bool {
 	return o.GroupApplyErr != nil || len(o.SkippedGroups) > 0
 }
@@ -361,9 +372,10 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// a chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
 	groupCtx, groupCancel := context.WithTimeout(ctx, failoverApplyTimeout)
-	skipped, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups)
+	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups)
 	groupCancel()
-	out.SkippedGroups = skipped
+	out.SkippedGroups = groupRes.Skipped
+	out.PartialGroups = groupRes.Partial
 	if err != nil {
 		debuglog.Warn("configsync: failed to apply custom failover groups", "error", err)
 		out.GroupApplyErr = err
@@ -388,8 +400,8 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 // entries reference exist. Auto-created groups are never touched. The declarative
 // delete keeps a group still named in the envelope even if it was just skipped
 // for too few resolvable entries, so a transient model gap does not delete the
-// operator's group. It returns the DisplayModel of every group left unwritten.
-func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) ([]string, error) {
+// operator's group. It returns what the build could not fully do.
+func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) (groupApplyResult, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
 	// envelope carried no failover_groups key at all (a pre-PR primary), so leave
 	// the member's own custom groups untouched rather than wiping them on the first
@@ -397,28 +409,28 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	// genuinely has zero custom groups, which must reconcile: the declarative delete
 	// below then removes every stale custom group the member still has.
 	if groups == nil {
-		return nil, nil
+		return groupApplyResult{}, nil
 	}
 	tx, err := h.db.Pool().Begin(ctx)
 	if err != nil {
-		return nil, err
+		return groupApplyResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	skipped, err := upsertFailoverGroups(ctx, tx, groups)
+	res, err := upsertFailoverGroups(ctx, tx, groups)
 	if err != nil {
-		return nil, err
+		return groupApplyResult{}, err
 	}
 	groupNames := names(groups, func(g ExportFailoverGroup) string { return g.DisplayModel })
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
 		groupNames); err != nil {
-		return nil, err
+		return groupApplyResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return groupApplyResult{}, err
 	}
-	return skipped, nil
+	return res, nil
 }
 
 // syncableSettingsToDelete returns the syncable settings keys present on this
@@ -667,17 +679,28 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 	return nil
 }
 
+// groupApplyResult reports what a custom failover group import could not fully
+// do, in export order. Skipped groups are absent from this member; partial
+// groups exist here with fewer entries than the primary sent, so this member
+// fails over across fewer providers for those models. The two are mutually
+// exclusive per group: a group below the two-entry floor is skipped, never
+// partial. Both are nil when every group was written in full.
+type groupApplyResult struct {
+	Skipped []string
+	Partial []string
+}
+
 // upsertFailoverGroups re-creates each custom failover group on this member by
 // resolving its (provider, model_id) entry refs back to local model UUIDs. An
 // entry whose model is not present here is dropped; a group left with fewer than
 // two routable entries is skipped (a one-member failover group is meaningless,
-// matching pruneStaleEntries). Always writes auto_created = false. The returned
-// skipped slice holds the DisplayModel of every group left unwritten, in export
-// order, so a caller can tell a clean apply from a partial one; it is nil when
-// every group was written.
-func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailoverGroup) ([]string, error) {
+// matching pruneStaleEntries), and one left with two or more but fewer than the
+// primary sent is written short and reported as partial. Always writes
+// auto_created = false.
+func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailoverGroup) (groupApplyResult, error) {
+	var res groupApplyResult
 	if len(groups) == 0 {
-		return nil, nil
+		return res, nil
 	}
 	// (provider, model_id) -> local model UUID. Built inside the transaction so
 	// it reflects the just-synced provider set (deleted providers cascade-removed
@@ -686,25 +709,21 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 	rows, err := tx.Query(ctx,
 		`SELECT p.name, m.model_id, m.id FROM models m JOIN providers p ON m.provider_id = p.id`)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	for rows.Next() {
 		var provider, modelID, id string
 		if err := rows.Scan(&provider, &modelID, &id); err != nil {
 			rows.Close()
-			return nil, err
+			return res, err
 		}
 		localUUID[provider+"\x00"+modelID] = id
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return res, err
 	}
 
-	// Groups this member could not build. Reported to the caller so an import
-	// that committed but did not fully materialise is distinguishable from a
-	// clean one.
-	var skipped []string
 	for _, g := range groups {
 		priority := make([]string, 0, len(g.Entries))
 		entryEnabled := map[string]bool{}
@@ -719,16 +738,24 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 		if len(priority) < 2 {
 			debuglog.Warn("configsync: skipping custom failover group with too few resolvable entries",
 				"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
-			skipped = append(skipped, g.DisplayModel)
+			res.Skipped = append(res.Skipped, g.DisplayModel)
 			continue
+		}
+		if len(priority) < len(g.Entries) {
+			// Routable, but across fewer providers than the primary routes it: this
+			// member holds fewer of the group's models. The group is written with what
+			// resolved, and named so the operator alert can say which one is short.
+			debuglog.Warn("configsync: building custom failover group with fewer entries than the primary sent",
+				"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
+			res.Partial = append(res.Partial, g.DisplayModel)
 		}
 		priorityJSON, err := json.Marshal(priority)
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 		entryEnabledJSON, err := json.Marshal(entryEnabled)
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO model_failover_groups
@@ -763,10 +790,10 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 				auto_disabled_at = CASE WHEN EXCLUDED.group_enabled THEN NULL ELSE model_failover_groups.auto_disabled_at END,
 				updated_at     = now()`,
 			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description); err != nil {
-			return nil, err
+			return res, err
 		}
 	}
-	return skipped, nil
+	return res, nil
 }
 
 // readAppliedSourceGen returns the highest Front Desk source generation this
