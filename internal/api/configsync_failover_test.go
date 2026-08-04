@@ -623,3 +623,32 @@ func TestConfigSync_ImportPreservesLocalAutoDisableStamp(t *testing.T) {
 		t.Errorf("an import that re-enables the group must clear the stamp (operator intent, and revalidation re-stamps it if still undersized), got %v", at)
 	}
 }
+
+// upsertFailoverGroups reports the DisplayModel of a group it skips for too few
+// resolvable entries, so a caller can distinguish a clean apply from a partial
+// one.
+func TestConfigSync_UpsertReportsSkippedGroups(t *testing.T) {
+	cleanConfigTables(t)
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "ghost-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "NoSuchProvider", ModelID: "no-such-model-a", Enabled: true},
+			{ProviderName: "NoSuchProvider", ModelID: "no-such-model-b", Enabled: true},
+		},
+	}}
+
+	skipped, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(skipped) != 1 || skipped[0] != "ghost-group" {
+		t.Fatalf("skipped = %v, want [ghost-group]", skipped)
+	}
+}
