@@ -283,10 +283,13 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	case out.Incomplete:
-		// The member committed the config but could not build part of it, so it
-		// is not converged: leaving res.OK false keeps allConverged false, the
-		// fleet hash unrecorded, and the next tick retrying this member until it
-		// applies everything.
+		// The member committed the config but says it could not build part of it, so
+		// this push did not apply the config: res.OK stays false, which keeps the
+		// metric and the wizard's per-member result honest. The auto-sync loop does not
+		// depend on it, though. Convergence is decided by comparing the member's own
+		// config hash with the primary's, so a member that reports this is caught the
+		// same way as one that claims a clean apply while diverged; what the report
+		// adds is the names below, which make the operator-facing alert specific.
 		if len(out.Unapplied) > 0 {
 			res.Error = fmt.Sprintf("applied, but %d failover group(s) could not be built here: %s",
 				len(out.Unapplied), strings.Join(out.Unapplied, ", "))
@@ -303,7 +306,6 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// in the logs when alerting is off. res.Error names the groups that were not
 		// built (or reports the whole build failing when the member sends no names).
 		debuglog.Warn("frontdesk: config sync incomplete", "member", m.Name, "error", res.Error)
-		s.markMemberIncomplete(ctx, m, out.Unapplied)
 		return res
 	default:
 		res.OK = true
@@ -325,11 +327,11 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	if res.OK {
 		recordConfigSync("ok")
 		// A real write also confirms the member is in sync now: advance the live
-		// heartbeat alongside the persisted last_config_sync_at stamp.
+		// heartbeat alongside the persisted last_config_sync_at stamp. Whether the
+		// member really ended up holding this config is settled by the auto-sync
+		// loop's next hash comparison, which owns the divergence state and its
+		// config.sync_incomplete / config.sync_recovered edges.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
-		// The member built everything this time: close out any open incomplete
-		// state, emitting config.sync_recovered only if it was actually incomplete.
-		s.clearMemberIncomplete(ctx, m)
 		if emitSuccessEvent {
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",

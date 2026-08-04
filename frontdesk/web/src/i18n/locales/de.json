@@ -143,7 +143,7 @@
 			"drained_to_single": "nur ein aktives Mitglied ist übrig; die Flotte hat keine Redundanz",
 			"sync_held": "Config-Sync ist für ein Mitglied angehalten (Versionsabweichung)",
 			"all_sync_held": "Config-Sync ist für jedes Mitglied angehalten; der Primär ist die Ausnahme",
-			"sync_incomplete": "ein Mitglied hat die Config übernommen, konnte aber nicht alle Failover-Gruppen aufbauen",
+			"sync_incomplete": "die Config eines Mitglieds stimmt nach einem Sync nicht mit der des Primärs überein",
 			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",
 			"autosync_stale_long": "Auto-Sync ist aus und die Flotte wurde seit über drei Tagen nicht synchronisiert",
 			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"
@@ -284,7 +284,7 @@
 				"config_auto_synced": "Auto-Sync auf die Flotte angewendet",
 				"config_autosync_stale": "Auto-Sync aus, Flotte nicht synchronisiert",
 				"config_sync_held": "Sync angehalten (Versionsabweichung)",
-				"config_sync_incomplete": "Sync unvollständig (Gruppen nicht aufgebaut)",
+				"config_sync_incomplete": "Sync unvollständig (Mitglied stimmt nicht überein)",
 				"config_sync_recovered": "Sync wieder vollständig",
 				"version_fetch_failed": "Mitgliedsversion nicht lesbar",
 				"version_fetch_recovered": "Mitgliedsversion wieder lesbar",

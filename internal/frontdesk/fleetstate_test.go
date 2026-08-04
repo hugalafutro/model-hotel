@@ -322,10 +322,10 @@ func TestCheckFleetStateEmitsDrainTransitions(t *testing.T) {
 	}
 }
 
-// TestCheckFleetStateEmitsIncompleteTransition drives the incomplete set through
+// TestCheckFleetStateEmitsIncompleteTransition drives the diverged set through
 // the live path: the auto-sync loop's own bookkeeping (markMemberIncomplete)
-// feeds fleetStateFrom, so the badge turns amber for as long as the member
-// cannot build its groups, and clears when it converges.
+// feeds fleetStateFrom, so the badge turns amber for as long as the member does
+// not hold the primary's config, and clears when it converges.
 func TestCheckFleetStateEmitsIncompleteTransition(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -346,7 +346,8 @@ func TestCheckFleetStateEmitsIncompleteTransition(t *testing.T) {
 		t.Fatalf("baseline emitted %d events, want 0", len(evs))
 	}
 
-	srv.markMemberIncomplete(ctx, m1, []string{"fast"})
+	srv.recordSyncAttempt(m1.ID, []string{"fast"})
+	srv.markMemberIncomplete(ctx, m1)
 	srv.checkFleetState(ctx)
 	evs := fleetStateEvents(ctx, t, srv)
 	if len(evs) != 1 {

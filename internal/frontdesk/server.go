@@ -81,9 +81,10 @@ type Server struct {
 	// bounded by fleet size; a restart re-emits at most once per still-held member.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
-	// syncIncomplete tracks which members committed a config without materialising
-	// all of it, so config.sync_incomplete fires once on the transition in rather
-	// than on every retry, and so the retry itself can be rate-limited (see
+	// syncIncomplete tracks what auto-sync has done to each member and what it
+	// measured afterwards: which members took a config and when, and which of them
+	// still do not serve the primary's config hash. That drives the once-per-
+	// transition config.sync_incomplete event and the rate-limited re-push (see
 	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
 	syncIncompleteMu sync.Mutex
 	syncIncomplete   map[string]incompleteState

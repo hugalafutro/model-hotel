@@ -35,21 +35,26 @@ type stubAutoMember struct {
 	// reporting once it accepts a real import: a member that applied the primary's
 	// config hashes identically to it, which is what lets the next pass skip it. An
 	// incomplete import never adopts it, since the member did not build everything.
-	appliedHash  string
-	versionCode  int    // status for the version GET (default 200)
-	versionRaw   string // raw version body; overrides the {"version":...} JSON when set
-	exportBody   string
-	exportCode   int    // status for the export GET (default 200)
-	dryDiff      string // diff object returned on a dry-run import
-	importCode   int    // status for the dry-run import (default 200)
-	importBody   string // full dry-run import body; overrides dryDiff when set
-	gotBackup    bool
-	backups      int // how many backups this member was asked to take; must stay 0
-	dryRuns      int // how many dry-run imports this member was asked for
-	gotRealSync  bool
-	realSyncs    int    // how many real (non-dry-run) imports this member accepted
-	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
-	staleImport  bool   // when true, the real import answers with the commit-fence "stale" response
+	appliedHash string
+	versionCode int    // status for the version GET (default 200)
+	versionRaw  string // raw version body; overrides the {"version":...} JSON when set
+	exportBody  string
+	exportCode  int    // status for the export GET (default 200)
+	dryDiff     string // diff object returned on a dry-run import
+	importCode  int    // status for the dry-run import (default 200)
+	importBody  string // full dry-run import body; overrides dryDiff when set
+	// realImportBody is the full body the real (non-dry-run) import answers with,
+	// overriding the default success response. It is how a test pins exactly what
+	// the member claims about its own apply: an explicit "incomplete":false, or an
+	// older member's response that omits the field entirely.
+	realImportBody string
+	gotBackup      bool
+	backups        int // how many backups this member was asked to take; must stay 0
+	dryRuns        int // how many dry-run imports this member was asked for
+	gotRealSync    bool
+	realSyncs      int    // how many real (non-dry-run) imports this member accepted
+	gotSourceGen   string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
+	staleImport    bool   // when true, the real import answers with the commit-fence "stale" response
 	// incompleteImport makes the real import answer applied-but-incomplete: the
 	// core config committed, one custom failover group could not be built.
 	incompleteImport bool
@@ -125,6 +130,10 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			if sm.appliedHash != "" {
 				sm.versionHash = sm.appliedHash // the member now holds the primary's config
 			}
+			if sm.realImportBody != "" {
+				_, _ = w.Write([]byte(sm.realImportBody))
+				return
+			}
 			_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":` + sm.dryDiff + `}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
 			// The token probe (createMember/patchMember) hits this; 200 = accepted.
@@ -177,6 +186,14 @@ func (sm *stubAutoMember) sourceGen() string {
 	return sm.gotSourceGen
 }
 
+// setVersionHash changes the hash this member serves, standing in for the member
+// finally holding the primary's config (or drifting away from it) between passes.
+func (sm *stubAutoMember) setVersionHash(h string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.versionHash = h
+}
+
 const driftDiff = `{"providers":{"added":["anthropic"]},"virtual_keys":{},"settings":{}}`
 
 // enableAutoSync points auto-sync at primaryID with a stale last-applied hash, so
@@ -206,13 +223,16 @@ func seedAutoSyncHash(t *testing.T, store *Store, hash string) {
 // TestAutoSyncCoalescesThenApplies: a drifted primary is not synced on the first
 // observation (the config might still be mid-edit); only once the hash repeats on
 // the next tick does Front Desk propagate it, stamping each changed member's
-// last-sync marker. No member is asked to snapshot itself along the way.
+// last-sync marker. The pass after that verifies the member now serves the
+// primary's hash and records the fleet as converged. No member is asked to
+// snapshot itself along the way.
 func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-B" // changed vs the recorded last hash
 	replica := newStubAutoMember(t, "rtoken")
-	replica.dryDiff = driftDiff // this member needs the new config
+	replica.dryDiff = driftDiff    // this member needs the new config
+	replica.appliedHash = "hash-B" // and holds it once the import lands
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -246,13 +266,17 @@ func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 	if got.LastConfigSyncReason != autoSyncReason {
 		t.Errorf("last-sync reason = %q, want %q", got.LastConfigSyncReason, autoSyncReason)
 	}
+
+	// Third tick: the member now serves the primary's hash, so the fleet is recorded
+	// as converged. Verification costs this one extra tick.
+	srv.autoSyncOnce(t.Context(), prev)
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-B" {
-		t.Errorf("applied hash = %q, want hash-B recorded after convergence", cfg.LastHash)
+		t.Errorf("applied hash = %q, want hash-B recorded once the member was verified", cfg.LastHash)
 	}
 }
 
-// TestForceAutoSyncNowConvergesImmediately: the enable-time kick converges a
+// TestForceAutoSyncNowConvergesImmediately: the enable-time kick pushes to a
 // drifted fleet in a single pass, with no coalescing wait, and stamps the
 // member's last-sync marker with the "auto-sync was enabled" reason.
 func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
@@ -260,7 +284,8 @@ func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-B" // changed vs the recorded last hash
 	replica := newStubAutoMember(t, "rtoken")
-	replica.dryDiff = driftDiff // this member needs the new config
+	replica.dryDiff = driftDiff    // this member needs the new config
+	replica.appliedHash = "hash-B" // and holds it once the import lands
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -283,9 +308,13 @@ func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
 	if got.LastConfigSyncReason != autoSyncKickReason {
 		t.Errorf("last-sync reason = %q, want %q", got.LastConfigSyncReason, autoSyncKickReason)
 	}
+
+	// The following pass verifies the member against the primary and records the
+	// fleet as converged.
+	srv.autoSyncOnce(t.Context(), "hash-B")
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-B" {
-		t.Errorf("applied hash = %q, want hash-B recorded after convergence", cfg.LastHash)
+		t.Errorf("applied hash = %q, want hash-B recorded once the member was verified", cfg.LastHash)
 	}
 }
 
@@ -321,6 +350,7 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 	primary.versionHash = "hash-B"
 	replica := newStubAutoMember(t, "rtoken")
 	replica.dryDiff = driftDiff
+	replica.appliedHash = "hash-B"
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -350,7 +380,9 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 		t.Errorf("stale pass overwrote the rearm-cleared marker: %q, want empty", got.LastHash)
 	}
 
-	// A pass at the current generation records normally.
+	// A pass at the current generation pushes, and the one after it verifies the
+	// member and records normally.
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, got.Gen)
 	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, got.Gen)
 	got, _ = store.GetAutoSync(t.Context())
 	if got.LastHash != "hash-B" {
@@ -450,14 +482,16 @@ func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
 	}
 }
 
-// TestAutoSyncSkipsConvergedMember: a member whose dry-run diff is empty is left
-// untouched (no import), but the fleet still counts as converged so the new hash
-// is recorded and the loop quiesces.
+// TestAutoSyncSkipsConvergedMember: a member already serving the primary's hash is
+// left untouched (no import), and the fleet counts as converged so the new hash is
+// recorded and the loop quiesces. A tokenless member alongside it must not hold
+// that back.
 func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-B"
-	replica := newStubAutoMember(t, "rtoken") // default dryDiff is empty (converged)
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-B" // already holds the primary's config
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	replicaMember, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -711,13 +745,15 @@ func TestAutoSyncTakesNoPreSyncBackup(t *testing.T) {
 	primary.versionHash = "hash-B"
 	replica := newStubAutoMember(t, "rtoken")
 	replica.dryDiff = driftDiff
+	replica.appliedHash = "hash-B"
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
 	alignFleetVersions(t, srv, store, "dev")
 
-	srv.autoSyncOnce(t.Context(), "hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-B") // pushes
+	srv.autoSyncOnce(t.Context(), "hash-B") // verifies
 
 	if !replica.didRealSync() {
 		t.Error("the drifted member was not overwritten")
@@ -1567,8 +1603,10 @@ func TestAutoSync_IncompleteMemberIsNotConverged(t *testing.T) {
 }
 
 // TestAutoSync_ResponseWithoutIncompleteFieldIsComplete: an older member that
-// never sends the incomplete field decodes it to false and is still treated as
-// fully converged.
+// never sends the incomplete field decodes it to false, so the push itself
+// reports as applied. Whether that member ended up holding the config is settled
+// by the hash comparison in the loop, not here (see
+// TestAutoSync_OlderMemberOmittingIncompleteIsStillFlagged).
 func TestAutoSync_ResponseWithoutIncompleteFieldIsComplete(t *testing.T) {
 	srv, store := newTestServer(t)
 	replica := newStubConfigMember(t, "rtoken")
@@ -1604,28 +1642,6 @@ func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	if res.Error != want {
 		t.Errorf("Error = %q, want %q", res.Error, want)
 	}
-
-	// The operator-facing alert carries the same countless wording: a count here
-	// would read "could not build 0 failover group(s)" and claim nothing is wrong.
-	// The metadata still carries a list, so a consumer never sees null.
-	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
-	if err != nil {
-		t.Fatalf("ListEvents: %v", err)
-	}
-	if len(evs) != 1 {
-		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
-	}
-	const wantMsg = "replica applied the config but could not build its failover groups"
-	if evs[0].Message != wantMsg {
-		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
-	}
-	meta, err := json.Marshal(evs[0].Metadata)
-	if err != nil {
-		t.Fatalf("marshal event metadata: %v", err)
-	}
-	if got, want := string(meta), `{"unapplied":[]}`; got != want {
-		t.Errorf("event metadata = %s, want %s", got, want)
-	}
 }
 
 // countEventsOfType returns how many stored events of the given type the fleet
@@ -1639,92 +1655,57 @@ func countEventsOfType(t *testing.T, store *Store, typ string) int {
 	return len(evs)
 }
 
-// TestAutoSync_IncompleteEventIsEdgeTriggered: an incomplete member is retried on
-// every pass, so config.sync_incomplete must fire once on the transition into
-// incomplete rather than once per retry. The matching config.sync_recovered fires
-// once when the member finally applies everything, and only for a member that was
-// actually incomplete.
+// TestAutoSync_IncompleteEventIsEdgeTriggered: a diverged member is re-checked on
+// every pass, so config.sync_incomplete must fire once on the transition in rather
+// than once per pass. The matching config.sync_recovered fires once when the
+// member finally serves the primary's hash. Driven through the loop, since the
+// hash comparison there is what arms and disarms the edge.
 func TestAutoSync_IncompleteEventIsEdgeTriggered(t *testing.T) {
-	srv, store := newTestServer(t)
-	replica := newStubConfigMember(t, "rtoken")
-	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
-		`"incomplete":true,"unapplied":["ds4flash"],"diff":{}}`
-	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	f := newIncompleteFleet(t)
 
-	for range 3 {
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	for range 4 {
+		f.settledTick(t)
 	}
 
-	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
 	if err != nil {
 		t.Fatalf("ListEvents: %v", err)
 	}
 	if len(evs) != 1 {
-		t.Fatalf("config.sync_incomplete events = %d, want exactly 1 across repeated incomplete passes", len(evs))
+		t.Fatalf("config.sync_incomplete events = %d, want exactly 1 across repeated diverged passes", len(evs))
 	}
-	if evs[0].MemberID != rm.ID {
-		t.Errorf("incomplete event member = %q, want %q", evs[0].MemberID, rm.ID)
+	if evs[0].MemberID != f.replicaM.ID {
+		t.Errorf("incomplete event member = %q, want %q", evs[0].MemberID, f.replicaM.ID)
 	}
-	// The alert body is what the operator reads, so pin it along with the group
-	// names it carries in the metadata.
-	const wantMsg = "replica applied the config but could not build 1 failover group(s)"
-	if evs[0].Message != wantMsg {
-		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("incompleteSnapshot does not hold the diverged member")
 	}
-	meta, err := json.Marshal(evs[0].Metadata)
-	if err != nil {
-		t.Fatalf("marshal event metadata: %v", err)
-	}
-	if got, want := string(meta), `{"unapplied":["ds4flash"]}`; got != want {
-		t.Errorf("event metadata = %s, want %s", got, want)
-	}
-	if !srv.incompleteSnapshot()[rm.ID] {
-		t.Error("incompleteSnapshot does not hold the incomplete member")
-	}
-	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
-		t.Errorf("config.sync_recovered events = %d while the member is still incomplete, want 0", n)
+	if n := countEventsOfType(t, f.store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events = %d while the member is still diverged, want 0", n)
 	}
 
-	// The member builds everything on the next pass: recovery fires once, and the
-	// pass after it stays quiet.
-	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+	// The member's own discovery catches up, so it now serves the primary's hash:
+	// recovery fires once, and the passes after it stay quiet.
+	f.replica.setVersionHash("hash-B")
 	for range 2 {
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+		f.settledTick(t)
 	}
 
-	rec, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	rec, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
 	if err != nil {
 		t.Fatalf("ListEvents: %v", err)
 	}
 	if len(rec) != 1 {
 		t.Fatalf("config.sync_recovered events = %d, want exactly 1 across repeated healthy passes", len(rec))
 	}
-	if rec[0].MemberID != rm.ID {
-		t.Errorf("recovered event member = %q, want %q", rec[0].MemberID, rm.ID)
+	if rec[0].MemberID != f.replicaM.ID {
+		t.Errorf("recovered event member = %q, want %q", rec[0].MemberID, f.replicaM.ID)
 	}
-	if len(srv.incompleteSnapshot()) != 0 {
-		t.Errorf("incompleteSnapshot = %v after recovery, want empty", srv.incompleteSnapshot())
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v after recovery, want empty", f.srv.incompleteSnapshot())
 	}
-	if n := countEventsOfType(t, store, "config.sync_incomplete"); n != 1 {
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
 		t.Errorf("config.sync_incomplete events = %d after recovery, want the original 1", n)
-	}
-}
-
-// TestAutoSync_RecoveredEventOnlyAfterIncomplete: a member that was never
-// incomplete must not emit config.sync_recovered on an ordinary successful sync,
-// or every healthy pass would toast a recovery.
-func TestAutoSync_RecoveredEventOnlyAfterIncomplete(t *testing.T) {
-	srv, store := newTestServer(t)
-	replica := newStubConfigMember(t, "rtoken")
-	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
-	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
-
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
-	if !res.OK {
-		t.Fatalf("OK = false (%s), want true", res.Error)
-	}
-	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
-		t.Errorf("config.sync_recovered events = %d for a member that was never incomplete, want 0", n)
 	}
 }
 
@@ -1902,6 +1883,11 @@ func TestAutoSync_IncompleteSnapshotSurvivesRateLimiting(t *testing.T) {
 // but cannot build its failover groups leaves the fleet hash unrecorded and its
 // last-sync stamp untouched, and the operator's enable-time kick re-pushes it
 // rather than waiting out the retry bound.
+//
+// A kick clears the retry timers, which is also the "this member has had its
+// chance" signal, so neither kick flags anything: the deliberate action gets a
+// clean run. The tick that follows measures the member against the primary and
+// raises the alert.
 func TestAutoSync_IncompleteMemberLeavesFleetUnconverged(t *testing.T) {
 	f := newIncompleteFleet(t)
 
@@ -1911,6 +1897,11 @@ func TestAutoSync_IncompleteMemberLeavesFleetUnconverged(t *testing.T) {
 	if got := f.replica.realSyncCount(); got != 2 {
 		t.Errorf("real imports = %d across two operator kicks, want 2: a deliberate kick retries now", got)
 	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d on the kicks themselves, want 0: a kick re-pushes before it judges", n)
+	}
+
+	f.settledTick(t)
 	cfg, err := f.store.GetAutoSync(t.Context())
 	if err != nil {
 		t.Fatalf("GetAutoSync: %v", err)
@@ -1988,6 +1979,350 @@ func TestAutoSync_HealthyMemberIsSyncedOnceWhileAnotherIsIncomplete(t *testing.T
 	}
 	if !srv.incompleteSnapshot()[im.ID] {
 		t.Error("incompleteSnapshot dropped the incomplete member; the fleet badge would clear")
+	}
+}
+
+// hashFleet is a two-member fleet for the convergence-by-hash tests: a primary
+// reporting hash-B, one replica the caller configures, and auto-sync enabled at a
+// stale hash-A so every settled tick runs a convergence pass.
+type hashFleet struct {
+	srv      *Server
+	store    *Store
+	primary  *stubAutoMember
+	replica  *stubAutoMember
+	replicaM *Member
+}
+
+// newHashFleet builds that fleet, running setup on the replica stub before it is
+// registered so the member is in its intended disposition from the first request.
+func newHashFleet(t *testing.T, setup func(replica *stubAutoMember)) *hashFleet {
+	t.Helper()
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	setup(replica)
+
+	pm, err := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	rm, err := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	if err != nil {
+		t.Fatalf("create replica: %v", err)
+	}
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
+	return &hashFleet{srv: srv, store: store, primary: primary, replica: replica, replicaM: rm}
+}
+
+// tick runs one settled convergence pass, the way the loop does once the primary's
+// hash has stopped moving.
+func (f *hashFleet) tick(t *testing.T) {
+	t.Helper()
+	f.srv.autoSyncOnce(t.Context(), "hash-B")
+}
+
+// lastHash reads the fleet's recorded applied hash, the marker that is written
+// only once every reachable member has been verified against the primary.
+func (f *hashFleet) lastHash(t *testing.T) string {
+	t.Helper()
+	cfg, err := f.store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	return cfg.LastHash
+}
+
+// TestAutoSync_HashMatchAfterPushConvergesTheFleet: the pass that pushes only
+// pushes. Verification is the next pass's hash query, and only once the member
+// serves the primary's hash is the fleet recorded as converged. That costs one
+// extra tick and is what makes convergence a measurement rather than a claim.
+func TestAutoSync_HashMatchAfterPushConvergesTheFleet(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B" // it genuinely holds the primary's config afterwards
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("first pass: real imports = %d, want 1", got)
+	}
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded on the pushing pass; want it withheld until the member is verified")
+	}
+
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d after the verifying pass, want 1: a matching member is left alone", got)
+	}
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Errorf("fleet hash = %q, want hash-B once the member's own hash matched", got)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d for a member that converged, want 0", n)
+	}
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v, want empty", f.srv.incompleteSnapshot())
+	}
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt == nil {
+		t.Error("verified member AutoSyncVerifiedAt = nil, want the heartbeat stamped")
+	}
+}
+
+// TestAutoSync_MemberClaimingSuccessWhileDivergedIsFlagged is the headline: the
+// member answers the import with incomplete=false, so its self-report says the
+// config applied cleanly, and its own config hash still differs from the primary's.
+// That is the production incident exactly. The hash decides, so the member is
+// flagged and the fleet stays unconverged; trusting the self-report would have
+// recorded the fleet hash and left the divergence invisible.
+func TestAutoSync_MemberClaimingSuccessWhileDivergedIsFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted" // and it never adopts the primary's
+		r.dryDiff = driftDiff
+		r.realImportBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"incomplete":false,"diff":{}}`
+	})
+
+	f.tick(t) // pushes; the member claims a clean apply
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("first pass: real imports = %d, want 1", got)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d on the pushing pass, want 0: a member is flagged only after it has been given the config", n)
+	}
+
+	f.tick(t) // verifies: the member's hash still differs
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d, want 1: a member that claims success while diverged is still flagged", n)
+	}
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Error("incompleteSnapshot does not hold the diverged member; the fleet badge would stay green")
+	}
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded while a member is diverged; want it withheld so the loop retries")
+	}
+}
+
+// TestAutoSync_OlderMemberOmittingIncompleteIsStillFlagged closes the deliberate
+// fail-open of the self-report: a member running older code answers without the
+// incomplete field at all, which decodes to false and reads as a clean apply. Its
+// hash still differs, so it is caught anyway.
+func TestAutoSync_OlderMemberOmittingIncompleteIsStillFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		// The default success body carries no incomplete field, exactly as an older
+		// member answers.
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d, want 1: a response without the field is not evidence of success", n)
+	}
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded for a member that never reported its apply; want it withheld")
+	}
+}
+
+// TestAutoSync_MemberNotYetPushedIsNeverFlagged is the no-flap guard. Every
+// ordinary config edit leaves every member momentarily diverged, so a member that
+// has not been given the new config yet must not turn the fleet badge amber for a
+// tick. It is pushed, and judged on the pass after.
+func TestAutoSync_MemberNotYetPushedIsNeverFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1: the member still needs the config", got)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d on the very first pass, want 0", n)
+	}
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v after one pass, want empty: an unpushed member is not a failed one", f.srv.incompleteSnapshot())
+	}
+}
+
+// TestAutoSync_UnreadableMemberHashIsNotFlagged: a hash that could not be read
+// proves nothing either way. The member is held unconverged and re-checked on the
+// next pass, but it is never flagged as diverged, because Front Desk has not
+// measured a divergence.
+func TestAutoSync_UnreadableMemberHashIsNotFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError // its own hash cannot be read
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d for an unreadable hash, want 0", n)
+	}
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v, want empty: an unread hash is not a measured divergence", f.srv.incompleteSnapshot())
+	}
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded for a member that could not be verified; want it withheld")
+	}
+}
+
+// TestAutoSync_EmptyDiffDoesNotOverrideTheHash: the dry-run diff cannot promote a
+// member to converged. One that does not serve the primary's hash yet has nothing
+// to write is left alone, holds the fleet unconverged, and does not get the
+// "verified in sync" heartbeat, which now means the hash matched and nothing else.
+func TestAutoSync_EmptyDiffDoesNotOverrideTheHash(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		// The default dryDiff is empty: the presence-based diff sees nothing to write.
+	})
+
+	f.tick(t)
+
+	if got := f.replica.dryRunCount(); got == 0 {
+		t.Fatal("dry-runs = 0: a member whose hash differs must still be evaluated")
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: there is nothing to write", got)
+	}
+	if got := f.lastHash(t); got == "hash-B" {
+		t.Error("fleet hash recorded for a member that does not serve it; the diff must not outvote the hash")
+	}
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt != nil {
+		t.Error("member stamped verified in sync while its hash differs")
+	}
+}
+
+// TestAutoSync_RecoveryEdgeFiresOnceWhenTheHashMatches: the transition out is
+// edge-triggered on the same criterion as the transition in. A member whose
+// discovery finally catches up serves the primary's hash, and that one pass clears
+// the state and emits config.sync_recovered exactly once.
+func TestAutoSync_RecoveryEdgeFiresOnceWhenTheHashMatches(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+	f.tick(t)
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1 before recovery", n)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events = %d while the member is still diverged, want 0", n)
+	}
+
+	f.replica.setVersionHash("hash-B") // the member now holds the primary's config
+	f.tick(t)
+
+	if n := countEventsOfType(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Fatalf("config.sync_recovered events = %d, want exactly 1 on the recovery edge", n)
+	}
+	if len(f.srv.incompleteSnapshot()) != 0 {
+		t.Errorf("incompleteSnapshot = %v after recovery, want empty", f.srv.incompleteSnapshot())
+	}
+	if got := f.lastHash(t); got != "hash-B" {
+		t.Errorf("fleet hash = %q, want hash-B once the member matched", got)
+	}
+
+	f.tick(t)
+	if n := countEventsOfType(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered events = %d on a later quiet pass, want the original 1", n)
+	}
+}
+
+// TestAutoSync_ConvergedMemberNeverFlaggedEmitsNoRecovery: recovery is an edge, not
+// a level. A member that converges without ever having been flagged must stay
+// quiet, or every healthy sync would toast a recovery.
+func TestAutoSync_ConvergedMemberNeverFlaggedEmitsNoRecovery(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	if n := countEventsOfType(t, f.store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events = %d for a member that was never flagged, want 0", n)
+	}
+}
+
+// TestAutoSync_FlagNamesTheGroupsTheMemberReported: the member's own report is no
+// longer what decides convergence, but it is still what makes the alert specific.
+// The groups it named on its last import survive to the pass that flags it, so the
+// operator is told which failover groups are missing rather than only that
+// something differs.
+func TestAutoSync_FlagNamesTheGroupsTheMemberReported(t *testing.T) {
+	f := newIncompleteFleet(t)
+
+	f.settledTick(t)
+	f.settledTick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+	if evs[0].MemberID != f.replicaM.ID {
+		t.Errorf("event member = %q, want %q", evs[0].MemberID, f.replicaM.ID)
+	}
+	const wantMsg = "replica applied the config but could not build 1 failover group(s)"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"unapplied":["ds4flash"]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
+	}
+}
+
+// TestAutoSync_FlagWithoutNamesReadsAsAPlainDivergence: a divergence the member
+// did not explain (it named no groups, or it claimed a clean apply) has no group
+// list to report, so the alert must say the member does not match rather than
+// degrade into a count of zero groups.
+func TestAutoSync_FlagWithoutNamesReadsAsAPlainDivergence(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+	f.tick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+	const wantMsg = "replica applied the config but does not match the primary's config"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	// The names ride the metadata as a list either way, never as null, so consumers
+	// see one shape.
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"unapplied":[]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
 

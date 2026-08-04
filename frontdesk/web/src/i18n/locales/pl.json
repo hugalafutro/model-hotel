@@ -143,7 +143,7 @@
 			"drained_to_single": "pozostał tylko jeden aktywny członek; flota nie ma nadmiarowości",
 			"sync_held": "synchronizacja konfiguracji jest wstrzymana dla członka (rozbieżność wersji)",
 			"all_sync_held": "synchronizacja konfiguracji jest wstrzymana dla każdego członka; główny jest wyjątkiem",
-			"sync_incomplete": "członek zastosował konfigurację, ale nie zdołał zbudować wszystkich grup przełączania awaryjnego",
+			"sync_incomplete": "konfiguracja członka po synchronizacji nie zgadza się z konfiguracją głównego",
 			"autosync_stale": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad dnia",
 			"autosync_stale_long": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad trzech dni",
 			"traefik_config_stale": "Traefik przestał pobierać konfigurację routingu"
@@ -292,7 +292,7 @@
 				"config_auto_synced": "Auto-synchronizacja zastosowana we flocie",
 				"config_autosync_stale": "Auto-synchronizacja wyłączona, flota niezsynchronizowana",
 				"config_sync_held": "Synchronizacja wstrzymana (rozbieżność wersji)",
-				"config_sync_incomplete": "Synchronizacja niepełna (grupy nie zbudowane)",
+				"config_sync_incomplete": "Synchronizacja niepełna (członek się nie zgadza)",
 				"config_sync_recovered": "Synchronizacja znów pełna",
 				"version_fetch_failed": "Wersja członka nieczytelna",
 				"version_fetch_recovered": "Wersja członka ponownie czytelna",
