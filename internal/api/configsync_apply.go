@@ -22,6 +22,20 @@ import (
 // not that the job is large.
 const failoverApplyTimeout = 30 * time.Second
 
+// postImportRefreshTimeout bounds the whole detached post-commit refresh: model
+// discovery across every imported provider, then the failover group build.
+//
+// It matches Front Desk's incompleteRetryInterval, which is what decides when a
+// member that has not converged is pushed to again. Equal budgets mean a refresh
+// is always finished, or abandoned, before the next push for the same member can
+// arrive, so two discoveries can never run against one member at once.
+//
+// It is far longer than Front Desk's 120s import client, so a slow first import
+// answers nobody. That is deliberate: the response fields are diagnostics, and
+// convergence is decided by comparing the member's config hash, which needs no
+// response at all. Finishing the work matters more than reporting it.
+const postImportRefreshTimeout = 10 * time.Minute
+
 // applyOutcome carries what the post-commit steps of an import could not do.
 // The core config is already durable when these run, so none of them fail the
 // import; they travel to Front Desk instead, which retries until they succeed.
@@ -337,7 +351,14 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// discovery on a fresh member routinely runs longer; inheriting that deadline
 	// starves the group build, which depends on discovery's output. Discovery
 	// keeps its own per-provider deadlines (see discovery.go).
-	ctx = context.WithoutCancel(ctx)
+	//
+	// Detached, not unbounded: the aggregate still gets a ceiling, so a provider
+	// family that neither answers nor trips its own deadline cannot pin these
+	// steps open indefinitely. This runs inside the import handler, so that
+	// ceiling is also the longest a graceful shutdown can wait on an import in
+	// flight.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), postImportRefreshTimeout)
+	defer cancel()
 
 	// Stamp the HA synced marker AFTER the commit, via Set (not SetTx): this
 	// instance-local, non-syncable key drives the member dashboard's "synced
