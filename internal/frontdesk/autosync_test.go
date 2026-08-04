@@ -1602,12 +1602,13 @@ func TestAutoSync_IncompleteMemberIsNotConverged(t *testing.T) {
 	}
 }
 
-// TestAutoSync_ResponseWithoutIncompleteFieldIsComplete: an older member that
+// TestAutoSync_ResponseWithoutIncompleteFieldReadsAsApplied: an older member that
 // never sends the incomplete field decodes it to false, so the push itself
-// reports as applied. Whether that member ended up holding the config is settled
-// by the hash comparison in the loop, not here (see
-// TestAutoSync_OlderMemberOmittingIncompleteIsStillFlagged).
-func TestAutoSync_ResponseWithoutIncompleteFieldIsComplete(t *testing.T) {
+// reports as applied. That is a statement about the push, not about the member:
+// whether it ended up holding the config is settled by the hash comparison in the
+// loop (see TestAutoSync_OlderMemberOmittingIncompleteIsStillFlagged, where the
+// same response is caught).
+func TestAutoSync_ResponseWithoutIncompleteFieldReadsAsApplied(t *testing.T) {
 	srv, store := newTestServer(t)
 	replica := newStubConfigMember(t, "rtoken")
 	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
@@ -2172,6 +2173,73 @@ func TestAutoSync_UnreadableMemberHashIsNotFlagged(t *testing.T) {
 	}
 	if got := f.lastHash(t); got == "hash-B" {
 		t.Error("fleet hash recorded for a member that could not be verified; want it withheld")
+	}
+}
+
+// TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
+// is not a verification. A member that commits every import and never ends up
+// holding the config is re-pushed once per incompleteRetryInterval forever, so a
+// heartbeat taken from the write would keep reading "verified in sync" beside the
+// amber badge that says the member does not match. That pairing is what kept the
+// original divergence invisible. Only the hash comparison may stamp it.
+func TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted" // and it never adopts the primary's
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t) // pushes, and the member commits it
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("first pass: real imports = %d, want 1", got)
+	}
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt != nil {
+		t.Error("member stamped verified in sync by the write alone; only a matching hash may do that")
+	}
+
+	f.tick(t) // measures the divergence and flags it
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Fatal("test setup: the member was not flagged, so the pairing under test never arose")
+	}
+
+	// The bounded retry comes round: the member commits another import and still
+	// does not match.
+	backdateIncompleteRetry(t, f.srv, f.replicaM.ID, incompleteRetryInterval+time.Minute)
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Fatalf("past the interval: real imports = %d, want 2", got)
+	}
+	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt != nil {
+		t.Error("re-push refreshed the verified heartbeat of a member measured as diverged")
+	}
+}
+
+// TestConfigSync_WizardStampsVerifiedOnItsOwnWrite: the operator-driven path keeps
+// the old behaviour. The wizard is a deliberate action whose result is the write
+// itself, so it advances the heartbeat; the auto-sync loop's call to the same
+// function does not, because it takes that reading from its own hash comparison.
+func TestConfigSync_WizardStampsVerifiedOnItsOwnWrite(t *testing.T) {
+	srv, store := newTestServer(t)
+	wizard := newStubConfigMember(t, "wtoken")
+	auto := newStubConfigMember(t, "atoken")
+	wm, _ := store.CreateMember(t.Context(), "wizard", wizard.srv.URL, "wtoken")
+	am, _ := store.CreateMember(t.Context(), "auto", auto.srv.URL, "atoken")
+
+	// emitSuccessEvent true is the wizard's call; false is the auto-syncer's.
+	if res := srv.applyMemberConfig(t.Context(), wm, "wtoken", []byte(fleetExportWithKey),
+		manualSyncReason("the dashboard"), true, 0); !res.OK {
+		t.Fatalf("wizard sync OK = false (%s), want true", res.Error)
+	}
+	if res := srv.applyMemberConfig(t.Context(), am, "atoken", []byte(fleetExportWithKey),
+		autoSyncReason, false, 0); !res.OK {
+		t.Fatalf("auto sync OK = false (%s), want true", res.Error)
+	}
+
+	snap := srv.poller.Snapshot()
+	if snap[wm.ID].AutoSyncVerifiedAt == nil {
+		t.Error("wizard member AutoSyncVerifiedAt = nil, want the heartbeat stamped on a completed write")
+	}
+	if snap[am.ID].AutoSyncVerifiedAt != nil {
+		t.Error("auto-sync member AutoSyncVerifiedAt was stamped by the write; the loop's hash check owns that")
 	}
 }
 

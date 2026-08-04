@@ -620,6 +620,13 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
 // flagged emits nothing, keeping ordinary successful passes quiet. Dropping the
 // whole entry is deliberate: a converged member has no retry to bound and no
 // divergence to describe.
+//
+// This is the only caller-facing way out of the flagged state, and it runs from
+// the auto-sync loop alone. A manual sync therefore does not clear the flag: its
+// evidence is the member's own report of its import, which is exactly the trust
+// this criterion replaces. With auto-sync off, a flagged member keeps its amber
+// badge however many times the wizard is run, until auto-sync resumes and a pass
+// measures the member as matching.
 func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) {
 	s.syncIncompleteMu.Lock()
 	was := s.syncIncomplete[m.ID].diverged

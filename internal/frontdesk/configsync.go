@@ -246,10 +246,12 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // marker with reason (shown in the Members table), so both the wizard and the
 // auto-sync loop record why and when a member last converged.
 //
-// emitSuccessEvent controls only the per-member success event: the wizard wants
-// one event per member (it is a deliberate operator action), but the background
-// auto-syncer sets it false and emits a single roll-up instead, so a fleet sync
-// does not toast once per member. Failure events always fire regardless, since a
+// emitSuccessEvent separates the two callers' notion of success. The wizard sets
+// it true: an operator drove this sync, so it wants one event per member and the
+// live "verified in sync" heartbeat moved with the write. The background
+// auto-syncer sets it false: it emits a single roll-up instead of toasting once
+// per member, and it takes its heartbeat from its own hash comparison rather than
+// from a write having landed. Failure events always fire regardless, since a
 // member left behind is worth surfacing in either path.
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
@@ -326,13 +328,19 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 
 	if res.OK {
 		recordConfigSync("ok")
-		// A real write also confirms the member is in sync now: advance the live
-		// heartbeat alongside the persisted last_config_sync_at stamp. Whether the
-		// member really ended up holding this config is settled by the auto-sync
-		// loop's next hash comparison, which owns the divergence state and its
-		// config.sync_incomplete / config.sync_recovered edges.
-		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		if emitSuccessEvent {
+			// The wizard's own path: an operator drove this sync, so a completed write
+			// is what they asked to be told about, and the live "verified in sync"
+			// heartbeat moves with it.
+			//
+			// The auto-sync loop passes false and deliberately does not get this stamp.
+			// A successful write proves the member took the config, not that it ended up
+			// holding it, and only the loop's hash comparison establishes that. A member
+			// that can never converge commits every re-push, so stamping here would
+			// refresh "verified in sync" every incompleteRetryInterval, forever, beside
+			// the amber badge that says the member does not match. That display is what
+			// kept the original divergence invisible.
+			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
 				Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,
