@@ -38,8 +38,8 @@ const retryDelay = 250 * time.Millisecond
 // authorization code in that state would turn a transient error into a hard
 // invalid_grant.
 //
-// Base must be non-nil. Attempts below 2 issues the request exactly once, which
-// makes the zero value a passthrough.
+// Base must be non-nil. An Attempts below 2 issues the request exactly once,
+// which makes the zero value a passthrough.
 type RetryTransport struct {
 	Base     http.RoundTripper
 	Attempts int
