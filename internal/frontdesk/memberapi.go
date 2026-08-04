@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,8 +18,17 @@ import (
 // pointed somewhere hostile cannot bounce the request (carrying the member's
 // admin Bearer token) to another host.
 
-// maxMemberRespBody bounds a member admin-API response read into memory.
+// maxMemberRespBody bounds a member admin-API response read into memory. It suits
+// the small JSON documents routine calls return (a config hash, a settings object,
+// a stats series); a response that grows with the member's own history passes its
+// own limit to callMemberLimited.
 const maxMemberRespBody = 1 << 20
+
+// errMemberRespTooLarge reports a member response that did not fit its read limit.
+// Distinct from a parse failure: the body is a prefix of valid JSON, so a decoder
+// error would read as "this member sent nonsense" when the truth is "Front Desk
+// refused to read it all".
+var errMemberRespTooLarge = errors.New("frontdesk: member response exceeds the read limit")
 
 // callMember performs an admin-authenticated request to a member's API and
 // returns the response status and body (capped). token is sent as the Bearer
@@ -34,6 +44,15 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 // request headers (e.g. the fleet source-generation fence) may be passed as
 // (name, value) pairs; an empty value is skipped.
 func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
+	return s.callMemberLimited(ctx, client, maxMemberRespBody, method, baseURL, path, token, body, headers...)
+}
+
+// callMemberLimited is callMemberWith with an explicit response-body limit, for a
+// call whose response grows with something on the member rather than being a
+// fixed-shape document. A body reaching the limit returns errMemberRespTooLarge
+// with no data, never a truncated prefix: a caller handed half a listing would act
+// on a fraction of the member believing it saw all of it.
+func (s *Server) callMemberLimited(ctx context.Context, client *http.Client, limit int64, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
 	if err != nil {
 		return 0, nil, err
@@ -52,9 +71,14 @@ func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method
 		return 0, nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxMemberRespBody))
+	// One byte past the limit, so a body that exactly fills it still reads as
+	// complete and only a genuine overrun is reported.
+	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return resp.StatusCode, nil, err
+	}
+	if int64(len(data)) > limit {
+		return resp.StatusCode, nil, errMemberRespTooLarge
 	}
 	return resp.StatusCode, data, nil
 }
@@ -77,13 +101,6 @@ const memberReadTimeout = 15 * time.Second
 // exceeds the 4s probe timeout, so the import client is given a far more generous
 // deadline; it is still capped so a hung member cannot stall the sync forever.
 const memberSyncTimeout = 120 * time.Second
-
-// memberBackupTimeout bounds the pre-sync backup relay the auto-syncer makes
-// before overwriting a member. It must exceed the member's own pg_dump budget
-// (10 minutes, internal/api.backup.go) or a large member would time out every
-// tick and leave an orphaned dump holding the member's backup lock. One extra
-// minute covers the round trip and dump teardown.
-const memberBackupTimeout = 11 * time.Minute
 
 // tokenProbe is the outcome of checking a member's admin token at add/edit time,
 // before the background poller would otherwise catch a mistake.

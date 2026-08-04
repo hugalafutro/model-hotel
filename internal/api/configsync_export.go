@@ -41,10 +41,12 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not read config", http.StatusInternalServerError)
 		return
 	}
-	// Marshal only the Config payload: providers come out ORDER BY name, virtual
-	// keys ORDER BY created_at, failover groups ORDER BY display_model, and the
-	// settings map is key-sorted by encoding/json, so the bytes are deterministic
-	// for an unchanged config and the hash is stable across calls.
+	// Marshal only the Config payload. Every list is ordered by a column a unique
+	// index makes total, so no two rows tie and fall back to physical row order:
+	// providers by name, failover groups by display_model, users by username,
+	// virtual keys by (created_at, key_hash). encoding/json key-sorts the settings
+	// map. The bytes are therefore deterministic for an unchanged config, and two
+	// members holding the same config hash identically.
 	payload, err := json.Marshal(env.Config)
 	if err != nil {
 		debuglog.Error("configsync: marshal config for version", "error", err)
@@ -224,12 +226,18 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	return out, rows.Err()
 }
 
+// exportVirtualKeys lists every virtual key by (created_at, key_hash). The
+// tiebreaker is load-bearing: an import writes every key in one transaction, so a
+// whole fleet's keys share a created_at, and without a second ordering column tied
+// rows come back in physical row order. A row rewrite on either side would then
+// reorder byte-identical config and change its hash, which Front Desk reads as a
+// member that has not converged. key_hash is unique, so the order is total.
 func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]string) ([]ExportVK, error) {
 	rows, err := q.Query(ctx, `
 		SELECT vk.name, vk.key_hash, vk.key_preview, vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm,
 		       vk.allowed_providers, vk.strip_reasoning, u.username
 		FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
-		ORDER BY vk.created_at`)
+		ORDER BY vk.created_at, vk.key_hash`)
 	if err != nil {
 		return nil, err
 	}

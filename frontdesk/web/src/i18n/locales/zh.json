@@ -143,6 +143,7 @@
 			"drained_to_single": "仅剩一个活动成员；集群没有冗余",
 			"sync_held": "某个成员的配置同步已暂停（版本不一致）",
 			"all_sync_held": "每个成员的配置同步均已暂停；仅主节点例外",
+			"sync_incomplete": "同步后某个成员的配置仍与主节点的配置不一致",
 			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",
 			"autosync_stale_long": "自动同步已关闭，且集群超过三天未同步",
 			"traefik_config_stale": "Traefik 已停止获取路由配置"
@@ -283,13 +284,18 @@
 				"config_auto_synced": "自动同步已应用到集群",
 				"config_autosync_stale": "自动同步已关闭，集群未同步",
 				"config_sync_held": "同步已暂停（版本不一致）",
+				"config_sync_incomplete": "同步不完整（成员不一致）",
+				"config_sync_recovered": "同步再次完成",
 				"version_fetch_failed": "成员版本无法读取",
 				"version_fetch_recovered": "成员版本恢复可读",
 				"traefik_stale": "Traefik 配置过时",
 				"member_added": "成员已添加",
 				"member_removed": "成员已移除",
 				"member_state_changed": "成员已激活或排空",
-				"fleet_state_changed": "集群状态已更改"
+				"fleet_state_changed": "集群状态已更改",
+				"backup_stale": "成员没有最近的备份",
+				"backup_recovered": "成员备份已恢复",
+				"backup_pruned": "已清除 Front Desk 备份"
 			},
 			"saveBtn": "保存告警设置",
 			"testBtn": "发送测试",
@@ -307,6 +313,23 @@
 			"ntfyTopicLabel": "ntfy 主题",
 			"ntfyTopicPlaceholder": "my-secret-topic",
 			"ntfyUse": "设为目标"
+		},
+		"maintenance": {
+			"title": "集群维护",
+			"pruneHint": "旧版 Front Desk 会在每次配置同步前要求每个成员做一次数据库转储，而成员端的轮转从不清理它们。Front Desk 不再创建这些文件；此操作清除遗留的部分。手动和计划备份不受影响。",
+			"pruneBtn": "清除 Front Desk 备份",
+			"pruneChecking": "正在检查…",
+			"pruneTitle": "清除 Front Desk 备份",
+			"pruneBody_one": "这将永久删除 Front Desk 创建的 {{count}} 个备份。手动和计划备份将保留。",
+			"pruneBody_other": "这将永久删除 Front Desk 创建的 {{count}} 个备份。手动和计划备份将保留。",
+			"pruneNone": "成员上没有找到 Front Desk 创建的备份，无需删除。",
+			"pruneUnreadable": "部分成员无法读取，其备份未计入此数。",
+			"pruneConfirm": "删除",
+			"pruning": "正在删除…",
+			"pruneDone_one": "已删除 {{count}} 个备份",
+			"pruneDone_other": "已删除 {{count}} 个备份",
+			"pruneUnknown": "Front Desk 与本次操作失去了联系。请在事件标签页查看结果。",
+			"pruneFailed": "无法清除备份"
 		},
 		"wizard": {
 			"title": "集群同步向导",

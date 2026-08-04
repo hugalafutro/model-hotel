@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // seedRawFailoverGroup inserts a custom group with the priority_order and
@@ -621,5 +624,343 @@ func TestConfigSync_ImportPreservesLocalAutoDisableStamp(t *testing.T) {
 	}
 	if at := groupAutoDisabledAt(t, "glm52"); at != nil {
 		t.Errorf("an import that re-enables the group must clear the stamp (operator intent, and revalidation re-stamps it if still undersized), got %v", at)
+	}
+}
+
+// The post-commit steps run on their own budget, not the caller's. Front Desk's
+// import client gives up after 120s while discovery on a fresh member routinely
+// eats most of that, so by the time the group build starts the request context
+// can already be dead. The core config is committed at that point, so the build
+// must still run: inheriting the cancellation drops every custom group while the
+// member answers 200 / Applied: true.
+//
+// The synced marker is asserted alongside the group build because it is stamped
+// from the same detached context: a narrower detach that covered only the build
+// would keep the group assertions green while silently leaving the member's
+// dashboard reporting it was never synced.
+func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
+	cleanConfigTables(t)
+	sr := settings.NewRepository(apiTestDB.Pool())
+	h := NewConfigSyncHandler(apiTestDB, sr, configSyncMasterKey, "v-test", nil, nil)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "survivor",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Front Desk hung up before the build began
+
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+
+	if out.GroupApplyErr != nil {
+		t.Fatalf("group apply must not inherit the request cancellation: %v", out.GroupApplyErr)
+	}
+	if len(out.SkippedGroups) != 0 {
+		t.Fatalf("SkippedGroups = %v, want none", out.SkippedGroups)
+	}
+	if !groupExists(t, "survivor") {
+		t.Fatal("group was not written")
+	}
+	got := sr.GetWithDefault(context.Background(), keyFleetConfigSyncedAt, "")
+	if got == "" {
+		t.Fatal("synced marker not stamped: it must not inherit the request cancellation either")
+	}
+	if _, err := time.Parse(time.RFC3339, got); err != nil {
+		t.Errorf("synced marker = %q, not RFC3339: %v", got, err)
+	}
+}
+
+// An EXPIRED DEADLINE on the caller's context must not reach the group build
+// either, which is the distinct half of the cancellation case above: the build
+// derives its own budget with context.WithTimeout, and a child of an already
+// expired parent is born expired.
+//
+// This is the shape a per-refresh ceiling would create. Discovery detaches every
+// provider under its own timeout and never consults this context, so an aggregate
+// deadline cannot shorten the sweep it is meant to bound; it can only expire while
+// discovery runs long and then fail the one step that has to happen. The member
+// would answer applied-but-incomplete with no groups built, and be re-pushed
+// forever, restarting the same long discovery each time.
+func TestConfigSync_FailoverGroupsSurviveExpiredRequestDeadline(t *testing.T) {
+	cleanConfigTables(t)
+	sr := settings.NewRepository(apiTestDB.Pool())
+	h := NewConfigSyncHandler(apiTestDB, sr, configSyncMasterKey, "v-test", nil, nil)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "survivor",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Hour))
+	defer cancel()
+	if ctx.Err() == nil {
+		t.Fatal("test setup: the context was expected to be already expired")
+	}
+
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+
+	if out.GroupApplyErr != nil {
+		t.Fatalf("group apply inherited the expired deadline: %v", out.GroupApplyErr)
+	}
+	if out.incomplete() {
+		t.Error("an expired caller deadline made the import report incomplete")
+	}
+	if !groupExists(t, "survivor") {
+		t.Fatal("group was not written")
+	}
+}
+
+// upsertFailoverGroups reports the DisplayModel of a group it skips for too few
+// resolvable entries, and that group never also lands in Partial: a group with no
+// entries it can use is Skipped, never Partial, so the two lists stay disjoint.
+func TestConfigSync_UpsertReportsSkippedGroups(t *testing.T) {
+	cleanConfigTables(t)
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "ghost-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "NoSuchProvider", ModelID: "no-such-model-a", Enabled: true},
+			{ProviderName: "NoSuchProvider", ModelID: "no-such-model-b", Enabled: true},
+		},
+	}}
+
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(res.Skipped) != 1 || res.Skipped[0] != "ghost-group" {
+		t.Fatalf("Skipped = %v, want [ghost-group]", res.Skipped)
+	}
+	if len(res.Partial) != 0 {
+		t.Fatalf("Partial = %v, want none: a group below the two-entry floor is skipped, never partial", res.Partial)
+	}
+}
+
+// A group that resolves two of the three entries the primary sent is built, with
+// the two it has, and reported as partial rather than skipped: this member fails
+// over across fewer providers for that model, which is a real difference from the
+// primary and not a group it failed to build.
+func TestConfigSync_UpsertReportsPartialGroups(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "short-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-absent", Enabled: true},
+		},
+	}}
+
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(res.Partial) != 1 || res.Partial[0] != "short-group" {
+		t.Fatalf("Partial = %v, want [short-group]", res.Partial)
+	}
+	if len(res.Skipped) != 0 {
+		t.Fatalf("Skipped = %v, want none: the group was written, just with fewer entries", res.Skipped)
+	}
+	var priorityJSON []byte
+	if err := tx.QueryRow(context.Background(),
+		`SELECT priority_order FROM model_failover_groups WHERE display_model = 'short-group'`).
+		Scan(&priorityJSON); err != nil {
+		t.Fatalf("a partial group must still be written: %v", err)
+	}
+	var priority []string
+	if err := json.Unmarshal(priorityJSON, &priority); err != nil {
+		t.Fatalf("decode priority_order: %v", err)
+	}
+	if len(priority) != 2 {
+		t.Fatalf("priority_order = %v, want the 2 entries this member could resolve", priority)
+	}
+}
+
+// A fully resolving group is neither skipped nor partial: the member holds
+// exactly what the primary sent.
+func TestConfigSync_UpsertReportsNothingForAFullGroup(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	tx, err := apiTestDB.Pool().Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "whole-group",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	res, err := upsertFailoverGroups(context.Background(), tx, groups)
+	if err != nil {
+		t.Fatalf("upsertFailoverGroups: %v", err)
+	}
+	if len(res.Skipped) != 0 || len(res.Partial) != 0 {
+		t.Fatalf("result = %+v, want both lists empty for a fully resolving group", res)
+	}
+}
+
+// ghostGroupEnvelope builds an otherwise-minimal envelope (a virtual key keeps
+// it non-empty) carrying one custom failover group whose entries name a
+// provider absent from the member, so upsertFailoverGroups skips it.
+func ghostGroupEnvelope() ConfigEnvelope {
+	return ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config: ConfigPayload{
+			VirtualKeys: []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+			FailoverGroups: []ExportFailoverGroup{{
+				DisplayModel: "ghost-group",
+				GroupEnabled: true,
+				Entries: []ExportFailoverEntry{
+					{ProviderName: "NoSuchProvider", ModelID: "no-such-model-a", Enabled: true},
+					{ProviderName: "NoSuchProvider", ModelID: "no-such-model-b", Enabled: true},
+				},
+			}},
+		},
+	}
+}
+
+// An import that commits but cannot build one of its custom failover groups
+// still answers Applied: true (the core config is durable) and additionally
+// reports Incomplete plus the group's DisplayModel in Unapplied, so a caller
+// like Front Desk can tell a full apply from one that left a group unbuilt.
+func TestConfigSync_ImportReportsIncompleteOnSkippedGroup(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	rec := doImport(t, r, ghostGroupEnvelope(), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Applied {
+		t.Fatal("Applied = false, want true (the core config committed)")
+	}
+	if !got.Incomplete {
+		t.Fatal("Incomplete = false, want true")
+	}
+	if len(got.Unapplied) != 1 || got.Unapplied[0] != "ghost-group" {
+		t.Fatalf("Unapplied = %v, want [ghost-group]", got.Unapplied)
+	}
+}
+
+// A clean import (nothing skipped) must omit incomplete/unapplied from the
+// wire entirely, not emit them as false/null, so an older Front Desk that
+// only checks Applied sees the same shape it always has.
+func TestConfigSync_ImportOmitsIncompleteWhenFullyApplied(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	env := ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config: ConfigPayload{
+			VirtualKeys: []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+		},
+	}
+
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"incomplete"`)) {
+		t.Fatalf("clean import must omit incomplete, got %s", rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"unapplied"`)) {
+		t.Fatalf("clean import must omit unapplied, got %s", rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`"partial"`)) {
+		t.Fatalf("clean import must omit partial, got %s", rec.Body.String())
+	}
+}
+
+// A member holding fewer of a group's models than the primary builds that group
+// with what it has and names it in Partial. The apply is NOT incomplete: the
+// member did everything it was asked. It is still diverged, which the config
+// hash establishes; Partial only tells the operator which group is short.
+func TestConfigSync_ImportReportsPartialGroup(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	pm3 := seedModel(t, provID, "gpt-4o-nano")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2, pm3}, nil, false)
+	env := doExport(t, exportRouter)
+
+	// Replica has two of the three models, so the group builds short rather than
+	// falling below the two-entry floor.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, rProvID, "gpt-4o")
+	seedModel(t, rProvID, "gpt-4o-mini") // gpt-4o-nano absent here
+
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Applied {
+		t.Fatal("Applied = false, want true")
+	}
+	if len(got.Partial) != 1 || got.Partial[0] != "glm52" {
+		t.Fatalf("Partial = %v, want [glm52]", got.Partial)
+	}
+	if len(got.Unapplied) != 0 {
+		t.Fatalf("Unapplied = %v, want none: the group was built", got.Unapplied)
+	}
+	if got.Incomplete {
+		t.Fatal("Incomplete = true for a partial build; want false: the member applied everything it was asked to")
+	}
+	priority, _, _ := groupPriority(t, "glm52")
+	if len(priority) != 2 {
+		t.Fatalf("priority = %v, want the 2 entries this member could resolve", priority)
 	}
 }

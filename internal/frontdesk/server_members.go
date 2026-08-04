@@ -263,11 +263,31 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it", http.StatusConflict)
 		return
 	}
+	s.forgetMemberState(m.ID)
 	s.emit(r.Context(), Event{
 		Type: "member.removed", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " removed", MemberID: m.ID,
 	})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// forgetMemberState drops the in-memory per-member state Front Desk keeps outside
+// the store: the version-skew hold, the config divergence, and the backup
+// staleness flag. All three are read against the live member list, so this is
+// hygiene rather than correctness: a re-added member starts clean, and the maps do
+// not grow with every member ever removed.
+func (s *Server) forgetMemberState(id string) {
+	s.syncHeldMu.Lock()
+	delete(s.syncHeld, id)
+	s.syncHeldMu.Unlock()
+
+	s.syncIncompleteMu.Lock()
+	delete(s.syncIncomplete, id)
+	s.syncIncompleteMu.Unlock()
+
+	s.backupStaleMu.Lock()
+	delete(s.backupStale, id)
+	s.backupStaleMu.Unlock()
 }
 
 type memberStateRequest struct {

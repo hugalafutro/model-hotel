@@ -33,7 +33,7 @@ var (
 
 	fdConfigSyncTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "frontdesk_config_sync_total",
-		Help: "Per-member config-sync outcomes (wizard and auto-sync). \"superseded\" is a benign commit-fence refusal, not a failure.",
+		Help: "Per-member config-sync outcomes (wizard and auto-sync). \"superseded\" is a benign commit-fence refusal, not a failure. \"incomplete\" means the member committed the config but could not build every custom failover group.",
 	}, []string{"result"})
 
 	fdAlertsDispatchedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{

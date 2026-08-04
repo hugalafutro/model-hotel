@@ -251,11 +251,10 @@ provider IDs.
    shows, per member, what will be added, updated, or removed, and flags blocked
    members. Anything the primary lacks is **removed** from a replica that has it,
    so review before confirming.
-3. Confirm. Before overwriting a member that will actually change, Front Desk asks
-   it to snapshot itself first (badged **FD**, spared from GFS rotation), so a bad
-   sync can be rolled back; a member whose backup fails is left untouched and
-   reported. Each member is independent, and re-running retries any left behind.
-   Request logs and metering are never touched.
+3. Confirm. Front Desk imports the config into each member the preview lists a
+   change for. It takes no snapshot first, so keep member backups enabled if you
+   want a rollback point. Each member is independent, and re-running retries any
+   left behind. Request logs and metering are never touched.
 
 <p align="center"><a href="screenshots/frontdesk_settings_configsync.png"><img src="screenshots/frontdesk_settings_configsync.png" width="800" alt="Front Desk Settings — Fleet config sync (preview with diff)"></a></p>
 
@@ -264,29 +263,38 @@ provider IDs.
 The runbook above is the manual path. For an unattended fleet, Front Desk →
 Settings → **Automatic config sync** lets you designate a primary and flip
 auto-sync on; from then on you only manage the primary. Flipping it on converges
-the fleet to the primary right away, then Front Desk watches the primary's config
-and propagates any change to providers, virtual keys, or syncable settings across
-the fleet by itself. The Members table's **Last Config
-Sync** column shows when each member last converged and why.
+the fleet to the primary right away, then Front Desk keeps it there by itself,
+propagating any change to providers, virtual keys, or syncable settings across the
+fleet. The Members table's **Last Config Sync** column shows when each member last
+converged and why.
 
-Two safety properties make this safe to leave running:
+What makes this safe to leave running:
 
-- **Backed up first.** As in the wizard, each member is asked to snapshot itself
-  before being overwritten (badged **FD** in its backup list and spared from GFS
-  rotation), so a bad propagation can be rolled back.
+- **Convergence is measured, not assumed.** Every 15 seconds Front Desk reads each
+  member's own config hash and compares it with the primary's, so a member is only
+  counted in sync when it demonstrably serves the same config. A member that does
+  not is pushed to again, at most once every 10 minutes so a member that cannot
+  converge never re-imports on every tick; one that still does not match after a
+  push is badged amber and raises `config.sync_incomplete`.
+- **No pre-sync snapshot.** Front Desk does not ask a member to back itself up
+  before overwriting it. Members back themselves up on their own schedule when you
+  have enabled backups, so keep those on if you want a rollback point.
 - **Converges, does not thrash.** A change is propagated only after it settles,
-  members already matching the primary are skipped, and an unreachable or
-  `MASTER_KEY`-blocked member is retried later rather than overwritten.
+  members already matching the primary are skipped without so much as a diff, and
+  an unreachable or `MASTER_KEY`-blocked member is retried later rather than
+  overwritten.
 - **Newer config always wins.** Each push carries a monotonic source generation,
   and a member refuses any import older than the one it has already applied, so
   repointing the primary while an earlier push is still in flight can never strand a
   member on the older config. The fence engages when both ends run this build; an
   older member applies in arrival order as before.
 
-It reacts to *changes on the primary*; it is not a continuous reconciler. A direct
-edit on a replica (managed members are read-only, so you shouldn't) sits until the
-**primary** next changes, when the full config is pushed and the replica is
-brought back in line. There is no constant per-replica revert loop.
+It reconciles continuously, in both directions. A direct edit on a replica
+(managed members are read-only, so you shouldn't) is measured on the next pass and
+the full config is pushed back over it, usually within a tick or two, rather than
+sitting invisible until the primary happens to change. A member that already
+matches costs one hash read per tick and nothing else: no diff, no import, no
+member-side model discovery.
 
 Automatic sync is **off by default**: it trades the per-change diff review for
 convenience. Leave it off to approve every fleet-wide change by hand, or turn it

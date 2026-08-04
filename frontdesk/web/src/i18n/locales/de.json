@@ -143,6 +143,7 @@
 			"drained_to_single": "nur ein aktives Mitglied ist übrig; die Flotte hat keine Redundanz",
 			"sync_held": "Config-Sync ist für ein Mitglied angehalten (Versionsabweichung)",
 			"all_sync_held": "Config-Sync ist für jedes Mitglied angehalten; der Primär ist die Ausnahme",
+			"sync_incomplete": "die Config eines Mitglieds stimmt nach einem Sync nicht mit der des Primärs überein",
 			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",
 			"autosync_stale_long": "Auto-Sync ist aus und die Flotte wurde seit über drei Tagen nicht synchronisiert",
 			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"
@@ -283,13 +284,18 @@
 				"config_auto_synced": "Auto-Sync auf die Flotte angewendet",
 				"config_autosync_stale": "Auto-Sync aus, Flotte nicht synchronisiert",
 				"config_sync_held": "Sync angehalten (Versionsabweichung)",
+				"config_sync_incomplete": "Sync unvollständig (Mitglied stimmt nicht überein)",
+				"config_sync_recovered": "Sync wieder vollständig",
 				"version_fetch_failed": "Mitgliedsversion nicht lesbar",
 				"version_fetch_recovered": "Mitgliedsversion wieder lesbar",
 				"traefik_stale": "Traefik-Konfiguration veraltet",
 				"member_added": "Mitglied hinzugefügt",
 				"member_removed": "Mitglied entfernt",
 				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen",
-				"fleet_state_changed": "Flottenstatus geändert"
+				"fleet_state_changed": "Flottenstatus geändert",
+				"backup_stale": "Mitglied ohne aktuelles Backup",
+				"backup_recovered": "Mitglied wird wieder gesichert",
+				"backup_pruned": "Front-Desk-Backups gelöscht"
 			},
 			"saveBtn": "Alert-Einstellungen speichern",
 			"testBtn": "Test senden",
@@ -307,6 +313,23 @@
 			"ntfyTopicLabel": "ntfy-Thema",
 			"ntfyTopicPlaceholder": "mein-geheimes-thema",
 			"ntfyUse": "Als Ziel setzen"
+		},
+		"maintenance": {
+			"title": "Flottenwartung",
+			"pruneHint": "Ältere Front-Desk-Versionen haben vor jedem Konfigurationsabgleich von jedem Mitglied einen Datenbank-Dump angefordert, und die Rotation auf Mitgliedsseite entfernt diese nie. Front Desk erstellt sie nicht mehr; hier werden die verbliebenen gelöscht. Manuelle und geplante Backups bleiben unberührt.",
+			"pruneBtn": "Front-Desk-Backups löschen",
+			"pruneChecking": "Wird geprüft…",
+			"pruneTitle": "Front-Desk-Backups löschen",
+			"pruneBody_one": "Dadurch wird {{count}} von Front Desk erstelltes Backup dauerhaft gelöscht. Manuelle und geplante Backups bleiben erhalten.",
+			"pruneBody_other": "Dadurch werden {{count}} von Front Desk erstellte Backups dauerhaft gelöscht. Manuelle und geplante Backups bleiben erhalten.",
+			"pruneNone": "Auf Ihren Mitgliedern wurden keine von Front Desk erstellten Backups gefunden. Es gibt nichts zu löschen.",
+			"pruneUnreadable": "Einige Mitglieder konnten nicht gelesen werden, daher sind deren Backups hier nicht mitgezählt.",
+			"pruneConfirm": "Löschen",
+			"pruning": "Wird gelöscht…",
+			"pruneDone_one": "{{count}} Backup gelöscht",
+			"pruneDone_other": "{{count}} Backups gelöscht",
+			"pruneUnknown": "Front Desk hat den Kontakt zu diesem Vorgang verloren. Das Ergebnis steht im Tab Ereignisse.",
+			"pruneFailed": "Backups konnten nicht gelöscht werden"
 		},
 		"wizard": {
 			"title": "Flotten-Sync-Assistent",

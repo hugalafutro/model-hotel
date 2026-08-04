@@ -85,10 +85,10 @@ type backupEntry struct {
 }
 
 // CreateBackup runs pg_dump and saves the output to a timestamped file. An
-// operator-initiated call records origin "manual"; Front Desk passes
-// ?origin=frontdesk so the snapshot it takes before an HA config sync is badged
-// distinctly (and, like manual backups, spared from GFS rotation). "auto" is
-// scheduler-internal and never accepted here.
+// operator-initiated call records origin "manual"; a fleet caller may pass
+// ?origin=frontdesk so its snapshot is badged distinctly (and, like manual
+// backups, spared from GFS rotation). "auto" is scheduler-internal and never
+// accepted here.
 func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	origin := "manual"
 	if r.URL.Query().Get("origin") == backupOriginFrontDesk {
@@ -296,13 +296,14 @@ func generateBackupFilename(origin string) string {
 	)
 }
 
-// backupOriginFrontDesk marks a backup taken by Front Desk before an HA config
-// sync. It is both the ?origin= value CreateBackup accepts and the value
-// backupOrigin reports for "_frontdesk" files.
+// backupOriginFrontDesk marks a backup a fleet caller asked this member to take:
+// both the ?origin= value CreateBackup accepts and the value backupOrigin reports
+// for "_frontdesk" files. Front Desk's sync path does not call it, but an older
+// Front Desk or an operator tool may, and existing files must keep reading back.
 const backupOriginFrontDesk = "frontdesk"
 
 // backupOrigin reports who created a backup. The scheduler's files carry "_auto"
-// and read as "scheduled"; Front Desk's pre-sync snapshots carry "_frontdesk" and
+// and read as "scheduled"; fleet-requested snapshots carry "_frontdesk" and
 // read as "frontdesk"; everything else, manual "_manual" files and any predating
 // origin tracking, reads as "manual". Erring toward manual keeps GFS rotation
 // from pruning backups it cannot prove it created, which is the safe default for

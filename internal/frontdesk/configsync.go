@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,6 +49,21 @@ type syncResultItem struct {
 	Name     string `json:"name"`
 	OK       bool   `json:"ok"`
 	Error    string `json:"error,omitempty"`
+	// Incomplete marks a member that applied the config without materialising
+	// all of it. Distinct from Error alone, which also covers pushes the member
+	// rejected outright.
+	Incomplete bool     `json:"incomplete,omitempty"`
+	Unapplied  []string `json:"unapplied,omitempty"`
+	// Partial names the custom failover groups the member built with fewer
+	// entries than the primary sent. It rides alongside a successful result: the
+	// member applied everything it was asked to, it just holds fewer models.
+	Partial []string `json:"partial,omitempty"`
+	// TimedOut marks a push whose deadline expired before the member answered. The
+	// member may well have committed the config and just taken longer than
+	// memberSyncTimeout to say so, which is what a long member-side discovery looks
+	// like from here. Not on the wire: it only tells the auto-sync loop the member
+	// did receive the config, so the re-push is rate-limited.
+	TimedOut bool `json:"-"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -59,8 +75,19 @@ type memberImportResult struct {
 	// Stale is true when the member's commit fence refused this import because a
 	// newer source generation already applied (a rearm/repoint superseded this
 	// push). It is a benign, expected outcome, not a sync failure.
-	Stale bool             `json:"stale,omitempty"`
-	Diff  memberConfigDiff `json:"diff"`
+	Stale bool `json:"stale,omitempty"`
+	// Incomplete is true when the member committed the config but could not
+	// materialise all of it. Absent on a member running older code, which
+	// decodes to false and reads as complete.
+	Incomplete bool `json:"incomplete,omitempty"`
+	// Unapplied names the custom failover groups the member did not build.
+	Unapplied []string `json:"unapplied,omitempty"`
+	// Partial names the custom failover groups the member built with fewer entries
+	// than the primary sent, because it holds fewer of their models. Travels with
+	// Incomplete = false: the member applied everything it was asked to. Divergence
+	// is decided by the hash; this only makes the alert specific.
+	Partial []string         `json:"partial,omitempty"`
+	Diff    memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -155,11 +182,9 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			})
 			continue
 		}
-		// Gate the destructive replace on a dry-run: a member that will actually
-		// change is snapshotted first (the same recoverability guarantee the
-		// auto-syncer gives), an already-converged member is reported without an
-		// import, and a member whose backup fails is left untouched and reported.
-		if item, proceed := s.prepareMemberSync(ctx, m, token, export, reason); !proceed {
+		// Gate the destructive replace on a dry-run, so an already-converged member
+		// is reported without an import.
+		if item, proceed := s.prepareMemberSync(ctx, m, token, export); !proceed {
 			results = append(results, *item)
 			continue
 		}
@@ -174,43 +199,37 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 // (item, proceed):
 //
 //   - proceed=true (item nil): either the member is reachable, syncable, and
-//     changing, and has just been snapshotted; or it is unreachable / version- or
-//     MASTER_KEY-blocked. In both cases the caller runs applyMemberConfig, which
-//     performs the authoritative import and reports the real outcome. A blocked or
-//     unreachable member cannot be destructively written (its import is refused),
-//     so letting it fall through costs nothing and yields a precise error.
-//   - proceed=false (item set): the member is already converged (reported OK, no
-//     import) or its pre-sync backup failed (reported as left unchanged). The
-//     caller skips applyMemberConfig and records item as-is.
+//     changing; or it is unreachable / version- or MASTER_KEY-blocked. In both
+//     cases the caller runs applyMemberConfig, which performs the authoritative
+//     import and reports the real outcome. A blocked or unreachable member cannot
+//     be destructively written (its import is refused), so letting it fall through
+//     costs nothing and yields a precise error.
+//   - proceed=false (item set): the member is already converged, reported OK with
+//     no import. The caller skips applyMemberConfig and records item as-is.
 //
-// Crucially, a converged member is skipped entirely rather than handed to a no-op
-// import: re-importing it would reopen the window where a member edited between the
-// dry-run and the real import gets overwritten without the snapshot this gate is
-// meant to guarantee. This mirrors the auto-syncer, which also skips converged
-// members outright.
-func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte, reason string) (*syncResultItem, bool) {
+// A member the dry run reports as converged is skipped rather than handed a no-op
+// import, which would run member-side model discovery for no reason. That skip is
+// rare: computeDiff keys on presence, so every entity the member and the primary
+// share counts as updated and a real fleet's diff is almost never empty. The
+// auto-syncer therefore leans on incompleteRetryInterval, not on this branch.
+//
+// Front Desk takes no snapshot before overwriting a member; members back themselves
+// up on their own schedule. The trade is deliberate: a bad config propagation cannot
+// be rolled back from a snapshot Front Desk just took, and in exchange no member
+// accumulates a pg_dump per sync run.
+func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
 	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
-		// Already in sync: no backup, no import, and no last_config_sync_at stamp
-		// (nothing was written; that column means a real config write). Advance the
-		// live "verified in sync" heartbeat so the Members table shows the wizard
-		// just confirmed this member matches the primary, matching the auto path.
+		// Already in sync: no import, and no last_config_sync_at stamp, since that
+		// column means a real config write. The live "verified in sync" heartbeat does
+		// advance, so the Members table shows the wizard confirmed this member.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}
-	if err := s.backupMember(ctx, m, token); err != nil {
-		debuglog.Warn("frontdesk: wizard sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
-		s.emit(ctx, Event{
-			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
-			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"reason": reason},
-		})
-		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}, false
-	}
-	return nil, true // snapshotted: proceed to the authoritative import
+	return nil, true // this member is changing: proceed to the authoritative import
 }
 
 // recordFleetSyncRun stamps the last-run marker when a sync action updated at
@@ -220,7 +239,11 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, results []syncResultItem) {
 	changed := false
 	for _, r := range results {
-		if r.OK {
+		// An incomplete member counts as a config write: it committed the config and
+		// only failed to materialise part of it. Excluding it would freeze the fleet
+		// marker, which the staleness watchdog reads, for as long as one member
+		// stayed diverged.
+		if r.OK || r.Incomplete {
 			changed = true
 			break
 		}
@@ -238,15 +261,26 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // marker with reason (shown in the Members table), so both the wizard and the
 // auto-sync loop record why and when a member last converged.
 //
-// emitSuccessEvent controls only the per-member success event: the wizard wants
-// one event per member (it is a deliberate operator action), but the background
-// auto-syncer sets it false and emits a single roll-up instead, so a fleet sync
-// does not toast once per member. Failure events always fire regardless, since a
-// member left behind is worth surfacing in either path.
+// emitSuccessEvent separates the two callers' notion of success. The wizard sets it
+// true: an operator drove this sync, so it wants one event per member and the
+// heartbeat moves with the write. The auto-syncer sets it false: it emits one
+// roll-up rather than toasting per member, and takes its heartbeat from its own hash
+// comparison. Failure events fire either way.
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
+	// Carried on the success path too: a group built short is not a failure to
+	// apply, so it never reaches the incomplete arm below, and the auto-sync loop
+	// needs the names for its divergence alert.
+	res.Partial = out.Partial
 	switch {
+	case err != nil && status == 0 && isTimeout(err):
+		// The deadline expired with the member still working, so unlike a refusal or an
+		// unreachable host this push may have landed. Its own outcome, so the loop
+		// rate-limits the re-push instead of re-importing every tick and restarting the
+		// member-side discovery.
+		res.Error = "this member did not answer in time"
+		res.TimedOut = true
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:
@@ -274,15 +308,43 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
+	case out.Incomplete:
+		// The member committed the config but could not build part of it, so this push
+		// did not apply it: res.OK stays false, keeping the metric and the wizard's
+		// per-member result honest. The auto-sync loop does not depend on that, since
+		// the hash comparison decides convergence; what this report adds is the names
+		// below, which make the alert specific.
+		if len(out.Unapplied) > 0 {
+			res.Error = fmt.Sprintf("applied, but %d failover group(s) could not be built here: %s",
+				len(out.Unapplied), strings.Join(out.Unapplied, ", "))
+		} else {
+			// The member's whole group-build transaction failed rather than
+			// skipping individual groups, so it has no names to report here.
+			res.Error = "applied, but this member could not build its failover groups"
+		}
+		res.Incomplete = true
+		res.Unapplied = out.Unapplied
+		recordConfigSync("incomplete")
+		// The member did commit this config, so its last-sync marker advances even
+		// though res.OK stays false. Otherwise a member that can never build one group
+		// shows "Last Config Sync" frozen at its last clean apply, and the staleness
+		// watchdog raises config.autosync_stale on top of the divergence alert already
+		// naming the real problem. A write failure is logged and dropped: the member is
+		// reported diverged either way.
+		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
+			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		}
+		// This arm returns before the shared failure branch below, so without this an
+		// incomplete apply would leave no trace in the logs when alerting is off.
+		debuglog.Warn("frontdesk: config sync incomplete", "member", m.Name, "error", res.Error)
+		return res
 	default:
 		res.OK = true
 	}
 
-	// A member that applied the config is only truly converged once its durable
-	// last-sync stamp is written. If that write fails, fail the whole result: the
-	// store and UI still show the member unsynced, so the caller must not mark it
-	// converged (it is retried next pass) and neither the success event nor the
-	// verified heartbeat may fire. The metric and event then agree with res.OK.
+	// A failed last-sync write fails the whole result: the store and UI would still
+	// show the member unsynced, so it must not be marked converged, and neither the
+	// success event nor the verified heartbeat may fire.
 	if res.OK {
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
@@ -293,15 +355,21 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 
 	if res.OK {
 		recordConfigSync("ok")
-		// A real write also confirms the member is in sync now: advance the live
-		// heartbeat alongside the persisted last_config_sync_at stamp.
-		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		if emitSuccessEvent {
+			// The wizard's path: an operator drove this sync, so a completed write is
+			// what they asked to be told about.
+			//
+			// The auto-sync loop passes false and deliberately gets no stamp here. A
+			// successful write proves the member took the config, not that it ended up
+			// holding it. A member that can never converge commits every re-push, so
+			// stamping here would refresh "verified in sync" every
+			// incompleteRetryInterval beside the amber badge saying it does not match.
+			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
 				Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,
 				// reason carries who/why (e.g. "manual sync by Pixel (operator)" or
-				// "the primary's config changed"), so the event log attributes the run.
+				// "did not hold the primary's config"), so the event log attributes the run.
 				Metadata: map[string]any{"reason": reason},
 			})
 		}
@@ -317,10 +385,37 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	return res
 }
 
+// isTimeout reports whether a member call failed because its deadline expired, as
+// opposed to being refused, unreachable, or cancelled. Both shapes count: the
+// client's own Timeout, and an expired context deadline. A cancelled context is
+// deliberately not a timeout, so a pass aborted by a rearm is never mistaken for a
+// slow member.
+func isTimeout(err error) bool {
+	var nerr net.Error
+	if errors.As(err, &nerr) && nerr.Timeout() {
+		return true
+	}
+	return errors.Is(err, context.DeadlineExceeded)
+}
+
+// maxMemberConfigExportBody is the read limit for a member's config envelope. It
+// matches the member-side import cap (internal/api.maxConfigImportBody), because
+// this body is only ever re-posted to that endpoint: reading less than a member
+// would accept refuses an envelope the fleet could have synced, and reading more
+// buys nothing since the receiving member would reject it.
+//
+// It has to be its own limit rather than the shared maxMemberRespBody, which is
+// eight times smaller and sized for fixed-shape documents. An envelope grows with
+// the fleet's providers, virtual keys, users and groups, and this one is
+// load-bearing for every member: a refused read aborts the whole pass, so no
+// member converges.
+const maxMemberConfigExportBody = 8 << 20
+
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
 // re-posted to replicas verbatim (preserving the base64 key ciphertext).
 func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string) ([]byte, error) {
-	status, body, err := s.callMember(ctx, http.MethodGet, m.URL, memberConfigExportPath, token, nil)
+	status, body, err := s.callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
+		http.MethodGet, m.URL, memberConfigExportPath, token, nil)
 	if err != nil {
 		return nil, err
 	}

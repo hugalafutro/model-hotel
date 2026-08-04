@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ func TestComputeFleetState(t *testing.T) {
 	up := memberFleetFacts{Known: true, Healthy: true}
 	down := memberFleetFacts{Known: true, Healthy: false}
 	heldOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Held = true; return f }
+	incompleteOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Incomplete = true; return f }
 	syncable := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; return f }
 	drainedOf := func(f memberFleetFacts) memberFleetFacts { f.Drained = true; return f }
 
@@ -55,6 +57,12 @@ func TestComputeFleetState(t *testing.T) {
 		{"drain and health reasons compose in fixed order",
 			fleetStateInput{Members: []memberFleetFacts{up, down, drainedOf(up)}},
 			FleetDegraded, []string{"member_down", "member_drained"}},
+		{"a held and an incomplete member report both reasons in fixed order",
+			fleetStateInput{
+				Members:      []memberFleetFacts{up, heldOf(up), incompleteOf(up)},
+				AutoSyncTier: 1,
+			},
+			FleetDegraded, []string{"sync_held", "sync_incomplete", "autosync_stale"}},
 		{"stale tier 1 degrades", fleetStateInput{AutoSyncTier: 1},
 			FleetDegraded, []string{"autosync_stale"}},
 		{"stale tier 2 is faulty", fleetStateInput{AutoSyncTier: 2},
@@ -78,6 +86,37 @@ func TestComputeFleetState(t *testing.T) {
 				t.Errorf("reasons = %v, want %v", reasons, tc.wantReasons)
 			}
 		})
+	}
+}
+
+// TestFleetState_IncompleteMemberDegrades pins the severity of a member that
+// committed a config without building every custom failover group: amber, so the
+// operator sees the fleet is not whole.
+func TestFleetState_IncompleteMemberDegrades(t *testing.T) {
+	state, reasons := computeFleetState(fleetStateInput{Members: []memberFleetFacts{
+		{Known: true, Healthy: true, Syncable: true},
+		{Known: true, Healthy: true, Syncable: true, Incomplete: true},
+	}})
+
+	if state != FleetDegraded {
+		t.Fatalf("state = %q, want degraded", state)
+	}
+	if !slices.Contains(reasons, reasonSyncIncomplete) {
+		t.Fatalf("reasons = %v, want to contain %q", reasons, reasonSyncIncomplete)
+	}
+}
+
+// TestFleetState_AllIncompleteStillDegradedNotFaulty guards the ceiling: unlike
+// sync_held, an incomplete member has no all_* escalation, because it still
+// serves every model outside the missing groups.
+func TestFleetState_AllIncompleteStillDegradedNotFaulty(t *testing.T) {
+	state, _ := computeFleetState(fleetStateInput{Members: []memberFleetFacts{
+		{Known: true, Healthy: true, Syncable: true, Incomplete: true},
+		{Known: true, Healthy: true, Syncable: true, Incomplete: true},
+	}})
+
+	if state != FleetDegraded {
+		t.Fatalf("state = %q, want degraded: incomplete members still serve traffic, but the fleet is not whole", state)
 	}
 }
 
@@ -280,5 +319,54 @@ func TestCheckFleetStateEmitsDrainTransitions(t *testing.T) {
 	}
 	if !reasonsContain(evs[0].Metadata, reasonDrainedToSingle) {
 		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonDrainedToSingle)
+	}
+}
+
+// TestCheckFleetStateEmitsIncompleteTransition drives the diverged set through
+// the live path: the auto-sync loop's own bookkeeping (markMemberIncomplete)
+// feeds fleetStateFrom, so the badge turns amber for as long as the member does
+// not hold the primary's config, and clears when it converges.
+func TestCheckFleetStateEmitsIncompleteTransition(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, true)
+
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 0 {
+		t.Fatalf("baseline emitted %d events, want 0", len(evs))
+	}
+
+	srv.recordSyncAttempt(m1.ID, []string{"fast"}, nil)
+	srv.markMemberIncomplete(ctx, m1)
+	srv.checkFleetState(ctx)
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 1 {
+		t.Fatalf("after incomplete apply: %d events, want 1", len(evs))
+	}
+	if evs[0].Severity != "warning" || evs[0].Metadata["to"] != "degraded" {
+		t.Errorf("incomplete: severity=%q to=%v, want warning/degraded", evs[0].Severity, evs[0].Metadata["to"])
+	}
+	if !reasonsContain(evs[0].Metadata, reasonSyncIncomplete) {
+		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonSyncIncomplete)
+	}
+
+	srv.clearMemberIncomplete(ctx, m1)
+	srv.checkFleetState(ctx)
+	evs = fleetStateEvents(ctx, t, srv)
+	if len(evs) != 2 {
+		t.Fatalf("after recovery: %d events, want 2", len(evs))
+	}
+	if evs[0].Metadata["to"] != "ok" {
+		t.Errorf(`recovery metadata["to"] = %v, want "ok"`, evs[0].Metadata["to"])
 	}
 }

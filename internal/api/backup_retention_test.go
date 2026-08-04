@@ -107,8 +107,8 @@ func TestGenerateBackupFilenameOrigin(t *testing.T) {
 	if got := backupOrigin(generateBackupFilename("auto")); got != "scheduled" {
 		t.Errorf("auto backup origin = %q, want scheduled", got)
 	}
-	// Front Desk's pre-sync snapshots round-trip to "frontdesk" and, like manual,
-	// are not GFS rotation targets (only "_auto" files are scheduled).
+	// Fleet-requested snapshots round-trip to "frontdesk" and, like manual, are not
+	// GFS rotation targets (only "_auto" files are scheduled).
 	fd := generateBackupFilename(backupOriginFrontDesk)
 	if got := backupOrigin(fd); got != backupOriginFrontDesk {
 		t.Errorf("frontdesk backup origin = %q, want %q", got, backupOriginFrontDesk)

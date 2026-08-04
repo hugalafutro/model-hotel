@@ -348,6 +348,17 @@ type importResponse struct {
 	// MasterKeyOK are still true, Applied is false, and nothing was written.
 	Stale bool       `json:"stale,omitempty"`
 	Diff  configDiff `json:"diff"`
+	// Incomplete is true when the import committed but this member could not
+	// materialise all of it. Named for the failure so an older member that omits
+	// the field decodes to false and reads as complete.
+	Incomplete bool `json:"incomplete,omitempty"`
+	// Unapplied names the custom failover groups this member did not build.
+	Unapplied []string `json:"unapplied,omitempty"`
+	// Partial names custom failover groups this member built with fewer entries
+	// than the primary sent, so it fails over across fewer providers for those
+	// models. Reported alongside Incomplete, never as part of it: the member
+	// applied everything it was asked to.
+	Partial []string `json:"partial,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

@@ -62,7 +62,7 @@ type Server struct {
 	probe        *http.Client // guarded client for proxying member admin APIs
 	readClient   *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
 	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
-	backupClient *http.Client // guarded client for the pre-sync backup relay (deadline exceeds the member's pg_dump budget)
+	backupClient *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
 	version      string       // running build, surfaced read-only over GET /api/version
 	masterKey    string       // encrypts the Apprise target secret at rest
@@ -82,6 +82,18 @@ type Server struct {
 	// bounded by fleet size; a restart re-emits at most once per still-held member.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
+	// syncIncomplete tracks which members took a config and when, and which of them
+	// still do not serve the primary's hash. Drives the once-per-transition
+	// config.sync_incomplete event and the rate-limited re-push (see
+	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
+	syncIncompleteMu sync.Mutex
+	syncIncomplete   map[string]incompleteState
+	// backupStale tracks which members have no database backup from the last
+	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
+	// backup.recovered once on the way out. In-memory and bounded by fleet size,
+	// like syncHeld; a restart re-emits at most once per still-stale member.
+	backupStaleMu sync.Mutex
+	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
 	// edge-triggered fleet.state_changed emission. Empty until the first check
 	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
@@ -121,25 +133,27 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:        cfg.Store,
-		poller:       cfg.Poller,
-		bus:          cfg.Bus,
-		adminMgr:     cfg.AdminMgr,
-		sessionMgr:   sessionMgr,
-		totpRepo:     totpRepo,
-		totpStatus:   newTotpEnabledCache(totpRepo),
-		probe:        newProbeClient(httpProbeTimeout),
-		readClient:   newProbeClient(memberReadTimeout),
-		syncClient:   newProbeClient(memberSyncTimeout),
-		backupClient: newProbeClient(memberBackupTimeout),
-		lbPort:       lbPort,
-		version:      version,
-		masterKey:    cfg.MasterKey,
-		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		pairing:      newPairingCodes(),
-		ipLimiter:    cfg.IPLimiter,
-		rearmCh:      make(chan struct{}),
-		syncHeld:     make(map[string]bool),
+		store:          cfg.Store,
+		poller:         cfg.Poller,
+		bus:            cfg.Bus,
+		adminMgr:       cfg.AdminMgr,
+		sessionMgr:     sessionMgr,
+		totpRepo:       totpRepo,
+		totpStatus:     newTotpEnabledCache(totpRepo),
+		probe:          newProbeClient(httpProbeTimeout),
+		readClient:     newProbeClient(memberReadTimeout),
+		syncClient:     newProbeClient(memberSyncTimeout),
+		backupClient:   newProbeClient(memberBackupTimeout),
+		lbPort:         lbPort,
+		version:        version,
+		masterKey:      cfg.MasterKey,
+		metricsToken:   strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		pairing:        newPairingCodes(),
+		ipLimiter:      cfg.IPLimiter,
+		rearmCh:        make(chan struct{}),
+		syncHeld:       make(map[string]bool),
+		syncIncomplete: make(map[string]incompleteState),
+		backupStale:    make(map[string]bool),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and
@@ -289,6 +303,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
 				r.Post("/fleet/version-check", s.fleetVersionCheck)
+				r.Post("/fleet/backups/prune-frontdesk", s.pruneFrontDeskBackups)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 

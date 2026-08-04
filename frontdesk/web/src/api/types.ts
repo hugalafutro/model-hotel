@@ -16,8 +16,8 @@ export interface Member {
 	token_warning?: string;
 	// When Front Desk last applied config to this member (wizard or automatic),
 	// RFC3339; absent until the first sync. last_config_sync_reason explains why
-	// (e.g. the primary's config changed). Both drive the "Last Config Sync"
-	// column on the Members tab.
+	// (e.g. it did not hold the primary's config). Both drive the "Last Config
+	// Sync" column on the Members tab.
 	last_config_sync_at?: string;
 	last_config_sync_reason?: string;
 }
@@ -33,9 +33,9 @@ export type FleetState = "ok" | "degraded" | "faulty";
 // (see autoSyncStatus in server_settings.go). stale, last_sync_at, fleet_state,
 // and fleet_state_reasons are all optional so an older backend that omits them
 // still deserializes cleanly. fleet_state_reasons carries wire-constant reason
-// codes (member_down, all_members_down, sync_held, all_sync_held,
-// autosync_stale, autosync_stale_long, traefik_config_stale) that the client
-// translates.
+// codes (member_down, all_members_down, member_drained, drained_to_single,
+// sync_held, all_sync_held, sync_incomplete, autosync_stale,
+// autosync_stale_long, traefik_config_stale) that the client translates.
 export interface AutoSyncConfig {
 	enabled: boolean;
 	primary_id: string;
@@ -263,6 +263,24 @@ export interface FleetSyncState {
 	last_run_at: string;
 	primary_id: string;
 	primary_name: string;
+}
+
+// --- Fleet maintenance: prune Front Desk backups (POST
+// /api/fleet/backups/prune-frontdesk) ---
+// One member's outcome. deleted counts the files removed (on a dry run, the
+// files that would be removed); failed counts the ones the member refused.
+export interface BackupPruneMember {
+	member_id: string;
+	name: string;
+	deleted: number;
+	failed: number;
+	error?: string;
+}
+
+export interface BackupPruneResult {
+	deleted: number;
+	failed: number;
+	results: BackupPruneMember[];
 }
 
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---

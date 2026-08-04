@@ -125,6 +125,35 @@ func TestMemberTokenRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMemberTokenRotationIsNotServedFromCache: MemberToken decrypts through the
+// shared key cache, so a rotated token must never come back as the one that was
+// cached for the old ciphertext. Reading before the rotation is what makes the
+// test meaningful: it populates the cache entry that a naive lookup would reuse.
+func TestMemberTokenRotationIsNotServedFromCache(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	m, err := s.CreateMember(ctx, "h", "http://h:8081", "first-token")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if tok, ok, err := s.MemberToken(ctx, m.ID); err != nil || !ok || tok != "first-token" {
+		t.Fatalf("MemberToken before rotation = %q ok=%v err=%v, want first-token", tok, ok, err)
+	}
+
+	if err := s.SetMemberToken(ctx, m.ID, "second-token"); err != nil {
+		t.Fatalf("SetMemberToken(rotate): %v", err)
+	}
+
+	tok, ok, err := s.MemberToken(ctx, m.ID)
+	if err != nil || !ok {
+		t.Fatalf("MemberToken after rotation: ok=%v err=%v", ok, err)
+	}
+	if tok != "second-token" {
+		t.Errorf("decrypted token = %q, want second-token: the rotated token was served from the cache", tok)
+	}
+}
+
 func TestMemberTokenRequiresMasterKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "frontdesk.db")
 	s, err := Open(path, "", true) // no master key

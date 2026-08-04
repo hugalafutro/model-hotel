@@ -143,6 +143,7 @@
 			"drained_to_single": "er is nog maar één actief lid; de vloot heeft geen redundantie",
 			"sync_held": "config-sync wordt aangehouden voor een member (versieverschil)",
 			"all_sync_held": "config-sync wordt aangehouden voor elke member; de primaire is de uitzondering",
+			"sync_incomplete": "de config van een member komt na een sync niet overeen met die van de primaire",
 			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",
 			"autosync_stale_long": "auto-sync staat uit en de vloot is al meer dan drie dagen niet gesynchroniseerd",
 			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
@@ -283,13 +284,18 @@
 				"config_auto_synced": "Auto-sync toegepast op de vloot",
 				"config_autosync_stale": "Auto-sync uit, vloot niet gesynchroniseerd",
 				"config_sync_held": "Sync aangehouden (versieverschil)",
+				"config_sync_incomplete": "Synchronisatie onvolledig (member komt niet overeen)",
+				"config_sync_recovered": "Synchronisatie weer volledig",
 				"version_fetch_failed": "Member-versie niet leesbaar",
 				"version_fetch_recovered": "Member-versie weer leesbaar",
 				"traefik_stale": "Traefik-configuratie verouderd",
 				"member_added": "Member toegevoegd",
 				"member_removed": "Member verwijderd",
 				"member_state_changed": "Member geactiveerd of gedrained",
-				"fleet_state_changed": "Vlootstatus gewijzigd"
+				"fleet_state_changed": "Vlootstatus gewijzigd",
+				"backup_stale": "Lid zonder recente back-up",
+				"backup_recovered": "Lid wordt weer geback-upt",
+				"backup_pruned": "Front Desk-back-ups gewist"
 			},
 			"saveBtn": "Alert-instellingen opslaan",
 			"testBtn": "Test versturen",
@@ -307,6 +313,23 @@
 			"ntfyTopicLabel": "ntfy-onderwerp",
 			"ntfyTopicPlaceholder": "mijn-geheime-onderwerp",
 			"ntfyUse": "Instellen als doel"
+		},
+		"maintenance": {
+			"title": "Vlootonderhoud",
+			"pruneHint": "Oudere Front Desk-versies vroegen elk lid vóór elke configuratiesynchronisatie om een databasedump, en de rotatie op het lid zelf verwijdert die nooit. Front Desk maakt ze niet meer aan; hiermee wis je wat is achtergebleven. Handmatige en geplande back-ups blijven ongemoeid.",
+			"pruneBtn": "Front Desk-back-ups wissen",
+			"pruneChecking": "Bezig met controleren…",
+			"pruneTitle": "Front Desk-back-ups wissen",
+			"pruneBody_one": "Hiermee wordt {{count}} door Front Desk gemaakte back-up definitief verwijderd. Handmatige en geplande back-ups blijven behouden.",
+			"pruneBody_other": "Hiermee worden {{count}} door Front Desk gemaakte back-ups definitief verwijderd. Handmatige en geplande back-ups blijven behouden.",
+			"pruneNone": "Er zijn geen door Front Desk gemaakte back-ups op je leden gevonden. Er is niets te verwijderen.",
+			"pruneUnreadable": "Sommige leden konden niet worden gelezen, dus hun back-ups tellen hier niet mee.",
+			"pruneConfirm": "Verwijderen",
+			"pruning": "Bezig met verwijderen…",
+			"pruneDone_one": "{{count}} back-up verwijderd",
+			"pruneDone_other": "{{count}} back-ups verwijderd",
+			"pruneUnknown": "Front Desk is het contact met deze actie verloren. Bekijk het tabblad Gebeurtenissen voor het resultaat.",
+			"pruneFailed": "Kon de back-ups niet wissen"
 		},
 		"wizard": {
 			"title": "Vloot-sync-wizard",

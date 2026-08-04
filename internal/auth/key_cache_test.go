@@ -174,24 +174,22 @@ func TestWarmKeyCache_WithWrongKey(t *testing.T) {
 }
 
 func TestWarmKeyCache_NilEncryptedKey(t *testing.T) {
-	// WarmKeyCache calls DecryptCached internally, which will panic
-	// when given nil/empty ciphertext and nonce (crypto/cipher requires
-	// valid nonce length). Keyless providers in the real codebase guard
-	// against this by checking len(prov.EncryptedKey) == 0 before calling
-	// WarmKeyCache. We verify that WarmKeyCache with empty byte slices
-	// logs an error and does not panic — but since it calls DecryptCached
-	// which panics on invalid nonce length, we cannot safely test nil inputs.
-	//
-	// Instead, we test with a valid-length nonce (12 bytes) but corrupted
-	// ciphertext, which should return a clean error rather than a panic.
-
-	// Valid nonce length for AES-GCM is 12 bytes; invalid ciphertext should error
+	// WarmKeyCache calls DecryptCached internally, which logs the failure and
+	// returns an error for anything it cannot decrypt. Keyless providers guard
+	// against reaching it at all by checking len(prov.EncryptedKey) == 0 first, so
+	// this covers what happens when a malformed key does arrive: a clean error and
+	// a log, never a panic.
 	validNonce := []byte("123456789012")                    // exactly 12 bytes
 	validSalt := []byte("12345678901234567890123456789012") // 32 bytes
-	_, err := DecryptCached([]byte("corrupted-ciphertext"), validNonce, validSalt, "master-key")
-	if err == nil {
+	if _, err := DecryptCached([]byte("corrupted-ciphertext"), validNonce, validSalt, "master-key"); err == nil {
 		t.Error("DecryptCached with corrupted ciphertext should return error")
 	}
+	// Nil ciphertext and nonce together, the shape a keyless provider would have:
+	// the nonce-length guard catches it before gcm.Open can panic on it.
+	if _, err := DecryptCached(nil, nil, validSalt, "master-key"); err == nil {
+		t.Error("DecryptCached with a nil key and nonce should return error")
+	}
+	WarmKeyCache(nil, nil, validSalt, "master-key") // logs, does not panic
 }
 
 func TestDecryptCached_InvalidInputs(t *testing.T) {
@@ -406,29 +404,22 @@ func TestDecryptCached_EmptyCiphertext(t *testing.T) {
 	}
 }
 
-func TestDecryptCached_ShortNonce_Panics(t *testing.T) {
-	// DecryptCached does not guard against short nonces internally —
-	// cipher.NewGCM panics if the nonce is the wrong length. This is
-	// expected behavior: callers must always provide a valid 12-byte
-	// nonce (which is guaranteed by the Encrypt function). We verify
-	// that a short nonce causes a panic so that this edge case is documented.
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("DecryptCached with short nonce should panic (cipher.NewGCM requires 12-byte nonce)")
-		}
-	}()
-
+// TestDecryptCached_ShortNonce: a short nonce is what a truncated or corrupt
+// stored row looks like, and gcm.Open panics on one, so DecryptCached checks the
+// length first and returns an error the caller can handle. The process must not
+// die over a bad row. TestDecrypt_WrongNonceLength holds both decrypt paths to
+// this together.
+func TestDecryptCached_ShortNonce(t *testing.T) {
 	masterKey := "short-nonce-test"
-	plaintext := "test-key"
-	kp, err := Encrypt(plaintext, masterKey)
+	kp, err := Encrypt("test-key", masterKey)
 	if err != nil {
 		t.Fatalf("Encrypt failed: %v", err)
 	}
 
-	// Use a short (5-byte) nonce which is invalid for AES-GCM
-	shortNonce := []byte("short")
-	//nolint:gosec // test-only: error handling not critical
-	DecryptCached(kp.Ciphertext, shortNonce, kp.Salt, masterKey)
+	// A short (5-byte) nonce is invalid for AES-GCM.
+	if _, err := DecryptCached(kp.Ciphertext, []byte("short"), kp.Salt, masterKey); err == nil {
+		t.Error("DecryptCached with a short nonce = nil error, want an error rather than a panic")
+	}
 }
 
 func TestKeyCacheTTLValue(t *testing.T) {

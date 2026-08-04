@@ -143,6 +143,7 @@
 			"drained_to_single": "solo queda un miembro activo; la flota no tiene redundancia",
 			"sync_held": "la sincronización de configuración está retenida para un miembro (desfase de versiones)",
 			"all_sync_held": "la sincronización de configuración está retenida en todos los miembros; el principal es la excepción",
+			"sync_incomplete": "la configuración de un miembro no coincide con la del principal tras una sincronización",
 			"autosync_stale": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de un día",
 			"autosync_stale_long": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de tres días",
 			"traefik_config_stale": "Traefik ha dejado de obtener la configuración de enrutamiento"
@@ -287,13 +288,18 @@
 				"config_auto_synced": "Sincronización automática aplicada a la flota",
 				"config_autosync_stale": "Sincronización automática desactivada, flota sin sincronizar",
 				"config_sync_held": "Sincronización retenida (desfase de versiones)",
+				"config_sync_incomplete": "Sincronización incompleta (el miembro no coincide)",
+				"config_sync_recovered": "Sincronización completa de nuevo",
 				"version_fetch_failed": "Versión del miembro ilegible",
 				"version_fetch_recovered": "Versión del miembro legible de nuevo",
 				"traefik_stale": "Configuración de Traefik obsoleta",
 				"member_added": "Miembro añadido",
 				"member_removed": "Miembro eliminado",
 				"member_state_changed": "Miembro activado o retirado",
-				"fleet_state_changed": "Estado de la flota cambiado"
+				"fleet_state_changed": "Estado de la flota cambiado",
+				"backup_stale": "Miembro sin copia reciente",
+				"backup_recovered": "Miembro con copias al día de nuevo",
+				"backup_pruned": "Copias de Front Desk borradas"
 			},
 			"saveBtn": "Guardar ajustes de alertas",
 			"testBtn": "Enviar prueba",
@@ -311,6 +317,25 @@
 			"ntfyTopicLabel": "Tema ntfy",
 			"ntfyTopicPlaceholder": "mi-tema-secreto",
 			"ntfyUse": "Establecer como destino"
+		},
+		"maintenance": {
+			"title": "Mantenimiento de la flota",
+			"pruneHint": "Las versiones anteriores de Front Desk pedían a cada miembro un volcado de la base de datos antes de cada sincronización de configuración, y la rotación del propio miembro nunca los elimina. Front Desk ya no los crea; esto borra los que quedaron. Las copias manuales y programadas no se tocan.",
+			"pruneBtn": "Borrar copias de Front Desk",
+			"pruneChecking": "Comprobando…",
+			"pruneTitle": "Borrar copias de Front Desk",
+			"pruneBody_one": "Esto elimina permanentemente {{count}} copia creada por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneBody_many": "Esto elimina permanentemente {{count}} copias creadas por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneBody_other": "Esto elimina permanentemente {{count}} copias creadas por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneNone": "No se han encontrado copias creadas por Front Desk en tus miembros. No hay nada que borrar.",
+			"pruneUnreadable": "No se pudo leer a algunos miembros, así que sus copias no se cuentan aquí.",
+			"pruneConfirm": "Eliminar",
+			"pruning": "Eliminando…",
+			"pruneDone_one": "{{count}} copia eliminada",
+			"pruneDone_many": "{{count}} copias eliminadas",
+			"pruneDone_other": "{{count}} copias eliminadas",
+			"pruneUnknown": "Front Desk perdió el contacto con esta ejecución. Consulta la pestaña Eventos para ver el resultado.",
+			"pruneFailed": "No se pudieron borrar las copias"
 		},
 		"wizard": {
 			"title": "Asistente de sincronización de flota",

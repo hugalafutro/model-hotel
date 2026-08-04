@@ -40,10 +40,14 @@ const (
 	// while two or more remain active. drained_to_single: draining has left just
 	// one active member, so the fleet has no redundancy (the last active member
 	// cannot be drained, so this is the enforced floor) and is treated as faulty.
-	reasonMemberDrained     = "member_drained"
-	reasonDrainedToSingle   = "drained_to_single"
-	reasonSyncHeld          = "sync_held"
-	reasonAllSyncHeld       = "all_sync_held"
+	reasonMemberDrained   = "member_drained"
+	reasonDrainedToSingle = "drained_to_single"
+	reasonSyncHeld        = "sync_held"
+	reasonAllSyncHeld     = "all_sync_held"
+	// sync_incomplete: at least one member does not hold the primary's config. It
+	// still serves everything else, so this degrades the fleet and never escalates
+	// to faulty; there is deliberately no all_sync_incomplete counterpart.
+	reasonSyncIncomplete    = "sync_incomplete"
 	reasonAutosyncStale     = "autosync_stale"
 	reasonAutosyncStaleLong = "autosync_stale_long"
 	// traefik_config_stale is config-poll staleness specifically (Traefik stopped
@@ -75,6 +79,9 @@ type memberFleetFacts struct {
 	Drained  bool
 	Syncable bool
 	Held     bool
+	// Incomplete marks a member that applied a config without materialising all
+	// of it.
+	Incomplete bool
 }
 
 // fleetStateInput bundles everything computeFleetState judges: member facts,
@@ -87,17 +94,21 @@ type fleetStateInput struct {
 }
 
 // computeFleetState reduces the input to a state plus the active reason codes,
-// in a fixed order (health, drain, sync holds, autosync staleness, Traefik) so
-// equal inputs always serialize identically. Pure: all live reads happen in the
-// Server wrapper (fleetStateNow), keeping this exhaustively table-testable.
+// in a fixed order (health, drain, sync holds, incomplete applies, autosync
+// staleness, Traefik) so equal inputs always serialize identically. Pure: all
+// live reads happen in the Server wrapper (fleetStateNow), keeping this
+// exhaustively table-testable.
 func computeFleetState(in fleetStateInput) (FleetState, []string) {
-	var down, held, syncable, drained int
+	var down, held, syncable, drained, incomplete int
 	for _, m := range in.Members {
 		if m.Known && !m.Healthy {
 			down++
 		}
 		if m.Drained {
 			drained++
+		}
+		if m.Incomplete {
+			incomplete++
 		}
 		if m.Syncable {
 			syncable++
@@ -131,6 +142,9 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 		reasons = append(reasons, reasonAllSyncHeld)
 	case held > 0:
 		reasons = append(reasons, reasonSyncHeld)
+	}
+	if incomplete > 0 {
+		reasons = append(reasons, reasonSyncIncomplete)
 	}
 	switch in.AutoSyncTier {
 	case 2:
@@ -196,21 +210,24 @@ func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error
 
 // fleetStateFrom assembles the per-member facts from already-read store data
 // (member list, auto-sync config, last-sync marker) and computes the state,
-// folding in the live poller snapshots (health, Traefik staleness) and the
-// version-skew hold set. Callers that already hold those reads pass them in so
-// the polled /api/fleet/autosync endpoint does not re-query the store.
+// folding in the live poller snapshots (health, Traefik staleness), the
+// version-skew hold set and the incomplete-apply set. Callers that already hold
+// those reads pass them in so the polled /api/fleet/autosync endpoint does not
+// re-query the store.
 func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, lastSync time.Time, haveSync bool) (FleetState, []string) {
 	statuses := s.poller.Snapshot()
 	held := s.heldSnapshot()
+	incomplete := s.incompleteSnapshot()
 	facts := make([]memberFleetFacts, 0, len(members))
 	for _, m := range members {
 		st := statuses[m.ID]
 		facts = append(facts, memberFleetFacts{
-			Known:    st.Health.Known,
-			Healthy:  st.Health.Healthy,
-			Drained:  m.State == StateDrained,
-			Syncable: m.HasToken && m.ID != cfg.PrimaryID,
-			Held:     held[m.ID],
+			Known:      st.Health.Known,
+			Healthy:    st.Health.Healthy,
+			Drained:    m.State == StateDrained,
+			Syncable:   m.HasToken && m.ID != cfg.PrimaryID,
+			Held:       held[m.ID],
+			Incomplete: incomplete[m.ID],
 		})
 	}
 	return computeFleetState(fleetStateInput{

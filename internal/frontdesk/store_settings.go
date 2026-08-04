@@ -97,16 +97,23 @@ func (s *Store) SetAlertEvents(ctx context.Context, csv string) error {
 }
 
 // AutoSyncConfig is the operator's automatic config-propagation setup: a master
-// on/off plus the designated source-of-truth member. LastHash is the internal
-// drift marker (the primary config hash last applied to the fleet) and is never
-// surfaced to the UI.
+// on/off plus the designated source-of-truth member.
+//
+// The settings row also carries auto_sync_last_hash (migration 005), which nothing
+// reads or writes. It recorded the config hash the whole reachable fleet was last
+// measured holding, back when a pass whose primary hash matched it was skipped;
+// the loop now runs every settled tick and records convergence per member. The
+// column is deliberately left in place rather than dropped: SQLite's DROP COLUMN
+// is irreversible, and a binary rolled back to before this change would SELECT a
+// column that no longer existed.
 type AutoSyncConfig struct {
 	Enabled   bool   `json:"enabled"`
 	PrimaryID string `json:"primary_id"`
-	LastHash  string `json:"-"`
-	// Gen is the rearm generation: every write that clears LastHash bumps it. A
-	// convergence pass captures it at the start and records its hash only if it is
-	// unchanged, so a rearm that lands mid-pass cannot be clobbered. Not surfaced.
+	// Gen is the rearm generation, bumped by every change to what the fleet is
+	// supposed to hold: a member add or removal, a token update, an enable, a
+	// primary repoint. A convergence pass captures it before reading the member list
+	// and re-checks it before each mutation, so a pass in flight for the previous
+	// primary or member list aborts instead of writing a stale config.
 	Gen int64 `json:"-"`
 }
 
@@ -117,8 +124,8 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 		enabled int
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT auto_sync_enabled, auto_sync_primary_id, auto_sync_last_hash, auto_sync_gen FROM settings WHERE id = 1`,
-	).Scan(&enabled, &cfg.PrimaryID, &cfg.LastHash, &cfg.Gen)
+		`SELECT auto_sync_enabled, auto_sync_primary_id, auto_sync_gen FROM settings WHERE id = 1`,
+	).Scan(&enabled, &cfg.PrimaryID, &cfg.Gen)
 	if err != nil {
 		return AutoSyncConfig{}, fmt.Errorf("frontdesk: get auto-sync: %w", err)
 	}
@@ -127,16 +134,13 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 }
 
 // SetAutoSync persists the operator's auto-sync choice (enabled + designated
-// primary) and clears the last-applied hash in the same write. Resetting the
-// marker re-arms the poller: without it, re-enabling auto-sync or switching to a
-// primary whose config hash already equals the stored value would return early on
-// the next tick and never run a convergence pass, leaving replicas that drifted
-// while sync was off (or that should now follow the new primary) stale until the
-// primary's config next changed.
+// primary) and bumps the rearm generation in the same write: enabling or
+// repointing redefines what the fleet should hold, so a pass in flight for the old
+// primary must abort rather than finish pushing a config just replaced.
 func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?,
-			auto_sync_last_hash = '', auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
+			auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
 		boolToInt(enabled), primaryID,
 	)
 	if err != nil {
@@ -153,8 +157,8 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 // primary: either none is set yet, or the request leaves the primary unchanged
 // (e.g. just toggling enabled). Reports whether the row was updated; false means
 // the change needed admin confirmation (or lost a concurrent repoint) and the
-// caller must refuse it. Clears the last-applied hash like SetAutoSync, for the
-// same re-arm reason.
+// caller must refuse it. Bumps the rearm generation like SetAutoSync, for the
+// same reason.
 func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID string, tokenValid bool) (bool, error) {
 	// auto_sync_enabled rules, evaluated in order against the row's pre-update
 	// primary (SQLite reads SET right-hand sides from the original row):
@@ -173,7 +177,6 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 			WHEN auto_sync_primary_id = '' OR auto_sync_primary_id = ? THEN ?
 			ELSE auto_sync_enabled
 		END,
-		auto_sync_last_hash = '',
 		auto_sync_gen = auto_sync_gen + 1
 	WHERE id = 1`
 	query := set
@@ -195,29 +198,6 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 	return n > 0, nil
 }
 
-// RecordAutoSyncHash records the primary config hash a convergence pass just
-// applied to the fleet, so the next tick can detect a change cheaply. The write
-// is guarded by gen: it applies only when the rearm generation still matches the
-// value the pass captured before it read the member list. If a rearm (member
-// add, token update, enable, or repoint) landed mid-pass it bumped the
-// generation, the write no-ops (applied=false), the cleared marker stands, and
-// the next tick re-converges with the fresh member list or primary. This stops a
-// slow older pass from clobbering a deliberate rearm.
-func (s *Store) RecordAutoSyncHash(ctx context.Context, hash string, gen int64) (applied bool, err error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_last_hash = ? WHERE id = 1 AND auto_sync_gen = ?`,
-		hash, gen,
-	)
-	if err != nil {
-		return false, fmt.Errorf("frontdesk: record auto-sync hash: %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("frontdesk: record auto-sync hash rows: %w", err)
-	}
-	return n > 0, nil
-}
-
 // AutoSyncGen returns the current rearm generation. It is a cheap read an
 // in-flight convergence pass uses to notice a rearm (member add, token update,
 // enable, or repoint) landed and stop before it pushes a now-stale primary
@@ -233,13 +213,13 @@ func (s *Store) AutoSyncGen(ctx context.Context) (int64, error) {
 	return gen, nil
 }
 
-// RearmAutoSync clears the last-applied config hash and bumps the rearm
-// generation in one statement, so the auto-sync loop runs a fresh pass and any
-// convergence pass already in flight cannot record its (now stale) hash over the
-// clear. Called when the fleet's membership or the designated primary changes.
+// RearmAutoSync bumps the rearm generation, so a convergence pass already in
+// flight aborts rather than pushing a config built for a member list or a
+// primary that has since changed. Called when the fleet's membership or the
+// designated primary changes.
 func (s *Store) RearmAutoSync(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_last_hash = '', auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
+		`UPDATE settings SET auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
 	)
 	if err != nil {
 		return fmt.Errorf("frontdesk: rearm auto-sync: %w", err)
