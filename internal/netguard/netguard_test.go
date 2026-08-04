@@ -1,6 +1,7 @@
 package netguard
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -132,6 +133,25 @@ func TestValidateURL(t *testing.T) {
 		if (err != nil) != tc.wantErr {
 			t.Errorf("ValidateURL(%q) err=%v, wantErr=%v", tc.url, err, tc.wantErr)
 		}
+	}
+}
+
+// TestDialControlErrorIsSentinel pins the blocked-address denial to a sentinel
+// error. RetryTransport relies on it to tell a permanent security refusal apart
+// from a transient dial fault, which it would otherwise retry pointlessly.
+func TestDialControlErrorIsSentinel(t *testing.T) {
+	client := NewClient(2 * time.Second)
+	req, err := http.NewRequest(http.MethodGet, "http://169.254.169.254/latest/meta-data/", http.NoBody)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	resp, err := client.Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("dial to the link-local metadata address succeeded; expected a netguard block")
+	}
+	if !errors.Is(err, ErrBlockedAddress) {
+		t.Fatalf("dial guard error must wrap ErrBlockedAddress, got %v", err)
 	}
 }
 
