@@ -294,7 +294,8 @@
 				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen",
 				"fleet_state_changed": "Flottenstatus geändert",
 				"backup_stale": "Mitglied ohne aktuelles Backup",
-				"backup_recovered": "Mitglied wird wieder gesichert"
+				"backup_recovered": "Mitglied wird wieder gesichert",
+				"backup_pruned": "Front-Desk-Backups gelöscht"
 			},
 			"saveBtn": "Alert-Einstellungen speichern",
 			"testBtn": "Test senden",

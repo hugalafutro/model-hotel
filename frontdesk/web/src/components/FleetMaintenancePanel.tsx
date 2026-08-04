@@ -8,12 +8,11 @@ import { ConfirmModal } from "./ConfirmModal";
 // FleetMaintenancePanel is Settings -> Fleet maintenance: one-off fleet-wide
 // housekeeping the operator runs by hand.
 //
-// Its only action clears the pg_dumps older Front Desk builds asked each member
-// to take before overwriting its config. Front Desk no longer creates them and
-// member-side rotation never prunes them, so they sit on every member until
-// someone removes them. Deleting backups is destructive, so the run is two-step:
-// a preview counts what would go, and the confirmation names that number before
-// anything is deleted.
+// Its only action deletes the frontdesk-origin pg_dumps a member holds. Nothing
+// produces them and member-side rotation prunes only the member's own scheduled
+// files, so they stay on a member until an operator clears them here. Deleting
+// backups is destructive, so the run is two-step: a preview counts what would
+// go, and the confirmation names that number before anything is deleted.
 export function FleetMaintenancePanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -96,9 +95,7 @@ export function FleetMaintenancePanel() {
 					</p>
 					{unreadable.length > 0 && (
 						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
-							{t("settings.maintenance.pruneUnreadable", {
-								count: unreadable.length,
-							})}
+							{t("settings.maintenance.pruneUnreadable")}
 						</p>
 					)}
 				</ConfirmModal>

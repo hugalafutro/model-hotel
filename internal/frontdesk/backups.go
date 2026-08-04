@@ -107,9 +107,10 @@ type backupPruneResult struct {
 // deleting backups is destructive, so it stays a deliberate action.
 //
 // ?dryRun=1 counts what would go without deleting anything, so the UI can name
-// the number in its confirmation step. Each member is independent: one that
-// cannot be read, or that refuses a delete, is reported in its own result and
-// leaves the rest of the fleet to be pruned.
+// the number in its confirmation step. Each member is independent and every
+// member gets a result row: one that cannot be authenticated to, cannot be read,
+// or refuses a delete carries its reason and leaves the rest of the fleet to be
+// pruned.
 func (s *Server) pruneFrontDeskBackups(w http.ResponseWriter, r *http.Request) {
 	dryRun := r.URL.Query().Get("dryRun") != ""
 	// The run continues even if the caller hangs up, so a client with a short HTTP
@@ -122,30 +123,41 @@ func (s *Server) pruneFrontDeskBackups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make([]backupPruneResult, 0, len(members))
-	deleted, failed := 0, 0
+	deleted, failed, pruned := 0, 0, 0
 	for _, m := range members {
 		token, ok, err := s.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
-			continue // no stored token: the backup API needs admin auth
+			// Reported, not silently dropped: the operator asked about the whole
+			// fleet, and a member Front Desk holds no admin token for still keeps
+			// whatever backups it has.
+			results = append(results, backupPruneResult{
+				MemberID: m.ID, Name: m.Name,
+				Error: "no stored admin token for this member",
+			})
+			continue
 		}
 		res := s.pruneMemberFrontDeskBackups(ctx, m, token, dryRun)
 		deleted += res.Deleted
 		failed += res.Failed
+		pruned++
 		results = append(results, res)
 	}
 
 	if !dryRun {
 		// One audit event per run, attributed to whoever authenticated it the same
 		// way a manual sync is. It records the attempt even when nothing was found,
-		// because the operator asked for a destructive action either way.
+		// because the operator asked for a destructive action either way. The member
+		// count is the members actually visited, so a token-less member does not
+		// inflate the reach of the run.
 		actor := actorFromContext(ctx)
 		s.emit(ctx, Event{
 			Type: "backup.pruned", Severity: "info", Source: "frontdesk",
 			Message: fmt.Sprintf("Deleted %s taken by Front Desk across %s (%s)",
 				util.Count(deleted, "backup", "backups"),
-				util.Count(len(results), "member", "members"), actor),
+				util.Count(pruned, "member", "members"), actor),
 			Metadata: map[string]any{
-				"deleted": deleted, "failed": failed, "members": len(results), "actor": actor,
+				"deleted": deleted, "failed": failed, "members": pruned,
+				"skipped": len(results) - pruned, "actor": actor,
 			},
 		})
 	}
@@ -199,17 +211,18 @@ func (s *Server) pruneMemberFrontDeskBackups(ctx context.Context, m *Member, tok
 
 // RunBackupWatch re-reads every member's backup listing on a fixed tick until
 // ctx is cancelled. Started once at startup, alongside RunAutoSync. The first
-// pass runs immediately so a restart re-establishes the current picture rather
-// than waiting out an interval.
+// pass waits out one interval, mirroring RunFleetState, so a cancelled context
+// costs no member calls and a shutdown is never chased by a half-finished pass.
+// The signal it feeds has a 24 hour threshold, so the delay is immaterial.
 func (s *Server) RunBackupWatch(ctx context.Context) {
 	ticker := time.NewTicker(backupWatchInterval)
 	defer ticker.Stop()
 	for {
-		s.checkMemberBackups(ctx)
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			s.checkMemberBackups(ctx)
 		}
 	}
 }

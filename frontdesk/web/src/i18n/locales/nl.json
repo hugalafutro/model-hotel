@@ -294,7 +294,8 @@
 				"member_state_changed": "Member geactiveerd of gedrained",
 				"fleet_state_changed": "Vlootstatus gewijzigd",
 				"backup_stale": "Lid zonder recente back-up",
-				"backup_recovered": "Lid wordt weer geback-upt"
+				"backup_recovered": "Lid wordt weer geback-upt",
+				"backup_pruned": "Front Desk-back-ups gewist"
 			},
 			"saveBtn": "Alert-instellingen opslaan",
 			"testBtn": "Test versturen",

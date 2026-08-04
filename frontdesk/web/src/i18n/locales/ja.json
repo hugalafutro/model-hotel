@@ -294,7 +294,8 @@
 				"member_state_changed": "メンバーがアクティブ化またはドレインされました",
 				"fleet_state_changed": "フリートの状態が変化しました",
 				"backup_stale": "メンバーに最近のバックアップがない",
-				"backup_recovered": "メンバーのバックアップが復旧した"
+				"backup_recovered": "メンバーのバックアップが復旧した",
+				"backup_pruned": "Front Desk のバックアップを削除した"
 			},
 			"saveBtn": "アラート設定を保存",
 			"testBtn": "テスト送信",

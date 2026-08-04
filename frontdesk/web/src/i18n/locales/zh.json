@@ -294,7 +294,8 @@
 				"member_state_changed": "成员已激活或排空",
 				"fleet_state_changed": "集群状态已更改",
 				"backup_stale": "成员没有最近的备份",
-				"backup_recovered": "成员备份已恢复"
+				"backup_recovered": "成员备份已恢复",
+				"backup_pruned": "已清除 Front Desk 备份"
 			},
 			"saveBtn": "保存告警设置",
 			"testBtn": "发送测试",

@@ -298,7 +298,8 @@
 				"member_state_changed": "Miembro activado o retirado",
 				"fleet_state_changed": "Estado de la flota cambiado",
 				"backup_stale": "Miembro sin copia reciente",
-				"backup_recovered": "Miembro con copias al día de nuevo"
+				"backup_recovered": "Miembro con copias al día de nuevo",
+				"backup_pruned": "Copias de Front Desk borradas"
 			},
 			"saveBtn": "Guardar ajustes de alertas",
 			"testBtn": "Enviar prueba",

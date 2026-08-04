@@ -302,7 +302,8 @@
 				"member_state_changed": "Člen aktivován nebo vyřazen z provozu",
 				"fleet_state_changed": "Stav flotily se změnil",
 				"backup_stale": "Člen bez aktuální zálohy",
-				"backup_recovered": "Člen se opět zálohuje"
+				"backup_recovered": "Člen se opět zálohuje",
+				"backup_pruned": "Zálohy od Front Desku smazány"
 			},
 			"saveBtn": "Uložit nastavení upozornění",
 			"testBtn": "Odeslat test",

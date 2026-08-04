@@ -197,10 +197,13 @@ func TestPruneFrontDeskBackupsDeletesOnlyFrontDeskOrigin(t *testing.T) {
 // TestPruneFrontDeskBackupsMatchesOriginNotFilename is the destructive-mistake
 // guard: selection is on the origin the member reports, never on the filename.
 // A manual backup an operator named with the word frontdesk in it must survive.
+// The fixture is one a real member can actually produce: the member classifies
+// by the trailing "_frontdesk" marker, so a name that merely contains the word
+// is reported as manual.
 func TestPruneFrontDeskBackupsMatchesOriginNotFilename(t *testing.T) {
 	srv, store := newTestServer(t)
 	member := newStubBackupMember(t, "tok",
-		backupEntryAt("before-frontdesk-migration_frontdesk.dump", "manual", time.Hour),
+		backupEntryAt("before-frontdesk-migration.dump", "manual", time.Hour),
 		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
 	)
 	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
@@ -212,8 +215,35 @@ func TestPruneFrontDeskBackupsMatchesOriginNotFilename(t *testing.T) {
 		t.Errorf("deleted = %d, want 1", resp.Deleted)
 	}
 	got := member.remaining()
-	if len(got) != 1 || got[0] != "before-frontdesk-migration_frontdesk.dump" {
+	if len(got) != 1 || got[0] != "before-frontdesk-migration.dump" {
 		t.Errorf("member holds %v; a manual backup named with the word frontdesk was destroyed", got)
+	}
+}
+
+// TestPruneFrontDeskBackupsReportsTokenlessMember: a member Front Desk holds no
+// admin token for cannot be pruned, and the operator is told so rather than
+// left to assume the whole fleet was covered.
+func TestPruneFrontDeskBackupsReportsTokenlessMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+	)
+	if _, err := store.CreateMember(t.Context(), "tokenless", member.srv.URL, ""); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
+	if len(resp.Results) != 1 {
+		t.Fatalf("results = %+v, want the token-less member reported", resp.Results)
+	}
+	if resp.Results[0].Name != "tokenless" || resp.Results[0].Error == "" {
+		t.Errorf("result = %+v, want a stated reason", resp.Results[0])
+	}
+	if resp.Deleted != 0 {
+		t.Errorf("deleted = %d, want 0: the member was never authenticated to", resp.Deleted)
+	}
+	if len(member.remaining()) != 1 {
+		t.Errorf("member holds %v; it was pruned without a stored token", member.remaining())
 	}
 }
 
@@ -302,12 +332,25 @@ func TestPruneFrontDeskBackupsDryRunDeletesNothing(t *testing.T) {
 	}
 }
 
-// TestPruneFrontDeskBackupsNeedsOperator: the prune is destructive, so a
-// read-only bearer cannot run it.
+// TestPruneFrontDeskBackupsNeedsAuth: an unauthenticated caller is refused
+// outright.
 func TestPruneFrontDeskBackupsNeedsAuth(t *testing.T) {
 	srv, _ := newTestServer(t)
 	if rec := do(t, srv, http.MethodPost, "/api/fleet/backups/prune-frontdesk", "", false); rec.Code != http.StatusUnauthorized {
 		t.Errorf("unauthenticated prune = %d, want 401", rec.Code)
+	}
+}
+
+// TestPruneFrontDeskBackupsNeedsOperator: the prune is destructive, so a
+// read-only (monitor) device token is refused by the role gate even though it
+// authenticates fine for reads.
+func TestPruneFrontDeskBackupsNeedsOperator(t *testing.T) {
+	srv, _ := newTestServer(t)
+	monitor, _ := pairDevice(t, srv, RoleMonitor, "watcher")
+
+	rec := doDevice(t, srv, http.MethodPost, "/api/fleet/backups/prune-frontdesk", "", monitor)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "device_role_forbidden") {
+		t.Errorf("monitor prune = %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -330,6 +373,49 @@ func TestBackupStaleEmitsOnceAcrossPolls(t *testing.T) {
 	got := eventTypes(t, store, m.ID)
 	if len(got) != 1 || got[0] != "backup.stale" {
 		t.Fatalf("events = %v, want exactly one backup.stale", got)
+	}
+}
+
+// TestBackupStaleThresholdBoundary pins the VALUE of memberBackupStaleAfter,
+// not merely the direction. The ages are written as literals on purpose: an age
+// expressed relative to the constant would follow it wherever it moved and
+// prove only that older is staler. 23 hours must stay quiet and 25 hours must
+// alert, so any threshold other than a day fails here.
+func TestBackupStaleThresholdBoundary(t *testing.T) {
+	if memberBackupStaleAfter != 24*time.Hour {
+		t.Fatalf("memberBackupStaleAfter = %s; the cases below are written for 24h", memberBackupStaleAfter)
+	}
+	for _, tc := range []struct {
+		name      string
+		age       time.Duration
+		wantStale bool
+	}{
+		{"an hour inside the window", 23 * time.Hour, false},
+		{"an hour outside the window", 25 * time.Hour, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			member := newStubBackupMember(t, "tok",
+				backupEntryAt("backup_auto.dump", "scheduled", tc.age),
+			)
+			m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+
+			srv.checkMemberBackups(t.Context())
+
+			got := eventTypes(t, store, m.ID)
+			if tc.wantStale {
+				if len(got) != 1 || got[0] != "backup.stale" {
+					t.Fatalf("events = %v at age %s, want one backup.stale", got, tc.age)
+				}
+				return
+			}
+			if len(got) != 0 {
+				t.Fatalf("events = %v at age %s, want none", got, tc.age)
+			}
+		})
 	}
 }
 
