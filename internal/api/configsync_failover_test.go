@@ -680,8 +680,8 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 }
 
 // upsertFailoverGroups reports the DisplayModel of a group it skips for too few
-// resolvable entries, so a caller can distinguish a clean apply from a partial
-// one.
+// resolvable entries, and that group never also lands in Partial: a group with no
+// entries it can use is Skipped, never Partial, so the two lists stay disjoint.
 func TestConfigSync_UpsertReportsSkippedGroups(t *testing.T) {
 	cleanConfigTables(t)
 	tx, err := apiTestDB.Pool().Begin(context.Background())
@@ -817,7 +817,7 @@ func ghostGroupEnvelope() ConfigEnvelope {
 // An import that commits but cannot build one of its custom failover groups
 // still answers Applied: true (the core config is durable) and additionally
 // reports Incomplete plus the group's DisplayModel in Unapplied, so a caller
-// like Front Desk can tell a full apply from a partial one.
+// like Front Desk can tell a full apply from one that left a group unbuilt.
 func TestConfigSync_ImportReportsIncompleteOnSkippedGroup(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)

@@ -2379,7 +2379,7 @@ func TestAutoSync_FlagNamesTheGroupsTheMemberReported(t *testing.T) {
 	if evs[0].MemberID != f.replicaM.ID {
 		t.Errorf("event member = %q, want %q", evs[0].MemberID, f.replicaM.ID)
 	}
-	const wantMsg = "replica applied the config but could not build 1 failover group(s)"
+	const wantMsg = "replica applied the config but could not build 1 failover group(s): ds4flash"
 	if evs[0].Message != wantMsg {
 		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
 	}
@@ -2455,7 +2455,7 @@ func TestAutoSync_FlagSaysBothWhenGroupsAreMissingAndShort(t *testing.T) {
 	if len(evs) != 1 {
 		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
 	}
-	const wantMsg = "replica applied the config but could not build 1 failover group(s), " +
+	const wantMsg = "replica applied the config but could not build 1 failover group(s): ds4flash, " +
 		"and built testgroup with fewer entries than the primary has"
 	if evs[0].Message != wantMsg {
 		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)

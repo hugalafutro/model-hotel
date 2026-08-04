@@ -615,15 +615,33 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
 	})
 }
 
+// divergenceMessageMaxNames bounds how many group names each clause of
+// divergenceMessage spells out. A member that drifted across dozens of failover
+// groups must not produce a single event message dozens of names long; the full
+// lists still ride the event Metadata untruncated for a consumer that wants them
+// all.
+const divergenceMessageMaxNames = 5
+
+// joinCapped renders names as a comma-separated list, capped at limit entries,
+// with a trailing count of however many were left off.
+func joinCapped(names []string, limit int) string {
+	if len(names) <= limit {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more", strings.Join(names[:limit], ", "), len(names)-limit)
+}
+
 // divergenceMessage renders the operator-facing reason a member does not hold the
 // primary's config, from the two things it can report about its own import.
 //
 // unapplied are custom failover groups it could not build at all; partial are
 // groups it built with fewer entries than the primary sent, because it holds
-// fewer of their models, so it fails over across fewer providers for them. The
-// partial ones are named rather than counted: a count of short groups says
-// nothing an operator can act on, while the group name points straight at the
-// model whose routing is thinner here.
+// fewer of their models, so it fails over across fewer providers for them. Both
+// are named rather than counted alone: a bare count says nothing an operator can
+// act on, while the group names point straight at the routing that is missing or
+// thinner here. Unapplied groups are the more severe case, since the member has
+// no failover coverage for them at all, so its clause carries both the count and
+// the names.
 //
 // With neither, the divergence is one Front Desk measured but the member did not
 // explain: it committed the config, reported nothing wrong (or nothing at all),
@@ -632,10 +650,12 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
 func divergenceMessage(member string, unapplied, partial []string) string {
 	var clauses []string
 	if len(unapplied) > 0 {
-		clauses = append(clauses, fmt.Sprintf("could not build %d failover group(s)", len(unapplied)))
+		clauses = append(clauses, fmt.Sprintf("could not build %d failover group(s): %s",
+			len(unapplied), joinCapped(unapplied, divergenceMessageMaxNames)))
 	}
 	if len(partial) > 0 {
-		clauses = append(clauses, fmt.Sprintf("built %s with fewer entries than the primary has", strings.Join(partial, ", ")))
+		clauses = append(clauses, fmt.Sprintf("built %s with fewer entries than the primary has",
+			joinCapped(partial, divergenceMessageMaxNames)))
 	}
 	if len(clauses) == 0 {
 		return fmt.Sprintf("%s applied the config but does not match the primary's config", member)
