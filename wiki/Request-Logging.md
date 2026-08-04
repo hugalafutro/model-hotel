@@ -268,26 +268,32 @@ mechanics:
 
 - **`DEBUG_LOG=true`** turns Debug on for **every** scope. Thorough, but it floods
   both stdout and this App Logs view at any real request rate.
-- **`DEBUG_LOG_SCOPES=failover,ratelimit`** turns Debug on for **only** the named
+- **`DEBUG_LOG_SCOPES=failover,resolve`** turns Debug on for **only** the named
   scopes - far more usable in production. It is ignored when `DEBUG_LOG=true`.
 
 A scope is the source prefix before the first `:` in a log line (matched
-case-insensitively). The canonical scopes are:
+case-insensitively). The scopes that actually emit Debug records are:
 
-`proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `backup`,
-`webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
-`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`.
+`access`, `admin`, `admin-chat`, `adminauth`, `anthropic`, `api`, `audit`,
+`configsync`, `db`, `discovery`, `failover`, `frontdesk`, `models.dev`,
+`paramrewrite`, `proxy`, `quota`, `resolve`.
+
+`proxy` is by far the most voluminous (the per-request mechanics), followed by
+`frontdesk`, `resolve` and `discovery`; the rest are a handful of lines each.
 
 Both variables are startup-only (env vars, set via `.env` / compose). See
 [[Configuration]] for the full table.
 
-**Not every source is a debug scope.** These variables gate Debug records only,
-so naming a source that emits none does nothing. `netguard` (the outbound
-connection guard behind SSO and alerting, see
-[Security](Security#netguard-admin-configured-endpoints)) is the current
-example: it tags its lines with the same `netguard:` prefix and appears as a
-source in App Logs and its filters, but it logs at WARN and above, which is
-always emitted and never needs enabling.
+**A source is not the same thing as a scope.** These variables gate Debug
+records only, so naming a source that emits none does nothing at all. Most App
+Logs sources are in that position - `ratelimit`, `settings`, `provider`,
+`backup`, `webauthn`, `auth`, `model`, `virtual-keys`, `keycache`, `docker`,
+`stats`, `system`, `applogs`, `events` and `version` all log at Info and above
+only, as does `netguard` (the outbound connection guard behind SSO and alerting,
+see [Security](Security#netguard-admin-configured-endpoints)), which logs at WARN
+and above. Their lines appear in App Logs and in its source filter and are always
+emitted; there is nothing to enable. The list above is the whole of what
+`DEBUG_LOG_SCOPES` can act on.
 
 #### App Logs Schema
 

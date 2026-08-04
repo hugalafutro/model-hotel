@@ -93,7 +93,9 @@ this prefix (`extractSource`) to tag the entry's source. Canonical sources:
 
 `DEBUG_LOG` turns Debug on for *everything*, which floods stdout at any real RPS.
 `DEBUG_LOG_SCOPES` instead enables Debug for **only** the listed source prefixes
-- the same `source:` prefixes from §3, e.g. `DEBUG_LOG_SCOPES=failover,ratelimit`.
+- the `source:` prefixes from §3 that emit Debug records, e.g.
+`DEBUG_LOG_SCOPES=failover,resolve`. Naming a source that logs at Info and above
+only (`ratelimit`, `settings`, `netguard` and most others) does nothing.
 It is comma-separated, trimmed, and matched case-insensitively against the prefix
 before the first `:` in each message. It is ignored when `DEBUG_LOG` is on (Debug
 is already global). The parsed scope set is logged once at startup

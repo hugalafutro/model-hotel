@@ -199,7 +199,7 @@ Beyond the shared admin token, provision named dashboard accounts (username + pa
 
 ## Metrics & log shipping
 
-Prometheus at `/metrics` (set `METRICS_TOKEN` so the scrape config carries no admin token). `LOG_FORMAT=json` emits structured stdout logs for Fluent Bit / Vector / Promtail / Datadog; `OTEL_EXPORTER_OTLP_ENDPOINT` pushes them to an OTel collector. `DEBUG_LOG=true` for verbose, `DEBUG_LOG_SCOPES=failover,ratelimit` to scope it. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
+Prometheus at `/metrics` (set `METRICS_TOKEN` so the scrape config carries no admin token). `LOG_FORMAT=json` emits structured stdout logs for Fluent Bit / Vector / Promtail / Datadog; `OTEL_EXPORTER_OTLP_ENDPOINT` pushes them to an OTel collector. `DEBUG_LOG=true` for verbose, `DEBUG_LOG_SCOPES=failover,resolve` to scope it. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
 ## Backup & Restore
 

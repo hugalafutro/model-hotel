@@ -503,7 +503,7 @@ here) never any prompt content. To **push** those same structured logs to an Ope
 collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` (standard `OTEL_EXPORTER_OTLP_*` vars apply;
 http/protobuf by default, `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` to switch) - logs only, no tracing.
 Need verbose debug output without the flood? `DEBUG_LOG=true`
-turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those
+turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,resolve` turns it on for just those
 areas. The **Settings → Observability** section shows which of these three exporters are active
 and how to enable the rest. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 

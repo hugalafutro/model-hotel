@@ -51,7 +51,7 @@ Environment variables are read once at server startup and cannot be changed at r
 | `MODELSDEV_ENABLED` | bool | `true` | Enable loading models.dev catalogue at startup for model enrichment data. |
 | `DEMO_READONLY` | bool | `false` | Demo-hardening switch. When `true`, every state-changing request to the admin API (`POST`/`PUT`/`PATCH`/`DELETE` on `/api/*` — creating, editing, or deleting providers, virtual keys, settings, backups, etc.) is refused with `403`. Read endpoints (the whole dashboard), the admin chat/arena (`/api/chat`), and the public proxy (`/v1`) are unaffected, so visitors can browse and chat against the pre-seeded providers but cannot change anything. Intended for public demos where the admin token is shared. |
 | `DEBUG_LOG` | bool | `false` | Enable Debug-level structured logging for **all** scopes. Accepts `true`/`1`/`yes`. (Does not change the output format - see `LOG_FORMAT`.) |
-| `DEBUG_LOG_SCOPES` | string (comma-separated) | (empty) | Enable Debug logging for **only** the named scopes, when `DEBUG_LOG` is off - e.g. `failover,ratelimit`. The scope is the prefix before the first `:` in a log message (case-insensitive), matching the canonical sources in [Request Logging](Request-Logging#app-logs). Lets you debug one noisy area without flooding everything at high RPS. Ignored when `DEBUG_LOG=true`. The parsed scopes are echoed once at startup (`debuglog: per-scope debug enabled`). |
+| `DEBUG_LOG_SCOPES` | string (comma-separated) | (empty) | Enable Debug logging for **only** the named scopes, when `DEBUG_LOG` is off - e.g. `failover,resolve`. The scope is the prefix before the first `:` in a log message (case-insensitive), matching the scope list in [Request Logging](Request-Logging#app-logs). Most App Logs sources are not scopes: one that emits no Debug records (`ratelimit`, `settings`, `netguard` and others) has nothing to enable. Lets you debug one noisy area without flooding everything at high RPS. Ignored when `DEBUG_LOG=true`. The parsed scopes are echoed once at startup (`debuglog: per-scope debug enabled`). |
 | `LOG_FORMAT` | string | `text` | Output format for the **docker-logs (stdout)** surface. `text` (default): human-readable `TIME level=LEVEL source: message k=v …`. `json`: one JSON object per line (`time`, `level`, `source`, `msg`, plus each attr) for log collectors (Fluent Bit, Vector, Promtail, Datadog). The App Logs page (ring buffer + DB) is unaffected. No prompt content appears in either format. |
 
 ### Built-in Provider Hosts
@@ -569,7 +569,7 @@ DATABASE_MAX_CONNS=25
 DATABASE_MIN_CONNS=5
 MODELSDEV_ENABLED=true
 DEBUG_LOG=false
-# DEBUG_LOG_SCOPES=failover,ratelimit   # Debug for only these scopes (when DEBUG_LOG is off)
+# DEBUG_LOG_SCOPES=failover,resolve     # Debug for only these scopes (when DEBUG_LOG is off)
 # LOG_FORMAT=text                       # "json" for log collectors
 ```
 
