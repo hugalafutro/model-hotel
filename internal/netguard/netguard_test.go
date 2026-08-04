@@ -155,6 +155,48 @@ func TestDialControlErrorIsSentinel(t *testing.T) {
 	}
 }
 
+// TestNewGuardedDialerBoundsOneAttempt pins the budget RetryTransport depends
+// on. A dialer that inherits the caller's whole timeout lets one slow failure
+// (a resolver that takes seconds to give up) consume the entire request, and
+// the retry then has nothing left to run in. A caller whose own timeout is
+// already shorter keeps that shorter bound rather than being extended.
+func TestNewGuardedDialerBoundsOneAttempt(t *testing.T) {
+	if got := newGuardedDialer(15 * time.Second).Timeout; got != dialTimeout {
+		t.Errorf("dialer timeout = %v, want it capped at %v so a retry keeps budget", got, dialTimeout)
+	}
+	short := 900 * time.Millisecond
+	if got := newGuardedDialer(short).Timeout; got != short {
+		t.Errorf("dialer timeout = %v, want the caller's shorter %v", got, short)
+	}
+	// Zero is net.Dialer's "no deadline", so passing a caller's zero straight
+	// through would leave the one client with no overall backstop dialling
+	// forever, the opposite of the bound this function exists to impose.
+	if got := newGuardedDialer(0).Timeout; got != dialTimeout {
+		t.Errorf("dialer timeout for an unbounded caller = %v, want %v", got, dialTimeout)
+	}
+	if newGuardedDialer(time.Second).Control == nil {
+		t.Error("dialer Control = nil, want the blocked-address guard installed")
+	}
+}
+
+// TestNewClientBoundsTLSHandshake covers the half of connection setup the
+// dialer's own timeout does not reach. net/http leaves TLSHandshakeTimeout
+// unbounded at zero, so an endpoint that accepts the TCP connection and then
+// stalls the handshake would burn the caller's whole budget, leaving nothing
+// for the retry, and every real IdP is HTTPS.
+func TestNewClientBoundsTLSHandshake(t *testing.T) {
+	tr, ok := NewClient(15 * time.Second).Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("Transport = %T, want *http.Transport", NewClient(time.Second).Transport)
+	}
+	if tr.TLSHandshakeTimeout != dialTimeout {
+		t.Errorf("TLSHandshakeTimeout = %v, want %v", tr.TLSHandshakeTimeout, dialTimeout)
+	}
+	if tr.IdleConnTimeout != idleConnTimeout {
+		t.Errorf("IdleConnTimeout = %v, want %v so a pooled connection is not reused long after it died", tr.IdleConnTimeout, idleConnTimeout)
+	}
+}
+
 func TestValidatePublicURL(t *testing.T) {
 	cases := []struct {
 		url     string

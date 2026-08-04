@@ -12,10 +12,10 @@ import (
 
 // retryAttempts is how many times a login-path request is issued in total: the
 // original plus one retry. Every attempt shares the client's single overall
-// timeout, so after a resolver that took seconds to fail there is rarely budget
-// left for a third. The retry is best-effort within that budget: a failure that
-// takes the whole timeout to surface leaves no room for it, so this rescues a
-// fast pre-connection failure and not a slow one.
+// timeout, but one connection attempt is bounded by dialTimeout, so a failed
+// dial costs at most that slice of the budget and the retry is left room to
+// run. Two is the useful number: a resolver still broken a moment later is not
+// the momentary blip this exists to absorb.
 const retryAttempts = 2
 
 // retryDelay spaces the retry far enough to clear a momentary resolver failure
@@ -53,33 +53,37 @@ type RetryTransport struct {
 // body that cannot be rewound. When a later attempt dies on the client's own
 // deadline, the first attempt's error is returned instead: it names the cause.
 func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	var firstErr error
+	var firstErr, prevErr error
 	for attempt := 1; ; attempt++ {
 		attemptReq := req
 		if attempt > 1 {
-			replay, err := replayRequest(req)
-			if err != nil {
-				return nil, err
+			replay, replayErr := replayRequest(req)
+			if replayErr != nil {
+				return nil, replayErr
 			}
 			attemptReq = replay
+
+			// Logged here, with the retry fully prepared and nothing left that
+			// can abandon it, so one WARN means exactly one extra attempt and an
+			// operator can count attempts from the log. Worth a WARN even when
+			// that attempt succeeds: it is the only signal that the resolver is
+			// flaking. The error text carries the host and resolver, never a
+			// credential, which live in the request body.
+			debuglog.Warn("netguard: retrying request after pre-connection failure",
+				"method", req.Method, "host", req.URL.Host, "attempt", attempt-1, "error", prevErr)
 		}
 
 		resp, err := t.Base.RoundTrip(attemptReq)
 		if err == nil {
 			return resp, nil
 		}
+		prevErr = err
 		if firstErr == nil {
 			firstErr = err
 		}
 		if attempt >= t.Attempts || !preConnectionFailure(err) || !replayable(req) {
 			return nil, diagnosableError(firstErr, err)
 		}
-
-		// Worth a WARN even when the retry succeeds: it is the only signal that
-		// the resolver is flaking. The error text carries the host and resolver,
-		// never a credential, which live in the request body.
-		debuglog.Warn("netguard: retrying request after pre-connection failure",
-			"method", req.Method, "host", req.URL.Host, "attempt", attempt, "error", err)
 
 		select {
 		case <-req.Context().Done():
@@ -110,8 +114,7 @@ func preConnectionFailure(err error) bool {
 	if errors.Is(err, ErrBlockedAddress) {
 		return false
 	}
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
+	if dnsErr, ok := errors.AsType[*net.DNSError](err); ok {
 		// NXDOMAIN is the resolver's definitive answer that the host does not
 		// exist, typically a typo'd issuer or a decommissioned IdP domain. A
 		// second lookup buys the same answer plus the delay, and two WARN lines
@@ -122,19 +125,21 @@ func preConnectionFailure(err error) bool {
 }
 
 // dialFailure reports whether any error in err's chain is a failed connection
-// attempt. errors.As binds only the outermost match, and net/http wraps every
+// attempt. A match binds only the outermost OpError, and net/http wraps every
 // dial error as an outer OpError{Op: "proxyconnect"} once HTTP(S)_PROXY is set,
 // so inspecting one value would miss every dial failure behind an egress proxy.
 // Both shapes stop short of the origin server, so both are safe to re-issue.
 func dialFailure(err error) bool {
-	var opErr *net.OpError
-	for errors.As(err, &opErr) {
+	for {
+		opErr, ok := errors.AsType[*net.OpError](err)
+		if !ok {
+			return false
+		}
 		if opErr.Op == "dial" || opErr.Op == "proxyconnect" {
 			return true
 		}
 		err = opErr.Err
 	}
-	return false
 }
 
 // diagnosableError picks which attempt's error to surface. A retry issued near
