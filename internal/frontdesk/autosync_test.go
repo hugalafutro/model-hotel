@@ -525,7 +525,10 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	replicaMember, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	// A tokenless member is present too: it must be skipped without blocking the
 	// fleet from being recorded as converged.
-	tokenless, _ := store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "")
+	tokenless, err := store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "")
+	if err != nil {
+		t.Fatalf("create tokenless member: %v", err)
+	}
 	enableAutoSync(t, store, pm.ID, "hash-A")
 	alignFleetVersions(t, srv, store, "dev")
 

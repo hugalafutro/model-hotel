@@ -205,15 +205,28 @@ func TestDecrypt_InvalidCiphertext(t *testing.T) {
 	}
 }
 
+// TestDecrypt_WrongNonceLength: a nonce of the wrong length must return an error,
+// because gcm.Open panics on one rather than erroring. Both decrypt paths read the
+// nonce from storage, where truncation or corruption is what would produce a bad
+// length, so both are held to it from one table: a guard on only one of them means
+// the choice of path decides whether a corrupt row errors or crashes the process.
 func TestDecrypt_WrongNonceLength(t *testing.T) {
 	masterKey := "test-master-key-123"
 	salt := make([]byte, 32)
 	ciphertext := []byte("some-ciphertext")
 
-	// A nonce of the wrong length must return an error, not panic the GCM Open.
-	for _, n := range []int{0, 1, nonceLength - 1, nonceLength + 1} {
-		if _, err := Decrypt(ciphertext, make([]byte, n), salt, masterKey); err == nil {
-			t.Errorf("Decrypt with nonce length %d should fail, got nil", n)
+	decrypters := map[string]func(ciphertext, nonce, salt []byte, masterKey string) (string, error){
+		"Decrypt":       Decrypt,
+		"DecryptCached": DecryptCached,
+	}
+	for name, decrypt := range decrypters {
+		for _, n := range []int{0, 1, nonceLength - 1, nonceLength + 1} {
+			if _, err := decrypt(ciphertext, make([]byte, n), salt, masterKey); err == nil {
+				t.Errorf("%s with nonce length %d = nil error, want an error rather than a panic", name, n)
+			}
+		}
+		if _, err := decrypt(ciphertext, nil, salt, masterKey); err == nil {
+			t.Errorf("%s with a nil nonce = nil error, want an error rather than a panic", name)
 		}
 	}
 }
