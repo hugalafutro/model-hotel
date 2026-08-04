@@ -58,8 +58,11 @@ func TestComputeFleetState(t *testing.T) {
 			fleetStateInput{Members: []memberFleetFacts{up, down, drainedOf(up)}},
 			FleetDegraded, []string{"member_down", "member_drained"}},
 		{"a held and an incomplete member report both reasons in fixed order",
-			fleetStateInput{Members: []memberFleetFacts{up, heldOf(up), incompleteOf(up)}},
-			FleetDegraded, []string{"sync_held", "sync_incomplete"}},
+			fleetStateInput{
+				Members:      []memberFleetFacts{up, heldOf(up), incompleteOf(up)},
+				AutoSyncTier: 1,
+			},
+			FleetDegraded, []string{"sync_held", "sync_incomplete", "autosync_stale"}},
 		{"stale tier 1 degrades", fleetStateInput{AutoSyncTier: 1},
 			FleetDegraded, []string{"autosync_stale"}},
 		{"stale tier 2 is faulty", fleetStateInput{AutoSyncTier: 2},
@@ -112,8 +115,8 @@ func TestFleetState_AllIncompleteStillDegradedNotFaulty(t *testing.T) {
 		{Known: true, Healthy: true, Syncable: true, Incomplete: true},
 	}})
 
-	if state == FleetFaulty {
-		t.Fatal("state = faulty, want degraded: incomplete members still serve traffic")
+	if state != FleetDegraded {
+		t.Fatalf("state = %q, want degraded: incomplete members still serve traffic, but the fleet is not whole", state)
 	}
 }
 

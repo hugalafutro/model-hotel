@@ -214,8 +214,8 @@ func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error
 // (member list, auto-sync config, last-sync marker) and computes the state,
 // folding in the live poller snapshots (health, Traefik staleness), the
 // version-skew hold set and the incomplete-apply set. Callers that already hold
-// those reads pass them in so
-// the polled /api/fleet/autosync endpoint does not re-query the store.
+// those reads pass them in so the polled /api/fleet/autosync endpoint does not
+// re-query the store.
 func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, lastSync time.Time, haveSync bool) (FleetState, []string) {
 	statuses := s.poller.Snapshot()
 	held := s.heldSnapshot()

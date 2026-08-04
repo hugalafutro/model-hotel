@@ -633,10 +633,15 @@ func TestConfigSync_ImportPreservesLocalAutoDisableStamp(t *testing.T) {
 // can already be dead. The core config is committed at that point, so the build
 // must still run: inheriting the cancellation drops every custom group while the
 // member answers 200 / Applied: true.
+//
+// The synced marker is asserted alongside the group build because it is stamped
+// from the same detached context: a narrower detach that covered only the build
+// would keep the group assertions green while silently leaving the member's
+// dashboard reporting it was never synced.
 func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	cleanConfigTables(t)
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()),
-		configSyncMasterKey, "v-test", nil, nil)
+	sr := settings.NewRepository(apiTestDB.Pool())
+	h := NewConfigSyncHandler(apiTestDB, sr, configSyncMasterKey, "v-test", nil, nil)
 
 	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	seedModel(t, provID, "gpt-4o")
@@ -664,6 +669,13 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	}
 	if !groupExists(t, "survivor") {
 		t.Fatal("group was not written")
+	}
+	got := sr.GetWithDefault(context.Background(), keyFleetConfigSyncedAt, "")
+	if got == "" {
+		t.Fatal("synced marker not stamped: it must not inherit the request cancellation either")
+	}
+	if _, err := time.Parse(time.RFC3339, got); err != nil {
+		t.Errorf("synced marker = %q, not RFC3339: %v", got, err)
 	}
 }
 
