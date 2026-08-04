@@ -1,6 +1,7 @@
 package netguard
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -21,9 +22,10 @@ const retryAttempts = 2
 // without noticeably lengthening a login the user is already waiting on.
 const retryDelay = 250 * time.Millisecond
 
-// RetryTransport re-issues a request whose error is a DNS resolution or dial
-// failure. Normally that means nothing ever left this process, so re-issuing is
-// safe for any method, including the non-idempotent OIDC token POST.
+// RetryTransport re-issues a request whose error is a transient DNS resolution
+// or dial failure, including the dial of an egress proxy. Normally that means
+// nothing ever left this process, so re-issuing is safe for any method,
+// including the non-idempotent OIDC token POST.
 //
 // One shape is not purely pre-connection: net/http re-issues a request itself
 // when a reused connection dies, and if the follow-up dial then fails, that dial
@@ -46,10 +48,12 @@ type RetryTransport struct {
 	Delay    time.Duration
 }
 
-// RoundTrip implements http.RoundTripper. It returns the underlying error
-// unchanged on the last attempt, for an error that is not a pre-connection
-// failure, and for a body that cannot be rewound.
+// RoundTrip implements http.RoundTripper. It returns the transport error on the
+// last attempt, for an error that is not a pre-connection failure, and for a
+// body that cannot be rewound. When a later attempt dies on the client's own
+// deadline, the first attempt's error is returned instead: it names the cause.
 func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	var firstErr error
 	for attempt := 1; ; attempt++ {
 		attemptReq := req
 		if attempt > 1 {
@@ -64,8 +68,11 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if err == nil {
 			return resp, nil
 		}
+		if firstErr == nil {
+			firstErr = err
+		}
 		if attempt >= t.Attempts || !preConnectionFailure(err) || !replayable(req) {
-			return nil, err
+			return nil, diagnosableError(firstErr, err)
 		}
 
 		// Worth a WARN even when the retry succeeds: it is the only signal that
@@ -79,7 +86,7 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			// Surface the transport failure rather than the context error: it is
 			// the cause an operator needs, and http.Client reports its own
 			// timeout separately.
-			return nil, err
+			return nil, diagnosableError(firstErr, err)
 		case <-time.After(t.Delay):
 		}
 	}
@@ -94,19 +101,57 @@ func (t *RetryTransport) CloseIdleConnections() {
 	}
 }
 
-// preConnectionFailure reports whether err is a DNS or dial failure. See
-// RetryTransport for why re-issuing on those is safe.
+// preConnectionFailure reports whether err is a transient DNS or dial failure.
+// See RetryTransport for why re-issuing on those is safe.
 func preConnectionFailure(err error) bool {
 	// A blocked address is a permanent security denial, not a transient fault.
+	// errors.Is unwraps the whole chain, so this still wins when the denial
+	// arrives inside a proxy's connect error.
 	if errors.Is(err, ErrBlockedAddress) {
 		return false
 	}
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
-		return true
+		// NXDOMAIN is the resolver's definitive answer that the host does not
+		// exist, typically a typo'd issuer or a decommissioned IdP domain. A
+		// second lookup buys the same answer plus the delay, and two WARN lines
+		// where one clear failure is what an operator wants.
+		return !dnsErr.IsNotFound
 	}
+	return dialFailure(err)
+}
+
+// dialFailure reports whether any error in err's chain is a failed connection
+// attempt. errors.As binds only the outermost match, and net/http wraps every
+// dial error as an outer OpError{Op: "proxyconnect"} once HTTP(S)_PROXY is set,
+// so inspecting one value would miss every dial failure behind an egress proxy.
+// Both shapes stop short of the origin server, so both are safe to re-issue.
+func dialFailure(err error) bool {
 	var opErr *net.OpError
-	return errors.As(err, &opErr) && opErr.Op == "dial"
+	for errors.As(err, &opErr) {
+		if opErr.Op == "dial" || opErr.Op == "proxyconnect" {
+			return true
+		}
+		err = opErr.Err
+	}
+	return false
+}
+
+// diagnosableError picks which attempt's error to surface. A retry issued near
+// the end of the client's timeout can fail on the deadline alone, reporting a
+// generic context error in place of the transport cause the first attempt named,
+// so that first error wins whenever it is the more specific of the two.
+func diagnosableError(first, last error) error {
+	if contextError(last) && !contextError(first) {
+		return first
+	}
+	return last
+}
+
+// contextError reports whether err is the request context expiring or being
+// cancelled, which says only that time ran out, never why.
+func contextError(err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
 }
 
 // replayable reports whether the request body can be produced a second time.

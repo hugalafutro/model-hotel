@@ -110,6 +110,131 @@ func TestRetryTransport_RetriesDialFailure(t *testing.T) {
 	}
 }
 
+// proxyConnectFailure mirrors the shape net/http surfaces when HTTP(S)_PROXY is
+// set and the proxy itself cannot be dialled: dialConn wraps the dial OpError in
+// an outer OpError with Op "proxyconnect".
+func proxyConnectFailure(inner error) error {
+	return &net.OpError{Op: "proxyconnect", Net: "tcp", Err: inner}
+}
+
+// TestRetryTransport_RetriesProxyConnectFailure: with an egress proxy in front
+// of the IdP, a failed dial reaches the transport under a proxyconnect wrapper.
+// Nothing reached the origin, so it retries like any other dial failure.
+func TestRetryTransport_RetriesProxyConnectFailure(t *testing.T) {
+	stub := &stubTransport{results: []stubResult{
+		{err: proxyConnectFailure(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")})},
+		{resp: okResponse()},
+	}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	resp, err := rt.RoundTrip(postRequest(t, "x=1"))
+	if err != nil {
+		t.Fatalf("RoundTrip = %v, want success on the retry", err)
+	}
+	_ = resp.Body.Close()
+	if stub.calls != 2 {
+		t.Fatalf("calls = %d, want 2: a proxy dial failure never reached the origin", stub.calls)
+	}
+}
+
+// TestRetryTransport_RetriesProxyTLSFailure: with an https:// egress proxy, a
+// TLS handshake failure against the proxy is wrapped as proxyconnect around an
+// error that is not itself a dial OpError. The CONNECT never went out, so the
+// origin never saw the request and re-issuing is safe.
+func TestRetryTransport_RetriesProxyTLSFailure(t *testing.T) {
+	stub := &stubTransport{results: []stubResult{
+		{err: proxyConnectFailure(errors.New("tls: failed to verify certificate"))},
+		{resp: okResponse()},
+	}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	resp, err := rt.RoundTrip(postRequest(t, "x=1"))
+	if err != nil {
+		t.Fatalf("RoundTrip = %v, want success on the retry", err)
+	}
+	_ = resp.Body.Close()
+	if stub.calls != 2 {
+		t.Fatalf("calls = %d, want 2: the proxy handshake failed before any CONNECT", stub.calls)
+	}
+}
+
+// TestRetryTransport_DoesNotRetryBlockedAddressBehindProxy: the SSRF denial is
+// still permanent when it arrives nested inside a proxyconnect wrapper.
+func TestRetryTransport_DoesNotRetryBlockedAddressBehindProxy(t *testing.T) {
+	blocked := &net.OpError{Op: "dial", Net: "tcp", Err: fmt.Errorf("%w %s", ErrBlockedAddress, "169.254.169.254")}
+	stub := &stubTransport{results: []stubResult{{err: proxyConnectFailure(blocked)}}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	_, err := rt.RoundTrip(postRequest(t, "x=1"))
+	if !errors.Is(err, ErrBlockedAddress) {
+		t.Fatalf("RoundTrip = %v, want ErrBlockedAddress", err)
+	}
+	if stub.calls != 1 {
+		t.Fatalf("calls = %d, want 1: a security denial must not be retried", stub.calls)
+	}
+}
+
+// TestRetryTransport_DoesNotRetryNonExistentHost: NXDOMAIN is the resolver's
+// definitive answer, so a typo'd issuer host fails once and clearly.
+func TestRetryTransport_DoesNotRetryNonExistentHost(t *testing.T) {
+	notFound := &net.OpError{
+		Op:  "dial",
+		Net: "tcp",
+		Err: &net.DNSError{Err: "no such host", Name: "typo.example.test", IsNotFound: true},
+	}
+	stub := &stubTransport{results: []stubResult{{err: notFound}}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	_, err := rt.RoundTrip(postRequest(t, "x=1"))
+	var dnsErr *net.DNSError
+	if !errors.As(err, &dnsErr) {
+		t.Fatalf("RoundTrip = %v, want the DNS failure surfaced", err)
+	}
+	if stub.calls != 1 {
+		t.Fatalf("calls = %d, want 1: a host that does not exist must not be retried", stub.calls)
+	}
+}
+
+// TestRetryTransport_PrefersTransportErrorOverContextDeadline: a retry issued
+// with little budget left can die on the client timeout alone. The operator
+// needs the resolver failure that started it, not a bare deadline.
+func TestRetryTransport_PrefersTransportErrorOverContextDeadline(t *testing.T) {
+	stub := &stubTransport{results: []stubResult{
+		{err: dnsFailure()},
+		{err: context.DeadlineExceeded},
+	}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	_, err := rt.RoundTrip(postRequest(t, "x=1"))
+	var dnsErr *net.DNSError
+	if !errors.As(err, &dnsErr) {
+		t.Fatalf("RoundTrip = %v, want the first attempt's DNS failure, not the deadline", err)
+	}
+	if stub.calls != 2 {
+		t.Fatalf("calls = %d, want 2", stub.calls)
+	}
+}
+
+// TestRetryTransport_ReturnsContextErrorWhenFirstIsAlsoContext: a dial that
+// times out on the request context is itself a context error, so there is no
+// more specific cause to preserve and the last error stands.
+func TestRetryTransport_ReturnsContextErrorWhenFirstIsAlsoContext(t *testing.T) {
+	lastErr := fmt.Errorf("second attempt: %w", context.DeadlineExceeded)
+	stub := &stubTransport{results: []stubResult{
+		{err: &net.OpError{Op: "dial", Net: "tcp", Err: context.DeadlineExceeded}},
+		{err: lastErr},
+	}}
+	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
+
+	_, err := rt.RoundTrip(postRequest(t, "x=1"))
+	if !errors.Is(err, lastErr) {
+		t.Fatalf("RoundTrip = %v, want the last attempt's error", err)
+	}
+	if stub.calls != 2 {
+		t.Fatalf("calls = %d, want 2", stub.calls)
+	}
+}
+
 // TestRetryTransport_RetriesNoBodyRequest covers a GET built the idiomatic
 // way, with http.NoBody: net/http leaves req.Body non-nil (http.NoBody) and
 // req.GetBody nil for this case, so it exercises both the req.Body ==
@@ -254,9 +379,10 @@ func TestRetryTransport_SurfacesGetBodyError(t *testing.T) {
 // TestRetryTransport_ReturnsLastErrorWhenAttemptsExhausted: a resolver that is
 // still sick fails the same way it does today, no worse.
 func TestRetryTransport_ReturnsLastErrorWhenAttemptsExhausted(t *testing.T) {
+	lastErr := dnsFailure()
 	stub := &stubTransport{results: []stubResult{
 		{err: dnsFailure()},
-		{err: dnsFailure()},
+		{err: lastErr},
 	}}
 	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
 
@@ -264,6 +390,11 @@ func TestRetryTransport_ReturnsLastErrorWhenAttemptsExhausted(t *testing.T) {
 	var dnsErr *net.DNSError
 	if !errors.As(err, &dnsErr) {
 		t.Fatalf("RoundTrip = %v, want the DNS failure surfaced", err)
+	}
+	// The most recent failure, not the first: substituting the first attempt's
+	// error is reserved for a last attempt that only reports a deadline.
+	if !errors.Is(err, lastErr) {
+		t.Fatalf("RoundTrip = %v, want the last attempt's error", err)
 	}
 	if stub.calls != 2 {
 		t.Fatalf("calls = %d, want 2", stub.calls)
