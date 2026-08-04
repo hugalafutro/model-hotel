@@ -17,9 +17,14 @@ import (
 )
 
 // stubAutoMember plays a member for the auto-sync loop: it answers the config
-// version GET (the drift signal), the export GET, the dry-run and real config
-// imports, and the pre-sync backup POST. Each is independently configurable so a
-// single stub can be a primary or a replica in any disposition.
+// version GET (the drift signal), the export GET, and the dry-run and real config
+// imports. Each is independently configurable so a single stub can be a primary or
+// a replica in any disposition.
+//
+// It also answers POST /api/backups and counts the calls. No sync path may call
+// that endpoint: members back themselves up on their own schedule. Serving it (and
+// asserting the count is zero) catches a reintroduced pre-sync backup as a counted
+// call rather than as a 404 that some other assertion happens to notice.
 type stubAutoMember struct {
 	mu           sync.Mutex
 	srv          *httptest.Server
@@ -33,9 +38,9 @@ type stubAutoMember struct {
 	dryDiff      string // diff object returned on a dry-run import
 	importCode   int    // status for the dry-run import (default 200)
 	importBody   string // full dry-run import body; overrides dryDiff when set
-	backupCode   int
 	gotBackup    bool
-	backups      int // how many pre-sync backups this member was asked to take
+	backups      int // how many backups this member was asked to take; must stay 0
+	dryRuns      int // how many dry-run imports this member was asked for
 	gotRealSync  bool
 	realSyncs    int    // how many real (non-dry-run) imports this member accepted
 	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
@@ -43,7 +48,9 @@ type stubAutoMember struct {
 	// incompleteImport makes the real import answer applied-but-incomplete: the
 	// core config committed, one custom failover group could not be built.
 	incompleteImport bool
-	onBackup         func() // fired inside the backup handler, to simulate a rearm landing mid-pass
+	// onDryRun fires inside the dry-run import handler, to simulate a rearm landing
+	// in the window between the (slow) dry-run and the final staleness gate.
+	onDryRun func()
 	// onImport fires inside the real (non-dry-run) import handler. It receives the
 	// request context and returns whether the import should be recorded as applied;
 	// returning false models the import being cancelled in flight before it commits.
@@ -61,7 +68,6 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		versionCode: http.StatusOK,
 		exportCode:  http.StatusOK,
 		importCode:  http.StatusOK,
-		backupCode:  http.StatusCreated,
 	}
 	sm.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+sm.token {
@@ -83,6 +89,10 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			if r.URL.Query().Get("dryRun") != "" {
+				sm.dryRuns++
+				if sm.onDryRun != nil {
+					sm.onDryRun() // simulate a rearm/repoint landing after the dry-run, before the import
+				}
 				w.WriteHeader(sm.importCode)
 				if sm.importBody != "" {
 					_, _ = w.Write([]byte(sm.importBody))
@@ -116,12 +126,10 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			// stub answers a non-primary box with a unique instance_id.
 			_, _ = w.Write([]byte(`{"fleet":{"is_primary":false},"instance_id":"` + sm.instanceID + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
+			// No sync path may reach here; the counters exist to prove it.
 			sm.gotBackup = true
 			sm.backups++
-			if sm.onBackup != nil {
-				sm.onBackup() // simulate a rearm/repoint landing after the backup, before the import
-			}
-			w.WriteHeader(sm.backupCode)
+			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"filename":"backup_x_frontdesk.dump"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -141,6 +149,12 @@ func (sm *stubAutoMember) backupCount() int {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return sm.backups
+}
+
+func (sm *stubAutoMember) dryRunCount() int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.dryRuns
 }
 
 func (sm *stubAutoMember) realSyncCount() int {
@@ -183,8 +197,8 @@ func seedAutoSyncHash(t *testing.T, store *Store, hash string) {
 
 // TestAutoSyncCoalescesThenApplies: a drifted primary is not synced on the first
 // observation (the config might still be mid-edit); only once the hash repeats on
-// the next tick does Front Desk propagate it, backing each changed member up
-// first and stamping its last-sync marker.
+// the next tick does Front Desk propagate it, stamping each changed member's
+// last-sync marker. No member is asked to snapshot itself along the way.
 func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
@@ -208,8 +222,8 @@ func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 
 	// Second tick: the hash settled, so propagate.
 	srv.autoSyncOnce(t.Context(), prev)
-	if !replica.didBackup() {
-		t.Error("replica was not backed up before the auto-sync")
+	if replica.didBackup() {
+		t.Error("Front Desk asked the replica to snapshot itself; members back themselves up on their own schedule")
 	}
 	if !replica.didRealSync() {
 		t.Error("replica did not receive the config")
@@ -248,8 +262,8 @@ func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
 	// Single call, no prior tick: the kick must act at once.
 	srv.forceAutoSyncNow(t.Context())
 
-	if !replica.didBackup() {
-		t.Error("replica was not backed up before the kick sync")
+	if replica.didBackup() {
+		t.Error("the kick asked the replica to snapshot itself; members back themselves up on their own schedule")
 	}
 	if !replica.didRealSync() {
 		t.Error("replica did not receive the config on the kick")
@@ -336,17 +350,17 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 	}
 }
 
-// TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup: the tightest race. A
-// rearm/repoint lands after a member's pre-sync backup is taken but before its
-// import runs. The final staleness gate must catch it: the member is snapshotted
-// (harmless) but NOT overwritten with the now-stale export, and the hash is not
-// recorded, so the rearm's own pass converges it with the fresh primary.
-func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
+// TestConvergeFleetAbortsImportWhenRearmLandsAfterDryRun: the tightest race the
+// pre-import gates can still close. A rearm/repoint lands during a member's (slow)
+// dry-run diff, after the loop's top-of-iteration staleness check. The final gate
+// must catch it: the member is NOT overwritten with the now-stale export, and the
+// hash is not recorded, so the rearm's own pass converges it with the fresh primary.
+func TestConvergeFleetAbortsImportWhenRearmLandsAfterDryRun(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-B"
 	replica := newStubAutoMember(t, "rtoken")
-	replica.dryDiff = driftDiff // needs the new config, so it reaches the backup+import path
+	replica.dryDiff = driftDiff // needs the new config, so it reaches the import path
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -355,9 +369,9 @@ func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
 
 	cfg, _ := store.GetAutoSync(t.Context())
 	staleGen := cfg.Gen
-	// The rearm fires the instant the member's pre-sync backup is taken, opening the
-	// post-backup/pre-import window the final gate exists to close.
-	replica.onBackup = func() {
+	// The rearm fires inside the member's dry-run, opening the post-dry-run /
+	// pre-import window the final gate exists to close.
+	replica.onDryRun = func() {
 		if err := store.RearmAutoSync(t.Context()); err != nil {
 			t.Errorf("RearmAutoSync: %v", err)
 		}
@@ -365,8 +379,8 @@ func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
 
 	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
 
-	if !replica.didBackup() {
-		t.Fatal("test setup: backup never ran, so the post-backup window was not exercised")
+	if replica.dryRunCount() == 0 {
+		t.Fatal("test setup: the dry-run never ran, so the post-dry-run window was not exercised")
 	}
 	if replica.didRealSync() {
 		t.Error("imported stale export after a rearm landed post-backup; want aborted before mutating")
@@ -429,8 +443,8 @@ func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
 }
 
 // TestAutoSyncSkipsConvergedMember: a member whose dry-run diff is empty is left
-// untouched (no backup, no import), but the fleet still counts as converged so the
-// new hash is recorded and the loop quiesces.
+// untouched (no import), but the fleet still counts as converged so the new hash
+// is recorded and the loop quiesces.
 func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
@@ -448,7 +462,7 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	srv.autoSyncOnce(t.Context(), "hash-B") // already settled: act this tick
 
 	if replica.didBackup() || replica.didRealSync() {
-		t.Error("a converged member must not be backed up or re-imported")
+		t.Error("a converged member must not be snapshotted or re-imported")
 	}
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-B" {
@@ -585,16 +599,16 @@ func TestMarkFleetVerifiedListErrorIsSafe(t *testing.T) {
 	}
 }
 
-// TestAutoSyncBackupFailureSkipsMember: if a member's pre-sync backup fails, its
-// config is NOT overwritten, the fleet is not marked converged, and the applied
-// hash is left stale so the next tick retries.
-func TestAutoSyncBackupFailureSkipsMember(t *testing.T) {
+// TestAutoSyncTakesNoPreSyncBackup: Front Desk overwrites a drifted member without
+// asking it to snapshot itself first. Members back themselves up on their own
+// schedule, so a member's backup endpoint is never on the sync path and the fleet
+// converges without one being reachable at all.
+func TestAutoSyncTakesNoPreSyncBackup(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
 	primary.versionHash = "hash-B"
 	replica := newStubAutoMember(t, "rtoken")
 	replica.dryDiff = driftDiff
-	replica.backupCode = http.StatusInternalServerError // backup fails
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
@@ -603,12 +617,18 @@ func TestAutoSyncBackupFailureSkipsMember(t *testing.T) {
 
 	srv.autoSyncOnce(t.Context(), "hash-B")
 
-	if replica.didRealSync() {
-		t.Error("member was overwritten despite a failed pre-sync backup")
+	if !replica.didRealSync() {
+		t.Error("the drifted member was not overwritten")
+	}
+	if got := replica.backupCount(); got != 0 {
+		t.Errorf("member backups requested = %d, want 0: Front Desk takes no pre-sync snapshot", got)
+	}
+	if got := primary.backupCount(); got != 0 {
+		t.Errorf("primary backups requested = %d, want 0", got)
 	}
 	cfg, _ := store.GetAutoSync(t.Context())
-	if cfg.LastHash != "hash-A" {
-		t.Errorf("applied hash = %q, want it left at hash-A so the next tick retries", cfg.LastHash)
+	if cfg.LastHash != "hash-B" {
+		t.Errorf("applied hash = %q, want hash-B recorded after convergence", cfg.LastHash)
 	}
 }
 
@@ -635,8 +655,8 @@ func TestAutoSyncUnreachableMemberHoldsHash(t *testing.T) {
 }
 
 // TestAutoSyncSchemaBlockedMemberSkipped: a member that reports a schema or
-// MASTER_KEY mismatch is held off (not backed up, not overwritten) and the fleet
-// is not marked converged.
+// MASTER_KEY mismatch is held off (not overwritten) and the fleet is not marked
+// converged.
 func TestAutoSyncSchemaBlockedMemberSkipped(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
@@ -654,7 +674,7 @@ func TestAutoSyncSchemaBlockedMemberSkipped(t *testing.T) {
 	srv.autoSyncOnce(t.Context(), "hash-B")
 
 	if blocked.didBackup() || blocked.didRealSync() {
-		t.Error("a schema-blocked member must not be backed up or overwritten")
+		t.Error("a schema-blocked member must not be snapshotted or overwritten")
 	}
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-A" {
@@ -1295,10 +1315,8 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 
 	srv.forceAutoSyncNow(t.Context())
 
-	// The dry-run said it needed the config, so it is snapshotted before the (then
-	// refused) import: the backup is a harmless recoverable snapshot.
-	if !replica.didBackup() {
-		t.Error("replica should still be snapshotted before the refused import")
+	if replica.didBackup() {
+		t.Error("a refused import must not have been preceded by a Front Desk snapshot")
 	}
 	got, err := store.GetMember(t.Context(), rm.ID)
 	if err != nil {
@@ -1332,7 +1350,7 @@ func sawSyncFailed(ch chan events.Event) bool {
 }
 
 // TestAutoSyncHoldsVersionSkew: a member whose polled app version differs from
-// the primary's is held (no backup, no push, fleet not converged), and
+// the primary's is held (no push, fleet not converged), and
 // config.sync_held is emitted once on the transition into held rather than on
 // every pass. Once the versions align, the next pass syncs the member normally.
 func TestAutoSyncHoldsVersionSkew(t *testing.T) {
@@ -1572,7 +1590,7 @@ func TestAutoSync_RecoveredEventOnlyAfterIncomplete(t *testing.T) {
 
 // incompleteFleet is a two-member fleet whose replica commits every import but
 // never builds its custom failover group, so the fleet can never converge. The
-// stubs count the pre-sync backups and real imports each pass costs.
+// stubs count the real imports each pass costs.
 type incompleteFleet struct {
 	srv      *Server
 	store    *Store
@@ -1621,25 +1639,25 @@ func backdateIncompleteRetry(t *testing.T, s *Server, memberID string, d time.Du
 
 // TestAutoSync_IncompleteRetryIsRateLimited: an incomplete member is reachable,
 // and its dry-run diff is never zero (diffKeyed is presence-based), so every tick
-// would otherwise take a pre-sync pg_dump and re-import it, forever, on a member
+// would otherwise re-import it, and rerun its model discovery, forever, on a member
 // that cannot converge. The retry is bounded, and bounding it must not look like
 // convergence: the fleet hash stays unrecorded.
 func TestAutoSync_IncompleteRetryIsRateLimited(t *testing.T) {
 	f := newIncompleteFleet(t)
 
 	f.settledTick(t)
-	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 1 || r != 1 {
-		t.Fatalf("first pass: backups = %d, real imports = %d; want 1 and 1", b, r)
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("first pass: real imports = %d, want 1", got)
 	}
 
 	for range 3 {
 		f.settledTick(t)
 	}
-	if got := f.replica.backupCount(); got != 1 {
-		t.Errorf("backups = %d after three further ticks, want 1: an unconvergeable member must not dump on every tick", got)
-	}
 	if got := f.replica.realSyncCount(); got != 1 {
 		t.Errorf("real imports = %d after three further ticks, want 1: the retry is rate-limited", got)
+	}
+	if got := f.replica.backupCount(); got != 0 {
+		t.Errorf("member backups requested = %d, want 0: Front Desk takes no pre-sync snapshot", got)
 	}
 
 	cfg, err := f.store.GetAutoSync(t.Context())
@@ -1666,8 +1684,8 @@ func TestAutoSync_IncompleteRetriesAfterTheInterval(t *testing.T) {
 	backdateIncompleteRetry(t, f.srv, f.replicaM.ID, incompleteRetryInterval+time.Minute)
 	f.settledTick(t)
 
-	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 2 || r != 2 {
-		t.Errorf("past the interval: backups = %d, real imports = %d; want 2 and 2", b, r)
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Errorf("past the interval: real imports = %d, want 2", got)
 	}
 }
 
@@ -1696,8 +1714,8 @@ func TestAutoSync_PrimaryEditClearsIncompleteRetryTimers(t *testing.T) {
 	}
 
 	f.srv.autoSyncOnce(t.Context(), prev)
-	if b, r := f.replica.backupCount(), f.replica.realSyncCount(); b != 2 || r != 2 {
-		t.Errorf("after the primary moved: backups = %d, real imports = %d; want 2 and 2", b, r)
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Errorf("after the primary moved: real imports = %d, want 2", got)
 	}
 }
 

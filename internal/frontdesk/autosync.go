@@ -15,29 +15,21 @@ import (
 // config replication. Where configsync.go runs a manual, wizard-driven, double-
 // confirmed sync, the auto-syncer watches the operator-designated primary on a
 // background tick and, when its config changes, propagates it to every other
-// member by itself, snapshotting each member first so a bad propagation is
-// recoverable.
+// member by itself.
 //
 // Drift is detected by the primary's own config hash (GET /api/config/version):
 // the hash is compared against the hash last applied to the fleet, both read
 // from the same instance, so it is a valid same-instance "changed since" signal.
 // Whether an individual member needs the new config is decided by the member's
-// own dry-run diff (never by comparing hashes across instances, which embed
-// instance-local ids/timestamps). That diff is presence-based, so it seldom reads
-// as empty; a member that can never converge is instead kept from backing up and
-// re-importing on every tick by incompleteRetryInterval.
+// own dry-run diff. That diff is presence-based, so it seldom reads as empty; a
+// member that can never converge is instead kept from re-importing on every tick
+// by incompleteRetryInterval.
 //
 // No request or prompt content is ever read; only provider/key names and counts
 // flow, exactly as in the manual sync.
 
 const (
 	memberConfigVersionPath = "/api/config/version"
-	memberBackupsPath       = "/api/backups"
-
-	// frontDeskBackupOrigin is the ?origin= value Front Desk passes so its
-	// pre-sync snapshots are badged "FD" on the member and spared GFS rotation.
-	// It must match internal/api.backupOriginFrontDesk.
-	frontDeskBackupOrigin = "frontdesk"
 
 	// autoSyncIntervalSecs is how often the auto-syncer samples the primary. It
 	// is deliberately slower than the health poll: each apply runs member-side
@@ -56,7 +48,7 @@ const (
 
 	// autoSyncKickTimeout caps the detached convergence pass fired when auto-sync
 	// is enabled, so a stuck member cannot leak the goroutine. Generous: a pass
-	// snapshots and imports config on every drifted member in turn.
+	// imports config into every drifted member in turn.
 	autoSyncKickTimeout = 5 * time.Minute
 
 	// autoSyncStaleThreshold is how long the fleet may go unsynced, with auto-sync
@@ -69,8 +61,9 @@ const (
 	// config without building every custom failover group. The member is never
 	// counted as converged, so the fleet badge, the alert and the unrecorded fleet
 	// hash all persist; this only stops a member that cannot converge from driving
-	// a pre-sync backup and a full re-import on every 15 second tick. A member
-	// whose discovery catches up converges within one interval.
+	// a full re-import, and the member-side model discovery it runs, on every 15
+	// second tick. A member whose discovery catches up converges within one
+	// interval.
 	incompleteRetryInterval = 10 * time.Minute
 
 	// autoSyncFaultyThreshold is the second staleness tier: with auto-sync off, a
@@ -177,9 +170,9 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 // auto-sync (or repoints the primary) so the fleet converges in seconds instead
 // of waiting up to two ticks: the operator opted in deliberately, so there is no
 // mid-edit ambiguity for coalescing to guard against. Safe to run in its own
-// goroutine with a detached context: it reuses the same primary read, per-member
-// backup, and dry-run diff as the loop, and is a no-op when auto-sync is off or
-// has no primary. It never returns an error; failures log and the loop retries.
+// goroutine with a detached context: it reuses the same primary read and dry-run
+// diff as the loop, and is a no-op when auto-sync is off or has no primary. It
+// never returns an error; failures log and the loop retries.
 func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
@@ -231,8 +224,8 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 	// Record the hash as applied only once every reachable member converged onto
 	// it. If a member was unreachable, leave the marker so the next tick retries.
 	// A member that is reachable but never converges (an incomplete apply) has its
-	// retry bounded by incompleteRetryInterval, so it cannot drive a backup and an
-	// import on every tick.
+	// retry bounded by incompleteRetryInterval, so it cannot drive an import on
+	// every tick.
 	if allConverged {
 		switch ok, err := s.store.RecordAutoSyncHash(ctx, hash, gen); {
 		case err != nil:
@@ -280,15 +273,14 @@ func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
 // applyAutoSync pushes the primary's config to every other tokened member that
 // needs it. It returns how many members it actually re-synced and whether every
 // reachable member ended up converged (the signal autoSyncOnce uses to decide
-// whether to record the applied hash). Each member that needs the new config is
-// snapshotted first; a member whose pre-sync backup fails is skipped, not
-// overwritten. reason is stamped onto each synced member's last-sync marker.
+// whether to record the applied hash). reason is stamped onto each synced
+// member's last-sync marker.
 //
 // gen is the rearm generation captured before this pass began. A rearm (member
 // add, token update, enable, or primary repoint) bumps it, so the pass re-checks
 // it twice per member: once at the top of the loop, and again right before the
-// mutating import (after the slow dry-run and pre-sync backup, which is where a
-// repoint is most likely to slip in). It aborts the moment the generation changes,
+// mutating import (after the slow dry-run, which is where a repoint is most
+// likely to slip in). It aborts the moment the generation changes,
 // so a slow pass cannot import the captured (now-stale) primary's config into a
 // member the operator has just repointed away from. The only window no pre-check
 // can close is the in-flight import call itself; the rearm's own pass converges
@@ -379,9 +371,10 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		s.clearSyncHold(m.ID)
 		// An incomplete member is reachable and its dry-run diff is never zero, so
-		// without this it would drive a pre-sync backup and a full re-import every
-		// tick. It stays not-converged (the fleet hash is still withheld and the
-		// badge and alert persist); only the attempt is rate-limited.
+		// without this it would drive a full re-import, and the member-side model
+		// discovery it runs, every tick. It stays not-converged (the fleet hash is
+		// still withheld and the badge and alert persist); only the attempt is
+		// rate-limited.
 		if s.shouldSkipIncompleteRetry(m.ID, time.Now()) {
 			allConverged = false
 			continue
@@ -405,34 +398,27 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		added, updated, removed := res.Diff.counts()
 		if added+updated+removed == 0 {
 			// Already in sync (the member self-converged via its own discovery, or
-			// a prior pass wrote it). No backup, no import, not counted as applied,
-			// and no per-member event. Nothing was written, so last_config_sync_at
-			// stays put (it means a real config write); only advance the live
-			// "verified in sync" heartbeat so the Members table shows this member
-			// was just confirmed against the primary.
+			// a prior pass wrote it). No import, not counted as applied, and no
+			// per-member event. Nothing was written, so last_config_sync_at stays
+			// put (it means a real config write); only advance the live "verified
+			// in sync" heartbeat so the Members table shows this member was just
+			// confirmed against the primary.
 			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			continue
 		}
 
-		// Snapshot before overwriting so a bad propagation is recoverable. A failed
-		// backup blocks this member's overwrite rather than risking an unrecoverable
-		// replace.
-		if err := s.backupMember(passCtx, m, token); err != nil {
-			debuglog.Warn("frontdesk: auto-sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
-			s.emit(ctx, Event{
-				Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
-				Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
-			})
-			allConverged = false
-			continue
-		}
+		// Front Desk takes no snapshot before overwriting a member; members back
+		// themselves up on their own schedule when the operator has enabled backups.
+		// The trade is accepted deliberately: a bad config propagation cannot be
+		// rolled back from a snapshot Front Desk just took, and in exchange no member
+		// accumulates a pg_dump per sync pass.
 
 		// Final staleness gate, tightest to the mutation: a rearm or primary repoint
-		// can land during this member's (slow) dry-run diff and pre-sync backup. Re-
-		// check here so we never even start an import the operator has invalidated.
-		// The narrow window between this check and the import committing on the member
-		// is closed by passCtx: the watchRearm goroutine cancels it, aborting the
-		// in-flight request. The backup just taken is harmless: a recoverable snapshot.
+		// can land during this member's (slow) dry-run diff. Re-check here so we
+		// never even start an import the operator has invalidated. The narrow window
+		// between this check and the import committing on the member is closed by
+		// passCtx: the watchRearm goroutine cancels it, aborting the in-flight
+		// request.
 		if stale() {
 			debuglog.Debug("frontdesk: auto-sync: aborting stale pass before import", "synced", applied)
 			allConverged = false
@@ -570,7 +556,7 @@ func (s *Server) incompleteSnapshot() map[string]bool {
 
 // shouldSkipIncompleteRetry reports whether an incomplete member's retry is still
 // rate-limited. The caller keeps the member not-converged either way; this only
-// suppresses the backup and import.
+// suppresses the import.
 func (s *Server) shouldSkipIncompleteRetry(memberID string, now time.Time) bool {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
@@ -643,20 +629,4 @@ func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token 
 		return "", errors.New("frontdesk: empty member config-version")
 	}
 	return v.Version, nil
-}
-
-// backupMember asks a member to snapshot itself before Front Desk overwrites its
-// config, tagging the backup with origin=frontdesk so it is badged distinctly and
-// spared from GFS rotation. It uses backupClient, whose deadline exceeds the
-// member's own pg_dump budget, so a large member completes its snapshot rather
-// than timing out every tick and leaving an orphaned dump holding the backup lock.
-func (s *Server) backupMember(ctx context.Context, m *Member, token string) error {
-	status, _, err := s.callMemberWith(ctx, s.backupClient, http.MethodPost, m.URL, memberBackupsPath+"?origin="+frontDeskBackupOrigin, token, nil)
-	if err != nil {
-		return err
-	}
-	if status != http.StatusOK && status != http.StatusCreated {
-		return fmt.Errorf("member backup returned %d", status)
-	}
-	return nil
 }

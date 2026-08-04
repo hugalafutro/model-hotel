@@ -166,11 +166,9 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			})
 			continue
 		}
-		// Gate the destructive replace on a dry-run: a member that will actually
-		// change is snapshotted first (the same recoverability guarantee the
-		// auto-syncer gives), an already-converged member is reported without an
-		// import, and a member whose backup fails is left untouched and reported.
-		if item, proceed := s.prepareMemberSync(ctx, m, token, export, reason); !proceed {
+		// Gate the destructive replace on a dry-run, so an already-converged member
+		// is reported without an import.
+		if item, proceed := s.prepareMemberSync(ctx, m, token, export); !proceed {
 			results = append(results, *item)
 			continue
 		}
@@ -185,47 +183,42 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 // (item, proceed):
 //
 //   - proceed=true (item nil): either the member is reachable, syncable, and
-//     changing, and has just been snapshotted; or it is unreachable / version- or
-//     MASTER_KEY-blocked. In both cases the caller runs applyMemberConfig, which
-//     performs the authoritative import and reports the real outcome. A blocked or
-//     unreachable member cannot be destructively written (its import is refused),
-//     so letting it fall through costs nothing and yields a precise error.
-//   - proceed=false (item set): the member is already converged (reported OK, no
-//     import) or its pre-sync backup failed (reported as left unchanged). The
-//     caller skips applyMemberConfig and records item as-is.
+//     changing; or it is unreachable / version- or MASTER_KEY-blocked. In both
+//     cases the caller runs applyMemberConfig, which performs the authoritative
+//     import and reports the real outcome. A blocked or unreachable member cannot
+//     be destructively written (its import is refused), so letting it fall through
+//     costs nothing and yields a precise error.
+//   - proceed=false (item set): the member is already converged, reported OK with
+//     no import. The caller skips applyMemberConfig and records item as-is.
 //
 // A member the dry run reports as converged is skipped entirely rather than handed
-// to a no-op import: re-importing it would reopen the window where a member edited
-// between the dry-run and the real import gets overwritten without the snapshot this
-// gate is meant to guarantee.
+// to a no-op import: it has nothing to receive, and the import would run member-side
+// model discovery for no reason.
+//
+// Front Desk takes no snapshot before overwriting a member; members back themselves
+// up on their own schedule when the operator has enabled backups. The trade is
+// accepted deliberately: a bad config propagation cannot be rolled back from a
+// snapshot Front Desk just took, and in exchange no member accumulates a pg_dump per
+// sync run.
 //
 // That skip is rare in practice: computeDiff keys on presence, so every entity the
 // member and the primary share counts as updated and a real fleet's diff is almost
 // never empty. The auto-syncer therefore leans on incompleteRetryInterval, not on
 // this branch, to keep a member that cannot converge from re-importing every tick.
-func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte, reason string) (*syncResultItem, bool) {
+func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
 	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
-		// Already in sync: no backup, no import, and no last_config_sync_at stamp
-		// (nothing was written; that column means a real config write). Advance the
-		// live "verified in sync" heartbeat so the Members table shows the wizard
-		// just confirmed this member matches the primary, matching the auto path.
+		// Already in sync: no import, and no last_config_sync_at stamp (nothing was
+		// written; that column means a real config write). Advance the live "verified
+		// in sync" heartbeat so the Members table shows the wizard just confirmed this
+		// member matches the primary, matching the auto path.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}
-	if err := s.backupMember(ctx, m, token); err != nil {
-		debuglog.Warn("frontdesk: wizard sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
-		s.emit(ctx, Event{
-			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
-			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"reason": reason},
-		})
-		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}, false
-	}
-	return nil, true // snapshotted: proceed to the authoritative import
+	return nil, true // this member is changing: proceed to the authoritative import
 }
 
 // recordFleetSyncRun stamps the last-run marker when a sync action updated at

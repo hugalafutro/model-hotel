@@ -15,13 +15,16 @@ import (
 // /api/config/import with the Bearer-auth contract the real endpoints have. The
 // import response is configurable so a test can model a normal replica, a
 // MASTER_KEY mismatch (409), or an already-converged member (empty diff).
+//
+// It also answers POST /api/backups and records the call. No sync path may call
+// that endpoint: members back themselves up on their own schedule, so gotBackup
+// staying false is an assertion, not a fixture detail.
 type stubConfigMember struct {
 	token       string
 	exportBody  string
 	importCode  int
 	importBody  string
 	importDelay time.Duration // models a slow import (member-side discovery)
-	backupCode  int           // status returned by POST /api/backups (0 -> 200)
 	gotImport   bool
 	gotDryRun   bool
 	gotBackup   bool
@@ -53,12 +56,9 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 			w.WriteHeader(sm.importCode)
 			_, _ = w.Write([]byte(sm.importBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
+			// No sync path may reach here; the flag exists to prove it.
 			sm.gotBackup = true
-			code := sm.backupCode
-			if code == 0 {
-				code = http.StatusOK
-			}
-			w.WriteHeader(code)
+			w.WriteHeader(http.StatusOK)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -91,8 +91,8 @@ func TestConfigSyncApplies(t *testing.T) {
 	if !replica.gotImport || replica.gotDryRun {
 		t.Errorf("replica import: got=%v dryRun=%v (want applied, not dry run)", replica.gotImport, replica.gotDryRun)
 	}
-	if !replica.gotBackup {
-		t.Error("a changing replica must be snapshotted before the destructive import")
+	if replica.gotBackup {
+		t.Error("the wizard asked the replica to snapshot itself; members back themselves up on their own schedule")
 	}
 	if primary.gotImport || primary.gotBackup {
 		t.Error("primary must not be imported into or backed up (it is the source)")
@@ -232,27 +232,33 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	}
 	evs, _, _ := store.ListEvents(t.Context(), EventFilter{})
 	var sawFail bool
+	var failReason any
 	for _, e := range evs {
 		if e.Type == "config.sync_failed" && e.MemberID == rm.ID {
 			sawFail = true
+			failReason = e.Metadata["reason"]
 		}
 	}
 	if !sawFail {
 		t.Error("expected a config.sync_failed event")
 	}
+	// A failure is attributed like every other sync outcome, so the log says who
+	// triggered the run that could not converge this member.
+	if want := manualSyncReason("the dashboard"); failReason != want {
+		t.Errorf("config.sync_failed reason metadata = %v, want %q", failReason, want)
+	}
 }
 
-// A member whose pre-sync backup fails must be left untouched and reported, never
-// overwritten: the wizard now gives the same recoverability guarantee as the
-// auto-syncer.
-func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
+// The wizard overwrites a drifted member without asking it to snapshot itself
+// first: members back themselves up on their own schedule, so the member backup
+// endpoint is not on the sync path at all.
+func TestConfigSyncTakesNoPreSyncBackup(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
 	replica := newStubConfigMember(t, "rtoken")
-	replica.backupCode = http.StatusInternalServerError // the snapshot fails
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
@@ -263,36 +269,21 @@ func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
 		Results []syncResultItem `json:"results"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if len(resp.Results) != 1 || resp.Results[0].OK || !strings.Contains(resp.Results[0].Error, "backup") {
-		t.Fatalf("want a backup-failure result, got %+v", resp.Results)
+	if len(resp.Results) != 1 || !resp.Results[0].OK {
+		t.Fatalf("want the member synced, got %+v", resp.Results)
 	}
-	if !replica.gotBackup {
-		t.Error("a backup should have been attempted before the overwrite")
+	if replica.gotBackup {
+		t.Error("the wizard asked the member to snapshot itself; Front Desk takes no pre-sync backup")
 	}
-	// The destructive (non-dry-run) import must never run: the last import call was
-	// the gating dry-run, so gotDryRun stays true.
-	if !replica.gotDryRun {
-		t.Error("the destructive import must be skipped when the backup fails")
-	}
-	evs, _, _ := store.ListEvents(t.Context(), EventFilter{})
-	var failReason any
-	for _, e := range evs {
-		if e.Type == "config.synced" && e.MemberID == rm.ID {
-			t.Error("a member left unchanged must not emit config.synced")
-		}
-		if e.Type == "config.sync_failed" && e.MemberID == rm.ID {
-			failReason = e.Metadata["reason"]
-		}
-	}
-	// The backup-failure skip is attributed like every other sync outcome, so the
-	// log distinguishes who triggered the run that could not back up.
-	if want := manualSyncReason("the dashboard"); failReason != want {
-		t.Errorf("config.sync_failed reason metadata = %v, want %q", failReason, want)
+	// The destructive (non-dry-run) import is what actually ran, so the last import
+	// call was not the gating dry-run.
+	if replica.gotDryRun {
+		t.Error("the last import was the dry-run; the destructive import never ran")
 	}
 }
 
-// An already-converged member is not snapshotted: there is nothing to overwrite, so
-// the wizard skips the backup just as the auto-syncer does, avoiding backup spam.
+// An already-converged member is not imported into: there is nothing to give it, so
+// the wizard skips it just as the auto-syncer does.
 func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
@@ -446,11 +437,11 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	if !strings.Contains(byID[nm.ID].Error, "did not apply") {
 		t.Errorf("not-applied error = %q", byID[nm.ID].Error)
 	}
-	// An unreachable member fails the pre-sync dry-run, so the backup is never
-	// attempted: its error must report the unreachability, not be mislabeled a
-	// "backup failed" skip.
-	if got := byID[um.ID].Error; !strings.Contains(got, "reach") || strings.Contains(got, "backup") {
-		t.Errorf("unreachable error = %q, want a reach failure and not a backup failure", got)
+	// An unreachable member fails the gating dry-run and falls through to the real
+	// import, which reports the precise cause: its error must name the
+	// unreachability rather than a generic sync failure.
+	if got := byID[um.ID].Error; !strings.Contains(got, "reach") {
+		t.Errorf("unreachable error = %q, want a reach failure", got)
 	}
 }
 
