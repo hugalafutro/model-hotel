@@ -97,17 +97,43 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// NewClient builds an http.Client whose dialer refuses blocked post-resolution
-// IPs. The dial guard also covers redirect targets (each hop is dialled through
-// the same Control hook), so a 3xx to a metadata address fails at connect time;
-// checkRedirect adds an earlier, explicit rejection of literal-IP metadata
-// redirects and bounds the redirect chain.
-func NewClient(timeout time.Duration) *http.Client {
-	dialer := &net.Dialer{
+// dialTimeout caps DNS resolution plus TCP connect, and separately the TLS
+// handshake, independently of the client's overall timeout. A resolver that
+// takes the whole request budget to fail would leave nothing for the second
+// attempt RetryTransport exists to make, so connection setup is bounded well
+// below any caller's timeout.
+const dialTimeout = 5 * time.Second
+
+// idleConnTimeout matches http.DefaultTransport. Left at zero an idle
+// connection is pooled indefinitely, so a login hours after the previous one
+// reuses a long-dead connection and pays a wasted round trip to discover it.
+const idleConnTimeout = 90 * time.Second
+
+// newGuardedDialer builds the dialer behind NewClient: it refuses a blocked
+// post-resolution address at the Control hook and bounds one dial by
+// dialTimeout. A caller whose own timeout is shorter keeps that shorter bound;
+// a caller with no timeout at all (zero, which net.Dialer reads as "no
+// deadline") still gets this one, since that is the case with no other backstop.
+func newGuardedDialer(timeout time.Duration) *net.Dialer {
+	if timeout <= 0 || timeout > dialTimeout {
+		timeout = dialTimeout
+	}
+	return &net.Dialer{
 		Timeout:   timeout,
 		KeepAlive: 30 * time.Second,
 		Control:   dialControl,
 	}
+}
+
+// NewClient builds an http.Client whose dialer refuses blocked post-resolution
+// IPs. The dial guard also covers redirect targets (each hop is dialled through
+// the same Control hook), so a 3xx to a metadata address fails at connect time;
+// checkRedirect adds an earlier, explicit rejection of literal-IP metadata
+// redirects and bounds the redirect chain. timeout bounds the whole request;
+// within it the dial and then the TLS handshake are each bounded by dialTimeout,
+// so connection setup cannot consume more than two of those before the retry.
+func NewClient(timeout time.Duration) *http.Client {
+	dialer := newGuardedDialer(timeout)
 	return &http.Client{
 		Timeout:       timeout,
 		CheckRedirect: checkRedirect,
@@ -117,6 +143,14 @@ func NewClient(timeout time.Duration) *http.Client {
 			// dial guard still runs on the proxy connection.
 			Proxy:       http.ProxyFromEnvironment,
 			DialContext: dialer.DialContext,
+			// The dialer's timeout covers DNS and TCP only. Left at zero the TLS
+			// handshake is unbounded, so an endpoint that accepts the connection
+			// and then stalls the handshake consumes the caller's entire budget
+			// and leaves nothing for a retry. A caller whose own timeout is shorter
+			// than this needs no tighter value here: the client's overall timeout
+			// fires first, since the handshake can only start after the dial.
+			TLSHandshakeTimeout: dialTimeout,
+			IdleConnTimeout:     idleConnTimeout,
 		},
 	}
 }

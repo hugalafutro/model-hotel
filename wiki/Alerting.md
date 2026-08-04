@@ -127,6 +127,8 @@ The notification target typically contains a credential (a bot token, an SMTP pa
 
 Alerting is strictly **best-effort and non-blocking**. A missing, misconfigured, or failing `apprise-api` never affects request serving and never fails a proxied request; failures are logged and dropped. A per-event, per-provider debounce window suppresses repeat alerts so a flapping circuit breaker cannot spam you; recovery ("all clear") notifications are always delivered.
 
+A dropped alert is not retried. The dispatcher dials `apprise-api` through the [netguard](Security#netguard-admin-configured-endpoints) client, which allows the private and loopback addresses a notification container actually lives on and blocks link-local/metadata ones. The pre-connection retry the SSO login paths use is deliberately not applied here: nobody is waiting inside a notification, and the next event will alert anyway.
+
 ---
 
 See also: [[Failover and Hotel Routing]] · [[Request Logging]] · [[Privacy]]

@@ -68,15 +68,16 @@ Style:
 
 ### Source prefix
 
-Every message starts with a canonical source prefix, `"source: message"`, e.g.
+Every message starts with a source prefix, `"source: message"`, e.g.
 `debuglog.Info("proxy: routing to provider", …)`. The App Logs pipeline parses
-this prefix (`extractSource`) to tag the entry's source. Canonical sources:
+this prefix (`extractSource`) to tag the entry's source, and the App Logs source
+filter is built from what the running binary actually emitted, so the set is open:
+a new package adds its own source by prefixing its messages. Common ones are
+`proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `db`,
+`admin`, `api`, `ratelimit`, `alert`, `oidc`, `netguard` and `frontdesk`.
 
-`proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `backup`,
-`webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
-`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`, `otel`.
-
-(The list is extensible - e.g. a future `frontdesk` binary adds its own source.)
+Only the prefixes in [Scoped debug](#scoped-debug-debug_log_scopes) can be named
+in `DEBUG_LOG_SCOPES`; the rest emit nothing at Debug level.
 
 ### Levels
 
@@ -92,8 +93,17 @@ this prefix (`extractSource`) to tag the entry's source. Canonical sources:
 ### Scoped debug (`DEBUG_LOG_SCOPES`)
 
 `DEBUG_LOG` turns Debug on for *everything*, which floods stdout at any real RPS.
-`DEBUG_LOG_SCOPES` instead enables Debug for **only** the listed source prefixes
-- the same `source:` prefixes from §3, e.g. `DEBUG_LOG_SCOPES=failover,ratelimit`.
+`DEBUG_LOG_SCOPES` instead enables Debug for **only** the listed source prefixes,
+e.g. `DEBUG_LOG_SCOPES=failover,resolve`. These are the sources that emit Debug
+records, and the whole of what the variable can act on:
+
+`access`, `admin`, `admin-chat`, `adminauth`, `anthropic`, `api`, `audit`,
+`configsync`, `db`, `discovery`, `failover`, `frontdesk`, `models.dev`,
+`paramrewrite`, `proxy`, `quota`, `resolve`.
+
+`proxy` is by far the most voluminous, followed by `frontdesk`, `resolve` and
+`discovery`. Every other source (`ratelimit`, `settings`, `provider`, `netguard`
+and the rest) logs at Info and above only, so naming one does nothing.
 It is comma-separated, trimmed, and matched case-insensitively against the prefix
 before the first `:` in each message. It is ignored when `DEBUG_LOG` is on (Debug
 is already global). The parsed scope set is logged once at startup

@@ -181,6 +181,8 @@ Admins can sign in through an external OpenID Connect provider (Authentik, Authe
 
 **Flow hardening.** The exchange uses PKCE plus a single-use `state` nonce, both bound to a short-lived login-state record (10-minute TTL) carried across the IdP round trip in a cookie. The client secret is AES-256-GCM encrypted at rest under `MASTER_KEY`, like provider keys. The minted session token is handed to the browser in the URL **fragment**, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it appears is the callback's `302 Location` header: if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
+**Transient network failures.** All four OIDC hops (discovery, token exchange, JWKS, UserInfo), and GitHub login's equivalents, go out through the guarded client described in [netguard](#netguard-admin-configured-endpoints), which re-issues a request that failed before it ever reached the provider. A momentary DNS or dial fault at the token exchange therefore costs a 250ms retry instead of the entire login: without it the user is returned to the login screen to repeat the whole IdP round trip, consent screen included. That section covers exactly what is and is not retried, and why re-issuing a token exchange cannot burn the single-use authorization code.
+
 Because Model Hotel is self-hosted there is no turnkey "Google login": each operator registers their own OIDC app with the provider and points it at the redirect URI `<oidc_public_base_url>/api/auth/oidc/callback` (shown in Settings). OIDC SSO covers both the main admin dashboard and Front Desk: Front Desk reuses the same session seam and is configured independently from its own Settings page (its own issuer, client, allowlist, and public base URL, since it runs as a separate service on its own address), so the operator registers a redirect URI under Front Desk's own base URL. GitHub login is offered on the main dashboard only, by design.
 
 #### Registering the client (avoiding the two first-login pitfalls)
@@ -378,6 +380,113 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 
 ---
 
+## netguard (Admin-Configured Endpoints)
+
+SafeDialer guards the proxy's path to LLM providers, which are external SaaS, so
+it blocks every private range. The endpoints an **admin** configures are the
+opposite case: an OIDC identity provider, the apprise-api notification
+container, and Front Desk members all legitimately live on the internal network.
+`internal/netguard` is the guard for those, and it refuses only the addresses
+that are never a legitimate destination and are the classic SSRF targets.
+
+| Destination | netguard | Reason |
+|-------------|----------|--------|
+| Link-local unicast (`169.254.0.0/16`, `fe80::/10`) | **Blocked** | Contains the `169.254.169.254` cloud-metadata endpoint |
+| Link-local multicast | **Blocked** | Never a legitimate HTTP endpoint |
+| Unspecified (`0.0.0.0`, `::`) | **Blocked** | Unusable address |
+| Private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) | Allowed | Where an internal IdP or the apprise container lives |
+| Loopback (`127.0.0.0/8`, `::1`) | Allowed | Same-host deployments |
+
+It backs the OIDC SSO handler (discovery, token exchange, JWKS, UserInfo), the
+GitHub SSO handler, and the alert dispatcher. Without it, `go-oidc` and `oauth2`
+would fall back to `http.DefaultClient`, letting an admin-configured (or
+fleet-synced) issuer URL reach the metadata endpoint.
+
+### Where the Check Runs
+
+The refusal is a `net.Dialer` `Control` hook, so it runs **after** DNS
+resolution, on the address actually being dialled. That closes the
+check-then-dial (TOCTOU) window and catches DNS rebinding, where a hostname that
+validated cleanly resolves to a metadata address at connect time. Every redirect
+hop is dialled through the same hook, so a `3xx` toward the metadata endpoint
+fails at connect time as well; a redirect to a literal blocked IP is rejected
+earlier and more clearly, and the chain is capped at 10 hops.
+
+Settings-save validation (`ValidateURL`) is the cheap first pass: it requires an
+`http`/`https` scheme and a host, and rejects a literal blocked IP. It
+deliberately does not resolve DNS, both to keep an operator's save off a network
+lookup and because the dial-time hook is the authoritative check.
+
+`HTTP(S)_PROXY` is honoured like `http.DefaultTransport`, so a deployment that
+reaches an external IdP through an egress proxy keeps working. The dial guard
+still runs on the connection to the proxy.
+
+### Surviving a Transient Network Failure
+
+Setting up a connection is bounded at **5 seconds** for DNS resolution plus TCP
+connect, and again at 5 seconds for the TLS handshake, against a 15-second budget
+for a whole SSO request. Those bounds are what make a second attempt possible: a
+resolver that took the entire request budget to fail would leave nothing to retry
+with. `net/http` leaves both unbounded by default, so they are set explicitly
+rather than inherited.
+
+The rescue is still best-effort at the extreme. An attempt that exhausts both
+bounds (a TCP connection accepted and then stalled through the whole handshake)
+spends 10 of the 15 seconds on its own, so the retry gets what is left rather
+than a full connection setup of its own. The common case, a resolver that fails
+in well under its 5 seconds, leaves the retry ample room.
+
+The 5-second dial bound is shared across a host's addresses, not granted to each:
+Go splits it between the candidates it tries in sequence, with a 2-second floor
+per address. A hostname resolving to several addresses of the same family
+therefore gets roughly 2s, 2s, then 1s rather than 5 seconds each. Dual-stack
+hosts are unaffected, since IPv4 and IPv6 are raced in parallel. If an IdP of
+yours is reached only after two of its addresses time out, prefer fixing the
+stale address record over expecting the dial to wait.
+
+The SSO clients wrap netguard in a retry that re-issues a request which failed
+**before any byte reached the origin server**. It rescues a login from a
+momentary resolver failure at the token exchange, which happens *after* the user
+has already authenticated and consented at the IdP and would otherwise send them
+back to the login screen to repeat the whole round trip.
+
+The scope is deliberately narrow:
+
+- **Retried**: DNS resolution failures other than NXDOMAIN, and failed dials,
+  including the dial of an egress proxy. Nothing left the process, so re-issuing
+  is safe even for the non-idempotent token `POST`.
+- **Never retried**: anything at or after the origin connection. A lost response
+  may mean the server already consumed the single-use authorization code, and
+  replaying it would turn a transient error into a hard `invalid_grant`. Also
+  never retried: a blocked address (a permanent security refusal, not a
+  transient fault), NXDOMAIN (the resolver's definitive "host does not exist",
+  usually a typo'd issuer), and any request whose body cannot be reproduced.
+- **One shape is not purely pre-connection.** `net/http` re-issues a request
+  itself when a pooled connection dies, and if the follow-up dial then fails,
+  that dial error arrives here even though an earlier attempt was already
+  written to a server. The stdlib only re-issues a request it deems replayable
+  (`GET`, `HEAD`, `OPTIONS`, `TRACE`, or one carrying an `Idempotency-Key`), so
+  those are idempotent by HTTP semantics and one more issue changes nothing. The
+  token `POST` can never reach that path.
+- **One retry, 250ms later.** Two attempts in total, never more.
+- **Alerting keeps the plain client.** A notification is fire-and-forget, not a
+  flow a user is waiting inside.
+
+Each retry writes one WARN line to the app log under source `netguard`:
+
+```
+netguard: retrying request after pre-connection failure method=POST host=auth.example.com attempt=1 error=dial tcp: lookup auth.example.com on 127.0.0.11:53: server misbehaving
+```
+
+One line means exactly one extra attempt, so the line count is the retry count.
+This is the only signal that a resolver is flaking, and worth watching: repeated
+lines mean the resolver, not Model Hotel, needs attention. The text carries the
+host and the resolver error, never a credential (those live in the request body,
+which is never logged). See [Request Logging](Request-Logging#app-logs) for the
+App Logs view and its source filter.
+
+---
+
 ## Environment Variables (Security-Related)
 
 | Variable | Default | Description |
@@ -443,6 +552,11 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 - Monitor provider key decryption failures (potential `MASTER_KEY` mismatch)
 - Track virtual key usage patterns for anomaly detection
 - Log admin API access (with key hashes, never plaintext tokens)
+- Watch the app-log source `netguard`: every line there is a
+  [retried connection](#surviving-a-transient-network-failure), so a run of them
+  means your resolver is flaking. A blocked-address refusal is not a line of its
+  own; it surfaces inside the failing caller's error text (an `oidc:` line for
+  SSO)
 
 ---
 

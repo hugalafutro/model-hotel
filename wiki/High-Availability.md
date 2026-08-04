@@ -202,6 +202,8 @@ Front Desk's admin login also accepts **OpenID Connect single sign-on** as a thi
 
 This is Front Desk's *own* login — independent of each member's admin login and of the main gateway's SSO — and lives in Front Desk's SQLite, the client secret encrypted at rest with `FRONTDESK_MASTER_KEY`. Local login (token / passkey / TOTP) never goes away, so a misconfigured or unreachable provider cannot lock you out.
 
+Front Desk runs the *same* OIDC implementation as the main dashboard, so everything in [Security → Single Sign-On](Security#single-sign-on-openid-connect) applies here unchanged: PKCE, a single-use state nonce, an allowlist that fails closed, the guarded outbound client, and the retry that absorbs a momentary DNS or dial failure to the provider rather than sending you back to the login screen to repeat the whole round trip.
+
 <p align="center"><a href="screenshots/frontdesk_settings_oidc.png"><img src="screenshots/frontdesk_settings_oidc.png" width="800" alt="Front Desk Settings — Single sign-on (OIDC)"></a></p>
 
 
