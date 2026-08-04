@@ -292,7 +292,9 @@
 				"member_added": "Mitglied hinzugefügt",
 				"member_removed": "Mitglied entfernt",
 				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen",
-				"fleet_state_changed": "Flottenstatus geändert"
+				"fleet_state_changed": "Flottenstatus geändert",
+				"backup_stale": "Mitglied ohne aktuelles Backup",
+				"backup_recovered": "Mitglied wird wieder gesichert"
 			},
 			"saveBtn": "Alert-Einstellungen speichern",
 			"testBtn": "Test senden",

@@ -292,7 +292,9 @@
 				"member_added": "Member toegevoegd",
 				"member_removed": "Member verwijderd",
 				"member_state_changed": "Member geactiveerd of gedrained",
-				"fleet_state_changed": "Vlootstatus gewijzigd"
+				"fleet_state_changed": "Vlootstatus gewijzigd",
+				"backup_stale": "Lid zonder recente back-up",
+				"backup_recovered": "Lid wordt weer geback-upt"
 			},
 			"saveBtn": "Alert-instellingen opslaan",
 			"testBtn": "Test versturen",

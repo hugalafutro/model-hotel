@@ -89,6 +89,12 @@ type Server struct {
 	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
 	syncIncompleteMu sync.Mutex
 	syncIncomplete   map[string]incompleteState
+	// backupStale tracks which members currently have no database backup from the
+	// last memberBackupStaleAfter, so backup.stale fires once on the transition in
+	// and backup.recovered once on the way out. In-memory and bounded by fleet
+	// size, like syncHeld; a restart re-emits at most once per still-stale member.
+	backupStaleMu sync.Mutex
+	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
 	// edge-triggered fleet.state_changed emission. Empty until the first check
 	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
@@ -148,6 +154,7 @@ func NewServer(cfg ServerConfig) *Server {
 		rearmCh:        make(chan struct{}),
 		syncHeld:       make(map[string]bool),
 		syncIncomplete: make(map[string]incompleteState),
+		backupStale:    make(map[string]bool),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and

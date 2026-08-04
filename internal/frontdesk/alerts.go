@@ -59,6 +59,14 @@ var fdCatalog = []alert.EventDef{
 	{Type: "member.added", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.removed", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.state_changed", Category: "Membership", Severity: "info", DefaultOn: false},
+	// A member has no database backup from the last day. Front Desk takes no
+	// snapshot of its own, so a member's scheduled dumps are the only copy of its
+	// config; judging on the age of the newest one catches a member whose backups
+	// are switched off and one whose scheduler is enabled but wedged. Default-on:
+	// an unprotected member is silent until it matters, and migration 019 brings
+	// the seed in line.
+	{Type: "backup.stale", Category: "Backups", Severity: "warning", DefaultOn: true},
+	{Type: "backup.recovered", Category: "Backups", Severity: "success", DefaultOn: false},
 }
 
 // alertConfigProvider resolves Front Desk's alert.Config from the settings row,

@@ -13,11 +13,16 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// This file holds Front Desk's backup-facing calls onto a member's own backup
-// API (GET /api/backups, DELETE /api/backups/{filename}).
+// This file holds Front Desk's two backup-facing concerns, both of which read a
+// member's own backup listing (GET /api/backups):
+//
+//   - the operator-triggered fleet prune of frontdesk-origin dumps, and
+//   - the watchdog that reports a member with no recent scheduled backup.
 //
 // Front Desk never creates a backup. Members back themselves up on their own
-// schedule, so the dumps on each member are the only snapshot of its config.
+// schedule, so the scheduled dumps on each member are the only snapshot of its
+// config, and their age is the only honest measure of whether a member is
+// protected.
 
 const (
 	memberBackupsPath = "/api/backups"
@@ -27,11 +32,28 @@ const (
 	// and it must match internal/api's backupOriginFrontDesk.
 	memberBackupOriginFrontDesk = "frontdesk"
 
+	// memberBackupOriginScheduled is the origin a member reports for the dumps its
+	// own rotation scheduler writes. The member derives it from the "_auto" file
+	// marker but reports the word "scheduled" (internal/api.backupOrigin), so that
+	// is the value read here; it is the only origin the staleness watchdog counts.
+	memberBackupOriginScheduled = "scheduled"
+
 	// memberBackupTimeout bounds a single member backup call: one listing read or
 	// one file delete. More generous than the health probe because a member with
 	// thousands of dumps takes longer to enumerate them than to answer /health,
 	// and far short of the import relay because neither call does real work.
 	memberBackupTimeout = 30 * time.Second
+
+	// memberBackupStaleAfter is how old a member's newest scheduled backup may be
+	// before the member counts as unprotected. A day matches the coarsest useful
+	// backup schedule, so a member on a daily rotation that ran even once in the
+	// window is quiet, and one whose scheduler is off or wedged is reported.
+	memberBackupStaleAfter = 24 * time.Hour
+
+	// backupWatchInterval is how often every member's backup listing is re-read.
+	// The signal it feeds has a 24 hour threshold, so a tighter tick would only
+	// add member load without making the alert meaningfully earlier.
+	backupWatchInterval = 15 * time.Minute
 )
 
 // memberBackupEntry is the subset of a member's backup-listing entry Front Desk
@@ -64,6 +86,10 @@ func (s *Server) listMemberBackups(ctx context.Context, m *Member, token string)
 	}
 	return entries, nil
 }
+
+// ---------------------------------------------------------------------------
+// Fleet prune of frontdesk-origin backups
+// ---------------------------------------------------------------------------
 
 // backupPruneResult is one member's outcome from a fleet prune run. Deleted
 // counts files actually removed (on a dry run, the files that would be removed);
@@ -165,4 +191,128 @@ func (s *Server) pruneMemberFrontDeskBackups(ctx context.Context, m *Member, tok
 		res.Error = fmt.Sprintf("%s could not be deleted", util.Count(res.Failed, "backup", "backups"))
 	}
 	return res
+}
+
+// ---------------------------------------------------------------------------
+// Unprotected-member watchdog
+// ---------------------------------------------------------------------------
+
+// RunBackupWatch re-reads every member's backup listing on a fixed tick until
+// ctx is cancelled. Started once at startup, alongside RunAutoSync. The first
+// pass runs immediately so a restart re-establishes the current picture rather
+// than waiting out an interval.
+func (s *Server) RunBackupWatch(ctx context.Context) {
+	ticker := time.NewTicker(backupWatchInterval)
+	defer ticker.Stop()
+	for {
+		s.checkMemberBackups(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// checkMemberBackups judges each member on the age of its newest scheduled
+// backup and drives the edge-triggered backup.stale / backup.recovered pair.
+//
+// Only a member whose listing was actually read is judged. A member with no
+// stored token, or one that did not answer, has not been measured: reporting it
+// unprotected would state a fact about a member Front Desk never saw, and an
+// unreachable member is health.down's to report.
+//
+// The result is an alert and nothing more: it does not enter the fleet state.
+// A member with stale backups still serves traffic correctly.
+func (s *Server) checkMemberBackups(ctx context.Context) {
+	members, err := s.store.ListMembers(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: backup watch: list members", "error", err)
+		return
+	}
+	for _, m := range members {
+		token, ok, err := s.store.MemberToken(ctx, m.ID)
+		if err != nil || !ok {
+			continue // no stored token: the backup API needs admin auth
+		}
+		entries, err := s.listMemberBackups(ctx, m, token)
+		if err != nil {
+			debuglog.Debug("frontdesk: backup watch: read listing", "member", m.Name, "error", err)
+			continue
+		}
+		newest, found := newestScheduledBackup(entries)
+		if !found || time.Since(newest) > memberBackupStaleAfter {
+			s.markBackupStale(ctx, m, newest, found)
+			continue
+		}
+		s.clearBackupStale(ctx, m)
+	}
+}
+
+// newestScheduledBackup returns the creation time of the most recent
+// scheduled-origin entry in a listing. Only the member's own scheduler produces
+// those, so a manual or frontdesk-origin file never stands in for one: neither
+// is evidence that anything is backing the member up on a schedule. An entry
+// with an unparseable timestamp is skipped rather than treated as current.
+func newestScheduledBackup(entries []memberBackupEntry) (time.Time, bool) {
+	var newest time.Time
+	found := false
+	for _, e := range entries {
+		if e.Origin != memberBackupOriginScheduled {
+			continue
+		}
+		at, err := time.Parse(time.RFC3339, e.CreatedAt)
+		if err != nil {
+			continue
+		}
+		if !found || at.After(newest) {
+			newest, found = at, true
+		}
+	}
+	return newest, found
+}
+
+// markBackupStale records a member as unprotected and emits backup.stale once on
+// the transition in, mirroring holdMemberForSkew: the member is re-read on every
+// pass, so a level-triggered event would re-alert until the operator fixed it.
+// found reports whether newest is a real timestamp; a member with no scheduled
+// backup at all carries an empty newest_backup_at rather than a zero time.
+func (s *Server) markBackupStale(ctx context.Context, m *Member, newest time.Time, found bool) {
+	s.backupStaleMu.Lock()
+	already := s.backupStale[m.ID]
+	s.backupStale[m.ID] = true
+	s.backupStaleMu.Unlock()
+	if already {
+		return
+	}
+	at := ""
+	if found {
+		at = newest.UTC().Format(time.RFC3339)
+	}
+	debuglog.Warn("frontdesk: member has no recent database backup",
+		"member", m.Name, "newest_backup_at", at)
+	s.emit(ctx, Event{
+		Type: "backup.stale", Severity: "warning", Source: "frontdesk",
+		Message:  fmt.Sprintf("%s has no database backup from the last 24 hours", m.Name),
+		MemberID: m.ID,
+		Metadata: map[string]any{"newest_backup_at": at},
+	})
+}
+
+// clearBackupStale forgets a member that is backing itself up again and emits
+// backup.recovered once on the transition out, so a later lapse re-alerts. A
+// member that was never flagged emits nothing, keeping a healthy fleet quiet.
+func (s *Server) clearBackupStale(ctx context.Context, m *Member) {
+	s.backupStaleMu.Lock()
+	was := s.backupStale[m.ID]
+	delete(s.backupStale, m.ID)
+	s.backupStaleMu.Unlock()
+	if !was {
+		return
+	}
+	s.emit(ctx, Event{
+		Type: "backup.recovered", Severity: "success", Source: "frontdesk",
+		Message:  fmt.Sprintf("%s has a recent database backup again", m.Name),
+		MemberID: m.ID,
+	})
 }

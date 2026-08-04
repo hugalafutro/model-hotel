@@ -1,7 +1,9 @@
 package frontdesk
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -306,5 +308,168 @@ func TestPruneFrontDeskBackupsNeedsAuth(t *testing.T) {
 	srv, _ := newTestServer(t)
 	if rec := do(t, srv, http.MethodPost, "/api/fleet/backups/prune-frontdesk", "", false); rec.Code != http.StatusUnauthorized {
 		t.Errorf("unauthenticated prune = %d, want 401", rec.Code)
+	}
+}
+
+// TestBackupStaleEmitsOnceAcrossPolls: a member whose newest scheduled backup is
+// older than a day is unprotected, and it is said once, not on every pass.
+func TestBackupStaleEmitsOnceAcrossPolls(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_old_auto.dump", "scheduled", 30*time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	for range 3 {
+		srv.checkMemberBackups(t.Context())
+	}
+
+	got := eventTypes(t, store, m.ID)
+	if len(got) != 1 || got[0] != "backup.stale" {
+		t.Fatalf("events = %v, want exactly one backup.stale", got)
+	}
+}
+
+// TestBackupStaleWithNoScheduledBackup: a member that has never run a scheduled
+// backup is unprotected too. Manual and frontdesk-origin files do not count:
+// nothing on that member is producing them on a schedule.
+func TestBackupStaleWithNoScheduledBackup(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_fresh_manual.dump", "manual", time.Minute),
+		backupEntryAt("backup_fresh_frontdesk.dump", "frontdesk", time.Minute),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 1 || got[0] != "backup.stale" {
+		t.Fatalf("events = %v, want one backup.stale", got)
+	}
+}
+
+// TestBackupFreshEmitsNothing: a member backing itself up on schedule is quiet.
+func TestBackupFreshEmitsNothing(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_old_auto.dump", "scheduled", 40*time.Hour),
+		backupEntryAt("backup_new_auto.dump", "scheduled", time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none for a member with a fresh backup", got)
+	}
+}
+
+// TestBackupRecoveredEmitsOnce: the recovery edge fires once when a fresh
+// scheduled backup appears, and a member that was never flagged stays quiet.
+func TestBackupRecoveredEmitsOnce(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_old_auto.dump", "scheduled", 30*time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+
+	member.mu.Lock()
+	member.files = append(member.files, backupEntryAt("backup_new_auto.dump", "scheduled", time.Minute))
+	member.mu.Unlock()
+
+	for range 3 {
+		srv.checkMemberBackups(t.Context())
+	}
+
+	got := eventTypes(t, store, m.ID)
+	want := []string{"backup.stale", "backup.recovered"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+}
+
+// TestBackupUnreadableMemberIsNotJudged: a member whose backup listing could not
+// be read has not been measured. Reporting it unprotected would duplicate
+// health.down and, worse, claim a fact about a member Front Desk never saw.
+func TestBackupUnreadableMemberIsNotJudged(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	member.listStatus = http.StatusInternalServerError
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none: an unread listing is not a measurement", got)
+	}
+}
+
+// TestBackupUnreachableMemberIsNotJudged is the same invariant for a member that
+// does not answer at all.
+func TestBackupUnreachableMemberIsNotJudged(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	deadURL := member.srv.URL
+	member.srv.Close()
+	m, err := store.CreateMember(t.Context(), "m1", deadURL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none for an unreachable member", got)
+	}
+}
+
+// TestBackupWatchSkipsTokenlessMember: without a stored admin token the listing
+// cannot be read at all, which is not the same as being unprotected.
+func TestBackupWatchSkipsTokenlessMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none for a member with no stored token", got)
+	}
+}
+
+// TestRunBackupWatchStopsOnContextCancel: the loop returns promptly when its
+// context is cancelled, so shutdown is not held up.
+func TestRunBackupWatchStopsOnContextCancel(t *testing.T) {
+	srv, _ := newTestServer(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() { srv.RunBackupWatch(ctx); close(done) }()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunBackupWatch did not return after context cancel")
 	}
 }

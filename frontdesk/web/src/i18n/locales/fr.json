@@ -296,7 +296,9 @@
 				"member_added": "Membre ajouté",
 				"member_removed": "Membre retiré",
 				"member_state_changed": "Membre activé ou drainé",
-				"fleet_state_changed": "État de la flotte modifié"
+				"fleet_state_changed": "État de la flotte modifié",
+				"backup_stale": "Membre sans sauvegarde récente",
+				"backup_recovered": "Membre à nouveau sauvegardé"
 			},
 			"saveBtn": "Enregistrer les paramètres d'alerte",
 			"testBtn": "Envoyer un test",

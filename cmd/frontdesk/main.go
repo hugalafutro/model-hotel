@@ -144,6 +144,7 @@ func main() {
 	go srv.RunAutoSync(ctx)
 	go srv.RunQuotaDistribute(ctx)
 	go srv.RunFleetState(ctx)
+	go srv.RunBackupWatch(ctx)
 	go srv.RunAlerts(ctx)
 
 	httpServer := &http.Server{

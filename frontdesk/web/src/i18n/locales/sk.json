@@ -300,7 +300,9 @@
 				"member_added": "Člen pridaný",
 				"member_removed": "Člen odstránený",
 				"member_state_changed": "Člen aktivovaný alebo vybraný z prevádzky",
-				"fleet_state_changed": "Stav flotily sa zmenil"
+				"fleet_state_changed": "Stav flotily sa zmenil",
+				"backup_stale": "Člen bez aktuálnej zálohy",
+				"backup_recovered": "Člen sa opäť zálohuje"
 			},
 			"saveBtn": "Uložiť nastavenia alertov",
 			"testBtn": "Poslať test",

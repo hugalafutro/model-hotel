@@ -292,7 +292,9 @@
 				"member_added": "成员已添加",
 				"member_removed": "成员已移除",
 				"member_state_changed": "成员已激活或排空",
-				"fleet_state_changed": "集群状态已更改"
+				"fleet_state_changed": "集群状态已更改",
+				"backup_stale": "成员没有最近的备份",
+				"backup_recovered": "成员备份已恢复"
 			},
 			"saveBtn": "保存告警设置",
 			"testBtn": "发送测试",

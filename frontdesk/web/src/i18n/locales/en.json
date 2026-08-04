@@ -292,7 +292,9 @@
 				"member_added": "Member added",
 				"member_removed": "Member removed",
 				"member_state_changed": "Member activated or drained",
-				"fleet_state_changed": "Fleet state changed"
+				"fleet_state_changed": "Fleet state changed",
+				"backup_stale": "Member has no recent backup",
+				"backup_recovered": "Member backups healthy again"
 			},
 			"saveBtn": "Save alert settings",
 			"testBtn": "Send test",

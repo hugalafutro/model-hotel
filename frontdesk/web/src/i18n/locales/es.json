@@ -296,7 +296,9 @@
 				"member_added": "Miembro añadido",
 				"member_removed": "Miembro eliminado",
 				"member_state_changed": "Miembro activado o retirado",
-				"fleet_state_changed": "Estado de la flota cambiado"
+				"fleet_state_changed": "Estado de la flota cambiado",
+				"backup_stale": "Miembro sin copia reciente",
+				"backup_recovered": "Miembro con copias al día de nuevo"
 			},
 			"saveBtn": "Guardar ajustes de alertas",
 			"testBtn": "Enviar prueba",
