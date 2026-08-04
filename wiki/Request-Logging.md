@@ -276,7 +276,8 @@ case-insensitively). The canonical scopes are:
 
 `proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `backup`,
 `webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
-`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`.
+`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`,
+`netguard`.
 
 Both variables are startup-only (env vars, set via `.env` / compose). See
 [[Configuration]] for the full table.
