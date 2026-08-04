@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_53 Go modules, 236 npm packages (regenerate with `make notices`)._
+_53 Go modules, 237 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -79,21 +79,21 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.3.0 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
-| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
-| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
+| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
 | [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.101.4 | npm | MIT |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.101.4 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.8 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.6 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.9 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.7 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -107,10 +107,11 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@types/estree](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/estree) | 1.0.9 | npm | MIT |
 | [@types/estree-jsx](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/estree-jsx) | 1.0.5 | npm | MIT |
 | [@types/hast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast) | 3.0.4 | npm | MIT |
+| [@types/hast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast) | 3.0.5 | npm | MIT |
 | [@types/katex](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/katex) | 0.16.8 | npm | MIT |
 | [@types/mdast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/mdast) | 4.0.4 | npm | MIT |
 | [@types/ms](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/ms) | 2.1.0 | npm | MIT |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) | 19.2.17 | npm | MIT |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) | 19.2.18 | npm | MIT |
 | [@types/unist](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist) | 2.0.11 | npm | MIT |
 | [@types/unist](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist) | 3.0.3 | npm | MIT |
 | [@types/use-sync-external-store](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/use-sync-external-store) | 0.0.6 | npm | MIT |
@@ -273,7 +274,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
 | [scheduler](https://react.dev/) | 0.27.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
-| [shiki](https://github.com/shikijs/shiki#readme) | 4.3.1 | npm | MIT |
+| [shiki](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
 | [string-width](https://github.com/sindresorhus/string-width#readme) | 4.2.3 | npm | MIT |
 | [stringify-entities](https://github.com/wooorm/stringify-entities#readme) | 4.0.4 | npm | MIT |
@@ -345,7 +346,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) Microsoft Corporation.
 
-Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.4`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.2.17`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
+Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.4`, `@types/hast@3.0.5`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.2.18`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
 
 ```
 MIT License
@@ -726,7 +727,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021 Pine Wu
 
-Applies to: `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/types@4.3.1`, `shiki@4.3.1`
+Applies to: `@shikijs/core@4.4.1`, `@shikijs/engine-javascript@4.4.1`, `@shikijs/engine-oniguruma@4.4.1`, `@shikijs/langs@4.4.1`, `@shikijs/primitive@4.4.1`, `@shikijs/themes@4.4.1`, `@shikijs/types@4.4.1`, `shiki@4.4.1`
 
 ```
 MIT License
@@ -1063,7 +1064,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.101.4`, `@tanstack/react-query@5.101.4`, `@tanstack/react-virtual@3.14.8`, `@tanstack/virtual-core@3.17.6`
+Applies to: `@tanstack/query-core@5.101.4`, `@tanstack/react-query@5.101.4`, `@tanstack/react-virtual@3.14.9`, `@tanstack/virtual-core@3.17.7`
 
 ```
 MIT License
