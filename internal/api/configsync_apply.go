@@ -17,6 +17,27 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
+// failoverApplyTimeout bounds the custom failover group build. The build is
+// local database work only, so this deadline means the database is unavailable,
+// not that the job is large.
+const failoverApplyTimeout = 30 * time.Second
+
+// applyOutcome carries what the post-commit steps of an import could not do.
+// The core config is already durable when these run, so none of them fail the
+// import; they travel to Front Desk instead, which retries until they succeed.
+type applyOutcome struct {
+	// SkippedGroups names custom failover groups this member could not build.
+	SkippedGroups []string
+	// GroupApplyErr is set when the whole group build failed, in which case no
+	// group was evaluated.
+	GroupApplyErr error
+	// DiscoveryErr is set when post-import discovery failed. It is recorded for
+	// operators but does not on its own mark the import incomplete: a provider
+	// outage is routine, and a discovery failure that actually matters shows up
+	// as skipped groups.
+	DiscoveryErr error
+}
+
 // apply converges this member to the envelope in one transaction, enforcing the
 // commit fence. Under a transaction-scoped advisory lock (so concurrent imports
 // cannot interleave their read-and-decide), it reads the highest source
@@ -34,22 +55,22 @@ import (
 // The lock is taken for every import, headed or not, so a headerless push cannot
 // slip past a generation that already committed. That, plus the same-transaction
 // advance, is what makes a newer config win regardless of the order pushes arrive.
-func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) error {
+func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) (applyOutcome, error) {
 	tx, err := h.db.Begin(ctx)
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := enforceSourceGenFence(ctx, tx, sourceGen); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers, h.validateProviderURL); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	// Declarative replace: drop providers absent from the primary. This cascades
 	// to their discovered models (FK ON DELETE CASCADE) but request_logs are
@@ -65,41 +86,41 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	providerNames := names(env.Config.Providers, func(p ExportProvider) string { return p.Name })
 	deletedRows, err := tx.Query(ctx, `DELETE FROM providers WHERE name <> ALL($1) RETURNING id::text`, providerNames)
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	deletedProviderIDs, err := pgx.CollectRows(deletedRows, pgx.RowTo[string])
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	if err := provider.PruneAllowLists(ctx, tx, deletedProviderIDs); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 
 	// Provider names resolve to THIS member's UUIDs only after the upsert above.
 	nameToID, err := providerNameToID(ctx, tx)
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	// Users converge before virtual keys so key ownership (carried by
 	// username) resolves against the freshly synced roster.
 	if err := applyUsers(ctx, tx, env.Config.Users, nameToID); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	userNameToID, err := usernameToID(ctx, tx)
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	if err := upsertVirtualKeys(ctx, tx, env.Config.VirtualKeys, nameToID, userNameToID); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 	vkHashes := names(env.Config.VirtualKeys, func(v ExportVK) string { return v.KeyHash })
 	if _, err := tx.Exec(ctx, `DELETE FROM virtual_keys WHERE key_hash <> ALL($1)`, vkHashes); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 
 	removedSettings, err := h.applySettingsTx(ctx, tx, env.Config.Settings)
 	if err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 
 	if sourceGen != nil {
@@ -109,16 +130,16 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		// _fleet_* keys are deliberately outside the SetTx allowlist; the value is
 		// monotonic because an older generation was already rejected above.
 		if err := writeAppliedSourceGen(ctx, tx, *sourceGen); err != nil {
-			return err
+			return applyOutcome{}, err
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return err
+		return applyOutcome{}, err
 	}
 
-	h.postImportRefresh(ctx, env, removedSettings)
-	return nil
+	out := h.postImportRefresh(ctx, env, removedSettings)
+	return out, nil
 }
 
 // enforceSourceGenFence takes the fleet source-generation advisory lock and
@@ -289,8 +310,17 @@ func validateSyncedRateLimits(subject string, rps *float64, burst, tpm *int) err
 }
 
 // postImportRefresh runs the best-effort post-commit steps of an import: the
-// core config is already durable, so nothing here can fail the sync.
-func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) {
+// core config is already durable, so nothing here can fail the sync. The
+// returned outcome records what these steps could not do.
+func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) applyOutcome {
+	var out applyOutcome
+	// The core config is committed, so the remaining work is not bound to the
+	// caller's request. Front Desk's import client gives up after 120s while
+	// discovery on a fresh member routinely runs longer; inheriting that deadline
+	// starves the group build, which depends on discovery's output. Discovery
+	// keeps its own per-provider deadlines (see discovery.go).
+	ctx = context.WithoutCancel(ctx)
+
 	// Stamp the HA synced marker AFTER the commit, via Set (not SetTx): this
 	// instance-local, non-syncable key drives the member dashboard's "synced
 	// from primary" readout. It must be written post-commit and through Set
@@ -316,14 +346,20 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	if h.discoverAll != nil {
 		if err := h.discoverAll(ctx); err != nil {
 			debuglog.Warn("configsync: post-import discovery failed; custom failover groups may not resolve until models exist", "error", err)
+			out.DiscoveryErr = err
 		}
 	}
 
 	// Custom failover groups, in their own transaction now that discovery has had
 	// a chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
-	if err := h.applyFailoverGroups(ctx, env.Config.FailoverGroups); err != nil {
+	groupCtx, groupCancel := context.WithTimeout(ctx, failoverApplyTimeout)
+	skipped, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups)
+	groupCancel()
+	out.SkippedGroups = skipped
+	if err != nil {
 		debuglog.Warn("configsync: failed to apply custom failover groups", "error", err)
+		out.GroupApplyErr = err
 	}
 
 	failover.InvalidateFailoverCache()
@@ -336,6 +372,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		h.settings.InvalidateCache(k)
 		h.settings.NotifyDeleted(k)
 	}
+	return out
 }
 
 // applyFailoverGroups upserts the custom failover groups and declaratively
@@ -344,8 +381,8 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 // entries reference exist. Auto-created groups are never touched. The declarative
 // delete keeps a group still named in the envelope even if it was just skipped
 // for too few resolvable entries, so a transient model gap does not delete the
-// operator's group.
-func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) error {
+// operator's group. It returns the DisplayModel of every group left unwritten.
+func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) ([]string, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
 	// envelope carried no failover_groups key at all (a pre-PR primary), so leave
 	// the member's own custom groups untouched rather than wiping them on the first
@@ -353,24 +390,28 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	// genuinely has zero custom groups, which must reconcile: the declarative delete
 	// below then removes every stale custom group the member still has.
 	if groups == nil {
-		return nil
+		return nil, nil
 	}
 	tx, err := h.db.Pool().Begin(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := upsertFailoverGroups(ctx, tx, groups); err != nil {
-		return err
+	skipped, err := upsertFailoverGroups(ctx, tx, groups)
+	if err != nil {
+		return nil, err
 	}
 	groupNames := names(groups, func(g ExportFailoverGroup) string { return g.DisplayModel })
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
 		groupNames); err != nil {
-		return err
+		return nil, err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return skipped, nil
 }
 
 // syncableSettingsToDelete returns the syncable settings keys present on this

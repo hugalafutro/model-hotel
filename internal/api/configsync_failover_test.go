@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // seedRawFailoverGroup inserts a custom group with the priority_order and
@@ -621,6 +623,46 @@ func TestConfigSync_ImportPreservesLocalAutoDisableStamp(t *testing.T) {
 	}
 	if at := groupAutoDisabledAt(t, "glm52"); at != nil {
 		t.Errorf("an import that re-enables the group must clear the stamp (operator intent, and revalidation re-stamps it if still undersized), got %v", at)
+	}
+}
+
+// The post-commit steps run on their own budget, not the caller's. Front Desk's
+// import client gives up after 120s while discovery on a fresh member routinely
+// eats most of that, so by the time the group build starts the request context
+// can already be dead. The core config is committed at that point, so the build
+// must still run: inheriting the cancellation drops every custom group while the
+// member answers 200 / Applied: true.
+func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
+	cleanConfigTables(t)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()),
+		configSyncMasterKey, "v-test", nil, nil)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-4o")
+	seedModel(t, provID, "gpt-4o-mini")
+
+	groups := []ExportFailoverGroup{{
+		DisplayModel: "survivor",
+		GroupEnabled: true,
+		Entries: []ExportFailoverEntry{
+			{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true},
+			{ProviderName: "openai", ModelID: "gpt-4o-mini", Enabled: true},
+		},
+	}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Front Desk hung up before the build began
+
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+
+	if out.GroupApplyErr != nil {
+		t.Fatalf("group apply must not inherit the request cancellation: %v", out.GroupApplyErr)
+	}
+	if len(out.SkippedGroups) != 0 {
+		t.Fatalf("SkippedGroups = %v, want none", out.SkippedGroups)
+	}
+	if !groupExists(t, "survivor") {
+		t.Fatal("group was not written")
 	}
 }
 

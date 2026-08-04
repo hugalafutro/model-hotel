@@ -545,7 +545,7 @@ func TestConfigSyncApplyStampsFleetMarker(t *testing.T) {
 			},
 		},
 	}
-	if err := h.apply(ctx, env, nil); err != nil {
+	if _, err := h.apply(ctx, env, nil); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 
