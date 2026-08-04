@@ -265,6 +265,24 @@ export interface FleetSyncState {
 	primary_name: string;
 }
 
+// --- Fleet maintenance: prune Front Desk backups (POST
+// /api/fleet/backups/prune-frontdesk) ---
+// One member's outcome. deleted counts the files removed (on a dry run, the
+// files that would be removed); failed counts the ones the member refused.
+export interface BackupPruneMember {
+	member_id: string;
+	name: string;
+	deleted: number;
+	failed: number;
+	error?: string;
+}
+
+export interface BackupPruneResult {
+	deleted: number;
+	failed: number;
+	results: BackupPruneMember[];
+}
+
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---
 
 export interface WebAuthnCredential {

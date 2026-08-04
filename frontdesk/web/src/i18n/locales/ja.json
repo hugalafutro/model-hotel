@@ -311,6 +311,22 @@
 			"ntfyTopicPlaceholder": "my-secret-topic",
 			"ntfyUse": "ターゲットに設定"
 		},
+		"maintenance": {
+			"title": "フリートのメンテナンス",
+			"pruneHint": "以前の Front Desk は、設定を同期するたびに各メンバーへデータベースダンプを要求しており、メンバー側のローテーションはそれらを削除しません。Front Desk はもう作成しないため、ここで残ったものを削除します。手動および定期バックアップはそのまま残ります。",
+			"pruneBtn": "Front Desk のバックアップを削除",
+			"pruneChecking": "確認中…",
+			"pruneTitle": "Front Desk のバックアップを削除",
+			"pruneBody_one": "Front Desk が作成したバックアップ {{count}} 件を完全に削除します。手動および定期バックアップはそのまま残ります。",
+			"pruneBody_other": "Front Desk が作成したバックアップ {{count}} 件を完全に削除します。手動および定期バックアップはそのまま残ります。",
+			"pruneNone": "メンバー上に Front Desk が作成したバックアップは見つかりませんでした。削除するものはありません。",
+			"pruneUnreadable": "一部のメンバーを読み取れなかったため、それらのバックアップはここに含まれていません。",
+			"pruneConfirm": "削除",
+			"pruning": "削除中…",
+			"pruneDone_one": "{{count}} 件のバックアップを削除しました",
+			"pruneDone_other": "{{count}} 件のバックアップを削除しました",
+			"pruneFailed": "バックアップを削除できませんでした"
+		},
 		"wizard": {
 			"title": "フリート同期ウィザード",
 			"intro": "フリート全体を一つのプライマリに収束させます。1 ステップずつ進めます。各ステップは、前のステップが到達可能なすべてのインスタンスで完了した場合のみ有効になります。",

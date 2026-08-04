@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
 import { AlertsPanel } from "../components/AlertsPanel";
+import { FleetMaintenancePanel } from "../components/FleetMaintenancePanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { ObservabilityPanel } from "../components/ObservabilityPanel";
 import { OidcPanel } from "../components/OidcPanel";
@@ -248,6 +249,8 @@ export function SettingsPage() {
 			</form>
 
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
+
+			<FleetMaintenancePanel />
 
 			<AlertsPanel />
 

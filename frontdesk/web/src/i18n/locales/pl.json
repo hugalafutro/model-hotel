@@ -319,6 +319,26 @@
 			"ntfyTopicPlaceholder": "moj-tajny-temat",
 			"ntfyUse": "Ustaw jako cel"
 		},
+		"maintenance": {
+			"title": "Konserwacja floty",
+			"pruneHint": "Starsze wersje Front Desku prosiły każdego członka o zrzut bazy danych przed każdą synchronizacją konfiguracji, a rotacja po stronie członka nigdy ich nie usuwa. Front Desk już ich nie tworzy; to usuwa te, które zostały. Kopie ręczne i zaplanowane pozostają nietknięte.",
+			"pruneBtn": "Usuń kopie Front Desku",
+			"pruneChecking": "Sprawdzanie…",
+			"pruneTitle": "Usuń kopie Front Desku",
+			"pruneBody_one": "To trwale usunie {{count}} kopię zapasową utworzoną przez Front Desk. Kopie ręczne i zaplanowane zostaną zachowane.",
+			"pruneBody_few": "To trwale usunie {{count}} kopie zapasowe utworzone przez Front Desk. Kopie ręczne i zaplanowane zostaną zachowane.",
+			"pruneBody_many": "To trwale usunie {{count}} kopii zapasowych utworzonych przez Front Desk. Kopie ręczne i zaplanowane zostaną zachowane.",
+			"pruneBody_other": "To trwale usunie {{count}} kopii zapasowej utworzonej przez Front Desk. Kopie ręczne i zaplanowane zostaną zachowane.",
+			"pruneNone": "Nie znaleziono na członkach kopii utworzonych przez Front Desk. Nie ma czego usuwać.",
+			"pruneUnreadable": "Niektórych członków nie udało się odczytać, więc ich kopie nie są tu liczone.",
+			"pruneConfirm": "Usuń",
+			"pruning": "Usuwanie…",
+			"pruneDone_one": "Usunięto {{count}} kopię zapasową",
+			"pruneDone_few": "Usunięto {{count}} kopie zapasowe",
+			"pruneDone_many": "Usunięto {{count}} kopii zapasowych",
+			"pruneDone_other": "Usunięto {{count}} kopii zapasowej",
+			"pruneFailed": "Nie udało się usunąć kopii"
+		},
 		"wizard": {
 			"title": "Kreator synchronizacji floty",
 			"intro": "Zbiegnij całą flotę na jednym głównym, krok po kroku. Każdy krok odblokowuje się dopiero, gdy poprzedni zostanie ukończony dla każdej osiągalnej instancji.",

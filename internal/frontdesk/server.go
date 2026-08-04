@@ -62,6 +62,7 @@ type Server struct {
 	probe        *http.Client // guarded client for proxying member admin APIs
 	readClient   *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
 	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
+	backupClient *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
 	version      string       // running build, surfaced read-only over GET /api/version
 	masterKey    string       // encrypts the Apprise target secret at rest
@@ -137,6 +138,7 @@ func NewServer(cfg ServerConfig) *Server {
 		probe:          newProbeClient(httpProbeTimeout),
 		readClient:     newProbeClient(memberReadTimeout),
 		syncClient:     newProbeClient(memberSyncTimeout),
+		backupClient:   newProbeClient(memberBackupTimeout),
 		lbPort:         lbPort,
 		version:        version,
 		masterKey:      cfg.MasterKey,
@@ -295,6 +297,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
 				r.Post("/fleet/version-check", s.fleetVersionCheck)
+				r.Post("/fleet/backups/prune-frontdesk", s.pruneFrontDeskBackups)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 

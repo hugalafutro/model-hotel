@@ -6,6 +6,7 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AutoSyncConfig,
+	BackupPruneResult,
 	DeviceRole,
 	EventsPage,
 	FdEvent,
@@ -241,6 +242,16 @@ export const api = {
 		request<SyncResult>(
 			"/api/config/sync",
 			jsonInit("POST", { primary_id: primaryId }),
+		),
+
+	// Deletes every frontdesk-origin pg_dump from every member Front Desk can
+	// authenticate to. Front Desk no longer takes those snapshots, so what is left
+	// on a member is dead weight. Destructive, hence operator-triggered only;
+	// dryRun counts what would go so the confirmation can name the number.
+	pruneFrontDeskBackups: (dryRun = false) =>
+		request<BackupPruneResult>(
+			`/api/fleet/backups/prune-frontdesk${dryRun ? "?dryRun=1" : ""}`,
+			{ method: "POST" },
 		),
 
 	// Re-poll member versions and report the ones that differ from the

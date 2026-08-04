@@ -319,6 +319,26 @@
 			"ntfyTopicPlaceholder": "moja-tajna-tema",
 			"ntfyUse": "Nastaviť ako cieľ"
 		},
+		"maintenance": {
+			"title": "Údržba flotily",
+			"pruneHint": "Staršie verzie Front Desku si pred každou synchronizáciou konfigurácie vyžiadali od každého člena výpis databázy a rotácia na strane člena ich nikdy nemaže. Front Desk ich už nevytvára; týmto zmažete tie, ktoré zostali. Ručné a plánované zálohy zostanú nedotknuté.",
+			"pruneBtn": "Zmazať zálohy od Front Desku",
+			"pruneChecking": "Zisťujem…",
+			"pruneTitle": "Zmazať zálohy od Front Desku",
+			"pruneBody_one": "Týmto natrvalo zmažete {{count}} zálohu vytvorenú Front Deskom. Ručné a plánované zálohy zostanú zachované.",
+			"pruneBody_few": "Týmto natrvalo zmažete {{count}} zálohy vytvorené Front Deskom. Ručné a plánované zálohy zostanú zachované.",
+			"pruneBody_many": "Týmto natrvalo zmažete {{count}} zálohy vytvorené Front Deskom. Ručné a plánované zálohy zostanú zachované.",
+			"pruneBody_other": "Týmto natrvalo zmažete {{count}} záloh vytvorených Front Deskom. Ručné a plánované zálohy zostanú zachované.",
+			"pruneNone": "Na vašich členoch sa nenašli žiadne zálohy vytvorené Front Deskom. Nie je čo mazať.",
+			"pruneUnreadable": "Niektorých členov sa nepodarilo prečítať, ich zálohy preto nie sú započítané.",
+			"pruneConfirm": "Zmazať",
+			"pruning": "Mažem…",
+			"pruneDone_one": "Zmazaná {{count}} záloha",
+			"pruneDone_few": "Zmazané {{count}} zálohy",
+			"pruneDone_many": "Zmazané {{count}} zálohy",
+			"pruneDone_other": "Zmazaných {{count}} záloh",
+			"pruneFailed": "Zálohy sa nepodarilo zmazať"
+		},
 		"wizard": {
 			"title": "Sprievodca synchronizáciou flotily",
 			"intro": "Zlúčte celú flotilu do jedného primárneho, krok za krokom. Každý krok sa odomkne až po dokončení predchádzajúceho pre každú dostupnú inštanciu.",

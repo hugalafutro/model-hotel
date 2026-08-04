@@ -315,6 +315,24 @@
 			"ntfyTopicPlaceholder": "mi-tema-secreto",
 			"ntfyUse": "Establecer como destino"
 		},
+		"maintenance": {
+			"title": "Mantenimiento de la flota",
+			"pruneHint": "Las versiones anteriores de Front Desk pedían a cada miembro un volcado de la base de datos antes de cada sincronización de configuración, y la rotación del propio miembro nunca los elimina. Front Desk ya no los crea; esto borra los que quedaron. Las copias manuales y programadas no se tocan.",
+			"pruneBtn": "Borrar copias de Front Desk",
+			"pruneChecking": "Comprobando…",
+			"pruneTitle": "Borrar copias de Front Desk",
+			"pruneBody_one": "Esto elimina permanentemente {{count}} copia creada por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneBody_many": "Esto elimina permanentemente {{count}} copias creadas por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneBody_other": "Esto elimina permanentemente {{count}} copias creadas por Front Desk. Las copias manuales y programadas se conservan.",
+			"pruneNone": "No se han encontrado copias creadas por Front Desk en tus miembros. No hay nada que borrar.",
+			"pruneUnreadable": "No se pudo leer a algunos miembros, así que sus copias no se cuentan aquí.",
+			"pruneConfirm": "Eliminar",
+			"pruning": "Eliminando…",
+			"pruneDone_one": "{{count}} copia eliminada",
+			"pruneDone_many": "{{count}} copias eliminadas",
+			"pruneDone_other": "{{count}} copias eliminadas",
+			"pruneFailed": "No se pudieron borrar las copias"
+		},
 		"wizard": {
 			"title": "Asistente de sincronización de flota",
 			"intro": "Converge toda tu flota hacia un único principal, un paso a la vez. Cada paso se desbloquea solo cuando el anterior ha terminado en todas las instancias accesibles.",
