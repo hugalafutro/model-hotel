@@ -133,6 +133,61 @@ func TestConfigSync_VersionStableAndChanges(t *testing.T) {
 	}
 }
 
+// TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically pins the ordering
+// guarantee the config hash rests on. An import writes every virtual key in one
+// transaction, so a whole fleet's keys share a created_at; ordering by created_at
+// alone leaves tied rows in physical row order, which any row rewrite can change.
+// Byte-identical config would then hash differently, and Front Desk reads a hash
+// that differs as a member that has not converged. key_hash is unique, so it makes
+// the order total.
+func TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	// Seeded in reverse key_hash order, sharing one created_at, so physical row
+	// order is the opposite of the order the export must produce. Only the
+	// tiebreaker can turn one into the other.
+	for _, h := range []string{"hash-c", "hash-b", "hash-a"} {
+		if _, err := apiTestDB.Pool().Exec(ctx, `
+			INSERT INTO virtual_keys (name, key_hash, key_preview, created_at)
+			VALUES ($1, $2, 'mh-***', TIMESTAMPTZ '2026-08-04 12:00:00+00')`, "vk-"+h, h); err != nil {
+			t.Fatalf("seed vk %s: %v", h, err)
+		}
+	}
+
+	exportedHashes := func() []string {
+		t.Helper()
+		env := doExport(t, r)
+		out := make([]string, 0, len(env.Config.VirtualKeys))
+		for _, vk := range env.Config.VirtualKeys {
+			out = append(out, vk.KeyHash)
+		}
+		return out
+	}
+
+	want := []string{"hash-a", "hash-b", "hash-c"}
+	if got := exportedHashes(); !slices.Equal(got, want) {
+		t.Fatalf("tied virtual keys exported as %v, want %v (key_hash breaks the created_at tie)", got, want)
+	}
+	before := doVersion(t, r)
+
+	// An UPDATE writes a new tuple version, moving the row physically without
+	// touching a single exported field. Neither the order nor the hash may follow
+	// it.
+	if _, err := apiTestDB.Pool().Exec(ctx,
+		`UPDATE virtual_keys SET name = name WHERE key_hash = 'hash-a'`); err != nil {
+		t.Fatalf("rewrite row: %v", err)
+	}
+
+	if got := exportedHashes(); !slices.Equal(got, want) {
+		t.Errorf("a row rewrite reordered the export to %v, want %v", got, want)
+	}
+	if after := doVersion(t, r); after != before {
+		t.Error("the config hash moved after a row rewrite that changed no exported field")
+	}
+}
+
 func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()

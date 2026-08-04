@@ -284,7 +284,7 @@ func TestConfigSyncTakesNoPreSyncBackup(t *testing.T) {
 
 // An already-converged member is not imported into: there is nothing to give it, so
 // the wizard skips it just as the auto-syncer does.
-func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
+func TestConfigSyncConvergedMemberNotImported(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
 	converged := newStubConfigMember(t, "ctoken")
@@ -308,9 +308,9 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	if converged.gotBackup {
 		t.Error("an already-converged member must not be snapshotted")
 	}
-	// A converged member must not get a real import either: re-importing reopens
-	// the overwrite-without-backup window. Its only import call is the gating
-	// dry-run, so gotDryRun stays true.
+	// A converged member must not get a real import: it has nothing to receive, and
+	// the import would run member-side model discovery for no reason. Its only
+	// import call is the gating dry-run, so gotDryRun stays true.
 	if !converged.gotDryRun {
 		t.Error("a converged member must not be imported into; only the dry-run should run")
 	}

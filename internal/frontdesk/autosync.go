@@ -388,9 +388,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		// Ask the member what config it actually holds. Every member serves the same
 		// content hash over the same syncable payload (providers, virtual keys,
-		// syncable settings, custom failover groups, users), ordered deterministically
-		// and carrying names and stable model refs rather than instance-local ids or
-		// timestamps, so an equal hash means this member already holds exactly this
+		// syncable settings, custom failover groups, users), every list under a total
+		// order and carrying names and stable model refs rather than instance-local ids
+		// or timestamps, so an equal hash means this member already holds exactly this
 		// config and there is nothing to push. The dry-run cannot establish that:
 		// computeDiff keys on presence, so a member that already matches still reports
 		// every shared entity as updated.
@@ -644,7 +644,11 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 
 // fetchMemberConfigVersion reads a member's syncable-config hash from
 // GET /api/config/version. The hash changes if and only if a synced entity
-// changed, so it is the cheap drift signal for the designated primary.
+// changed, and every member computes it over the same deterministically ordered
+// payload, so it serves two purposes: read from the designated primary it is the
+// cheap drift signal that starts a pass, and read from an individual member it
+// answers whether that member already holds the primary's config, which is what
+// lets applyAutoSync leave a converged member untouched.
 func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token string) (string, error) {
 	status, body, err := s.callMember(ctx, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {

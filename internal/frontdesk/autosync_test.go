@@ -1499,6 +1499,44 @@ func TestAutoSyncHoldsVersionSkew(t *testing.T) {
 	}
 }
 
+// TestAutoSync_VersionSkewedMemberIsHeldEvenWhenItsConfigMatches pins where the
+// hash check sits: after the version gate, not before it. A member running a
+// different app version is held even when it already holds this exact config, so
+// the operator still sees the skew. Hoisting the hash check above the gate would
+// skip this member silently: no hold, no config.sync_held alert, its heartbeat
+// stamped as verified, and the fleet recorded converged with a skewed member in
+// it.
+func TestAutoSync_VersionSkewedMemberIsHeldEvenWhenItsConfigMatches(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-B" // this member already holds the primary's config
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+
+	srv.forceAutoSyncNow(t.Context())
+
+	if n := countEventsOfType(t, store, "config.sync_held"); n != 1 {
+		t.Errorf("config.sync_held events = %d, want 1: a skewed member is held even when its config already matches", n)
+	}
+	if replica.didRealSync() {
+		t.Error("a held member was pushed to")
+	}
+	if snap := srv.poller.Snapshot(); snap[rm.ID].AutoSyncVerifiedAt != nil {
+		t.Error("a held member was stamped verified in sync; the version gate must decide first")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash == "hash-B" {
+		t.Error("applied hash recorded while a member is held for skew; want the fleet left unconverged")
+	}
+}
+
 // TestAutoSync_IncompleteMemberIsNotConverged: a member that commits the config
 // but cannot build every custom failover group reports incomplete=true. Front
 // Desk must not treat that as converged: OK stays false (feeding the existing
