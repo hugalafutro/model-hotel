@@ -48,6 +48,11 @@ type syncResultItem struct {
 	Name     string `json:"name"`
 	OK       bool   `json:"ok"`
 	Error    string `json:"error,omitempty"`
+	// Incomplete marks a member that applied the config without materialising
+	// all of it. Distinct from Error alone, which also covers pushes the member
+	// rejected outright.
+	Incomplete bool     `json:"incomplete,omitempty"`
+	Unapplied  []string `json:"unapplied,omitempty"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -59,8 +64,14 @@ type memberImportResult struct {
 	// Stale is true when the member's commit fence refused this import because a
 	// newer source generation already applied (a rearm/repoint superseded this
 	// push). It is a benign, expected outcome, not a sync failure.
-	Stale bool             `json:"stale,omitempty"`
-	Diff  memberConfigDiff `json:"diff"`
+	Stale bool `json:"stale,omitempty"`
+	// Incomplete is true when the member committed the config but could not
+	// materialise all of it. Absent on a member running older code, which
+	// decodes to false and reads as complete.
+	Incomplete bool `json:"incomplete,omitempty"`
+	// Unapplied names the custom failover groups the member did not build.
+	Unapplied []string         `json:"unapplied,omitempty"`
+	Diff      memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -274,6 +285,23 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
+	case out.Incomplete:
+		// The member committed the config but could not build part of it, so it
+		// is not converged: leaving res.OK false keeps allConverged false, the
+		// fleet hash unrecorded, and the next tick retrying this member until it
+		// applies everything.
+		if len(out.Unapplied) > 0 {
+			res.Error = fmt.Sprintf("applied, but %d failover group(s) could not be built here: %s",
+				len(out.Unapplied), strings.Join(out.Unapplied, ", "))
+		} else {
+			// The member's whole group-build transaction failed rather than
+			// skipping individual groups, so it has no names to report here.
+			res.Error = "applied, but this member could not build its failover groups"
+		}
+		res.Incomplete = true
+		res.Unapplied = out.Unapplied
+		recordConfigSync("incomplete")
+		return res
 	default:
 		res.OK = true
 	}

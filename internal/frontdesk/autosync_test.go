@@ -1355,6 +1355,74 @@ func TestAutoSyncHoldsVersionSkew(t *testing.T) {
 	}
 }
 
+// TestAutoSync_IncompleteMemberIsNotConverged: a member that commits the config
+// but cannot build every custom failover group reports incomplete=true. Front
+// Desk must not treat that as converged: OK stays false (feeding the existing
+// allConverged=false path so the loop retries this member) and the last-sync
+// stamp is left untouched.
+func TestAutoSync_IncompleteMemberIsNotConverged(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+		`"incomplete":true,"unapplied":["ds4flash","glm52"],"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+	if res.OK {
+		t.Fatal("OK = true, want false: the member did not fully apply the config")
+	}
+	if res.Error == "" {
+		t.Fatal("Error is empty, want a description of what was not built")
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("last-sync marker was stamped on an incomplete apply; want left untouched")
+	}
+}
+
+// TestAutoSync_ResponseWithoutIncompleteFieldIsComplete: an older member that
+// never sends the incomplete field decodes it to false and is still treated as
+// fully converged.
+func TestAutoSync_ResponseWithoutIncompleteFieldIsComplete(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+	if !res.OK {
+		t.Fatalf("OK = false (%s), want true: an older member omits the field", res.Error)
+	}
+}
+
+// TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage: when the member's
+// whole group-build transaction fails (rather than skipping individual groups)
+// it sends incomplete=true with unapplied absent. The error message must not
+// degrade into "0 failover group(s)... could not be built here: " nonsense.
+func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"incomplete":true,"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+	if res.OK {
+		t.Fatal("OK = true, want false: the member did not fully apply the config")
+	}
+	if res.Error == "" {
+		t.Fatal("Error is empty, want a description of what was not built")
+	}
+	if strings.Contains(res.Error, "0 failover group(s)") {
+		t.Errorf("Error = %q, want a sensible message instead of the empty-unapplied placeholder", res.Error)
+	}
+}
+
 func TestAutoSyncStaleTier(t *testing.T) {
 	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
 	off := AutoSyncConfig{Enabled: false, PrimaryID: "p1"}
