@@ -194,11 +194,15 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 //     import) or its pre-sync backup failed (reported as left unchanged). The
 //     caller skips applyMemberConfig and records item as-is.
 //
-// Crucially, a converged member is skipped entirely rather than handed to a no-op
-// import: re-importing it would reopen the window where a member edited between the
-// dry-run and the real import gets overwritten without the snapshot this gate is
-// meant to guarantee. This mirrors the auto-syncer, which also skips converged
-// members outright.
+// A member the dry run reports as converged is skipped entirely rather than handed
+// to a no-op import: re-importing it would reopen the window where a member edited
+// between the dry-run and the real import gets overwritten without the snapshot this
+// gate is meant to guarantee.
+//
+// That skip is rare in practice: computeDiff keys on presence, so every entity the
+// member and the primary share counts as updated and a real fleet's diff is almost
+// never empty. The auto-syncer therefore leans on incompleteRetryInterval, not on
+// this branch, to keep a member that cannot converge from re-importing every tick.
 func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte, reason string) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
