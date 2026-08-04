@@ -480,11 +480,24 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member, unapplied 
 	if already {
 		return
 	}
+	// A member whose whole group-build transaction failed reports incomplete with no
+	// names, so a count here would read "could not build 0 failover group(s)" and tell
+	// the operator nothing is wrong while the fleet is degraded. The countless wording
+	// matches applyMemberConfig's result message for the same case. The names ride the
+	// metadata as a list either way, never as null, so consumers see one shape.
+	names := unapplied
+	if names == nil {
+		names = []string{}
+	}
+	msg := fmt.Sprintf("%s applied the config but could not build its failover groups", m.Name)
+	if len(names) > 0 {
+		msg = fmt.Sprintf("%s applied the config but could not build %d failover group(s)", m.Name, len(names))
+	}
 	s.emit(ctx, Event{
 		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
-		Message:  fmt.Sprintf("%s applied the config but could not build %d failover group(s)", m.Name, len(unapplied)),
+		Message:  msg,
 		MemberID: m.ID,
-		Metadata: map[string]any{"unapplied": unapplied},
+		Metadata: map[string]any{"unapplied": names},
 	})
 }
 

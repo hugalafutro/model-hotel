@@ -1418,12 +1418,31 @@ func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	if res.Error == "" {
 		t.Fatal("Error is empty, want a description of what was not built")
 	}
-	if strings.Contains(res.Error, "0 failover group(s)") {
-		t.Errorf("Error = %q, want a sensible message instead of the empty-unapplied placeholder", res.Error)
-	}
 	const want = "applied, but this member could not build its failover groups"
 	if res.Error != want {
 		t.Errorf("Error = %q, want %q", res.Error, want)
+	}
+
+	// The operator-facing alert carries the same countless wording: a count here
+	// would read "could not build 0 failover group(s)" and claim nothing is wrong.
+	// The metadata still carries a list, so a consumer never sees null.
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want 1", len(evs))
+	}
+	const wantMsg = "replica applied the config but could not build its failover groups"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"unapplied":[]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
 
@@ -1463,6 +1482,19 @@ func TestAutoSync_IncompleteEventIsEdgeTriggered(t *testing.T) {
 	}
 	if evs[0].MemberID != rm.ID {
 		t.Errorf("incomplete event member = %q, want %q", evs[0].MemberID, rm.ID)
+	}
+	// The alert body is what the operator reads, so pin it along with the group
+	// names it carries in the metadata.
+	const wantMsg = "replica applied the config but could not build 1 failover group(s)"
+	if evs[0].Message != wantMsg {
+		t.Errorf("event message = %q, want %q", evs[0].Message, wantMsg)
+	}
+	meta, err := json.Marshal(evs[0].Metadata)
+	if err != nil {
+		t.Fatalf("marshal event metadata: %v", err)
+	}
+	if got, want := string(meta), `{"unapplied":["ds4flash"]}`; got != want {
+		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 	if !srv.incompleteSnapshot()[rm.ID] {
 		t.Error("incompleteSnapshot does not hold the incomplete member")
