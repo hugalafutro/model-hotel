@@ -424,11 +424,25 @@ still runs on the connection to the proxy.
 ### Surviving a Transient Network Failure
 
 Setting up a connection is bounded at **5 seconds** for DNS resolution plus TCP
-connect, and again at 5 seconds for the TLS handshake, both well inside the
-15-second budget for a whole SSO request. Those bounds are what make a second
-attempt possible: a resolver that took the entire request budget to fail would
-leave nothing to retry with. `net/http` leaves both unbounded by default, so
-they are set explicitly rather than inherited.
+connect, and again at 5 seconds for the TLS handshake, against a 15-second budget
+for a whole SSO request. Those bounds are what make a second attempt possible: a
+resolver that took the entire request budget to fail would leave nothing to retry
+with. `net/http` leaves both unbounded by default, so they are set explicitly
+rather than inherited.
+
+The rescue is still best-effort at the extreme. An attempt that exhausts both
+bounds (a TCP connection accepted and then stalled through the whole handshake)
+spends 10 of the 15 seconds on its own, so the retry gets what is left rather
+than a full connection setup of its own. The common case, a resolver that fails
+in well under its 5 seconds, leaves the retry ample room.
+
+The 5-second dial bound is shared across a host's addresses, not granted to each:
+Go splits it between the candidates it tries in sequence, with a 2-second floor
+per address. A hostname resolving to several addresses of the same family
+therefore gets roughly 2s, 2s, then 1s rather than 5 seconds each. Dual-stack
+hosts are unaffected, since IPv4 and IPv6 are raced in parallel. If an IdP of
+yours is reached only after two of its addresses time out, prefer fixing the
+stale address record over expecting the dial to wait.
 
 The SSO clients wrap netguard in a retry that re-issues a request which failed
 **before any byte reached the origin server**. It rescues a login from a

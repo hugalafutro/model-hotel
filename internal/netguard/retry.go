@@ -12,10 +12,13 @@ import (
 
 // retryAttempts is how many times a login-path request is issued in total: the
 // original plus one retry. Every attempt shares the client's single overall
-// timeout, but one connection attempt is bounded by dialTimeout, so a failed
-// dial costs at most that slice of the budget and the retry is left room to
-// run. Two is the useful number: a resolver still broken a moment later is not
-// the momentary blip this exists to absorb.
+// timeout, but connection setup is bounded by dialTimeout, so a failed dial
+// costs a slice of the budget rather than all of it and the retry is left room
+// to run. The rescue is still best-effort at the extreme: an attempt that
+// exhausts both the dial and the TLS bound leaves the retry less than a full
+// connection setup, and the client's overall timeout cuts it short. Two is the
+// useful number: a resolver still broken a moment later is not the momentary
+// blip this exists to absorb.
 const retryAttempts = 2
 
 // retryDelay spaces the retry far enough to clear a momentary resolver failure

@@ -130,7 +130,8 @@ func newGuardedDialer(timeout time.Duration) *net.Dialer {
 // the same Control hook), so a 3xx to a metadata address fails at connect time;
 // checkRedirect adds an earlier, explicit rejection of literal-IP metadata
 // redirects and bounds the redirect chain. timeout bounds the whole request;
-// one connection attempt within it is bounded by dialTimeout.
+// within it the dial and then the TLS handshake are each bounded by dialTimeout,
+// so connection setup cannot consume more than two of those before the retry.
 func NewClient(timeout time.Duration) *http.Client {
 	dialer := newGuardedDialer(timeout)
 	return &http.Client{
@@ -145,7 +146,9 @@ func NewClient(timeout time.Duration) *http.Client {
 			// The dialer's timeout covers DNS and TCP only. Left at zero the TLS
 			// handshake is unbounded, so an endpoint that accepts the connection
 			// and then stalls the handshake consumes the caller's entire budget
-			// and leaves nothing for a retry.
+			// and leaves nothing for a retry. A caller whose own timeout is shorter
+			// than this needs no tighter value here: the client's overall timeout
+			// fires first, since the handshake can only start after the dial.
 			TLSHandshakeTimeout: dialTimeout,
 			IdleConnTimeout:     idleConnTimeout,
 		},

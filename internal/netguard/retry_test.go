@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -20,12 +21,20 @@ import (
 const retryWarning = "netguard: retrying request after pre-connection failure"
 
 // captureHandler collects the records emitted through the default slog logger,
-// which is where debuglog.Warn sends them.
-type captureHandler struct{ records []slog.Record }
+// which is where debuglog.Warn sends them. slog handlers are called from
+// whichever goroutine logs, so the records are guarded: a test that drives a
+// client from more than one goroutine would otherwise trip the race detector
+// here, where it reads as flakiness rather than as the bug it is.
+type captureHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
 
 func (h *captureHandler) Enabled(context.Context, slog.Level) bool { return true }
 
 func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.records = append(h.records, r)
 	return nil
 }
@@ -36,6 +45,8 @@ func (h *captureHandler) WithGroup(string) slog.Handler { return h }
 
 // count reports how many captured records carry msg.
 func (h *captureHandler) count(msg string) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	n := 0
 	for _, r := range h.records {
 		if r.Message == msg {
@@ -48,6 +59,8 @@ func (h *captureHandler) count(msg string) int {
 // attr returns the value of key on the first captured record carrying msg, or
 // nil when there is no such record or key.
 func (h *captureHandler) attr(msg, key string) any {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for _, r := range h.records {
 		if r.Message != msg {
 			continue
@@ -66,7 +79,9 @@ func (h *captureHandler) attr(msg, key string) any {
 }
 
 // captureLogs redirects the default logger into a captureHandler for the length
-// of the test.
+// of the test. The default logger is process-global, so a test that calls this
+// must not call t.Parallel(): a second one running alongside it would capture
+// the first's records, or restore the original logger out from under it.
 func captureLogs(t *testing.T) *captureHandler {
 	t.Helper()
 	prev := slog.Default()

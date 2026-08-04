@@ -185,9 +185,10 @@ func TestNewGuardedDialerBoundsOneAttempt(t *testing.T) {
 // stalls the handshake would burn the caller's whole budget, leaving nothing
 // for the retry, and every real IdP is HTTPS.
 func TestNewClientBoundsTLSHandshake(t *testing.T) {
-	tr, ok := NewClient(15 * time.Second).Transport.(*http.Transport)
+	transport := NewClient(15 * time.Second).Transport
+	tr, ok := transport.(*http.Transport)
 	if !ok {
-		t.Fatalf("Transport = %T, want *http.Transport", NewClient(time.Second).Transport)
+		t.Fatalf("Transport = %T, want *http.Transport", transport)
 	}
 	if tr.TLSHandshakeTimeout != dialTimeout {
 		t.Errorf("TLSHandshakeTimeout = %v, want %v", tr.TLSHandshakeTimeout, dialTimeout)
