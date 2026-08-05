@@ -572,3 +572,50 @@ func TestSetAlertEventsClosedStore(t *testing.T) {
 		t.Error("SetAlertEvents on closed store returned nil error")
 	}
 }
+
+// bellhopRoot is Bellhop's source tree, relative to this package.
+const bellhopRoot = "../../android/app/src/main"
+
+// TestBellhopLabelsCoverEveryWireCode enforces the contract the reason codes were
+// introduced for: every dotted event type and every fleet reason code Front Desk
+// publishes must have a human label in the Android client. Bellhop falls back to
+// rendering the raw code, which is a documented safety net for a client older than
+// the server, not an acceptable resting state for codes that ship together.
+//
+// It reads Bellhop's two lookup tables and checks each code appears as a quoted
+// literal, the same source-scanning approach as TestCatalogTypesAreEmitted. That
+// catches the drift this guards, a code added server-side and never labelled,
+// without needing the Android toolchain in a Go test run.
+func TestBellhopLabelsCoverEveryWireCode(t *testing.T) {
+	read := func(path string) string {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Clean(filepath.Join(bellhopRoot, path)))
+		if err != nil {
+			t.Fatalf("read Bellhop source: %v", err)
+		}
+		return string(b)
+	}
+
+	eventLabels := read("kotlin/com/hugalafutro/bellhop/ui/common/EventLabels.kt")
+	for _, def := range fdCatalog {
+		if !strings.Contains(eventLabels, `"`+def.Type+`"`) {
+			t.Errorf("event %q has no Bellhop label; the app would render the raw wire code", def.Type)
+		}
+	}
+
+	// Every reason computeFleetState can put on the wire (fleetstate.go). Listed
+	// here rather than derived, so adding a reason means deciding it needs a label.
+	reasons := []string{
+		reasonMemberDown, reasonAllMembersDown,
+		reasonMemberDrained, reasonDrainedToSingle,
+		reasonSyncHeld, reasonAllSyncHeld, reasonSyncIncomplete,
+		reasonAutosyncStale, reasonAutosyncStaleLong,
+		reasonTraefikConfigStale,
+	}
+	fleetLabels := read("kotlin/com/hugalafutro/bellhop/ui/dashboard/DashboardScreen.kt")
+	for _, code := range reasons {
+		if !strings.Contains(fleetLabels, `"`+code+`"`) {
+			t.Errorf("fleet reason %q has no Bellhop label; the app would render the raw wire code", code)
+		}
+	}
+}

@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">tylko jeden aktywny węzeł</string>
     <string name="fleet_reason_sync_held">synchronizacja wstrzymana</string>
     <string name="fleet_reason_all_sync_held">synchronizacja wstrzymana w całej flocie</string>
+    <string name="fleet_reason_sync_incomplete">konfiguracja niezgodna</string>
     <string name="fleet_reason_autosync_stale">niezsynchronizowana ponad dobę</string>
     <string name="fleet_reason_autosync_stale_long">niezsynchronizowana ponad trzy dni</string>
     <string name="fleet_reason_traefik_config_stale">Traefik nie pobiera konfiguracji</string>
@@ -147,6 +148,8 @@
     <string name="alerts_event_config_auto_synced">Konfiguracja zsynchronizowana automatycznie</string>
     <string name="alerts_event_config_autosync_stale">Auto-synchronizacja wyłączona, flota niezsynchronizowana</string>
     <string name="alerts_event_config_sync_held">Synchronizacja wstrzymana (rozbieżność wersji)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronizacja niepełna (członek się nie zgadza)</string>
+    <string name="alerts_event_config_sync_recovered">Synchronizacja znów pełna</string>
     <string name="alerts_event_version_fetch_failed">Odczyt wersji nie powiódł się</string>
     <string name="alerts_event_version_fetch_recovered">Odczyt wersji przywrócony</string>
     <string name="alerts_event_traefik_stale">Konfiguracja Traefik nieaktualna</string>
@@ -154,6 +157,9 @@
     <string name="alerts_event_member_added">Węzeł dodany</string>
     <string name="alerts_event_member_removed">Węzeł usunięty</string>
     <string name="alerts_event_member_state_changed">Węzeł wygaszony lub aktywowany</string>
+    <string name="alerts_event_backup_stale">Członek bez świeżej kopii zapasowej</string>
+    <string name="alerts_event_backup_recovered">Członek znowu ma kopie zapasowe</string>
+    <string name="alerts_event_backup_pruned">Kopie Front Desku usunięte</string>
     <string name="event_device_paired">Urządzenie sparowane</string>
     <string name="event_device_revoked">Sparowanie urządzenia cofnięte</string>
     <string name="event_settings_changed">Ustawienia zmienione</string>

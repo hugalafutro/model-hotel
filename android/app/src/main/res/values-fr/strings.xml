@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">un seul membre actif restant</string>
     <string name="fleet_reason_sync_held">synchronisation suspendue</string>
     <string name="fleet_reason_all_sync_held">synchronisation suspendue sur toute la flotte</string>
+    <string name="fleet_reason_sync_incomplete">configuration divergente</string>
     <string name="fleet_reason_autosync_stale">non synchronisée depuis plus d\'un jour</string>
     <string name="fleet_reason_autosync_stale_long">non synchronisée depuis plus de trois jours</string>
     <string name="fleet_reason_traefik_config_stale">Traefik ne récupère pas la config</string>
@@ -141,6 +142,8 @@
     <string name="alerts_event_config_auto_synced">Config synchronisée automatiquement</string>
     <string name="alerts_event_config_autosync_stale">Synchronisation automatique désactivée, flotte non synchronisée</string>
     <string name="alerts_event_config_sync_held">Synchronisation suspendue (écart de version)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronisation incomplète (le membre ne correspond pas)</string>
+    <string name="alerts_event_config_sync_recovered">Synchronisation à nouveau complète</string>
     <string name="alerts_event_version_fetch_failed">Échec de lecture de la version</string>
     <string name="alerts_event_version_fetch_recovered">Lecture de la version rétablie</string>
     <string name="alerts_event_traefik_stale">Config Traefik obsolète</string>
@@ -148,6 +151,9 @@
     <string name="alerts_event_member_added">Membre ajouté</string>
     <string name="alerts_event_member_removed">Membre supprimé</string>
     <string name="alerts_event_member_state_changed">Membre drainé ou activé</string>
+    <string name="alerts_event_backup_stale">Membre sans sauvegarde récente</string>
+    <string name="alerts_event_backup_recovered">Membre à nouveau sauvegardé</string>
+    <string name="alerts_event_backup_pruned">Sauvegardes Front Desk effacées</string>
     <string name="event_device_paired">Appareil appairé</string>
     <string name="event_device_revoked">Appareil révoqué</string>
     <string name="event_settings_changed">Paramètres modifiés</string>

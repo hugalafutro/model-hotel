@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">zůstává jen jeden aktivní člen</string>
     <string name="fleet_reason_sync_held">synchronizace pozastavena</string>
     <string name="fleet_reason_all_sync_held">synchronizace pozastavena v celé flotile</string>
+    <string name="fleet_reason_sync_incomplete">konfigurace nesouhlasí</string>
     <string name="fleet_reason_autosync_stale">nesynchronizováno přes den</string>
     <string name="fleet_reason_autosync_stale_long">nesynchronizováno přes tři dny</string>
     <string name="fleet_reason_traefik_config_stale">Traefik nenačítá konfiguraci</string>
@@ -147,6 +148,8 @@
     <string name="alerts_event_config_auto_synced">Konfigurace automaticky synchronizována</string>
     <string name="alerts_event_config_autosync_stale">Automatická synchronizace vypnutá, flotila nesynchronizovaná</string>
     <string name="alerts_event_config_sync_held">Synchronizace pozastavena (rozdílné verze)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronizace neúplná (člen neodpovídá)</string>
+    <string name="alerts_event_config_sync_recovered">Synchronizace je opět úplná</string>
     <string name="alerts_event_version_fetch_failed">Čtení verze selhalo</string>
     <string name="alerts_event_version_fetch_recovered">Čtení verze obnoveno</string>
     <string name="alerts_event_traefik_stale">Konfigurace Traefiku zastaralá</string>
@@ -154,6 +157,9 @@
     <string name="alerts_event_member_added">Člen přidán</string>
     <string name="alerts_event_member_removed">Člen odebrán</string>
     <string name="alerts_event_member_state_changed">Člen odstaven nebo aktivován</string>
+    <string name="alerts_event_backup_stale">Člen bez aktuální zálohy</string>
+    <string name="alerts_event_backup_recovered">Člen se opět zálohuje</string>
+    <string name="alerts_event_backup_pruned">Zálohy od Front Desku smazány</string>
     <string name="event_device_paired">Zařízení spárováno</string>
     <string name="event_device_revoked">Spárování zařízení zrušeno</string>
     <string name="event_settings_changed">Nastavení změněno</string>

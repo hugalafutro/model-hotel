@@ -32,6 +32,7 @@
     <string name="fleet_reason_drained_to_single">only one active member left</string>
     <string name="fleet_reason_sync_held">sync held</string>
     <string name="fleet_reason_all_sync_held">sync held fleet-wide</string>
+    <string name="fleet_reason_sync_incomplete">config does not match</string>
     <string name="fleet_reason_autosync_stale">unsynced for over a day</string>
     <string name="fleet_reason_autosync_stale_long">unsynced for over three days</string>
     <string name="fleet_reason_traefik_config_stale">Traefik not fetching config</string>
@@ -157,6 +158,8 @@
     <string name="alerts_event_config_auto_synced">Config auto-synced</string>
     <string name="alerts_event_config_autosync_stale">Auto-sync off, fleet not synced</string>
     <string name="alerts_event_config_sync_held">Sync held (version skew)</string>
+    <string name="alerts_event_config_sync_incomplete">Sync incomplete (member does not match)</string>
+    <string name="alerts_event_config_sync_recovered">Sync complete again</string>
     <string name="alerts_event_version_fetch_failed">Version read failed</string>
     <string name="alerts_event_version_fetch_recovered">Version read recovered</string>
     <string name="alerts_event_traefik_stale">Traefik config stale</string>
@@ -164,6 +167,9 @@
     <string name="alerts_event_member_added">Member added</string>
     <string name="alerts_event_member_removed">Member removed</string>
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
+    <string name="alerts_event_backup_stale">Member has no recent backup</string>
+    <string name="alerts_event_backup_recovered">Member backups healthy again</string>
+    <string name="alerts_event_backup_pruned">Front Desk backups cleared</string>
     <!-- Event-log-only types (not in the alert catalog), used by the shared event-title map. -->
     <string name="event_device_paired">Device paired</string>
     <string name="event_device_revoked">Device revoked</string>
