@@ -3344,29 +3344,59 @@ func TestUnmeasuredMessage(t *testing.T) {
 	}
 }
 
-// TestAutoSync_UnreachableMemberIsNotAlsoFlaggedUnmeasured: a member Front Desk
-// has never reached fails the hash read on every pass forever, but it is already
-// reported by the health poller. Flagging it here as well would put a second
-// reason on the fleet for one fault, and claim a config comparison that never had
-// the chance to happen. The measured branch declines to flag an unreached member
-// for the same reason; this is that rule applied to the unreadable one.
-func TestAutoSync_UnreachableMemberIsNotAlsoFlaggedUnmeasured(t *testing.T) {
+// TestAutoSync_MemberWithAnUnknownVersionIsHeldNotMeasured: the reason the
+// unreadable-hash flag needs no "has had its chance" guard. A member Front Desk
+// has never reached has no polled version, versionSkew fails closed on that, and
+// the pass holds it before asking for its hash. So the case that guard would
+// protect against cannot reach the flag, and adding it only silenced members that
+// can.
+func TestAutoSync_MemberWithAnUnknownVersionIsHeldNotMeasured(t *testing.T) {
 	f := newHashFleet(t, func(r *stubAutoMember) {
 		r.versionCode = http.StatusInternalServerError
-		r.importCode = http.StatusInternalServerError // nothing can be pushed either
 		r.dryDiff = driftDiff
 	})
-	// Far past the threshold, so only the never-pushed guard can hold the flag back.
-	f.tick(t)
-	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Hour))
+	// Undo the fixture's version alignment for the replica alone: an unreached
+	// member's polled version is empty.
+	setMemberVersion(f.srv, f.replicaM.ID, "")
 
 	f.tick(t)
 
-	if memberDiverged(f.srv, f.replicaM.ID) {
-		t.Error("a member that was never reached was flagged for not matching a config it was never given")
+	if got := f.replica.versionReadCount(); got != 0 {
+		t.Errorf("member hash reads = %d, want 0: a version-skewed member is held before it is measured", got)
 	}
-	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
-		t.Errorf("config.sync_incomplete events = %d for an unreached member, want 0: health.down already reports it", n)
+	if !unreadableSince(f.srv, f.replicaM.ID).IsZero() {
+		t.Error("an unreadable clock was started for a member that was never asked for its hash")
+	}
+	if memberDiverged(f.srv, f.replicaM.ID) {
+		t.Error("a held member was flagged as diverged")
+	}
+}
+
+// TestAutoSync_UpButUnsyncableMemberIsStillFlagged: the case that made the "has
+// had its chance" guard wrong. A member that is up and version-matched, but whose
+// hash read AND import both fail, is never successfully pushed to, so such a guard
+// would never let it be flagged. Every one of those failure paths only logs, so it
+// would sit healthy-looking behind a green fleet holding unknown config, which is
+// the exact shape of the incident this check exists to end.
+func TestAutoSync_UpButUnsyncableMemberIsStillFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError // cannot be measured
+		r.importCode = http.StatusInternalServerError  // and cannot be written to
+		r.dryDiff = driftDiff
+	})
+	f.tick(t)
+	if f.replica.realSyncCount() != 0 {
+		t.Fatal("the member accepted an import; this test needs one that accepts none")
+	}
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Minute))
+
+	f.tick(t)
+
+	if !memberDiverged(f.srv, f.replicaM.ID) {
+		t.Fatal("a healthy-looking member that can be neither measured nor written to was not flagged; the fleet would read ok")
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d, want 1", n)
 	}
 }
 

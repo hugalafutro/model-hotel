@@ -443,16 +443,21 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// member's convergence can never be established, so leaving it unflagged would
 		// hide it behind a clean fleet indefinitely.
 		//
-		// Gated on the member having had the config, exactly as the measured branch
-		// below is. A member Front Desk has never reached (a typo'd URL, one still
-		// booting) fails this read on every pass, and it is already reported down by
-		// the health poller; flagging it here too would put a second reason on the
-		// fleet for the same fault, in the name of a config comparison that never had a
-		// chance to happen. A member that is up but cannot serve its hash still gets
-		// pushed to on this same pass, so it has had its chance by the next one and is
-		// flagged then.
+		// Deliberately NOT gated on the member having had the config, unlike the
+		// measured branch below. That guard exists so a member nobody has reached is
+		// not blamed for diverging, and a member nobody has reached never gets here:
+		// it has no polled version, and versionSkew fails closed on an unknown one, so
+		// the caller holds it for skew and never asks for its hash.
+		//
+		// What does get here without ever having been pushed is a member that is up and
+		// version-matched but broken for config sync in both directions: its hash read
+		// fails and so does its import (a MASTER_KEY or schema mismatch, or a member
+		// erroring on both endpoints). Every one of those paths only logs, so requiring
+		// a successful push first would leave that member unflagged and the fleet green
+		// while it holds unknown config. That is the failure this whole check exists to
+		// end, and it is the more dangerous case, because the member looks healthy.
 		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
-		if s.recordUnreadableHash(m.ID, err, time.Now()) && s.hasBeenPushedSinceReset(m.ID) {
+		if s.recordUnreadableHash(m.ID, err, time.Now()) {
 			s.markMemberUnmeasured(ctx, m)
 		}
 		return false, false
