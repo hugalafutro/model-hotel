@@ -363,6 +363,33 @@ func TestSetupTestDB_InvalidURL(t *testing.T) {
 	}
 }
 
+// TestTestDBName covers the shard segment scripts/go-test-sharded relies on: an
+// unset TEST_DB_SHARD must reproduce the historic per-package name exactly, since
+// every ordinary `go test` run goes through this path, and a shard label must
+// reach CREATE DATABASE as an identifier and nothing else.
+func TestTestDBName(t *testing.T) {
+	tests := []struct {
+		name  string
+		shard string
+		want  string
+	}{
+		{"unset is the historic name", "", "testdb_api"},
+		{"shard appends a segment", "s3", "testdb_api_s3"},
+		{"upper case folds down", "S3", "testdb_api_s3"},
+		{"punctuation is dropped", "s-3.x", "testdb_api_s3x"},
+		{"quotes and semicolons cannot reach DDL", `a"; DROP DATABASE testdb; --`, "testdb_api_adropdatabasetestdb"},
+		{"a label with nothing usable falls back", "!!!", "testdb_api"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TEST_DB_SHARD", tc.shard)
+			if got := testDBName("testdb", "api"); got != tc.want {
+				t.Errorf("testDBName() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestSetupTestDB_ConnectionError tests the pgxpool.New error path.
 // Uses an unreachable host to trigger connection failure.
 func TestSetupTestDB_ConnectionError(t *testing.T) {

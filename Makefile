@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs android-build android-test android-lint android-install
+.PHONY: build run clean test test-parallel lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs android-build android-test android-lint android-install
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Full SHA of the commit this binary is built from, stamped into the API package
@@ -19,6 +19,13 @@ clean:
 
 test:
 	go test -v ./...
+
+# Same packages as `test`, split across concurrent processes: internal/api is one
+# binary of ~1600 sequential tests and sets the wall clock for the whole tree on
+# its own. Each shard gets its own database, so no test file changes and no new
+# way to be flaky. Needs the test Postgres (make test-db-up).
+test-parallel:
+	scripts/go-test-sharded ./internal/...
 
 lint:
 	golangci-lint run ./...
