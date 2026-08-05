@@ -107,60 +107,16 @@ jobs:
         # service container.
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
 
-      - name: Tune Postgres for throwaway test data
-        env:
-          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
-        # This server holds nothing worth keeping: every package DROPs and CREATEs
-        # its own database on startup and the container dies with the job, so the
-        # durability settings are pure cost. Measured locally, turning them off
-        # takes internal/api from 241s to 100s before any sharding. Mirrors the
-        # command block in docker-compose.test.yml; the two must not drift.
-        #
-        # ALTER SYSTEM plus a restart rather than a service `command:`, which
-        # GitHub's service syntax has no field for. fsync, full_page_writes,
-        # max_wal_size and checkpoint_timeout are all sighup-context and would
-        # reload in place; max_connections is postmaster-context and is why the
-        # restart is here at all (sharding puts several pools on this server at
-        # once and the stock 100 binds first).
-        run: |
-          psql -h localhost -p 5433 -U modelhotel -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          ALTER SYSTEM SET fsync = off;
-          ALTER SYSTEM SET synchronous_commit = off;
-          ALTER SYSTEM SET full_page_writes = off;
-          ALTER SYSTEM SET max_wal_size = '4GB';
-          ALTER SYSTEM SET checkpoint_timeout = '30min';
-          ALTER SYSTEM SET max_connections = 400;
-          SQL
-          docker restart "${{ job.services.postgres.id }}"
-          # Fails the job rather than letting the suite meet a server that never
-          # came back: every test would fail anyway, just less legibly.
-          for _ in $(seq 1 60); do
-            if pg_isready -h localhost -p 5433 -U modelhotel -d testdb >/dev/null 2>&1; then
-              psql -h localhost -p 5433 -U modelhotel -d postgres -tAc \
-                "SELECT name || '=' || setting FROM pg_settings WHERE name IN ('fsync','max_connections');"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "postgres did not come back after the restart" >&2
-          exit 1
-
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        # Sharded: internal/api is one binary of ~1,600 sequential tests against a
-        # real Postgres and sets this job's clock by itself. Each shard is an
-        # ordinary `go test` over a disjoint subset with its own database, and the
-        # runner merges their coverage profiles, so the gate below measures what it
-        # always did. Same script the pre-push hook uses.
-        #
         # -timeout is per package, not for the whole run, and internal/api is by
         # far the largest: ~1,450 tests against a real Postgres, several minutes
         # on a shared runner. At 5m it panicked with no test hung — the package
         # simply outgrew the clock, and every future test added to it walked the
         # margin down further. 10m is headroom, not a licence: a package that
         # actually deadlocks still fails here well inside the job timeout.
-        run: scripts/go-test-sharded --timeout 10m --coverprofile coverage.out --covermode atomic ./...
+        run: go test -timeout 10m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (90% threshold)
         run: |
