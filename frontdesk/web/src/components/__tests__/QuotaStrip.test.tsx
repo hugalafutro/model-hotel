@@ -421,22 +421,25 @@ describe("QuotaStrip", () => {
 		["minimax", minimax, "minimax-general-5h-fill"],
 		["openrouter", openrouter, "or-credits-fill"],
 		["neuralwatt", neuralwatt, "nw-credits-fill"],
-	] as const)("opens the %s modal for its badge and no other provider's", async (_label, snapshot, ownTestId) => {
-		server.use(
-			http.get("/api/quota", () => HttpResponse.json({ quota: [snapshot] })),
-		);
-		renderStrip();
-		const badgeTestId = `quota-badge-${snapshot.type}:${snapshot.provider_name}`;
-		await waitFor(() =>
-			expect(screen.getByTestId(badgeTestId)).toBeInTheDocument(),
-		);
-		await userEvent.click(screen.getByTestId(badgeTestId));
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		expect(screen.getByTestId(ownTestId)).toBeInTheDocument();
-		// Guard against the dispatch opening a DIFFERENT provider's modal: only
-		// one dialog exists, and it carries this provider's own content.
-		expect(screen.getAllByRole("dialog")).toHaveLength(1);
-	});
+	] as const)(
+		"opens the %s modal for its badge and no other provider's",
+		async (_label, snapshot, ownTestId) => {
+			server.use(
+				http.get("/api/quota", () => HttpResponse.json({ quota: [snapshot] })),
+			);
+			renderStrip();
+			const badgeTestId = `quota-badge-${snapshot.type}:${snapshot.provider_name}`;
+			await waitFor(() =>
+				expect(screen.getByTestId(badgeTestId)).toBeInTheDocument(),
+			);
+			await userEvent.click(screen.getByTestId(badgeTestId));
+			expect(screen.getByRole("dialog")).toBeInTheDocument();
+			expect(screen.getByTestId(ownTestId)).toBeInTheDocument();
+			// Guard against the dispatch opening a DIFFERENT provider's modal: only
+			// one dialog exists, and it carries this provider's own content.
+			expect(screen.getAllByRole("dialog")).toHaveLength(1);
+		},
+	);
 
 	it("refreshes instead of opening a modal for Ollama Cloud", async () => {
 		let posted = 0;
