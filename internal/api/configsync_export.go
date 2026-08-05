@@ -117,6 +117,14 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 // provider served it, and carrying either would spread one member's provider
 // trouble to the whole fleet. Migration 063 has the full three-way distinction.
 //
+// A row counts as disabled only when it is both flagged by the operator and
+// actually off. Nothing in the schema ties those together, and keying on the flag
+// alone let a row that carried the flag while still enabled export as disabled: it
+// advertised a model it was in fact serving, the hash matched a primary that had
+// the model genuinely off, and the comparison meant to catch exactly that routing
+// difference could never see it, so no import ever ran to repair the row. What
+// this list describes is what the instance does, not what a flag says.
+//
 // It carries two things: the disables this member has applied to its own model
 // rows, and the ones it acknowledged but has no model for
 // (keyFleetUnappliedModelDisables). Both are the same operator intent, and
@@ -133,7 +141,7 @@ func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, err
 	rows, err := q.Query(ctx, `
 		SELECT p.name, m.model_id
 		FROM models m JOIN providers p ON m.provider_id = p.id
-		WHERE m.disabled_manually = true`)
+		WHERE m.disabled_manually = true AND m.enabled = false`)
 	if err != nil {
 		return nil, err
 	}

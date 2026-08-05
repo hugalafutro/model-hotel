@@ -739,3 +739,35 @@ func TestConfigSync_PromotedPrimaryDropsItsAcknowledgements(t *testing.T) {
 		t.Errorf("as the primary, disabled models = %+v, want only what its own rows hold", asPrimary)
 	}
 }
+
+// TestConfigSync_ExportDescribesEffectiveStateNotJustTheFlag: nothing in the
+// schema ties disabled_manually to enabled, and keying the export on the flag
+// alone made an inconsistent row invisible. It advertised the model as disabled
+// while still serving it, so its hash matched a primary that had the model
+// genuinely off, and the comparison built to catch that routing difference could
+// never see it: no import ran, and the repair in the disable pass never got a
+// chance. Exporting the effective state makes the hash differ and the repair land.
+func TestConfigSync_ExportDescribesEffectiveStateNotJustTheFlag(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedModel(t, provID, "gpt-4o")
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE models SET enabled = true, disabled_manually = true WHERE id = $1`, id); err != nil {
+		t.Fatalf("seed inconsistent row: %v", err)
+	}
+
+	if got := doExport(t, r).Config.DisabledModels; len(got) != 0 {
+		t.Errorf("disabled models = %+v; a model still enabled here is being served, whatever the flag says", got)
+	}
+
+	// And the disable pass repairs it rather than passing over it.
+	env := disabledModelsEnvelope([]ExportModelRef{{ProviderName: "openai", ModelID: "gpt-4o"}})
+	env.Config.Providers = doExport(t, r).Config.Providers
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	if enabled, manual, _ := modelState(t, id); enabled || !manual {
+		t.Errorf("model state = enabled %v, manual %v; want the row repaired to genuinely off", enabled, manual)
+	}
+}
