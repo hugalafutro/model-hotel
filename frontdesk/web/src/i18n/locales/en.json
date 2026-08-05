@@ -284,7 +284,7 @@
 				"config_auto_synced": "Auto-sync applied to the fleet",
 				"config_autosync_stale": "Auto-sync off, fleet not synced",
 				"config_sync_held": "Sync held (version skew)",
-				"config_sync_incomplete": "Sync incomplete (member does not match)",
+				"config_sync_incomplete": "Sync unverified (member not confirmed)",
 				"config_sync_recovered": "Sync complete again",
 				"version_fetch_failed": "Member version unreadable",
 				"version_fetch_recovered": "Member version readable again",

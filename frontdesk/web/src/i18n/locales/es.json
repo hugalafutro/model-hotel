@@ -288,7 +288,7 @@
 				"config_auto_synced": "Sincronización automática aplicada a la flota",
 				"config_autosync_stale": "Sincronización automática desactivada, flota sin sincronizar",
 				"config_sync_held": "Sincronización retenida (desfase de versiones)",
-				"config_sync_incomplete": "Sincronización incompleta (el miembro no coincide)",
+				"config_sync_incomplete": "Sincronización sin verificar (miembro no confirmado)",
 				"config_sync_recovered": "Sincronización completa de nuevo",
 				"version_fetch_failed": "Versión del miembro ilegible",
 				"version_fetch_recovered": "Versión del miembro legible de nuevo",

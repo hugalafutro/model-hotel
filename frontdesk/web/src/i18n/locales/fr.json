@@ -288,7 +288,7 @@
 				"config_auto_synced": "Synchronisation automatique appliquée à la flotte",
 				"config_autosync_stale": "Synchronisation automatique désactivée, flotte non synchronisée",
 				"config_sync_held": "Synchronisation suspendue (écart de version)",
-				"config_sync_incomplete": "Synchronisation incomplète (le membre ne correspond pas)",
+				"config_sync_incomplete": "Synchronisation non vérifiée (membre non confirmé)",
 				"config_sync_recovered": "Synchronisation à nouveau complète",
 				"version_fetch_failed": "Version du membre illisible",
 				"version_fetch_recovered": "Version du membre à nouveau lisible",

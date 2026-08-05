@@ -148,7 +148,7 @@
     <string name="alerts_event_config_auto_synced">Konfiguracja zsynchronizowana automatycznie</string>
     <string name="alerts_event_config_autosync_stale">Auto-synchronizacja wyłączona, flota niezsynchronizowana</string>
     <string name="alerts_event_config_sync_held">Synchronizacja wstrzymana (rozbieżność wersji)</string>
-    <string name="alerts_event_config_sync_incomplete">Synchronizacja niepełna (członek się nie zgadza)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronizacja niezweryfikowana (członek niepotwierdzony)</string>
     <string name="alerts_event_config_sync_recovered">Synchronizacja znów pełna</string>
     <string name="alerts_event_version_fetch_failed">Odczyt wersji nie powiódł się</string>
     <string name="alerts_event_version_fetch_recovered">Odczyt wersji przywrócony</string>

@@ -158,7 +158,7 @@
     <string name="alerts_event_config_auto_synced">Config auto-synced</string>
     <string name="alerts_event_config_autosync_stale">Auto-sync off, fleet not synced</string>
     <string name="alerts_event_config_sync_held">Sync held (version skew)</string>
-    <string name="alerts_event_config_sync_incomplete">Sync incomplete (member does not match)</string>
+    <string name="alerts_event_config_sync_incomplete">Sync unverified (member not confirmed)</string>
     <string name="alerts_event_config_sync_recovered">Sync complete again</string>
     <string name="alerts_event_version_fetch_failed">Version read failed</string>
     <string name="alerts_event_version_fetch_recovered">Version read recovered</string>

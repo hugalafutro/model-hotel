@@ -1,11 +1,13 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -115,27 +117,141 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 // provider served it, and carrying either would spread one member's provider
 // trouble to the whole fleet. Migration 063 has the full three-way distinction.
 //
+// It carries two things: the disables this member has applied to its own model
+// rows, and the ones it acknowledged but has no model for
+// (keyFleetUnappliedModelDisables). Both are the same operator intent, and
+// exporting only the first would leave a member that lacks one of the primary's
+// models unable to ever reproduce the primary's list, so the two would hash
+// differently on every pass forever. The union converges instead, and costs
+// nothing in routing: a member cannot serve a model it does not have.
+//
 // Ordered by (provider name, model_id), which is unique per member, so the list is
-// total and two members holding the same disables hash identically.
+// total and two members holding the same disables hash identically. Deduplicated,
+// because a model discovered since the acknowledgement appears in both halves
+// until the next import clears it from the second.
 func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, error) {
 	rows, err := q.Query(ctx, `
 		SELECT p.name, m.model_id
 		FROM models m JOIN providers p ON m.provider_id = p.id
-		WHERE m.disabled_manually = true
-		ORDER BY p.name, m.model_id`)
+		WHERE m.disabled_manually = true`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	seen := map[ExportModelRef]bool{}
 	out := []ExportModelRef{}
 	for rows.Next() {
 		var ref ExportModelRef
 		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
 			return nil, err
 		}
-		out = append(out, ref)
+		if !seen[ref] {
+			seen[ref] = true
+			out = append(out, ref)
+		}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	acked, err := readUnappliedModelDisables(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	// Only refs this member still has no model for. Once one appears the
+	// acknowledgement must stop standing in for it, or the export would keep
+	// claiming a disable while the model sits enabled here: the hashes would agree
+	// across a real routing difference, which is the exact failure this whole
+	// comparison exists to catch. Dropping it instead makes this member's hash
+	// differ until a sync applies the disable for real.
+	if len(acked) > 0 {
+		missing, err := filterModelsAbsentHere(ctx, q, acked)
+		if err != nil {
+			return nil, err
+		}
+		for _, ref := range missing {
+			if !seen[ref] {
+				seen[ref] = true
+				out = append(out, ref)
+			}
+		}
+	}
+	slices.SortFunc(out, func(a, b ExportModelRef) int {
+		if c := cmp.Compare(a.ProviderName, b.ProviderName); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ModelID, b.ModelID)
+	})
+	return out, nil
+}
+
+// filterModelsAbsentHere returns the refs that resolve to no model on this member.
+// A ref that does resolve is dropped: whatever its state, the row is what the
+// export must describe, either through the disabled_manually list or by differing
+// until a sync sets it.
+func filterModelsAbsentHere(ctx context.Context, q querier, refs []ExportModelRef) ([]ExportModelRef, error) {
+	providers := make([]string, len(refs))
+	modelIDs := make([]string, len(refs))
+	for i, ref := range refs {
+		providers[i] = ref.ProviderName
+		modelIDs[i] = ref.ModelID
+	}
+	rows, err := q.Query(ctx, `
+		SELECT p.name, m.model_id
+		  FROM models m JOIN providers p ON m.provider_id = p.id
+		 WHERE EXISTS (SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)
+		                WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
+		providers, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	present := map[ExportModelRef]bool{}
+	for rows.Next() {
+		var ref ExportModelRef
+		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
+			return nil, err
+		}
+		present[ref] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]ExportModelRef, 0, len(refs))
+	for _, ref := range refs {
+		if !present[ref] {
+			out = append(out, ref)
+		}
+	}
+	return out, nil
+}
+
+// readUnappliedModelDisables reads the disable intent this member acknowledged but
+// could not apply. A missing key is the normal state (nothing outstanding); an
+// unparseable one is treated the same way rather than failing the export, since a
+// corrupt instance-local marker must not take this member's config sync down. The
+// next import rewrites it.
+func readUnappliedModelDisables(ctx context.Context, q querier) ([]ExportModelRef, error) {
+	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetUnappliedModelDisables)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var raw string
+	if !rows.Next() {
+		return nil, rows.Err() // no marker: nothing outstanding
+	}
+	if err := rows.Scan(&raw); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var refs []ExportModelRef
+	if err := json.Unmarshal([]byte(raw), &refs); err != nil {
+		debuglog.Warn("configsync: unparseable unapplied model-disable marker; ignoring", "error", err)
+		return nil, nil
+	}
+	return refs, nil
 }
 
 // modelRef is the stable cross-member identity of a model: the provider's name

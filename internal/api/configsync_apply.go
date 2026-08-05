@@ -524,6 +524,20 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	// Acknowledge the refs there is no model here to apply, so this member's own
+	// export carries the primary's full intent and the two hash alike. Written in
+	// the same transaction as the disables themselves: a member that recorded the
+	// acknowledgement without applying what it could, or the reverse, would export a
+	// list describing neither state.
+	var unappliedRefs []ExportModelRef
+	for _, ref := range refs {
+		if !present[ref] {
+			unappliedRefs = append(unappliedRefs, ref)
+		}
+	}
+	if err := writeUnappliedModelDisables(ctx, tx, unappliedRefs); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -531,13 +545,30 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 	// The writes bypassed the model cache, and the proxy reads routability from it.
 	model.InvalidateModelCache()
 
-	var unapplied []string
-	for _, ref := range refs {
-		if !present[ref] {
-			unapplied = append(unapplied, ref.String())
-		}
+	unapplied := make([]string, 0, len(unappliedRefs))
+	for _, ref := range unappliedRefs {
+		unapplied = append(unapplied, ref.String())
 	}
 	return unapplied, nil
+}
+
+// writeUnappliedModelDisables records the disable refs this member could not
+// apply, replacing whatever it held before. Always written, including as an empty
+// list: a member that has just discovered the missing models must stop claiming
+// them, or it would keep exporting intent it now genuinely applies.
+func writeUnappliedModelDisables(ctx context.Context, tx pgx.Tx, refs []ExportModelRef) error {
+	if refs == nil {
+		refs = []ExportModelRef{}
+	}
+	encoded, err := json.Marshal(refs)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+		keyFleetUnappliedModelDisables, string(encoded))
+	return err
 }
 
 // applyFailoverGroups upserts the custom failover groups and declaratively

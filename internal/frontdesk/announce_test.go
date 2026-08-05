@@ -377,3 +377,101 @@ func TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName(t *testing.T) {
 		t.Errorf("announced primary name = %q, want the current %q", ann.PrimaryName, newName)
 	}
 }
+
+// TestPollAnnounceOnce_MarkerWinsWhenAutoSyncIsOff: the designation only outranks
+// the last-sync marker while auto-sync is actually running. A primary_id survives
+// switching auto-sync off (clearing it needs a confirmed token), so preferring it
+// unconditionally meant that designating A, turning auto-sync off, then running the
+// wizard from B left B, the instance the operator had just synced the fleet from,
+// write-locked while A was still announced as primary.
+func TestPollAnnounceOnce_MarkerWinsWhenAutoSyncIsOff(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	aSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	bSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	a, err := store.CreateMember(ctx, "designated-a", aSrv.srv.URL, "tok-a")
+	if err != nil {
+		t.Fatalf("create a: %v", err)
+	}
+	b, err := store.CreateMember(ctx, "wizard-synced-b", bSrv.srv.URL, "tok-b")
+	if err != nil {
+		t.Fatalf("create b: %v", err)
+	}
+	// Designated, then auto-sync switched off with the designation left behind.
+	if err := store.SetAutoSync(ctx, false, a.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+	// The operator then wizard-synced the fleet from B, which is the newer act.
+	if err := store.SetFleetSyncState(ctx, b.ID, "wizard-synced-b", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := bSrv.snapshot(); !ann.IsPrimary {
+		t.Error("the member the operator just synced the fleet from was not flagged primary; it stays write-locked")
+	}
+	if _, ann, _ := aSrv.snapshot(); ann.IsPrimary {
+		t.Error("a dormant designation outranked a fresher wizard sync")
+	}
+}
+
+// TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker: the fallback within
+// the fallback. With auto-sync off and no wizard run to point at, the designation
+// is the only statement of a primary there is, and naming nobody would lock the
+// whole fleet including the instance the operator chose.
+func TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	srv := newAnnounceRecorder(t, http.StatusNoContent)
+	m, err := store.CreateMember(ctx, "chosen", srv.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	if err := store.SetAutoSync(ctx, false, m.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := srv.snapshot(); !ann.IsPrimary {
+		t.Error("the only designated member was not flagged, so nothing would be editable")
+	}
+}
+
+// TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker: a designation left
+// pointing at a member that has since been removed must not win. It resolves to
+// nobody, so returning it would beat a marker that still names a real member and
+// tell the whole fleet there is no primary.
+func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	goneSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	liveSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	gone, err := store.CreateMember(ctx, "gone", goneSrv.srv.URL, "tok-gone")
+	if err != nil {
+		t.Fatalf("create gone: %v", err)
+	}
+	live, err := store.CreateMember(ctx, "live", liveSrv.srv.URL, "tok-live")
+	if err != nil {
+		t.Fatalf("create live: %v", err)
+	}
+	if err := store.SetAutoSync(ctx, true, gone.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+	if err := store.SetFleetSyncState(ctx, live.ID, "live", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+	if err := store.DeleteMember(ctx, gone.ID); err != nil {
+		t.Fatalf("delete gone: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := liveSrv.snapshot(); !ann.IsPrimary {
+		t.Error("a designation pointing at a removed member left the fleet with no primary at all")
+	}
+}

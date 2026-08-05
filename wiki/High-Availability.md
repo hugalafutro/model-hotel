@@ -250,9 +250,11 @@ that member's provider served that member, so replicating them would turn one
 member's provider trouble into a fleet-wide outage.
 
 A member that does not hold a model you disabled elsewhere cannot apply the
-disable, and says so: it stays badged amber, and the `config.sync_incomplete`
-alert names the models it is missing. Nothing is mis-served in the meantime, since
-a member cannot route to a model it does not have.
+disable, so it records the intent instead and reports which models it is missing.
+It still counts as in sync, because nothing is mis-served: a member cannot route
+to a model it does not have. If that model later appears there, the next sync
+switches it off for real; if you re-enable it on the primary first, the member
+forgets it. Either way the fleet converges on its own and needs nothing from you.
 
 Provider keys travel as stored ciphertext and decrypt on each member because the
 fleet shares `MASTER_KEY`. A member whose `MASTER_KEY` differs is flagged

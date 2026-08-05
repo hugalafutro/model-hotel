@@ -292,7 +292,7 @@
 				"config_auto_synced": "Automatická synchronizácia aplikovaná na flotilu",
 				"config_autosync_stale": "Automatická synchronizácia vypnutá, flotila nesynchronizovaná",
 				"config_sync_held": "Synchronizácia pozastavená (rozdielne verzie)",
-				"config_sync_incomplete": "Synchronizácia neúplná (člen nezodpovedá)",
+				"config_sync_incomplete": "Synchronizácia neoverená (člen nepotvrdený)",
 				"config_sync_recovered": "Synchronizácia je opäť úplná",
 				"version_fetch_failed": "Verzia člena nečitateľná",
 				"version_fetch_recovered": "Verzia člena opäť čitateľná",

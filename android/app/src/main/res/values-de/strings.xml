@@ -142,7 +142,7 @@
     <string name="alerts_event_config_auto_synced">Konfiguration automatisch synchronisiert</string>
     <string name="alerts_event_config_autosync_stale">Auto-Sync aus, Flotte nicht synchronisiert</string>
     <string name="alerts_event_config_sync_held">Sync angehalten (Versionsabweichung)</string>
-    <string name="alerts_event_config_sync_incomplete">Sync unvollständig (Mitglied stimmt nicht überein)</string>
+    <string name="alerts_event_config_sync_incomplete">Sync ungeprüft (Mitglied nicht bestätigt)</string>
     <string name="alerts_event_config_sync_recovered">Sync wieder vollständig</string>
     <string name="alerts_event_version_fetch_failed">Versionsabruf fehlgeschlagen</string>
     <string name="alerts_event_version_fetch_recovered">Versionsabruf wiederhergestellt</string>

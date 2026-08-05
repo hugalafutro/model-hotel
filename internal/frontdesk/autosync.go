@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -457,7 +458,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// while it holds unknown config. That is the failure this whole check exists to
 		// end, and it is the more dangerous case, because the member looks healthy.
 		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
-		if s.recordUnreadableHash(m.ID, err, time.Now()) {
+		if s.recordUnreadableHash(m.ID, unreadableCause(err), time.Now()) {
 			s.markMemberUnmeasured(ctx, m)
 		}
 		return false, false
@@ -641,17 +642,35 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 	})
 }
 
+// unreadableCause renders why a hash read failed, for an alert body. A transport
+// failure arrives as a *url.Error carrying the member's full URL, and this cause
+// is rendered into the config.sync_incomplete message, which is the field the
+// Apprise dispatcher sends offsite (internal/alert.dispatcher uses ev.Message as
+// the body). Member names already travel in events; their addresses do not, and a
+// LAN hostname and port should not start reaching a notification provider as a
+// side effect of this check. The unredacted error still goes to the local log.
+func unreadableCause(err error) string {
+	var uerr *url.Error
+	if errors.As(err, &uerr) {
+		if isTimeout(err) {
+			return "the member did not answer in time"
+		}
+		return "the member could not be reached"
+	}
+	return err.Error()
+}
+
 // recordUnreadableHash notes that a member's config hash could not be read, and
 // reports whether it has now been unreadable long enough to flag the member. The
 // first failure only starts the clock, so one slow read never alerts.
-func (s *Server) recordUnreadableHash(memberID string, err error, now time.Time) bool {
+func (s *Server) recordUnreadableHash(memberID, cause string, now time.Time) bool {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	st := s.syncIncomplete[memberID]
 	if st.unreadableSince.IsZero() {
 		st.unreadableSince = now
 	}
-	st.lastReadErr = err.Error()
+	st.lastReadErr = cause
 	s.syncIncomplete[memberID] = st
 	return now.Sub(st.unreadableSince) >= unreadableHashThreshold
 }

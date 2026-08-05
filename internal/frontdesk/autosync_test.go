@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -3168,7 +3169,7 @@ func TestAutoSync_UnreadableClockClearsOnASuccessfulRead(t *testing.T) {
 func TestRecordUnreadableHash(t *testing.T) {
 	srv, _ := newTestServer(t)
 	start := time.Now()
-	readErr := errors.New("member config-version returned 500")
+	const readErr = "member config-version returned 500"
 
 	if srv.recordUnreadableHash("m1", readErr, start) {
 		t.Error("the first failed read reported the threshold crossed; it only starts the clock")
@@ -3193,7 +3194,7 @@ func TestRecordUnreadableHash(t *testing.T) {
 func TestClearUnreadableHashKeepsTheRestOfTheState(t *testing.T) {
 	srv, _ := newTestServer(t)
 	srv.recordSyncAttempt("m1", []string{"ds4flash"}, []string{"cheap"}, []string{"openai/gpt-5"})
-	if srv.recordUnreadableHash("m1", errors.New("boom"), time.Now()) {
+	if srv.recordUnreadableHash("m1", "boom", time.Now()) {
 		t.Fatal("the first failed read reported the threshold crossed")
 	}
 
@@ -3418,5 +3419,32 @@ func TestAutoSync_ReachableMemberWithAnUnreadableHashIsStillFlagged(t *testing.T
 
 	if !memberDiverged(f.srv, f.replicaM.ID) {
 		t.Error("a member that took the config and cannot be measured was not flagged; that is the hole this closes")
+	}
+}
+
+// TestUnreadableCauseKeepsMemberURLsOutOfAlerts: this cause is rendered into the
+// config.sync_incomplete message, and the Apprise dispatcher sends that message as
+// the notification body. A transport failure arrives as a *url.Error carrying the
+// member's full URL, so without this a LAN hostname and port would start reaching
+// the operator's notification provider as a side effect of this check.
+func TestUnreadableCauseKeepsMemberURLsOutOfAlerts(t *testing.T) {
+	const memberURL = "http://hotel-2.lan:8080/api/config/version"
+	transport := &url.Error{
+		Op:  "Get",
+		URL: memberURL,
+		Err: errors.New("dial tcp 10.0.0.7:8080: connect: connection refused"),
+	}
+	got := unreadableCause(transport)
+	if strings.Contains(got, "hotel-2.lan") || strings.Contains(got, "10.0.0.7") {
+		t.Errorf("cause = %q; it carries the member's address into the alert body", got)
+	}
+	if got == "" {
+		t.Error("cause is empty; the operator is told nothing")
+	}
+
+	// A status-shaped failure names no address, so it rides through verbatim.
+	const status = "member config-version returned 500"
+	if unreadableCause(errors.New(status)) != status {
+		t.Errorf("cause = %q, want the specific %q kept", unreadableCause(errors.New(status)), status)
 	}
 }

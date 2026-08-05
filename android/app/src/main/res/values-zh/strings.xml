@@ -139,7 +139,7 @@
     <string name="alerts_event_config_auto_synced">配置已自动同步</string>
     <string name="alerts_event_config_autosync_stale">自动同步已关闭，集群未同步</string>
     <string name="alerts_event_config_sync_held">同步已暂停（版本不一致）</string>
-    <string name="alerts_event_config_sync_incomplete">同步不完整（成员不一致）</string>
+    <string name="alerts_event_config_sync_incomplete">同步未验证（成员未确认）</string>
     <string name="alerts_event_config_sync_recovered">同步再次完成</string>
     <string name="alerts_event_version_fetch_failed">版本读取失败</string>
     <string name="alerts_event_version_fetch_recovered">版本读取已恢复</string>

@@ -284,7 +284,7 @@
 				"config_auto_synced": "Auto-Sync auf die Flotte angewendet",
 				"config_autosync_stale": "Auto-Sync aus, Flotte nicht synchronisiert",
 				"config_sync_held": "Sync angehalten (Versionsabweichung)",
-				"config_sync_incomplete": "Sync unvollständig (Mitglied stimmt nicht überein)",
+				"config_sync_incomplete": "Sync ungeprüft (Mitglied nicht bestätigt)",
 				"config_sync_recovered": "Sync wieder vollständig",
 				"version_fetch_failed": "Mitgliedsversion nicht lesbar",
 				"version_fetch_recovered": "Mitgliedsversion wieder lesbar",

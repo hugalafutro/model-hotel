@@ -284,7 +284,7 @@
 				"config_auto_synced": "自動同期がフリートに適用されました",
 				"config_autosync_stale": "自動同期オフ、フリート未同期",
 				"config_sync_held": "同期保留（バージョン不一致）",
-				"config_sync_incomplete": "同期が不完全です（メンバーが一致しません）",
+				"config_sync_incomplete": "同期が未確認（メンバー未確認）",
 				"config_sync_recovered": "同期が再び完了しました",
 				"version_fetch_failed": "メンバーバージョンを読み取れません",
 				"version_fetch_recovered": "メンバーバージョンが読み取り可能になりました",

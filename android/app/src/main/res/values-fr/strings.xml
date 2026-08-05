@@ -142,7 +142,7 @@
     <string name="alerts_event_config_auto_synced">Config synchronisée automatiquement</string>
     <string name="alerts_event_config_autosync_stale">Synchronisation automatique désactivée, flotte non synchronisée</string>
     <string name="alerts_event_config_sync_held">Synchronisation suspendue (écart de version)</string>
-    <string name="alerts_event_config_sync_incomplete">Synchronisation incomplète (le membre ne correspond pas)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronisation non vérifiée (membre non confirmé)</string>
     <string name="alerts_event_config_sync_recovered">Synchronisation à nouveau complète</string>
     <string name="alerts_event_version_fetch_failed">Échec de lecture de la version</string>
     <string name="alerts_event_version_fetch_recovered">Lecture de la version rétablie</string>

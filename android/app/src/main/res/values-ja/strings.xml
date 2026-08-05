@@ -139,7 +139,7 @@
     <string name="alerts_event_config_auto_synced">設定を自動同期</string>
     <string name="alerts_event_config_autosync_stale">自動同期オフ、フリート未同期</string>
     <string name="alerts_event_config_sync_held">同期保留（バージョン不一致）</string>
-    <string name="alerts_event_config_sync_incomplete">同期が不完全です（メンバーが一致しません）</string>
+    <string name="alerts_event_config_sync_incomplete">同期が未確認（メンバー未確認）</string>
     <string name="alerts_event_config_sync_recovered">同期が再び完了しました</string>
     <string name="alerts_event_version_fetch_failed">バージョン取得に失敗</string>
     <string name="alerts_event_version_fetch_recovered">バージョン取得が復旧</string>

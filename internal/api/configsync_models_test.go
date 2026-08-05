@@ -460,3 +460,176 @@ func TestConfigSync_DisableKeepsAMembersDiscoveryDismissal(t *testing.T) {
 		t.Error("discovery_dismissed_at was cleared by a disable, resurrecting a claim the operator dismissed here")
 	}
 }
+
+// TestConfigSync_UnappliableDisableStillConverges is the whole point of
+// acknowledging intent. A member that has no model for one of the primary's
+// disables cannot put it in a list derived from its own rows, so before this its
+// hash differed from the primary's on every pass forever: a permanent amber badge
+// and a full re-import, with the member-side discovery it runs, every ten minutes
+// for good. Convergence is what this fleet work is for, so the member records the
+// intent it cannot apply and exports it alongside what it did apply.
+func TestConfigSync_UnappliableDisableStillConverges(t *testing.T) {
+	cleanConfigTables(t)
+	primary := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-5")
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator) // the member will not have this one
+	primaryHash := doVersion(t, primary)
+	env := doExport(t, primary)
+
+	// The member holds only gpt-5.
+	cleanConfigTables(t)
+	mProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, mProvID, "gpt-5")
+	member := newConfigSyncRouter(t, configSyncMasterKey)
+
+	rec := doImport(t, member, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got.UnappliedModels) != 1 || got.UnappliedModels[0] != "openai/gpt-4o" {
+		t.Fatalf("UnappliedModels = %v, want [openai/gpt-4o]", got.UnappliedModels)
+	}
+
+	if h := doVersion(t, member); h != primaryHash {
+		t.Errorf("member hash = %s, primary = %s; a member that cannot hold one of the primary's models must still converge",
+			h[:12], primaryHash[:12])
+	}
+}
+
+// TestConfigSync_AcknowledgedDisableIsAppliedOnceTheModelArrives: the
+// acknowledgement is intent held open, not a way to look converged forever. Once
+// discovery creates the model, the next import disables it for real and the
+// acknowledgement is dropped, so the exported list still describes the member.
+func TestConfigSync_AcknowledgedDisableIsAppliedOnceTheModelArrives(t *testing.T) {
+	cleanConfigTables(t)
+	primary := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-5")
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator)
+	env := doExport(t, primary)
+
+	cleanConfigTables(t)
+	mProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, mProvID, "gpt-5")
+	member := newConfigSyncRouter(t, configSyncMasterKey)
+	if rec := doImport(t, member, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("first import: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := unappliedMarker(t); len(got) != 1 {
+		t.Fatalf("acknowledged refs = %v, want exactly the one it could not apply", got)
+	}
+
+	// Discovery finds the model, then the next sync lands.
+	id := seedModel(t, currentProviderID(t, "openai"), "gpt-4o")
+	if rec := doImport(t, member, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("second import: %d %s", rec.Code, rec.Body.String())
+	}
+
+	if enabled, manual, _ := modelState(t, id); enabled || !manual {
+		t.Errorf("model state = enabled %v, manual %v; the held intent must be applied once the model exists", enabled, manual)
+	}
+	if got := unappliedMarker(t); len(got) != 0 {
+		t.Errorf("acknowledged refs = %v, want none: the disable is applied for real now", got)
+	}
+}
+
+// TestConfigSync_AcknowledgedDisableIsDroppedWhenThePrimaryReEnables: the other
+// way out. The operator switching the model back on clears the acknowledgement
+// too, so the member stops exporting intent that no longer exists.
+func TestConfigSync_AcknowledgedDisableIsDroppedWhenThePrimaryReEnables(t *testing.T) {
+	cleanConfigTables(t)
+	primary := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-5")
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator)
+	disabledEnv := doExport(t, primary)
+
+	cleanConfigTables(t)
+	mProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, mProvID, "gpt-5")
+	member := newConfigSyncRouter(t, configSyncMasterKey)
+	if rec := doImport(t, member, disabledEnv, ""); rec.Code != http.StatusOK {
+		t.Fatalf("first import: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := unappliedMarker(t); len(got) != 1 {
+		t.Fatalf("acknowledged refs = %v, want one", got)
+	}
+
+	// The primary re-enables it: the envelope now carries no disables at all.
+	reEnabled := disabledEnv
+	reEnabled.Config.DisabledModels = []ExportModelRef{}
+	if rec := doImport(t, member, reEnabled, ""); rec.Code != http.StatusOK {
+		t.Fatalf("second import: %d %s", rec.Code, rec.Body.String())
+	}
+
+	if got := unappliedMarker(t); len(got) != 0 {
+		t.Errorf("acknowledged refs = %v, want none once the primary re-enabled the model", got)
+	}
+	env := doExport(t, member)
+	if len(env.Config.DisabledModels) != 0 {
+		t.Errorf("exported disables = %v, want none", env.Config.DisabledModels)
+	}
+}
+
+// unappliedMarker reads the acknowledged-intent marker this member holds.
+func unappliedMarker(t *testing.T) []ExportModelRef {
+	t.Helper()
+	var raw string
+	err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT value FROM settings WHERE key = $1`, keyFleetUnappliedModelDisables).Scan(&raw)
+	if err != nil {
+		return nil
+	}
+	var refs []ExportModelRef
+	if err := json.Unmarshal([]byte(raw), &refs); err != nil {
+		t.Fatalf("unparseable marker %q: %v", raw, err)
+	}
+	return refs
+}
+
+// TestConfigSync_AcknowledgementStopsMaskingOnceTheModelExists: the acknowledged
+// list stands in for a model this member does not have, and must stop the instant
+// it does. Otherwise the export keeps claiming the disable while the model sits
+// enabled here, the member's hash matches the primary's across a real routing
+// difference, and nothing ever pushes the disable that would fix it. That is the
+// precise failure this whole hash comparison exists to catch, so it must not be
+// reintroduced by the mechanism that makes the fleet converge.
+func TestConfigSync_AcknowledgementStopsMaskingOnceTheModelExists(t *testing.T) {
+	cleanConfigTables(t)
+	primary := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-5")
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator)
+	primaryHash := doVersion(t, primary)
+	env := doExport(t, primary)
+
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, currentProviderID(t, "openai"), "gpt-5")
+	member := newConfigSyncRouter(t, configSyncMasterKey)
+	if rec := doImport(t, member, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	if doVersion(t, member) != primaryHash {
+		t.Fatal("member did not converge on the acknowledged disable")
+	}
+
+	// Discovery creates the model, enabled. The member now genuinely routes
+	// differently from the primary, so its hash must say so.
+	seedModel(t, currentProviderID(t, "openai"), "gpt-4o")
+
+	if h := doVersion(t, member); h == primaryHash {
+		t.Error("the member still hashes as converged while serving a model the primary has switched off")
+	}
+	env2 := doExport(t, member)
+	for _, ref := range env2.Config.DisabledModels {
+		if ref.ModelID == "gpt-4o" {
+			t.Error("the export still claims a disable for a model that now exists here and is enabled")
+		}
+	}
+}

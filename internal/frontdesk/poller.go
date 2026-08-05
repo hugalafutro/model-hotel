@@ -381,38 +381,63 @@ func activeMemberCount(members []*Member) int {
 	return n
 }
 
-// fleetPrimaryID resolves which member the fleet's primary is, for the announce.
+// fleetPrimary resolves which member the fleet's primary is, for the announce,
+// and returns its current name from the live roster.
 //
-// The operator's auto-sync designation is authoritative, because it is the answer
-// to the question: the primary is whichever member they pointed the fleet at, from
-// the moment they pointed it. The recorded last-sync marker is the fallback, for a
-// fleet driven by the wizard alone, which designates no primary and where the
-// marker's primary is the only statement of one.
+// Two sources can name a primary, and which one is authoritative depends on
+// whether auto-sync is running. While it is, the operator's designation is the
+// live answer: it is what the loop pushes from, and it takes effect the moment
+// they repoint, where the last-sync marker still names whichever member drove the
+// previous run. With auto-sync off the designation is dormant configuration, it
+// survives being switched off (clearing it needs a confirmed token), and the last
+// wizard run is then the more recent operator act, so the marker wins.
 //
-// The designation has to win where the two disagree. Repointing the fleet updates
-// it immediately while the marker still names the member that drove the last run,
-// so reading the marker first would keep announcing the old primary until a sync
-// happened to write.
+// A candidate that is not in the roster is skipped rather than returned: a
+// designation left pointing at a removed member would otherwise beat a marker that
+// still names a real one, and every member would be told there is no primary.
 //
-// Both absent means no member is flagged primary. The membership signal is still
-// worth sending, so the caller continues without a primary rather than aborting; a
+// Nothing resolving means no member is flagged primary. The membership signal is
+// still worth sending, so the caller continues without one rather than aborting; a
 // read error is treated the same way.
-func (p *Poller) fleetPrimaryID(ctx context.Context) (id string, ok bool) {
-	cfg, err := p.store.GetAutoSync(ctx)
-	if err != nil {
-		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", err)
-	} else if cfg.PrimaryID != "" {
-		return cfg.PrimaryID, true
+func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name string, ok bool) {
+	cfg, cfgErr := p.store.GetAutoSync(ctx)
+	if cfgErr != nil {
+		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)
 	}
-	state, hasPrimary, err := p.store.GetFleetSyncState(ctx)
-	if err != nil {
-		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", err)
-		return "", false
+	designated := ""
+	if cfgErr == nil {
+		designated = cfg.PrimaryID
 	}
-	if !hasPrimary || state.PrimaryID == "" {
-		return "", false
+	state, hasMarker, stateErr := p.store.GetFleetSyncState(ctx)
+	if stateErr != nil {
+		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", stateErr)
+		hasMarker = false
 	}
-	return state.PrimaryID, true
+	marked := ""
+	if hasMarker {
+		marked = state.PrimaryID
+	}
+
+	var candidates []string
+	if designated != "" && cfgErr == nil && cfg.Enabled {
+		candidates = append(candidates, designated)
+	}
+	if marked != "" {
+		candidates = append(candidates, marked)
+	}
+	// A designation with auto-sync off still beats naming nobody.
+	if designated != "" && (cfgErr != nil || !cfg.Enabled) {
+		candidates = append(candidates, designated)
+	}
+
+	for _, want := range candidates {
+		for _, m := range members {
+			if m.ID == want {
+				return m.ID, m.Name, true
+			}
+		}
+	}
+	return "", "", false
 }
 
 // PollAnnounceOnce tells every reachable, tokened member that Front Desk is in
@@ -427,19 +452,10 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 		debuglog.Warn("frontdesk: poll announce: list members", "error", err)
 		return
 	}
-	primaryID, hasPrimary := p.fleetPrimaryID(ctx)
+	// Resolved against the live roster, so a renamed primary announces its current
+	// name and a designation pointing at a removed member never wins.
+	primaryID, primaryName, hasPrimary := p.fleetPrimary(ctx, members)
 	activeCount := activeMemberCount(members)
-	primaryName := ""
-	if hasPrimary {
-		// Named from the live roster rather than carried alongside the id, so a
-		// renamed primary announces its current name.
-		for _, m := range members {
-			if m.ID == primaryID {
-				primaryName = m.Name
-				break
-			}
-		}
-	}
 	for _, m := range members {
 		token, ok, err := p.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
