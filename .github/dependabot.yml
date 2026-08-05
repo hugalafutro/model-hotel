@@ -16,6 +16,16 @@ updates:
       npm-deps:
         patterns: ["*"]
 
+  # Front Desk's UI is its own pnpm workspace root, so it needs its own entry;
+  # the /web one does not reach it.
+  - package-ecosystem: "npm"
+    directory: "/frontdesk/web"
+    schedule:
+      interval: "weekly"
+    groups:
+      frontdesk-npm-deps:
+        patterns: ["*"]
+
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
