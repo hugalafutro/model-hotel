@@ -3448,3 +3448,22 @@ func TestUnreadableCauseKeepsMemberURLsOutOfAlerts(t *testing.T) {
 		t.Errorf("cause = %q, want the specific %q kept", unreadableCause(errors.New(status)), status)
 	}
 }
+
+// TestUnreadableCauseSeparatesTimeoutFromRefusal: both are transport failures
+// whose address is stripped, but they mean different things to an operator: a
+// member that is answering slowly is not a member that is refusing connections.
+func TestUnreadableCauseSeparatesTimeoutFromRefusal(t *testing.T) {
+	timeout := &url.Error{Op: "Get", URL: "http://hotel-2.lan:8080/x", Err: context.DeadlineExceeded}
+	if got := unreadableCause(timeout); !strings.Contains(got, "in time") {
+		t.Errorf("timeout cause = %q, want it to say the member did not answer in time", got)
+	}
+	refused := &url.Error{Op: "Get", URL: "http://hotel-2.lan:8080/x", Err: errors.New("connection refused")}
+	if got := unreadableCause(refused); strings.Contains(got, "in time") {
+		t.Errorf("refusal cause = %q, want it distinguished from a timeout", got)
+	}
+	for _, e := range []error{timeout, refused} {
+		if strings.Contains(unreadableCause(e), "hotel-2.lan") {
+			t.Errorf("cause %q leaks the member address", unreadableCause(e))
+		}
+	}
+}

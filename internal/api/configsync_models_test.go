@@ -633,3 +633,50 @@ func TestConfigSync_AcknowledgementStopsMaskingOnceTheModelExists(t *testing.T) 
 		}
 	}
 }
+
+// TestConfigSync_UnparseableAcknowledgementIsIgnored: the acknowledgement marker
+// is instance-local state, not something an operator edits, but a corrupt one must
+// not take this member's config sync down with it. It is ignored, and the next
+// import rewrites it.
+func TestConfigSync_UnparseableAcknowledgementIsIgnored(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+		keyFleetUnappliedModelDisables, "{not json"); err != nil {
+		t.Fatalf("seed corrupt marker: %v", err)
+	}
+
+	env := doExport(t, r)
+
+	if len(env.Config.DisabledModels) != 1 || env.Config.DisabledModels[0].ModelID != "gpt-4o" {
+		t.Errorf("disabled models = %+v, want just the applied one; a corrupt marker must not break the export",
+			env.Config.DisabledModels)
+	}
+}
+
+// TestConfigSync_ExportFailsLoudlyWhenDisablesCannotBeRead: the export is
+// all-or-nothing. A member that cannot read its own per-model state must answer
+// with an error rather than a config envelope that silently omits it, which Front
+// Desk would otherwise replicate onto the rest of the fleet.
+func TestConfigSync_ExportFailsLoudlyWhenDisablesCannotBeRead(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	ctx := context.Background()
+	if _, err := apiTestDB.Pool().Exec(ctx, `ALTER TABLE models RENAME COLUMN disabled_manually TO dm_broken`); err != nil {
+		t.Fatalf("break models: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := apiTestDB.Pool().Exec(ctx, `ALTER TABLE models RENAME COLUMN dm_broken TO disabled_manually`); err != nil {
+			t.Fatalf("restore models: %v", err)
+		}
+	})
+
+	if rec := rawExport(t, r); rec.Code != http.StatusInternalServerError {
+		t.Errorf("export status = %d, want 500 when the per-model state cannot be read", rec.Code)
+	}
+}

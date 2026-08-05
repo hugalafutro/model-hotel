@@ -475,3 +475,26 @@ func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
 		t.Error("a designation pointing at a removed member left the fleet with no primary at all")
 	}
 }
+
+// TestFleetPrimaryFailsOpenOnReadErrors: both primary sources are reads that can
+// fail. Neither may abort the announce: the membership signal is still worth
+// sending, and a transient database error must not tell a healthy fleet that some
+// other member is now the primary.
+func TestFleetPrimaryFailsOpenOnReadErrors(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "member", "http://127.0.0.1:9", "tok")
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	members := []*Member{m}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	id, name, ok := p.fleetPrimary(ctx, members)
+
+	if ok || id != "" || name != "" {
+		t.Errorf("fleetPrimary() = (%q, %q, %v), want no primary when neither source can be read", id, name, ok)
+	}
+}
