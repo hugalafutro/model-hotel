@@ -319,10 +319,18 @@ else
 			fi
 			[ -n "$GO_PKGS" ] || GO_PKGS="./internal/..."
 			echo "pre-push: coverage - go test ${GO_PKGS} (Postgres :5433 up)"
+			# Sharded rather than a plain `go test`: internal/api is a single
+			# binary of ~1600 sequential tests and is what makes this gate cost
+			# minutes, and it is also the package this repo changes most, so
+			# scoping by changed package does not avoid it. Shards get their own
+			# databases and the runner merges their coverage profiles, so the gate
+			# below measures the same thing it always did.
+			#
 			# -timeout is per package: internal/api alone runs for minutes
 			# against a real Postgres. Same headroom as .github/workflows/ci.yml.
 			# shellcheck disable=SC2086 # deliberate split: one argument per package
-			if go test -timeout 10m -coverprofile="$COV_DIR/go.out" -covermode=atomic $GO_PKGS; then
+			if "$REPO_ROOT/scripts/go-test-sharded" --timeout 10m \
+				--coverprofile "$COV_DIR/go.out" --covermode atomic $GO_PKGS; then
 				DC_ARGS+=(--go "$COV_DIR/go.out")
 			else
 				echo "pre-push: FAILED - go test (coverage run)" >&2
