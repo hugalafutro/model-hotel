@@ -10,6 +10,8 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -38,6 +40,17 @@ func newTestHandler(t *testing.T) *Handler {
 		TRUNCATE providers, models, virtual_keys, request_logs,
 		       app_logs, model_failover_groups, settings CASCADE
 	`)
+
+	// Every process-global cache fed by a table truncated above, or the next test
+	// reads rows this one just deleted. These caches outlive the pool, so a
+	// truncate alone leaves the process remembering a provider that no longer
+	// exists and answering GetByName from it: the create path then 409s on a free
+	// name. Which neighbour seeded the cache depends on test order, so this only
+	// bites some orderings, which is why it stayed hidden until the suite was
+	// sharded.
+	provider.InvalidateProviderCache()
+	model.InvalidateModelCache()
+	failover.InvalidateFailoverCache()
 
 	// Flush logs cache so prior test results don't leak.
 	globalLogsCache.clear()
