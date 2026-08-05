@@ -384,8 +384,20 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
+		// A timed-out push is published at info, not warning. The type stays the same,
+		// because it is still the outcome of a push that did not converge the member
+		// and belongs in the same log, but alert dispatch derives its notification
+		// severity from the live event, and paging an operator at warning for a
+		// condition this very message describes as probably fine is noise. The caller
+		// agrees with the message: it stamps the push as received and rate-limits the
+		// re-push on exactly that reading. A member that is genuinely refusing, or
+		// unreachable, or mismatched, still warns.
+		severity := "warning"
+		if res.TimedOut {
+			severity = "info"
+		}
 		s.emit(ctx, Event{
-			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
+			Type: "config.sync_failed", Severity: severity, Source: "frontdesk",
 			Message: syncFailureMessage(m.Name, res.Error, res.TimedOut), MemberID: m.ID,
 			// error carries the specific cause the message renders; timed_out is always
 			// present so a consumer reads one shape rather than testing for the key.

@@ -731,3 +731,48 @@ func TestAutoSync_FailedModelReconcileDoesNotBlameFailoverGroups(t *testing.T) {
 		t.Errorf("Error = %q, want it to name the per-model reconcile", res.Error)
 	}
 }
+
+// TestAutoSync_TimedOutPushIsNotPagedAsAFailure: the message says the member may
+// still be applying and the caller agrees, stamping the push as received and
+// rate-limiting the re-push on that reading. Publishing it at warning anyway
+// pages an operator about a member that is probably working, which a long first
+// import on a fresh member makes routine. A refusal still warns.
+func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
+	t.Run("timeout is info", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		replica := newStubConfigMember(t, "rtoken")
+		replica.importDelay = 300 * time.Millisecond
+		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+		srv.syncClient = newProbeClient(60 * time.Millisecond)
+
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		if len(evs) != 1 {
+			t.Fatalf("config.sync_failed events = %d, want 1", len(evs))
+		}
+		if evs[0].Severity != "info" {
+			t.Errorf("severity = %q, want info: the member is very likely still importing", evs[0].Severity)
+		}
+	})
+
+	t.Run("a refusal still warns", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		replica := newStubConfigMember(t, "rtoken")
+		replica.importCode = http.StatusInternalServerError
+		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		if len(evs) != 1 || evs[0].Severity != "warning" {
+			t.Errorf("events = %+v, want one at warning", evs)
+		}
+	})
+}

@@ -247,7 +247,15 @@ The other two ways a model can be switched off deliberately do **not** travel: o
 that discovery stopped seeing in a provider's listing, and one the proxy retired
 after the provider refused it three times running. Both are evidence about what
 that member's provider served that member, so replicating them would turn one
-member's provider trouble into a fleet-wide outage.
+member's provider trouble into a fleet-wide outage. Switching a model off on the
+primary leaves that evidence intact on each member.
+
+**Switching one back on does not.** Re-enabling a model on the primary is you
+telling the fleet to trust the provider's listing again, so it clears those local
+marks everywhere, exactly as re-enabling by hand on that member would. If one
+member's provider is genuinely refusing the model, it will route there again and
+fail until the proxy retires it afresh. That is the one place a fleet-wide action
+overrides a member's own findings, so re-enable deliberately.
 
 A member that does not hold a model you disabled elsewhere cannot apply the
 disable, so it records the intent instead and reports which models it is missing.

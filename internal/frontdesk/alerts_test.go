@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -603,19 +604,41 @@ func TestBellhopLabelsCoverEveryWireCode(t *testing.T) {
 		}
 	}
 
-	// Every reason computeFleetState can put on the wire (fleetstate.go). Listed
-	// here rather than derived, so adding a reason means deciding it needs a label.
-	reasons := []string{
-		reasonMemberDown, reasonAllMembersDown,
-		reasonMemberDrained, reasonDrainedToSingle,
-		reasonSyncHeld, reasonAllSyncHeld, reasonSyncIncomplete,
-		reasonAutosyncStale, reasonAutosyncStaleLong,
-		reasonTraefikConfigStale,
-	}
+	// Derived from fleetstate.go rather than listed here. A hand-written list only
+	// guards the codes someone remembered to add to it, which is the half of this
+	// contract that most needs guarding: a new reason emitted server-side would
+	// otherwise pass this test and go straight to rendering as a raw code on a
+	// phone.
+	reasons := fleetReasonCodes(t)
 	fleetLabels := read("kotlin/com/hugalafutro/bellhop/ui/dashboard/DashboardScreen.kt")
 	for _, code := range reasons {
 		if !strings.Contains(fleetLabels, `"`+code+`"`) {
 			t.Errorf("fleet reason %q has no Bellhop label; the app would render the raw wire code", code)
 		}
 	}
+}
+
+// fleetReasonCodes reads every reason code declared in fleetstate.go. The
+// declarations are string literals in one const block, so a new one is picked up
+// with no second place to update.
+//
+// The floor is not decoration: a regex that silently matched nothing would make
+// the caller pass while checking nothing at all, which is the failure mode this
+// whole test exists to prevent, one level up.
+func fleetReasonCodes(t *testing.T) []string {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Clean("fleetstate.go"))
+	if err != nil {
+		t.Fatalf("read fleetstate.go: %v", err)
+	}
+	re := regexp.MustCompile(`(?m)^\s*reason\w+\s*=\s*"([^"]+)"`)
+	matches := re.FindAllStringSubmatch(string(src), -1)
+	codes := make([]string, 0, len(matches))
+	for _, m := range matches {
+		codes = append(codes, m[1])
+	}
+	if len(codes) < 10 {
+		t.Fatalf("found %d fleet reason codes in fleetstate.go, want at least the 10 that exist; the scan is not matching", len(codes))
+	}
+	return codes
 }
