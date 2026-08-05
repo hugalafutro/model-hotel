@@ -7,7 +7,7 @@ settings:
 overrides:
   '@babel/core': ^7.29.6
   undici@6: ^6.27.0
-  undici@7: ^7.28.0
+  undici@7: ^7.29.0
 
 importers:
 
