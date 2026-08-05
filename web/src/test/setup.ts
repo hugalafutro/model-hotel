@@ -134,20 +134,16 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 	} as unknown as typeof globalThis.ResizeObserver;
 }
 
-// Mock IntersectionObserver (jsdom doesn't implement it). Inert by default: it
-// records the callback so a test can fire it, but never reports an intersection
-// on its own, because jsdom has no layout to derive one from. Tests that care
-// about the observed behaviour (the discrepancy modal's return-to-top control)
-// stub this again locally and drive the callback themselves.
+// Mock IntersectionObserver (jsdom doesn't implement it). Inert: it never
+// reports an intersection, because jsdom has no layout to derive one from.
+// Tests that care about the observed behaviour (the discrepancy modal's
+// return-to-top control) stub this again locally and drive the callback
+// themselves.
 if (typeof globalThis.IntersectionObserver === "undefined") {
 	globalThis.IntersectionObserver = class IntersectionObserver {
 		readonly root = null;
 		readonly rootMargin = "";
 		readonly thresholds: number[] = [];
-		constructor(
-			_cb: IntersectionObserverCallback,
-			_options?: IntersectionObserverInit,
-		) {}
 		observe(_target: Element) {}
 		unobserve(_target: Element) {}
 		disconnect() {}
