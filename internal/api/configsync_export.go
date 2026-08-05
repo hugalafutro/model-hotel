@@ -44,9 +44,10 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 	// Marshal only the Config payload. Every list is ordered by a column a unique
 	// index makes total, so no two rows tie and fall back to physical row order:
 	// providers by name, failover groups by display_model, users by username,
-	// virtual keys by (created_at, key_hash). encoding/json key-sorts the settings
-	// map. The bytes are therefore deterministic for an unchanged config, and two
-	// members holding the same config hash identically.
+	// virtual keys by (created_at, key_hash), disabled models by (provider,
+	// model_id). encoding/json key-sorts the settings map. The bytes are therefore
+	// deterministic for an unchanged config, and two members holding the same config
+	// hash identically.
 	payload, err := json.Marshal(env.Config)
 	if err != nil {
 		debuglog.Error("configsync: marshal config for version", "error", err)
@@ -90,15 +91,51 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
+	disabled, err := exportDisabledModels(ctx, pool)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
 	return ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		AppVersion:    h.appVersion,
 		ExportedAt:    time.Now().UTC(),
 		Config: ConfigPayload{
 			Providers: providers, VirtualKeys: vks, Settings: set, FailoverGroups: groups,
-			Users: users,
+			Users: users, DisabledModels: disabled,
 		},
 	}, nil
+}
+
+// exportDisabledModels lists the models the operator switched off by hand, by
+// stable (provider, model_id) ref.
+//
+// disabled_manually is the only one of the three disable kinds that is operator
+// intent. A model discovery disabled (both flags false) or the proxy retired from
+// traffic (auto_retired_at set) is this member's own evidence about what its
+// provider served it, and carrying either would spread one member's provider
+// trouble to the whole fleet. Migration 063 has the full three-way distinction.
+//
+// Ordered by (provider name, model_id), which is unique per member, so the list is
+// total and two members holding the same disables hash identically.
+func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, error) {
+	rows, err := q.Query(ctx, `
+		SELECT p.name, m.model_id
+		FROM models m JOIN providers p ON m.provider_id = p.id
+		WHERE m.disabled_manually = true
+		ORDER BY p.name, m.model_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ExportModelRef{}
+	for rows.Next() {
+		var ref ExportModelRef
+		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
+			return nil, err
+		}
+		out = append(out, ref)
+	}
+	return out, rows.Err()
 }
 
 // modelRef is the stable cross-member identity of a model: the provider's name

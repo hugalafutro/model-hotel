@@ -183,7 +183,8 @@ which the external TLS proxy provides.
 Two things are worth understanding about authentication in an HA deployment:
 
 - **Passkeys and TOTP are per-instance and are never synced.** Config sync pushes
-  **only** providers, virtual keys, and the syncable settings subset; it does not
+  providers, virtual keys, dashboard accounts, custom failover groups, per-model
+  disables and the syncable settings subset (the full list is below); it does not
   read, write, or transfer WebAuthn credentials or TOTP secrets. Each member keeps
   its own in its own Postgres, and Front Desk keeps its own in its own SQLite. This is by design: a passkey is bound to an origin (its relying-party
   ID is the hostname), so a credential created for one origin would not validate
@@ -231,12 +232,27 @@ own HA self-report and refuses a host that already is the primary.
 |---|---|
 | Providers (including their encrypted keys) | Request logs, metering, events |
 | Virtual keys (matched by hash) | Backups, runtime stats |
-| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Passkeys / TOTP (auth is per-instance) |
-| | Alerting destination (apprise URL/targets) |
+| Dashboard user accounts | Passkeys / TOTP (auth is per-instance) |
+| Custom failover groups | Auto-formed failover groups |
+| Models you switched off by hand | Discovered models themselves |
+| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Alerting destination (apprise URL/targets) |
 
-Models and failover groups are **not** copied: each member rediscovers models
-from the synced providers and re-forms failover groups automatically. Manual
-model overrides (a custom disable or rename) are a planned follow-up.
+Model rows and auto-formed failover groups are **not** copied: each member
+rediscovers models from the synced providers and re-forms those groups on its own.
+What does travel is your intent about them. A custom failover group is carried as
+stable (provider, model) references and rebuilt against each member's own model
+IDs, and a model you disabled by hand is disabled fleet-wide.
+
+The other two ways a model can be switched off deliberately do **not** travel: one
+that discovery stopped seeing in a provider's listing, and one the proxy retired
+after the provider refused it three times running. Both are evidence about what
+that member's provider served that member, so replicating them would turn one
+member's provider trouble into a fleet-wide outage.
+
+A member that does not hold a model you disabled elsewhere cannot apply the
+disable, and says so: it stays badged amber, and the `config.sync_incomplete`
+alert names the models it is missing. Nothing is mis-served in the meantime, since
+a member cannot route to a model it does not have.
 
 Provider keys travel as stored ciphertext and decrypt on each member because the
 fleet shares `MASTER_KEY`. A member whose `MASTER_KEY` differs is flagged
@@ -264,7 +280,7 @@ The runbook above is the manual path. For an unattended fleet, Front Desk →
 Settings → **Automatic config sync** lets you designate a primary and flip
 auto-sync on; from then on you only manage the primary. Flipping it on converges
 the fleet to the primary right away, then Front Desk keeps it there by itself,
-propagating any change to providers, virtual keys, or syncable settings across the
+propagating any change to the replicated config across the
 fleet. The Members table's **Last Config Sync** column shows when each member last
 converged and why.
 

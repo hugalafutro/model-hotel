@@ -58,6 +58,10 @@ type syncResultItem struct {
 	// entries than the primary sent. It rides alongside a successful result: the
 	// member applied everything it was asked to, it just holds fewer models.
 	Partial []string `json:"partial,omitempty"`
+	// UnappliedModels names per-model disables the member could not apply because
+	// it holds no such model, as provider/model_id. Rides alongside a successful
+	// result for the same reason as Partial.
+	UnappliedModels []string `json:"unapplied_models,omitempty"`
 	// TimedOut marks a push whose deadline expired before the member answered. The
 	// member may well have committed the config and just taken longer than
 	// memberSyncTimeout to say so, which is what a long member-side discovery looks
@@ -86,8 +90,11 @@ type memberImportResult struct {
 	// than the primary sent, because it holds fewer of their models. Travels with
 	// Incomplete = false: the member applied everything it was asked to. Divergence
 	// is decided by the hash; this only makes the alert specific.
-	Partial []string         `json:"partial,omitempty"`
-	Diff    memberConfigDiff `json:"diff"`
+	Partial []string `json:"partial,omitempty"`
+	// UnappliedModels names per-model disables the member could not apply because
+	// it holds no such model. Same disposition as Partial: reported, not a failure.
+	UnappliedModels []string         `json:"unapplied_models,omitempty"`
+	Diff            memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -269,10 +276,12 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
-	// Carried on the success path too: a group built short is not a failure to
-	// apply, so it never reaches the incomplete arm below, and the auto-sync loop
-	// needs the names for its divergence alert.
+	// Carried on the success path too: neither a group built short nor a disable
+	// the member has no model for is a failure to apply, so neither reaches the
+	// incomplete arm below, and the auto-sync loop needs the names for its
+	// divergence alert.
 	res.Partial = out.Partial
+	res.UnappliedModels = out.UnappliedModels
 	switch {
 	case err != nil && status == 0 && isTimeout(err):
 		// The deadline expired with the member still working, so unlike a refusal or an
@@ -378,11 +387,32 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
-			Message: fmt.Sprintf("Failed to sync config to %s", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"reason": reason},
+			Message: syncFailureMessage(m.Name, res.Error, res.TimedOut), MemberID: m.ID,
+			// error carries the specific cause the message renders; timed_out is always
+			// present so a consumer reads one shape rather than testing for the key.
+			Metadata: map[string]any{"reason": reason, "error": res.Error, "timed_out": res.TimedOut},
 		})
 	}
 	return res
+}
+
+// syncFailureMessage renders the operator-facing line for a push that did not
+// converge the member, from the specific cause rather than a bare "failed": the
+// causes range from an unreachable host to a MASTER_KEY mismatch, and each points
+// at different work.
+//
+// A timed-out push gets its own wording because it is not a refusal. The member
+// took the request and is very likely still importing; the caller stamps it as
+// received and rate-limits the re-push on exactly that reading. Calling it a
+// failure sends the operator after a member that is working.
+func syncFailureMessage(member, cause string, timedOut bool) string {
+	if timedOut {
+		return fmt.Sprintf("%s did not answer the config push in time; it may still be applying", member)
+	}
+	if cause == "" {
+		return fmt.Sprintf("Failed to sync config to %s", member)
+	}
+	return fmt.Sprintf("Failed to sync config to %s: %s", member, cause)
 }
 
 // isTimeout reports whether a member call failed because its deadline expired, as

@@ -68,6 +68,15 @@ const (
 	// runs, every tick.
 	incompleteRetryInterval = 10 * time.Minute
 
+	// unreadableHashThreshold is how long a member's config hash must stay
+	// continuously unreadable before Front Desk reports the member unmeasured. An
+	// unread hash proves nothing on its own, so a single slow or failed read must
+	// not alert; a hash that never reads means the member's convergence can never be
+	// established, which is worth the same badge as a measured divergence. Longer
+	// than a member restart or a slow import, both of which answer again on their
+	// own.
+	unreadableHashThreshold = 10 * time.Minute
+
 	// autoSyncFaultyThreshold is the second staleness tier: with auto-sync off, a
 	// fleet unsynced this long is faulty rather than merely degraded
 	// (fleetstate.go). Three days, so a weekend gap alone never trips it.
@@ -328,35 +337,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			continue
 		}
 		s.clearSyncHold(m.ID)
-		// Ask the member what config it actually holds. Every member hashes the same
-		// syncable payload (providers, virtual keys, syncable settings, custom failover
-		// groups, users) under a total order, carrying names and stable model refs
-		// rather than instance-local ids, so an equal hash means this member holds
-		// exactly this config. Neither the member's own report of its import nor the
-		// dry-run can establish that: the report can claim a clean apply while the
-		// config differs, and computeDiff keys on presence, so a matching member still
-		// reports every shared entity as updated.
-		memberHash, verErr := s.fetchMemberConfigVersion(passCtx, m, token)
-		if verErr == nil && memberHash == hash {
-			// Converged. Close out any divergence it carried, which emits
-			// config.sync_recovered once on the way out, and move the verified-in-sync
-			// heartbeat. Only a hash match moves it, so it means "measured holding the
-			// primary's config", never "written to".
-			s.clearMemberIncomplete(ctx, m)
-			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
+		converged, measured := s.measureMember(ctx, passCtx, m, token, hash)
+		if converged {
 			continue
-		}
-		// From here the member does not hold this config, or could not be asked.
-		if verErr != nil {
-			// An unread hash proves nothing either way: neither converged nor flagged.
-			// Falls through to the dry-run, which reports the real failure.
-			debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", verErr)
-		} else if s.hasBeenPushedSinceReset(m.ID) {
-			// Measured divergence in a member that has already committed this config: a
-			// failure to converge, not a member nobody has reached yet.
-			// resetIncompleteRetries zeroes that signal whenever the primary's config
-			// moves, so an ordinary edit never turns the badge amber for a tick.
-			s.markMemberIncomplete(ctx, m)
 		}
 		// Only the push is rate-limited. The member stays unconverged, so the badge
 		// and the alert persist.
@@ -382,12 +365,17 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			debuglog.Debug("frontdesk: auto-sync: member not syncable", "member", m.Name)
 			continue
 		}
+		// An empty diff is only a reason to skip when nothing contradicts it. The diff
+		// covers providers, virtual keys and settings, so a member differing in anything
+		// else the envelope carries (a custom failover group, a per-model disable)
+		// reports nothing to write while its hash correctly says it is out of sync.
+		// Importing on the hash is what converges those; the retry interval bounds a
+		// member the import cannot fix. With no hash either, there is no evidence in
+		// either direction, so the member is left for the next pass rather than written
+		// to on a guess.
 		added, updated, removed := res.Diff.counts()
-		if added+updated+removed == 0 {
-			// Nothing to write, yet the hash says this member does not hold the primary's
-			// config, or could not be asked. Nothing here would make it match, so it stays
-			// unconverged and gets no heartbeat: the hash decides that, not the diff.
-			debuglog.Debug("frontdesk: auto-sync: member differs but its diff is empty", "member", m.Name)
+		if added+updated+removed == 0 && !measured {
+			debuglog.Debug("frontdesk: auto-sync: member diff is empty and its hash is unreadable", "member", m.Name)
 			continue
 		}
 
@@ -420,7 +408,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			// A push the member refused or never received is deliberately not stamped,
 			// so a transient failure retries next tick instead of waiting out the
 			// interval.
-			s.recordSyncAttempt(m.ID, out.Unapplied, out.Partial)
+			s.recordSyncAttempt(m.ID, out.Unapplied, out.Partial, out.UnappliedModels)
 		}
 		if !out.OK {
 			// A failure, already surfaced by applyMemberConfig, or a benign fence
@@ -430,6 +418,56 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		applied++
 	}
 	return applied
+}
+
+// measureMember asks a member what config it actually holds and records what the
+// answer means. It reports whether the member is converged, so the caller can move
+// on, and whether its hash could be read at all.
+//
+// The hash is the criterion because nothing else establishes convergence. Every
+// member hashes the same syncable payload (providers, virtual keys, syncable
+// settings, custom failover groups, users, per-model disables) under a total
+// order, carrying names and stable model refs rather than instance-local ids, so
+// an equal hash means this member holds exactly this config. The member's own
+// report of its import can claim a clean apply while the config differs, and
+// computeDiff keys on presence, so a matching member still reports every shared
+// entity as updated.
+//
+// ctx carries the events this emits; passCtx is the cancellable pass context the
+// member call runs under.
+func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, hash string) (converged, measured bool) {
+	memberHash, err := s.fetchMemberConfigVersion(passCtx, m, token)
+	if err != nil {
+		// One unread hash proves nothing either way: neither converged nor flagged. A
+		// hash that stays unreadable is different, and is the fault itself: the
+		// member's convergence can never be established, so leaving it unflagged would
+		// hide it behind a clean fleet indefinitely.
+		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
+		if s.recordUnreadableHash(m.ID, err, time.Now()) {
+			s.markMemberUnmeasured(ctx, m)
+		}
+		return false, false
+	}
+	// Measurable again: stop any unreadable clock before deciding anything else, so
+	// a member that answers once never carries a stale one.
+	s.clearUnreadableHash(m.ID)
+	if memberHash == hash {
+		// Converged. Close out any divergence it carried, which emits
+		// config.sync_recovered once on the way out, and move the verified-in-sync
+		// heartbeat. Only a hash match moves it, so it means "measured holding the
+		// primary's config", never "written to".
+		s.clearMemberIncomplete(ctx, m)
+		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
+		return true, true
+	}
+	if s.hasBeenPushedSinceReset(m.ID) {
+		// Measured divergence in a member that has already committed this config: a
+		// failure to converge, not a member nobody has reached yet.
+		// resetIncompleteRetries zeroes that signal whenever the primary's config
+		// moves, so an ordinary edit never turns the badge amber for a tick.
+		s.markMemberIncomplete(ctx, m)
+	}
+	return false, true
 }
 
 // holdMemberForSkew marks a member as held for version skew and emits
@@ -478,23 +516,36 @@ type incompleteState struct {
 	// lastPartial names the custom failover groups the member built with fewer
 	// entries than the primary sent, so the alert can say which group is short.
 	lastPartial []string
-	// diverged is true once the member's own hash has been measured against the
-	// primary's and differed after it took the config. The fleet badge and the
-	// edge-triggered alert read this; a member merely pushed to is not diverged.
+	// lastUnappliedModels names the per-model disables the member could not apply
+	// for want of the model, as provider/model_id. It is what explains a hash that
+	// keeps differing on a member whose groups are all fine.
+	lastUnappliedModels []string
+	// diverged is true once the member is known not to hold the primary's config:
+	// either its own hash was measured and differed after it took the config, or its
+	// hash has been unreadable long enough that convergence can no longer be
+	// established. The fleet badge and the edge-triggered alert read this; a member
+	// merely pushed to is not diverged.
 	diverged bool
+	// unreadableSince is when this member's config hash first failed to read, with
+	// every read since having failed too. Zero once one succeeds.
+	unreadableSince time.Time
+	// lastReadErr is why the most recent hash read failed, carried into the alert so
+	// it names the cause rather than only the symptom.
+	lastReadErr string
 }
 
 // recordSyncAttempt remembers that a member received a config Front Desk pushed,
 // with whatever it reported it could not build or built short. The stamp bounds the
 // re-push (shouldSkipIncompleteRetry) and marks the member as having had its chance
 // (hasBeenPushedSinceReset).
-func (s *Server) recordSyncAttempt(memberID string, unapplied, partial []string) {
+func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unappliedModels []string) {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	st := s.syncIncomplete[memberID]
 	st.lastAttempt = time.Now()
 	st.lastUnapplied = unapplied
 	st.lastPartial = partial
+	st.lastUnappliedModels = unappliedModels
 	s.syncIncomplete[memberID] = st
 }
 
@@ -507,30 +558,103 @@ func (s *Server) hasBeenPushedSinceReset(memberID string) bool {
 	return !s.syncIncomplete[memberID].lastAttempt.IsZero()
 }
 
+// flagDiverged marks a member as not holding the primary's config and returns a
+// copy of its state along with whether it was already flagged, so the caller emits
+// the transition event exactly once. The slices are copied and are always lists
+// rather than null, so consumers see one shape and the caller reads them outside
+// the lock.
+func (s *Server) flagDiverged(memberID string) (incompleteState, bool) {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	st := s.syncIncomplete[memberID]
+	already := st.diverged
+	st.diverged = true
+	s.syncIncomplete[memberID] = st
+	st.lastUnapplied = append([]string{}, st.lastUnapplied...)
+	st.lastPartial = append([]string{}, st.lastPartial...)
+	st.lastUnappliedModels = append([]string{}, st.lastUnappliedModels...)
+	return st, already
+}
+
 // markMemberIncomplete records a member whose own config hash differs from the
 // primary's after it took that config, and emits config.sync_incomplete once on the
 // transition in. Edge-triggered: the member is re-checked every pass, so a
 // level-triggered event would alert on each one until it converged.
 func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
-	s.syncIncompleteMu.Lock()
-	st := s.syncIncomplete[m.ID]
-	already := st.diverged
-	st.diverged = true
-	s.syncIncomplete[m.ID] = st
-	// Copied under the lock, and always lists rather than null, so consumers see one
-	// shape and the emit below reads stable slices.
-	names := append([]string{}, st.lastUnapplied...)
-	partial := append([]string{}, st.lastPartial...)
-	s.syncIncompleteMu.Unlock()
+	st, already := s.flagDiverged(m.ID)
 	if already {
 		return
 	}
 	s.emit(ctx, Event{
 		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
-		Message:  divergenceMessage(m.Name, names, partial),
+		Message:  divergenceMessage(m.Name, st.lastUnapplied, st.lastPartial, st.lastUnappliedModels),
 		MemberID: m.ID,
-		Metadata: map[string]any{"unapplied": names, "partial": partial},
+		Metadata: map[string]any{
+			"unapplied": st.lastUnapplied, "partial": st.lastPartial,
+			"unapplied_models": st.lastUnappliedModels, "unreadable": false,
+		},
 	})
+}
+
+// markMemberUnmeasured records a member whose config hash has been unreadable past
+// unreadableHashThreshold, and emits config.sync_incomplete once on the transition
+// in, exactly as a measured divergence does.
+//
+// It shares that event type and the amber badge deliberately. Both mean the same
+// thing to an operator: this member is not known to hold the primary's config, and
+// its routing cannot be trusted to match. Splitting them would add a wire code
+// every consumer must learn to say something the message and the unreadable flag
+// already say. The distinction that matters, measured wrong versus not measurable,
+// is in the message and the metadata.
+func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
+	st, already := s.flagDiverged(m.ID)
+	if already {
+		return
+	}
+	debuglog.Warn("frontdesk: member config hash unreadable past the threshold",
+		"member", m.Name, "since", st.unreadableSince, "error", st.lastReadErr)
+	s.emit(ctx, Event{
+		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
+		Message:  unmeasuredMessage(m.Name, st.lastReadErr),
+		MemberID: m.ID,
+		// The name lists stay present and empty: nothing was reported unbuilt here,
+		// and one shape per event type keeps consumers from special-casing.
+		Metadata: map[string]any{
+			"unapplied": st.lastUnapplied, "partial": st.lastPartial,
+			"unapplied_models": st.lastUnappliedModels,
+			"unreadable":       true, "error": st.lastReadErr,
+		},
+	})
+}
+
+// recordUnreadableHash notes that a member's config hash could not be read, and
+// reports whether it has now been unreadable long enough to flag the member. The
+// first failure only starts the clock, so one slow read never alerts.
+func (s *Server) recordUnreadableHash(memberID string, err error, now time.Time) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	st := s.syncIncomplete[memberID]
+	if st.unreadableSince.IsZero() {
+		st.unreadableSince = now
+	}
+	st.lastReadErr = err.Error()
+	s.syncIncomplete[memberID] = st
+	return now.Sub(st.unreadableSince) >= unreadableHashThreshold
+}
+
+// clearUnreadableHash stops a member's unreadable clock once a read succeeds. It
+// leaves the rest of the member's state alone: a hash that reads but differs is a
+// measured divergence, whose retry timer and reported group names must survive.
+func (s *Server) clearUnreadableHash(memberID string) {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	st, ok := s.syncIncomplete[memberID]
+	if !ok || st.unreadableSince.IsZero() {
+		return
+	}
+	st.unreadableSince = time.Time{}
+	st.lastReadErr = ""
+	s.syncIncomplete[memberID] = st
 }
 
 // divergenceMessageMaxNames bounds how many group names each clause of
@@ -553,14 +677,15 @@ func joinCapped(names []string, limit int) string {
 //
 // unapplied are custom failover groups it could not build at all; partial are
 // groups it built with fewer entries than the primary sent, so it fails over across
-// fewer providers for them. Both name their groups rather than only counting them,
-// because the names point at the routing that is missing or thinner. Unapplied is
-// the more severe case, and carries the count as well.
+// fewer providers for them; unappliedModels are per-model disables it has no model
+// to apply. All three name their subjects rather than only counting them, because
+// the names point at the routing that is missing, thinner, or unmatched. Unapplied
+// is the most severe case, and carries the count as well.
 //
-// With neither, the divergence is one Front Desk measured but the member did not
+// With none, the divergence is one Front Desk measured but the member did not
 // explain: it committed the config, reported nothing wrong, and still does not
 // match. A count there would read "could not build 0 failover group(s)".
-func divergenceMessage(member string, unapplied, partial []string) string {
+func divergenceMessage(member string, unapplied, partial, unappliedModels []string) string {
 	var clauses []string
 	if len(unapplied) > 0 {
 		clauses = append(clauses, fmt.Sprintf("could not build %d failover group(s): %s",
@@ -570,10 +695,25 @@ func divergenceMessage(member string, unapplied, partial []string) string {
 		clauses = append(clauses, fmt.Sprintf("built %s with fewer entries than the primary has",
 			joinCapped(partial, divergenceMessageMaxNames)))
 	}
+	if len(unappliedModels) > 0 {
+		clauses = append(clauses, fmt.Sprintf("does not hold %s, which the primary has switched off",
+			joinCapped(unappliedModels, divergenceMessageMaxNames)))
+	}
 	if len(clauses) == 0 {
 		return fmt.Sprintf("%s applied the config but does not match the primary's config", member)
 	}
 	return fmt.Sprintf("%s applied the config but %s", member, strings.Join(clauses, ", and "))
+}
+
+// unmeasuredMessage renders the operator-facing line for a member whose config
+// hash cannot be read. It says unknown rather than wrong, because that is what
+// Front Desk knows, and carries the read failure so the operator can tell an
+// unreachable endpoint from a member too old to serve it.
+func unmeasuredMessage(member, cause string) string {
+	if cause == "" {
+		return fmt.Sprintf("%s cannot be measured: Front Desk cannot read its config hash, so whether it holds the primary's config is unknown", member)
+	}
+	return fmt.Sprintf("%s cannot be measured: Front Desk cannot read its config hash (%s), so whether it holds the primary's config is unknown", member, cause)
 }
 
 // clearMemberIncomplete forgets everything about a member whose hash now matches

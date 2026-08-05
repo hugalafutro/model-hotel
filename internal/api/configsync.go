@@ -29,15 +29,21 @@ import (
 // key's allowed_providers is translated provider-UUID -> name on export and back
 // on import).
 //
-// v1 syncs providers, virtual keys, the syncable settings subset, and CUSTOM
-// (user-created) failover groups. Models and AUTO-CREATED failover groups
-// regenerate on each member from the synced providers (discovery + automatic
-// group formation), so they are intentionally not copied. A custom group's
-// priority_order / entry_enabled reference instance-local model UUIDs, so it is
-// carried as stable (provider name, model_id) entry refs and resolved back to
-// this member's model UUIDs on import (an entry whose model is absent here is
-// dropped; a group left with fewer than two routable entries is skipped). The
-// remaining manual override (per-model disable) is still a documented follow-up.
+// Synced: providers, virtual keys, the syncable settings subset, users, CUSTOM
+// (user-created) failover groups, and the operator's per-model disables. Model
+// rows themselves and AUTO-CREATED failover groups regenerate on each member from
+// the synced providers (discovery + automatic group formation), so they are
+// intentionally not copied. A custom group's priority_order / entry_enabled
+// reference instance-local model UUIDs, so it is carried as stable (provider name,
+// model_id) entry refs and resolved back to this member's model UUIDs on import
+// (an entry whose model is absent here is dropped; a group left with fewer than
+// two routable entries is skipped).
+//
+// Per-model disables travel by the same stable ref. Only the OPERATOR's disable
+// (models.disabled_manually) is carried: discovery's disable and the proxy's
+// traffic retirement are per-member evidence about what a provider served that
+// member, so replicating them would turn one member's provider trouble into a
+// fleet-wide outage. Migration 063 is what keeps the three kinds apart.
 
 const (
 	// configSchemaVersion is the envelope version a member understands. An import
@@ -215,7 +221,23 @@ type ConfigPayload struct {
 	// running this code ([] when there are no accounts), absent in an envelope
 	// from an older primary (decodes to nil, import leaves users alone).
 	Users []ExportUser `json:"users"`
+	// DisabledModels are the models the operator switched off by hand, by stable
+	// ref. Same nil-vs-empty contract again: [] means "the primary has none, clear
+	// yours", absent means an older primary whose per-model state must be left
+	// alone.
+	DisabledModels []ExportModelRef `json:"disabled_models"`
 }
+
+// ExportModelRef is a model's stable cross-member identity: the provider's name
+// plus the provider-scoped model_id. The same pair a failover group's entries
+// travel by, for the same reason (model UUIDs are instance-local).
+type ExportModelRef struct {
+	ProviderName string `json:"provider_name"`
+	ModelID      string `json:"model_id"`
+}
+
+// String renders a ref for operator-facing lists.
+func (r ExportModelRef) String() string { return r.ProviderName + "/" + r.ModelID }
 
 // ExportProvider is a provider with its encrypted key material verbatim.
 type ExportProvider struct {
@@ -359,6 +381,11 @@ type importResponse struct {
 	// models. Reported alongside Incomplete, never as part of it: the member
 	// applied everything it was asked to.
 	Partial []string `json:"partial,omitempty"`
+	// UnappliedModels names per-model disables this member could not apply, as
+	// provider/model_id, because it holds no such model. Reported alongside
+	// Incomplete for the same reason as Partial, and it is what explains a config
+	// hash that will keep differing until this member discovers those models.
+	UnappliedModels []string `json:"unapplied_models,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

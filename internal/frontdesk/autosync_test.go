@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -2565,9 +2566,12 @@ func TestConfigSync_WizardStampsVerifiedOnItsOwnWrite(t *testing.T) {
 }
 
 // TestAutoSync_EmptyDiffDoesNotOverrideTheHash: the dry-run diff cannot promote a
-// member to converged. One that does not serve the primary's hash yet has nothing
-// to write is left alone, holds the fleet unconverged, and does not get the
-// "verified in sync" heartbeat, which now means the hash matched and nothing else.
+// member to converged, and it cannot veto an import either. The diff covers
+// providers, virtual keys and settings only, so a member differing in a custom
+// failover group or a per-model disable reports nothing to write while its hash
+// correctly says it is out of sync. The hash decides both ways: the member is
+// imported into, and it still does not get the "verified in sync" heartbeat, which
+// means the hash matched and nothing else.
 func TestAutoSync_EmptyDiffDoesNotOverrideTheHash(t *testing.T) {
 	f := newHashFleet(t, func(r *stubAutoMember) {
 		r.versionHash = "hash-drifted"
@@ -2579,14 +2583,37 @@ func TestAutoSync_EmptyDiffDoesNotOverrideTheHash(t *testing.T) {
 	if got := f.replica.dryRunCount(); got == 0 {
 		t.Fatal("dry-runs = 0: a member whose hash differs must still be evaluated")
 	}
-	if got := f.replica.realSyncCount(); got != 0 {
-		t.Errorf("real imports = %d, want 0: there is nothing to write", got)
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d, want 1: an empty diff cannot outvote a hash that differs", got)
 	}
 	if f.verified() {
 		t.Error("a member that does not serve the primary's hash was recorded verified; the diff must not outvote the hash")
 	}
 	if snap := f.srv.poller.Snapshot(); snap[f.replicaM.ID].AutoSyncVerifiedAt != nil {
 		t.Error("member stamped verified in sync while its hash differs")
+	}
+}
+
+// TestAutoSync_EmptyDiffWithAnUnreadableHashIsLeftAlone: the other half of the
+// rule. With an empty diff AND no hash to contradict it there is no evidence in
+// either direction, so importing would be a guess. The member is left for the next
+// pass rather than written to.
+func TestAutoSync_EmptyDiffWithAnUnreadableHashIsLeftAlone(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError // no hash to read
+		// The default dryDiff is empty.
+	})
+
+	f.tick(t)
+
+	if got := f.replica.dryRunCount(); got == 0 {
+		t.Fatal("dry-runs = 0: a member whose hash could not be read must still be evaluated")
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: nothing to write and nothing saying otherwise", got)
+	}
+	if f.verified() {
+		t.Error("an unmeasured member was recorded verified")
 	}
 }
 
@@ -2675,7 +2702,7 @@ func TestAutoSync_FlagNamesTheGroupsTheMemberReported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"partial":[],"unapplied":["ds4flash"]}`; got != want {
+	if got, want := string(meta), `{"partial":[],"unapplied":["ds4flash"],"unapplied_models":[],"unreadable":false}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
@@ -2717,7 +2744,7 @@ func TestAutoSync_FlagNamesPartiallyBuiltGroups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":[]}`; got != want {
+	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":[],"unapplied_models":[],"unreadable":false}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
@@ -2752,7 +2779,7 @@ func TestAutoSync_FlagSaysBothWhenGroupsAreMissingAndShort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":["ds4flash"]}`; got != want {
+	if got, want := string(meta), `{"partial":["testgroup"],"unapplied":["ds4flash"],"unapplied_models":[],"unreadable":false}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
@@ -2811,7 +2838,7 @@ func TestAutoSync_FlagWithoutNamesReadsAsAPlainDivergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal event metadata: %v", err)
 	}
-	if got, want := string(meta), `{"partial":[],"unapplied":[]}`; got != want {
+	if got, want := string(meta), `{"partial":[],"unapplied":[],"unapplied_models":[],"unreadable":false}`; got != want {
 		t.Errorf("event metadata = %s, want %s", got, want)
 	}
 }
@@ -2846,9 +2873,9 @@ func TestDivergenceMessageCaps(t *testing.T) {
 	overCapPartial := divergenceCapNames("p", divergenceMessageMaxNames+1)
 
 	cases := []struct {
-		name               string
-		unapplied, partial []string
-		want               string
+		name                                string
+		unapplied, partial, unappliedModels []string
+		want                                string
 	}{
 		{
 			name:      "unapplied only",
@@ -2861,15 +2888,36 @@ func TestDivergenceMessageCaps(t *testing.T) {
 			want:    "replica applied the config but built testgroup with fewer entries than the primary has",
 		},
 		{
-			name:      "both",
+			name:      "unapplied and partial together",
 			unapplied: []string{"ds4flash"},
 			partial:   []string{"testgroup"},
 			want: "replica applied the config but could not build 1 failover group(s): ds4flash, " +
 				"and built testgroup with fewer entries than the primary has",
 		},
 		{
-			name: "neither",
+			name: "none of the three",
 			want: "replica applied the config but does not match the primary's config",
+		},
+		{
+			name:            "unapplied models only",
+			unappliedModels: []string{"openai/gpt-5"},
+			want: "replica applied the config but does not hold openai/gpt-5, " +
+				"which the primary has switched off",
+		},
+		{
+			name:            "unapplied models over the cap: capped names, truncation marker",
+			unappliedModels: divergenceCapNames("openai/m", divergenceMessageMaxNames+1),
+			want: "replica applied the config but does not hold openai/m1, openai/m2, openai/m3, " +
+				"openai/m4, openai/m5, and 1 more, which the primary has switched off",
+		},
+		{
+			name:            "all three: the clauses join in severity order",
+			unapplied:       []string{"ds4flash"},
+			partial:         []string{"testgroup"},
+			unappliedModels: []string{"openai/gpt-5"},
+			want: "replica applied the config but could not build 1 failover group(s): ds4flash, " +
+				"and built testgroup with fewer entries than the primary has, " +
+				"and does not hold openai/gpt-5, which the primary has switched off",
 		},
 		{
 			name:      "unapplied exactly at the cap: every name shown, no truncation marker",
@@ -2906,7 +2954,7 @@ func TestDivergenceMessageCaps(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := divergenceMessage("replica", tc.unapplied, tc.partial); got != tc.want {
+			if got := divergenceMessage("replica", tc.unapplied, tc.partial, tc.unappliedModels); got != tc.want {
 				t.Errorf("divergenceMessage() = %q, want %q", got, tc.want)
 			}
 		})
@@ -2928,7 +2976,7 @@ func TestMarkMemberIncompleteMetadataIsNeverCapped(t *testing.T) {
 
 	unapplied := divergenceCapNames("u", divergenceMessageMaxNames+1)
 	partial := divergenceCapNames("p", divergenceMessageMaxNames+1)
-	srv.recordSyncAttempt(m.ID, unapplied, partial)
+	srv.recordSyncAttempt(m.ID, unapplied, partial, nil)
 	srv.markMemberIncomplete(ctx, m)
 
 	evs, _, err := store.ListEvents(ctx, EventFilter{Type: "config.sync_incomplete"})
@@ -2989,5 +3037,307 @@ func TestAutoSyncStaleTier(t *testing.T) {
 				t.Errorf("tier = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+// seedUnreadableSince backdates a member's unreadable-hash clock, so a test can
+// reach the far side of unreadableHashThreshold without waiting it out. It seeds
+// the same field the production path sets on its first failed read.
+func seedUnreadableSince(srv *Server, memberID string, since time.Time) {
+	srv.syncIncompleteMu.Lock()
+	defer srv.syncIncompleteMu.Unlock()
+	st := srv.syncIncomplete[memberID]
+	st.unreadableSince = since
+	srv.syncIncomplete[memberID] = st
+}
+
+// unreadableSince reads a member's unreadable-hash clock.
+func unreadableSince(srv *Server, memberID string) time.Time {
+	srv.syncIncompleteMu.Lock()
+	defer srv.syncIncompleteMu.Unlock()
+	return srv.syncIncomplete[memberID].unreadableSince
+}
+
+// TestAutoSync_OneUnreadableHashDoesNotFlagTheMember: a single failed hash read
+// proves nothing. A member restarting, or busy with an import, answers again on
+// the next tick, so flagging on the first failure would turn every routine blip
+// amber and alert on it.
+func TestAutoSync_OneUnreadableHashDoesNotFlagTheMember(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError // its hash cannot be read
+		r.dryDiff = driftDiff
+	})
+
+	f.tick(t)
+
+	if memberDiverged(f.srv, f.replicaM.ID) {
+		t.Error("a member was flagged on its first unreadable hash read; one failure proves nothing")
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d after one failed read, want 0", n)
+	}
+	if unreadableSince(f.srv, f.replicaM.ID).IsZero() {
+		t.Error("the unreadable clock was not started, so the member could never be flagged")
+	}
+}
+
+// TestAutoSync_PersistentlyUnreadableHashFlagsTheMember: a member whose config
+// hash never reads can never be shown to hold the primary's config. Before this it
+// was measured in neither direction and so stayed green and silent forever, which
+// is the state that hid a broken member for four hours. Past the threshold it
+// carries the same badge and alert as a measured divergence, and the event says
+// unknown rather than wrong.
+func TestAutoSync_PersistentlyUnreadableHashFlagsTheMember(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError
+		r.dryDiff = driftDiff
+	})
+	// The clock has been running since before the threshold: this stands in for the
+	// ticks that already failed, without waiting them out.
+	f.tick(t)
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Minute))
+
+	f.tick(t)
+
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Fatal("a member whose hash has never read was not flagged; the fleet badge would stay green")
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_incomplete events = %d, want exactly 1 on the transition in", len(evs))
+	}
+	if got := evs[0].Metadata["unreadable"]; got != true {
+		t.Errorf("event metadata unreadable = %v, want true: this divergence was not measured, it was unmeasurable", got)
+	}
+	if got, _ := evs[0].Metadata["error"].(string); got == "" {
+		t.Error("event metadata carries no read failure, so the operator cannot tell an unreachable endpoint from a member too old to serve it")
+	}
+	// Still edge-triggered: the member is re-read every pass and must not re-alert.
+	for range 3 {
+		f.tick(t)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
+		t.Errorf("config.sync_incomplete events = %d across further ticks, want the original 1", n)
+	}
+}
+
+// TestAutoSync_UnreadableClockClearsOnASuccessfulRead: the threshold is about a
+// hash that never reads, not one that reads intermittently. A member answering
+// once restarts the clock from zero, so a flaky endpoint that keeps answering is
+// never flagged on accumulated failures.
+func TestAutoSync_UnreadableClockClearsOnASuccessfulRead(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError
+		r.dryDiff = driftDiff
+	})
+	f.tick(t)
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Minute))
+
+	// The member answers again, with a hash that still differs: readable, so not
+	// unmeasurable, whatever it says.
+	f.replica.mu.Lock()
+	f.replica.versionCode = http.StatusOK
+	f.replica.versionHash = "hash-drifted"
+	f.replica.mu.Unlock()
+
+	f.tick(t)
+
+	if got := unreadableSince(f.srv, f.replicaM.ID); !got.IsZero() {
+		t.Errorf("unreadable clock = %v after a successful read, want zero", got)
+	}
+	// It may well be flagged as diverged on its own merits by now; what must not
+	// happen is being reported unmeasurable while it is answering.
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	for _, ev := range evs {
+		if ev.Metadata["unreadable"] == true {
+			t.Error("a member that answered was reported unmeasurable")
+		}
+	}
+}
+
+// TestRecordUnreadableHash: the clock starts on the first failure and only reports
+// the threshold crossed once it has actually elapsed.
+func TestRecordUnreadableHash(t *testing.T) {
+	srv, _ := newTestServer(t)
+	start := time.Now()
+	readErr := errors.New("member config-version returned 500")
+
+	if srv.recordUnreadableHash("m1", readErr, start) {
+		t.Error("the first failed read reported the threshold crossed; it only starts the clock")
+	}
+	if srv.recordUnreadableHash("m1", readErr, start.Add(unreadableHashThreshold-time.Second)) {
+		t.Error("the threshold was reported crossed a second early")
+	}
+	if !srv.recordUnreadableHash("m1", readErr, start.Add(unreadableHashThreshold)) {
+		t.Error("the threshold was not reported crossed once it elapsed")
+	}
+
+	srv.clearUnreadableHash("m1")
+	if srv.recordUnreadableHash("m1", readErr, start.Add(2*unreadableHashThreshold)) {
+		t.Error("a cleared clock did not restart from zero, so an intermittent member accumulates toward the flag")
+	}
+}
+
+// TestClearUnreadableHashKeepsTheRestOfTheState: a readable hash ends only the
+// unmeasurable condition. The member's retry timer and the group names it reported
+// describe a measured divergence and must survive, or a member whose hash blinks
+// would have its re-push rate limit reset and its alert stripped of detail.
+func TestClearUnreadableHashKeepsTheRestOfTheState(t *testing.T) {
+	srv, _ := newTestServer(t)
+	srv.recordSyncAttempt("m1", []string{"ds4flash"}, []string{"cheap"}, []string{"openai/gpt-5"})
+	if srv.recordUnreadableHash("m1", errors.New("boom"), time.Now()) {
+		t.Fatal("the first failed read reported the threshold crossed")
+	}
+
+	srv.clearUnreadableHash("m1")
+
+	srv.syncIncompleteMu.Lock()
+	st := srv.syncIncomplete["m1"]
+	srv.syncIncompleteMu.Unlock()
+	if !st.unreadableSince.IsZero() || st.lastReadErr != "" {
+		t.Error("the unreadable clock survived a successful read")
+	}
+	if st.lastAttempt.IsZero() {
+		t.Error("the retry timer was cleared, so the member would be re-pushed every tick")
+	}
+	if len(st.lastUnapplied) != 1 || len(st.lastPartial) != 1 || len(st.lastUnappliedModels) != 1 {
+		t.Errorf("reported names = %v/%v/%v, want all three kept for the alert",
+			st.lastUnapplied, st.lastPartial, st.lastUnappliedModels)
+	}
+}
+
+// TestSyncFailureMessage: the event line names the cause. A timed-out push is not
+// a refusal, and reads as one unless it is worded apart: the member took the
+// request and is very likely still importing, which is exactly why the caller
+// stamps it as received and rate-limits the re-push.
+func TestSyncFailureMessage(t *testing.T) {
+	tests := []struct {
+		name     string
+		cause    string
+		timedOut bool
+		want     string
+	}{
+		{
+			name:  "names the cause",
+			cause: "MASTER_KEY does not match the primary",
+			want:  "Failed to sync config to beta: MASTER_KEY does not match the primary",
+		},
+		{
+			name: "no cause to name",
+			want: "Failed to sync config to beta",
+		},
+		{
+			name:     "a timeout is not a failure to apply",
+			cause:    "this member did not answer in time",
+			timedOut: true,
+			want:     "beta did not answer the config push in time; it may still be applying",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := syncFailureMessage("beta", tc.cause, tc.timedOut); got != tc.want {
+				t.Errorf("syncFailureMessage() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestAutoSync_TimedOutPushEventSaysItMayStillBeApplying: the end-to-end shape of
+// the above. A member still importing when the relay gives up must not be reported
+// as having failed, and the specific cause has to reach the event rather than only
+// the log.
+func TestAutoSync_TimedOutPushEventSaysItMayStillBeApplying(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.onImport = func(reqCtx context.Context) bool {
+			select {
+			case <-reqCtx.Done():
+			case <-time.After(5 * time.Second):
+			}
+			return false
+		}
+	})
+	f.srv.syncClient = newProbeClient(150 * time.Millisecond)
+
+	f.tick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_failed events = %d, want 1", len(evs))
+	}
+	if strings.Contains(evs[0].Message, "Failed to sync") {
+		t.Errorf("message = %q; a member still importing must not be reported as a failed sync", evs[0].Message)
+	}
+	if !strings.Contains(evs[0].Message, "may still be applying") {
+		t.Errorf("message = %q, want it to say the member may still be applying", evs[0].Message)
+	}
+	if got := evs[0].Metadata["timed_out"]; got != true {
+		t.Errorf("metadata timed_out = %v, want true", got)
+	}
+	if got, _ := evs[0].Metadata["error"].(string); got == "" {
+		t.Error("metadata carries no cause, so the precise reason still reaches only the log")
+	}
+}
+
+// TestAutoSync_ModelOnlyChangeConverges: the end-to-end shape of the empty-diff
+// rule, and the reason it had to change. When the only thing the primary altered
+// is a per-model disable, the member's dry-run diff is empty (the diff covers
+// providers, virtual keys and settings) while its hash differs. Before this the
+// pass skipped it on the empty diff, so the member sat amber forever and the
+// operator's disable never reached it.
+func TestAutoSync_ModelOnlyChangeConverges(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-stale"
+		r.appliedHash = "hash-B" // applying the envelope does converge it
+		// dryDiff stays the default empty: nothing the diff can see has changed.
+	})
+
+	f.tick(t) // pushes on the hash alone
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1: the member had to be written to", got)
+	}
+
+	f.tick(t) // measures
+	if !f.verified() {
+		t.Error("a member whose only difference was per-model state never converged")
+	}
+	if memberDiverged(f.srv, f.replicaM.ID) {
+		t.Error("the member stayed flagged after converging")
+	}
+}
+
+// TestUnmeasuredMessage: the line an operator reads when a member's config hash
+// cannot be read. It has to say unknown rather than wrong, and name the read
+// failure when there is one, so an unreachable endpoint reads differently from a
+// member too old to serve it.
+func TestUnmeasuredMessage(t *testing.T) {
+	const prefix = "beta cannot be measured: Front Desk cannot read its config hash"
+	withCause := unmeasuredMessage("beta", "member config-version returned 404")
+	if !strings.HasPrefix(withCause, prefix) || !strings.Contains(withCause, "returned 404") {
+		t.Errorf("unmeasuredMessage() = %q, want it to name the read failure", withCause)
+	}
+	// A read that failed with nothing to quote still has to produce a sentence,
+	// not a dangling empty parenthetical.
+	noCause := unmeasuredMessage("beta", "")
+	if !strings.HasPrefix(noCause, prefix) {
+		t.Errorf("unmeasuredMessage() = %q, want the same reading without a cause", noCause)
+	}
+	if strings.Contains(noCause, "()") {
+		t.Errorf("unmeasuredMessage() = %q, want no empty parenthetical", noCause)
+	}
+	for _, msg := range []string{withCause, noCause} {
+		if !strings.Contains(msg, "unknown") {
+			t.Errorf("message = %q; an unmeasured member is unknown, not known-wrong", msg)
+		}
 	}
 }
