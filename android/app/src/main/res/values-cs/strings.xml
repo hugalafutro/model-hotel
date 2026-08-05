@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">zůstává jen jeden aktivní člen</string>
     <string name="fleet_reason_sync_held">synchronizace pozastavena</string>
     <string name="fleet_reason_all_sync_held">synchronizace pozastavena v celé flotile</string>
-    <string name="fleet_reason_sync_incomplete">konfigurace nesouhlasí</string>
+    <string name="fleet_reason_sync_incomplete">konfigurace neověřena</string>
     <string name="fleet_reason_autosync_stale">nesynchronizováno přes den</string>
     <string name="fleet_reason_autosync_stale_long">nesynchronizováno přes tři dny</string>
     <string name="fleet_reason_traefik_config_stale">Traefik nenačítá konfiguraci</string>

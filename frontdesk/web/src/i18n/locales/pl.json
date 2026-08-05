@@ -143,7 +143,7 @@
 			"drained_to_single": "pozostał tylko jeden aktywny członek; flota nie ma nadmiarowości",
 			"sync_held": "synchronizacja konfiguracji jest wstrzymana dla członka (rozbieżność wersji)",
 			"all_sync_held": "synchronizacja konfiguracji jest wstrzymana dla każdego członka; główny jest wyjątkiem",
-			"sync_incomplete": "konfiguracja członka po synchronizacji nie zgadza się z konfiguracją głównego",
+			"sync_incomplete": "nie potwierdzono, że członek ma konfigurację głównego",
 			"autosync_stale": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad dnia",
 			"autosync_stale_long": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad trzech dni",
 			"traefik_config_stale": "Traefik przestał pobierać konfigurację routingu"

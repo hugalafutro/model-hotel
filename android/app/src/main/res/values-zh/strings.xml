@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">仅剩一个活动成员</string>
     <string name="fleet_reason_sync_held">同步已暂停</string>
     <string name="fleet_reason_all_sync_held">整个集群同步已暂停</string>
-    <string name="fleet_reason_sync_incomplete">配置不一致</string>
+    <string name="fleet_reason_sync_incomplete">配置未验证</string>
     <string name="fleet_reason_autosync_stale">超过一天未同步</string>
     <string name="fleet_reason_autosync_stale_long">超过三天未同步</string>
     <string name="fleet_reason_traefik_config_stale">Traefik 未获取配置</string>

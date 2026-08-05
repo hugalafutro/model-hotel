@@ -143,7 +143,7 @@
 			"drained_to_single": "nur ein aktives Mitglied ist übrig; die Flotte hat keine Redundanz",
 			"sync_held": "Config-Sync ist für ein Mitglied angehalten (Versionsabweichung)",
 			"all_sync_held": "Config-Sync ist für jedes Mitglied angehalten; der Primär ist die Ausnahme",
-			"sync_incomplete": "die Config eines Mitglieds stimmt nach einem Sync nicht mit der des Primärs überein",
+			"sync_incomplete": "bei einem Mitglied ist nicht bestätigt, dass es die Config des Primärs hat",
 			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",
 			"autosync_stale_long": "Auto-Sync ist aus und die Flotte wurde seit über drei Tagen nicht synchronisiert",
 			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"

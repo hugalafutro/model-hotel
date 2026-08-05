@@ -1619,10 +1619,12 @@ func TestAutoSync_ResponseWithoutIncompleteFieldReadsAsApplied(t *testing.T) {
 	}
 }
 
-// TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage: when the member's
-// whole group-build transaction fails (rather than skipping individual groups)
-// it sends incomplete=true with unapplied absent. The error message must not
-// degrade into "0 failover group(s)... could not be built here: " nonsense.
+// TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage: a member can
+// report incomplete with nothing named, either because its whole group-build
+// transaction failed before any group was evaluated, or because it runs a build
+// whose fault this one has no field for. The message must not degrade into
+// "0 failover group(s)... could not be built here: " nonsense, and must not name
+// failover groups on a report that never mentioned them.
 func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	srv, store := newTestServer(t)
 	replica := newStubConfigMember(t, "rtoken")
@@ -1637,7 +1639,7 @@ func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	if res.Error == "" {
 		t.Fatal("Error is empty, want a description of what was not built")
 	}
-	const want = "applied, but this member could not build its failover groups"
+	const want = "applied, but this member could not materialise all of it"
 	if res.Error != want {
 		t.Errorf("Error = %q, want %q", res.Error, want)
 	}
@@ -3339,5 +3341,52 @@ func TestUnmeasuredMessage(t *testing.T) {
 		if !strings.Contains(msg, "unknown") {
 			t.Errorf("message = %q; an unmeasured member is unknown, not known-wrong", msg)
 		}
+	}
+}
+
+// TestAutoSync_UnreachableMemberIsNotAlsoFlaggedUnmeasured: a member Front Desk
+// has never reached fails the hash read on every pass forever, but it is already
+// reported by the health poller. Flagging it here as well would put a second
+// reason on the fleet for one fault, and claim a config comparison that never had
+// the chance to happen. The measured branch declines to flag an unreached member
+// for the same reason; this is that rule applied to the unreadable one.
+func TestAutoSync_UnreachableMemberIsNotAlsoFlaggedUnmeasured(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError
+		r.importCode = http.StatusInternalServerError // nothing can be pushed either
+		r.dryDiff = driftDiff
+	})
+	// Far past the threshold, so only the never-pushed guard can hold the flag back.
+	f.tick(t)
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Hour))
+
+	f.tick(t)
+
+	if memberDiverged(f.srv, f.replicaM.ID) {
+		t.Error("a member that was never reached was flagged for not matching a config it was never given")
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 0 {
+		t.Errorf("config.sync_incomplete events = %d for an unreached member, want 0: health.down already reports it", n)
+	}
+}
+
+// TestAutoSync_ReachableMemberWithAnUnreadableHashIsStillFlagged: the guard above
+// must not reintroduce the silent hole. A member that is up and takes the config
+// but cannot serve its hash has had its chance, so it is flagged as unmeasured.
+func TestAutoSync_ReachableMemberWithAnUnreadableHashIsStillFlagged(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError // hash unreadable
+		r.dryDiff = driftDiff                          // but imports fine
+	})
+	f.tick(t) // pushes, so the member has had its chance
+	if f.replica.realSyncCount() == 0 {
+		t.Fatal("real imports = 0: the member never received the config, so the guard is not what is under test")
+	}
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Minute))
+
+	f.tick(t)
+
+	if !memberDiverged(f.srv, f.replicaM.ID) {
+		t.Error("a member that took the config and cannot be measured was not flagged; that is the hole this closes")
 	}
 }

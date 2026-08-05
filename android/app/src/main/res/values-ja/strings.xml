@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">アクティブなメンバーが1つだけ</string>
     <string name="fleet_reason_sync_held">同期保留</string>
     <string name="fleet_reason_all_sync_held">フリート全体で同期保留</string>
-    <string name="fleet_reason_sync_incomplete">設定が不一致</string>
+    <string name="fleet_reason_sync_incomplete">設定が未確認</string>
     <string name="fleet_reason_autosync_stale">1 日以上未同期</string>
     <string name="fleet_reason_autosync_stale_long">3 日以上未同期</string>
     <string name="fleet_reason_traefik_config_stale">Traefik が設定を取得していません</string>

@@ -665,3 +665,69 @@ func TestConfigSyncHoldsVersionSkew(t *testing.T) {
 		t.Error("version-skewed member was contacted for import/backup; want held")
 	}
 }
+
+// TestIncompleteMessage: Incomplete covers two faults that send an operator to
+// different places, so the line has to say which happened. Naming failover groups
+// whenever none were reported, which is what this did before, pointed at groups
+// that were fine while a failed per-model reconcile went unnamed.
+func TestIncompleteMessage(t *testing.T) {
+	tests := []struct {
+		name             string
+		unapplied        []string
+		modelStateFailed bool
+		want             string
+	}{
+		{
+			name:      "groups only",
+			unapplied: []string{"ds4flash"},
+			want:      "applied, but 1 failover group(s) could not be built here: ds4flash",
+		},
+		{
+			name:             "model state only",
+			modelStateFailed: true,
+			want:             "applied, but this member could not apply the primary's per-model settings",
+		},
+		{
+			name:             "both",
+			unapplied:        []string{"ds4flash"},
+			modelStateFailed: true,
+			want: "applied, but 1 failover group(s) could not be built here: ds4flash, " +
+				"and this member could not apply the primary's per-model settings",
+		},
+		{
+			name: "neither named",
+			want: "applied, but this member could not materialise all of it",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := incompleteMessage(tc.unapplied, tc.modelStateFailed); got != tc.want {
+				t.Errorf("incompleteMessage() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestAutoSync_FailedModelReconcileDoesNotBlameFailoverGroups: the end-to-end
+// shape. A member whose per-model reconcile failed reports incomplete with no
+// group names, and must not be described as having failed to build groups that
+// are fine.
+func TestAutoSync_FailedModelReconcileDoesNotBlameFailoverGroups(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,` +
+		`"incomplete":true,"model_state_failed":true,"diff":{}}`
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+
+	if !res.Incomplete {
+		t.Fatal("Incomplete = false, want true")
+	}
+	if strings.Contains(res.Error, "failover group") {
+		t.Errorf("Error = %q; the member reported no group trouble, so the line must not name groups", res.Error)
+	}
+	if !strings.Contains(res.Error, "per-model settings") {
+		t.Errorf("Error = %q, want it to name the per-model reconcile", res.Error)
+	}
+}

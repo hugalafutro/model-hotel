@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">nog maar één actief lid</string>
     <string name="fleet_reason_sync_held">sync aangehouden</string>
     <string name="fleet_reason_all_sync_held">sync vlootbreed aangehouden</string>
-    <string name="fleet_reason_sync_incomplete">config komt niet overeen</string>
+    <string name="fleet_reason_sync_incomplete">config niet geverifieerd</string>
     <string name="fleet_reason_autosync_stale">meer dan een dag niet gesynchroniseerd</string>
     <string name="fleet_reason_autosync_stale_long">meer dan drie dagen niet gesynchroniseerd</string>
     <string name="fleet_reason_traefik_config_stale">Traefik haalt configuratie niet op</string>

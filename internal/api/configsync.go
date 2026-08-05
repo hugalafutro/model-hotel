@@ -386,6 +386,12 @@ type importResponse struct {
 	// Incomplete for the same reason as Partial, and it is what explains a config
 	// hash that will keep differing until this member discovers those models.
 	UnappliedModels []string `json:"unapplied_models,omitempty"`
+	// ModelStateFailed is true when the per-model disable reconcile failed outright,
+	// so this member is still routing to models the primary switched off. It is one
+	// of the two things Incomplete can mean, and without it the reader cannot tell
+	// which: an unbuilt failover group names itself in Unapplied, but a failed
+	// reconcile has no names to give, and was reported as a group failure.
+	ModelStateFailed bool `json:"model_state_failed,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

@@ -143,7 +143,7 @@
 			"drained_to_single": "il ne reste qu'un seul membre actif ; la flotte n'a aucune redondance",
 			"sync_held": "la synchronisation de configuration est suspendue pour un membre (écart de version)",
 			"all_sync_held": "la synchronisation de configuration est suspendue pour chaque membre ; le primaire fait exception",
-			"sync_incomplete": "la configuration d'un membre ne correspond pas à celle du primaire après une synchronisation",
+			"sync_incomplete": "il n'est pas confirmé qu'un membre détient la configuration du primaire",
 			"autosync_stale": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus d'un jour",
 			"autosync_stale_long": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus de trois jours",
 			"traefik_config_stale": "Traefik ne récupère plus la configuration de routage"

@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">un seul membre actif restant</string>
     <string name="fleet_reason_sync_held">synchronisation suspendue</string>
     <string name="fleet_reason_all_sync_held">synchronisation suspendue sur toute la flotte</string>
-    <string name="fleet_reason_sync_incomplete">configuration divergente</string>
+    <string name="fleet_reason_sync_incomplete">configuration non vérifiée</string>
     <string name="fleet_reason_autosync_stale">non synchronisée depuis plus d\'un jour</string>
     <string name="fleet_reason_autosync_stale_long">non synchronisée depuis plus de trois jours</string>
     <string name="fleet_reason_traefik_config_stale">Traefik ne récupère pas la config</string>

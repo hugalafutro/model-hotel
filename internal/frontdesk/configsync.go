@@ -93,8 +93,14 @@ type memberImportResult struct {
 	Partial []string `json:"partial,omitempty"`
 	// UnappliedModels names per-model disables the member could not apply because
 	// it holds no such model. Same disposition as Partial: reported, not a failure.
-	UnappliedModels []string         `json:"unapplied_models,omitempty"`
-	Diff            memberConfigDiff `json:"diff"`
+	UnappliedModels []string `json:"unapplied_models,omitempty"`
+	// ModelStateFailed is true when the member's per-model disable reconcile failed
+	// outright, so it is still routing to models the primary switched off. It is the
+	// other thing Incomplete can mean; without it an unbuilt failover group and a
+	// failed reconcile are indistinguishable, since only the former has names.
+	// Absent on a member running older code, which reads as false.
+	ModelStateFailed bool             `json:"model_state_failed,omitempty"`
+	Diff             memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -323,14 +329,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// per-member result honest. The auto-sync loop does not depend on that, since
 		// the hash comparison decides convergence; what this report adds is the names
 		// below, which make the alert specific.
-		if len(out.Unapplied) > 0 {
-			res.Error = fmt.Sprintf("applied, but %d failover group(s) could not be built here: %s",
-				len(out.Unapplied), strings.Join(out.Unapplied, ", "))
-		} else {
-			// The member's whole group-build transaction failed rather than
-			// skipping individual groups, so it has no names to report here.
-			res.Error = "applied, but this member could not build its failover groups"
-		}
+		res.Error = incompleteMessage(out.Unapplied, out.ModelStateFailed)
 		res.Incomplete = true
 		res.Unapplied = out.Unapplied
 		recordConfigSync("incomplete")
@@ -394,6 +393,32 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		})
 	}
 	return res
+}
+
+// incompleteMessage renders what a member committed but could not materialise.
+//
+// Incomplete covers two faults, and they send the operator to different places: a
+// custom failover group that would not build (those models serve 404 for
+// hotel/<group>), and a per-model disable reconcile that failed (the member is
+// still routing to models the primary switched off). Only the first has names to
+// report, so naming groups whenever there were none reported the wrong fault for
+// the second.
+func incompleteMessage(unapplied []string, modelStateFailed bool) string {
+	var clauses []string
+	if len(unapplied) > 0 {
+		clauses = append(clauses, fmt.Sprintf("%d failover group(s) could not be built here: %s",
+			len(unapplied), strings.Join(unapplied, ", ")))
+	}
+	if modelStateFailed {
+		clauses = append(clauses, "this member could not apply the primary's per-model settings")
+	}
+	if len(clauses) == 0 {
+		// Neither named: an older member reporting incomplete for a fault this build
+		// has no field for, or a whole group-build transaction that failed before any
+		// group was evaluated.
+		return "applied, but this member could not materialise all of it"
+	}
+	return "applied, but " + strings.Join(clauses, ", and ")
 }
 
 // syncFailureMessage renders the operator-facing line for a push that did not

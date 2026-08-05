@@ -135,7 +135,7 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, importResponse{
 		SchemaVersionOK: true, MasterKeyOK: true, Applied: true, Diff: diff,
 		Incomplete: out.incomplete(), Unapplied: out.SkippedGroups, Partial: out.PartialGroups,
-		UnappliedModels: out.UnappliedModels,
+		UnappliedModels: out.UnappliedModels, ModelStateFailed: out.ModelStateErr != nil,
 	})
 }
 

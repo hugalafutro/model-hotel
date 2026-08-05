@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">остался только один активный узел</string>
     <string name="fleet_reason_sync_held">синхронизация приостановлена</string>
     <string name="fleet_reason_all_sync_held">синхронизация приостановлена во всём флоте</string>
-    <string name="fleet_reason_sync_incomplete">конфигурация не совпадает</string>
+    <string name="fleet_reason_sync_incomplete">конфигурация не подтверждена</string>
     <string name="fleet_reason_autosync_stale">не синхронизирован более суток</string>
     <string name="fleet_reason_autosync_stale_long">не синхронизирован более трёх суток</string>
     <string name="fleet_reason_traefik_config_stale">Traefik не получает конфигурацию</string>

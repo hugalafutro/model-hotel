@@ -430,12 +430,12 @@ const modelStateApplyTimeout = 30 * time.Second
 // primary's list, and returns the refs it could not apply because no such model
 // exists here.
 //
-// Both directions are the operator's own action replayed: a ref present here that
-// was not disabled is switched off exactly as Repository.SetEnabled(false) would,
-// and a model disabled here but absent from the list is switched back on exactly
-// as SetEnabled(true) would. That means clearing auto_retired_at and
-// discovery_dismissed_at alongside, because an operator's hand-written enabled
-// flag supersedes what discovery or the proxy concluded (migration 063).
+// Both directions replay the operator's own action: a ref present here that was
+// not disabled is switched off, and a model disabled here but absent from the list
+// is switched back on exactly as Repository.SetEnabled(true) would, clearing
+// auto_retired_at and discovery_dismissed_at alongside, because a hand-written
+// enabled flag supersedes what discovery or the proxy concluded (migration 063).
+// The disable direction leaves those two stamps in place; see below for why.
 //
 // Only disabled_manually rows are touched in the enable direction. A model this
 // member's discovery disabled, or the proxy retired from traffic, is evidence
@@ -470,10 +470,18 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 	// unnest pairs the two arrays back into the (provider name, model_id) rows the
 	// refs came from, so the match is on the whole pair rather than on either half.
 	const wanted = `SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)`
+	// The disable direction deliberately leaves auto_retired_at and
+	// discovery_dismissed_at alone, where Repository.SetEnabled(false) clears both.
+	// The model ends up switched off either way, so neither stamp has anything to
+	// contradict, and they are this member's own evidence about what its provider
+	// served it: clearing them would convert a local traffic retirement into an
+	// operator disable, and a later re-enable on the primary would then put a model
+	// the provider is refusing here back into routing until three more failures
+	// re-retired it. The enable direction below does clear them, because there the
+	// operator is saying to trust the provider's listing again.
 	if _, err := tx.Exec(ctx, `
 		UPDATE models m
-		   SET enabled = false, disabled_manually = true,
-		       auto_retired_at = NULL, discovery_dismissed_at = NULL
+		   SET enabled = false, disabled_manually = true
 		  FROM providers p
 		 WHERE m.provider_id = p.id
 		   AND m.disabled_manually = false

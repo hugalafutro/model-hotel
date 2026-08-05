@@ -401,3 +401,62 @@ func TestConfigSync_ImportReportsAFailedModelReconcile(t *testing.T) {
 		t.Error("Incomplete = false; a reconcile that failed leaves the member routing differently from the primary")
 	}
 }
+
+// A disable landing on a model this member's proxy already retired from traffic
+// must not destroy that provenance. The model is switched off either way, so the
+// retirement stamp has nothing to contradict, and it is this member's own evidence
+// that its provider refuses the model.
+//
+// Losing it is not cosmetic: on a later re-enable at the primary, the enable pass
+// would put a model the provider is still refusing back into routing here, where
+// it fails until three more refusals re-retire it, alerting each cycle.
+func TestConfigSync_DisableKeepsAMembersTrafficRetirement(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedDisabledModel(t, provID, "gpt-4o", disableByTraffic)
+
+	env := disabledModelsEnvelope([]ExportModelRef{{ProviderName: "openai", ModelID: "gpt-4o"}})
+	env.Config.Providers = doExport(t, r).Config.Providers
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	enabled, manual, retired := modelState(t, id)
+	if enabled || !manual {
+		t.Errorf("model state = enabled %v, disabled_manually %v; the primary's disable must still apply", enabled, manual)
+	}
+	if retired == nil {
+		t.Error("auto_retired_at was cleared by a disable, destroying this member's own evidence about its provider")
+	}
+}
+
+// The same for an operator's discovery-claim dismissal on the member: a disable
+// arriving from the primary must not resurrect a claim they already dismissed.
+func TestConfigSync_DisableKeepsAMembersDiscoveryDismissal(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedModel(t, provID, "gpt-4o")
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE models SET discovery_dismissed_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatalf("stamp dismissal: %v", err)
+	}
+
+	env := disabledModelsEnvelope([]ExportModelRef{{ProviderName: "openai", ModelID: "gpt-4o"}})
+	env.Config.Providers = doExport(t, r).Config.Providers
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	var dismissed *time.Time
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT discovery_dismissed_at FROM models WHERE id = $1`, id).Scan(&dismissed); err != nil {
+		t.Fatalf("read dismissal: %v", err)
+	}
+	if dismissed == nil {
+		t.Error("discovery_dismissed_at was cleared by a disable, resurrecting a claim the operator dismissed here")
+	}
+}

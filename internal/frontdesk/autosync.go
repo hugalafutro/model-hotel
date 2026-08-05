@@ -442,8 +442,17 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// hash that stays unreadable is different, and is the fault itself: the
 		// member's convergence can never be established, so leaving it unflagged would
 		// hide it behind a clean fleet indefinitely.
+		//
+		// Gated on the member having had the config, exactly as the measured branch
+		// below is. A member Front Desk has never reached (a typo'd URL, one still
+		// booting) fails this read on every pass, and it is already reported down by
+		// the health poller; flagging it here too would put a second reason on the
+		// fleet for the same fault, in the name of a config comparison that never had a
+		// chance to happen. A member that is up but cannot serve its hash still gets
+		// pushed to on this same pass, so it has had its chance by the next one and is
+		// flagged then.
 		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
-		if s.recordUnreadableHash(m.ID, err, time.Now()) {
+		if s.recordUnreadableHash(m.ID, err, time.Now()) && s.hasBeenPushedSinceReset(m.ID) {
 			s.markMemberUnmeasured(ctx, m)
 		}
 		return false, false

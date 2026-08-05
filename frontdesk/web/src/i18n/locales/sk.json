@@ -143,7 +143,7 @@
 			"drained_to_single": "zostal len jeden aktívny člen; flotila nemá redundanciu",
 			"sync_held": "synchronizácia konfigurácie je pozastavená pre člena (rozdielne verzie)",
 			"all_sync_held": "synchronizácia konfigurácie je pozastavená u každého člena; primárny je výnimkou",
-			"sync_incomplete": "konfigurácia člena po synchronizácii nezodpovedá konfigurácii primárnej inštancie",
+			"sync_incomplete": "u člena nie je potvrdené, že má konfiguráciu primárnej inštancie",
 			"autosync_stale": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako deň",
 			"autosync_stale_long": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako tri dni",
 			"traefik_config_stale": "Traefik prestal načítavať konfiguráciu smerovania"

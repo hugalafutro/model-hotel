@@ -32,7 +32,7 @@
     <string name="fleet_reason_drained_to_single">only one active member left</string>
     <string name="fleet_reason_sync_held">sync held</string>
     <string name="fleet_reason_all_sync_held">sync held fleet-wide</string>
-    <string name="fleet_reason_sync_incomplete">config does not match</string>
+    <string name="fleet_reason_sync_incomplete">config unverified</string>
     <string name="fleet_reason_autosync_stale">unsynced for over a day</string>
     <string name="fleet_reason_autosync_stale_long">unsynced for over three days</string>
     <string name="fleet_reason_traefik_config_stale">Traefik not fetching config</string>

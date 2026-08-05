@@ -30,7 +30,7 @@
     <string name="fleet_reason_drained_to_single">nur ein aktives Mitglied übrig</string>
     <string name="fleet_reason_sync_held">Sync angehalten</string>
     <string name="fleet_reason_all_sync_held">Sync flottenweit angehalten</string>
-    <string name="fleet_reason_sync_incomplete">Config weicht ab</string>
+    <string name="fleet_reason_sync_incomplete">Config ungeprüft</string>
     <string name="fleet_reason_autosync_stale">seit über einem Tag nicht synchronisiert</string>
     <string name="fleet_reason_autosync_stale_long">seit über drei Tagen nicht synchronisiert</string>
     <string name="fleet_reason_traefik_config_stale">Traefik ruft Konfiguration nicht ab</string>
