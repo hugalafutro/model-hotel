@@ -134,20 +134,18 @@ func TestConfigSync_VersionStableAndChanges(t *testing.T) {
 }
 
 // TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically pins the ordering
-// guarantee the config hash rests on. An import writes every virtual key in one
-// transaction, so a whole fleet's keys share a created_at; ordering by created_at
-// alone leaves tied rows in physical row order, which any row rewrite can change.
-// Byte-identical config would then hash differently, and Front Desk reads a hash
-// that differs as a member that has not converged. key_hash is unique, so it makes
-// the order total.
+// guarantee the config hash rests on: virtual keys export in key_hash order,
+// whatever their physical row order, and a row rewrite that changes no exported
+// field moves neither the order nor the hash. Front Desk reads a hash that
+// differs as a member that has not converged, so any physical-order leak here
+// re-syncs a converged member.
 func TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 
 	// Seeded in reverse key_hash order, sharing one created_at, so physical row
-	// order is the opposite of the order the export must produce. Only the
-	// tiebreaker can turn one into the other.
+	// order is the opposite of the order the export must produce.
 	for _, h := range []string{"hash-c", "hash-b", "hash-a"} {
 		if _, err := apiTestDB.Pool().Exec(ctx, `
 			INSERT INTO virtual_keys (name, key_hash, key_preview, created_at)
@@ -168,7 +166,7 @@ func TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically(t *testing.T) {
 
 	want := []string{"hash-a", "hash-b", "hash-c"}
 	if got := exportedHashes(); !slices.Equal(got, want) {
-		t.Fatalf("tied virtual keys exported as %v, want %v (key_hash breaks the created_at tie)", got, want)
+		t.Fatalf("virtual keys exported as %v, want %v (key_hash order, not physical row order)", got, want)
 	}
 	before := doVersion(t, r)
 
@@ -185,6 +183,44 @@ func TestConfigSync_ExportOrdersTiedVirtualKeysDeterministically(t *testing.T) {
 	}
 	if after := doVersion(t, r); after != before {
 		t.Error("the config hash moved after a row rewrite that changed no exported field")
+	}
+}
+
+// TestConfigSync_ImportedMemberHashesLikeThePrimary pins the cross-instance
+// convergence guarantee: a member that imports the primary's envelope must
+// report the primary's config-version hash, or Front Desk re-syncs it forever.
+// The primary's virtual keys carry distinct created_at values in an order that
+// disagrees with key_hash order, while an import writes every key in one
+// transaction (one shared created_at) — so any created_at-dependent export
+// ordering makes the two instances serialize the same config differently and
+// never hash-converge.
+func TestConfigSync_ImportedMemberHashesLikeThePrimary(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	// Chronological order c, b, a: the reverse of key_hash order.
+	for i, h := range []string{"hash-c", "hash-b", "hash-a"} {
+		if _, err := apiTestDB.Pool().Exec(ctx, `
+			INSERT INTO virtual_keys (name, key_hash, key_preview, created_at)
+			VALUES ($1, $2, 'mh-***', TIMESTAMPTZ '2026-08-04 12:00:00+00' + make_interval(mins => $3))`,
+			"vk-"+h, h, i); err != nil {
+			t.Fatalf("seed vk %s: %v", h, err)
+		}
+	}
+
+	env := doExport(t, r)
+	primaryHash := doVersion(t, r)
+
+	// Fresh member: wipe, import the primary's envelope, and measure what Front
+	// Desk's next auto-sync pass would.
+	cleanConfigTables(t)
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if memberHash := doVersion(t, r); memberHash != primaryHash {
+		t.Errorf("imported member hashes %q, primary hashes %q: the fleet can never verify in sync", memberHash, primaryHash)
 	}
 }
 
