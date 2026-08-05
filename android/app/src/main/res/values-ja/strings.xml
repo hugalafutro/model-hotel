@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">アクティブなメンバーが1つだけ</string>
     <string name="fleet_reason_sync_held">同期保留</string>
     <string name="fleet_reason_all_sync_held">フリート全体で同期保留</string>
+    <string name="fleet_reason_sync_incomplete">設定が未確認</string>
     <string name="fleet_reason_autosync_stale">1 日以上未同期</string>
     <string name="fleet_reason_autosync_stale_long">3 日以上未同期</string>
     <string name="fleet_reason_traefik_config_stale">Traefik が設定を取得していません</string>
@@ -138,6 +139,8 @@
     <string name="alerts_event_config_auto_synced">設定を自動同期</string>
     <string name="alerts_event_config_autosync_stale">自動同期オフ、フリート未同期</string>
     <string name="alerts_event_config_sync_held">同期保留（バージョン不一致）</string>
+    <string name="alerts_event_config_sync_incomplete">同期が未確認（メンバー未確認）</string>
+    <string name="alerts_event_config_sync_recovered">同期が再び完了しました</string>
     <string name="alerts_event_version_fetch_failed">バージョン取得に失敗</string>
     <string name="alerts_event_version_fetch_recovered">バージョン取得が復旧</string>
     <string name="alerts_event_traefik_stale">Traefik 設定が古い</string>
@@ -145,6 +148,9 @@
     <string name="alerts_event_member_added">メンバーを追加</string>
     <string name="alerts_event_member_removed">メンバーを削除</string>
     <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>
+    <string name="alerts_event_backup_stale">メンバーに最近のバックアップがない</string>
+    <string name="alerts_event_backup_recovered">メンバーのバックアップが復旧した</string>
+    <string name="alerts_event_backup_pruned">Front Desk のバックアップを削除した</string>
     <string name="event_device_paired">デバイスをペアリング</string>
     <string name="event_device_revoked">デバイスのペアリングを取り消し</string>
     <string name="event_settings_changed">設定を変更</string>

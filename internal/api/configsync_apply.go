@@ -39,19 +39,30 @@ type applyOutcome struct {
 	// but does not on its own mark the import incomplete: a provider outage is
 	// routine, and a discovery failure that matters shows up as skipped groups.
 	DiscoveryErr error
+	// UnappliedModels names per-model disables this member could not apply because
+	// it holds no such model. Like PartialGroups it is reported, not counted as a
+	// failure to apply: the member did everything the envelope asked and simply has
+	// fewer models. It routes to none of them either, so nothing is mis-served; what
+	// it explains is the config hash difference that keeps the member flagged.
+	UnappliedModels []string
+	// ModelStateErr is set when the per-model disable reconcile failed outright.
+	ModelStateErr error
 }
 
 // incomplete reports whether the member failed to materialise part of the
-// config. Driven by the failover group outcome only: a discovery error alone is
-// a routine provider outage, and one that matters surfaces as skipped groups.
+// config: a failover group it could not build, or a per-model disable reconcile
+// that failed outright, both of which leave it routing differently from the
+// primary. A discovery error alone is not one: a provider outage is routine, and
+// one that matters surfaces as skipped groups.
 //
-// PartialGroups is deliberately NOT part of this. A partially built group is not a
-// failure to apply: the member did everything the envelope asked and simply holds
-// fewer models, so it built the group with what it has. It is still configured
-// differently from the primary, but that divergence is established by the config
-// hash. PartialGroups only lets the operator alert say which group is short.
+// PartialGroups and UnappliedModels are deliberately NOT part of this. Both mean
+// the member did everything the envelope asked and simply holds fewer models: it
+// built the group with what it has, and it cannot disable a model it does not
+// have. It is still configured differently from the primary, but that divergence
+// is established by the config hash. These two only let the operator alert say
+// which group is short and which models are missing.
 func (o applyOutcome) incomplete() bool {
-	return o.GroupApplyErr != nil || len(o.SkippedGroups) > 0
+	return o.GroupApplyErr != nil || len(o.SkippedGroups) > 0 || o.ModelStateErr != nil
 }
 
 // apply converges this member to the envelope in one transaction, enforcing the
@@ -372,6 +383,18 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		}
 	}
 
+	// Per-model disables, after discovery for the same reason the group build is:
+	// the rows these refs resolve against are the ones discovery just created. It
+	// runs before the group build only so the model state is settled by the time
+	// anything downstream reads it; upsertFailoverGroups resolves entries by model
+	// presence alone and is indifferent to the order.
+	unapplied, err := h.applyDisabledModels(ctx, env.Config.DisabledModels)
+	out.UnappliedModels = unapplied
+	if err != nil {
+		debuglog.Warn("configsync: failed to apply per-model disables", "error", err)
+		out.ModelStateErr = err
+	}
+
 	// Custom failover groups, in their own transaction now that discovery has had
 	// a chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
@@ -396,6 +419,160 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		h.settings.NotifyDeleted(k)
 	}
 	return out
+}
+
+// modelStateApplyTimeout bounds the per-model disable reconcile. Local database
+// work only, so this deadline means the database is unavailable, not that the
+// fleet has many models.
+const modelStateApplyTimeout = 30 * time.Second
+
+// applyDisabledModels reconciles this member's operator-disabled models to the
+// primary's list, and returns the refs it could not apply because no such model
+// exists here.
+//
+// Both directions replay the operator's own action: a ref present here that was
+// not disabled is switched off, and a model disabled here but absent from the list
+// is switched back on exactly as Repository.SetEnabled(true) would, clearing
+// auto_retired_at and discovery_dismissed_at alongside, because a hand-written
+// enabled flag supersedes what discovery or the proxy concluded (migration 063).
+// The disable direction leaves those two stamps in place; see below for why.
+//
+// Only disabled_manually rows are touched in the enable direction. A model this
+// member's discovery disabled, or the proxy retired from traffic, is evidence
+// about what this member's provider served it, and the primary's list says
+// nothing about that; re-enabling those would revive models the provider is
+// refusing here and churn the failover groups built on them every pass.
+func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []ExportModelRef) ([]string, error) {
+	// Distinguish "field absent" from "explicitly empty", as applyFailoverGroups
+	// does. A nil slice is an envelope from a primary that predates this field, so
+	// leave this member's per-model state alone rather than enabling everything it
+	// has switched off. A non-nil empty slice is a current primary with no disables,
+	// which must reconcile: the enable pass below then clears every stale one.
+	if refs == nil {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, modelStateApplyTimeout)
+	defer cancel()
+
+	providers := make([]string, len(refs))
+	modelIDs := make([]string, len(refs))
+	for i, ref := range refs {
+		providers[i] = ref.ProviderName
+		modelIDs[i] = ref.ModelID
+	}
+
+	tx, err := h.db.Pool().Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// unnest pairs the two arrays back into the (provider name, model_id) rows the
+	// refs came from, so the match is on the whole pair rather than on either half.
+	const wanted = `SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)`
+	// The disable direction deliberately leaves auto_retired_at and
+	// discovery_dismissed_at alone, where Repository.SetEnabled(false) clears both.
+	// The model ends up switched off either way, so neither stamp has anything to
+	// contradict, and they are this member's own evidence about what its provider
+	// served it: clearing them would convert a local traffic retirement into an
+	// operator disable, and a later re-enable on the primary would then put a model
+	// the provider is refusing here back into routing until three more failures
+	// re-retired it. The enable direction below does clear them, because there the
+	// operator is saying to trust the provider's listing again.
+	// Unnarrowed on purpose. Skipping rows already flagged disabled_manually would
+	// be the obvious optimisation, but nothing constrains that flag against enabled,
+	// so a row carrying both would be passed over here and still counted present,
+	// leaving it routing and reported as applied. The write is idempotent, so
+	// covering every matched row costs nothing and repairs such a row instead.
+	if _, err := tx.Exec(ctx, `
+		UPDATE models m
+		   SET enabled = false, disabled_manually = true
+		  FROM providers p
+		 WHERE m.provider_id = p.id
+		   AND EXISTS (`+wanted+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
+		providers, modelIDs); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE models m
+		   SET enabled = true, disabled_manually = false,
+		       auto_retired_at = NULL, discovery_dismissed_at = NULL
+		  FROM providers p
+		 WHERE m.provider_id = p.id
+		   AND m.disabled_manually = true
+		   AND NOT EXISTS (`+wanted+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
+		providers, modelIDs); err != nil {
+		return nil, err
+	}
+
+	// Which of the primary's refs this member actually holds. Read inside the same
+	// transaction as the writes, so the report describes the state that committed.
+	rows, err := tx.Query(ctx, `
+		SELECT p.name, m.model_id
+		  FROM models m JOIN providers p ON m.provider_id = p.id
+		 WHERE EXISTS (`+wanted+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
+		providers, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	present := map[ExportModelRef]bool{}
+	for rows.Next() {
+		var ref ExportModelRef
+		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		present[ref] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Acknowledge the refs there is no model here to apply, so this member's own
+	// export carries the primary's full intent and the two hash alike. Written in
+	// the same transaction as the disables themselves: a member that recorded the
+	// acknowledgement without applying what it could, or the reverse, would export a
+	// list describing neither state.
+	var unappliedRefs []ExportModelRef
+	for _, ref := range refs {
+		if !present[ref] {
+			unappliedRefs = append(unappliedRefs, ref)
+		}
+	}
+	if err := writeUnappliedModelDisables(ctx, tx, unappliedRefs); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	// The writes bypassed the model cache, and the proxy reads routability from it.
+	model.InvalidateModelCache()
+
+	unapplied := make([]string, 0, len(unappliedRefs))
+	for _, ref := range unappliedRefs {
+		unapplied = append(unapplied, ref.String())
+	}
+	return unapplied, nil
+}
+
+// writeUnappliedModelDisables records the disable refs this member could not
+// apply, replacing whatever it held before. Always written, including as an empty
+// list: a member that has just discovered the missing models must stop claiming
+// them, or it would keep exporting intent it now genuinely applies.
+func writeUnappliedModelDisables(ctx context.Context, tx pgx.Tx, refs []ExportModelRef) error {
+	if refs == nil {
+		refs = []ExportModelRef{}
+	}
+	encoded, err := json.Marshal(refs)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+		keyFleetUnappliedModelDisables, string(encoded))
+	return err
 }
 
 // applyFailoverGroups upserts the custom failover groups and declaratively

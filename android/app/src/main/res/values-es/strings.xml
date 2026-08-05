@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">solo queda un miembro activo</string>
     <string name="fleet_reason_sync_held">sincronización retenida</string>
     <string name="fleet_reason_all_sync_held">sincronización retenida en toda la flota</string>
+    <string name="fleet_reason_sync_incomplete">configuración sin verificar</string>
     <string name="fleet_reason_autosync_stale">sin sincronizar más de un día</string>
     <string name="fleet_reason_autosync_stale_long">sin sincronizar más de tres días</string>
     <string name="fleet_reason_traefik_config_stale">Traefik no obtiene la configuración</string>
@@ -141,6 +142,8 @@
     <string name="alerts_event_config_auto_synced">Configuración sincronizada automáticamente</string>
     <string name="alerts_event_config_autosync_stale">Sincronización automática desactivada, flota sin sincronizar</string>
     <string name="alerts_event_config_sync_held">Sincronización retenida (desfase de versiones)</string>
+    <string name="alerts_event_config_sync_incomplete">Sincronización sin verificar (miembro no confirmado)</string>
+    <string name="alerts_event_config_sync_recovered">Sincronización completa de nuevo</string>
     <string name="alerts_event_version_fetch_failed">Fallo al leer la versión</string>
     <string name="alerts_event_version_fetch_recovered">Lectura de versión recuperada</string>
     <string name="alerts_event_traefik_stale">Configuración de Traefik obsoleta</string>
@@ -148,6 +151,9 @@
     <string name="alerts_event_member_added">Miembro añadido</string>
     <string name="alerts_event_member_removed">Miembro eliminado</string>
     <string name="alerts_event_member_state_changed">Miembro drenado o activado</string>
+    <string name="alerts_event_backup_stale">Miembro sin copia reciente</string>
+    <string name="alerts_event_backup_recovered">Miembro con copias al día de nuevo</string>
+    <string name="alerts_event_backup_pruned">Copias de Front Desk borradas</string>
     <string name="event_device_paired">Dispositivo emparejado</string>
     <string name="event_device_revoked">Dispositivo revocado</string>
     <string name="event_settings_changed">Ajustes modificados</string>

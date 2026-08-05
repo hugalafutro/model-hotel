@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -571,4 +572,73 @@ func TestSetAlertEventsClosedStore(t *testing.T) {
 	if err := store.SetAlertEvents(context.Background(), "health.down"); err == nil {
 		t.Error("SetAlertEvents on closed store returned nil error")
 	}
+}
+
+// bellhopRoot is Bellhop's source tree, relative to this package.
+const bellhopRoot = "../../android/app/src/main"
+
+// TestBellhopLabelsCoverEveryWireCode enforces the contract the reason codes were
+// introduced for: every dotted event type and every fleet reason code Front Desk
+// publishes must have a human label in the Android client. Bellhop falls back to
+// rendering the raw code, which is a documented safety net for a client older than
+// the server, not an acceptable resting state for codes that ship together.
+//
+// It reads Bellhop's two lookup tables and checks each code appears as a quoted
+// literal, the same source-scanning approach as TestCatalogTypesAreEmitted. That
+// catches the drift this guards, a code added server-side and never labelled,
+// without needing the Android toolchain in a Go test run.
+func TestBellhopLabelsCoverEveryWireCode(t *testing.T) {
+	read := func(path string) string {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Clean(filepath.Join(bellhopRoot, path)))
+		if err != nil {
+			t.Fatalf("read Bellhop source: %v", err)
+		}
+		return string(b)
+	}
+
+	eventLabels := read("kotlin/com/hugalafutro/bellhop/ui/common/EventLabels.kt")
+	for _, def := range fdCatalog {
+		if !strings.Contains(eventLabels, `"`+def.Type+`"`) {
+			t.Errorf("event %q has no Bellhop label; the app would render the raw wire code", def.Type)
+		}
+	}
+
+	// Derived from fleetstate.go rather than listed here. A hand-written list only
+	// guards the codes someone remembered to add to it, which is the half of this
+	// contract that most needs guarding: a new reason emitted server-side would
+	// otherwise pass this test and go straight to rendering as a raw code on a
+	// phone.
+	reasons := fleetReasonCodes(t)
+	fleetLabels := read("kotlin/com/hugalafutro/bellhop/ui/dashboard/DashboardScreen.kt")
+	for _, code := range reasons {
+		if !strings.Contains(fleetLabels, `"`+code+`"`) {
+			t.Errorf("fleet reason %q has no Bellhop label; the app would render the raw wire code", code)
+		}
+	}
+}
+
+// fleetReasonCodes reads every reason code declared in fleetstate.go. The
+// declarations are string literals in one const block, so a new one is picked up
+// with no second place to update.
+//
+// The floor is not decoration: a regex that silently matched nothing would make
+// the caller pass while checking nothing at all, which is the failure mode this
+// whole test exists to prevent, one level up.
+func fleetReasonCodes(t *testing.T) []string {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Clean("fleetstate.go"))
+	if err != nil {
+		t.Fatalf("read fleetstate.go: %v", err)
+	}
+	re := regexp.MustCompile(`(?m)^\s*reason\w+\s*=\s*"([^"]+)"`)
+	matches := re.FindAllStringSubmatch(string(src), -1)
+	codes := make([]string, 0, len(matches))
+	for _, m := range matches {
+		codes = append(codes, m[1])
+	}
+	if len(codes) < 10 {
+		t.Fatalf("found %d fleet reason codes in fleetstate.go, want at least the 10 that exist; the scan is not matching", len(codes))
+	}
+	return codes
 }

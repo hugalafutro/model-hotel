@@ -58,6 +58,10 @@ type syncResultItem struct {
 	// entries than the primary sent. It rides alongside a successful result: the
 	// member applied everything it was asked to, it just holds fewer models.
 	Partial []string `json:"partial,omitempty"`
+	// UnappliedModels names per-model disables the member could not apply because
+	// it holds no such model, as provider/model_id. Rides alongside a successful
+	// result for the same reason as Partial.
+	UnappliedModels []string `json:"unapplied_models,omitempty"`
 	// TimedOut marks a push whose deadline expired before the member answered. The
 	// member may well have committed the config and just taken longer than
 	// memberSyncTimeout to say so, which is what a long member-side discovery looks
@@ -86,8 +90,17 @@ type memberImportResult struct {
 	// than the primary sent, because it holds fewer of their models. Travels with
 	// Incomplete = false: the member applied everything it was asked to. Divergence
 	// is decided by the hash; this only makes the alert specific.
-	Partial []string         `json:"partial,omitempty"`
-	Diff    memberConfigDiff `json:"diff"`
+	Partial []string `json:"partial,omitempty"`
+	// UnappliedModels names per-model disables the member could not apply because
+	// it holds no such model. Same disposition as Partial: reported, not a failure.
+	UnappliedModels []string `json:"unapplied_models,omitempty"`
+	// ModelStateFailed is true when the member's per-model disable reconcile failed
+	// outright, so it is still routing to models the primary switched off. It is the
+	// other thing Incomplete can mean; without it an unbuilt failover group and a
+	// failed reconcile are indistinguishable, since only the former has names.
+	// Absent on a member running older code, which reads as false.
+	ModelStateFailed bool             `json:"model_state_failed,omitempty"`
+	Diff             memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -269,10 +282,12 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
-	// Carried on the success path too: a group built short is not a failure to
-	// apply, so it never reaches the incomplete arm below, and the auto-sync loop
-	// needs the names for its divergence alert.
+	// Carried on the success path too: neither a group built short nor a disable
+	// the member has no model for is a failure to apply, so neither reaches the
+	// incomplete arm below, and the auto-sync loop needs the names for its
+	// divergence alert.
 	res.Partial = out.Partial
+	res.UnappliedModels = out.UnappliedModels
 	switch {
 	case err != nil && status == 0 && isTimeout(err):
 		// The deadline expired with the member still working, so unlike a refusal or an
@@ -314,14 +329,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// per-member result honest. The auto-sync loop does not depend on that, since
 		// the hash comparison decides convergence; what this report adds is the names
 		// below, which make the alert specific.
-		if len(out.Unapplied) > 0 {
-			res.Error = fmt.Sprintf("applied, but %d failover group(s) could not be built here: %s",
-				len(out.Unapplied), strings.Join(out.Unapplied, ", "))
-		} else {
-			// The member's whole group-build transaction failed rather than
-			// skipping individual groups, so it has no names to report here.
-			res.Error = "applied, but this member could not build its failover groups"
-		}
+		res.Error = incompleteMessage(out.Unapplied, out.ModelStateFailed)
 		res.Incomplete = true
 		res.Unapplied = out.Unapplied
 		recordConfigSync("incomplete")
@@ -376,13 +384,72 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
+		// A timed-out push is published at info, not warning. The type stays the same,
+		// because it is still the outcome of a push that did not converge the member
+		// and belongs in the same log, but alert dispatch derives its notification
+		// severity from the live event, and paging an operator at warning for a
+		// condition this very message describes as probably fine is noise. The caller
+		// agrees with the message: it stamps the push as received and rate-limits the
+		// re-push on exactly that reading. A member that is genuinely refusing, or
+		// unreachable, or mismatched, still warns.
+		severity := "warning"
+		if res.TimedOut {
+			severity = "info"
+		}
 		s.emit(ctx, Event{
-			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
-			Message: fmt.Sprintf("Failed to sync config to %s", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"reason": reason},
+			Type: "config.sync_failed", Severity: severity, Source: "frontdesk",
+			Message: syncFailureMessage(m.Name, res.Error, res.TimedOut), MemberID: m.ID,
+			// error carries the specific cause the message renders; timed_out is always
+			// present so a consumer reads one shape rather than testing for the key.
+			Metadata: map[string]any{"reason": reason, "error": res.Error, "timed_out": res.TimedOut},
 		})
 	}
 	return res
+}
+
+// incompleteMessage renders what a member committed but could not materialise.
+//
+// Incomplete covers two faults, and they send the operator to different places: a
+// custom failover group that would not build (those models serve 404 for
+// hotel/<group>), and a per-model disable reconcile that failed (the member is
+// still routing to models the primary switched off). Only the first has names to
+// report, so naming groups whenever there were none reported the wrong fault for
+// the second.
+func incompleteMessage(unapplied []string, modelStateFailed bool) string {
+	var clauses []string
+	if len(unapplied) > 0 {
+		clauses = append(clauses, fmt.Sprintf("%d failover group(s) could not be built here: %s",
+			len(unapplied), strings.Join(unapplied, ", ")))
+	}
+	if modelStateFailed {
+		clauses = append(clauses, "this member could not apply the primary's per-model settings")
+	}
+	if len(clauses) == 0 {
+		// Neither named: an older member reporting incomplete for a fault this build
+		// has no field for, or a whole group-build transaction that failed before any
+		// group was evaluated.
+		return "applied, but this member could not materialise all of it"
+	}
+	return "applied, but " + strings.Join(clauses, ", and ")
+}
+
+// syncFailureMessage renders the operator-facing line for a push that did not
+// converge the member, from the specific cause rather than a bare "failed": the
+// causes range from an unreachable host to a MASTER_KEY mismatch, and each points
+// at different work.
+//
+// A timed-out push gets its own wording because it is not a refusal. The member
+// took the request and is very likely still importing; the caller stamps it as
+// received and rate-limits the re-push on exactly that reading. Calling it a
+// failure sends the operator after a member that is working.
+func syncFailureMessage(member, cause string, timedOut bool) string {
+	if timedOut {
+		return fmt.Sprintf("%s did not answer the config push in time; it may still be applying", member)
+	}
+	if cause == "" {
+		return fmt.Sprintf("Failed to sync config to %s", member)
+	}
+	return fmt.Sprintf("Failed to sync config to %s: %s", member, cause)
 }
 
 // isTimeout reports whether a member call failed because its deadline expired, as

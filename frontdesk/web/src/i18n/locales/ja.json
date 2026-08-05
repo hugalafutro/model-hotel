@@ -143,7 +143,7 @@
 			"drained_to_single": "アクティブなメンバーが1つだけです。フリートに冗長性がありません",
 			"sync_held": "メンバーの設定同期が保留されています（バージョン不一致）",
 			"all_sync_held": "すべてのメンバーで設定同期が保留されています。プライマリだけが例外です",
-			"sync_incomplete": "同期後もメンバーの設定がプライマリの設定と一致していません",
+			"sync_incomplete": "メンバーがプライマリの設定を保持しているか確認できていません",
 			"autosync_stale": "自動同期がオフで、フリートは1日以上同期されていません",
 			"autosync_stale_long": "自動同期がオフで、フリートは3日以上同期されていません",
 			"traefik_config_stale": "Traefik がルーティング設定の取得を停止しました"
@@ -284,7 +284,7 @@
 				"config_auto_synced": "自動同期がフリートに適用されました",
 				"config_autosync_stale": "自動同期オフ、フリート未同期",
 				"config_sync_held": "同期保留（バージョン不一致）",
-				"config_sync_incomplete": "同期が不完全です（メンバーが一致しません）",
+				"config_sync_incomplete": "同期が未確認（メンバー未確認）",
 				"config_sync_recovered": "同期が再び完了しました",
 				"version_fetch_failed": "メンバーバージョンを読み取れません",
 				"version_fetch_recovered": "メンバーバージョンが読み取り可能になりました",

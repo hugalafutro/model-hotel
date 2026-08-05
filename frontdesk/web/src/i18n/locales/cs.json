@@ -143,7 +143,7 @@
 			"drained_to_single": "zůstává jen jeden aktivní člen; flotila nemá redundanci",
 			"sync_held": "synchronizace konfigurace je pozastavena pro člena (rozdílné verze)",
 			"all_sync_held": "synchronizace konfigurace je pozastavena u každého člena; primární instance je výjimkou",
-			"sync_incomplete": "konfigurace člena po synchronizaci neodpovídá konfiguraci primární instance",
+			"sync_incomplete": "u člena není potvrzeno, že má konfiguraci primární instance",
 			"autosync_stale": "automatická synchronizace je vypnutá a flotila nebyla synchronizována více než den",
 			"autosync_stale_long": "automatická synchronizace je vypnutá a flotila nebyla synchronizována více než tři dny",
 			"traefik_config_stale": "Traefik přestal načítat konfiguraci směrování"
@@ -292,7 +292,7 @@
 				"config_auto_synced": "Automatická synchronizace aplikována na flotilu",
 				"config_autosync_stale": "Automatická synchronizace vypnutá, flotila nesynchronizovaná",
 				"config_sync_held": "Synchronizace pozastavena (rozdílné verze)",
-				"config_sync_incomplete": "Synchronizace neúplná (člen neodpovídá)",
+				"config_sync_incomplete": "Synchronizace neověřena (člen nepotvrzen)",
 				"config_sync_recovered": "Synchronizace je opět úplná",
 				"version_fetch_failed": "Verze člena nečitelná",
 				"version_fetch_recovered": "Verze člena opět čitelná",

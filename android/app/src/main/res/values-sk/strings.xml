@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">zostáva len jeden aktívny člen</string>
     <string name="fleet_reason_sync_held">synchronizácia pozastavená</string>
     <string name="fleet_reason_all_sync_held">synchronizácia pozastavená v celej flotile</string>
+    <string name="fleet_reason_sync_incomplete">konfigurácia neoverená</string>
     <string name="fleet_reason_autosync_stale">nesynchronizované viac ako deň</string>
     <string name="fleet_reason_autosync_stale_long">nesynchronizované viac ako tri dni</string>
     <string name="fleet_reason_traefik_config_stale">Traefik nenačítava konfiguráciu</string>
@@ -147,6 +148,8 @@
     <string name="alerts_event_config_auto_synced">Konfigurácia automaticky synchronizovaná</string>
     <string name="alerts_event_config_autosync_stale">Automatická synchronizácia vypnutá, flotila nesynchronizovaná</string>
     <string name="alerts_event_config_sync_held">Synchronizácia pozastavená (rozdielne verzie)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronizácia neoverená (člen nepotvrdený)</string>
+    <string name="alerts_event_config_sync_recovered">Synchronizácia je opäť úplná</string>
     <string name="alerts_event_version_fetch_failed">Čítanie verzie zlyhalo</string>
     <string name="alerts_event_version_fetch_recovered">Čítanie verzie obnovené</string>
     <string name="alerts_event_traefik_stale">Konfigurácia Traefiku zastaraná</string>
@@ -154,6 +157,9 @@
     <string name="alerts_event_member_added">Člen pridaný</string>
     <string name="alerts_event_member_removed">Člen odstránený</string>
     <string name="alerts_event_member_state_changed">Člen odstavený alebo aktivovaný</string>
+    <string name="alerts_event_backup_stale">Člen bez aktuálnej zálohy</string>
+    <string name="alerts_event_backup_recovered">Člen sa opäť zálohuje</string>
+    <string name="alerts_event_backup_pruned">Zálohy od Front Desku zmazané</string>
     <string name="event_device_paired">Zariadenie spárované</string>
     <string name="event_device_revoked">Spárovanie zariadenia zrušené</string>
     <string name="event_settings_changed">Nastavenia zmenené</string>

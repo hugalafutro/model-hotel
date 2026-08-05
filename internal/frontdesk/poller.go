@@ -381,6 +381,67 @@ func activeMemberCount(members []*Member) int {
 	return n
 }
 
+// fleetPrimary resolves which member the fleet's primary is, for the announce,
+// and returns its current name from the live roster.
+//
+// Two sources can name a primary, and which one is authoritative depends on
+// whether auto-sync is running. While it is, the operator's designation is the
+// live answer: it is what the loop pushes from, and it takes effect the moment
+// they repoint, where the last-sync marker still names whichever member drove the
+// previous run. With auto-sync off the designation is dormant configuration, it
+// survives being switched off (clearing it needs a confirmed token), and the last
+// wizard run is then the more recent operator act, so the marker wins.
+//
+// A candidate that is not in the roster is skipped rather than returned: a
+// designation left pointing at a removed member would otherwise beat a marker that
+// still names a real one, and every member would be told there is no primary.
+//
+// Nothing resolving means no member is flagged primary. The membership signal is
+// still worth sending, so the caller continues without one rather than aborting; a
+// read error is treated the same way.
+func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name string, ok bool) {
+	cfg, cfgErr := p.store.GetAutoSync(ctx)
+	if cfgErr != nil {
+		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)
+	}
+	designated := ""
+	if cfgErr == nil {
+		designated = cfg.PrimaryID
+	}
+	state, hasMarker, stateErr := p.store.GetFleetSyncState(ctx)
+	if stateErr != nil {
+		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", stateErr)
+		hasMarker = false
+	}
+	marked := ""
+	if hasMarker {
+		marked = state.PrimaryID
+	}
+
+	// designated is empty unless the read succeeded, so the error case needs no arm
+	// of its own here: it simply contributes no candidate.
+	var candidates []string
+	if designated != "" && cfg.Enabled {
+		candidates = append(candidates, designated)
+	}
+	if marked != "" {
+		candidates = append(candidates, marked)
+	}
+	// A designation with auto-sync off still beats naming nobody.
+	if designated != "" && !cfg.Enabled {
+		candidates = append(candidates, designated)
+	}
+
+	for _, want := range candidates {
+		for _, m := range members {
+			if m.ID == want {
+				return m.ID, m.Name, true
+			}
+		}
+	}
+	return "", "", false
+}
+
 // PollAnnounceOnce tells every reachable, tokened member that Front Desk is in
 // contact, and which member is the fleet primary. It is the producing half of
 // HA Phase 6: a member uses these announces to light up the HA line on its own
@@ -393,14 +454,9 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 		debuglog.Warn("frontdesk: poll announce: list members", "error", err)
 		return
 	}
-	// The recorded last-sync marker names the fleet primary. Absent (no sync has
-	// ever run) means no member is flagged primary yet; the membership signal is
-	// still worth sending, so continue without a primary rather than abort.
-	state, hasPrimary, err := p.store.GetFleetSyncState(ctx)
-	if err != nil {
-		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", err)
-		hasPrimary = false
-	}
+	// Resolved against the live roster, so a renamed primary announces its current
+	// name and a designation pointing at a removed member never wins.
+	primaryID, primaryName, hasPrimary := p.fleetPrimary(ctx, members)
 	activeCount := activeMemberCount(members)
 	for _, m := range members {
 		token, ok, err := p.store.MemberToken(ctx, m.ID)
@@ -408,12 +464,10 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 			continue // no stored token: the announce endpoint needs admin auth
 		}
 		ann := memberAnnounce{
-			IsPrimary:     hasPrimary && m.ID == state.PrimaryID,
+			IsPrimary:     hasPrimary && m.ID == primaryID,
+			PrimaryName:   primaryName,
 			FrontdeskID:   p.frontdeskID,
 			ActiveMembers: activeCount,
-		}
-		if hasPrimary {
-			ann.PrimaryName = state.PrimaryName
 		}
 		if err := p.announceToMember(ctx, m.URL, token, ann); err != nil {
 			if errors.Is(err, errAnnounceConflict) {

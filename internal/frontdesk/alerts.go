@@ -30,6 +30,8 @@ var fdCatalog = []alert.EventDef{
 	{Type: "health.down", Category: "Health", Severity: "error", DefaultOn: true},
 	{Type: "health.up", Category: "Health", Severity: "success", DefaultOn: true},
 	// Config sync (manual wizard + auto-sync). A failed push is the headline alert.
+	// Published at info instead when the push merely timed out, which is a member
+	// still importing rather than one refusing; the dot here is the common case.
 	{Type: "config.sync_failed", Category: "Config Sync", Severity: "warning", DefaultOn: true},
 	{Type: "config.synced", Category: "Config Sync", Severity: "info", DefaultOn: false},
 	{Type: "config.auto_synced", Category: "Config Sync", Severity: "info", DefaultOn: false},

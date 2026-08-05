@@ -584,6 +584,7 @@ private fun fleetReasonLabel(code: String): String =
         "drained_to_single" -> stringResource(R.string.fleet_reason_drained_to_single)
         "sync_held" -> stringResource(R.string.fleet_reason_sync_held)
         "all_sync_held" -> stringResource(R.string.fleet_reason_all_sync_held)
+        "sync_incomplete" -> stringResource(R.string.fleet_reason_sync_incomplete)
         "autosync_stale" -> stringResource(R.string.fleet_reason_autosync_stale)
         "autosync_stale_long" -> stringResource(R.string.fleet_reason_autosync_stale_long)
         "traefik_config_stale" -> stringResource(R.string.fleet_reason_traefik_config_stale)

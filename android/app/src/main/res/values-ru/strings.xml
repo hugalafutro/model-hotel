@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">остался только один активный узел</string>
     <string name="fleet_reason_sync_held">синхронизация приостановлена</string>
     <string name="fleet_reason_all_sync_held">синхронизация приостановлена во всём флоте</string>
+    <string name="fleet_reason_sync_incomplete">конфигурация не подтверждена</string>
     <string name="fleet_reason_autosync_stale">не синхронизирован более суток</string>
     <string name="fleet_reason_autosync_stale_long">не синхронизирован более трёх суток</string>
     <string name="fleet_reason_traefik_config_stale">Traefik не получает конфигурацию</string>
@@ -147,6 +148,8 @@
     <string name="alerts_event_config_auto_synced">Конфигурация синхронизирована автоматически</string>
     <string name="alerts_event_config_autosync_stale">Автосинхронизация выключена, флот не синхронизирован</string>
     <string name="alerts_event_config_sync_held">Синхронизация приостановлена (расхождение версий)</string>
+    <string name="alerts_event_config_sync_incomplete">Синхронизация не подтверждена (узел не подтверждён)</string>
+    <string name="alerts_event_config_sync_recovered">Синхронизация снова полная</string>
     <string name="alerts_event_version_fetch_failed">Сбой чтения версии</string>
     <string name="alerts_event_version_fetch_recovered">Чтение версии восстановлено</string>
     <string name="alerts_event_traefik_stale">Конфигурация Traefik устарела</string>
@@ -154,6 +157,9 @@
     <string name="alerts_event_member_added">Узел добавлен</string>
     <string name="alerts_event_member_removed">Узел удалён</string>
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
+    <string name="alerts_event_backup_stale">У участника нет свежей резервной копии</string>
+    <string name="alerts_event_backup_recovered">Участник снова резервируется</string>
+    <string name="alerts_event_backup_pruned">Копии Front Desk удалены</string>
     <string name="event_device_paired">Устройство сопряжено</string>
     <string name="event_device_revoked">Сопряжение устройства отозвано</string>
     <string name="event_settings_changed">Настройки изменены</string>

@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">仅剩一个活动成员</string>
     <string name="fleet_reason_sync_held">同步已暂停</string>
     <string name="fleet_reason_all_sync_held">整个集群同步已暂停</string>
+    <string name="fleet_reason_sync_incomplete">配置未验证</string>
     <string name="fleet_reason_autosync_stale">超过一天未同步</string>
     <string name="fleet_reason_autosync_stale_long">超过三天未同步</string>
     <string name="fleet_reason_traefik_config_stale">Traefik 未获取配置</string>
@@ -138,6 +139,8 @@
     <string name="alerts_event_config_auto_synced">配置已自动同步</string>
     <string name="alerts_event_config_autosync_stale">自动同步已关闭，集群未同步</string>
     <string name="alerts_event_config_sync_held">同步已暂停（版本不一致）</string>
+    <string name="alerts_event_config_sync_incomplete">同步未验证（成员未确认）</string>
+    <string name="alerts_event_config_sync_recovered">同步再次完成</string>
     <string name="alerts_event_version_fetch_failed">版本读取失败</string>
     <string name="alerts_event_version_fetch_recovered">版本读取已恢复</string>
     <string name="alerts_event_traefik_stale">Traefik 配置已过时</string>
@@ -145,6 +148,9 @@
     <string name="alerts_event_member_added">成员已添加</string>
     <string name="alerts_event_member_removed">成员已移除</string>
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>
+    <string name="alerts_event_backup_stale">成员没有最近的备份</string>
+    <string name="alerts_event_backup_recovered">成员备份已恢复</string>
+    <string name="alerts_event_backup_pruned">已清除 Front Desk 备份</string>
     <string name="event_device_paired">设备已配对</string>
     <string name="event_device_revoked">设备配对已撤销</string>
     <string name="event_settings_changed">设置已更改</string>

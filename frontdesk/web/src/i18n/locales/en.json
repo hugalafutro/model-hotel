@@ -143,7 +143,7 @@
 			"drained_to_single": "only one active member is left; the fleet has no redundancy",
 			"sync_held": "config sync is held for a member (version skew)",
 			"all_sync_held": "config sync is held for every member; the primary is the odd one out",
-			"sync_incomplete": "a member's config does not match the primary's after a sync",
+			"sync_incomplete": "a member is not confirmed to hold the primary's config",
 			"autosync_stale": "auto-sync is off and the fleet has not been synced in over a day",
 			"autosync_stale_long": "auto-sync is off and the fleet has not been synced in over three days",
 			"traefik_config_stale": "Traefik has stopped fetching the routing config"
@@ -284,7 +284,7 @@
 				"config_auto_synced": "Auto-sync applied to the fleet",
 				"config_autosync_stale": "Auto-sync off, fleet not synced",
 				"config_sync_held": "Sync held (version skew)",
-				"config_sync_incomplete": "Sync incomplete (member does not match)",
+				"config_sync_incomplete": "Sync unverified (member not confirmed)",
 				"config_sync_recovered": "Sync complete again",
 				"version_fetch_failed": "Member version unreadable",
 				"version_fetch_recovered": "Member version readable again",

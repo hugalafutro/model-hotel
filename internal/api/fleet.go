@@ -57,6 +57,21 @@ const (
 	// never overwrite a newer config that already landed. Stored as a decimal
 	// int64; absent on a member that has never taken a fenced import.
 	keyFleetLastSourceGen = "_fleet_last_source_gen"
+	// keyFleetUnappliedModelDisables holds the per-model disables the primary sent
+	// that this member has no model to apply, as a JSON array of {provider_name,
+	// model_id}. It is what keeps such a member converging instead of diverging
+	// forever: the member cannot disable a model it does not have, so a list derived
+	// from its rows alone could never equal the primary's, and the two would hash
+	// differently on every pass for good. Acknowledging the intent and exporting it
+	// alongside the applied disables makes the hashes agree, and nothing is
+	// mis-served in the meantime, because a member cannot route to a model it does
+	// not have either.
+	//
+	// Instance-local like the other _fleet_* keys, and rewritten wholesale by each
+	// import, so it can never outlive the intent that created it: when the model
+	// appears the next import applies it for real and it drops off this list, and
+	// when the operator re-enables the model the list no longer carries it.
+	keyFleetUnappliedModelDisables = "_fleet_unapplied_model_disables"
 	// keyFleetActiveMembers is the fleet-wide count of StateActive members,
 	// delivered by Front Desk's announce heartbeat. The rate limiters read it as a
 	// fair-share divisor. Instance-local like the other _fleet_* keys: written via

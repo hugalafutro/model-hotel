@@ -346,7 +346,7 @@ func TestCheckFleetStateEmitsIncompleteTransition(t *testing.T) {
 		t.Fatalf("baseline emitted %d events, want 0", len(evs))
 	}
 
-	srv.recordSyncAttempt(m1.ID, []string{"fast"}, nil)
+	srv.recordSyncAttempt(m1.ID, []string{"fast"}, nil, nil)
 	srv.markMemberIncomplete(ctx, m1)
 	srv.checkFleetState(ctx)
 	evs := fleetStateEvents(ctx, t, srv)

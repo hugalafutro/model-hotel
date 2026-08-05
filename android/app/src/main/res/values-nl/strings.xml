@@ -30,6 +30,7 @@
     <string name="fleet_reason_drained_to_single">nog maar één actief lid</string>
     <string name="fleet_reason_sync_held">sync aangehouden</string>
     <string name="fleet_reason_all_sync_held">sync vlootbreed aangehouden</string>
+    <string name="fleet_reason_sync_incomplete">config niet geverifieerd</string>
     <string name="fleet_reason_autosync_stale">meer dan een dag niet gesynchroniseerd</string>
     <string name="fleet_reason_autosync_stale_long">meer dan drie dagen niet gesynchroniseerd</string>
     <string name="fleet_reason_traefik_config_stale">Traefik haalt configuratie niet op</string>
@@ -141,6 +142,8 @@
     <string name="alerts_event_config_auto_synced">Configuratie automatisch gesynchroniseerd</string>
     <string name="alerts_event_config_autosync_stale">Auto-sync uit, vloot niet gesynchroniseerd</string>
     <string name="alerts_event_config_sync_held">Sync aangehouden (versieverschil)</string>
+    <string name="alerts_event_config_sync_incomplete">Synchronisatie niet geverifieerd (member niet bevestigd)</string>
+    <string name="alerts_event_config_sync_recovered">Synchronisatie weer volledig</string>
     <string name="alerts_event_version_fetch_failed">Versie lezen mislukt</string>
     <string name="alerts_event_version_fetch_recovered">Versie lezen hersteld</string>
     <string name="alerts_event_traefik_stale">Traefik-configuratie verouderd</string>
@@ -148,6 +151,9 @@
     <string name="alerts_event_member_added">Lid toegevoegd</string>
     <string name="alerts_event_member_removed">Lid verwijderd</string>
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
+    <string name="alerts_event_backup_stale">Lid zonder recente back-up</string>
+    <string name="alerts_event_backup_recovered">Lid wordt weer geback-upt</string>
+    <string name="alerts_event_backup_pruned">Front Desk-back-ups gewist</string>
     <string name="event_device_paired">Apparaat gekoppeld</string>
     <string name="event_device_revoked">Apparaatkoppeling ingetrokken</string>
     <string name="event_settings_changed">Instellingen gewijzigd</string>

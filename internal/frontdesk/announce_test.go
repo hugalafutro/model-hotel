@@ -241,3 +241,260 @@ func memberIDByName(ctx context.Context, t *testing.T, store *Store, name string
 	t.Fatalf("member %q not found", name)
 	return ""
 }
+
+// TestPollAnnounceOnce_FlagsTheDesignatedPrimaryWithoutASyncRun: the fleet's
+// primary is whichever member the operator designated, from the moment they
+// designated it. Nothing has to have been written yet.
+//
+// This is the bug the announce carried: it read the primary from the last-sync
+// marker, which only the wizard writes. A fleet driven by automatic sync alone
+// therefore never had one, so every member was told is_primary=false, including
+// the primary. Each then read itself as a managed member and refused provider,
+// virtual-key, user and synced-settings edits with a 403, on the one instance
+// those edits are supposed to be made.
+func TestPollAnnounceOnce_FlagsTheDesignatedPrimaryWithoutASyncRun(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	primarySrv := newAnnounceRecorder(t, http.StatusNoContent)
+	replicaSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	primary, err := store.CreateMember(ctx, "alpha", primarySrv.srv.URL, "tok-primary")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	if _, err := store.CreateMember(ctx, "beta", replicaSrv.srv.URL, "tok-replica"); err != nil {
+		t.Fatalf("create replica: %v", err)
+	}
+	// Auto-sync designates the primary. No wizard run, so no last-sync marker.
+	if err := store.SetAutoSync(ctx, true, primary.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := primarySrv.snapshot(); !ann.IsPrimary {
+		t.Error("the designated primary was told is_primary=false; it would lock itself out of its own config")
+	}
+	if _, ann, _ := primarySrv.snapshot(); ann.PrimaryName != "alpha" {
+		t.Errorf("primary name = %q, want %q", ann.PrimaryName, "alpha")
+	}
+	if _, ann, _ := replicaSrv.snapshot(); ann.IsPrimary {
+		t.Error("a replica was told it is the primary")
+	}
+	if _, ann, _ := replicaSrv.snapshot(); ann.PrimaryName != "alpha" {
+		t.Errorf("replica was told the primary is %q, want %q", ann.PrimaryName, "alpha")
+	}
+}
+
+// TestPollAnnounceOnce_DesignationBeatsTheLastSyncMarker: repointing the fleet
+// takes effect at once. The marker still names whichever member drove the last
+// sync, so reading it first would keep announcing the old primary until some
+// later run happened to overwrite it, leaving the newly designated primary
+// locked out and the old one editable.
+func TestPollAnnounceOnce_DesignationBeatsTheLastSyncMarker(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	oldSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	newSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	oldPrimary, err := store.CreateMember(ctx, "was-primary", oldSrv.srv.URL, "tok-old")
+	if err != nil {
+		t.Fatalf("create old primary: %v", err)
+	}
+	newPrimary, err := store.CreateMember(ctx, "now-primary", newSrv.srv.URL, "tok-new")
+	if err != nil {
+		t.Fatalf("create new primary: %v", err)
+	}
+	// The marker records the member that drove the last wizard run.
+	if err := store.SetFleetSyncState(ctx, oldPrimary.ID, "was-primary", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+	// The operator has since repointed the fleet.
+	if err := store.SetAutoSync(ctx, true, newPrimary.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := newSrv.snapshot(); !ann.IsPrimary {
+		t.Error("the newly designated primary was not flagged; the stale marker outvoted the operator")
+	}
+	if _, ann, _ := oldSrv.snapshot(); ann.IsPrimary {
+		t.Error("the previous primary is still flagged, so two members would accept primary-only edits")
+	}
+}
+
+// TestPollAnnounceOnce_FallsBackToTheMarkerWithoutADesignation: a fleet driven by
+// the wizard alone designates no primary, and there the marker is the only
+// statement of one. It must still be honoured.
+func TestPollAnnounceOnce_FallsBackToTheMarkerWithoutADesignation(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	primarySrv := newAnnounceRecorder(t, http.StatusNoContent)
+	primary, err := store.CreateMember(ctx, "primary", primarySrv.srv.URL, "tok-primary")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	if err := store.SetFleetSyncState(ctx, primary.ID, "primary", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+	// Auto-sync off and no designation, the state after a wizard-only sync.
+	if err := store.SetAutoSync(ctx, false, ""); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := primarySrv.snapshot(); !ann.IsPrimary {
+		t.Error("a wizard-synced fleet lost its primary flag")
+	}
+}
+
+// TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName: the name is read from the
+// live roster, so renaming the primary is reflected on the next announce rather
+// than serving whatever name was recorded when the marker was written.
+func TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	primarySrv := newAnnounceRecorder(t, http.StatusNoContent)
+	primary, err := store.CreateMember(ctx, "old-name", primarySrv.srv.URL, "tok-primary")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	if err := store.SetFleetSyncState(ctx, primary.ID, "old-name", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+	const newName = "new-name"
+	if err := store.RenameMember(ctx, primary.ID, newName); err != nil {
+		t.Fatalf("rename primary: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := primarySrv.snapshot(); ann.PrimaryName != newName {
+		t.Errorf("announced primary name = %q, want the current %q", ann.PrimaryName, newName)
+	}
+}
+
+// TestPollAnnounceOnce_MarkerWinsWhenAutoSyncIsOff: the designation only outranks
+// the last-sync marker while auto-sync is actually running. A primary_id survives
+// switching auto-sync off (clearing it needs a confirmed token), so preferring it
+// unconditionally meant that designating A, turning auto-sync off, then running the
+// wizard from B left B, the instance the operator had just synced the fleet from,
+// write-locked while A was still announced as primary.
+func TestPollAnnounceOnce_MarkerWinsWhenAutoSyncIsOff(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	aSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	bSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	a, err := store.CreateMember(ctx, "designated-a", aSrv.srv.URL, "tok-a")
+	if err != nil {
+		t.Fatalf("create a: %v", err)
+	}
+	b, err := store.CreateMember(ctx, "wizard-synced-b", bSrv.srv.URL, "tok-b")
+	if err != nil {
+		t.Fatalf("create b: %v", err)
+	}
+	// Designated, then auto-sync switched off with the designation left behind.
+	if err := store.SetAutoSync(ctx, false, a.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+	// The operator then wizard-synced the fleet from B, which is the newer act.
+	if err := store.SetFleetSyncState(ctx, b.ID, "wizard-synced-b", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := bSrv.snapshot(); !ann.IsPrimary {
+		t.Error("the member the operator just synced the fleet from was not flagged primary; it stays write-locked")
+	}
+	if _, ann, _ := aSrv.snapshot(); ann.IsPrimary {
+		t.Error("a dormant designation outranked a fresher wizard sync")
+	}
+}
+
+// TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker: the fallback within
+// the fallback. With auto-sync off and no wizard run to point at, the designation
+// is the only statement of a primary there is, and naming nobody would lock the
+// whole fleet including the instance the operator chose.
+func TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	srv := newAnnounceRecorder(t, http.StatusNoContent)
+	m, err := store.CreateMember(ctx, "chosen", srv.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	if err := store.SetAutoSync(ctx, false, m.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := srv.snapshot(); !ann.IsPrimary {
+		t.Error("the only designated member was not flagged, so nothing would be editable")
+	}
+}
+
+// TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker: a designation left
+// pointing at a member that has since been removed must not win. It resolves to
+// nobody, so returning it would beat a marker that still names a real member and
+// tell the whole fleet there is no primary.
+func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	goneSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	liveSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	gone, err := store.CreateMember(ctx, "gone", goneSrv.srv.URL, "tok-gone")
+	if err != nil {
+		t.Fatalf("create gone: %v", err)
+	}
+	live, err := store.CreateMember(ctx, "live", liveSrv.srv.URL, "tok-live")
+	if err != nil {
+		t.Fatalf("create live: %v", err)
+	}
+	if err := store.SetAutoSync(ctx, true, gone.ID); err != nil {
+		t.Fatalf("set auto-sync: %v", err)
+	}
+	if err := store.SetFleetSyncState(ctx, live.ID, "live", time.Now().UTC()); err != nil {
+		t.Fatalf("set fleet sync state: %v", err)
+	}
+	if err := store.DeleteMember(ctx, gone.ID); err != nil {
+		t.Fatalf("delete gone: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := liveSrv.snapshot(); !ann.IsPrimary {
+		t.Error("a designation pointing at a removed member left the fleet with no primary at all")
+	}
+}
+
+// TestFleetPrimaryFailsOpenOnReadErrors: both primary sources are reads that can
+// fail. Neither may abort the announce: the membership signal is still worth
+// sending, and a transient database error must not tell a healthy fleet that some
+// other member is now the primary.
+func TestFleetPrimaryFailsOpenOnReadErrors(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "member", "http://127.0.0.1:9", "tok")
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	members := []*Member{m}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	id, name, ok := p.fleetPrimary(ctx, members)
+
+	if ok || id != "" || name != "" {
+		t.Errorf("fleetPrimary() = (%q, %q, %v), want no primary when neither source can be read", id, name, ok)
+	}
+}

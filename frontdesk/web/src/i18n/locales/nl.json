@@ -143,7 +143,7 @@
 			"drained_to_single": "er is nog maar één actief lid; de vloot heeft geen redundantie",
 			"sync_held": "config-sync wordt aangehouden voor een member (versieverschil)",
 			"all_sync_held": "config-sync wordt aangehouden voor elke member; de primaire is de uitzondering",
-			"sync_incomplete": "de config van een member komt na een sync niet overeen met die van de primaire",
+			"sync_incomplete": "van een member is niet bevestigd dat die de config van de primaire heeft",
 			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",
 			"autosync_stale_long": "auto-sync staat uit en de vloot is al meer dan drie dagen niet gesynchroniseerd",
 			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
@@ -284,7 +284,7 @@
 				"config_auto_synced": "Auto-sync toegepast op de vloot",
 				"config_autosync_stale": "Auto-sync uit, vloot niet gesynchroniseerd",
 				"config_sync_held": "Sync aangehouden (versieverschil)",
-				"config_sync_incomplete": "Synchronisatie onvolledig (member komt niet overeen)",
+				"config_sync_incomplete": "Synchronisatie niet geverifieerd (member niet bevestigd)",
 				"config_sync_recovered": "Synchronisatie weer volledig",
 				"version_fetch_failed": "Member-versie niet leesbaar",
 				"version_fetch_recovered": "Member-versie weer leesbaar",

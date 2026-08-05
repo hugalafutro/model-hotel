@@ -143,7 +143,7 @@
 			"drained_to_single": "仅剩一个活动成员；集群没有冗余",
 			"sync_held": "某个成员的配置同步已暂停（版本不一致）",
 			"all_sync_held": "每个成员的配置同步均已暂停；仅主节点例外",
-			"sync_incomplete": "同步后某个成员的配置仍与主节点的配置不一致",
+			"sync_incomplete": "尚未确认某个成员持有主节点的配置",
 			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",
 			"autosync_stale_long": "自动同步已关闭，且集群超过三天未同步",
 			"traefik_config_stale": "Traefik 已停止获取路由配置"
@@ -284,7 +284,7 @@
 				"config_auto_synced": "自动同步已应用到集群",
 				"config_autosync_stale": "自动同步已关闭，集群未同步",
 				"config_sync_held": "同步已暂停（版本不一致）",
-				"config_sync_incomplete": "同步不完整（成员不一致）",
+				"config_sync_incomplete": "同步未验证（成员未确认）",
 				"config_sync_recovered": "同步再次完成",
 				"version_fetch_failed": "成员版本无法读取",
 				"version_fetch_recovered": "成员版本恢复可读",
