@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // modelDisableKind is how a model came to be switched off. The three are kept
@@ -582,8 +585,13 @@ func unappliedMarker(t *testing.T) []ExportModelRef {
 	var raw string
 	err := apiTestDB.Pool().QueryRow(context.Background(),
 		`SELECT value FROM settings WHERE key = $1`, keyFleetUnappliedModelDisables).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // no marker written yet
+	}
 	if err != nil {
-		return nil
+		// Anything else is a real failure: swallowing it would surface as a
+		// confusing "want exactly the one it could not apply" instead of the cause.
+		t.Fatalf("read acknowledgement marker: %v", err)
 	}
 	var refs []ExportModelRef
 	if err := json.Unmarshal([]byte(raw), &refs); err != nil {
@@ -663,6 +671,9 @@ func TestConfigSync_UnparseableAcknowledgementIsIgnored(t *testing.T) {
 // with an error rather than a config envelope that silently omits it, which Front
 // Desk would otherwise replicate onto the rest of the fleet.
 func TestConfigSync_ExportFailsLoudlyWhenDisablesCannotBeRead(t *testing.T) {
+	// Renames a column on the package's shared database, so it is safe only while
+	// nothing in internal/api runs t.Parallel(). If that ever changes, this test
+	// needs its own database rather than a cleanup.
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
@@ -678,5 +689,53 @@ func TestConfigSync_ExportFailsLoudlyWhenDisablesCannotBeRead(t *testing.T) {
 
 	if rec := rawExport(t, r); rec.Code != http.StatusInternalServerError {
 		t.Errorf("export status = %d, want 500 when the per-model state cannot be read", rec.Code)
+	}
+}
+
+// setFleetPrimaryMarker sets the marker Front Desk's announce maintains.
+func setFleetPrimaryMarker(t *testing.T, isPrimary bool) {
+	t.Helper()
+	v := "false"
+	if isPrimary {
+		v = "true"
+	}
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, keyFleetIsPrimary, v); err != nil {
+		t.Fatalf("set primary marker: %v", err)
+	}
+}
+
+// TestConfigSync_PromotedPrimaryDropsItsAcknowledgements: an acknowledgement is a
+// replica's way of holding intent it cannot apply, and both ways out of one run
+// from an import. A primary never imports, so a member promoted while holding one
+// would export that disable to the whole fleet with no way to revoke it: the model
+// is not on this instance, so it is not in its UI to re-enable. A primary exports
+// what its own rows say.
+func TestConfigSync_PromotedPrimaryDropsItsAcknowledgements(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedDisabledModel(t, provID, "gpt-4o", disableByOperator)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+		keyFleetUnappliedModelDisables,
+		`[{"provider_name":"openai","model_id":"ghost-model"}]`); err != nil {
+		t.Fatalf("seed marker: %v", err)
+	}
+
+	// As a member it stands in for the model it does not hold, so it converges.
+	setFleetPrimaryMarker(t, false)
+	asMember := doExport(t, r).Config.DisabledModels
+	if len(asMember) != 2 {
+		t.Fatalf("as a member, disabled models = %+v, want the applied one plus the acknowledged one", asMember)
+	}
+
+	// Promoted, it must stop: nothing would ever clear this again.
+	setFleetPrimaryMarker(t, true)
+	asPrimary := doExport(t, r).Config.DisabledModels
+	if len(asPrimary) != 1 || asPrimary[0].ModelID != "gpt-4o" {
+		t.Errorf("as the primary, disabled models = %+v, want only what its own rows hold", asPrimary)
 	}
 }

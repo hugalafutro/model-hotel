@@ -418,15 +418,17 @@ func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name 
 		marked = state.PrimaryID
 	}
 
+	// designated is empty unless the read succeeded, so the error case needs no arm
+	// of its own here: it simply contributes no candidate.
 	var candidates []string
-	if designated != "" && cfgErr == nil && cfg.Enabled {
+	if designated != "" && cfg.Enabled {
 		candidates = append(candidates, designated)
 	}
 	if marked != "" {
 		candidates = append(candidates, marked)
 	}
 	// A designation with auto-sync off still beats naming nobody.
-	if designated != "" && (cfgErr != nil || !cfg.Enabled) {
+	if designated != "" && !cfg.Enabled {
 		candidates = append(candidates, designated)
 	}
 

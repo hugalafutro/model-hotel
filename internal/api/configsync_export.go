@@ -157,13 +157,15 @@ func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, err
 	if err != nil {
 		return nil, err
 	}
-	// Only refs this member still has no model for. Once one appears the
-	// acknowledgement must stop standing in for it, or the export would keep
-	// claiming a disable while the model sits enabled here: the hashes would agree
-	// across a real routing difference, which is the exact failure this whole
-	// comparison exists to catch. Dropping it instead makes this member's hash
-	// differ until a sync applies the disable for real.
-	if len(acked) > 0 {
+	// The primary never unions its acknowledgements in, because it never imports,
+	// and the import is the only thing that rewrites them. Both ways an
+	// acknowledgement is meant to end (the model appearing, or the operator
+	// re-enabling it) run from an import, so a member promoted to primary while
+	// holding one would export that disable to the whole fleet forever, with no
+	// lever to revoke it: the model is not on this instance, so it is not in its UI
+	// to re-enable. A primary's export is what its own rows say. Demotion restores
+	// the union, and the import that comes with it rewrites the marker anyway.
+	if len(acked) > 0 && !isFleetPrimary(ctx, q) {
 		missing, err := filterModelsAbsentHere(ctx, q, acked)
 		if err != nil {
 			return nil, err
@@ -182,6 +184,29 @@ func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, err
 		return cmp.Compare(a.ModelID, b.ModelID)
 	})
 	return out, nil
+}
+
+// isFleetPrimary reports whether this instance is the fleet's config source, from
+// the marker the Front Desk announce maintains. A read failure or a missing marker
+// answers false, which is the safe direction here: a member wrongly treated as
+// primary would drop acknowledgements it needs to stay converged, where a primary
+// wrongly treated as a member only keeps exporting what its own import already
+// wrote, which its next import corrects.
+func isFleetPrimary(ctx context.Context, q querier) bool {
+	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetIsPrimary)
+	if err != nil {
+		debuglog.Warn("configsync: read fleet primary marker", "error", err)
+		return false
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return false
+	}
+	var v string
+	if err := rows.Scan(&v); err != nil {
+		return false
+	}
+	return v == "true"
 }
 
 // filterModelsAbsentHere returns the refs that resolve to no model on this member.

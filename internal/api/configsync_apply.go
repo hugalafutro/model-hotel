@@ -479,12 +479,16 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 	// the provider is refusing here back into routing until three more failures
 	// re-retired it. The enable direction below does clear them, because there the
 	// operator is saying to trust the provider's listing again.
+	// Unnarrowed on purpose. Skipping rows already flagged disabled_manually would
+	// be the obvious optimisation, but nothing constrains that flag against enabled,
+	// so a row carrying both would be passed over here and still counted present,
+	// leaving it routing and reported as applied. The write is idempotent, so
+	// covering every matched row costs nothing and repairs such a row instead.
 	if _, err := tx.Exec(ctx, `
 		UPDATE models m
 		   SET enabled = false, disabled_manually = true
 		  FROM providers p
 		 WHERE m.provider_id = p.id
-		   AND m.disabled_manually = false
 		   AND EXISTS (`+wanted+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
 		providers, modelIDs); err != nil {
 		return nil, err

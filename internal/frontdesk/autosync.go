@@ -547,7 +547,22 @@ type incompleteState struct {
 	// lastReadErr is why the most recent hash read failed, carried into the alert so
 	// it names the cause rather than only the symptom.
 	lastReadErr string
+	// divergedKind is which of the two the last emitted alert described. The badge
+	// is the same either way, but the alert bodies contradict each other, so a
+	// member that moves from one to the other has to say so.
+	divergedKind divergenceKind
 }
+
+// divergenceKind is how a member came to be known not to hold the primary's
+// config: measured against its own hash, or never measurable at all.
+type divergenceKind int
+
+const (
+	// divergedMeasured: the member's hash was read and differed.
+	divergedMeasured divergenceKind = iota
+	// divergedUnmeasurable: the member's hash could not be read at all.
+	divergedUnmeasurable
+)
 
 // recordSyncAttempt remembers that a member received a config Front Desk pushed,
 // with whatever it reported it could not build or built short. The stamp bounds the
@@ -578,12 +593,18 @@ func (s *Server) hasBeenPushedSinceReset(memberID string) bool {
 // the transition event exactly once. The slices are copied and are always lists
 // rather than null, so consumers see one shape and the caller reads them outside
 // the lock.
-func (s *Server) flagDiverged(memberID string) (incompleteState, bool) {
+func (s *Server) flagDiverged(memberID string, kind divergenceKind) (incompleteState, bool) {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	st := s.syncIncomplete[memberID]
-	already := st.diverged
+	// Edge-triggered on the flag AND on which kind it is: a member that stops being
+	// measurable, or becomes measurable and is then found to differ, has a new thing
+	// to say. Without the second half the operator's last alert would keep insisting
+	// the member "cannot be measured ... unknown" after Front Desk had measured it
+	// and could name the groups, which is the same over-claiming in reverse.
+	already := st.diverged && st.divergedKind == kind
 	st.diverged = true
+	st.divergedKind = kind
 	s.syncIncomplete[memberID] = st
 	st.lastUnapplied = append([]string{}, st.lastUnapplied...)
 	st.lastPartial = append([]string{}, st.lastPartial...)
@@ -596,7 +617,7 @@ func (s *Server) flagDiverged(memberID string) (incompleteState, bool) {
 // transition in. Edge-triggered: the member is re-checked every pass, so a
 // level-triggered event would alert on each one until it converged.
 func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
-	st, already := s.flagDiverged(m.ID)
+	st, already := s.flagDiverged(m.ID, divergedMeasured)
 	if already {
 		return
 	}
@@ -622,7 +643,7 @@ func (s *Server) markMemberIncomplete(ctx context.Context, m *Member) {
 // already say. The distinction that matters, measured wrong versus not measurable,
 // is in the message and the metadata.
 func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
-	st, already := s.flagDiverged(m.ID)
+	st, already := s.flagDiverged(m.ID, divergedUnmeasurable)
 	if already {
 		return
 	}

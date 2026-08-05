@@ -236,7 +236,13 @@ type ExportModelRef struct {
 	ModelID      string `json:"model_id"`
 }
 
-// String renders a ref for operator-facing lists.
+// String renders a ref the way the gateway names that model everywhere else: the
+// provider, a slash, then the provider-scoped id. Model ids routinely contain
+// slashes themselves (meta-llama/Llama-3-70b), which makes this look ambiguous and
+// is not: the proxy resolves an incoming name with SplitN(name, "/", 2)
+// (proxy_request.go), so the first slash separates and the rest is the id. An
+// operator reading openai/meta-llama/Llama-3-70b in an alert sees exactly the
+// string they would send to /v1/chat/completions.
 func (r ExportModelRef) String() string { return r.ProviderName + "/" + r.ModelID }
 
 // ExportProvider is a provider with its encrypted key material verbatim.

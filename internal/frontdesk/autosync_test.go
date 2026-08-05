@@ -3467,3 +3467,59 @@ func TestUnreadableCauseSeparatesTimeoutFromRefusal(t *testing.T) {
 		}
 	}
 }
+
+// TestAutoSync_UnmeasuredUpgradesToAMeasuredDivergence: the two divergence kinds
+// share a badge but not a story. A member flagged unmeasurable that later answers
+// with a hash that differs is no longer unknown, it is known wrong and its groups
+// can be named, so the alert has to be re-emitted. Leaving the first one standing
+// would keep telling the operator the member "cannot be measured ... unknown"
+// after Front Desk had measured it, which is the same over-claiming this branch
+// exists to remove, pointed the other way.
+func TestAutoSync_UnmeasuredUpgradesToAMeasuredDivergence(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionCode = http.StatusInternalServerError
+		r.dryDiff = driftDiff
+	})
+	f.tick(t) // pushed, so it has had its chance
+	seedUnreadableSince(f.srv, f.replicaM.ID, time.Now().Add(-unreadableHashThreshold-time.Minute))
+	f.tick(t)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || evs[0].Metadata["unreadable"] != true {
+		t.Fatalf("events = %d, want exactly one unmeasurable alert: %+v", len(evs), evs)
+	}
+
+	// It answers again, with a hash that still differs: measured, not unknown.
+	f.replica.mu.Lock()
+	f.replica.versionCode = http.StatusOK
+	f.replica.versionHash = "hash-drifted"
+	f.replica.mu.Unlock()
+
+	f.tick(t)
+
+	evs, _, err = f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_incomplete"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 2 {
+		t.Fatalf("events = %d, want a second one on the unmeasurable -> measured transition", len(evs))
+	}
+	// ListEvents is newest-first.
+	if got := evs[0].Metadata["unreadable"]; got != false {
+		t.Errorf("newest event unreadable = %v, want false: the member was measured this time", got)
+	}
+	if strings.Contains(evs[0].Message, "cannot be measured") {
+		t.Errorf("newest message = %q; it still says unknown about a member that was measured", evs[0].Message)
+	}
+
+	// And it stays edge-triggered: no third alert while nothing changes.
+	for range 3 {
+		f.tick(t)
+	}
+	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 2 {
+		t.Errorf("events = %d after further ticks, want the original 2", n)
+	}
+}
