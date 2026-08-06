@@ -242,6 +242,13 @@ func (m *SessionManager) RevokeOtherSessions(ctx context.Context, identity []byt
 		if err != nil {
 			return 0, err
 		}
+		// An expired row is not a session the caller can still be using: the
+		// middleware rejects it. Sparing it would keep a dead row while
+		// revoking the live session the request actually authenticated with,
+		// logging the caller out of the page they clicked from.
+		if session.ExpiresAt.Before(time.Now()) {
+			continue
+		}
 		if bytes.Equal(session.UserID, identity) {
 			keepHash = hash
 			break

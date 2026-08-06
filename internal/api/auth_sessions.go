@@ -73,7 +73,10 @@ func (h *Handler) RevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
 			Severity: "info",
 			Source:   "auth",
 			Message:  "Signed out " + util.Count(int(revoked), "other session", "other sessions"),
-			Metadata: map[string]any{"revoked": revoked, "username": id.Username},
+			// No username here: /events is readable by any authenticated
+			// caller, and the name is already in the debug log and the audit
+			// trail where it belongs.
+			Metadata: map[string]any{"revoked": revoked},
 		})
 	}
 

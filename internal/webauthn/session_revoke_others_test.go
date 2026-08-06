@@ -189,3 +189,40 @@ func TestRevokeOtherSessions_ForeignTokenSparesNothing(t *testing.T) {
 		t.Error("the foreign identity's own session was revoked")
 	}
 }
+
+// An expired session is one the middleware already rejects, so it is not the
+// session the caller is using. Sparing it would keep a dead row while revoking
+// the live session the request actually authenticated with, logging the caller
+// out of the page they clicked from.
+func TestRevokeOtherSessions_ExpiredCandidateIsNotSpared(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-expired-candidate")
+	live, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A second session for the same identity, aged past its expiry.
+	stale, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleSum := sha256.Sum256([]byte(stale))
+	if _, err := repo.pool.Exec(ctx,
+		`UPDATE webauthn_sessions SET expires_at = now() - interval '1 hour' WHERE token_hash = $1`,
+		hex.EncodeToString(staleSum[:])); err != nil {
+		t.Fatalf("age the session: %v", err)
+	}
+
+	// The expired token is offered first, the live one second: the live session
+	// must be the one kept.
+	if _, err := mgr.RevokeOtherSessions(ctx, identity, stale, live); err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if !sessionExists(t, repo, live) {
+		t.Error("the live session was revoked while an expired one was spared")
+	}
+}
