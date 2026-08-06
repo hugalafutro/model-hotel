@@ -630,6 +630,12 @@ export interface BackupEntry {
 	 *  from servers predating origin tracking; treat as manual, matching the
 	 *  backend's default for filenames without an origin marker. */
 	origin?: "manual" | "scheduled" | "frontdesk";
+	/** Whether a signature sidecar exists for this backup, so its integrity can
+	 *  be checked on download. Reports presence, not validity: the signature is
+	 *  verified when the file is served, not when the list is built. Absent on
+	 *  responses from servers predating backup signing, and false for backups
+	 *  taken before it or when no MASTER_KEY is configured. */
+	signed?: boolean;
 }
 
 export interface BackupClassification {

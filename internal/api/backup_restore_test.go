@@ -1024,7 +1024,8 @@ func TestSaveUploadedDump_MkdirAllError(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 
-	tmpPath, ok := h.saveUploadedDump(w, req)
+	upload, ok := h.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 	if ok {
 		t.Error("expected saveUploadedDump to fail when MkdirAll fails")
 	}
@@ -1058,7 +1059,8 @@ func TestSaveUploadedDump_CreateTempError(t *testing.T) {
 		// Make dir read-only after handler creation but before CreateTemp
 		os.Chmod(dir, 0o444)
 
-		tmpPath, ok := h.saveUploadedDump(w, req)
+		upload, ok := h.saveUploadedDump(w, req)
+		tmpPath := upload.tmpPath
 		// Restore permissions for cleanup
 		os.Chmod(dir, 0o755)
 		if ok {
@@ -1174,7 +1176,8 @@ func TestRestoreBackup_NilAdminMgr(t *testing.T) {
 		}
 	}()
 
-	tmpPath, ok := h.saveUploadedDump(w, req)
+	upload, ok := h.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 	// If we get here without panic, the empty admin_token check (L593)
 	// returned 401 before calling Validate.
 	if ok {
@@ -1240,7 +1243,8 @@ func TestSaveUploadedDump_SuccessPath(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	w := httptest.NewRecorder()
 
-	tmpPath, ok := h.saveUploadedDump(w, req)
+	upload, ok := h.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 	if !ok {
 		t.Fatalf("expected saveUploadedDump to succeed, got code %d: %s", w.Code, w.Body.String())
 	}
@@ -1458,7 +1462,8 @@ func TestSaveUploadedDump_InvalidAdminToken(t *testing.T) {
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=boundary")
 
 	w := httptest.NewRecorder()
-	tmpPath, ok := bh.saveUploadedDump(w, req)
+	upload, ok := bh.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 
 	if ok {
 		t.Error("expected ok=false for invalid admin token")
@@ -1490,7 +1495,8 @@ func TestSaveUploadedDump_MissingDumpFile(t *testing.T) {
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=boundary")
 
 	w := httptest.NewRecorder()
-	tmpPath, ok := bh.saveUploadedDump(w, req)
+	upload, ok := bh.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 
 	if ok {
 		t.Error("expected ok=false for missing dump file")
@@ -1533,7 +1539,8 @@ func TestSaveUploadedDump_MkdirAllFailure(t *testing.T) {
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=boundary")
 
 	w := httptest.NewRecorder()
-	tmpPath, ok := bh.saveUploadedDump(w, req)
+	upload, ok := bh.saveUploadedDump(w, req)
+	tmpPath := upload.tmpPath
 
 	if ok {
 		t.Error("expected ok=false for MkdirAll failure")

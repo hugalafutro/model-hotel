@@ -132,7 +132,9 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 
-	debuglog.Info("backup: scheduled backup created", "filename", filename, "size_bytes", info.Size())
+	signed := h.signFinishedDump(path, filename)
+
+	debuglog.Info("backup: scheduled backup created", "filename", filename, "size_bytes", info.Size(), "signed", signed)
 	events.Publish(events.Event{
 		Type:     "backup.created",
 		Severity: "success",
@@ -155,7 +157,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		if absPath == "" {
 			continue
 		}
-		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+		if err := removeBackupWithSignature(absPath); err != nil && !os.IsNotExist(err) {
 			debuglog.Error("backup: failed to prune", "filename", b.Filename, "error", err)
 		} else {
 			debuglog.Info("backup: pruned", "filename", b.Filename)
