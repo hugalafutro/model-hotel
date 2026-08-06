@@ -326,15 +326,22 @@ func TestSignature_IsBoundToTheFilename(t *testing.T) {
 // the path after it is opened must not change the verdict for the bytes being
 // served, which is the rename race an attacker with directory write access
 // would otherwise win.
+//
+// The swap-in file is signed under the SAME base name as the target, so a
+// path-based check would recompute a genuinely valid signature and pass. That
+// is what makes this test fail if the handle-based check regresses: the name
+// binding alone cannot catch this one.
 func TestVerifyBackupHandle_ChecksTheOpenInodeNotThePath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "backup_test.dump")
 	if err := os.WriteFile(path, []byte("tampered contents"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Sign the genuine contents, then leave the tampered file in place: the
-	// sidecar describes bytes that are no longer there.
-	genuine := filepath.Join(dir, "genuine.dump")
+
+	// A genuine dump carrying the same base name, signed in a separate
+	// directory so both can exist at once.
+	sub := t.TempDir()
+	genuine := filepath.Join(sub, "backup_test.dump")
 	if err := os.WriteFile(genuine, []byte("genuine contents"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -356,8 +363,9 @@ func TestVerifyBackupHandle_ChecksTheOpenInodeNotThePath(t *testing.T) {
 	defer func() { _ = f.Close() }()
 
 	// The attacker swaps the genuine file over the path after the open. A
-	// path-based check would hash the genuine file and pass; the handle still
-	// refers to the tampered inode that would actually be served.
+	// path-based check now hashes genuine contents under the same name the
+	// sidecar was signed with and returns valid; the handle still refers to the
+	// tampered inode that would actually be served.
 	if err := os.Rename(genuine, path); err != nil {
 		t.Fatal(err)
 	}
@@ -398,5 +406,24 @@ func TestVerifyBackupHandle_LeavesTheHandleAtTheStart(t *testing.T) {
 	}
 	if string(rest) != "dump contents" {
 		t.Errorf("handle left at offset %d; download would serve %q", len(rest), rest)
+	}
+}
+
+// The uploaded name is a multipart parameter the uploader chose, not a name
+// read from the filesystem, so the NUL-free precondition the name binding rests
+// on has to be enforced rather than assumed.
+func TestVerifyUploadedDumpSignature_RejectsNULInTheDeclaredName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "uploaded.dump")
+	if err := os.WriteFile(path, []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := verifyUploadedDumpSignature(path, "backup\x00extra.dump", "00ff", "master")
+	if err != nil {
+		t.Fatalf("verifyUploadedDumpSignature: %v", err)
+	}
+	if status != backupSigInvalid {
+		t.Errorf("status = %v, want invalid for a name containing NUL", status)
 	}
 }

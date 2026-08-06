@@ -237,6 +237,14 @@ func verifyUploadedDumpSignature(path, name, signature, masterKey string) (backu
 	if masterKey == "" {
 		return backupSigUnavailable, nil
 	}
+	// The name binding is only unambiguous while no name contains a NUL, and
+	// this one is a multipart parameter the uploader chose rather than a name
+	// read from the filesystem. Enforce the precondition here instead of
+	// assuming it: a name carrying a NUL could otherwise shift the boundary
+	// between name and contents and make a different pair hash identically.
+	if strings.ContainsRune(name, 0) {
+		return backupSigInvalid, nil
+	}
 	want, ok := decodeSignature(signature)
 	if !ok {
 		return backupSigInvalid, nil
