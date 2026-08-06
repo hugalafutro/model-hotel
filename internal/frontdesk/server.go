@@ -95,10 +95,11 @@ type Server struct {
 	backupStaleMu sync.Mutex
 	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
-	// edge-triggered fleet.state_changed emission. Empty until the first check
-	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
-	// This mirrors checkAutoSyncStale, which re-alerts on a stale start, not
-	// checkConfigStaleness, which stays quiet until it has armed.
+	// edge-triggered fleet.state_changed emission. Empty until the first check,
+	// which seeds it from the newest persisted fleet.state_changed event
+	// (lastEmittedFleetState), so a restart continues the event chain instead of
+	// assuming ok: a recovery that happened while the process was down is still
+	// emitted, and a degradation the previous process reported is not repeated.
 	fleetStateMu   sync.Mutex
 	fleetStatePrev FleetState
 	router         http.Handler

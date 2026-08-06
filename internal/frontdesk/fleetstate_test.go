@@ -322,6 +322,145 @@ func TestCheckFleetStateEmitsDrainTransitions(t *testing.T) {
 	}
 }
 
+// simulateFleetStateRestart clears the in-memory edge detector exactly as a
+// process restart does: fleetStatePrev is the only fleet-state input that does
+// not survive a Front Desk restart (member facts, holds and events are all
+// store- or poller-backed).
+func simulateFleetStateRestart(s *Server) {
+	s.fleetStateMu.Lock()
+	s.fleetStatePrev = ""
+	s.fleetStateMu.Unlock()
+}
+
+// TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery pins the seed:
+// when the fleet recovers while no tick observes it (the process is down) and
+// Front Desk then restarts, the first tick must still emit degraded -> ok,
+// seeded from the newest persisted fleet.state_changed event rather than
+// assuming the process started with a healthy fleet.
+func TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, true)
+	srv.checkFleetState(ctx)
+
+	// One member confirmed down -> the ok-to-degraded transition is persisted.
+	setHealth(srv, m1.ID, false)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
+		t.Fatalf("after member down: %d events, want 1", len(evs))
+	}
+
+	// The member recovers while Front Desk is down, then the process restarts.
+	setHealth(srv, m1.ID, true)
+	simulateFleetStateRestart(srv)
+	srv.checkFleetState(ctx)
+
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 2 {
+		t.Fatalf("first tick after restart: %d events, want 2 (recovery must not be swallowed)", len(evs))
+	}
+	if got := evs[0].Metadata["to"]; got != "ok" {
+		t.Errorf(`recovery metadata["to"] = %v, want "ok"`, got)
+	}
+	if got := evs[0].Metadata["from"]; got != "degraded" {
+		t.Errorf(`recovery metadata["from"] = %v, want "degraded"`, got)
+	}
+	if evs[0].Severity != "success" {
+		t.Errorf("recovery severity = %q, want success", evs[0].Severity)
+	}
+}
+
+// TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation is the
+// mirror case: restarting while the fleet is still degraded must not re-emit
+// the ok -> degraded transition the previous process already reported.
+func TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, false)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
+		t.Fatalf("after member down: %d events, want 1", len(evs))
+	}
+
+	// Restart with the member still down: the state is unchanged, so the first
+	// tick must stay silent.
+	simulateFleetStateRestart(srv)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
+		t.Fatalf("first tick after restart re-emitted: %d events, want 1", len(evs))
+	}
+}
+
+// TestCheckFleetStateSeedsPrevAcrossRestart_UnknownStateFallsBackToOK guards
+// the seed against a fleet.state_changed row whose metadata carries no valid
+// state (a corrupted or future-format row): it falls back to ok, so the first
+// transition after restart reads from=ok rather than echoing the garbage.
+func TestCheckFleetStateSeedsPrevAcrossRestart_UnknownStateFallsBackToOK(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	setHealth(srv, m1.ID, false)
+	setHealth(srv, m2.ID, true)
+	srv.emit(ctx, Event{
+		Type: "fleet.state_changed", Severity: "success", Source: "frontdesk",
+		Message:  "bogus row",
+		Metadata: map[string]any{"to": "banana"},
+	})
+
+	srv.checkFleetState(ctx)
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 2 {
+		t.Fatalf("after first tick: %d events, want 2 (bogus row plus the new transition)", len(evs))
+	}
+	if got := evs[0].Metadata["from"]; got != "ok" {
+		t.Errorf(`metadata["from"] = %v, want "ok"`, got)
+	}
+	if got := evs[0].Metadata["to"]; got != "degraded" {
+		t.Errorf(`metadata["to"] = %v, want "degraded"`, got)
+	}
+}
+
+// TestLastEmittedFleetState_StoreErrorFallsBackToOK pins the fail-safe: when
+// the events table cannot be read back the seed reports ok, the same posture a
+// first boot has, rather than blocking the tick or inventing a state.
+func TestLastEmittedFleetState_StoreErrorFallsBackToOK(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	if got := srv.lastEmittedFleetState(context.Background()); got != FleetOK {
+		t.Fatalf("lastEmittedFleetState on a closed store = %q, want ok", got)
+	}
+}
+
 // TestCheckFleetStateEmitsIncompleteTransition drives the diverged set through
 // the live path: the auto-sync loop's own bookkeeping (markMemberIncomplete)
 // feeds fleetStateFrom, so the badge turns amber for as long as the member does

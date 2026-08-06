@@ -247,15 +247,42 @@ func (s *Server) checkFleetState(ctx context.Context) {
 	}
 	s.fleetStateMu.Lock()
 	prev := s.fleetStatePrev
+	s.fleetStateMu.Unlock()
 	if prev == "" {
-		prev = FleetOK
+		// First tick of this process: seed the edge detector from the newest
+		// persisted transition instead of assuming ok, so a restart while the
+		// fleet is (or was last reported) degraded still emits the recovery and
+		// never re-emits a degradation the previous process already reported.
+		prev = s.lastEmittedFleetState(ctx)
 	}
+	s.fleetStateMu.Lock()
 	changed := cur != prev
 	s.fleetStatePrev = cur
 	s.fleetStateMu.Unlock()
 	if changed {
 		s.emit(ctx, fleetStateEvent(prev, cur, reasons))
 	}
+}
+
+// lastEmittedFleetState returns the target state of the newest persisted
+// fleet.state_changed event, defaulting to ok when no event exists yet or the
+// row cannot be read back. Only the in-memory edge detector needs this; the
+// state itself is always recomputed from live inputs.
+func (s *Server) lastEmittedFleetState(ctx context.Context) FleetState {
+	evs, _, err := s.store.ListEvents(ctx, EventFilter{Type: "fleet.state_changed", Limit: 1})
+	if err != nil {
+		debuglog.Warn("frontdesk: seed fleet state from events", "error", err)
+		return FleetOK
+	}
+	if len(evs) == 0 {
+		return FleetOK
+	}
+	to, _ := evs[0].Metadata["to"].(string)
+	switch st := FleetState(to); st {
+	case FleetOK, FleetDegraded, FleetFaulty:
+		return st
+	}
+	return FleetOK
 }
 
 // fleetStateEvent shapes the edge-triggered transition event. The message is
