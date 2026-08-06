@@ -1,15 +1,15 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
-	"mime/multipart"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -165,21 +165,11 @@ func TestDeleteBackup_RemovesSignatureSidecar(t *testing.T) {
 	}
 }
 
-// restoreRequestWithSignature builds the multipart form the restore handler
-// reads, carrying only the signature field the verifier looks at.
-func restoreRequestWithSignature(t *testing.T, signature string) *http.Request {
-	t.Helper()
-	body := &bytes.Buffer{}
-	mw := multipart.NewWriter(body)
-	if err := mw.WriteField("signature", signature); err != nil {
-		t.Fatal(err)
-	}
-	if err := mw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	req := httptest.NewRequest("POST", "/backups/restore", body)
-	req.Header.Set("Content-Type", mw.FormDataContentType())
-	return req
+// uploadOf describes a saved restore upload the way saveUploadedDump would
+// hand it to the verifier: the temp file, the name the upload declared (which
+// the signature binds), and the signature supplied with it.
+func uploadOf(tmpPath, name, signature string) uploadedDump {
+	return uploadedDump{tmpPath: tmpPath, name: name, signature: signature}
 }
 
 func TestVerifyUploadedDump_RejectsSignatureMismatch(t *testing.T) {
@@ -206,7 +196,7 @@ func TestVerifyUploadedDump_RejectsSignatureMismatch(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if h.verifyUploadedDump(w, restoreRequestWithSignature(t, string(sig)), uploaded) {
+	if h.verifyUploadedDump(w, "127.0.0.1:1234", uploadOf(uploaded, "uploaded.dump", string(sig))) {
 		t.Error("restore proceeded with a dump that does not match its signature")
 	}
 	if w.Code != http.StatusBadRequest {
@@ -232,7 +222,7 @@ func TestVerifyUploadedDump_AcceptsMatchingSignature(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !h.verifyUploadedDump(w, restoreRequestWithSignature(t, string(sig)), uploaded) {
+	if !h.verifyUploadedDump(w, "127.0.0.1:1234", uploadOf(uploaded, "uploaded.dump", string(sig))) {
 		t.Errorf("restore rejected a correctly signed dump: %s", w.Body.String())
 	}
 }
@@ -250,7 +240,7 @@ func TestVerifyUploadedDump_ProceedsWithoutSignature(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !h.verifyUploadedDump(w, restoreRequestWithSignature(t, ""), uploaded) {
+	if !h.verifyUploadedDump(w, "127.0.0.1:1234", uploadOf(uploaded, "uploaded.dump", "")) {
 		t.Errorf("restore blocked an unsigned dump: %s", w.Body.String())
 	}
 }
@@ -312,10 +302,63 @@ func TestVerifyUploadedDump_UnreadableUploadIsAnError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	missing := filepath.Join(dir, "not-written.dump")
-	if h.verifyUploadedDump(w, restoreRequestWithSignature(t, "deadbeef"), missing) {
+	if h.verifyUploadedDump(w, "127.0.0.1:1234", uploadOf(missing, "not-written.dump", "deadbeef")) {
 		t.Error("restore proceeded on a dump that could not be read")
 	}
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", w.Code)
+	}
+}
+
+// GFS rotation must take the sidecar with the dump. A signature left behind
+// outlives the file it describes and would later be checked against an
+// unrelated backup that happens to reuse the name.
+func TestApplyPrune_RemovesSignatureSidecars(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+
+	oldTime := time.Now().AddDate(-2, 0, 0)
+	oldName := fmt.Sprintf("backup_%s_001_auto.dump", oldTime.Format("20060102_150405"))
+	path := writeSignedBackup(t, dir, oldName, "old scheduled backup", "master")
+
+	req := httptest.NewRequest(http.MethodPost, "/backups/prune", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", w.Code, w.Body.String())
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("prune left the dump behind")
+	}
+	if _, err := os.Stat(path + backupSignatureExt); !os.IsNotExist(err) {
+		t.Error("prune left the signature sidecar behind")
+	}
+}
+
+// A directory where a sidecar should be is not a signature. Reporting it as one
+// would mark a backup signed in the listing while every download of it failed.
+func TestListBackups_DirectorySidecarIsNotASignature(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	path := filepath.Join(dir, "backup_test.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path+backupSignatureExt, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var entries []backupEntry
+	if err := json.Unmarshal(w.Body.Bytes(), &entries); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("got %d entries, want 1", len(entries))
+	}
+	if entries[0].Signed {
+		t.Error("a directory was reported as a signature")
 	}
 }

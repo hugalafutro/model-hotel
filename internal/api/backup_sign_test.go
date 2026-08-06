@@ -2,9 +2,9 @@ package api
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -188,15 +188,6 @@ func TestRemoveBackupWithSignature_MissingSidecarIsNotAnError(t *testing.T) {
 	}
 }
 
-// TestSignBackupFile_SidecarIsNotListedAsABackup guards the listing filter: a
-// sidecar sitting next to its dump must never show up as a restorable backup.
-func TestSignBackupFile_SidecarIsNotListedAsABackup(t *testing.T) {
-	name := "backup_20260806_010203_0001_manual.dump" + backupSignatureExt
-	if strings.HasSuffix(name, ".dump") {
-		t.Errorf("sidecar name %q ends in .dump and would be listed and offered for restore", name)
-	}
-}
-
 func TestSignBackupFile_FailsWithoutMasterKeyOrFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "x.dump")
@@ -234,24 +225,15 @@ func TestVerifyBackupFile_UnreadableSidecarFailsClosed(t *testing.T) {
 	}
 }
 
-func TestCheckSignature_ReportsUnavailableWithoutKey(t *testing.T) {
+func TestVerifyBackupFile_MissingDumpWithSidecarIsAnError(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "x.dump")
-	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+	path := filepath.Join(dir, "vanished.dump")
+	// A sidecar with no dump beside it: the file was removed after signing.
+	if err := os.WriteFile(path+backupSignatureExt, []byte("00ff"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	status, err := checkSignature(path, []byte("whatever"), "")
-	if err == nil {
-		t.Error("checkSignature without a master key should error")
-	}
-	if status != backupSigUnavailable {
-		t.Errorf("status = %v, want unavailable", status)
-	}
-}
-
-func TestCheckSignature_MissingDumpIsAnError(t *testing.T) {
-	status, err := checkSignature(filepath.Join(t.TempDir(), "missing.dump"), []byte("sig"), "master")
+	status, err := verifyBackupFile(path, "master")
 	if err == nil {
 		t.Error("hashing a nonexistent dump should error")
 	}
@@ -260,14 +242,14 @@ func TestCheckSignature_MissingDumpIsAnError(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupBytesAgainstSignature_UnavailableAndMalformed(t *testing.T) {
+func TestVerifyUploadedDumpSignature_UnavailableAndMalformed(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "x.dump")
 	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupBytesAgainstSignature(path, "deadbeef", "")
+	status, err := verifyUploadedDumpSignature(path, "x.dump", "deadbeef", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,7 +257,7 @@ func TestVerifyBackupBytesAgainstSignature_UnavailableAndMalformed(t *testing.T)
 		t.Errorf("no master key: status = %v, want unavailable", status)
 	}
 
-	status, err = verifyBackupBytesAgainstSignature(path, "not-hex", "master")
+	status, err = verifyUploadedDumpSignature(path, "x.dump", "not-hex", "master")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -304,5 +286,117 @@ func TestRemoveBackupWithSignature_SidecarRemovalFailureSurfaces(t *testing.T) {
 
 	if err := removeBackupWithSignature(path); err == nil {
 		t.Error("a sidecar that could not be removed should be reported")
+	}
+}
+
+// A (dump, sidecar) pair that verifies under any name lets an attacker with
+// write access to the backup directory drop an older genuine backup in today's
+// place: it would verify clean and restore stale state, reinstating revoked
+// keys and deleted accounts without forging anything. The signature therefore
+// covers the filename.
+func TestSignature_IsBoundToTheFilename(t *testing.T) {
+	dir := t.TempDir()
+	original := filepath.Join(dir, "backup_old.dump")
+	if err := os.WriteFile(original, []byte("last month's database"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := signBackupFile(original, "master"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Move the genuine dump and its genuine sidecar into today's name.
+	renamed := filepath.Join(dir, "backup_today.dump")
+	if err := os.Rename(original, renamed); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(original+backupSignatureExt, renamed+backupSignatureExt); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := verifyBackupFile(renamed, "master")
+	if err != nil {
+		t.Fatalf("verifyBackupFile: %v", err)
+	}
+	if status != backupSigInvalid {
+		t.Errorf("status = %v, want invalid: a whole signed pair was replayed under another name", status)
+	}
+}
+
+// The download path checks the handle it already holds. Swapping the file at
+// the path after it is opened must not change the verdict for the bytes being
+// served, which is the rename race an attacker with directory write access
+// would otherwise win.
+func TestVerifyBackupHandle_ChecksTheOpenInodeNotThePath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "backup_test.dump")
+	if err := os.WriteFile(path, []byte("tampered contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Sign the genuine contents, then leave the tampered file in place: the
+	// sidecar describes bytes that are no longer there.
+	genuine := filepath.Join(dir, "genuine.dump")
+	if err := os.WriteFile(genuine, []byte("genuine contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := signBackupFile(genuine, "master"); err != nil {
+		t.Fatal(err)
+	}
+	sig, err := os.ReadFile(genuine + backupSignatureExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+backupSignatureExt, sig, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := os.Open(path) //nolint:gosec // test-controlled temp path
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	// The attacker swaps the genuine file over the path after the open. A
+	// path-based check would hash the genuine file and pass; the handle still
+	// refers to the tampered inode that would actually be served.
+	if err := os.Rename(genuine, path); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := verifyBackupHandle(f, path, "master")
+	if err != nil {
+		t.Fatalf("verifyBackupHandle: %v", err)
+	}
+	if status != backupSigInvalid {
+		t.Errorf("status = %v, want invalid: verified a different inode than the one open for serving", status)
+	}
+}
+
+// The handle must be rewound after hashing or the download would serve nothing.
+func TestVerifyBackupHandle_LeavesTheHandleAtTheStart(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "backup_test.dump")
+	if err := os.WriteFile(path, []byte("dump contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := signBackupFile(path, "master"); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := os.Open(path) //nolint:gosec // test-controlled temp path
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	status, err := verifyBackupHandle(f, path, "master")
+	if err != nil || status != backupSigValid {
+		t.Fatalf("verify = %v, %v; want valid", status, err)
+	}
+	rest, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(rest) != "dump contents" {
+		t.Errorf("handle left at offset %d; download would serve %q", len(rest), rest)
 	}
 }

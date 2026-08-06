@@ -120,11 +120,13 @@ type backupEntry struct {
 	Signed bool `json:"signed"`
 }
 
-// hasSignature reports whether a signature sidecar exists beside a dump. Cheap
-// (a stat), unlike verifying it.
+// hasSignature reports whether a usable signature sidecar exists beside a dump.
+// Cheap (a stat), unlike verifying it. A directory in the sidecar's place is not
+// a signature: counting it would report a backup as signed while every download
+// of it failed.
 func hasSignature(absPath string) bool {
-	_, err := os.Stat(absPath + backupSignatureExt)
-	return err == nil
+	info, err := os.Stat(absPath + backupSignatureExt)
+	return err == nil && info.Mode().IsRegular()
 }
 
 // CreateBackup runs pg_dump and saves the output to a timestamped file. An
@@ -303,7 +305,11 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	// hoping the operator notices later is how a planted dump gets restored.
 	// An unsigned dump still goes out (backups predating signing, and dumps this
 	// instance never signed, must stay usable); the listing marks those.
-	status, verr := verifyBackupFile(absPath, h.masterKey)
+	//
+	// Verified through the handle already open above, not by re-reading the
+	// path: checking one inode and serving another is a race an attacker with
+	// write access to this directory wins by swapping the file after the open.
+	status, verr := verifyBackupHandle(f, absPath, h.masterKey)
 	if verr != nil {
 		respondError(w, fmt.Sprintf("failed to verify backup %q", filename), verr, http.StatusInternalServerError)
 		return

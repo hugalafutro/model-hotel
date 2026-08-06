@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -58,21 +59,62 @@ func backupSignatureKey(masterKey string) ([]byte, error) {
 	return hkdf.Key(sha256.New, []byte(masterKey), nil, backupSignatureInfo, 32)
 }
 
-// hmacBackupFile streams the file through HMAC-SHA256 so a multi-gigabyte dump
-// is never held in memory.
-func hmacBackupFile(path string, key []byte) ([]byte, error) {
-	//nolint:gosec // G304: path is built by the caller from the validated backup dir
+// hmacBackupReader streams contents through HMAC-SHA256, binding the backup's
+// filename into the MAC ahead of the bytes. Signing contents alone would let a
+// (dump, sidecar) pair be renamed together and still verify, so an attacker who
+// can write to the backup directory could drop an older genuine backup in
+// today's place: it would verify clean and restore stale state, reinstating
+// revoked keys and deleted accounts without forging anything. The name is
+// NUL-terminated, which is unambiguous because a POSIX filename cannot contain
+// a NUL byte, so no (name, contents) pair can be confused for another.
+//
+// Streaming rather than buffering keeps a multi-gigabyte dump out of memory.
+func hmacBackupReader(r io.Reader, name string, key []byte) ([]byte, error) {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(name))
+	mac.Write([]byte{0})
+	if _, err := io.Copy(mac, r); err != nil {
+		return nil, err
+	}
+	return mac.Sum(nil), nil
+}
+
+// hmacBackupFileAs signs a file's contents under a caller-supplied name. The
+// name is separate from the path because the restore path hashes a temp file
+// under the name the upload declared, which is the name that was signed.
+func hmacBackupFileAs(path, name string, key []byte) ([]byte, error) {
+	//nolint:gosec // G304: path is built by the caller from the validated backup dir, or is a temp file this handler just wrote
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
 
-	mac := hmac.New(sha256.New, key)
-	if _, err := io.Copy(mac, f); err != nil {
+	return hmacBackupReader(f, name, key)
+}
+
+// hmacBackupFile signs a dump in place, binding its own base name.
+func hmacBackupFile(path string, key []byte) ([]byte, error) {
+	return hmacBackupFileAs(path, filepath.Base(path), key)
+}
+
+// hmacBackupHandle signs the bytes behind an already-open handle and rewinds it
+// for the caller. Verifying by path while serving from a handle opened earlier
+// is a race an attacker with write access to the backup directory wins by
+// renaming the genuine dump over the tampered one after the open: the check
+// would hash the genuine inode and the transfer would send the tampered one.
+func hmacBackupHandle(f *os.File, name string, key []byte) ([]byte, error) {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
-	return mac.Sum(nil), nil
+	sum, err := hmacBackupReader(f, name, key)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return sum, nil
 }
 
 // signBackupFile writes the signature sidecar for a finished dump.
@@ -114,10 +156,43 @@ func decodeSignature(s string) (sig []byte, ok bool) {
 	return raw, true
 }
 
-// checkSignature compares a dump against an expected signature. The error
-// return is only for failing to read the dump: a mismatch is a status, so
-// callers can tell "cannot check" apart from "checked and wrong".
-func checkSignature(path string, want []byte, masterKey string) (backupSigStatus, error) {
+// compareSignature compares a computed MAC against the expected one.
+func compareSignature(got, want []byte) backupSigStatus {
+	if !hmac.Equal(got, want) {
+		return backupSigInvalid
+	}
+	return backupSigValid
+}
+
+// sidecarExpectation reads and decodes a dump's sidecar, reporting what the
+// caller should do before any hashing happens.
+func sidecarExpectation(path, masterKey string) (want []byte, status backupSigStatus, err error) {
+	if masterKey == "" {
+		return nil, backupSigUnavailable, nil
+	}
+	stored, found, err := readSignatureSidecar(path)
+	if err != nil {
+		// A sidecar that exists but cannot be read leaves the dump unprovable.
+		return nil, backupSigInvalid, err
+	}
+	if !found {
+		return nil, backupSigMissing, nil
+	}
+	decoded, ok := decodeSignature(string(stored))
+	if !ok {
+		return nil, backupSigInvalid, nil
+	}
+	return decoded, backupSigValid, nil
+}
+
+// verifyBackupFile checks a dump in the backup directory against its sidecar,
+// reading the dump by path. Callers that already hold the file open should use
+// verifyBackupHandle instead so the bytes checked are the bytes they will use.
+func verifyBackupFile(path, masterKey string) (backupSigStatus, error) {
+	want, status, err := sidecarExpectation(path, masterKey)
+	if err != nil || status != backupSigValid {
+		return status, err
+	}
 	key, err := backupSignatureKey(masterKey)
 	if err != nil {
 		return backupSigUnavailable, err
@@ -126,38 +201,36 @@ func checkSignature(path string, want []byte, masterKey string) (backupSigStatus
 	if err != nil {
 		return backupSigInvalid, err
 	}
-	if !hmac.Equal(got, want) {
-		return backupSigInvalid, nil
-	}
-	return backupSigValid, nil
+	return compareSignature(got, want), nil
 }
 
-// verifyBackupFile checks a dump in the backup directory against its sidecar.
-func verifyBackupFile(path, masterKey string) (backupSigStatus, error) {
-	if masterKey == "" {
-		return backupSigUnavailable, nil
+// verifyBackupHandle checks the bytes behind an open handle against the sidecar
+// for name, and leaves the handle rewound. This is what the download path uses:
+// checking the same inode it is about to serve closes the window where the file
+// at the path is swapped between the open and the check.
+func verifyBackupHandle(f *os.File, path, masterKey string) (backupSigStatus, error) {
+	want, status, err := sidecarExpectation(path, masterKey)
+	if err != nil || status != backupSigValid {
+		return status, err
 	}
-
-	stored, found, err := readSignatureSidecar(path)
+	key, err := backupSignatureKey(masterKey)
 	if err != nil {
-		// A sidecar that exists but cannot be read leaves the dump unprovable.
+		return backupSigUnavailable, err
+	}
+	got, err := hmacBackupHandle(f, filepath.Base(path), key)
+	if err != nil {
 		return backupSigInvalid, err
 	}
-	if !found {
-		return backupSigMissing, nil
-	}
-
-	want, ok := decodeSignature(string(stored))
-	if !ok {
-		return backupSigInvalid, nil
-	}
-	return checkSignature(path, want, masterKey)
+	return compareSignature(got, want), nil
 }
 
-// verifyBackupBytesAgainstSignature checks an uploaded dump against a signature
+// verifyUploadedDumpSignature checks an uploaded dump against a signature
 // supplied alongside it, for the restore path where the dump did not come from
-// this server's backup directory.
-func verifyBackupBytesAgainstSignature(path, signature, masterKey string) (backupSigStatus, error) {
+// this server's backup directory. The name is the one the upload declared,
+// because the signature binds it: a dump renamed on its way through a browser
+// will not verify, and the caller can retry without a signature (recorded as an
+// unverified restore) rather than being stuck.
+func verifyUploadedDumpSignature(path, name, signature, masterKey string) (backupSigStatus, error) {
 	if strings.TrimSpace(signature) == "" {
 		return backupSigMissing, nil
 	}
@@ -168,16 +241,31 @@ func verifyBackupBytesAgainstSignature(path, signature, masterKey string) (backu
 	if !ok {
 		return backupSigInvalid, nil
 	}
-	return checkSignature(path, want, masterKey)
+	key, err := backupSignatureKey(masterKey)
+	if err != nil {
+		return backupSigUnavailable, err
+	}
+	got, err := hmacBackupFileAs(path, name, key)
+	if err != nil {
+		return backupSigInvalid, err
+	}
+	return compareSignature(got, want), nil
 }
 
-// removeBackupWithSignature deletes a dump and its sidecar. The dump's removal
-// error is what callers act on; a missing sidecar is normal (unsigned backups)
-// and never an error, but a sidecar left behind would outlive its dump forever.
+// removeBackupWithSignature deletes a dump and its sidecar. A missing sidecar
+// is normal (unsigned backups) and never an error, but one left behind would
+// outlive its dump and later be checked against an unrelated file of the same
+// name. The dump's own error takes precedence so callers keep classifying a
+// missing dump as a 404; a sidecar that could not be removed is reported only
+// when the dump itself came away cleanly.
 func removeBackupWithSignature(path string) error {
 	err := os.Remove(path)
-	if sigErr := os.Remove(path + backupSignatureExt); sigErr != nil && !os.IsNotExist(sigErr) {
+	sigErr := os.Remove(path + backupSignatureExt)
+	if err != nil {
+		return err
+	}
+	if sigErr != nil && !os.IsNotExist(sigErr) {
 		return sigErr
 	}
-	return err
+	return nil
 }
