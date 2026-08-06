@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -518,6 +519,63 @@ func probeStateForServer(serverURL string) (*requestState, modelCandidate) {
 		apiKey:   "sk-test",
 	}
 	return st, cand
+}
+
+// TestProbeStreamingCandidate_TouchesProviderLastUsed pins parity with the
+// sequential path (beginAttempt): launching a hedged probe stamps the
+// provider's last_used_at, so the dashboard's "last used" column stays
+// truthful when streaming traffic goes through the hedged path.
+func TestProbeStreamingCandidate_TouchesProviderLastUsed(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	kp, err := auth.Encrypt("sk-probe-touch", h.cfg.MasterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "probe-touch-provider",
+		BaseURL: srv.URL,
+		APIKey:  "sk-probe-touch",
+	}, kp.Ciphertext, kp.Nonce, kp.Salt)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	defer func() { _ = h.providerRepo.Delete(context.Background(), prov.ID) }()
+
+	st, cand := probeStateForServer(srv.URL)
+	cand.provider = prov
+
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if !res.won {
+		t.Fatalf("expected a win, got reqErr=%+v", res.reqErr)
+	}
+	if res.resp != nil {
+		_ = res.resp.Body.Close()
+	}
+
+	// The touch is fire-and-forget on its own goroutine; poll briefly.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got, err := h.providerRepo.GetByIDs(context.Background(), []uuid.UUID{prov.ID})
+		if err != nil {
+			t.Fatalf("get provider: %v", err)
+		}
+		if p := got[prov.ID]; p != nil && p.LastUsedAt != nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("hedged probe never stamped the provider's last_used_at")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // TestProbeStreamingCandidate covers the real begin+probe path (no client write):
