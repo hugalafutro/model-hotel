@@ -1,6 +1,7 @@
 package webauthn
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -199,6 +200,61 @@ func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([
 		return nil, errInvalidLoginState
 	}
 	return session.SessionData, nil
+}
+
+// RevokeOtherSessions signs out every session belonging to identity except the
+// one the call was made from, so the operator is not logged out by their own
+// click.
+//
+// identity is the caller's session handle as the authentication layer resolved
+// it, never something derived from the request here. Deriving it from a token
+// this function picked itself would let a caller authenticated by one
+// credential aim the revoke at an identity carried by another: present a valid
+// bearer alongside a junk cookie and the junk cookie decides whose sessions
+// die.
+//
+// candidateTokens are the credentials the request actually carried, in no
+// particular order. A session is kept only when it hashes to one of them AND
+// belongs to identity, so an unrecognized or foreign token can never widen the
+// blast radius; it only means nothing is kept. That is the correct outcome for
+// an operator on the raw admin token, which mints no session: they hold the
+// credential but no browser session, and every session for their identity goes.
+//
+// A store failure while looking a candidate up is returned rather than swallowed:
+// treating "could not check" as "not the caller's session" would silently turn a
+// timeout into signing the caller out of the page they clicked from.
+func (m *SessionManager) RevokeOtherSessions(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error) {
+	if len(identity) == 0 {
+		return 0, nil
+	}
+
+	keepHash := ""
+	for _, token := range candidateTokens {
+		if token == "" {
+			continue
+		}
+		sum := sha256.Sum256([]byte(token))
+		hash := hex.EncodeToString(sum[:])
+		session, err := m.store.GetSessionByTokenHash(ctx, hash)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+		// An expired row is not a session the caller can still be using: the
+		// middleware rejects it. Sparing it would keep a dead row while
+		// revoking the live session the request actually authenticated with,
+		// logging the caller out of the page they clicked from.
+		if session.ExpiresAt.Before(time.Now()) {
+			continue
+		}
+		if bytes.Equal(session.UserID, identity) {
+			keepHash = hash
+			break
+		}
+	}
+	return m.store.DeleteOtherSessionsForUser(ctx, identity, keepHash)
 }
 
 // RevokeAuthToken deletes an auth token session by hashing the token and

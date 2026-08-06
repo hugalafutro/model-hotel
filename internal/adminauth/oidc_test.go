@@ -100,6 +100,12 @@ func (s *memSessionStore) DeleteSession(_ context.Context, id uuid.UUID) error {
 
 func (s *memSessionStore) CleanupExpiredSessions(context.Context) (int64, error) { return 0, nil }
 
+// DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
+// never sign other sessions out.
+func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {
+	return 0, nil
+}
+
 // --- fake settings ---
 
 type fakeSettings struct {

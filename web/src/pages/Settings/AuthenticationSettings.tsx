@@ -5,6 +5,7 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
+import { ActiveSessionsPanel } from "./ActiveSessionsSettings";
 import { SETTING_DEFAULTS } from "./defaults";
 import { GithubPanel } from "./GithubSettings";
 import { OidcPanel } from "./OidcSettings";
@@ -56,6 +57,9 @@ export function AuthenticationSettings({
 				<div className="space-y-5">
 					<SettingsGroup title={t("settings.totp.title")}>
 						<TotpPanel />
+					</SettingsGroup>
+					<SettingsGroup title={t("settings.activeSessions.title")}>
+						<ActiveSessionsPanel />
 					</SettingsGroup>
 					<SettingsGroup title={t("settings.sessionTimeout.title")}>
 						<SettingsSlider

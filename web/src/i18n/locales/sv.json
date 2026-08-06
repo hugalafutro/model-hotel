@@ -2063,6 +2063,16 @@
 			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
 			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen."
 		},
+		"activeSessions": {
+			"title": "Aktiva sessioner",
+			"label": "Andra sessioner",
+			"description": "Inloggning avslutar inte sessioner som redan är öppna någon annanstans. Logga ut dem om en enhet har tappats bort eller du misstänker att en session har stulits.",
+			"action": "Logga ut andra",
+			"confirm": "Klicka för att bekräfta",
+			"signedOut_one": "{{count}} annan session utloggad",
+			"signedOut_other": "{{count}} andra sessioner utloggade",
+			"noneToSignOut": "Inga andra sessioner var öppna"
+		},
 		"sessionTimeout": {
 			"title": "Tidsgräns för session",
 			"label": "Automatisk utloggning efter inaktivitet",

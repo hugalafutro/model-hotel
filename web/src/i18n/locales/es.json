@@ -2114,6 +2114,17 @@
 			"sectionNote": "Gestionada por la instancia primaria de la flota. Los cambios realizados aquí se reemplazan en la próxima sincronización de configuración.",
 			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia."
 		},
+		"activeSessions": {
+			"title": "Sesiones activas",
+			"label": "Otras sesiones",
+			"description": "Iniciar sesión no cierra las sesiones ya abiertas en otros sitios. Ciérralas si has perdido un dispositivo o sospechas que te han robado una sesión.",
+			"action": "Cerrar las demás",
+			"confirm": "Haz clic para confirmar",
+			"signedOut_one": "Se ha cerrado {{count}} otra sesión",
+			"signedOut_many": "Se han cerrado {{count}} otras sesiones",
+			"signedOut_other": "Se han cerrado {{count}} otras sesiones",
+			"noneToSignOut": "No había otras sesiones abiertas"
+		},
 		"sessionTimeout": {
 			"title": "Tiempo de espera de la sesión",
 			"label": "Cierre de sesión automático por inactividad",

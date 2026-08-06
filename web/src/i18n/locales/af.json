@@ -2063,6 +2063,16 @@
 			"sectionNote": "Bestuur deur die vloot se primêre instansie. Veranderinge hier word met die volgende konfigurasiesinkronisasie vervang.",
 			"alertsNote": "Die aan- en afskakel van waarskuwings en gebeurtenisroetering word deur die vloot se primêre instansie bestuur. Die Apprise-afleweringsinstellings hieronder bly plaaslik tot hierdie instansie."
 		},
+		"activeSessions": {
+			"title": "Aktiewe sessies",
+			"label": "Ander sessies",
+			"description": "Aanmelding beëindig nie sessies wat reeds elders oop is nie. Meld hulle af as 'n toestel verlore geraak het of jy vermoed 'n sessie is gesteel.",
+			"action": "Meld ander af",
+			"confirm": "Klik om te bevestig",
+			"signedOut_one": "{{count}} ander sessie afgemeld",
+			"signedOut_other": "{{count}} ander sessies afgemeld",
+			"noneToSignOut": "Geen ander sessies was oop nie"
+		},
 		"sessionTimeout": {
 			"title": "Sessie-tydverstryking",
 			"label": "Outo-afmelding na onaktiwiteit",

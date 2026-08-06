@@ -2063,6 +2063,16 @@
 			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
 			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie."
 		},
+		"activeSessions": {
+			"title": "Actieve sessies",
+			"label": "Andere sessies",
+			"description": "Inloggen beëindigt geen sessies die elders al open zijn. Log ze uit als een apparaat kwijt is of als je vermoedt dat een sessie is gestolen.",
+			"action": "Andere uitloggen",
+			"confirm": "Klik om te bevestigen",
+			"signedOut_one": "{{count}} andere sessie uitgelogd",
+			"signedOut_other": "{{count}} andere sessies uitgelogd",
+			"noneToSignOut": "Er waren geen andere sessies open"
+		},
 		"sessionTimeout": {
 			"title": "Sessietime-out",
 			"label": "Automatisch afmelden na inactiviteit",

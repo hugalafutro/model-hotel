@@ -2063,6 +2063,16 @@
 			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
 			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır."
 		},
+		"activeSessions": {
+			"title": "Etkin oturumlar",
+			"label": "Diğer oturumlar",
+			"description": "Oturum açmak, başka yerlerde zaten açık olan oturumları sonlandırmaz. Bir cihaz kaybolduysa veya bir oturumun çalındığından şüpheleniyorsanız bunları kapatın.",
+			"action": "Diğerlerini kapat",
+			"confirm": "Onaylamak için tıklayın",
+			"signedOut_one": "{{count}} diğer oturum kapatıldı",
+			"signedOut_other": "{{count}} diğer oturum kapatıldı",
+			"noneToSignOut": "Başka açık oturum yoktu"
+		},
 		"sessionTimeout": {
 			"title": "Oturum zaman aşımı",
 			"label": "Hareketsizlik sonrası otomatik çıkış",

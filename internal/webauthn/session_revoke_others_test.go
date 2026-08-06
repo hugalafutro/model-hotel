@@ -1,0 +1,228 @@
+package webauthn
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"testing"
+)
+
+func sessionExists(t *testing.T, repo *Repository, token string) bool {
+	t.Helper()
+	sum := sha256.Sum256([]byte(token))
+	_, err := repo.GetSessionByTokenHash(context.Background(), hex.EncodeToString(sum[:]))
+	return err == nil
+}
+
+// The point of the action: every other session for this identity dies while the
+// one the operator is using survives, so signing out other devices does not sign
+// them out of the page they clicked it on.
+func TestRevokeOtherSessions_KeepsTheCallersOwnSession(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-keeps-own")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	phone, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laptop, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, mine)
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 2 {
+		t.Errorf("revoked = %d, want 2", revoked)
+	}
+	if !sessionExists(t, repo, mine) {
+		t.Error("the caller's own session was revoked; they would be logged out by their own click")
+	}
+	if sessionExists(t, repo, phone) || sessionExists(t, repo, laptop) {
+		t.Error("another session survived")
+	}
+}
+
+// Sessions belonging to someone else are not this operator's to revoke.
+func TestRevokeOtherSessions_LeavesOtherIdentitiesAlone(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-scoped")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := mgr.CreateAuthToken(ctx, []byte("2f9c3a1e-0000-4000-8000-000000000001"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := mgr.RevokeOtherSessions(ctx, identity, mine); err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if !sessionExists(t, repo, other) {
+		t.Error("revoked a different identity's session")
+	}
+}
+
+// An operator authenticated with the raw admin token holds no session, so there
+// is nothing to keep and every admin session goes. Without this the action would
+// silently do nothing in exactly the case an operator reaches for it: they still
+// have the admin token but suspect a browser session is stolen.
+func TestRevokeOtherSessions_RawAdminTokenRevokesAll(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-raw-token")
+	browser, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, "not-a-session-token")
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 1 {
+		t.Errorf("revoked = %d, want 1", revoked)
+	}
+	if sessionExists(t, repo, browser) {
+		t.Error("session survived a revoke-all from the raw admin token")
+	}
+}
+
+func TestRevokeOtherSessions_NoOtherSessionsIsNotAnError(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-solo")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, mine)
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 0 {
+		t.Errorf("revoked = %d, want 0", revoked)
+	}
+	if !sessionExists(t, repo, mine) {
+		t.Error("the only session was revoked")
+	}
+}
+
+// No identity to act on means nothing to revoke. Guarding this matters because
+// the store call would otherwise run with an empty user id, which matches no
+// row today but is one schema change away from matching the wrong ones.
+func TestRevokeOtherSessions_NoIdentityRevokesNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, nil, "not-a-session-token")
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 0 {
+		t.Errorf("revoked = %d, want 0", revoked)
+	}
+}
+
+// A store failure must surface rather than read as "nothing needed revoking",
+// which would tell an operator their other sessions are gone when they are not.
+func TestRevokeOtherSessions_StoreFailureSurfaces(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := mgr.RevokeOtherSessions(canceled, []byte("admin"), "some-token"); err == nil {
+		t.Error("a canceled context should surface an error")
+	}
+}
+
+// A token belonging to someone else must not spare that person's session, and
+// must not redirect the revoke either. This is the manager-side half of the
+// credential-confusion guard: identity decides whose sessions end, the token
+// only decides which one is spared, and a foreign token spares nothing.
+func TestRevokeOtherSessions_ForeignTokenSparesNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-foreign-token")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stranger, err := mgr.CreateAuthToken(ctx, []byte("someone-else-entirely"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, stranger)
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 1 {
+		t.Errorf("revoked = %d, want 1 (the identity's own session)", revoked)
+	}
+	if sessionExists(t, repo, mine) {
+		t.Error("a foreign token spared this identity's session")
+	}
+	if !sessionExists(t, repo, stranger) {
+		t.Error("the foreign identity's own session was revoked")
+	}
+}
+
+// An expired session is one the middleware already rejects, so it is not the
+// session the caller is using. Sparing it would keep a dead row while revoking
+// the live session the request actually authenticated with, logging the caller
+// out of the page they clicked from.
+func TestRevokeOtherSessions_ExpiredCandidateIsNotSpared(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-expired-candidate")
+	live, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A second session for the same identity, aged past its expiry.
+	stale, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleSum := sha256.Sum256([]byte(stale))
+	if _, err := repo.pool.Exec(ctx,
+		`UPDATE webauthn_sessions SET expires_at = now() - interval '1 hour' WHERE token_hash = $1`,
+		hex.EncodeToString(staleSum[:])); err != nil {
+		t.Fatalf("age the session: %v", err)
+	}
+
+	// The expired token is offered first, the live one second: the live session
+	// must be the one kept.
+	if _, err := mgr.RevokeOtherSessions(ctx, identity, stale, live); err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if !sessionExists(t, repo, live) {
+		t.Error("the live session was revoked while an expired one was spared")
+	}
+}

@@ -2063,6 +2063,16 @@
 			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
 			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä."
 		},
+		"activeSessions": {
+			"title": "Aktiiviset istunnot",
+			"label": "Muut istunnot",
+			"description": "Kirjautuminen ei päätä istuntoja, jotka ovat jo auki muualla. Kirjaa ne ulos, jos laite on kadonnut tai epäilet istunnon varastetun.",
+			"action": "Kirjaa muut ulos",
+			"confirm": "Vahvista napsauttamalla",
+			"signedOut_one": "{{count}} muu istunto kirjattu ulos",
+			"signedOut_other": "{{count}} muuta istuntoa kirjattu ulos",
+			"noneToSignOut": "Muita istuntoja ei ollut auki"
+		},
 		"sessionTimeout": {
 			"title": "Istunnon aikakatkaisu",
 			"label": "Automaattinen uloskirjautuminen käyttämättömyyden jälkeen",

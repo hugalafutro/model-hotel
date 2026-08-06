@@ -2063,6 +2063,16 @@
 			"sectionNote": "由机群主节点管理。此处的更改将在下次配置同步时被替换。",
 			"alertsNote": "警报的开关和事件路由由机群主节点管理。下方的 Apprise 投递设置仍保留在本实例本地。"
 		},
+		"activeSessions": {
+			"title": "活动会话",
+			"label": "其他会话",
+			"description": "登录不会结束在其他位置已打开的会话。如果设备丢失或怀疑会话被窃取，请将其登出。",
+			"action": "登出其他会话",
+			"confirm": "点击确认",
+			"signedOut_one": "已登出 {{count}} 个其他会话",
+			"signedOut_other": "已登出 {{count}} 个其他会话",
+			"noneToSignOut": "没有其他已打开的会话"
+		},
 		"sessionTimeout": {
 			"title": "会话超时",
 			"label": "无活动后自动注销",

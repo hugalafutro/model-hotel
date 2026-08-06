@@ -99,6 +99,12 @@ type WebAuthnSessionManager interface {
 	// multi-user password logins).
 	TokenUser(ctx context.Context, token string) ([]byte, bool)
 	RevokeAuthToken(ctx context.Context, token string) bool
+	// RevokeOtherSessions signs out every session belonging to identity except
+	// the one the request was made from. identity must come from the
+	// authentication layer, never from a token the caller supplied; the
+	// candidate tokens only decide which session is spared, and one that does
+	// not belong to identity spares nothing.
+	RevokeOtherSessions(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
 	// CreateAuthToken mints a new session token for the given user handle. The
 	// admin-token exchange trades a valid admin token for a session cookie via
 	// this method (userID is []byte("admin") for the legacy admin login).
@@ -314,6 +320,13 @@ func (h *Handler) Register(r chi.Router) {
 
 	// Self-service password rotation for users-row identities.
 	r.Post("/auth/password", h.ChangeOwnPassword)
+
+	// Self-service session hygiene: sign this identity's other sessions out.
+	// Ungated like /auth/password because the handler takes the identity from
+	// this middleware rather than from the request, so a caller can only ever
+	// reach their own sessions. That property is what makes it safe to leave
+	// open, and auth_sessions_route_test.go pins it.
+	r.Post("/auth/sessions/revoke-others", h.RevokeOtherSessions)
 
 	// System health stats feed the sidebar widget every role sees: routing
 	// metadata and process gauges only, so any authenticated caller may read it.

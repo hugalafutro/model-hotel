@@ -1448,6 +1448,14 @@ export const api = {
 			fetchJSON<Me>(`${API_BASE}/api/auth/me`, {
 				headers: getAuthHeaders(),
 			}),
+		// Signs the caller's other sessions out, keeping this one, and reports
+		// how many were ended so the UI can say so.
+		revokeOtherSessions: async (): Promise<{ revoked: number }> =>
+			fetchJSON<{ revoked: number }>(
+				`${API_BASE}/api/auth/sessions/revoke-others`,
+				{ method: "POST", headers: getAuthHeaders() },
+				"Could not sign out other sessions",
+			),
 	},
 	// Self-service per-user TOTP (users-row identities manage their own 2FA;
 	// the env-token admin uses api.totp instead).

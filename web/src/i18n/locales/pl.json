@@ -2165,6 +2165,18 @@
 			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
 			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji."
 		},
+		"activeSessions": {
+			"title": "Aktywne sesje",
+			"label": "Inne sesje",
+			"description": "Zalogowanie się nie kończy sesji otwartych już w innych miejscach. Wyloguj je, jeśli urządzenie zaginęło lub podejrzewasz kradzież sesji.",
+			"action": "Wyloguj pozostałe",
+			"confirm": "Kliknij, aby potwierdzić",
+			"signedOut_one": "Wylogowano {{count}} inną sesję",
+			"signedOut_few": "Wylogowano {{count}} inne sesje",
+			"signedOut_many": "Wylogowano {{count}} innych sesji",
+			"signedOut_other": "Wylogowano {{count}} innych sesji",
+			"noneToSignOut": "Nie było innych otwartych sesji"
+		},
 		"sessionTimeout": {
 			"title": "Limit czasu sesji",
 			"label": "Automatyczne wylogowanie po bezczynności",

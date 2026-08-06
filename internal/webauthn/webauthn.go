@@ -406,6 +406,26 @@ func (r *Repository) DeleteSessionsByUserID(ctx context.Context, userID []byte) 
 	return tag.RowsAffected(), nil
 }
 
+// DeleteOtherSessionsForUser revokes every auth-token session for userID except
+// the one identified by keepTokenHash, which is how an operator signs other
+// devices out without signing out the page they clicked it on.
+//
+// Scoped to type 'auth_token' so an in-flight login or registration ceremony
+// belonging to the same identity is not torn down as collateral. IS DISTINCT
+// FROM rather than <>, so a row with a NULL token_hash (a session that predates
+// hashing, or any non-token row that slipped the type filter) still counts as
+// "not the caller's" and is revoked, where <> NULL would be NULL and keep it.
+func (r *Repository) DeleteOtherSessionsForUser(ctx context.Context, userID []byte, keepTokenHash string) (int64, error) {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM webauthn_sessions
+		 WHERE user_id = $1 AND type = 'auth_token' AND token_hash IS DISTINCT FROM $2`,
+		userID, keepTokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // CleanupExpiredSessions removes sessions that have passed their expiry time.
 func (r *Repository) CleanupExpiredSessions(ctx context.Context) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE expires_at < NOW()`)

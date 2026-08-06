@@ -2114,6 +2114,17 @@
 			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
 			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță."
 		},
+		"activeSessions": {
+			"title": "Sesiuni active",
+			"label": "Alte sesiuni",
+			"description": "Autentificarea nu încheie sesiunile deja deschise în altă parte. Deconectează-le dacă un dispozitiv s-a pierdut sau bănuiești că o sesiune a fost furată.",
+			"action": "Deconectează celelalte",
+			"confirm": "Clic pentru confirmare",
+			"signedOut_one": "A fost deconectată {{count}} altă sesiune",
+			"signedOut_few": "Au fost deconectate {{count}} alte sesiuni",
+			"signedOut_other": "Au fost deconectate {{count}} de alte sesiuni",
+			"noneToSignOut": "Nu existau alte sesiuni deschise"
+		},
 		"sessionTimeout": {
 			"title": "Expirarea sesiunii",
 			"label": "Deconectare automată după inactivitate",

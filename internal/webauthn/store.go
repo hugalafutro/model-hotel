@@ -34,6 +34,11 @@ type SessionStore interface {
 	GetSession(ctx context.Context, id uuid.UUID) (*SessionRecord, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (*SessionRecord, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
+	// DeleteOtherSessionsForUser revokes every auth-token session belonging to
+	// userID except the one whose token hashes to keepTokenHash. An empty
+	// keepTokenHash keeps nothing, which is how a caller holding the raw admin
+	// token (and therefore no session of its own) revokes the lot.
+	DeleteOtherSessionsForUser(ctx context.Context, userID []byte, keepTokenHash string) (int64, error)
 	CleanupExpiredSessions(ctx context.Context) (int64, error)
 }
 

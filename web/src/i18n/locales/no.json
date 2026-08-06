@@ -2063,6 +2063,16 @@
 			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
 			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen."
 		},
+		"activeSessions": {
+			"title": "Aktive økter",
+			"label": "Andre økter",
+			"description": "Innlogging avslutter ikke økter som allerede er åpne andre steder. Logg dem ut hvis en enhet er mistet eller du mistenker at en økt er stjålet.",
+			"action": "Logg ut andre",
+			"confirm": "Klikk for å bekrefte",
+			"signedOut_one": "{{count}} annen økt logget ut",
+			"signedOut_other": "{{count}} andre økter logget ut",
+			"noneToSignOut": "Ingen andre økter var åpne"
+		},
 		"sessionTimeout": {
 			"title": "Tidsavbrudd for økt",
 			"label": "Automatisk utlogging etter inaktivitet",
