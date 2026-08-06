@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Modellen er ikke længere tilgængelig - den er muligvis blevet slettet, eller leverandøren er blevet fjernet",
 			"reservedKeyTooltip": "Internt reserveret navn, ikke en nøgle, du har oprettet – denne anvendelse stammer fra Model Hotels egne \"{{name}}\"-ruter"
 		},
-		"latency": {
-			"topModels": "Langsomste modeller",
-			"emptyState": "Ingen latens-data endnu. Latens-opdeling vises her, når trafikken strømmer.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Udbyder: {{provider}}ms",
-			"providerTip": "Udbyder: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Udbyderlatens",
 			"response": "Respons",

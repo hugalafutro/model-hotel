@@ -328,13 +328,6 @@
 			"deletedModelTooltip": "Tento model už nie je k dispozícii – mohol byť vyradený alebo bol zrušený jeho dodávateľ",
 			"reservedKeyTooltip": "Interné vyhradené meno, nie kľúč, ktorý ste vytvorili – toto použitie pochádza z vlastných smerov „{{name}}“ služby Model Hotel."
 		},
-		"latency": {
-			"topModels": "Najpomalšie modely",
-			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o latencii. Rozpis latencie sa tu zobrazí, akonáhle začne prebiehať prevádzka.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Poskytovateľ: {{provider}}ms",
-			"providerTip": "Poskytovateľ: {{value}}",
-			"overheadTip": "Režijné náklady proxy: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Latencia poskytovateľov",
 			"response": "Odpoveď",

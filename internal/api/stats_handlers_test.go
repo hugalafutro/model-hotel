@@ -984,46 +984,34 @@ func TestGetStats_RateLimitHits(t *testing.T) {
 	}
 }
 
-func TestGetStats_ModelLatency(t *testing.T) {
+func TestGetStats_ProviderLatencyOrdering(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
 
-	providerID := uuid.New()
-	insertTestProvider(t, pool, providerID, "test-provider-latency", "https://api.example.com/v1")
+	// Provider A: 3 requests, high latency (should rank #1)
+	// Provider B: 3 requests, low latency (should rank #2)
+	// Provider C: 2 requests only (should NOT appear due to HAVING COUNT(*) >= 3)
+	provA := uuid.New()
+	provB := uuid.New()
+	provC := uuid.New()
+	insertTestProvider(t, pool, provA, "latency-prov-a", "https://api.example.com/v1")
+	insertTestProvider(t, pool, provB, "latency-prov-b", "https://api.example.com/v1")
+	insertTestProvider(t, pool, provC, "latency-prov-c", "https://api.example.com/v1")
 
-	// Insert request logs for 3 different models
-	// Model A: 3 requests, high latency (should rank #1)
-	// Model B: 3 requests, medium latency (should rank #2)
-	// Model C: 3 requests, low latency (should rank #3)
-	// Model D: 2 requests only (should NOT appear due to HAVING COUNT(*) >= 3)
-
-	// Model A - 3 requests with high latency
 	for range 3 {
-		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 300, 10, 20, requestLogOpts{
+		insertRichTestRequestLog(t, pool, uuid.New(), provA, "model-a", 200, 300, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 30.0,
 			LatencyMs:       270.0, // Provider latency = 270ms
 		})
 	}
-
-	// Model B - 3 requests with medium latency
 	for range 3 {
-		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-b", 200, 200, 10, 20, requestLogOpts{
-			ProxyOverheadMs: 20.0,
-			LatencyMs:       180.0, // Provider latency = 180ms
-		})
-	}
-
-	// Model C - 3 requests with low latency
-	for range 3 {
-		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-c", 200, 100, 10, 20, requestLogOpts{
+		insertRichTestRequestLog(t, pool, uuid.New(), provB, "model-b", 200, 100, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 10.0,
 			LatencyMs:       90.0, // Provider latency = 90ms
 		})
 	}
-
-	// Model D - Only 2 requests (should be excluded by HAVING COUNT(*) >= 3)
 	for range 2 {
-		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-d", 200, 500, 10, 20, requestLogOpts{
+		insertRichTestRequestLog(t, pool, uuid.New(), provC, "model-c", 200, 500, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 50.0,
 			LatencyMs:       450.0,
 		})
@@ -1047,70 +1035,35 @@ func TestGetStats_ModelLatency(t *testing.T) {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	// Verify ByModelLatency is returned
-	if len(response.ByModelLatency) == 0 {
-		t.Fatal("Expected ByModelLatency to have entries")
+	// Exactly providers A and B (C is excluded by HAVING COUNT(*) >= 3),
+	// sorted by total_ms descending.
+	if len(response.ByProviderLatency) != 2 {
+		t.Fatalf("Expected ByProviderLatency to have 2 entries (providers with >= 3 requests), got %d", len(response.ByProviderLatency))
 	}
-
-	// Should have exactly 3 models (model-a, model-b, model-c), not model-d
-	if len(response.ByModelLatency) != 3 {
-		t.Errorf("Expected ByModelLatency to have 3 entries (models with >= 3 requests), got %d", len(response.ByModelLatency))
-	}
-
-	// Verify sorted by total_ms descending: model-a (300ms) > model-b (200ms) > model-c (100ms)
-	expectedOrder := []string{
-		"test-provider-latency/model-a",
-		"test-provider-latency/model-b",
-		"test-provider-latency/model-c",
-	}
-
-	for i, expectedModel := range expectedOrder {
-		if i >= len(response.ByModelLatency) {
-			break
-		}
-		actualModel := response.ByModelLatency[i].ModelID
-		if actualModel != expectedModel {
-			t.Errorf("ByModelLatency[%d].ModelID = %q, want %q", i, actualModel, expectedModel)
+	expectedOrder := []string{"latency-prov-a", "latency-prov-b"}
+	for i, expectedProvider := range expectedOrder {
+		if actual := response.ByProviderLatency[i].ProviderName; actual != expectedProvider {
+			t.Errorf("ByProviderLatency[%d].ProviderName = %q, want %q", i, actual, expectedProvider)
 		}
 	}
 
-	// Verify model-a entry details
-	var modelA *ModelLatencyEntry
-	for i := range response.ByModelLatency {
-		if response.ByModelLatency[i].ModelID == "test-provider-latency/model-a" {
-			modelA = &response.ByModelLatency[i]
-			break
-		}
+	// Verify provider A entry details.
+	provAEntry := response.ByProviderLatency[0]
+	if provAEntry.RequestCount != 3 {
+		t.Errorf("prov-a RequestCount = %d, want 3", provAEntry.RequestCount)
 	}
-
-	if modelA == nil {
-		t.Fatal("model-a not found in ByModelLatency")
+	if provAEntry.TotalMs < 290 || provAEntry.TotalMs > 310 {
+		t.Errorf("prov-a TotalMs = %f, want ~300", provAEntry.TotalMs)
 	}
-
-	// Verify request count
-	if modelA.RequestCount != 3 {
-		t.Errorf("model-a RequestCount = %d, want 3", modelA.RequestCount)
+	if provAEntry.OverheadMs < 25 || provAEntry.OverheadMs > 35 {
+		t.Errorf("prov-a OverheadMs = %f, want ~30", provAEntry.OverheadMs)
 	}
-
-	// Verify total_ms is approximately 300 (allowing for small timing variations)
-	if modelA.TotalMs < 290 || modelA.TotalMs > 310 {
-		t.Errorf("model-a TotalMs = %f, want ~300", modelA.TotalMs)
+	if provAEntry.ProviderMs < 260 || provAEntry.ProviderMs > 280 {
+		t.Errorf("prov-a ProviderMs = %f, want ~270", provAEntry.ProviderMs)
 	}
-
-	// Verify overhead_ms is approximately 30
-	if modelA.OverheadMs < 25 || modelA.OverheadMs > 35 {
-		t.Errorf("model-a OverheadMs = %f, want ~30", modelA.OverheadMs)
-	}
-
-	// Verify provider_ms is approximately 270
-	if modelA.ProviderMs < 260 || modelA.ProviderMs > 280 {
-		t.Errorf("model-a ProviderMs = %f, want ~270", modelA.ProviderMs)
-	}
-
-	// Verify overhead + provider ≈ total
-	expectedTotal := modelA.OverheadMs + modelA.ProviderMs
-	if math.Abs(expectedTotal-modelA.TotalMs) > 5 {
-		t.Errorf("model-a: OverheadMs + ProviderMs = %f, but TotalMs = %f", expectedTotal, modelA.TotalMs)
+	expectedTotal := provAEntry.OverheadMs + provAEntry.ProviderMs
+	if math.Abs(expectedTotal-provAEntry.TotalMs) > 5 {
+		t.Errorf("prov-a: OverheadMs + ProviderMs = %f, but TotalMs = %f", expectedTotal, provAEntry.TotalMs)
 	}
 }
 

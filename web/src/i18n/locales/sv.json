@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats",
 			"reservedKeyTooltip": "Internt reserverat namn, inte en nyckel som du har skapat – denna användning kommer från Model Hotels egna ”{{name}}”-rutter"
 		},
-		"latency": {
-			"topModels": "Långsammaste modeller",
-			"emptyState": "Inga latensdata ännu. Latensfördelningen visas här när trafiken börjar flöda.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Leverantör: {{provider}}ms",
-			"providerTip": "Leverantör: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Leverantörslatens",
 			"response": "Svar",

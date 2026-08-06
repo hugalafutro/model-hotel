@@ -338,13 +338,6 @@
 			"deletedModelTooltip": "هذا الطراز لم يعد متوفراً - ربما تم حذفه أو تم إزالة مزوده",
 			"reservedKeyTooltip": "اسم داخلي محجوز، وليس مفتاحًا قمت بإنشائه - هذا الاستخدام يأتي من مسارات \"{{name}}\" الخاصة بـ Model Hotel"
 		},
-		"latency": {
-			"topModels": "أبطأ النماذج",
-			"emptyState": "لا توجد بيانات زمن استجابة بعد. سيظهر تفصيل زمن الاستجابة هنا بمجرد تدفق حركة المرور.",
-			"tooltip": "الوكيل: {{overhead}}ms ({{ratio}}%) · مزود: {{provider}}مللي ث ث",
-			"providerTip": "المزود: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "زمن استجابة المزودين",
 			"response": "الرد",

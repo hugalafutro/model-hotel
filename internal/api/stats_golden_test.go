@@ -63,7 +63,7 @@ func TestCalculateStats_Golden(t *testing.T) {
 		rateLimitHits                         int
 		avgTTFT                               float64
 		requests1h                            int
-		modelLatencyLen, providerLatencyLen   int
+		providerLatencyLen                    int
 	}
 
 	cases := []struct {
@@ -152,9 +152,6 @@ func TestCalculateStats_Golden(t *testing.T) {
 			approx(t, "AvgTTFTMs", s.AvgTTFTMs, w.avgTTFT)
 			if s.RequestsLast1h != w.requests1h {
 				t.Errorf("RequestsLast1h = %d, want %d", s.RequestsLast1h, w.requests1h)
-			}
-			if len(s.ByModelLatency) != w.modelLatencyLen {
-				t.Errorf("ByModelLatency len = %d, want %d", len(s.ByModelLatency), w.modelLatencyLen)
 			}
 			if len(s.ByProviderLatency) != w.providerLatencyLen {
 				t.Errorf("ByProviderLatency len = %d, want %d", len(s.ByProviderLatency), w.providerLatencyLen)

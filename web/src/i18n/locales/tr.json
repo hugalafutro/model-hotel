@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya sağlayıcısı kaldırılmış olabilir",
 			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
 		},
-		"latency": {
-			"topModels": "En yavaş modeller",
-			"emptyState": "Henüz gecikme verisi yok. Trafik akışı başladığında gecikme ayrıntıları burada görünecektir.",
-			"tooltip": "Aracı sunucu: {{overhead}}ms ({{ratio}}%) · Sağlayıcı: {{provider}}ms",
-			"providerTip": "Sağlayıcı: {{value}}",
-			"overheadTip": "Proxy yükü: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Sağlayıcı gecikmesi",
 			"response": "Yanıt",

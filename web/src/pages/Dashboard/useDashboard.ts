@@ -154,13 +154,6 @@ export interface UseDashboardReturn {
 		failoverGroup?: boolean;
 		deleted?: boolean;
 	}>;
-	byModelLatency: Array<{
-		label: string;
-		totalMs: number;
-		overheadMs: number;
-		providerMs: number;
-		requestCount: number;
-	}>;
 	byProviderLatency: Array<{
 		label: string;
 		totalMs: number;
@@ -692,15 +685,6 @@ export function useDashboard(): UseDashboardReturn {
 					};
 				})
 		: [];
-	const byModelLatency = latencyStats?.by_model_latency
-		? latencyStats.by_model_latency.map((entry) => ({
-				label: entry.model_id,
-				totalMs: entry.total_ms,
-				overheadMs: entry.overhead_ms,
-				providerMs: entry.provider_ms,
-				requestCount: entry.request_count,
-			}))
-		: [];
 	const byProviderLatency = latencyStats?.by_provider_latency
 		? latencyStats.by_provider_latency.map((entry) => ({
 				label: entry.provider_name,
@@ -830,7 +814,6 @@ export function useDashboard(): UseDashboardReturn {
 		acData,
 		tokenAcData,
 		byModel,
-		byModelLatency,
 		byProviderLatency,
 		byVK,
 		accents,

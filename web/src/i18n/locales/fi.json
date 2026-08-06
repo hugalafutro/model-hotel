@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu",
 			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttö on peräisin Model Hotelin omista \"{{name}}\"-reiteistä"
 		},
-		"latency": {
-			"topModels": "Hitaimmat mallit",
-			"emptyState": "Ei vielä latenssitietoja. Latenssin erittely ilmestyy tässä liikennevirtojen jälkeen.",
-			"tooltip": "Välityspalvelin: {{overhead}}ms ({{ratio}}%) · Palveluntarjoaja: {{provider}}ms",
-			"providerTip": "Tarjoaja: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Tarjoajan viive",
 			"response": "Vastaus",

@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Dit model is niet meer verkrijgbaar - het is mogelijk verwijderd of de leverancier is geschrapt",
 			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes"
 		},
-		"latency": {
-			"topModels": "Traagste modellen",
-			"emptyState": "Nog geen latencygegevens. De latency-uitsplitsing verschijnt hier zodra er verkeer is.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms",
-			"providerTip": "Provider: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Provider-latentie",
 			"response": "Antwoord",

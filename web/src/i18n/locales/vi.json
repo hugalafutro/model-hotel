@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Mô hình không còn khả dụng - có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ",
 			"reservedKeyTooltip": "Tên được dành riêng nội bộ, không phải là khóa do bạn tạo - cách sử dụng này xuất phát từ các tuyến \"{{name}}\" của chính Model Hotel"
 		},
-		"latency": {
-			"topModels": "Mô hình chậm nhất",
-			"emptyState": "Hiện chưa có dữ liệu về độ trễ. Thông tin chi tiết về độ trễ sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Nhà cung cấp: {{provider}}ms",
-			"providerTip": "Nhà cung cấp: {{value}}",
-			"overheadTip": "Chi phí xử lý proxy: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Độ trễ nhà cung cấp",
 			"response": "Phản hồi",

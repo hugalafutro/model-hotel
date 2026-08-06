@@ -433,9 +433,6 @@ func TestCalculateStats_EmptyDB_IncludeLatency(t *testing.T) {
 		t.Fatalf("calculateStats with empty DB and includeLatency=true: %v", err)
 	}
 
-	if len(stats.ByModelLatency) != 0 {
-		t.Errorf("Expected empty ByModelLatency, got %d entries", len(stats.ByModelLatency))
-	}
 	if len(stats.ByProviderLatency) != 0 {
 		t.Errorf("Expected empty ByProviderLatency, got %d entries", len(stats.ByProviderLatency))
 	}
@@ -445,7 +442,7 @@ func TestCalculateStats_EmptyDB_IncludeLatency(t *testing.T) {
 }
 
 // TestCalculateStats_IncludeLatencyWithData verifies calculateStats with
-// includeLatency=true and sufficient data returns model and provider latency entries.
+// includeLatency=true and sufficient data returns provider latency entries.
 func TestCalculateStats_IncludeLatencyWithData(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
@@ -467,9 +464,6 @@ func TestCalculateStats_IncludeLatencyWithData(t *testing.T) {
 		t.Fatalf("calculateStats with includeLatency=true: %v", err)
 	}
 
-	if len(stats.ByModelLatency) == 0 {
-		t.Error("Expected ByModelLatency entries with 3+ requests and includeLatency=true")
-	}
 	if len(stats.ByProviderLatency) == 0 {
 		t.Error("Expected ByProviderLatency entries with 3+ requests and includeLatency=true")
 	}
@@ -546,7 +540,7 @@ func TestCalculateStats_7DayPeriod(t *testing.T) {
 }
 
 // TestCalculateStats_IncludeLatencyTrue verifies that the includeLatency=true
-// path in calculateStats populates the ByModelLatency and ByProviderLatency slices.
+// path in calculateStats populates the ByProviderLatency slice.
 func TestCalculateStats_IncludeLatencyTrue(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
@@ -566,7 +560,6 @@ func TestCalculateStats_IncludeLatencyTrue(t *testing.T) {
 	// (non-nil) by calculateStats when includeLatency=true.
 	// Note: they may actually be nil if no data qualifies; this test
 	// verifies the code path is exercised without panicking.
-	_ = stats.ByModelLatency
 	_ = stats.ByProviderLatency
 }
 
@@ -599,7 +592,6 @@ func TestCalculateStats_WithLatency(t *testing.T) {
 		t.Fatal("expected non-nil result from calculateStats with latency")
 	}
 	// The key coverage is that the includeLatency=true branch is exercised.
-	_ = result.ByModelLatency
 	_ = result.ByProviderLatency
 }
 
@@ -615,9 +607,6 @@ func TestCalculateStats_WithoutLatency(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result from calculateStats without latency")
-	}
-	if len(result.ByModelLatency) != 0 {
-		t.Errorf("expected empty ByModelLatency with includeLatency=false, got %d", len(result.ByModelLatency))
 	}
 	if len(result.ByProviderLatency) != 0 {
 		t.Errorf("expected empty ByProviderLatency with includeLatency=false, got %d", len(result.ByProviderLatency))
@@ -681,13 +670,12 @@ func TestCalculateStats_7dWithLatency(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	_ = result.ByModelLatency
 	_ = result.ByProviderLatency
 	_ = result.TotalRequestsLast7d
 }
 
-// TestCalculateStats_ByModel_ProviderPrefix pins the by_model / by_model_latency
-// aggregation keys to the "Provider/model" form the dashboard matches against
+// TestCalculateStats_ByModel_ProviderPrefix pins the by_model aggregation
+// keys to the "Provider/model" form the dashboard matches against
 // (raw provider name, spaces included — the frontend normalizes on its side):
 // direct rows get the provider prefix even when the model ID itself contains a
 // slash (HF-style IDs like "zai-org/glm-5.2") or starts with the provider's own
@@ -700,8 +688,7 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	providerID := uuid.New()
 	insertTestProvider(t, pool, providerID, "Test Provider", "https://api.example.com/v1")
 
-	// Three direct requests to a slash-containing model ID (three so the
-	// by_model_latency query's HAVING COUNT(*) >= 3 admits it).
+	// Three direct requests to a slash-containing model ID.
 	for range 3 {
 		insertTestRequestLog(t, pool, uuid.New(), providerID, "zai-org/glm-5.2", 200, 100, 50, 25)
 	}
@@ -720,7 +707,7 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 		t.Fatalf("Failed to insert unresolved request log: %v", err)
 	}
 
-	stats, err := handler.calculateStats(context.Background(), 24*time.Hour, true, "requests", true, "")
+	stats, err := handler.calculateStats(context.Background(), 24*time.Hour, true, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -741,18 +728,4 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 		t.Errorf("ByModel contains unprefixed %q; slash-containing model IDs must carry the provider prefix", "zai-org/glm-5.2")
 	}
 
-	var latencyKeys []string
-	found := false
-	for _, entry := range stats.ByModelLatency {
-		latencyKeys = append(latencyKeys, entry.ModelID)
-		if entry.ModelID == "zai-org/glm-5.2" {
-			t.Errorf("ByModelLatency contains unprefixed %q", "zai-org/glm-5.2")
-		}
-		if entry.ModelID == "Test Provider/zai-org/glm-5.2" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("ByModelLatency missing %q, got %v", "Test Provider/zai-org/glm-5.2", latencyKeys)
-	}
 }
