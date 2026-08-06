@@ -89,6 +89,8 @@ func Assess(providerType string, s Snapshot) Assessment {
 		return assessKimiCode(s.Payload)
 	case "minimax":
 		return assessMiniMax(s.Payload)
+	case "neuralwatt":
+		return assessNeuralwatt(s.Payload)
 	default:
 		return Assessment{}
 	}
@@ -146,6 +148,45 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 			continue
 		}
 		if t, ok := epochToTime(l.NextResetTime); ok {
+			e.add(t)
+		}
+	}
+	return e.result(time.Now())
+}
+
+// neuralwattQuotaPayload is the subset of NeuralWatt's account payload the
+// normalizer needs. Both decisive numbers are pointers for the same reason as
+// zaiCodingQuotaLimit.Remaining: a bare float64 cannot tell "field absent"
+// apart from an explicit 0, and treating an absent balance as spent would pin
+// a healthy provider shut.
+type neuralwattQuotaPayload struct {
+	Balance struct {
+		CreditsRemainingUSD *float64 `json:"credits_remaining_usd"`
+	} `json:"balance"`
+	Subscription struct {
+		KwhRemaining     *float64 `json:"kwh_remaining"`
+		CurrentPeriodEnd string   `json:"current_period_end"`
+	} `json:"subscription"`
+}
+
+// assessNeuralwatt handles NeuralWatt's balance model, which differs from the
+// window models above: spending the included monthly energy does not make the
+// provider refuse requests — it keeps serving in overage, debiting the credit
+// balance. Requests only start failing once BOTH the included energy and the
+// credits are affirmatively spent, and the only scheduled recovery from that
+// state is the billing period end, so that is the reset the pin targets (the
+// breaker's 24h pin ceiling re-pins toward it on each open, and an
+// off-schedule recovery — a top-up, a plan change — lifts the pin on the next
+// poll via the recovered path in buildQuotaAdvice).
+func assessNeuralwatt(payload json.RawMessage) Assessment {
+	var res neuralwattQuotaPayload
+	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
+	}
+	var e earliestReset
+	if res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0 &&
+		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD <= 0 {
+		if t, ok := parseResetString(res.Subscription.CurrentPeriodEnd); ok {
 			e.add(t)
 		}
 	}
