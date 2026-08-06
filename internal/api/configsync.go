@@ -143,9 +143,13 @@ var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an inv
 // It is accepted because a legitimate primary only ever exports hashes it
 // computed itself, so one that fails to parse means a corrupt or tampered
 // envelope, and applying credentials from an envelope that has demonstrably
-// been altered is the worse trade. To keep the blast radius from landing
-// silently on every member, exportUsers checks the same encoding and raises
-// configsync.malformed_password_hash at the source.
+// been altered is the worse trade. Be clear about which half carries the
+// argument: for the TAMPERED reading refusing is the point, but for plain
+// CORRUPTION (a direct database write, a bad hash imported before this check
+// existed on a member later promoted to primary) the refusal is pure cost with
+// no security benefit. That case is why exportUsers checks the same encoding
+// and raises configsync.malformed_password_hash at the source, so the fleet
+// freeze is at least explained and fixable rather than silent.
 var errInvalidSyncedPasswordHash = errors.New("configsync: refusing to apply a malformed password hash")
 
 // errUnresolvableUserProviders is returned by apply when a user in the envelope

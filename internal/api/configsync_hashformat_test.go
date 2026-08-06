@@ -90,6 +90,16 @@ func TestConfigSync_AcceptsGenuinePasswordHash(t *testing.T) {
 	}
 }
 
+// resetMalformedPasswordHashReport clears the remembered set so the next export
+// announces again. Test-local on purpose: the production path keeps this state
+// for the process lifetime and has no reason to expose a reset.
+func resetMalformedPasswordHashReport(t *testing.T) {
+	t.Helper()
+	malformedHashReport.Lock()
+	malformedHashReport.reported = nil
+	malformedHashReport.Unlock()
+}
+
 // Import refuses an envelope carrying an unparseable hash, which would freeze
 // convergence for the whole fleet over one unusable account. The primary
 // therefore flags its own corruption at export time, where it can be fixed,
@@ -109,6 +119,7 @@ func TestConfigSync_ExportFlagsMalformedStoredHash(t *testing.T) {
 		t.Fatalf("seed malformed hash: %v", err)
 	}
 
+	resetMalformedPasswordHashReport(t)
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -129,13 +140,58 @@ func TestConfigSync_ExportFlagsMalformedStoredHash(t *testing.T) {
 		select {
 		case ev := <-sub:
 			if ev.Type == "configsync.malformed_password_hash" {
-				if name, _ := ev.Metadata["username"].(string); name != "corrupted" {
-					t.Errorf("event names %q, want the corrupted account", name)
+				names, _ := ev.Metadata["usernames"].([]string)
+				if len(names) != 1 || names[0] != "corrupted" {
+					t.Errorf("event names %v, want just the corrupted account", names)
 				}
 				return
 			}
 		case <-deadline:
 			t.Fatal("export did not raise configsync.malformed_password_hash")
 		}
+	}
+}
+
+// Export runs on Front Desk's config-version poll, which fires every 15 seconds
+// against every member, so publishing per read would put an error event and the
+// operator toast that rides it on the bus four times a minute per member for as
+// long as one bad hash sits in the table. The finding is announced when the set
+// of affected accounts changes, not on every read.
+func TestConfigSync_MalformedHashIsReportedOnChangeNotEveryPoll(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+	seedUser(t, "corrupted", nil, true, nil)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE users SET password_hash = 'not-a-hash' WHERE username = 'corrupted'`); err != nil {
+		t.Fatalf("seed malformed hash: %v", err)
+	}
+
+	// Clear any state a previous test in this package left behind, so the first
+	// export below is the one that announces.
+	resetMalformedPasswordHashReport(t)
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	// Three passes, standing in for successive poller ticks against an unchanged
+	// roster.
+	doExport(t, r)
+	doExport(t, r)
+	doExport(t, r)
+
+	count := 0
+	for draining := true; draining; {
+		select {
+		case ev := <-sub:
+			if ev.Type == "configsync.malformed_password_hash" {
+				count++
+			}
+		case <-time.After(200 * time.Millisecond):
+			draining = false
+		}
+	}
+	if count != 1 {
+		t.Errorf("published %d events across three polls, want exactly 1", count)
 	}
 }

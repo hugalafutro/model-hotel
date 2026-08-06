@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -478,6 +480,7 @@ func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]
 	}
 	defer rows.Close()
 	out := []ExportUser{}
+	var malformed []string
 	for rows.Next() {
 		var u ExportUser
 		var allowedIDs []string
@@ -502,25 +505,75 @@ func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]
 		}
 		// Import refuses an envelope carrying a hash it cannot parse, which
 		// stops a tampered envelope but would also freeze convergence for the
-		// whole fleet over one unusable account. Surface it at the source
-		// instead, where it can be fixed by resetting that password, rather
-		// than leaving every member to reject the envelope with no clue which
-		// account is at fault. Exporting continues: withholding the config
-		// would wedge the fleet for the same bad reason.
+		// whole fleet over one unusable account. Collect the offenders and
+		// report them below, so the primary surfaces its own corruption where
+		// it can be fixed rather than leaving every member to reject the
+		// envelope with no clue which account is at fault.
+		//
+		// The user is still exported. Omitting it would not merely withhold it:
+		// applyUsers replaces the roster declaratively, so a username absent
+		// from the envelope is DELETED on every member. Exporting it is the
+		// only non-destructive option.
 		if err := user.ValidateHashFormat(u.PasswordHash); err != nil {
-			debuglog.Error("configsync: exporting a user whose stored password hash is malformed; members will refuse this envelope until the password is reset",
-				"username", u.Username)
-			events.Publish(events.Event{
-				Type:     "configsync.malformed_password_hash",
-				Severity: "error",
-				Source:   "configsync",
-				Message:  fmt.Sprintf("User %q has a malformed password hash. Fleet members will refuse to sync until it is reset.", u.Username),
-				Metadata: map[string]any{"username": u.Username},
-			})
+			malformed = append(malformed, u.Username)
 		}
 		out = append(out, u)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	reportMalformedPasswordHashes(malformed)
+	return out, nil
+}
+
+// malformedHashReport remembers which accounts were last reported as carrying an
+// unusable password hash.
+var malformedHashReport struct {
+	sync.Mutex
+	reported map[string]struct{}
+}
+
+// reportMalformedPasswordHashes announces the finding when the set of affected
+// accounts changes, not on every read. Export runs on Front Desk's config
+// version poll, which fires every 15 seconds against every member, so
+// publishing per read would put an error event, and the operator toast that
+// rides it, on the bus four times a minute per member for as long as one bad
+// hash sits in the table. Reporting on change keeps the signal without the
+// storm; the state resets on restart, which costs one repeat announcement.
+func reportMalformedPasswordHashes(usernames []string) {
+	current := make(map[string]struct{}, len(usernames))
+	for _, name := range usernames {
+		current[name] = struct{}{}
+	}
+
+	malformedHashReport.Lock()
+	changed := len(current) != len(malformedHashReport.reported)
+	if !changed {
+		for name := range current {
+			if _, ok := malformedHashReport.reported[name]; !ok {
+				changed = true
+				break
+			}
+		}
+	}
+	malformedHashReport.reported = current
+	malformedHashReport.Unlock()
+
+	if !changed || len(usernames) == 0 {
+		return
+	}
+	sorted := slices.Clone(usernames)
+	slices.Sort(sorted)
+	joined := strings.Join(sorted, ", ")
+	debuglog.Error("configsync: stored password hashes are malformed; members will refuse this envelope until these passwords are reset",
+		"usernames", joined)
+	events.Publish(events.Event{
+		Type:     "configsync.malformed_password_hash",
+		Severity: "error",
+		Source:   "configsync",
+		Message:  fmt.Sprintf("Malformed password hash on %d account(s): %s. Fleet members will refuse to sync until reset.", len(sorted), joined),
+		Metadata: map[string]any{"usernames": sorted},
+	})
 }
 
 func exportSettings(ctx context.Context, q querier) (map[string]string, error) {
