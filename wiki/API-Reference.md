@@ -1233,8 +1233,9 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
   "total_requests_last_24h": 12345,
   "total_requests_last_7d": 54321,
   "by_model": {
-    "gpt-4o": 5000,
-    "claude-3-opus": 3000
+    "OpenAI/gpt-4o": 5000,
+    "Anthropic/claude-3-opus": 2000,
+    "hotel/fast-chat": 1000
   },
   "by_provider": {
     "OpenAI": 8000,

@@ -727,5 +727,4 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	if _, ok := stats.ByModel["zai-org/glm-5.2"]; ok {
 		t.Errorf("ByModel contains unprefixed %q; slash-containing model IDs must carry the provider prefix", "zai-org/glm-5.2")
 	}
-
 }
