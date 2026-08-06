@@ -208,27 +208,34 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// modelKeySQL is the aggregation key for per-model stats: the "Provider/model"
+// form the dashboard matches against its model catalog. request_logs.model_id
+// holds the model-only component for direct requests (which may itself contain
+// slashes, e.g. "zai-org/glm-5.2"), the full "hotel/<group>" for failover
+// requests, and on legacy rows the already-prefixed "Provider/model" form —
+// so prefix the provider name unless the row is a hotel/ group or already
+// starts with it.
+const modelKeySQL = `
+			CASE
+				WHEN rl.model_id LIKE 'hotel/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != ''
+					AND left(rl.model_id, length(p.name) + 1) != p.name || '/'
+					THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END`
+
 // statByModel fills stats.ByModel with the top-10 models by the requested
 // metric (Q2). A query failure is fatal (returned); a per-row scan error skips
 // the row, matching the original loop.
 func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
 	query := `
 		SELECT
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END as model_id,
+			` + modelKeySQL + ` as model_id,
 			` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END
+		GROUP BY 1
 		ORDER BY val DESC
 		LIMIT 10`
 
@@ -531,11 +538,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	query := `
 			WITH model_latency AS (
 				SELECT
-					CASE
-						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-						ELSE rl.model_id
-					END as model_id,
+					` + modelKeySQL + ` as model_id,
 					COUNT(*) as req_count,
 					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
 					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead

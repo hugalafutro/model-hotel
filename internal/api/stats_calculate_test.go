@@ -685,3 +685,61 @@ func TestCalculateStats_7dWithLatency(t *testing.T) {
 	_ = result.ByProviderLatency
 	_ = result.TotalRequestsLast7d
 }
+
+// TestCalculateStats_ByModel_ProviderPrefix pins the by_model / by_model_latency
+// aggregation keys to the "Provider/model" form the dashboard matches against:
+// direct rows get the provider prefix even when the model ID itself contains a
+// slash (HF-style IDs like "zai-org/glm-5.2"), hotel/ rows pass through
+// untouched, and legacy rows that already store the prefixed form are not
+// double-prefixed.
+func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-prefix", "https://api.example.com/v1")
+
+	// Three direct requests to a slash-containing model ID (three so the
+	// by_model_latency query's HAVING COUNT(*) >= 3 admits it).
+	for range 3 {
+		insertTestRequestLog(t, pool, uuid.New(), providerID, "zai-org/glm-5.2", 200, 100, 50, 25)
+	}
+	// Failover-group row: model_id keeps its hotel/ form.
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "hotel/glm52", 200, 100, 10, 5)
+	// Legacy row storing the already-prefixed form.
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-provider-prefix/gpt-4o", 200, 100, 10, 5)
+	// Bare model ID without a slash.
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "bare-model", 200, 100, 10, 5)
+
+	stats, err := handler.calculateStats(context.Background(), 24*time.Hour, true, "requests", true, "")
+	if err != nil {
+		t.Fatalf("calculateStats failed: %v", err)
+	}
+
+	want := map[string]int64{
+		"test-provider-prefix/zai-org/glm-5.2": 3,
+		"hotel/glm52":                          1,
+		"test-provider-prefix/gpt-4o":          1,
+		"test-provider-prefix/bare-model":      1,
+	}
+	for key, count := range want {
+		if got := stats.ByModel[key]; got != count {
+			t.Errorf("ByModel[%q] = %d, want %d (full map: %v)", key, got, count, stats.ByModel)
+		}
+	}
+	if _, ok := stats.ByModel["zai-org/glm-5.2"]; ok {
+		t.Errorf("ByModel contains unprefixed %q; slash-containing model IDs must carry the provider prefix", "zai-org/glm-5.2")
+	}
+
+	var latencyKeys []string
+	found := false
+	for _, entry := range stats.ByModelLatency {
+		latencyKeys = append(latencyKeys, entry.ModelID)
+		if entry.ModelID == "test-provider-prefix/zai-org/glm-5.2" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("ByModelLatency missing %q, got %v", "test-provider-prefix/zai-org/glm-5.2", latencyKeys)
+	}
+}
