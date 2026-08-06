@@ -76,21 +76,56 @@ func HashPassword(ctx context.Context, password string) (string, error) {
 // time. A malformed hash returns ErrHashFormat; a context canceled while queued
 // for the Argon2 slot returns ctx.Err(); a wrong password returns (false, nil).
 func VerifyPassword(ctx context.Context, password, encoded string) (bool, error) {
+	h, err := parseArgon2idHash(encoded)
+	if err != nil {
+		return false, err
+	}
+	got, err := argon2IDKey(ctx, []byte(password), h.salt, h.iters, h.mem, h.threads, uint32(len(h.key))) //nolint:gosec // length bounded to 512 in parseArgon2idHash
+	if err != nil {
+		return false, err
+	}
+	return subtle.ConstantTimeCompare(got, h.key) == 1, nil
+}
+
+// argon2idHash is a decoded PHC-format argon2id hash.
+type argon2idHash struct {
+	mem     uint32
+	iters   uint32
+	threads uint8
+	salt    []byte
+	key     []byte
+}
+
+// ValidateHashFormat reports whether encoded is an argon2id hash this build
+// will accept at login, without doing the derivation. Any writer that stores a
+// password hash it did not compute itself, notably the config-sync import,
+// checks it here so a malformed hash is refused at the door instead of landing
+// in the database and surfacing later as an account that can never log in.
+func ValidateHashFormat(encoded string) error {
+	_, err := parseArgon2idHash(encoded)
+	return err
+}
+
+// parseArgon2idHash decodes and bounds-checks a PHC-format argon2id hash. The
+// single parser behind both VerifyPassword and ValidateHashFormat: two copies
+// would eventually disagree, and a hash accepted on import but rejected at
+// login is an account locked out with no visible cause.
+func parseArgon2idHash(encoded string) (argon2idHash, error) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
 	var version int
 	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil || version != argon2.Version {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
 	var mem, iters uint32
 	var threads uint8
 	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &mem, &iters, &threads); err != nil {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
 	if mem == 0 || iters == 0 || threads == 0 {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
 	// Reject parameters far above the configured cost — the per-hash companion to
 	// the argon2MaxConcurrent semaphore. Bounding a single derivation to 128 MiB
@@ -99,19 +134,15 @@ func VerifyPassword(ctx context.Context, password, encoded string) (bool, error)
 	// write). 128 MiB sits well above the current cost (19 MiB) and any realistic
 	// OWASP hardening, so raising the work factors later stays within bounds.
 	if mem > 128*1024 || iters > 30 || threads > 64 {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
-		return false, ErrHashFormat
+		return argon2idHash{}, ErrHashFormat
 	}
-	want, err := base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil || len(want) == 0 || len(want) > 512 {
-		return false, ErrHashFormat
+	key, err := base64.RawStdEncoding.DecodeString(parts[5])
+	if err != nil || len(key) == 0 || len(key) > 512 {
+		return argon2idHash{}, ErrHashFormat
 	}
-	got, err := argon2IDKey(ctx, []byte(password), salt, iters, mem, threads, uint32(len(want))) //nolint:gosec // length bounded to 512 above
-	if err != nil {
-		return false, err
-	}
-	return subtle.ConstantTimeCompare(got, want) == 1, nil
+	return argon2idHash{mem: mem, iters: iters, threads: threads, salt: salt, key: key}, nil
 }

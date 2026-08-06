@@ -15,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 // failoverApplyTimeout bounds the custom failover group build. The build is
@@ -692,6 +693,15 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 	for _, u := range users {
 		if err := validateSyncedRateLimits("user "+strconv.Quote(u.Username), u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
 			return err
+		}
+		// The interactive API only ever stores hashes it computed itself; this
+		// path takes them off the wire, so it checks the encoding here. Login
+		// already fails closed on a malformed hash, so this is not an
+		// authentication fix: it stops an unusable hash from being written at
+		// all, where it would otherwise surface much later as an account that
+		// silently cannot log in.
+		if err := user.ValidateHashFormat(u.PasswordHash); err != nil {
+			return fmt.Errorf("%w: user %s", errInvalidSyncedPasswordHash, strconv.Quote(u.Username))
 		}
 		grants := u.Grants
 		if grants == nil {

@@ -106,6 +106,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused import with out-of-range setting", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	case errors.Is(err, errInvalidSyncedPasswordHash):
+		// A user in the envelope carries a password_hash login could never
+		// verify. A legitimate primary only ever exports hashes it computed, so
+		// refuse the envelope rather than write an account that cannot log in
+		// and would look like a password problem months later.
+		debuglog.Warn("configsync: refused import with a malformed password hash", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	case errors.Is(err, errInvalidSyncedRateLimit):
 		// A virtual key or user in the envelope carries a rate limit the
 		// interactive API rejects: a negative TPM would import as "no cap" and a
