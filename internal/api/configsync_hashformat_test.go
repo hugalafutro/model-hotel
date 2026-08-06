@@ -180,18 +180,47 @@ func TestConfigSync_MalformedHashIsReportedOnChangeNotEveryPoll(t *testing.T) {
 	doExport(t, r)
 	doExport(t, r)
 
+	count := drainMalformedHashEvents(sub)
+	if count != 1 {
+		t.Fatalf("published %d events across three polls, want exactly 1", count)
+	}
+
+	// Recovery then relapse. The set going empty must still be recorded even
+	// though nothing is announced for it, or the account could never be
+	// reported again: a later export would compare against a stale non-empty
+	// set, see no change, and stay silent forever.
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE users SET password_hash = $1 WHERE username = 'corrupted'`,
+		"$argon2id$v=19$m=65536,t=3,p=4$c2VlZHNlZWRzZWVk$c2VlZHNlZWRzZWVkc2VlZHNlZWQ"); err != nil {
+		t.Fatalf("repair hash: %v", err)
+	}
+	doExport(t, r)
+	if n := drainMalformedHashEvents(sub); n != 0 {
+		t.Errorf("repairing the hash published %d events, want 0", n)
+	}
+
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE users SET password_hash = 'broken-again' WHERE username = 'corrupted'`); err != nil {
+		t.Fatalf("re-break hash: %v", err)
+	}
+	doExport(t, r)
+	if n := drainMalformedHashEvents(sub); n != 1 {
+		t.Errorf("a hash that broke again published %d events, want 1", n)
+	}
+}
+
+// drainMalformedHashEvents counts the malformed-hash events waiting on sub,
+// returning once the bus has been idle briefly.
+func drainMalformedHashEvents(sub chan events.Event) int {
 	count := 0
-	for draining := true; draining; {
+	for {
 		select {
 		case ev := <-sub:
 			if ev.Type == "configsync.malformed_password_hash" {
 				count++
 			}
 		case <-time.After(200 * time.Millisecond):
-			draining = false
+			return count
 		}
-	}
-	if count != 1 {
-		t.Errorf("published %d events across three polls, want exactly 1", count)
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/user"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -571,7 +572,7 @@ func reportMalformedPasswordHashes(usernames []string) {
 		Type:     "configsync.malformed_password_hash",
 		Severity: "error",
 		Source:   "configsync",
-		Message:  fmt.Sprintf("Malformed password hash on %d account(s): %s. Fleet members will refuse to sync until reset.", len(sorted), joined),
+		Message:  fmt.Sprintf("Malformed password hash on %s: %s. Fleet members will refuse to sync until reset.", util.Count(len(sorted), "account", "accounts"), joined),
 		Metadata: map[string]any{"usernames": sorted},
 	})
 }
