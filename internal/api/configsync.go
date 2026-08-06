@@ -126,6 +126,32 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 // maps it to a 400 refusal.
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
 
+// errInvalidSyncedPasswordHash is returned by apply when a user in the envelope
+// carries a password_hash that is not a well-formed argon2id hash. A password
+// hash is the one credential field this member does not compute itself, and
+// login already fails closed on a malformed one, so this is not an
+// authentication fix: it keeps an unusable hash out of the database instead of
+// letting it surface later as an account that silently cannot log in. Import
+// maps it to a 400 refusal.
+//
+// This refusal is deliberately harsher than the harm it prevents, and that is
+// worth being explicit about. The neighbouring sentinels refuse envelopes that
+// would be actively damaging to apply (an SSRF-capable URL, a rate limit that
+// denies every request, a cap that silently widens). A malformed hash is inert
+// by comparison, yet refusing the envelope stops providers, keys, settings and
+// failover groups from converging too, fleet-wide, for as long as it persists.
+// It is accepted because a legitimate primary only ever exports hashes it
+// computed itself, so one that fails to parse means a corrupt or tampered
+// envelope, and applying credentials from an envelope that has demonstrably
+// been altered is the worse trade. Be clear about which half carries the
+// argument: for the TAMPERED reading refusing is the point, but for plain
+// CORRUPTION (a direct database write, a bad hash imported before this check
+// existed on a member later promoted to primary) the refusal is pure cost with
+// no security benefit. That case is why exportUsers checks the same encoding
+// and raises configsync.malformed_password_hash at the source, so the fleet
+// freeze is at least explained and fixable rather than silent.
+var errInvalidSyncedPasswordHash = errors.New("configsync: refusing to apply a malformed password hash")
+
 // errUnresolvableUserProviders is returned by apply when a user in the envelope
 // carries a NON-EMPTY provider cap none of whose names resolve on this member.
 // That is anomalous rather than merely inconvenient: providers are replaced
