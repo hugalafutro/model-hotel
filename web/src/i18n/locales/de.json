@@ -2063,6 +2063,16 @@
 			"sectionNote": "Von der Flotten-Primärinstanz verwaltet. Änderungen hier werden bei der nächsten Konfigurationssynchronisierung ersetzt.",
 			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz."
 		},
+		"activeSessions": {
+			"title": "Aktive Sitzungen",
+			"label": "Andere Sitzungen",
+			"description": "Eine Anmeldung beendet keine Sitzungen, die anderswo bereits offen sind. Melden Sie diese ab, wenn ein Gerät verloren ging oder Sie einen Sitzungsdiebstahl vermuten.",
+			"action": "Andere abmelden",
+			"confirm": "Zum Bestätigen klicken",
+			"signedOut_one": "{{count}} andere Sitzung abgemeldet",
+			"signedOut_other": "{{count}} andere Sitzungen abgemeldet",
+			"noneToSignOut": "Es waren keine anderen Sitzungen offen"
+		},
 		"sessionTimeout": {
 			"title": "Sitzungs-Timeout",
 			"label": "Automatische Abmeldung bei Inaktivität",

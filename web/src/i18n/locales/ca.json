@@ -2114,6 +2114,17 @@
 			"sectionNote": "Gestionada per la instància primària de la flota. Els canvis fets aquí se substitueixen en la propera sincronització de configuració.",
 			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància."
 		},
+		"activeSessions": {
+			"title": "Sessions actives",
+			"label": "Altres sessions",
+			"description": "Iniciar la sessió no tanca les sessions ja obertes en altres llocs. Tanca-les si has perdut un dispositiu o sospites que t'han robat una sessió.",
+			"action": "Tanca les altres",
+			"confirm": "Fes clic per confirmar",
+			"signedOut_one": "S'ha tancat {{count}} altra sessió",
+			"signedOut_many": "S'han tancat {{count}} altres sessions",
+			"signedOut_other": "S'han tancat {{count}} altres sessions",
+			"noneToSignOut": "No hi havia cap altra sessió oberta"
+		},
 		"sessionTimeout": {
 			"title": "Temps d'espera de la sessió",
 			"label": "Tancament de sessió automàtic per inactivitat",

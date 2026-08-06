@@ -191,6 +191,30 @@ func (s *WebAuthnStore) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return waAffected(res, err)
 }
 
+// DeleteOtherSessionsForUser revokes every auth-token session for userID except
+// the one identified by keepTokenHash, so an operator can sign other devices out
+// of Front Desk without ending the session they clicked it from. An empty
+// keepTokenHash keeps nothing.
+//
+// Scoped to type 'auth_token' so an in-flight ceremony is not torn down with
+// them. SQLite's IS NOT compares NULL without propagating it (the counterpart of
+// Postgres IS DISTINCT FROM), so a row with no token_hash still counts as "not
+// the caller's" and is revoked rather than silently kept.
+func (s *WebAuthnStore) DeleteOtherSessionsForUser(ctx context.Context, userID []byte, keepTokenHash string) (int64, error) {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM webauthn_sessions
+		 WHERE user_id = ? AND type = 'auth_token' AND token_hash IS NOT ?`,
+		userID, keepTokenHash)
+	if err != nil {
+		return 0, fmt.Errorf("frontdesk: revoke other sessions: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("frontdesk: revoke other sessions: %w", err)
+	}
+	return n, nil
+}
+
 // CleanupExpiredSessions removes sessions past their expiry.
 func (s *WebAuthnStore) CleanupExpiredSessions(ctx context.Context) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM webauthn_sessions WHERE expires_at < ?`, time.Now().UTC().UnixNano())

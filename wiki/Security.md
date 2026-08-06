@@ -115,6 +115,10 @@ The admin token always works. The WebAuthn path is nil-safe: when `WEBAUTHN_RP_I
 - Constant-time comparison via `crypto/subtle.ConstantTimeCompare`
 - Tokens are revoked on credential deletion or explicit logout
 
+**Signing other sessions out.** Because logging in does not end sessions already open elsewhere, **Settings → Authentication → Active sessions** has a "Sign out others" action (`POST /api/auth/sessions/revoke-others`). It revokes every session belonging to your identity except the one you clicked from, so you are not logged out by your own click, and it reports how many it ended. A caller holding the raw admin token has no session of its own to keep, so in that case every admin session is revoked, which is the shape you want when you still have the token but suspect a browser session was stolen.
+
+This is deliberately an explicit action rather than automatic revocation on every login. The admin-token exchange and all three TOTP login paths mint sessions under one shared `"admin"` identity, so automatic revocation would evict your other devices during ordinary sign-ins and quickly train you to ignore it.
+
 **WebAuthn routes:**
 
 | Route | Method | Auth | Description |

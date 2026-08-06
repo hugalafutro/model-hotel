@@ -201,6 +201,31 @@ func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([
 	return session.SessionData, nil
 }
 
+// RevokeOtherSessions signs out every other session belonging to the caller's
+// identity, keeping the session the call was made from so the operator is not
+// logged out by their own click.
+//
+// currentToken is whatever authenticated the request. When it is a session, its
+// identity and its own hash come from that record. When it is not (an operator
+// holding the raw admin token, which mints no session), there is nothing to keep
+// and every session for fallbackUser is revoked: that is the case where the
+// action matters most, since an operator reaching for it usually suspects a
+// browser session is stolen while still holding the token itself.
+func (m *SessionManager) RevokeOtherSessions(ctx context.Context, currentToken string, fallbackUser []byte) (int64, error) {
+	identity, keepHash := fallbackUser, ""
+	if currentToken != "" {
+		sum := sha256.Sum256([]byte(currentToken))
+		hash := hex.EncodeToString(sum[:])
+		if session, err := m.store.GetSessionByTokenHash(ctx, hash); err == nil && len(session.UserID) > 0 {
+			identity, keepHash = session.UserID, hash
+		}
+	}
+	if len(identity) == 0 {
+		return 0, nil
+	}
+	return m.store.DeleteOtherSessionsForUser(ctx, identity, keepHash)
+}
+
 // RevokeAuthToken deletes an auth token session by hashing the token and
 // looking up the session by its token_hash. Returns true if a session was
 // found and deleted.

@@ -276,3 +276,13 @@ func TestStreamEvents_ValidBearerStreamSurvivesHeartbeats(t *testing.T) {
 		t.Errorf("expected heartbeats on a long-lived valid stream, got: %q", body)
 	}
 }
+
+// RevokeOtherSessions satisfies WebAuthnSessionManager; these tests never call it.
+func (m *revocableSessionMgr) RevokeOtherSessions(context.Context, string, []byte) (int64, error) {
+	return 0, nil
+}
+
+// RevokeOtherSessions satisfies WebAuthnSessionManager; these tests never call it.
+func (m *uuidSessionMgr) RevokeOtherSessions(context.Context, string, []byte) (int64, error) {
+	return 0, nil
+}

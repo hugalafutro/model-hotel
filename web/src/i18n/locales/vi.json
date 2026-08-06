@@ -2063,6 +2063,15 @@
 			"sectionNote": "Được quản lý bởi phiên bản chính của hạm đội. Các thay đổi ở đây sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo.",
 			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này."
 		},
+		"activeSessions": {
+			"title": "Phiên đang hoạt động",
+			"label": "Phiên khác",
+			"description": "Đăng nhập không kết thúc các phiên đang mở ở nơi khác. Hãy đăng xuất chúng nếu thiết bị bị mất hoặc bạn nghi ngờ một phiên đã bị đánh cắp.",
+			"action": "Đăng xuất phiên khác",
+			"confirm": "Nhấp để xác nhận",
+			"signedOut_other": "Đã đăng xuất {{count}} phiên khác",
+			"noneToSignOut": "Không có phiên nào khác đang mở"
+		},
 		"sessionTimeout": {
 			"title": "Thời gian chờ phiên",
 			"label": "Tự động đăng xuất sau khi không hoạt động",

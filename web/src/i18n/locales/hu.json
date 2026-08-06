@@ -2063,6 +2063,16 @@
 			"sectionNote": "A flotta elsődleges példánya kezeli. Az itt végzett módosítások a következő konfigurációs szinkronizáláskor lecserélődnek.",
 			"alertsNote": "A riasztások be- és kikapcsolását és az eseményirányítást a flotta elsődleges példánya kezeli. Az alábbi Apprise kézbesítési beállítások helyiek maradnak ezen a példányon."
 		},
+		"activeSessions": {
+			"title": "Aktív munkamenetek",
+			"label": "Egyéb munkamenetek",
+			"description": "A bejelentkezés nem zárja le a máshol már megnyitott munkameneteket. Jelentkeztesse ki őket, ha egy eszköz elveszett, vagy munkamenet-lopásra gyanakszik.",
+			"action": "Többi kijelentkeztetése",
+			"confirm": "Kattintson a megerősítéshez",
+			"signedOut_one": "{{count}} másik munkamenet kijelentkeztetve",
+			"signedOut_other": "{{count}} másik munkamenet kijelentkeztetve",
+			"noneToSignOut": "Nem volt más nyitott munkamenet"
+		},
 		"sessionTimeout": {
 			"title": "Munkamenet időkorlátja",
 			"label": "Automatikus kijelentkezés inaktivitás után",

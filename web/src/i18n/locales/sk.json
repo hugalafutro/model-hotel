@@ -2165,6 +2165,18 @@
 			"sectionNote": "Spravované primárnou inštanciou flotily. Zmeny vykonané tu sa pri ďalšej synchronizácii konfigurácie nahradia.",
 			"alertsNote": "Zapínanie a vypínanie upozornení a smerovanie udalostí spravuje primárna inštancia flotily. Nastavenia doručovania Apprise nižšie zostávajú lokálne pre túto inštanciu."
 		},
+		"activeSessions": {
+			"title": "Aktívne relácie",
+			"label": "Ostatné relácie",
+			"description": "Prihlásenie neukončí relácie, ktoré sú už otvorené inde. Odhláste ich, ak ste stratili zariadenie alebo máte podozrenie na krádež relácie.",
+			"action": "Odhlásiť ostatné",
+			"confirm": "Kliknutím potvrďte",
+			"signedOut_one": "Odhlásená {{count}} ďalšia relácia",
+			"signedOut_few": "Odhlásené {{count}} ďalšie relácie",
+			"signedOut_many": "Odhlásených {{count}} ďalších relácií",
+			"signedOut_other": "Odhlásených {{count}} ďalších relácií",
+			"noneToSignOut": "Žiadne ďalšie relácie neboli otvorené"
+		},
 		"sessionTimeout": {
 			"title": "Časový limit relácie",
 			"label": "Automatické odhlásenie po nečinnosti",

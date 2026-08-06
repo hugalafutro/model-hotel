@@ -2059,6 +2059,16 @@
 		"authentication": {
 			"title": "Authentication"
 		},
+		"activeSessions": {
+			"title": "Active sessions",
+			"label": "Other sessions",
+			"description": "Signing in does not end sessions already open elsewhere. Sign them out if a device was lost or you suspect a session was stolen.",
+			"action": "Sign out others",
+			"confirm": "Click to confirm",
+			"signedOut_one": "Signed out {{count}} other session",
+			"signedOut_other": "Signed out {{count}} other sessions",
+			"noneToSignOut": "No other sessions were open"
+		},
 		"sessionTimeout": {
 			"title": "Session timeout",
 			"label": "Auto-logout after inactivity",

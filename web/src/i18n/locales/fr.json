@@ -2114,6 +2114,17 @@
 			"sectionNote": "Gérée par l'instance principale de la flotte. Les modifications apportées ici sont remplacées à la prochaine synchronisation de configuration.",
 			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance."
 		},
+		"activeSessions": {
+			"title": "Sessions actives",
+			"label": "Autres sessions",
+			"description": "La connexion ne met pas fin aux sessions déjà ouvertes ailleurs. Déconnectez-les si un appareil a été perdu ou si vous soupçonnez le vol d'une session.",
+			"action": "Déconnecter les autres",
+			"confirm": "Cliquez pour confirmer",
+			"signedOut_one": "{{count}} autre session déconnectée",
+			"signedOut_many": "{{count}} autres sessions déconnectées",
+			"signedOut_other": "{{count}} autres sessions déconnectées",
+			"noneToSignOut": "Aucune autre session n'était ouverte"
+		},
 		"sessionTimeout": {
 			"title": "Délai d'expiration de la session",
 			"label": "Déconnexion automatique après inactivité",

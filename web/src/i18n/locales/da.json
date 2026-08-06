@@ -2063,6 +2063,16 @@
 			"sectionNote": "Styres af flådens primære instans. Ændringer her erstattes ved næste konfigurationssynkronisering.",
 			"alertsNote": "Til- og frakobling af advarsler og hændelsesrouting styres af flådens primære instans. Apprise-leveringsindstillingerne nedenfor forbliver lokale for denne instans."
 		},
+		"activeSessions": {
+			"title": "Aktive sessioner",
+			"label": "Andre sessioner",
+			"description": "Login afslutter ikke sessioner, der allerede er åbne andre steder. Log dem ud, hvis en enhed er mistet, eller du har mistanke om, at en session er stjålet.",
+			"action": "Log andre ud",
+			"confirm": "Klik for at bekræfte",
+			"signedOut_one": "{{count}} anden session logget ud",
+			"signedOut_other": "{{count}} andre sessioner logget ud",
+			"noneToSignOut": "Ingen andre sessioner var åbne"
+		},
 		"sessionTimeout": {
 			"title": "Sessionstimeout",
 			"label": "Automatisk log ud efter inaktivitet",

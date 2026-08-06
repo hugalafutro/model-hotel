@@ -2114,6 +2114,17 @@
 			"sectionNote": "Gerenciada pela instância primária da frota. As alterações feitas aqui são substituídas na próxima sincronização de configuração.",
 			"alertsNote": "A ativação de alertas e o roteamento de eventos são gerenciados pela instância primária da frota. As configurações de entrega do Apprise abaixo permanecem locais nesta instância."
 		},
+		"activeSessions": {
+			"title": "Sessões ativas",
+			"label": "Outras sessões",
+			"description": "Iniciar sessão não encerra as sessões já abertas noutros locais. Termine-as se perdeu um dispositivo ou suspeita que uma sessão foi roubada.",
+			"action": "Terminar as outras",
+			"confirm": "Clique para confirmar",
+			"signedOut_one": "Terminada {{count}} outra sessão",
+			"signedOut_many": "Terminadas {{count}} outras sessões",
+			"signedOut_other": "Terminadas {{count}} outras sessões",
+			"noneToSignOut": "Não havia outras sessões abertas"
+		},
 		"sessionTimeout": {
 			"title": "Tempo limite da sessão",
 			"label": "Encerramento de sessão automático por inatividade",
