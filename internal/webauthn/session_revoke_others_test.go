@@ -124,3 +124,34 @@ func TestRevokeOtherSessions_NoOtherSessionsIsNotAnError(t *testing.T) {
 		t.Error("the only session was revoked")
 	}
 }
+
+// No identity to act on means nothing to revoke. Guarding this matters because
+// the store call would otherwise run with an empty user id, which matches no
+// row today but is one schema change away from matching the wrong ones.
+func TestRevokeOtherSessions_NoIdentityRevokesNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, "not-a-session-token", nil)
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 0 {
+		t.Errorf("revoked = %d, want 0", revoked)
+	}
+}
+
+// A store failure must surface rather than read as "nothing needed revoking",
+// which would tell an operator their other sessions are gone when they are not.
+func TestRevokeOtherSessions_StoreFailureSurfaces(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := mgr.RevokeOtherSessions(canceled, "", []byte("admin")); err == nil {
+		t.Error("a canceled context should surface an error")
+	}
+}

@@ -2069,6 +2069,7 @@
 			"description": "登录不会结束在其他位置已打开的会话。如果设备丢失或怀疑会话被窃取，请将其登出。",
 			"action": "登出其他会话",
 			"confirm": "点击确认",
+			"signedOut_one": "已登出 {{count}} 个其他会话",
 			"signedOut_other": "已登出 {{count}} 个其他会话",
 			"noneToSignOut": "没有其他已打开的会话"
 		},

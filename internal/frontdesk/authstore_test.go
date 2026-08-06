@@ -254,3 +254,104 @@ func TestTOTPRepositoryOverSQLite(t *testing.T) {
 		t.Fatal("should be disabled after DisableWithCode")
 	}
 }
+
+// Front Desk shares the session store, so signing other sessions out has to
+// work here too. The SQLite side gets its own coverage because its predicate
+// (IS NOT) is a different construct from the Postgres one (IS DISTINCT FROM),
+// and a wrong one silently keeps the very sessions the operator asked to end.
+func TestDeleteOtherSessionsForUser(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	mineHash := "hash-mine"
+	otherHash := "hash-other"
+	strangerHash := "hash-stranger"
+	nullHashSession := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), ExpiresAt: time.Now().Add(time.Hour),
+	}
+	ceremony := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "login",
+		UserID: []byte("admin"), ExpiresAt: time.Now().Add(time.Hour),
+	}
+	mine := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &mineHash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	other := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &otherHash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	stranger := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("someone-else"), TokenHash: &strangerHash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	for _, rec := range []*webauthn.SessionRecord{nullHashSession, ceremony, mine, other, stranger} {
+		if err := store.CreateSession(ctx, rec); err != nil {
+			t.Fatalf("CreateSession: %v", err)
+		}
+	}
+
+	n, err := store.DeleteOtherSessionsForUser(ctx, []byte("admin"), mineHash)
+	if err != nil {
+		t.Fatalf("DeleteOtherSessionsForUser: %v", err)
+	}
+	// The other auth_token session and the one with no token hash: a NULL hash
+	// is not the caller's, so it must not be mistaken for a session to keep.
+	if n != 2 {
+		t.Errorf("revoked %d, want 2", n)
+	}
+	if _, err := store.GetSession(ctx, mine.ID); err != nil {
+		t.Errorf("the caller's own session was revoked: %v", err)
+	}
+	if _, err := store.GetSession(ctx, ceremony.ID); err != nil {
+		t.Errorf("an in-flight login ceremony was torn down: %v", err)
+	}
+	if _, err := store.GetSession(ctx, stranger.ID); err != nil {
+		t.Errorf("another identity's session was revoked: %v", err)
+	}
+	if _, err := store.GetSession(ctx, other.ID); !errors.Is(err, webauthn.ErrNotFound) {
+		t.Errorf("another session of the same identity survived, got %v", err)
+	}
+	if _, err := store.GetSession(ctx, nullHashSession.ID); !errors.Is(err, webauthn.ErrNotFound) {
+		t.Errorf("a session with no token hash survived, got %v", err)
+	}
+}
+
+// An empty keepTokenHash keeps nothing, which is how a caller holding the raw
+// admin token (and therefore no session of its own) ends all of them.
+func TestDeleteOtherSessionsForUser_EmptyKeepHashRevokesAll(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hash := "hash-a"
+	rec := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	if err := store.CreateSession(ctx, rec); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := store.DeleteOtherSessionsForUser(ctx, []byte("admin"), "")
+	if err != nil {
+		t.Fatalf("DeleteOtherSessionsForUser: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("revoked %d, want 1", n)
+	}
+}
+
+func TestDeleteOtherSessionsForUser_ClosedDBIsAnError(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	if _, err := store.DeleteOtherSessionsForUser(context.Background(), []byte("admin"), ""); err == nil {
+		t.Error("a failed revoke must report an error rather than claim success")
+	}
+}
