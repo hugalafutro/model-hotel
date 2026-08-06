@@ -30,6 +30,7 @@ type BackupHandler struct {
 	settingsRepo      SettingsStore
 	sessionMgr        WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (raw admin token still accepted when TOTP off)
 	totpEnabled       func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so raw admin token is accepted
+	masterKey         string                 // set via SetSigningKey; empty disables backup signing and verification
 	schedulerCancelMu sync.Mutex
 	schedulerCancel   context.CancelFunc
 }
@@ -59,6 +60,35 @@ func (h *BackupHandler) SetSessionAuth(sessionMgr WebAuthnSessionManager, totpEn
 	h.totpEnabled = totpEnabled
 }
 
+// SetSigningKey wires the master key used to derive the backup signing key, so
+// dumps are signed on creation and verified on the way back out. Left empty
+// (no MASTER_KEY configured) signing is skipped entirely and backups behave as
+// they did before signing existed.
+func (h *BackupHandler) SetSigningKey(masterKey string) {
+	h.masterKey = masterKey
+}
+
+// signFinishedDump signs a completed dump, reporting whether a signature now
+// exists. A signing failure never discards the dump: an unsigned backup is far
+// better than no backup, so the failure is logged and surfaced instead.
+func (h *BackupHandler) signFinishedDump(path, filename string) bool {
+	if h.masterKey == "" {
+		return false
+	}
+	if err := signBackupFile(path, h.masterKey); err != nil {
+		debuglog.Error("backup: failed to sign", "filename", filename, "error", err)
+		events.Publish(events.Event{
+			Type:     "backup.unsigned",
+			Severity: "warning",
+			Source:   "backup",
+			Message:  fmt.Sprintf("Backup %s was created but could not be signed; it cannot be integrity-checked later", filename),
+			Metadata: map[string]any{"filename": filename},
+		})
+		return false
+	}
+	return true
+}
+
 // Register registers backup routes on the given router.
 func (h *BackupHandler) Register(r chi.Router) {
 	r.Route("/backups", func(r chi.Router) {
@@ -82,6 +112,19 @@ type backupEntry struct {
 	// from the filename marker; only "_auto" files read as scheduled, so files
 	// predating origin tracking read as "manual" and are spared from rotation.
 	Origin string `json:"origin"`
+	// Signed reports whether a signature sidecar exists for this backup, not
+	// whether it verifies: listing only stats the sidecar, because hashing every
+	// dump on every dashboard load would read the whole backup directory. The
+	// signature is actually checked on download, where a single file is read
+	// anyway and a mismatch can stop the transfer.
+	Signed bool `json:"signed"`
+}
+
+// hasSignature reports whether a signature sidecar exists beside a dump. Cheap
+// (a stat), unlike verifying it.
+func hasSignature(absPath string) bool {
+	_, err := os.Stat(absPath + backupSignatureExt)
+	return err == nil
 }
 
 // CreateBackup runs pg_dump and saves the output to a timestamped file. An
@@ -139,7 +182,9 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Info("backup: created", "filename", filename, "size_bytes", info.Size())
+	signed := h.signFinishedDump(path, filename)
+
+	debuglog.Info("backup: created", "filename", filename, "size_bytes", info.Size(), "signed", signed)
 	events.Publish(events.Event{
 		Type:     "backup.created",
 		Severity: "success",
@@ -153,6 +198,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime().Format(time.RFC3339),
 		Origin:    backupOrigin(filename),
+		Signed:    signed,
 	})
 }
 
@@ -182,6 +228,7 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
 			Origin:    backupOrigin(entry.Name()),
+			Signed:    hasSignature(filepath.Join(h.backupDir, entry.Name())),
 		})
 	}
 
@@ -250,7 +297,31 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	debuglog.Info("backup: downloaded", "filename", filename)
+	// Download is where a backup leaves this server on its way to a restore, so
+	// it is where tampering in the backup directory has to be caught. A dump
+	// whose signature does not match is not served at all: handing it over and
+	// hoping the operator notices later is how a planted dump gets restored.
+	// An unsigned dump still goes out (backups predating signing, and dumps this
+	// instance never signed, must stay usable); the listing marks those.
+	status, verr := verifyBackupFile(absPath, h.masterKey)
+	if verr != nil {
+		respondError(w, fmt.Sprintf("failed to verify backup %q", filename), verr, http.StatusInternalServerError)
+		return
+	}
+	if status == backupSigInvalid {
+		debuglog.Error("backup: refused to serve, signature mismatch", "filename", filename)
+		events.Publish(events.Event{
+			Type:     "backup.integrity_failed",
+			Severity: "error",
+			Source:   "backup",
+			Message:  fmt.Sprintf("Backup %s failed its integrity check and was not served: its contents changed after it was signed", filename),
+			Metadata: map[string]any{"filename": filename},
+		})
+		respondError(w, fmt.Sprintf("backup %q failed its integrity check: contents changed after signing", filename), nil, http.StatusConflict)
+		return
+	}
+
+	debuglog.Info("backup: downloaded", "filename", filename, "signature", status == backupSigValid)
 
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -346,7 +417,7 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := os.Remove(absPath); os.IsNotExist(err) {
+	if err := removeBackupWithSignature(absPath); os.IsNotExist(err) {
 		http.Error(w, "backup not found", http.StatusNotFound)
 		return
 	} else if err != nil {

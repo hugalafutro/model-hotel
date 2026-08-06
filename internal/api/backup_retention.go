@@ -244,7 +244,7 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 		if absPath == "" {
 			continue
 		}
-		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+		if err := removeBackupWithSignature(absPath); err != nil && !os.IsNotExist(err) {
 			debuglog.Error("backup: failed to prune", "filename", b.Filename, "error", err)
 			continue
 		}

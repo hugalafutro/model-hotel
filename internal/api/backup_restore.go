@@ -284,6 +284,10 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	//nolint:errcheck // cleanup: temp file removed after processing
 	defer os.Remove(tmpPath)
 
+	if !h.verifyUploadedDump(w, r, tmpPath) {
+		return
+	}
+
 	pgRestorePath, dumpMigrations, ok := validateRestoreDump(w, tmpPath)
 	if !ok {
 		return
@@ -389,6 +393,42 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	tmpFile.Close() //nolint:errcheck,gosec // cleanup: file fully written, closing for pg_restore
 
 	return tmpPath, true
+}
+
+// verifyUploadedDump checks an uploaded dump against a signature supplied with
+// it, before any of its contents are parsed. A restore consumes an upload, not
+// a file from the backup directory, so the signature has to travel with it: the
+// operator pastes the contents of the dump's .sig sidecar into the "signature"
+// form field. A mismatch is fatal. An absent signature does not block, because
+// backups predating signing and dumps from other instances have none and must
+// stay restorable, but it is recorded so an unverified restore is never silent.
+func (h *BackupHandler) verifyUploadedDump(w http.ResponseWriter, r *http.Request, tmpPath string) bool {
+	status, err := verifyBackupBytesAgainstSignature(tmpPath, r.FormValue("signature"), h.masterKey)
+	if err != nil {
+		respondError(w, "failed to verify dump signature", err, http.StatusInternalServerError)
+		return false
+	}
+	if status == backupSigInvalid {
+		debuglog.Error("backup: restore rejected, signature mismatch", "remote_addr", r.RemoteAddr)
+		events.Publish(events.Event{
+			Type:     "backup.integrity_failed",
+			Severity: "error",
+			Source:   "backup",
+			Message:  "Restore rejected: the uploaded dump does not match the signature supplied with it",
+		})
+		respondBadRequest(w, "dump does not match the signature supplied with it", nil)
+		return false
+	}
+	if status != backupSigValid {
+		debuglog.Warn("backup: restoring a dump whose integrity was not verified")
+		events.Publish(events.Event{
+			Type:     "backup.restore_unverified",
+			Severity: "warning",
+			Source:   "backup",
+			Message:  "Restoring a dump with no signature to check it against; its contents are trusted on the operator's say-so",
+		})
+	}
+	return true
 }
 
 // validateRestoreDump inspects a saved dump with pg_restore --list and rejects

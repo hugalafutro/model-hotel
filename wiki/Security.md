@@ -560,6 +560,22 @@ App Logs view and its source filter.
 
 ---
 
+## Backup Integrity
+
+Database backups are `pg_dump --format=custom` files sitting in `DATA_DIR/backups`. Anything able to write into that directory could otherwise replace a dump with a crafted one containing an injected admin account, and a later restore would activate it.
+
+Each backup is therefore signed when it is written, manually or by the rotation scheduler. The signature is HMAC-SHA256 under a key derived from `MASTER_KEY` via HKDF with a dedicated label, so the signing key is not the key that encrypts provider credentials, and it lives in a `<backup>.dump.sig` sidecar rather than inside the dump, which keeps the dump a valid `pg_restore` input. Deleting or pruning a backup removes its sidecar with it.
+
+**Where it is enforced.** Verification happens on **download**, because a restore consumes an upload and a download is how a backup leaves the server on its way to one. A dump whose contents changed after signing is not served at all: the request gets `409`, and a `backup.integrity_failed` event is raised. Restore additionally verifies when the caller supplies the sidecar's contents in the `signature` form field, and rejects a mismatch outright.
+
+**What is deliberately not blocked.** A backup with no signature (taken before signing existed, or produced by another instance) is still served and still restorable, because refusing it would make legitimate old backups unrecoverable. The backup listing reports `signed` per file so unprotected backups are visible, and a restore performed without a signature raises a `backup.restore_unverified` warning event. An attacker who deletes a sidecar therefore downgrades a backup to visibly unsigned rather than passing it off as genuine.
+
+**Limits worth knowing.** The signing key is derived from `MASTER_KEY`, which lives in the application's environment, so this does not defend against an attacker who has already compromised the app container: they can read the master key and forge a signature. What it does defend is backups at rest wherever the directory is reachable by something that lacks that environment, such as a NAS share or a sync target. With no `MASTER_KEY` configured, signing and verification are skipped entirely and backups behave exactly as they did before.
+
+Dumps are not encrypted. Provider keys, TOTP secrets, and fleet member tokens are already AES-256-GCM encrypted in the database, so a dump alone does not expose them; what a dump does contain is Argon2id password hashes and SHA-256 hashes of virtual keys. Store backups on encrypted volumes if that matters to your threat model.
+
+---
+
 ## Known Security Trade-offs
 
 ### Decrypted Key Caching
