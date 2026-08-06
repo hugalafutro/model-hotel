@@ -315,6 +315,18 @@ func TestAssess_Neuralwatt_AbsentFieldsAreNotExhausted(t *testing.T) {
 	}
 }
 
+func TestAssess_Neuralwatt_UnparseablePayloadIsNotOK(t *testing.T) {
+	// A payload that does not decode must report OK=false so the caller falls
+	// back to the default cooldown, never a guessed pin.
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: []byte(`{"subscription": "not-an-object"}`)})
+	if got.OK {
+		t.Error("an undecodable payload must not assess OK")
+	}
+	if got.Exhausted {
+		t.Error("an undecodable payload must never read as exhausted")
+	}
+}
+
 func TestAssess_Neuralwatt_PastPeriodEndIsNoPin(t *testing.T) {
 	// A stale snapshot whose period already rolled over must not pin: the
 	// window it describes is gone.
