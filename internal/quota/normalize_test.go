@@ -202,23 +202,26 @@ func TestAssess_ZaiCoding_PercentageAt100IsExhausted(t *testing.T) {
 }
 
 // TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining: a percentage
-// outside [0, ...) is not a signal, so the remaining rule decides as it did
-// before the field existed.
+// outside [0, 100] is not a signal, so the remaining rule decides as it did
+// before the field existed. For an over-100 overage reading that fallback
+// still pins, because Z.ai always sends remaining: 0 alongside it.
 func TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining(t *testing.T) {
-	reset := time.Now().Add(2 * time.Hour).UnixMilli()
-	payload, err := json.Marshal(map[string]any{
-		"data": map[string]any{"limits": []map[string]any{
-			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": -7, "nextResetTime": reset},
-		}},
-	})
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
+	for _, pct := range []float64{-7, 150} {
+		reset := time.Now().Add(2 * time.Hour).UnixMilli()
+		payload, err := json.Marshal(map[string]any{
+			"data": map[string]any{"limits": []map[string]any{
+				{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": pct, "nextResetTime": reset},
+			}},
+		})
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
 
-	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+		got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
 
-	if !got.OK || !got.Exhausted {
-		t.Fatalf("got OK=%v Exhausted=%v, want remaining=0 to decide when percentage is nonsense", got.OK, got.Exhausted)
+		if !got.OK || !got.Exhausted {
+			t.Fatalf("percentage=%v: got OK=%v Exhausted=%v, want remaining=0 to decide when percentage is out of range", pct, got.OK, got.Exhausted)
+		}
 	}
 }
 

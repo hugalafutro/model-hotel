@@ -211,8 +211,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) hedgeResult {
 	res := hedgeResult{idx: attempt}
 
-	// Same stamp beginAttempt makes at attempt start: a probe is a real request
-	// to this provider whether or not it wins the race.
+	// Same stamp beginAttempt makes at attempt start, before the request is
+	// built: launching an attempt against this provider counts as use, whether
+	// or not the probe wins the race or even reaches the wire.
 	h.touchProviderLastUsed(candidate.provider.ID)
 
 	var dialMs float64

@@ -129,12 +129,15 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 		// Z.ai's remaining cannot be trusted on its own: the live API sends an
 		// explicit remaining: 0 on windows that are only partially used, while
 		// percentage (percent of the window consumed) tracks the account page
-		// exactly. A sane percentage therefore decides; remaining decides only
-		// when the payload carries no usable percentage, and a missing field
-		// decodes to nil, never to 0, so absence is never read as exhausted.
+		// exactly. A sane percentage — within [0, 100], the same definition
+		// addMiniMaxWindow uses — therefore decides; anything outside that
+		// range is nonsense, not a signal, and falls back to the remaining
+		// rule (where Z.ai's ever-present remaining: 0 still reads a genuine
+		// overage as exhausted). A missing field decodes to nil, never to 0,
+		// so absence is never read as exhausted.
 		exhausted := false
 		switch {
-		case l.Percentage != nil && *l.Percentage >= 0:
+		case l.Percentage != nil && *l.Percentage >= 0 && *l.Percentage <= 100:
 			exhausted = *l.Percentage >= 100
 		case l.Remaining != nil && *l.Remaining <= 0:
 			exhausted = true

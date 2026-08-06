@@ -397,6 +397,9 @@ func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
 		debuglog.Error("provider: touch last_used failed", "id", id, "error", err)
 		return err
 	}
-	InvalidateProviderCache()
+	// A single-row metadata write only invalidates that provider's own cache
+	// entries: a full flush here would empty the routing cache on every
+	// attempt/probe, and hedged streaming touches every launched candidate.
+	EvictProviderCacheByID(id)
 	return nil
 }
