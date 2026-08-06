@@ -6,11 +6,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 // ---------------------------------------------------------------------------
@@ -496,6 +499,24 @@ func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]
 				}
 			}
 			u.AllowedProviderNames = &names
+		}
+		// Import refuses an envelope carrying a hash it cannot parse, which
+		// stops a tampered envelope but would also freeze convergence for the
+		// whole fleet over one unusable account. Surface it at the source
+		// instead, where it can be fixed by resetting that password, rather
+		// than leaving every member to reject the envelope with no clue which
+		// account is at fault. Exporting continues: withholding the config
+		// would wedge the fleet for the same bad reason.
+		if err := user.ValidateHashFormat(u.PasswordHash); err != nil {
+			debuglog.Error("configsync: exporting a user whose stored password hash is malformed; members will refuse this envelope until the password is reset",
+				"username", u.Username)
+			events.Publish(events.Event{
+				Type:     "configsync.malformed_password_hash",
+				Severity: "error",
+				Source:   "configsync",
+				Message:  fmt.Sprintf("User %q has a malformed password hash. Fleet members will refuse to sync until it is reset.", u.Username),
+				Metadata: map[string]any{"username": u.Username},
+			})
 		}
 		out = append(out, u)
 	}

@@ -133,6 +133,19 @@ var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an inv
 // authentication fix: it keeps an unusable hash out of the database instead of
 // letting it surface later as an account that silently cannot log in. Import
 // maps it to a 400 refusal.
+//
+// This refusal is deliberately harsher than the harm it prevents, and that is
+// worth being explicit about. The neighbouring sentinels refuse envelopes that
+// would be actively damaging to apply (an SSRF-capable URL, a rate limit that
+// denies every request, a cap that silently widens). A malformed hash is inert
+// by comparison, yet refusing the envelope stops providers, keys, settings and
+// failover groups from converging too, fleet-wide, for as long as it persists.
+// It is accepted because a legitimate primary only ever exports hashes it
+// computed itself, so one that fails to parse means a corrupt or tampered
+// envelope, and applying credentials from an envelope that has demonstrably
+// been altered is the worse trade. To keep the blast radius from landing
+// silently on every member, exportUsers checks the same encoding and raises
+// configsync.malformed_password_hash at the source.
 var errInvalidSyncedPasswordHash = errors.New("configsync: refusing to apply a malformed password hash")
 
 // errUnresolvableUserProviders is returned by apply when a user in the envelope
