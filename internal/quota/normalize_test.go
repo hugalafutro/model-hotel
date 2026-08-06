@@ -153,6 +153,75 @@ func TestAssess_ZaiCoding_ExplicitZeroRemainingIsExhausted(t *testing.T) {
 	}
 }
 
+// TestAssess_ZaiCoding_PercentageBelow100OverridesZeroRemaining pins the shape
+// the live API actually sends: remaining is a constant 0 even on a window that
+// is only partially used, while percentage (percent consumed) matches the
+// account page. A parser that believes remaining=0 here pins a healthy
+// provider shut for the rest of its window.
+func TestAssess_ZaiCoding_PercentageBelow100OverridesZeroRemaining(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": 63, "nextResetTime": time.Now().Add(4 * time.Hour).UnixMilli()},
+			{"type": "TOKENS_LIMIT", "unit": 6, "remaining": 0, "percentage": 48, "nextResetTime": time.Now().Add(72 * time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("percentage<100 must not be exhausted, whatever remaining says")
+	}
+}
+
+func TestAssess_ZaiCoding_PercentageAt100IsExhausted(t *testing.T) {
+	reset := time.Now().Add(3 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": 100, "nextResetTime": reset},
+			{"type": "TOKENS_LIMIT", "unit": 6, "remaining": 0, "percentage": 48, "nextResetTime": time.Now().Add(72 * time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want a 100%% window to read as exhausted", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.UnixMilli() != reset {
+		t.Errorf("got ResetsAt=%d, want the spent window's reset %d, not the healthy one's", got.ResetsAt.UnixMilli(), reset)
+	}
+}
+
+// TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining: a percentage
+// outside [0, ...) is not a signal, so the remaining rule decides as it did
+// before the field existed.
+func TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining(t *testing.T) {
+	reset := time.Now().Add(2 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": -7, "nextResetTime": reset},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want remaining=0 to decide when percentage is nonsense", got.OK, got.Exhausted)
+	}
+}
+
 // TestAssess_KimiCode_AbsentRemainingIsNotExhausted guards the same hole in the
 // Kimi parser. Kimi encodes remaining as a JSON string, so an absent key decodes
 // to "" and ParseInt rejects it — the parser is safe, but only because a string's
