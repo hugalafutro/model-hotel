@@ -210,17 +210,15 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 // modelKeySQL is the aggregation key for per-model stats: the "Provider/model"
 // form the dashboard matches against its model catalog. request_logs.model_id
-// holds the model-only component for direct requests (which may itself contain
-// slashes, e.g. "zai-org/glm-5.2"), the full "hotel/<group>" for failover
-// requests, and on legacy rows the already-prefixed "Provider/model" form —
-// so prefix the provider name unless the row is a hotel/ group or already
-// starts with it.
+// holds the model-only component for direct requests — which may itself
+// contain slashes (HF-style IDs like "zai-org/glm-5.2"), so its shape says
+// nothing about whether the provider prefix is present — and the full
+// "hotel/<group>" for failover requests. Rows without a resolved provider
+// (validation failures, deleted providers) keep their raw value.
 const modelKeySQL = `
 			CASE
 				WHEN rl.model_id LIKE 'hotel/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != ''
-					AND left(rl.model_id, length(p.name) + 1) != p.name || '/'
-					THEN p.name || '/' || rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
 				ELSE rl.model_id
 			END`
 

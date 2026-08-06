@@ -687,17 +687,18 @@ func TestCalculateStats_7dWithLatency(t *testing.T) {
 }
 
 // TestCalculateStats_ByModel_ProviderPrefix pins the by_model / by_model_latency
-// aggregation keys to the "Provider/model" form the dashboard matches against:
+// aggregation keys to the "Provider/model" form the dashboard matches against
+// (raw provider name, spaces included — the frontend normalizes on its side):
 // direct rows get the provider prefix even when the model ID itself contains a
-// slash (HF-style IDs like "zai-org/glm-5.2"), hotel/ rows pass through
-// untouched, and legacy rows that already store the prefixed form are not
-// double-prefixed.
+// slash (HF-style IDs like "zai-org/glm-5.2") or starts with the provider's own
+// name, hotel/ rows pass through untouched, and rows without a resolved
+// provider keep their raw value.
 func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
 
 	providerID := uuid.New()
-	insertTestProvider(t, pool, providerID, "test-provider-prefix", "https://api.example.com/v1")
+	insertTestProvider(t, pool, providerID, "Test Provider", "https://api.example.com/v1")
 
 	// Three direct requests to a slash-containing model ID (three so the
 	// by_model_latency query's HAVING COUNT(*) >= 3 admits it).
@@ -706,10 +707,18 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	}
 	// Failover-group row: model_id keeps its hotel/ form.
 	insertTestRequestLog(t, pool, uuid.New(), providerID, "hotel/glm52", 200, 100, 10, 5)
-	// Legacy row storing the already-prefixed form.
-	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-provider-prefix/gpt-4o", 200, 100, 10, 5)
+	// Model ID whose leading segment equals the provider name (Qwen serving
+	// Qwen/... style IDs) still gets the prefix.
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "Test Provider/gpt-4o", 200, 100, 10, 5)
 	// Bare model ID without a slash.
 	insertTestRequestLog(t, pool, uuid.New(), providerID, "bare-model", 200, 100, 10, 5)
+	// Unresolved row (validation failure): provider_id NULL, model_id keeps the
+	// raw client-supplied string.
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, NULL, 'NoSuchProvider/some-model', 404, 5, 0, 0, NOW())`, uuid.New()); err != nil {
+		t.Fatalf("Failed to insert unresolved request log: %v", err)
+	}
 
 	stats, err := handler.calculateStats(context.Background(), 24*time.Hour, true, "requests", true, "")
 	if err != nil {
@@ -717,10 +726,11 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	}
 
 	want := map[string]int64{
-		"test-provider-prefix/zai-org/glm-5.2": 3,
-		"hotel/glm52":                          1,
-		"test-provider-prefix/gpt-4o":          1,
-		"test-provider-prefix/bare-model":      1,
+		"Test Provider/zai-org/glm-5.2":      3,
+		"hotel/glm52":                        1,
+		"Test Provider/Test Provider/gpt-4o": 1,
+		"Test Provider/bare-model":           1,
+		"NoSuchProvider/some-model":          1,
 	}
 	for key, count := range want {
 		if got := stats.ByModel[key]; got != count {
@@ -735,11 +745,14 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	found := false
 	for _, entry := range stats.ByModelLatency {
 		latencyKeys = append(latencyKeys, entry.ModelID)
-		if entry.ModelID == "test-provider-prefix/zai-org/glm-5.2" {
+		if entry.ModelID == "zai-org/glm-5.2" {
+			t.Errorf("ByModelLatency contains unprefixed %q", "zai-org/glm-5.2")
+		}
+		if entry.ModelID == "Test Provider/zai-org/glm-5.2" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("ByModelLatency missing %q, got %v", "test-provider-prefix/zai-org/glm-5.2", latencyKeys)
+		t.Errorf("ByModelLatency missing %q, got %v", "Test Provider/zai-org/glm-5.2", latencyKeys)
 	}
 }
