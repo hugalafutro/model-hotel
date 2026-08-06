@@ -196,3 +196,113 @@ func TestSignBackupFile_SidecarIsNotListedAsABackup(t *testing.T) {
 		t.Errorf("sidecar name %q ends in .dump and would be listed and offered for restore", name)
 	}
 }
+
+func TestSignBackupFile_FailsWithoutMasterKeyOrFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := signBackupFile(path, ""); err == nil {
+		t.Error("signing without a master key should fail rather than write an unkeyed signature")
+	}
+	if err := signBackupFile(filepath.Join(dir, "missing.dump"), "master"); err == nil {
+		t.Error("signing a nonexistent dump should fail")
+	}
+}
+
+// A sidecar that exists but cannot be read leaves the dump unprovable, so the
+// check must report a hard failure rather than quietly passing. A directory in
+// the sidecar's place reproduces an unreadable sidecar portably.
+func TestVerifyBackupFile_UnreadableSidecarFailsClosed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "blocked.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path+backupSignatureExt, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := verifyBackupFile(path, "master")
+	if err == nil {
+		t.Error("unreadable sidecar should surface an error, not pass silently")
+	}
+	if status != backupSigInvalid {
+		t.Errorf("status = %v, want invalid", status)
+	}
+}
+
+func TestCheckSignature_ReportsUnavailableWithoutKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := checkSignature(path, []byte("whatever"), "")
+	if err == nil {
+		t.Error("checkSignature without a master key should error")
+	}
+	if status != backupSigUnavailable {
+		t.Errorf("status = %v, want unavailable", status)
+	}
+}
+
+func TestCheckSignature_MissingDumpIsAnError(t *testing.T) {
+	status, err := checkSignature(filepath.Join(t.TempDir(), "missing.dump"), []byte("sig"), "master")
+	if err == nil {
+		t.Error("hashing a nonexistent dump should error")
+	}
+	if status != backupSigInvalid {
+		t.Errorf("status = %v, want invalid", status)
+	}
+}
+
+func TestVerifyBackupBytesAgainstSignature_UnavailableAndMalformed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := verifyBackupBytesAgainstSignature(path, "deadbeef", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != backupSigUnavailable {
+		t.Errorf("no master key: status = %v, want unavailable", status)
+	}
+
+	status, err = verifyBackupBytesAgainstSignature(path, "not-hex", "master")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if status != backupSigInvalid {
+		t.Errorf("malformed signature: status = %v, want invalid", status)
+	}
+}
+
+// The dump's own removal error is what callers act on, but a sidecar that
+// cannot be removed must not be reported as a clean delete: it would outlive
+// the dump and later be matched against an unrelated file of the same name.
+func TestRemoveBackupWithSignature_SidecarRemovalFailureSurfaces(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A non-empty directory in the sidecar's place cannot be removed.
+	sidecar := path + backupSignatureExt
+	if err := os.Mkdir(sidecar, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sidecar, "child"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := removeBackupWithSignature(path); err == nil {
+		t.Error("a sidecar that could not be removed should be reported")
+	}
+}

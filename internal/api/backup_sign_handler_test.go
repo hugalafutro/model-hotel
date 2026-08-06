@@ -254,3 +254,68 @@ func TestVerifyUploadedDump_ProceedsWithoutSignature(t *testing.T) {
 		t.Errorf("restore blocked an unsigned dump: %s", w.Body.String())
 	}
 }
+
+func TestSignFinishedDump_ReportsSuccessAndFailure(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
+
+	path := filepath.Join(dir, "backup_test.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// No signing key configured: nothing is signed and nothing claims to be.
+	if h.signFinishedDump(path, "backup_test.dump") {
+		t.Error("reported a signature with no master key configured")
+	}
+
+	h.SetSigningKey("master")
+	if !h.signFinishedDump(path, "backup_test.dump") {
+		t.Error("signing a good dump reported failure")
+	}
+	if _, err := os.Stat(path + backupSignatureExt); err != nil {
+		t.Errorf("sidecar not written: %v", err)
+	}
+
+	// A dump that cannot be read cannot be signed, and that is reported rather
+	// than papered over: the backup itself is still kept.
+	if h.signFinishedDump(filepath.Join(dir, "missing.dump"), "missing.dump") {
+		t.Error("reported a signature for a dump that could not be read")
+	}
+}
+
+// A sidecar that cannot be read means the dump is unprovable, so the download
+// fails loudly instead of serving bytes nobody can vouch for.
+func TestDownloadBackup_UnverifiableSidecarIsAnError(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	path := filepath.Join(dir, "backup_test.dump")
+	if err := os.WriteFile(path, []byte("bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path+backupSignatureExt, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestVerifyUploadedDump_UnreadableUploadIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
+	h.SetSigningKey("master")
+
+	w := httptest.NewRecorder()
+	missing := filepath.Join(dir, "not-written.dump")
+	if h.verifyUploadedDump(w, restoreRequestWithSignature(t, "deadbeef"), missing) {
+		t.Error("restore proceeded on a dump that could not be read")
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
+	}
+}
