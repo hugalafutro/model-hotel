@@ -101,10 +101,11 @@ func Assess(providerType string, s Snapshot) Assessment {
 // apart from an explicit 0, and treating an absent remaining as a spent window
 // would pin a healthy provider shut. Same reasoning as minimaxModelRemain below.
 type zaiCodingQuotaLimit struct {
-	Type          string `json:"type"`
-	Unit          int    `json:"unit"`
-	Remaining     *int64 `json:"remaining"`
-	NextResetTime int64  `json:"nextResetTime"`
+	Type          string   `json:"type"`
+	Unit          int      `json:"unit"`
+	Remaining     *int64   `json:"remaining"`
+	Percentage    *float64 `json:"percentage"`
+	NextResetTime int64    `json:"nextResetTime"`
 }
 
 type zaiCodingQuotaPayload struct {
@@ -125,9 +126,23 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 		if l.Type != "TOKENS_LIMIT" || (l.Unit != 3 && l.Unit != 6) {
 			continue
 		}
-		// A missing remaining decodes to nil, never to 0, so it can never be
-		// misread as exhausted; only a value the provider actually sent counts.
-		if l.Remaining == nil || *l.Remaining > 0 {
+		// Z.ai's remaining cannot be trusted on its own: the live API sends an
+		// explicit remaining: 0 on windows that are only partially used, while
+		// percentage (percent of the window consumed) tracks the account page
+		// exactly. A sane percentage — within [0, 100], the same definition
+		// addMiniMaxWindow uses — therefore decides; anything outside that
+		// range is nonsense, not a signal, and falls back to the remaining
+		// rule (where Z.ai's ever-present remaining: 0 still reads a genuine
+		// overage as exhausted). A missing field decodes to nil, never to 0,
+		// so absence is never read as exhausted.
+		exhausted := false
+		switch {
+		case l.Percentage != nil && *l.Percentage >= 0 && *l.Percentage <= 100:
+			exhausted = *l.Percentage >= 100
+		case l.Remaining != nil && *l.Remaining <= 0:
+			exhausted = true
+		}
+		if !exhausted {
 			continue
 		}
 		if t, ok := epochToTime(l.NextResetTime); ok {

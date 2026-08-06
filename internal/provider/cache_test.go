@@ -32,6 +32,40 @@ func TestIsCachedByID_Cached(t *testing.T) {
 	}
 }
 
+func TestEvictProviderCacheByID_RemovesOnlyThatProvider(t *testing.T) {
+	InvalidateProviderCache()
+	evicted := uuid.New()
+	kept := uuid.New()
+	WarmProviderCache([]*Provider{
+		{ID: evicted, Name: "evicted-provider"},
+		{ID: kept, Name: "kept-provider"},
+	})
+
+	EvictProviderCacheByID(evicted)
+
+	if IsCachedByID(evicted) {
+		t.Error("evicted provider must miss by ID")
+	}
+	if IsCachedByName("evicted-provider") || IsCachedByName(NormalizeName("evicted-provider")) {
+		t.Error("evicted provider must miss by name and normalized name")
+	}
+	if !IsCachedByID(kept) || !IsCachedByName("kept-provider") {
+		t.Error("eviction must not disturb other providers' entries")
+	}
+}
+
+func TestEvictProviderCacheByID_UnknownIDIsNoop(t *testing.T) {
+	InvalidateProviderCache()
+	id := uuid.New()
+	WarmProviderCache([]*Provider{{ID: id, Name: "survivor"}})
+
+	EvictProviderCacheByID(uuid.New())
+
+	if !IsCachedByID(id) {
+		t.Error("evicting an unknown ID must leave existing entries intact")
+	}
+}
+
 func TestIsCachedByID_Miss(t *testing.T) {
 	InvalidateProviderCache()
 	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "test-provider"}})

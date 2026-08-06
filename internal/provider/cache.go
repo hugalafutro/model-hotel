@@ -92,6 +92,20 @@ func IsCachedByName(name string) bool {
 	return ok && !time.Now().After(entry.expiresAt)
 }
 
+// EvictProviderCacheByID removes one provider's entries from all three key
+// maps, leaving the rest of the cache intact. For single-row metadata writes
+// (e.g. TouchLastUsed) this keeps read-through Get/GetByIDs honest without the
+// cost of a full flush on a hot path.
+func EvictProviderCacheByID(id uuid.UUID) {
+	providerCacheMu.Lock()
+	if entry, ok := providerByIDCache[id]; ok {
+		delete(providerByNameCache, entry.provider.Name)
+		delete(providerByNormalNameCache, NormalizeName(entry.provider.Name))
+	}
+	delete(providerByIDCache, id)
+	providerCacheMu.Unlock()
+}
+
 // InvalidateProviderCache clears all provider cache entries.
 func InvalidateProviderCache() {
 	providerCacheMu.Lock()
