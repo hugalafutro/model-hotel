@@ -18,7 +18,11 @@ import (
 // AuthTokenTTL is the lifetime of a minted auth-token session, shared by the
 // server-side session expiry and the session cookie MaxAge so the two cannot
 // drift apart. All login front-ends that mint sessions use this single value.
-const AuthTokenTTL = 30 * 24 * time.Hour
+//
+// Nothing revokes a session when its owner logs in again, so this TTL is the
+// only bound on how long a stolen token stays usable. Keep it short enough that
+// the exposure window is survivable; session_ttl_test.go enforces the ceiling.
+const AuthTokenTTL = 7 * 24 * time.Hour
 
 // errInvalidLoginState is returned by ConsumeLoginState when the record is
 // missing, of the wrong type, or expired. Kept unexported and opaque so callers
@@ -90,7 +94,7 @@ func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, b
 	return session.UserID, true
 }
 
-// CreateAuthToken creates a new 30-day admin authentication session.
+// CreateAuthToken creates a new admin authentication session lasting AuthTokenTTL.
 // It generates a cryptographically random token, stores only its SHA-256 hash
 // in the database, and returns the raw token to the caller.
 // The ctx parameter propagates request deadlines and tracing.

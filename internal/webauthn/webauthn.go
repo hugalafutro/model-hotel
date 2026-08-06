@@ -278,7 +278,7 @@ func (r *Repository) DeleteCredential(ctx context.Context, id []byte) error {
 
 	// Revoke auth_token sessions derived from this credential before deleting it.
 	// This ensures a deleted (potentially compromised) passkey cannot continue
-	// granting admin API access for its 30-day session TTL.
+	// granting admin API access for the rest of its session TTL.
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM webauthn_sessions WHERE credential_id = $1 AND type = 'auth_token'`, id,
 	); err != nil {
@@ -396,7 +396,7 @@ func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID) error {
 // DeleteSessionsByUserID revokes every session minted for the given user
 // handle (a user UUID string for multi-user logins). Called when a user is
 // disabled, deleted, or has their password reset, so stale tokens die
-// immediately instead of living out their 30-day expiry. Postgres-only by
+// immediately instead of living out their remaining expiry. Postgres-only by
 // design: dashboard users do not exist on Front Desk's SQLite store.
 func (r *Repository) DeleteSessionsByUserID(ctx context.Context, userID []byte) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE user_id = $1`, userID)
