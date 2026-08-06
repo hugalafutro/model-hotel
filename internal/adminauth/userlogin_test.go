@@ -146,6 +146,31 @@ func TestUserLogin_SetsSessionCookie_NoTokenInBody(t *testing.T) {
 	}
 }
 
+// TestUserLogin_CookieMaxAgeMatchesSessionTTL pins the cookie lifetime to the
+// server-side session lifetime. A literal duration passed to SetSession at any
+// login front-end would leave the browser holding a cookie that outlives (or
+// dies before) the session row it names, which reads to the operator as a
+// random logout or a session that will not die.
+func TestUserLogin_CookieMaxAgeMatchesSessionTTL(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	_, _, _, r := newLoginFixture(t, u)
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("login = %d, want 200 (%s)", w.Code, w.Body.String())
+	}
+	want := int(webauthn.AuthTokenTTL.Seconds())
+	for _, c := range w.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			if c.MaxAge != want {
+				t.Errorf("session cookie MaxAge = %d, want %d (webauthn.AuthTokenTTL)", c.MaxAge, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("no %s cookie set", authcookie.SessionCookie)
+}
+
 func TestUserLogin_Failures(t *testing.T) {
 	u := testUser(t, "alice", "correct-horse", true)
 	disabled := testUser(t, "mallory", "correct-horse", false)

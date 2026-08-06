@@ -9,10 +9,11 @@ import (
 )
 
 // maxAuthTokenTTL is the ceiling this deployment accepts for a browser session.
-// A stolen session token stays usable until it expires and nothing at login
-// revokes it (see plans/2026-08-06-session-lifetime-plan.md), so the TTL is the
-// only bound on that exposure. Raising it past this ceiling is a security
-// decision, not a tuning knob, and must fail here first.
+// Logging in does not revoke an existing session, so a stolen token stays usable
+// until it expires and this TTL is the only bound on that exposure. Raising it
+// past this ceiling is a security decision, not a tuning knob, and must fail
+// here first. The literal is duplicated deliberately: deriving it from
+// AuthTokenTTL would make the assertion tautological.
 const maxAuthTokenTTL = 7 * 24 * time.Hour
 
 func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {
@@ -22,9 +23,9 @@ func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {
 }
 
 // TestCreateAuthToken_StampsExpiryFromTTL locks the minted session's expiry to
-// the shared constant. Cookie MaxAge at every login front-end reads the same
-// value, so a hardcoded expiry here would silently desync the cookie from the
-// server-side session.
+// the shared constant, so a literal duration reintroduced here cannot silently
+// change how long sessions live. The matching cookie-side guard lives in
+// adminauth's TestUserLogin_CookieMaxAgeMatchesSessionTTL.
 func TestCreateAuthToken_StampsExpiryFromTTL(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
