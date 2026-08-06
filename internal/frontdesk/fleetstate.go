@@ -188,24 +188,58 @@ func (s *Server) heldSnapshot() map[string]bool {
 	return out
 }
 
-// fleetStateNow gathers the live inputs and computes the current fleet state.
-// The background loop uses this self-contained form; autoSyncStatusNow reuses
-// reads it has already made by calling fleetStateFrom directly.
-func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error) {
+// fleetStateNow gathers the live inputs and computes the current fleet state,
+// plus whether those inputs are warm (fleetInputsWarm). The background loop
+// uses this self-contained form; autoSyncStatusNow reuses reads it has already
+// made by calling fleetStateFrom directly.
+func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, bool, error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
 	syncState, haveSync, err := s.store.GetFleetSyncState(ctx)
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
 	state, reasons := s.fleetStateFrom(ctx, members, cfg, syncState.LastRunAt, haveSync)
-	return state, reasons, nil
+	return state, reasons, s.fleetInputsWarm(ctx, members), nil
+}
+
+// fleetInputsWarm reports whether every in-memory input computeFleetState
+// reads has produced at least one real observation this process: each member's
+// health is a confirmed verdict (the cold poller map means "never probed", not
+// "up"), the auto-sync loop has judged the fleet once (only such a pass
+// rebuilds the version-skew hold and incomplete-apply sets), and the Traefik
+// config-poll watchdog has either seen a poll or outwaited its own staleness
+// window (ConfigPollWarm). Until all three hold, a computed improvement over
+// the seeded state is indistinguishable from ignorance, and checkFleetState
+// sits on it. Store-backed inputs (drain state, autosync staleness) survive a
+// restart and need no warm-up.
+func (s *Server) fleetInputsWarm(ctx context.Context, members []*Member) bool {
+	statuses := s.poller.Snapshot()
+	for _, m := range members {
+		if !statuses[m.ID].Health.Known {
+			return false
+		}
+	}
+	return s.autoSyncEvaluated.Load() && s.poller.ConfigPollWarm(ctx, s.startedAt)
+}
+
+// fleetStateSeverity orders the states for the warm-up gate: emitting a
+// transition to a lower severity requires warm inputs, a higher one never
+// waits (it is always backed by a positive observation).
+func fleetStateSeverity(st FleetState) int {
+	switch st {
+	case FleetFaulty:
+		return 2
+	case FleetDegraded:
+		return 1
+	}
+	return 0
 }
 
 // fleetStateFrom assembles the per-member facts from already-read store data
@@ -239,16 +273,35 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 
 // checkFleetState computes the state and emits fleet.state_changed exactly on
 // transitions. Split from RunFleetState so tests drive ticks directly.
+//
+// The edge detector seeds from the newest persisted transition instead of
+// assuming ok, so a restart continues where the previous process left off. And
+// while the inputs are cold (fleetInputsWarm false), a computed drop in
+// severity is held back without advancing the detector: a fresh poller that
+// has confirmed nothing computes ok out of ignorance, and emitting that would
+// send a false all-clear (fleet.state_changed alerts by default). Increases in
+// severity always emit — a down or held verdict is a positive observation.
 func (s *Server) checkFleetState(ctx context.Context) {
-	cur, reasons, err := s.fleetStateNow(ctx)
+	cur, reasons, warm, err := s.fleetStateNow(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: compute fleet state", "error", err)
 		return
 	}
 	s.fleetStateMu.Lock()
+	if s.fleetStatePrev == "" {
+		// Seed outside the lock (a store read), then re-check: a concurrent
+		// caller may have seeded meanwhile.
+		s.fleetStateMu.Unlock()
+		seed := s.lastEmittedFleetState(ctx)
+		s.fleetStateMu.Lock()
+		if s.fleetStatePrev == "" {
+			s.fleetStatePrev = seed
+		}
+	}
 	prev := s.fleetStatePrev
-	if prev == "" {
-		prev = FleetOK
+	if !warm && fleetStateSeverity(cur) < fleetStateSeverity(prev) {
+		s.fleetStateMu.Unlock()
+		return
 	}
 	changed := cur != prev
 	s.fleetStatePrev = cur
@@ -256,6 +309,29 @@ func (s *Server) checkFleetState(ctx context.Context) {
 	if changed {
 		s.emit(ctx, fleetStateEvent(prev, cur, reasons))
 	}
+}
+
+// lastEmittedFleetState returns the target state of the newest persisted
+// fleet.state_changed event, defaulting to ok when no event exists yet or the
+// row cannot be read back. Only the in-memory edge detector needs this; the
+// state itself is always recomputed from live inputs. Anyone wiring event
+// pruning (PruneEvents currently has no production caller): deleting the
+// newest fleet.state_changed row demotes a restart to the old ok assumption.
+func (s *Server) lastEmittedFleetState(ctx context.Context) FleetState {
+	evs, _, err := s.store.ListEvents(ctx, EventFilter{Type: "fleet.state_changed", Limit: 1})
+	if err != nil {
+		debuglog.Warn("frontdesk: seed fleet state from events", "error", err)
+		return FleetOK
+	}
+	if len(evs) == 0 {
+		return FleetOK
+	}
+	to, _ := evs[0].Metadata["to"].(string)
+	switch st := FleetState(to); st {
+	case FleetOK, FleetDegraded, FleetFaulty:
+		return st
+	}
+	return FleetOK
 }
 
 // fleetStateEvent shapes the edge-triggered transition event. The message is

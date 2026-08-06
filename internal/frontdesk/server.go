@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -95,13 +96,25 @@ type Server struct {
 	backupStaleMu sync.Mutex
 	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
-	// edge-triggered fleet.state_changed emission. Empty until the first check
-	// (treated as ok, so a fleet that starts unhealthy alerts once on startup).
-	// This mirrors checkAutoSyncStale, which re-alerts on a stale start, not
-	// checkConfigStaleness, which stays quiet until it has armed.
+	// edge-triggered fleet.state_changed emission. Empty until the first check,
+	// which seeds it from the newest persisted fleet.state_changed event
+	// (lastEmittedFleetState), so a restart continues the event chain instead of
+	// assuming ok: a recovery that happened while the process was down is still
+	// emitted (once the inputs are warm, see fleetInputsWarm), and a degradation
+	// the previous process reported is not repeated.
 	fleetStateMu   sync.Mutex
 	fleetStatePrev FleetState
-	router         http.Handler
+	// autoSyncEvaluated flips once the auto-sync loop has judged the fleet this
+	// process: either a convergence pass ran (rebuilding the version-skew hold
+	// and incomplete-apply sets) or a tick found auto-sync disabled, in which
+	// case those sets stay deliberately empty. Until then their emptiness means
+	// "not looked yet", not "no holds", and fleetInputsWarm reports cold.
+	autoSyncEvaluated atomic.Bool
+	// startedAt anchors fleetInputsWarm's Traefik grace: with no config poll
+	// recorded yet, the staleness input only counts as observed once a full
+	// staleness window has passed since this process started.
+	startedAt time.Time
+	router    http.Handler
 	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
 	// callers can drain them on shutdown. Without it, a kick fired by an enable
 	// keeps writing to the store after a caller (or a test) has moved on, which
@@ -154,6 +167,7 @@ func NewServer(cfg ServerConfig) *Server {
 		syncHeld:       make(map[string]bool),
 		syncIncomplete: make(map[string]incompleteState),
 		backupStale:    make(map[string]bool),
+		startedAt:      time.Now(),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and
