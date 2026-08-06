@@ -225,6 +225,117 @@ func TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining(t *testing.T) {
 	}
 }
 
+// NeuralWatt is a balance model, not a window model: exhausting the included
+// monthly energy does not make it refuse requests — it keeps serving in
+// overage, debiting the credit balance. Only when BOTH the included energy and
+// the credits are affirmatively spent do requests actually start failing, and
+// the only scheduled recovery is the billing period end. The tests below pin
+// that two-sided rule.
+func TestAssess_Neuralwatt_EnergyAndCreditsSpentPinsToPeriodEnd(t *testing.T) {
+	periodEnd := time.Now().Add(20 * 24 * time.Hour).Truncate(time.Second)
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "in_overage": true, "current_period_end": periodEnd.Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if !got.ResetsAt.Equal(periodEnd.UTC()) {
+		t.Errorf("got ResetsAt=%v, want period end %v", got.ResetsAt, periodEnd.UTC())
+	}
+}
+
+func TestAssess_Neuralwatt_CreditsRemainingIsNotExhausted(t *testing.T) {
+	// Included energy spent but credits cover overage: the provider keeps
+	// serving, so pinning here would sideline a working provider.
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 28.9},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "current_period_end": time.Now().Add(time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("credits remaining must not read as exhausted: overage keeps serving")
+	}
+}
+
+func TestAssess_Neuralwatt_EnergyRemainingIsNotExhausted(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 1.92, "current_period_end": time.Now().Add(time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("included energy remaining must not read as exhausted")
+	}
+}
+
+// TestAssess_Neuralwatt_AbsentFieldsAreNotExhausted: the same absent-vs-zero
+// contract every parser in this file honors. A payload missing either decisive
+// field (free tier, older API shape) must fail open, never pin.
+func TestAssess_Neuralwatt_AbsentFieldsAreNotExhausted(t *testing.T) {
+	cases := []map[string]any{
+		{"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "current_period_end": time.Now().Add(time.Hour).Format(time.RFC3339)}},
+		{"balance": map[string]any{"credits_remaining_usd": 0}},
+		{},
+	}
+	for i, c := range cases {
+		payload, err := json.Marshal(c)
+		if err != nil {
+			t.Fatalf("case %d marshal: %v", i, err)
+		}
+		got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+		if !got.OK {
+			t.Fatalf("case %d: a well-formed payload must assess OK", i)
+		}
+		if got.Exhausted {
+			t.Errorf("case %d: absent decisive fields must never read as exhausted", i)
+		}
+	}
+}
+
+func TestAssess_Neuralwatt_PastPeriodEndIsNoPin(t *testing.T) {
+	// A stale snapshot whose period already rolled over must not pin: the
+	// window it describes is gone.
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "current_period_end": time.Now().Add(-time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("a period that already ended must not pin")
+	}
+}
+
 // TestAssess_KimiCode_AbsentRemainingIsNotExhausted guards the same hole in the
 // Kimi parser. Kimi encodes remaining as a JSON string, so an absent key decodes
 // to "" and ParseInt rejects it — the parser is safe, but only because a string's
