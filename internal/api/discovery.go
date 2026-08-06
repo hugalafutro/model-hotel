@@ -350,6 +350,9 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		respondError(w, fmt.Sprintf("failed to update provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
+	// Raw UPDATE bypasses the repository, so the read-through provider cache
+	// still holds the old last_discovered_at; evict this provider's entries.
+	provider.EvictProviderCacheByID(providerID)
 
 	response := map[string]any{
 		"discovered": len(models),
@@ -664,6 +667,10 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 		if _, err := dbExec(h.dbPool.Pool(), provCtx,
 			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
 			debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
+		} else {
+			// Raw UPDATE bypasses the repository; evict this provider's cache
+			// entries so read-through Get sees the new last_discovered_at.
+			provider.EvictProviderCacheByID(prov.ID)
 		}
 
 		provCancel()
