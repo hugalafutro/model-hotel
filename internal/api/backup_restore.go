@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -277,12 +278,17 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.backupMu.Unlock()
 
-	tmpPath, ok := h.saveUploadedDump(w, r)
+	upload, ok := h.saveUploadedDump(w, r)
 	if !ok {
 		return
 	}
+	tmpPath := upload.tmpPath
 	//nolint:errcheck // cleanup: temp file removed after processing
 	defer os.Remove(tmpPath)
+
+	if !h.verifyUploadedDump(w, r.RemoteAddr, upload) {
+		return
+	}
 
 	pgRestorePath, dumpMigrations, ok := validateRestoreDump(w, tmpPath)
 	if !ok {
@@ -318,18 +324,30 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+// uploadedDump is a restore upload that has been authenticated and saved: the
+// temp file to work from, the filename the upload declared (which the signature
+// binds), and the signature the caller supplied, if any.
+type uploadedDump struct {
+	tmpPath   string
+	name      string
+	signature string
+}
+
 // saveUploadedDump validates the multipart upload (size limit, admin token,
-// dump file) and streams it to a temp file in the backup dir, returning the temp
-// path for the caller to clean up. It writes the appropriate HTTP error and
+// dump file) and streams it to a temp file in the backup dir, returning it for
+// the caller to verify and clean up. It writes the appropriate HTTP error and
 // returns ok=false on any failure (removing the temp file if it was created).
-func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request) (tmpPath string, ok bool) {
+//
+// Every form field is read here, where the MaxBytesReader bound above is in
+// scope, rather than from the request later on.
+func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request) (upload uploadedDump, ok bool) {
 	// Limit upload size (100MB)
 	r.Body = http.MaxBytesReader(w, r.Body, 100*1024*1024)
 
 	// Parse multipart form (32MB max in-memory)
 	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // bounded by MaxBytesReader above
 		respondBadRequest(w, "failed to parse multipart form", err)
-		return "", false
+		return uploadedDump{}, false
 	}
 
 	// Validate admin token from form field. When TOTP 2FA is enabled, the raw
@@ -340,7 +358,7 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	if adminToken == "" {
 		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", r.RemoteAddr)
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
-		return "", false
+		return uploadedDump{}, false
 	}
 	authed := false
 	totpOn := h.totpEnabled != nil && h.totpEnabled()
@@ -354,14 +372,14 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 		// restore attempt here (remote address only, never the token).
 		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", r.RemoteAddr)
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
-		return "", false
+		return uploadedDump{}, false
 	}
 
-	// Get uploaded file
-	file, _, err := r.FormFile("dump")
+	// Get uploaded file. The header carries the name the signature binds.
+	file, header, err := r.FormFile("dump")
 	if err != nil {
 		respondBadRequest(w, "missing dump file", err)
-		return "", false
+		return uploadedDump{}, false
 	}
 	//nolint:errcheck // cleanup: multipart file handle
 	defer file.Close()
@@ -369,26 +387,66 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	// Ensure backup directory exists
 	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
 		respondError(w, "failed to create backup directory", err, http.StatusInternalServerError)
-		return "", false
+		return uploadedDump{}, false
 	}
 
 	// Save to temp file
 	tmpFile, err := os.CreateTemp(h.backupDir, "restore-*.dump")
 	if err != nil {
 		respondError(w, "failed to create temp file", err, http.StatusInternalServerError)
-		return "", false
+		return uploadedDump{}, false
 	}
-	tmpPath = tmpFile.Name()
+	tmpPath := tmpFile.Name()
 
 	if _, err := io.Copy(tmpFile, file); err != nil {
 		tmpFile.Close()        //nolint:errcheck,gosec // error path: closing after copy failure
 		_ = os.Remove(tmpPath) // error path: discard partial temp file
 		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
-		return "", false
+		return uploadedDump{}, false
 	}
 	tmpFile.Close() //nolint:errcheck,gosec // cleanup: file fully written, closing for pg_restore
 
-	return tmpPath, true
+	name := ""
+	if header != nil {
+		name = filepath.Base(header.Filename)
+	}
+	return uploadedDump{tmpPath: tmpPath, name: name, signature: r.FormValue("signature")}, true
+}
+
+// verifyUploadedDump checks an uploaded dump against a signature supplied with
+// it, before any of its contents are parsed. A restore consumes an upload, not
+// a file from the backup directory, so the signature has to travel with it: the
+// operator pastes the contents of the dump's .sig sidecar into the "signature"
+// form field. A mismatch is fatal. An absent signature does not block, because
+// backups predating signing and dumps from other instances have none and must
+// stay restorable, but it is recorded so an unverified restore is never silent.
+func (h *BackupHandler) verifyUploadedDump(w http.ResponseWriter, remoteAddr string, upload uploadedDump) bool {
+	status, err := verifyUploadedDumpSignature(upload.tmpPath, upload.name, upload.signature, h.masterKey)
+	if err != nil {
+		respondError(w, "failed to verify dump signature", err, http.StatusInternalServerError)
+		return false
+	}
+	if status == backupSigInvalid {
+		debuglog.Error("backup: restore rejected, signature mismatch", "remote_addr", remoteAddr)
+		events.Publish(events.Event{
+			Type:     "backup.integrity_failed",
+			Severity: "error",
+			Source:   "backup",
+			Message:  "Restore rejected: the uploaded dump does not match the signature supplied with it",
+		})
+		respondBadRequest(w, "dump does not match the signature supplied with it (the signature also covers the backup's filename, so a renamed download will not verify)", nil)
+		return false
+	}
+	if status != backupSigValid {
+		debuglog.Warn("backup: restoring a dump whose integrity was not verified")
+		events.Publish(events.Event{
+			Type:     "backup.restore_unverified",
+			Severity: "warning",
+			Source:   "backup",
+			Message:  "Restoring a dump with no signature to check it against; its contents are trusted on the operator's say-so",
+		})
+	}
+	return true
 }
 
 // validateRestoreDump inspects a saved dump with pg_restore --list and rejects
