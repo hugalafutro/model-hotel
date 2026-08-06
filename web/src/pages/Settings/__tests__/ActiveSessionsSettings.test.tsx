@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18next from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ActiveSessionsPanel } from "../ActiveSessionsSettings";
@@ -49,6 +50,25 @@ describe("ActiveSessionsPanel", () => {
 		// Asserted by count rather than translated copy so the test stays
 		// locale-independent.
 		expect(await screen.findByText(/3/)).toBeInTheDocument();
+	});
+
+	// Zero is its own message: "signed out 0 sessions" would read as a failure.
+	it("says so when there was nothing else open", async () => {
+		mockRevoke(0);
+		const user = userEvent.setup();
+		renderWithProviders(<ActiveSessionsPanel />);
+
+		const button = screen.getByTestId("revoke-other-sessions");
+		await user.click(button);
+		await user.click(button);
+
+		// Resolved through i18next rather than hardcoded English, so the test
+		// does not depend on the active locale.
+		expect(
+			await screen.findByText(
+				i18next.t("settings.activeSessions.noneToSignOut"),
+			),
+		).toBeInTheDocument();
 	});
 
 	it("surfaces a failure instead of implying the sessions are gone", async () => {
