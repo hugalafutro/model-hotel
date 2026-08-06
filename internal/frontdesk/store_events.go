@@ -58,7 +58,9 @@ func (s *Store) ListEvents(ctx context.Context, f EventFilter) ([]Event, int, er
 	}
 
 	//nolint:gosec // `where` is built only from fixed clause strings; all values are bound parameters.
-	query := `SELECT id, type, severity, source, message, metadata, member_id, created_at FROM events` + where + ` ORDER BY created_at DESC`
+	// id DESC keeps the order deterministic when two events share a timestamp,
+	// like NewestEventPerMember; lastEmittedFleetState leans on "newest first".
+	query := `SELECT id, type, severity, source, message, metadata, member_id, created_at FROM events` + where + ` ORDER BY created_at DESC, id DESC`
 	if f.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d OFFSET %d", f.Limit, max(f.Offset, 0))
 	}

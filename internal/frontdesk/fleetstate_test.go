@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestComputeFleetState(t *testing.T) {
@@ -167,8 +168,10 @@ func TestCheckFleetStateEmitsOnTransitions(t *testing.T) {
 	}
 	setHealth(srv, m1.ID, true)
 	setHealth(srv, m2.ID, true)
+	warmFleetInputs(ctx, srv)
 
-	// Baseline ok: the empty-prev is treated as ok, so no transition, no event.
+	// Baseline ok: with no persisted transition the seed is ok, so no
+	// transition, no event.
 	srv.checkFleetState(ctx)
 	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 0 {
 		t.Fatalf("baseline emitted %d fleet.state_changed events, want 0", len(evs))
@@ -322,21 +325,45 @@ func TestCheckFleetStateEmitsDrainTransitions(t *testing.T) {
 	}
 }
 
-// simulateFleetStateRestart clears the in-memory edge detector exactly as a
-// process restart does: fleetStatePrev is the only fleet-state input that does
-// not survive a Front Desk restart (member facts, holds and events are all
-// store- or poller-backed).
+// simulateFleetStateRestart resets every piece of in-memory fleet-state input
+// exactly as a process restart does: the edge detector's previous state, the
+// poller's health verdicts and fail counters, the version-skew hold set and
+// the incomplete-apply set all start empty in a fresh process. Only the store
+// (members, events, autosync config) survives.
 func simulateFleetStateRestart(s *Server) {
 	s.fleetStateMu.Lock()
 	s.fleetStatePrev = ""
 	s.fleetStateMu.Unlock()
+	s.poller.mu.Lock()
+	s.poller.statuses = make(map[string]MemberStatus)
+	s.poller.healthFailures = make(map[string]int)
+	s.poller.lastConfigPollAt = time.Time{}
+	s.poller.mu.Unlock()
+	s.syncHeldMu.Lock()
+	s.syncHeld = make(map[string]bool)
+	s.syncHeldMu.Unlock()
+	s.syncIncompleteMu.Lock()
+	s.syncIncomplete = make(map[string]incompleteState)
+	s.syncIncompleteMu.Unlock()
+	s.autoSyncEvaluated.Store(false)
+	s.startedAt = time.Now()
+}
+
+// warmFleetInputs gives every non-health cold-start input a first real
+// observation, the way a running process acquires them within its first
+// ticks: one auto-sync evaluation (rebuilding the hold set) and one Traefik
+// config poll. Health verdicts stay whatever setHealth installed.
+func warmFleetInputs(ctx context.Context, s *Server) {
+	s.autoSyncOnce(ctx, "")
+	s.poller.RecordConfigPoll()
 }
 
 // TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery pins the seed:
 // when the fleet recovers while no tick observes it (the process is down) and
-// Front Desk then restarts, the first tick must still emit degraded -> ok,
-// seeded from the newest persisted fleet.state_changed event rather than
-// assuming the process started with a healthy fleet.
+// Front Desk then restarts, the recovery is still emitted, seeded from the
+// newest persisted fleet.state_changed event rather than assuming the process
+// started with a healthy fleet. It must only be emitted once the inputs are
+// warm: the cold first tick computes ok out of ignorance, not evidence.
 func TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -361,13 +388,24 @@ func TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery(t *testing.T)
 	}
 
 	// The member recovers while Front Desk is down, then the process restarts.
+	// The cold tick must sit on the seeded degraded state: nothing has been
+	// probed yet, so the computed ok is not evidence of recovery.
 	setHealth(srv, m1.ID, true)
 	simulateFleetStateRestart(srv)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
+		t.Fatalf("cold tick after restart: %d events, want 1 (no recovery before the inputs are warm)", len(evs))
+	}
+
+	// Once every input has a real observation, the recovery is emitted.
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, true)
+	warmFleetInputs(ctx, srv)
 	srv.checkFleetState(ctx)
 
 	evs := fleetStateEvents(ctx, t, srv)
 	if len(evs) != 2 {
-		t.Fatalf("first tick after restart: %d events, want 2 (recovery must not be swallowed)", len(evs))
+		t.Fatalf("warm tick after restart: %d events, want 2 (recovery must not be swallowed)", len(evs))
 	}
 	if got := evs[0].Metadata["to"]; got != "ok" {
 		t.Errorf(`recovery metadata["to"] = %v, want "ok"`, got)
@@ -381,8 +419,11 @@ func TestCheckFleetStateSeedsPrevAcrossRestart_EmitsMissedRecovery(t *testing.T)
 }
 
 // TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation is the
-// mirror case: restarting while the fleet is still degraded must not re-emit
-// the ok -> degraded transition the previous process already reported.
+// mirror case: restarting while the fleet is still degraded must emit nothing
+// at all — no false degraded-to-ok while the poller has not confirmed anything
+// (fleet.state_changed alerts by default, so that would page an operator with
+// an all-clear mid-incident), and no repeat of the ok-to-degraded the previous
+// process already reported once the down verdict is confirmed again.
 func TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -402,12 +443,52 @@ func TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation(t *testing
 		t.Fatalf("after member down: %d events, want 1", len(evs))
 	}
 
-	// Restart with the member still down: the state is unchanged, so the first
-	// tick must stay silent.
+	// Restart with the member still down. The cold tick computes ok because the
+	// fresh poller has confirmed nothing: that must not surface as a recovery.
 	simulateFleetStateRestart(srv)
 	srv.checkFleetState(ctx)
 	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
-		t.Fatalf("first tick after restart re-emitted: %d events, want 1", len(evs))
+		t.Fatalf("cold tick after restart emitted: %d events, want 1", len(evs))
+	}
+
+	// The poller re-confirms the member down and the other inputs warm up: the
+	// state matches the seed, so there is still nothing to say.
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, false)
+	warmFleetInputs(ctx, srv)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 1 {
+		t.Fatalf("warm tick after restart re-emitted: %d events, want 1", len(evs))
+	}
+}
+
+// TestCheckFleetStateColdDegradationStillEmits pins the gate's asymmetry: a
+// degradation is always backed by a confirmed observation (a down verdict only
+// exists once the poller crossed its fail threshold), so it must be emitted
+// even while other inputs are still cold. Only improvements wait for warmth.
+func TestCheckFleetStateColdDegradationStillEmits(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	if _, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2"); err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+
+	// m1 is confirmed down while m2 has never been probed, auto-sync has not
+	// evaluated and Traefik has not polled: as cold as a first tick gets.
+	setHealth(srv, m1.ID, false)
+	srv.checkFleetState(ctx)
+
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 1 {
+		t.Fatalf("cold degradation: %d events, want 1 (degradations must not wait for warm-up)", len(evs))
+	}
+	if got := evs[0].Metadata["to"]; got != "degraded" {
+		t.Errorf(`metadata["to"] = %v, want "degraded"`, got)
 	}
 }
 
@@ -415,6 +496,8 @@ func TestCheckFleetStateSeedsPrevAcrossRestart_NoDuplicateDegradation(t *testing
 // the seed against a fleet.state_changed row whose metadata carries no valid
 // state (a corrupted or future-format row): it falls back to ok, so the first
 // transition after restart reads from=ok rather than echoing the garbage.
+// This pins the fallback value only (the unseeded detector also assumed ok),
+// so it holds on any implementation that ignores the bogus row.
 func TestCheckFleetStateSeedsPrevAcrossRestart_UnknownStateFallsBackToOK(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -445,6 +528,116 @@ func TestCheckFleetStateSeedsPrevAcrossRestart_UnknownStateFallsBackToOK(t *test
 	}
 	if got := evs[0].Metadata["to"]; got != "degraded" {
 		t.Errorf(`metadata["to"] = %v, want "degraded"`, got)
+	}
+}
+
+// TestCheckFleetStateWarmupBounded pins the gate's escape hatch: when Traefik
+// never fetches the config (so that input can never arm), the warm-up must
+// still open once a full staleness window has passed since process start.
+// Suppressing a recovery is a grace period, never a deadlock.
+func TestCheckFleetStateWarmupBounded(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	// The previous process left the fleet reported degraded.
+	srv.emit(ctx, fleetStateEvent(FleetDegraded, FleetDegraded, []string{reasonMemberDown}))
+
+	// This process: health confirmed, auto-sync evaluated, but not a single
+	// Traefik poll — and a start time a full staleness window in the past.
+	setHealth(srv, m1.ID, true)
+	srv.autoSyncOnce(ctx, "")
+	srv.startedAt = time.Now().Add(-time.Hour)
+	srv.checkFleetState(ctx)
+
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 2 {
+		t.Fatalf("tick past the grace window: %d events, want 2 (recovery must not be held forever)", len(evs))
+	}
+	if got := evs[0].Metadata["to"]; got != "ok" {
+		t.Errorf(`metadata["to"] = %v, want "ok"`, got)
+	}
+}
+
+// TestLastEmittedFleetState_UsesNewestRow pins the seed's load-bearing
+// ordering assumption: with several persisted transitions, the newest row is
+// the one that seeds. Driven through real ticks so the rows are exactly what
+// production persists; the fleet comes to rest at faulty, which also
+// exercises that arm of the seed's state switch.
+func TestLastEmittedFleetState_UsesNewestRow(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	warmFleetInputs(ctx, srv)
+
+	// ok -> degraded, then degraded -> faulty: two persisted transitions.
+	setHealth(srv, m1.ID, false)
+	setHealth(srv, m2.ID, true)
+	srv.checkFleetState(ctx)
+	setHealth(srv, m2.ID, false)
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 2 {
+		t.Fatalf("setup persisted %d events, want 2", len(evs))
+	}
+
+	if got := srv.lastEmittedFleetState(ctx); got != FleetFaulty {
+		t.Fatalf("lastEmittedFleetState = %q, want faulty (the newest row)", got)
+	}
+}
+
+// TestCheckFleetStateSeedsOncePerProcess pins that the seed is a first-tick
+// affair: once the detector holds a state, a fleet.state_changed row landing
+// out of band must not re-seed it and fake a transition.
+func TestCheckFleetStateSeedsOncePerProcess(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	setHealth(srv, m1.ID, true)
+	warmFleetInputs(ctx, srv)
+	srv.checkFleetState(ctx)
+
+	// A bogus faulty row lands after the detector is seeded. If a later tick
+	// re-read the store it would see prev=faulty, cur=ok and emit a recovery.
+	srv.emit(ctx, fleetStateEvent(FleetOK, FleetFaulty, []string{reasonAllMembersDown}))
+	srv.checkFleetState(ctx)
+
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 1 {
+		t.Fatalf("tick after out-of-band row: %d events, want 1 (the injected row only)", len(evs))
+	}
+}
+
+// TestCheckFleetStateStoreErrorLeavesDetectorUntouched pins the error path: a
+// tick that cannot read the store computes nothing, emits nothing and leaves
+// the edge detector unseeded, so the next healthy tick starts from scratch.
+func TestCheckFleetStateStoreErrorLeavesDetectorUntouched(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	srv.checkFleetState(context.Background())
+
+	srv.fleetStateMu.Lock()
+	prev := srv.fleetStatePrev
+	srv.fleetStateMu.Unlock()
+	if prev != "" {
+		t.Fatalf("fleetStatePrev = %q after a failed tick, want unseeded", prev)
 	}
 }
 
@@ -479,6 +672,7 @@ func TestCheckFleetStateEmitsIncompleteTransition(t *testing.T) {
 	}
 	setHealth(srv, m1.ID, true)
 	setHealth(srv, m2.ID, true)
+	warmFleetInputs(ctx, srv)
 
 	srv.checkFleetState(ctx)
 	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 0 {

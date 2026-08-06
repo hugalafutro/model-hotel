@@ -817,6 +817,19 @@ func (p *Poller) ConfigPollStale(ctx context.Context) bool {
 	return !last.IsZero() && p.now().Sub(last) > threshold
 }
 
+// ConfigPollWarm reports whether the Traefik staleness input has produced a
+// real observation this process: either Traefik has fetched the config at
+// least once, or a full staleness window has elapsed since `since` (process
+// start) without a fetch — at which point the silence is itself the
+// steady-state observation ConfigPollStale will keep reporting. Used by
+// fleetInputsWarm to keep a cold start from reading as a recovery.
+func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
+	p.mu.RLock()
+	armed := !p.lastConfigPollAt.IsZero()
+	p.mu.RUnlock()
+	return armed || p.now().Sub(since) > secs(p.settings(ctx).TraefikStaleSecs, 30)
+}
+
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
 // has not been synced within autoSyncStaleThreshold (see autoSyncStale for the
 // exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it

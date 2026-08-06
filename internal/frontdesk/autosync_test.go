@@ -2222,7 +2222,7 @@ func TestAutoSync_ConvergedFleetDoesNotFlap(t *testing.T) {
 		if len(f.srv.heldSnapshot()) != 0 {
 			t.Fatalf("tick %d: heldSnapshot = %v, want empty", i, f.srv.heldSnapshot())
 		}
-		state, reasons, err := f.srv.fleetStateNow(t.Context())
+		state, reasons, _, err := f.srv.fleetStateNow(t.Context())
 		if err != nil {
 			t.Fatalf("tick %d: fleetStateNow: %v", i, err)
 		}
@@ -2331,7 +2331,7 @@ func TestAutoSync_DriftThatDoesNotCorrectIsFlagged(t *testing.T) {
 	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 1 {
 		t.Errorf("config.sync_incomplete events = %d, want 1 for the drifted member", n)
 	}
-	state, reasons, err := f.srv.fleetStateNow(t.Context())
+	state, reasons, _, err := f.srv.fleetStateNow(t.Context())
 	if err != nil {
 		t.Fatalf("fleetStateNow: %v", err)
 	}

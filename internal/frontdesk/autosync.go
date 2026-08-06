@@ -146,7 +146,11 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return ""
 	}
 	if !cfg.Enabled || cfg.PrimaryID == "" {
-		return "" // disabled or no primary designated: nothing to do
+		// Disabled or no primary designated: nothing to do, but that IS this
+		// tick's verdict — no holds can exist, so the fleet state's sync inputs
+		// count as observed (fleetInputsWarm).
+		s.autoSyncEvaluated.Store(true)
+		return ""
 	}
 
 	primary, primaryToken, hash, ok := s.primaryConfigHash(ctx, cfg)
@@ -222,6 +226,9 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // it does not.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
 	applied := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
+	// The pass has judged every member, so the version-skew hold and
+	// incomplete-apply sets now reflect observations, not a cold start.
+	s.autoSyncEvaluated.Store(true)
 	if applied > 0 {
 		noun := "members"
 		if applied == 1 {
