@@ -55,11 +55,17 @@ export function ActiveSessionsPanel() {
 					{t("settings.activeSessions.description")}
 				</p>
 			</div>
+			{/* Danger styling with a ring while armed, matching the clear-all
+			    control in ArenaHistoryModal. The label alone was too quiet a
+			    signal for an action that ends every other session. */}
 			<button
 				type="button"
 				data-testid="revoke-other-sessions"
-				className="ui-btn ui-btn-secondary shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+				className={`ui-btn ui-btn-danger shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+					armed ? "ring-2 ring-red-400/50" : ""
+				}`}
 				disabled={revokeMutation.isPending}
+				onBlur={() => setArmed(false)}
 				onClick={() => {
 					if (!armed) {
 						setArmed(true);

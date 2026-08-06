@@ -14,14 +14,14 @@ type mockWebAuthnSessionMgr struct {
 	validateFn     func(ctx context.Context, token string) bool
 	revokeFn       func(ctx context.Context, token string) bool
 	createFn       func(ctx context.Context, userID, credentialID []byte) (string, error)
-	revokeOthersFn func(ctx context.Context, currentToken string, fallbackUser []byte) (int64, error)
+	revokeOthersFn func(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
 }
 
 // RevokeOtherSessions defers to revokeOthersFn when set, so a test can assert
 // what the handler passed it; otherwise it reports that nothing was revoked.
-func (m *mockWebAuthnSessionMgr) RevokeOtherSessions(ctx context.Context, currentToken string, fallbackUser []byte) (int64, error) {
+func (m *mockWebAuthnSessionMgr) RevokeOtherSessions(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error) {
 	if m.revokeOthersFn != nil {
-		return m.revokeOthersFn(ctx, currentToken, fallbackUser)
+		return m.revokeOthersFn(ctx, identity, candidateTokens...)
 	}
 	return 0, nil
 }

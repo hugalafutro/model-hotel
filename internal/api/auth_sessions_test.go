@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 // The handler must hand the manager the token the request actually carried, or
@@ -15,28 +17,29 @@ import (
 // of the page they clicked from.
 func TestRevokeOtherSessions_PassesTheCallersSessionCookie(t *testing.T) {
 	h := &Handler{}
-	var gotToken string
-	var gotFallback []byte
+	var gotIdentity []byte
+	var gotTokens []string
 	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
-		revokeOthersFn: func(_ context.Context, currentToken string, fallbackUser []byte) (int64, error) {
-			gotToken, gotFallback = currentToken, fallbackUser
+		revokeOthersFn: func(_ context.Context, identity []byte, candidateTokens ...string) (int64, error) {
+			gotIdentity, gotTokens = identity, candidateTokens
 			return 3, nil
 		},
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sessions/revoke-others", http.NoBody)
 	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "session-abc"})
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
 	w := httptest.NewRecorder()
 	h.RevokeOtherSessions(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (%s)", w.Code, w.Body.String())
 	}
-	if gotToken != "session-abc" {
-		t.Errorf("token = %q, want the session cookie's value", gotToken)
+	if !slices.Contains(gotTokens, "session-abc") {
+		t.Errorf("candidate tokens = %v, want the session cookie's value among them", gotTokens)
 	}
-	if string(gotFallback) != "admin" {
-		t.Errorf("fallback identity = %q, want admin", gotFallback)
+	if string(gotIdentity) != "admin" {
+		t.Errorf("identity = %q, want admin", gotIdentity)
 	}
 
 	var result revokeOthersResult
@@ -52,36 +55,38 @@ func TestRevokeOtherSessions_PassesTheCallersSessionCookie(t *testing.T) {
 // still what identifies them, so it must reach the manager.
 func TestRevokeOtherSessions_FallsBackToTheBearerToken(t *testing.T) {
 	h := &Handler{}
-	var gotToken string
+	var gotTokens []string
 	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
-		revokeOthersFn: func(_ context.Context, currentToken string, _ []byte) (int64, error) {
-			gotToken = currentToken
+		revokeOthersFn: func(_ context.Context, _ []byte, candidateTokens ...string) (int64, error) {
+			gotTokens = candidateTokens
 			return 0, nil
 		},
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sessions/revoke-others", http.NoBody)
 	req.Header.Set("Authorization", "Bearer raw-admin-token")
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
 	w := httptest.NewRecorder()
 	h.RevokeOtherSessions(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (%s)", w.Code, w.Body.String())
 	}
-	if gotToken != "raw-admin-token" {
-		t.Errorf("token = %q, want the bearer token", gotToken)
+	if !slices.Contains(gotTokens, "raw-admin-token") {
+		t.Errorf("candidate tokens = %v, want the bearer token among them", gotTokens)
 	}
 }
 
 func TestRevokeOtherSessions_ReportsStoreFailure(t *testing.T) {
 	h := &Handler{}
 	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
-		revokeOthersFn: func(context.Context, string, []byte) (int64, error) {
+		revokeOthersFn: func(context.Context, []byte, ...string) (int64, error) {
 			return 0, context.DeadlineExceeded
 		},
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sessions/revoke-others", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
 	w := httptest.NewRecorder()
 	h.RevokeOtherSessions(w, req)
 
@@ -97,6 +102,7 @@ func TestRevokeOtherSessions_WithoutSessionManager(t *testing.T) {
 	h := &Handler{}
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sessions/revoke-others", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
 	w := httptest.NewRecorder()
 	h.RevokeOtherSessions(w, req)
 

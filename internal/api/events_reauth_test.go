@@ -278,11 +278,11 @@ func TestStreamEvents_ValidBearerStreamSurvivesHeartbeats(t *testing.T) {
 }
 
 // RevokeOtherSessions satisfies WebAuthnSessionManager; these tests never call it.
-func (m *revocableSessionMgr) RevokeOtherSessions(context.Context, string, []byte) (int64, error) {
+func (m *revocableSessionMgr) RevokeOtherSessions(context.Context, []byte, ...string) (int64, error) {
 	return 0, nil
 }
 
 // RevokeOtherSessions satisfies WebAuthnSessionManager; these tests never call it.
-func (m *uuidSessionMgr) RevokeOtherSessions(context.Context, string, []byte) (int64, error) {
+func (m *uuidSessionMgr) RevokeOtherSessions(context.Context, []byte, ...string) (int64, error) {
 	return 0, nil
 }

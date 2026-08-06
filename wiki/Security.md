@@ -115,7 +115,11 @@ The admin token always works. The WebAuthn path is nil-safe: when `WEBAUTHN_RP_I
 - Constant-time comparison via `crypto/subtle.ConstantTimeCompare`
 - Tokens are revoked on credential deletion or explicit logout
 
-**Signing other sessions out.** Because logging in does not end sessions already open elsewhere, **Settings → Authentication → Active sessions** has a "Sign out others" action (`POST /api/auth/sessions/revoke-others`). It revokes every session belonging to your identity except the one you clicked from, so you are not logged out by your own click, and it reports how many it ended. A caller holding the raw admin token has no session of its own to keep, so in that case every admin session is revoked, which is the shape you want when you still have the token but suspect a browser session was stolen.
+**Signing other sessions out.** Because logging in does not end sessions already open elsewhere, **Settings → Authentication → Active sessions** has a "Sign out others" action (`POST /api/auth/sessions/revoke-others`). It revokes every session belonging to your identity except the one you clicked from, so you are not logged out by your own click, and it reports how many it ended.
+
+Whose sessions end is decided by the identity the auth middleware resolved, never by a credential read back off the request. Those two can disagree, because credential resolution falls through to the bearer when the session cookie is invalid, and a handler that re-read the request could be pointed at a different identity than the one that authenticated. The presented tokens only decide which session is *spared*, and one that does not belong to your identity spares nothing.
+
+A caller holding the raw admin token has no session of its own to keep, so every admin session is revoked, which is the shape you want when you still have the token but suspect a browser session was stolen. Note this path only exists with TOTP disabled: once TOTP is on, a bare admin-token bearer is rejected outright and you act from a session like everyone else.
 
 This is deliberately an explicit action rather than automatic revocation on every login. The admin-token exchange and all three TOTP login paths mint sessions under one shared `"admin"` identity, so automatic revocation would evict your other devices during ordinary sign-ins and quickly train you to ignore it.
 

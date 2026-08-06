@@ -6,6 +6,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -24,34 +25,55 @@ type revokeOthersResult struct {
 // under one shared identity, so automatic revocation would evict the operator's
 // other devices on every routine login, training them to ignore it. Here they
 // ask for it, and it happens when they mean it.
+//
+// Whose sessions are ended comes from the identity the auth middleware
+// resolved, never from a credential read back off the request. Those two can
+// disagree: resolveCredentials falls through to the bearer when the session
+// cookie is invalid, so a caller presenting a valid bearer alongside a junk
+// cookie authenticates as themselves while the junk cookie would have decided
+// the target. Reading the identity from the request is how any authenticated
+// account could have aimed this at the admin handle and signed every admin
+// session out.
 func (h *Handler) RevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
 	if h.webauthnSessionMgr == nil {
 		respondError(w, "session management is not configured", nil, http.StatusPreconditionFailed)
 		return
 	}
 
-	tok, ok := authcookie.SessionToken(r)
-	if !ok {
-		tok, _ = util.ParseBearerToken(r)
+	id := user.IdentityFrom(r.Context())
+	if id == nil {
+		respondError(w, "unauthenticated", nil, http.StatusUnauthorized)
+		return
 	}
 
-	// The identity to fall back on when the request carried the raw admin token
-	// instead of a session. Only the admin login has that shape; a user login
-	// always arrives as a session, so its identity comes from the session row.
-	revoked, err := h.webauthnSessionMgr.RevokeOtherSessions(r.Context(), tok, []byte("admin"))
+	// The session handle this identity's sessions are minted under: a users-row
+	// account is keyed by its UUID string, the env-token and legacy admin by
+	// "admin". Same mapping CreateAuthToken uses at every login front-end.
+	identity := []byte("admin")
+	if id.UserID != nil {
+		identity = []byte(id.UserID.String())
+	}
+
+	// Both credentials a request can carry. Whichever one belongs to this
+	// identity names the session to spare; one that does not belong to it
+	// spares nothing, so a foreign or junk token can never redirect the revoke.
+	cookieTok, _ := authcookie.SessionToken(r)
+	bearerTok, _ := util.ParseBearerToken(r)
+
+	revoked, err := h.webauthnSessionMgr.RevokeOtherSessions(r.Context(), identity, cookieTok, bearerTok)
 	if err != nil {
 		respondError(w, "failed to revoke other sessions", err, http.StatusInternalServerError)
 		return
 	}
 
-	debuglog.Info("auth: revoked other sessions", "count", revoked)
+	debuglog.Info("auth: revoked other sessions", "count", revoked, "identity", id.Username)
 	if revoked > 0 {
 		events.Publish(events.Event{
 			Type:     "auth.sessions_revoked",
 			Severity: "info",
 			Source:   "auth",
 			Message:  "Signed out " + util.Count(int(revoked), "other session", "other sessions"),
-			Metadata: map[string]any{"revoked": revoked},
+			Metadata: map[string]any{"revoked": revoked, "username": id.Username},
 		})
 	}
 

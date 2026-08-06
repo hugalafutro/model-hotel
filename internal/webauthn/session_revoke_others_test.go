@@ -36,7 +36,7 @@ func TestRevokeOtherSessions_KeepsTheCallersOwnSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	revoked, err := mgr.RevokeOtherSessions(ctx, mine, identity)
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, mine)
 	if err != nil {
 		t.Fatalf("RevokeOtherSessions: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestRevokeOtherSessions_LeavesOtherIdentitiesAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := mgr.RevokeOtherSessions(ctx, mine, identity); err != nil {
+	if _, err := mgr.RevokeOtherSessions(ctx, identity, mine); err != nil {
 		t.Fatalf("RevokeOtherSessions: %v", err)
 	}
 	if !sessionExists(t, repo, other) {
@@ -90,7 +90,7 @@ func TestRevokeOtherSessions_RawAdminTokenRevokesAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	revoked, err := mgr.RevokeOtherSessions(ctx, "not-a-session-token", identity)
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, "not-a-session-token")
 	if err != nil {
 		t.Fatalf("RevokeOtherSessions: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestRevokeOtherSessions_NoOtherSessionsIsNotAnError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	revoked, err := mgr.RevokeOtherSessions(ctx, mine, identity)
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, mine)
 	if err != nil {
 		t.Fatalf("RevokeOtherSessions: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestRevokeOtherSessions_NoIdentityRevokesNothing(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	revoked, err := mgr.RevokeOtherSessions(ctx, "not-a-session-token", nil)
+	revoked, err := mgr.RevokeOtherSessions(ctx, nil, "not-a-session-token")
 	if err != nil {
 		t.Fatalf("RevokeOtherSessions: %v", err)
 	}
@@ -151,7 +151,41 @@ func TestRevokeOtherSessions_StoreFailureSurfaces(t *testing.T) {
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, err := mgr.RevokeOtherSessions(canceled, "", []byte("admin")); err == nil {
+	if _, err := mgr.RevokeOtherSessions(canceled, []byte("admin"), "some-token"); err == nil {
 		t.Error("a canceled context should surface an error")
+	}
+}
+
+// A token belonging to someone else must not spare that person's session, and
+// must not redirect the revoke either. This is the manager-side half of the
+// credential-confusion guard: identity decides whose sessions end, the token
+// only decides which one is spared, and a foreign token spares nothing.
+func TestRevokeOtherSessions_ForeignTokenSparesNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-foreign-token")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stranger, err := mgr.CreateAuthToken(ctx, []byte("someone-else-entirely"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	revoked, err := mgr.RevokeOtherSessions(ctx, identity, stranger)
+	if err != nil {
+		t.Fatalf("RevokeOtherSessions: %v", err)
+	}
+	if revoked != 1 {
+		t.Errorf("revoked = %d, want 1 (the identity's own session)", revoked)
+	}
+	if sessionExists(t, repo, mine) {
+		t.Error("a foreign token spared this identity's session")
+	}
+	if !sessionExists(t, repo, stranger) {
+		t.Error("the foreign identity's own session was revoked")
 	}
 }

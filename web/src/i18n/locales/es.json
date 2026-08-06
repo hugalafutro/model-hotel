@@ -2120,9 +2120,9 @@
 			"description": "Iniciar sesión no cierra las sesiones ya abiertas en otros sitios. Ciérralas si has perdido un dispositivo o sospechas que te han robado una sesión.",
 			"action": "Cerrar las demás",
 			"confirm": "Haz clic para confirmar",
-			"signedOut_one": "Se ha cerrado {{count}} sesión más",
-			"signedOut_many": "Se han cerrado {{count}} sesiones más",
-			"signedOut_other": "Se han cerrado {{count}} sesiones más",
+			"signedOut_one": "Se ha cerrado {{count}} otra sesión",
+			"signedOut_many": "Se han cerrado {{count}} otras sesiones",
+			"signedOut_other": "Se han cerrado {{count}} otras sesiones",
 			"noneToSignOut": "No había otras sesiones abiertas"
 		},
 		"sessionTimeout": {
