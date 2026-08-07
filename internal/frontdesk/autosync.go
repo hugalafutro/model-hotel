@@ -52,10 +52,18 @@ const (
 	// or repoints the primary.
 	autoSyncKickReason = "auto-sync was enabled"
 
+	// unconfirmedSyncReason is stamped when a pass measures a member holding the
+	// primary's exact hash after a push whose answer was lost (the relay deadline
+	// expired, or a proxy in between answered 5xx while the member was still
+	// importing). The hash match proves the push landed, so the last-sync marker
+	// the push itself could not stamp is stamped at verification time instead.
+	unconfirmedSyncReason = "verified holding the primary's config after an unconfirmed push"
+
 	// autoSyncKickTimeout caps the detached pass fired when auto-sync is enabled,
 	// so a stuck member cannot leak the goroutine. Generous: the pass imports into
-	// every drifted member in turn.
-	autoSyncKickTimeout = 5 * time.Minute
+	// every drifted member in turn, and each import may legitimately run up to
+	// memberSyncTimeout on a slow member, so the cap covers several of those.
+	autoSyncKickTimeout = 15 * time.Minute
 
 	// autoSyncStaleThreshold is how long the fleet may go unsynced, with auto-sync
 	// off, before Front Desk warns of possible drift. Long enough that a brief
@@ -405,13 +413,15 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// of one roll-up below. gen lets the member's commit fence refuse this push if
 		// a newer generation already won the in-flight race (out.Stale, a benign
 		// supersede).
-		out := s.applyMemberConfig(passCtx, m, token, export, reason, false, gen)
-		if out.OK || out.Incomplete || out.TimedOut {
+		out := s.applyMemberConfig(passCtx, m, token, export, reason, false, gen, hash)
+		if out.OK || out.Incomplete || out.Unconfirmed {
 			// The member received the config, whether or not it built all of it and
 			// whether or not it answered in time. The stamp bounds the re-push and tells
 			// the next pass this member has had its chance, so a hash that still differs
-			// then is a failure to converge rather than a member nobody reached. A
-			// timed-out member is very likely still importing, so it counts too.
+			// then is a failure to converge rather than a member nobody reached. An
+			// unconfirmed push (timed out, or answered 5xx by a proxy mid-import)
+			// counts too: the member is very likely still importing, and re-pushing
+			// every tick would restart that import and its discovery each time.
 			//
 			// A push the member refused or never received is deliberately not stamped,
 			// so a transient failure retries next tick instead of waiting out the
@@ -479,6 +489,18 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// heartbeat. Only a hash match moves it, so it means "measured holding the
 		// primary's config", never "written to".
 		s.clearMemberIncomplete(ctx, m)
+		if s.hasUnconfirmedPush(m.ID, hash) {
+			// The member holds the primary's exact config, so the push whose answer
+			// was lost did land: record the sync its own stamp missed, at the moment
+			// it was proven rather than guessed. An idle converged fleet never gets
+			// here (no push, no flag), so the marker still means a real write. A
+			// failed stamp keeps the flag, and the next converged pass retries it.
+			if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), unconfirmedSyncReason); err != nil {
+				debuglog.Warn("frontdesk: stamp member last-sync on verified convergence", "member", m.Name, "error", err)
+			} else {
+				s.clearUnconfirmedPush(m.ID)
+			}
+		}
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return true, true
 	}
@@ -584,6 +606,44 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 	st.lastPartial = partial
 	st.lastUnappliedModels = unappliedModels
 	s.syncIncomplete[memberID] = st
+}
+
+// markUnconfirmedPush remembers that a member's latest real config push, carrying
+// the primary config identified by hash, got no usable answer, so its last-sync
+// marker could not be stamped even though the import may have completed
+// member-side. A later pass that measures the member holding exactly that hash
+// stamps the marker then and clears this. An empty hash records nothing: the
+// caller had no hash for what it pushed (the wizard when the primary's hash was
+// unreadable), and a stamp that cannot be tied to the pushed config must not be
+// promised.
+func (s *Server) markUnconfirmedPush(memberID, hash string) {
+	if hash == "" {
+		return
+	}
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	s.unconfirmedSync[memberID] = hash
+}
+
+// clearUnconfirmedPush forgets a member's unconfirmed push once a sync stamp has
+// landed for it: either a later push was confirmed and stamped itself, or the
+// verification pass stamped on the hash match.
+func (s *Server) clearUnconfirmedPush(memberID string) {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	delete(s.unconfirmedSync, memberID)
+}
+
+// hasUnconfirmedPush reports whether this member has a lost-answer push of
+// exactly this config behind it, still waiting for the stamp its lost answer
+// denied it. Bound to the hash so a push of an older config can never be
+// "proven" by convergence on a newer one, and a definite member-side failure
+// (nothing committed) can never be stamped just because the member later came to
+// hold the primary's config some other way.
+func (s *Server) hasUnconfirmedPush(memberID, hash string) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	return hash != "" && s.unconfirmedSync[memberID] == hash
 }
 
 // hasBeenPushedSinceReset reports whether this member has received the config

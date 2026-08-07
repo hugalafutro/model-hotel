@@ -485,7 +485,7 @@ func TestConfigSyncStampFailureFailsResult(t *testing.T) {
 	okBefore := configSyncCount(t, srv, "ok")
 	errBefore := configSyncCount(t, srv, "err")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", true, 1)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", true, 1, "")
 	if res.OK || res.Error == "" {
 		t.Fatalf("stamp failure must fail the result, got OK=%v err=%q", res.OK, res.Error)
 	}
@@ -719,7 +719,7 @@ func TestAutoSync_FailedModelReconcileDoesNotBlameFailoverGroups(t *testing.T) {
 		`"incomplete":true,"model_state_failed":true,"diff":{}}`
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 	if !res.Incomplete {
 		t.Fatal("Incomplete = false, want true")
@@ -745,7 +745,7 @@ func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
 		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 		srv.syncClient = newProbeClient(60 * time.Millisecond)
 
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
 		if err != nil {
@@ -765,7 +765,7 @@ func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
 		replica.importCode = http.StatusInternalServerError
 		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
 		if err != nil {

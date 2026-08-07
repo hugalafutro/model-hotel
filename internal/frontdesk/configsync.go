@@ -68,6 +68,13 @@ type syncResultItem struct {
 	// like from here. Not on the wire: it only tells the auto-sync loop the member
 	// did receive the config, so the re-push is rate-limited.
 	TimedOut bool `json:"-"`
+	// Unconfirmed marks a push whose answer was lost in either of the two ways a
+	// still-running import looks like a failure from here: the deadline expired
+	// (TimedOut), or a 5xx came back, which a reverse proxy answers mid-import
+	// when the member outlives ITS deadline. The import may have landed, so the
+	// auto-sync loop rate-limits the re-push the same way it does a timeout
+	// instead of restarting the member's import every tick. Not on the wire.
+	Unconfirmed bool `json:"-"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -175,6 +182,16 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The primary's config hash keys any lost-answer push so a later verification
+	// pass can stamp it (see unconfirmedSync). Best-effort: with the hash
+	// unreadable the run proceeds and a lost answer simply stays unstamped, since
+	// a stamp that cannot be tied to the pushed config must not be promised.
+	pushedHash, err := s.fetchMemberConfigVersion(ctx, primary, primaryToken)
+	if err != nil {
+		debuglog.Debug("frontdesk: config sync: read primary config hash", "member", primary.Name, "error", err)
+		pushedHash = ""
+	}
+
 	primaryVer := s.poller.MemberVersion(primary.ID)
 	results := make([]syncResultItem, 0)
 	for _, m := range members {
@@ -201,7 +218,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			results = append(results, *item)
 			continue
 		}
-		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen))
+		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen, pushedHash))
 	}
 	s.recordFleetSyncRun(ctx, primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
@@ -279,7 +296,7 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // heartbeat moves with the write. The auto-syncer sets it false: it emits one
 // roll-up rather than toasting per member, and takes its heartbeat from its own hash
 // comparison. Failure events fire either way.
-func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
+func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64, pushedHash string) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
 	// Carried on the success path too: neither a group built short nor a disable
@@ -296,12 +313,27 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// member-side discovery.
 		res.Error = "this member did not answer in time"
 		res.TimedOut = true
+		res.Unconfirmed = true
+		// No stamp lands below, but the import may still complete member-side; the
+		// pass that measures the member holding this exact config stamps it then.
+		s.markUnconfirmedPush(m.ID, pushedHash)
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:
 		// The member answered, just with a status we cannot apply: surface it so a
 		// wrong stored token or a member-side error is not mislabeled "offline".
 		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
+		if status >= http.StatusInternalServerError {
+			// A 5xx is not proof the import failed: a reverse proxy between Front
+			// Desk and the member answers 502/504 when the import outlives its own
+			// read timeout, with the member still applying behind it. A 4xx is a
+			// definite refusal (auth, schema) and gets no such benefit. The hash
+			// binding covers the other 5xx source, the member's own import erroring
+			// before commit: nothing landed there, so it can only converge on this
+			// exact hash through an operator restoring precisely this config.
+			res.Unconfirmed = true
+			s.markUnconfirmedPush(m.ID, pushedHash)
+		}
 	case !out.SchemaVersionOK:
 		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
 		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
@@ -341,6 +373,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// reported diverged either way.
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		} else {
+			// This stamp supersedes any earlier push whose answer was lost.
+			s.clearUnconfirmedPush(m.ID)
 		}
 		// This arm returns before the shared failure branch below, so without this an
 		// incomplete apply would leave no trace in the logs when alerting is off.
@@ -358,6 +393,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
 			res.OK = false
 			res.Error = "applied but could not record the sync stamp"
+		} else {
+			// This stamp supersedes any earlier push whose answer was lost.
+			s.clearUnconfirmedPush(m.ID)
 		}
 	}
 
