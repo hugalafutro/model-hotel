@@ -366,6 +366,29 @@ class QuotaModelsTest {
     }
 
     @Test
+    fun kimiCodeUnreadableUsedRendersDashNotZero() {
+        // A `used` that is present but not a number is neither a count nor the
+        // omission that means zero, so the window has no reading and must
+        // render "-". Turning it into 0% would tell an operator their quota is
+        // untouched at the moment the payload stopped making sense. The weekly
+        // window still reads, so only the unreadable window goes dark.
+        val data =
+            QuotaData.KimiCode(
+                usage = KimiCodeDetail(limit = "200000", remaining = "150000"),
+                limits =
+                    listOf(
+                        KimiCodeLimitEntry(
+                            window = KimiCodeWindowSpec(duration = 300, timeUnit = "TIME_UNIT_MINUTE"),
+                            detail = KimiCodeDetail(limit = "100000", used = "abc"),
+                        ),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.KIMI_CODE)
+        assertEquals("-/25%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("-/75%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
     fun miniMaxUsedAndRemainingPercentages() {
         val data =
             QuotaData.MiniMax(
