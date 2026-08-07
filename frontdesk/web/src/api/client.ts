@@ -33,35 +33,35 @@ import type {
 } from "./types";
 
 // Same-origin: the SPA is embedded in and served by the Front Desk binary.
+// Auth rides an HttpOnly session cookie the server sets on login (raw
+// FRONTDESK_TOKEN exchange, TOTP, or passkey); every request carries
+// credentials: "same-origin" so the browser attaches it automatically.
 export const API_BASE = "";
 
-const TOKEN_KEY = "fdAuthToken";
+// Session state rides an HttpOnly fd_session cookie the page cannot read; the
+// companion readable fd_csrf cookie is both the CSRF double-submit source and
+// the client-visible "is logged in" signal.
+const CSRF_COOKIE = "fd_csrf";
 
-// The bearer token is either the raw FRONTDESK_TOKEN (valid only while TOTP is
-// off) or a session token minted by a passkey / TOTP login. It is the same
-// header either way; the server (RequireAdminOrSession) decides which is valid.
-export function getAuthToken(): string {
-	try {
-		return localStorage.getItem(TOKEN_KEY) ?? "";
-	} catch {
-		return "";
-	}
+/** getCsrfToken reads the readable fd_csrf cookie, or null when absent. */
+export function getCsrfToken(): string | null {
+	const m = document.cookie.match(/(?:^|;\s*)fd_csrf=([^;]+)/);
+	return m ? decodeURIComponent(m[1]) : null;
 }
 
-export function setAuthToken(token: string) {
-	try {
-		localStorage.setItem(TOKEN_KEY, token);
-	} catch {
-		/* private mode: token lives only for this page load */
-	}
+/** hasSession reports whether a login has left its readable cookie marker. */
+export function hasSession(): boolean {
+	return getCsrfToken() !== null;
 }
 
-export function clearAuthToken() {
-	try {
-		localStorage.removeItem(TOKEN_KEY);
-	} catch {
-		/* ignore */
-	}
+// clearSessionHint locally expires the readable cookie so the UI drops to the
+// login screen immediately; the server's Set-Cookie on logout/401 is the
+// authoritative clear. Stays on document.cookie rather than the async Cookie
+// Store API (unavailable in Safari/Firefox) since every caller here either
+// reloads the page or throws right after this returns.
+export function clearSessionHint(): void {
+	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
+	document.cookie = `${CSRF_COOKIE}=; path=/; max-age=0`;
 }
 
 export class ApiError extends Error {
@@ -86,24 +86,30 @@ export function onUnauthorized(fn: UnauthorizedListener): () => void {
 	unauthorizedListeners.add(fn);
 	return () => unauthorizedListeners.delete(fn);
 }
-// Drop the stored token and notify listeners (the app falls back to login).
+// Clear the session hint and notify listeners (the app falls back to login).
 // Exported so the SSE stream, which uses raw fetch and bypasses request(), can
-// trigger the same path on a 401 instead of reconnecting with a dead token.
+// trigger the same path on a 401, so the app drops to login instead of
+// reconnecting a dead session.
 export function notifyUnauthorized() {
-	clearAuthToken();
+	clearSessionHint();
 	for (const fn of unauthorizedListeners) fn();
 }
 
-function authHeaders(extra?: HeadersInit): HeadersInit {
-	return { Authorization: `Bearer ${getAuthToken()}`, ...extra };
-}
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+	const method = (init?.method ?? "GET").toUpperCase();
+	const headers = new Headers(init?.headers);
+	if (!SAFE_METHODS.has(method)) {
+		const csrf = getCsrfToken();
+		if (csrf) headers.set("X-CSRF-Token", csrf);
+	}
 	let resp: Response;
 	try {
 		resp = await fetch(`${API_BASE}${path}`, {
 			...init,
-			headers: authHeaders(init?.headers),
+			credentials: "same-origin",
+			headers,
 		});
 	} catch {
 		throw new ApiError(0, "network");
@@ -175,6 +181,14 @@ export const api = {
 	// Best-effort server-side session revoke for logout (manual or idle). A raw
 	// FRONTDESK_TOKEN bearer has no session row, so the server no-ops and returns 200.
 	logout: () => request<void>("/api/logout", { method: "POST" }),
+	// Trades the raw FRONTDESK_TOKEN for the HttpOnly session cookie pair; the
+	// raw token never persists in the browser. 400 with code-less "use TOTP
+	// login" means 2FA is on and the totpLogin flow applies instead.
+	adminExchange: (token: string) =>
+		request<void>(
+			"/api/auth/admin-exchange",
+			jsonInit("POST", { admin_token: token }),
+		),
 	// Running-build identity for the footer (version + short commit SHA).
 	getVersion: () => request<VersionInfo>("/api/version"),
 	// Read-only log-export integration status for the Observability panel,
@@ -266,7 +280,7 @@ export const api = {
 	totpStatus: () =>
 		request<{ enabled: boolean; enabled_at?: string }>("/api/totp/status"),
 	totpLogin: (token: string, code: string) =>
-		request<{ token: string }>(
+		request<{ success: boolean }>(
 			"/api/totp/login",
 			jsonInit("POST", { token, code }),
 		),
@@ -284,7 +298,7 @@ export const api = {
 			method: "POST",
 		}),
 	webauthnLoginFinish: (sessionId: string, credential: unknown) =>
-		request<{ token: string }>(
+		request<{ success: boolean }>(
 			"/api/webauthn/login/finish",
 			jsonInit("POST", { session_id: sessionId, credential }),
 		),
