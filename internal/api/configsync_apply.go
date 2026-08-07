@@ -343,9 +343,10 @@ func validateSyncedRateLimits(subject string, rps *float64, burst, tpm *int) err
 func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) applyOutcome {
 	var out applyOutcome
 	// The core config is committed, so the remaining work is not bound to the
-	// caller's request. Front Desk's import client gives up after 120s while
-	// discovery on a fresh member routinely runs longer, and inheriting that
-	// deadline starves the group build, which depends on discovery's output.
+	// caller's request. Front Desk's import client gives up after 240s
+	// (frontdesk.memberSyncTimeout) while discovery on a fresh member routinely
+	// runs longer, and inheriting that deadline starves the group build, which
+	// depends on discovery's output.
 	//
 	// Detached rather than given an aggregate deadline. A ceiling here would not
 	// bound discovery, which detaches each provider under its own 180s timeout and

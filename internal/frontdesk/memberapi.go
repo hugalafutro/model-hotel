@@ -100,7 +100,11 @@ const memberReadTimeout = 15 * time.Second
 // import runs model discovery on the member (live upstream calls), which easily
 // exceeds the 4s probe timeout, so the import client is given a far more generous
 // deadline; it is still capped so a hung member cannot stall the sync forever.
-const memberSyncTimeout = 120 * time.Second
+// Sized at ~1.5x the slowest import measured on a production member (2m34s on a
+// storage-bound box importing a many-hundred-model fleet config); any reverse
+// proxy between Front Desk and a member needs a read timeout at least this long,
+// or the proxy fails the push while the member is still applying it.
+const memberSyncTimeout = 240 * time.Second
 
 // tokenProbe is the outcome of checking a member's admin token at add/edit time,
 // before the background poller would otherwise catch a mistake.
