@@ -1200,3 +1200,63 @@ func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice pins the blast radius of a
+// hanging quota endpoint. The poll and the advice refresh must not share one
+// budget: a fetch that runs to its deadline leaves the refresh unable to read,
+// and a refresh that cannot read fails closed by clearing *every* provider's
+// advice, not just this one's. That would turn one slow endpoint into a
+// fleet-wide loss of pins until the next successful background pass, under
+// exactly the conditions the nudge exists for, since a provider that just failed
+// requests is a provider whose quota endpoint is plausibly hanging too.
+//
+// A cancelled context is what an exhausted poll budget leaves behind at the
+// moment the refresh would start, without the test waiting out the real budget.
+func TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice(t *testing.T) {
+	h := newTestHandler(t)
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	ctx := context.Background()
+
+	// Two exhausted providers, so the assertion can tell a wipe confined to the
+	// nudged provider apart from the fleet-wide one this guards against.
+	nudged := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-nudged", "https://api.z.ai/api/coding/paas/v4", true)
+	bystander := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-bystander", "https://gw.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	for _, id := range []uuid.UUID{nudged, bystander} {
+		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+			ProviderID: id, Kind: "usage", Payload: exhaustedZaiCodingPayload(t, resetsAt),
+			HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("seed snapshot: %v", err)
+		}
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+	for _, c := range []struct {
+		name string
+		id   uuid.UUID
+	}{{"nudged", nudged}, {"bystander", bystander}} {
+		if _, ok := advisor.ResetsAt(c.id); !ok {
+			t.Fatalf("setup: %s provider must start out advised", c.name)
+		}
+	}
+
+	prov, err := h.providerRepo.Get(ctx, nudged)
+	if err != nil {
+		t.Fatalf("get provider: %v", err)
+	}
+
+	spent, cancel := context.WithCancel(ctx)
+	cancel()
+
+	h.runQuotaNudge(spent, exhaustedZaiCodingDiscovery(resetsAt), prov, "usage")
+
+	if _, ok := advisor.ResetsAt(bystander); !ok {
+		t.Error("a spent poll budget wiped advice for an unrelated provider: the refresh must not run on a context the poll could exhaust")
+	}
+	if _, ok := advisor.ResetsAt(nudged); !ok {
+		t.Error("a spent poll budget dropped the nudged provider's own advice, which its stored snapshot still supports")
+	}
+}

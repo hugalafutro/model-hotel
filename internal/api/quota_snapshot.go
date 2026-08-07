@@ -189,8 +189,11 @@ func (h *Handler) pollQuotaForProvider(ctx context.Context, disc *provider.Disco
 // already refusing traffic.
 const quotaNudgeDebounce = 60 * time.Second
 
-// quotaNudgeTimeout bounds a nudge end to end, matching the per-provider budget
-// the background poll pass uses.
+// quotaNudgeTimeout is the budget each stage of a nudge gets: the provider
+// lookup, the poll, and the advice refresh are bounded separately rather than
+// sharing one allowance, so a slow stage cannot starve the one after it. The
+// background pass needs no equivalent, since its refresh runs on the long-lived
+// loop context and the per-provider fetches are children that cannot exhaust it.
 const quotaNudgeTimeout = 30 * time.Second
 
 // NudgeQuotaPoll refreshes one provider's quota snapshot out of band and
@@ -227,9 +230,26 @@ func (h *Handler) NudgeQuotaPoll(providerID uuid.UUID) {
 	go func() {
 		pollCtx, pollCancel := context.WithTimeout(context.Background(), quotaNudgeTimeout)
 		defer pollCancel()
-		h.pollQuotaForProvider(pollCtx, disc, prov, kind)
-		h.RefreshQuotaAdvice(pollCtx)
+		h.runQuotaNudge(pollCtx, disc, prov, kind)
 	}()
+}
+
+// runQuotaNudge performs one nudge: the out-of-band poll under pollCtx, then
+// the advice refresh under a budget of its own.
+//
+// The two must not share one budget. A fetch that hangs to its deadline leaves
+// the refresh nothing to read with, and a refresh that cannot read fails closed
+// by clearing every provider's advice rather than only this one's. That turns a
+// single slow quota endpoint into a fleet-wide loss of pins until the next
+// background pass succeeds, and it would fire under precisely the conditions
+// this exists for: a provider that just failed enough requests to open a circuit
+// is a provider whose quota endpoint is plausibly hanging too.
+func (h *Handler) runQuotaNudge(pollCtx context.Context, disc *provider.DiscoveryService, prov *provider.Provider, kind string) {
+	h.pollQuotaForProvider(pollCtx, disc, prov, kind)
+
+	refreshCtx, cancel := context.WithTimeout(context.Background(), quotaNudgeTimeout)
+	defer cancel()
+	h.RefreshQuotaAdvice(refreshCtx)
 }
 
 // allowQuotaNudge reports whether a nudge for this provider is due, stamping it
