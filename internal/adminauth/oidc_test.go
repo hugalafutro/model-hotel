@@ -332,7 +332,7 @@ func newOIDCTestHandlerMode(t *testing.T, idp *mockIDP, allowed string, useCooki
 		OIDCAllowedEmailsKey: allowed,
 		OIDCPublicBaseURLKey: "https://mh.example.test",
 	})
-	h := NewOIDCHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey, useCookieAuth, cookieSecure)
+	h := NewOIDCHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey, useCookieAuth, cookieSecure, authcookie.Dashboard)
 	return h, fs, sessionMgr
 }
 
@@ -706,7 +706,7 @@ func TestOIDCCallbackThrottle(t *testing.T) {
 // TestOIDCCallbackDisabled covers the Callback early-out when SSO is off.
 func TestOIDCCallbackDisabled(t *testing.T) {
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewOIDCHandler(newFakeSettings(map[string]string{OIDCEnabledKey: "false"}), sm, mockIPLimiter{}, testMasterKey, false, "auto")
+	h := NewOIDCHandler(newFakeSettings(map[string]string{OIDCEnabledKey: "false"}), sm, mockIPLimiter{}, testMasterKey, false, "auto", authcookie.Dashboard)
 	frag := runCallback(t, h, nil, url.Values{"state": {"x"}, "code": {"c"}})
 	if !strings.HasPrefix(frag, "oidc_error=") {
 		t.Fatalf("disabled callback should redirect with an error, got %q", frag)
@@ -749,7 +749,7 @@ func TestOIDCCallbackCreateAuthTokenError(t *testing.T) {
 		OIDCClientSecretKey:  enc,
 		OIDCAllowedEmailsKey: "admin@example.com",
 		OIDCPublicBaseURLKey: "https://h.example",
-	}), sm, mockIPLimiter{}, testMasterKey, false, "auto")
+	}), sm, mockIPLimiter{}, testMasterKey, false, "auto", authcookie.Dashboard)
 
 	loc, cookie := runStart(t, h) // CreateLoginState -> CreateSession #1 (ok)
 	state := loc.Query().Get("state")
@@ -773,7 +773,7 @@ func TestOIDCDiscoverySSRFBlocked(t *testing.T) {
 			OIDCClientIDKey:      oidcTestClientID,
 			OIDCAllowedEmailsKey: "admin@example.com",
 			OIDCPublicBaseURLKey: "https://h.example",
-		}), webauthn.NewSessionManager(newMemStore()), mockIPLimiter{}, testMasterKey, false, "auto")
+		}), webauthn.NewSessionManager(newMemStore()), mockIPLimiter{}, testMasterKey, false, "auto", authcookie.Dashboard)
 
 		_, err := h.runtime(context.Background())
 		if err == nil {
@@ -881,7 +881,7 @@ func TestOIDCRegisterRoutes(t *testing.T) {
 func TestOIDCStartErrors(t *testing.T) {
 	newH := func(masterKey string, kv map[string]string) *OIDCHandler {
 		sm := webauthn.NewSessionManager(newMemStore())
-		return NewOIDCHandler(newFakeSettings(kv), sm, mockIPLimiter{}, masterKey, false, "auto")
+		return NewOIDCHandler(newFakeSettings(kv), sm, mockIPLimiter{}, masterKey, false, "auto", authcookie.Dashboard)
 	}
 	call := func(h *OIDCHandler) int {
 		req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/start", http.NoBody)
@@ -975,7 +975,7 @@ func TestOIDCStartErrors(t *testing.T) {
 			OIDCClientSecretKey:  enc,
 			OIDCAllowedEmailsKey: "admin@example.com",
 			OIDCPublicBaseURLKey: "https://h.example",
-		}), sm, mockIPLimiter{}, testMasterKey, false, "auto")
+		}), sm, mockIPLimiter{}, testMasterKey, false, "auto", authcookie.Dashboard)
 		if got := call(h); got != http.StatusInternalServerError {
 			t.Fatalf("status = %d, want 500", got)
 		}
@@ -1035,7 +1035,7 @@ func TestConsumeLoginStateSingleUseUnderRace(t *testing.T) {
 // failure and must still refuse the link-local metadata address.
 func TestNewOIDCHandler_UsesRetryingNetguardClient(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(newMemStore())
-	h := NewOIDCHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, false, "auto")
+	h := NewOIDCHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, false, "auto", authcookie.Dashboard)
 	if h.httpClient == nil {
 		t.Fatal("OIDCHandler.httpClient must be a netguard client, got nil")
 	}

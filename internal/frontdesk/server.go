@@ -16,6 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -200,7 +201,7 @@ func NewServer(cfg ServerConfig) *Server {
 	)
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
-		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, false, "auto",
+		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, false, "auto", authcookie.FrontDesk,
 	)
 	// NOTE: Front Desk's own web client (frontdesk/web) still consumes the
 	// TOTP login/enroll-verify session token from the JSON body (bearer
@@ -211,12 +212,12 @@ func NewServer(cfg ServerConfig) *Server {
 	// that migration lands, but is otherwise unused while useCookieAuth is
 	// false.
 	totpHandler := adminauth.NewTotpHandler(
-		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh, "auto", false,
+		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh, "auto", false, authcookie.FrontDesk,
 	)
 	// OIDC SSO: a fourth admin-login path. The shared adminauth handler is reused
 	// as-is; newOIDCSettings adapts Front Desk's typed settings row to its key/value
 	// contract, and the config secret rides the same MasterKey encryption as above.
-	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, false, "auto")
+	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, false, "auto", authcookie.FrontDesk)
 
 	s.router = s.buildRouter(webauthnHandler, totpHandler, oidcHandler, cfg.UI)
 	return s

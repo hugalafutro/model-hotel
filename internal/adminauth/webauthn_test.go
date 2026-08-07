@@ -32,6 +32,7 @@ func newTestWebAuthnHandler(
 		adminMgr:     adminMgr,
 		ipLimiter:    mockIPLimiter{},
 		totpEnabled:  func() bool { return false },
+		jar:          authcookie.Dashboard,
 	}
 }
 
@@ -538,7 +539,7 @@ func TestListCredentials_Success(t *testing.T) {
 
 // TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
 func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
-	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil, false, "")
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil, false, "", authcookie.Dashboard)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -563,7 +564,7 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
 func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	limiter := mockIPLimiter{}
-	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil, false, "")
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil, false, "", authcookie.Dashboard)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}

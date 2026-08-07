@@ -53,7 +53,7 @@ func newTotpTestHandler(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	// Clean up TOTP state after the test too.
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true, authcookie.Dashboard)
 	return shim, th
 }
 
@@ -74,7 +74,7 @@ func newTotpTestHandlerLegacy(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", false)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", false, authcookie.Dashboard)
 	return shim, th
 }
 
@@ -411,7 +411,7 @@ func TestTotpEnrollStart_DemoReadOnly(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 	wrepo := webauthn.NewRepository(apiTestDB.Pool())
 	sessionMgr := webauthn.NewSessionManager(wrepo)
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {}, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {}, "auto", true, authcookie.Dashboard)
 
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
 	req.Header.Set("Authorization", "Bearer admin-token")
@@ -981,7 +981,7 @@ func TestTotpAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(wrepo)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {}, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {}, "auto", true, authcookie.Dashboard)
 
 	// Raw admin token: with TOTP on, enroll/start must 401.
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)

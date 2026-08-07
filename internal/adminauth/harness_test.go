@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -134,5 +135,5 @@ func (s *totpEnabledShim) RefreshTotpEnabled(ctx context.Context) {
 }
 
 func (s *totpEnabledShim) AuthMiddleware(next http.Handler) http.Handler {
-	return RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.TotpEnabled, next)
+	return RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.TotpEnabled, authcookie.Dashboard, next)
 }

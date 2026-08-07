@@ -77,13 +77,16 @@ type OIDCHandler struct {
 	masterKey  string
 	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
 
-	// useCookieAuth delivers the session over the dashboard HttpOnly cookie and
-	// a clean redirect; Front Desk leaves it false to keep the legacy
-	// token-in-URL-fragment contract byte-for-byte.
+	// useCookieAuth delivers the session over the jar's HttpOnly cookie and a
+	// clean redirect; false delivers it in the URL fragment for header-bearer
+	// clients.
 	useCookieAuth bool
 	// cookieSecure ("auto"/"always"/"never") resolves the cookie Secure
 	// attribute; only consulted when useCookieAuth is true.
 	cookieSecure string
+	// jar names the cookie pair this handler's app owns (dashboard vs Front
+	// Desk), so two apps on one hostname cannot overwrite each other's session.
+	jar authcookie.Jar
 
 	// httpClient is an SSRF-guarded client used for every outbound OIDC request
 	// (discovery, token exchange, JWKS, UserInfo). Without it go-oidc/oauth2 fall
@@ -116,6 +119,7 @@ func NewOIDCHandler(
 	masterKey string,
 	useCookieAuth bool,
 	cookieSecure string,
+	jar authcookie.Jar,
 ) *OIDCHandler {
 	return &OIDCHandler{
 		settings:      settings,
@@ -124,6 +128,7 @@ func NewOIDCHandler(
 		masterKey:     masterKey,
 		useCookieAuth: useCookieAuth,
 		cookieSecure:  cookieSecure,
+		jar:           jar,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 		httpClient:    netguard.NewClientWithRetry(oidcHTTPTimeout),
 	}
@@ -257,9 +262,9 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 // state, PKCE, and the IdP error param; exchanges the code; verifies the ID
 // token (iss/aud/exp/signature via go-oidc, plus nonce here); enforces the
 // verified-email allowlist; and on success mints a session token, then either
-// delivers it in the HttpOnly mh_session cookie and redirects to a clean SPA URL
-// (dashboard, useCookieAuth) or, for legacy Front Desk callers, redirects with
-// the token in the URL fragment. All denials redirect with an error code.
+// delivers it in the jar's HttpOnly session cookie and redirects to a clean SPA
+// URL (useCookieAuth) or, in header-bearer mode, delivers the token in the URL
+// fragment. All denials redirect with an error code.
 func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -422,7 +427,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
 
 	if h.useCookieAuth {
-		if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+		if err := h.jar.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 			debuglog.Error("oidc: set session cookie failed", "error", err)
 			h.redirectError(w, r, "session_error")
 			return
@@ -433,7 +438,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Legacy Front Desk delivery: put the token in the URL *fragment*. The SPA
+	// Header-bearer delivery: put the token in the URL *fragment*. The SPA
 	// reads it on mount, stores it, and scrubs the URL. The fragment is never
 	// sent to the server on the follow-up request (no Referer leak, nothing in
 	// our own request logs). It does, however, appear in this 302's Location
