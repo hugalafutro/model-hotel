@@ -29,6 +29,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -262,14 +263,14 @@ func main() {
 	// IsEnabled state wired into the Handler (AuthMiddleware gate).
 	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
 	apiHandler.SetTotpStatus(totpRepo)
-	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled, cfg.CookieSecure, true)
+	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled, cfg.CookieSecure, true, authcookie.Dashboard)
 
 	// OIDC single sign-on. A third front-end to the same session token minted by
 	// passkey/TOTP login: after the IdP confirms an allowlisted identity it calls
 	// the same CreateAuthToken, so no downstream gate changes. Config lives in
 	// settings (rebuilt lazily on change), so it is always constructed; the
 	// public status/start/callback endpoints no-op until oidc_enabled is set.
-	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey, true, cfg.CookieSecure)
+	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey, true, cfg.CookieSecure, authcookie.Dashboard)
 	oidcHandler.SetUserResolver(userRepo)
 
 	// GitHub SSO is a fourth admin-login front-end, alongside OIDC/passkey/TOTP.
@@ -294,7 +295,7 @@ func main() {
 		if err != nil {
 			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
-		webauthnHandler = adminauth.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, true, cfg.CookieSecure)
+		webauthnHandler = adminauth.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, true, cfg.CookieSecure, authcookie.Dashboard)
 
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}

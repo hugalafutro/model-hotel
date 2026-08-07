@@ -21,7 +21,6 @@ function renderPanels() {
 }
 
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	mockRegisterPasskey.mockReset();
 });
 
@@ -299,7 +298,6 @@ describe("TotpPanel", () => {
 			),
 			http.post("/api/totp/enroll/verify", () =>
 				HttpResponse.json({
-					token: "session-token",
 					recovery_codes: ["code-aaa", "code-bbb"],
 				}),
 			),
@@ -313,10 +311,9 @@ describe("TotpPanel", () => {
 		await userEvent.type(codeInput, "123456");
 		await userEvent.click(screen.getByRole("button", { name: /^Verify$/i }));
 
-		// Recovery codes are revealed and the session token was installed.
+		// Recovery codes are revealed; the server rotated the session cookie itself.
 		expect(await screen.findByText("code-aaa")).toBeInTheDocument();
 		expect(screen.getByText("code-bbb")).toBeInTheDocument();
-		expect(localStorage.getItem("fdAuthToken")).toBe("session-token");
 
 		// Copy all pushes the joined codes to the clipboard.
 		await userEvent.click(screen.getByRole("button", { name: /Copy all/i }));

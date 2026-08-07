@@ -34,12 +34,13 @@ type TotpHandler struct {
 	// the session cookie so plain-http LAN deployments still work.
 	cookieSecure string
 	// useCookieAuth selects the session-delivery mode at both mint sites
-	// (EnrollVerify, Login). true (the dashboard): mint sets an HttpOnly
-	// mh_session cookie and the body carries no token. false (Front Desk):
-	// legacy behavior preserved byte-for-byte from before the httpOnly-cookie
-	// migration, since the Front Desk web client keeps its bearer token in
-	// localStorage rather than a cookie.
+	// (EnrollVerify, Login). true: mint sets the jar's HttpOnly session cookie
+	// and the body carries no token; false: the session token is returned in
+	// the JSON body for header-bearer clients.
 	useCookieAuth bool
+	// jar names the cookie pair this handler's app owns (dashboard vs Front
+	// Desk), so two apps on one hostname cannot overwrite each other's session.
+	jar authcookie.Jar
 	// confirmed_at cache for /totp/status. The stamp is set once at enrollment
 	// and never changes until disable/re-enroll, so a polled status endpoint can
 	// serve it from memory instead of reading the DB on every call. Read lock-free
@@ -64,6 +65,7 @@ func NewTotpHandler(
 	refreshTotpEnabled func(context.Context),
 	cookieSecure string,
 	useCookieAuth bool,
+	jar authcookie.Jar,
 ) *TotpHandler {
 	return &TotpHandler{
 		totpRepo:           totpRepo,
@@ -75,6 +77,7 @@ func NewTotpHandler(
 		refreshTotpEnabled: refreshTotpEnabled,
 		cookieSecure:       cookieSecure,
 		useCookieAuth:      useCookieAuth,
+		jar:                jar,
 		// After maxFailures failed logins from one IP, back off exponentially
 		// (1s doubling, capped at 5m), self-clearing and reset on success.
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
@@ -104,7 +107,7 @@ func (h *TotpHandler) Register(r chi.Router) {
 // enabled, the raw admin token is a first factor only and must not unlock
 // enroll/disable, so the second factor cannot be bypassed.
 func (h *TotpHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
+	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, h.jar, next)
 }
 
 // statusResponse is the GET /api/totp/status payload. EnabledAt is the RFC3339
@@ -271,7 +274,7 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		if h.sessionMgr != nil {
 			if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
 				debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
-			} else if err := authcookie.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+			} else if err := h.jar.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 				// Best effort like the mint above: the recovery codes are the
 				// critical payload and are still returned even if the cookie
 				// write fails (the admin can re-login manually).
@@ -281,9 +284,9 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, resp)
 		return
 	}
-	// Legacy path (Front Desk): return the session token in the body exactly
-	// as before the httpOnly-cookie migration. Front Desk's web client keeps
-	// its bearer token in localStorage rather than reading a cookie.
+	// Header-bearer mode: the session token rides the JSON body, for clients
+	// that hold it themselves and send it as an Authorization header rather
+	// than letting the browser carry a cookie.
 	resp := map[string]any{"recovery_codes": codes}
 	if h.sessionMgr != nil {
 		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
@@ -388,17 +391,16 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	h.loginThrottle.RecordSuccess(throttleKey)
 	if !h.useCookieAuth {
-		// Legacy path (Front Desk): return the session token in the body
-		// exactly as before the httpOnly-cookie migration. Front Desk's web
-		// client keeps its bearer token in localStorage rather than reading
-		// a cookie.
+		// Header-bearer mode: the session token rides the JSON body, for
+		// clients that hold it themselves and send it as an Authorization
+		// header rather than letting the browser carry a cookie.
 		writeJSON(w, map[string]string{"token": sessionToken})
 		return
 	}
 	// Hand the session to the browser as an HttpOnly cookie rather than in the
 	// body: JS never touches it, and the cookie MaxAge is bound to the same
 	// webauthn.AuthTokenTTL as the server-side session so the two cannot drift.
-	if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+	if err := h.jar.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 		debuglog.Error("totp: set session cookie failed", "error", err)
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return

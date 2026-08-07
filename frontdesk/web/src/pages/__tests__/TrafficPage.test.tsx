@@ -46,7 +46,6 @@ function renderPage() {
 }
 
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	server.use(sseHandler());
 });
 

@@ -180,6 +180,23 @@ Front Desk's own login supports a raw token (`FRONTDESK_TOKEN`), and optionally 
 **Settings → Security**. Passkeys require the stack to be reached over HTTPS,
 which the external TLS proxy provides.
 
+A successful login (token, passkey, TOTP, or OIDC) mints an HttpOnly `fd_session`
+cookie plus a readable `fd_csrf` cookie for the browser tab; the raw
+`FRONTDESK_TOKEN` never persists client-side after that point. Header-bearer auth
+is unchanged for every non-browser caller: Bellhop pairing and paired devices, raw
+`FRONTDESK_TOKEN` M2M scripts, and `FRONTDESK_METRICS_TOKEN` scrapes of `/metrics`
+all keep sending the token in a header, same as before.
+
+The `Secure` attribute on those cookies is controlled by `COOKIE_SECURE`, default
+`always`. That default works out of the box behind the TLS-terminating proxy this
+stack requires (see [Prerequisites](#prerequisites)) and on localhost dev, since
+both are secure contexts. Set `COOKIE_SECURE=auto` to derive `Secure` from the
+request scheme (TLS or `X-Forwarded-Proto: https`) instead. Set
+`COOKIE_SECURE=never` only if you deliberately reach Front Desk over plain
+`http://<LAN-IP>` (for example, testing without the TLS proxy in front);
+otherwise the browser silently drops the cookies and login loops back to the
+login screen.
+
 Two things are worth understanding about authentication in an HA deployment:
 
 - **Passkeys and TOTP are per-instance and are never synced.** Config sync pushes

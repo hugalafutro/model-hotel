@@ -57,9 +57,9 @@ func TestTotpEnabledCacheFailsClosed(t *testing.T) {
 // middleware runs ahead of routing and auth, so this holds on the embedded SPA
 // (the framed surface), the authenticated API, the unauthenticated
 // compose-internal Traefik-config endpoint, and error responses (401/404)
-// alike. Front Desk stores its bearer in localStorage, so a framed same-origin
-// copy would auto-authenticate without frame-ancestors 'none' /
-// X-Frame-Options: DENY.
+// alike. Front Desk's session rides cookies, so a framed same-origin copy
+// auto-authenticates; frame-ancestors 'none' / X-Frame-Options: DENY is what
+// keeps this privileged console out of anyone's frame.
 func TestSecurityHeaders(t *testing.T) {
 	// Mount a stand-in SPA so "/" serves the real UI surface, not a 404.
 	ui := fstest.MapFS{

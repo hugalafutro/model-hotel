@@ -1,7 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setAuthToken } from "../../api/client";
 import type { QuotaSnapshot } from "../../api/types";
 import { server } from "../../test/server";
 import { useQuota } from "../useQuota";
@@ -26,9 +25,15 @@ function failQuota(status = 502) {
 }
 
 // The strip only ever mounts inside the authenticated shell, so every test here
-// runs with a session token stored, exactly as the real hook is used.
-// setup.ts clears localStorage after each test, so this does not leak.
-beforeEach(() => setAuthToken("operator-a"));
+// runs with the readable half of the session cookie pair present, exactly as the
+// real hook is used (its refresh POST reads it for CSRF). Cookies outlive a test
+// in jsdom, so it is cleared again after each one.
+beforeEach(() => {
+	document.cookie = "fd_csrf=csrf-abc; path=/";
+});
+afterEach(() => {
+	document.cookie = "fd_csrf=; path=/; max-age=0";
+});
 
 describe("useQuota", () => {
 	it("loads snapshots and records a last-updated stamp", async () => {

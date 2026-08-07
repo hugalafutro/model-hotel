@@ -34,13 +34,17 @@ type WebAuthnHandler struct {
 	ipLimiter    IPLimiterMiddleware
 	demoReadOnly bool
 	totpEnabled  func() bool
-	// useCookieAuth mints the dashboard HttpOnly session cookie on passkey
-	// login and clears it on logout. Front Desk leaves this false so its
-	// legacy token-in-body login and header-only logout stay byte-for-byte.
+	// useCookieAuth selects the session-delivery mode. true: passkey login sets
+	// the jar's HttpOnly session cookie, logout clears it, and the body carries
+	// no token; false: the session token is returned in the JSON body for
+	// header-bearer clients and logout emits no Set-Cookie.
 	useCookieAuth bool
 	// cookieSecure ("auto"/"always"/"never") resolves the cookie Secure
 	// attribute; only consulted when useCookieAuth is true.
 	cookieSecure string
+	// jar names the cookie pair this handler's app owns (dashboard vs Front
+	// Desk), so two apps on one hostname cannot overwrite each other's session.
+	jar authcookie.Jar
 }
 
 // NewWebAuthnHandler creates a new WebAuthn handler with the given dependencies.
@@ -54,6 +58,7 @@ func NewWebAuthnHandler(
 	totpEnabled func() bool,
 	useCookieAuth bool,
 	cookieSecure string,
+	jar authcookie.Jar,
 ) *WebAuthnHandler {
 	return &WebAuthnHandler{
 		webauthnRepo:  webauthnRepo,
@@ -65,6 +70,7 @@ func NewWebAuthnHandler(
 		totpEnabled:   totpEnabled,
 		useCookieAuth: useCookieAuth,
 		cookieSecure:  cookieSecure,
+		jar:           jar,
 	}
 }
 
@@ -127,7 +133,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 // token for WebAuthn management routes. This allows passkey-authenticated
 // sessions to manage their own credentials.
 func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
+	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, h.jar, next)
 }
 
 // sessionTTL is the time-to-live for WebAuthn registration/login sessions.
@@ -421,12 +427,11 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 }
 
 // respondLoginSuccess writes the minted auth token to the response. In cookie
-// mode (main dashboard) it sets the HttpOnly session cookie and returns
-// {"success": true}; otherwise (Front Desk legacy) it returns the token in the
-// body so the pre-cookie contract stays byte-for-byte.
+// mode it sets the jar's HttpOnly session cookie and returns {"success": true};
+// in header-bearer mode it returns the token in the body.
 func (h *WebAuthnHandler) respondLoginSuccess(w http.ResponseWriter, r *http.Request, token string) {
 	if h.useCookieAuth {
-		if err := authcookie.SetSession(w, token, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+		if err := h.jar.SetSession(w, token, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 			debuglog.Error("webauthn: set session cookie failed", "error", err)
 			http.Error(w, "failed to create session", http.StatusInternalServerError)
 			return
@@ -442,9 +447,9 @@ func (h *WebAuthnHandler) respondLoginSuccess(w http.ResponseWriter, r *http.Req
 // Logout revokes a WebAuthn session token.
 // POST /webauthn/logout (admin or session auth required)
 func (h *WebAuthnHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Read the token cookie-first (main dashboard) with a bearer-header
-	// fallback (Front Desk legacy), so both auth surfaces can log out.
-	token, ok := authcookie.SessionToken(r)
+	// Read the token from the jar's session cookie first with a bearer-header
+	// fallback, so both cookie and header-bearer clients can log out.
+	token, ok := h.jar.SessionToken(r)
 	if !ok {
 		token, ok = util.ParseBearerToken(r)
 	}
@@ -455,11 +460,10 @@ func (h *WebAuthnHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	h.sessionMgr.RevokeAuthToken(r.Context(), token)
 
-	// Clear the session cookies only in cookie mode. Front Desk leaves this
-	// off so its logout response emits no Set-Cookie header and stays
-	// byte-identical to the legacy contract.
+	// Clear the session cookies only in cookie mode; header-bearer mode emits
+	// no Set-Cookie header on logout.
 	if h.useCookieAuth {
-		authcookie.ClearSession(w, authcookie.Secure(r, h.cookieSecure))
+		h.jar.ClearSession(w, authcookie.Secure(r, h.cookieSecure))
 	}
 
 	writeJSON(w, map[string]any{

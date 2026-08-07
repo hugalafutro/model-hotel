@@ -169,7 +169,7 @@ func Load() (*Config, error) {
 		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
 		WebAuthnRPOrigins:     parseCORSOrigins(getEnv("WEBAUTHN_RP_ORIGINS")),
 
-		CookieSecure: normalizeCookieSecure(getEnv("COOKIE_SECURE")),
+		CookieSecure: NormalizeCookieSecure(getEnv("COOKIE_SECURE")),
 	}
 
 	// If DATABASE_URL is not set, construct it from POSTGRES_* components.
@@ -452,9 +452,11 @@ func getEnvWithDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
-// normalizeCookieSecure validates COOKIE_SECURE against its allowed values
-// ("always", "never"), defaulting to "auto" for unset or unrecognized input.
-func normalizeCookieSecure(raw string) string {
+// NormalizeCookieSecure validates COOKIE_SECURE against its allowed values
+// ("always", "auto", "never"), falling back to "always" for unset or
+// unrecognized input. Exported so the Front Desk binary, which reads its own
+// environment rather than this Config, resolves the knob identically.
+func NormalizeCookieSecure(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "always":
 		return "always"

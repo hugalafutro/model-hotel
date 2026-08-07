@@ -32,6 +32,7 @@ func newTestWebAuthnHandler(
 		adminMgr:     adminMgr,
 		ipLimiter:    mockIPLimiter{},
 		totpEnabled:  func() bool { return false },
+		jar:          authcookie.Dashboard,
 	}
 }
 
@@ -378,7 +379,7 @@ func TestWebAuthnLoginFinish_SetsSessionCookie(t *testing.T) {
 // sets no session cookie, preserving the legacy contract byte-for-byte.
 func TestWebAuthnLoginFinish_LegacyReturnsToken(t *testing.T) {
 	h := newTestWebAuthnHandler(nil, nil, nil, nil)
-	// useCookieAuth defaults to false (Front Desk legacy).
+	// useCookieAuth defaults to false (header-bearer mode).
 
 	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
 	w := httptest.NewRecorder()
@@ -472,7 +473,7 @@ func TestWebAuthnHandler_Logout_LegacyMode_NoSetCookie(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(repo)
 	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
 	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
-	// useCookieAuth defaults to false (Front Desk legacy).
+	// useCookieAuth defaults to false (header-bearer mode).
 
 	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
 	if err != nil {
@@ -538,7 +539,7 @@ func TestListCredentials_Success(t *testing.T) {
 
 // TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
 func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
-	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil, false, "")
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil, false, "", authcookie.Dashboard)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -563,7 +564,7 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
 func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	limiter := mockIPLimiter{}
-	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil, false, "")
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil, false, "", authcookie.Dashboard)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}

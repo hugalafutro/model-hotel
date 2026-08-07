@@ -10,7 +10,7 @@ const DEFAULT_MINUTES = 60;
  * useIdleLogout signs the operator out after a configurable period of
  * inactivity. The window (minutes; 0 disables, default 60) is read from the
  * settings endpoint. `onLogout` performs the actual sign-out so this hook reuses
- * the app's existing path (clearAuthToken + drop to the login screen).
+ * the app's existing logout path (server revoke + drop to the login screen).
  *
  * `enabled` gates the whole thing to the authenticated state: the hook is always
  * called (Rules of Hooks) but wires nothing while logged out.

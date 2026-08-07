@@ -29,7 +29,6 @@ function renderPage() {
 }
 
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	server.use(
 		sseHandler(),
 		http.get("/api/members", () => HttpResponse.json([])),

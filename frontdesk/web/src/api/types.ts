@@ -309,10 +309,6 @@ export interface TotpEnrollStart {
 
 export interface TotpEnrollVerify {
 	recovery_codes: string[];
-	// Session token minted on enable so the admin stays logged in (the raw
-	// FRONTDESK_TOKEN stops being a valid bearer once TOTP is on). Absent only if
-	// the server could not mint one, in which case the user must re-login.
-	token?: string;
 }
 
 // ── Quota ────────────────────────────────────────────────────────────────

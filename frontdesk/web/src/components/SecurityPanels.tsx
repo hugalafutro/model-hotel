@@ -12,7 +12,7 @@ import type { TFunction } from "i18next";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, setAuthToken } from "../api/client";
+import { api } from "../api/client";
 import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { formatAbsolute } from "../utils/time";
@@ -398,9 +398,8 @@ function TotpPanel() {
 			.totpEnrollVerify(code)
 			.then((d) => {
 				// Enabling TOTP invalidates the raw FRONTDESK_TOKEN bearer; the server
-				// mints a session token so we stay logged in. Install it before any
-				// follow-up request.
-				if (d.token) setAuthToken(d.token);
+				// rotates the HttpOnly session cookie itself, so we stay logged in
+				// with nothing to install here.
 				setRecoveryCodes(d.recovery_codes);
 				resetEnroll();
 				loadStatus();

@@ -53,13 +53,14 @@ func newTotpTestHandler(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	// Clean up TOTP state after the test too.
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true, authcookie.Dashboard)
 	return shim, th
 }
 
 // newTotpTestHandlerLegacy is newTotpTestHandler with useCookieAuth=false,
-// pinning the Front Desk contract: session tokens travel in the JSON body,
-// never as an mh_session cookie.
+// exercising header-bearer mode: session tokens travel in the JSON body,
+// never as an mh_session cookie. Neither production app uses this mode
+// anymore; it stays a tested capability.
 func newTotpTestHandlerLegacy(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	t.Helper()
 	truncateTOTPTables(t)
@@ -74,7 +75,7 @@ func newTotpTestHandlerLegacy(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", false)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", false, authcookie.Dashboard)
 	return shim, th
 }
 
@@ -411,7 +412,7 @@ func TestTotpEnrollStart_DemoReadOnly(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 	wrepo := webauthn.NewRepository(apiTestDB.Pool())
 	sessionMgr := webauthn.NewSessionManager(wrepo)
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {}, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {}, "auto", true, authcookie.Dashboard)
 
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
 	req.Header.Set("Authorization", "Bearer admin-token")
@@ -553,10 +554,11 @@ func TestTotpEnrollVerify_SetsSessionCookie_NoTokenInBody(t *testing.T) {
 	}
 }
 
-// TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie pins the Front
-// Desk contract: with useCookieAuth=false the post-enroll session token
-// travels in the JSON body alongside recovery_codes, exactly as before the
-// httpOnly-cookie migration, and no mh_session cookie is ever set.
+// TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie covers
+// header-bearer mode: with useCookieAuth=false the post-enroll session token
+// travels in the JSON body alongside recovery_codes, and no mh_session
+// cookie is ever set. Neither production app uses this mode anymore; it
+// stays a tested capability.
 func TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie(t *testing.T) {
 	_, th := newTotpTestHandlerLegacy(t)
 
@@ -981,7 +983,7 @@ func TestTotpAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(wrepo)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {}, "auto", true)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {}, "auto", true, authcookie.Dashboard)
 
 	// Raw admin token: with TOTP on, enroll/start must 401.
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)

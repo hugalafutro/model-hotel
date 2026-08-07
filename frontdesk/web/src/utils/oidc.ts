@@ -1,17 +1,9 @@
-// Helpers for the OIDC SSO callback hand-off. The backend callback redirects the
-// browser to the SPA with the result in the URL *fragment* (never the query
-// string), so the session token is not sent back to the server on the follow-up
-// request (no Referer leak, nothing in request logs). It does still appear in the
-// callback's 302 Location response header, so operators should redact Location on
-// /api/auth/oidc/callback in proxy access logs.
-//
-// Ported from the main dashboard (web/src/utils/oidc.ts); the only difference is
-// that Front Desk stores the token via setAuthToken (key "fdAuthToken") rather
-// than writing the main app's "adminToken" slot directly.
+// Helper for the OIDC SSO callback hand-off. A successful callback carries
+// nothing for the SPA to read: the backend sets the session cookie pair and
+// redirects to a clean URL. Only a FAILED callback hands something back, and it
+// travels in the URL *fragment* (never the query string) so the code is not sent
+// on to the server on the follow-up request and stays out of request logs.
 
-import { setAuthToken } from "../api/client";
-
-const TOKEN_PREFIX = "#oidc_token=";
 const ERROR_PREFIX = "#oidc_error=";
 
 /** scrubHash removes the fragment without adding a history entry. */
@@ -31,22 +23,6 @@ function safeDecode(s: string): string {
 	} catch {
 		return "";
 	}
-}
-
-/**
- * consumeOidcToken stores an SSO session token delivered in the URL fragment
- * (the same bearer slot the other login paths use) and scrubs the fragment.
- * Returns true when a token was consumed. Call this synchronously before the app
- * reads the stored token so an SSO redirect boots logged in.
- */
-export function consumeOidcToken(): boolean {
-	const hash = window.location.hash;
-	if (!hash.startsWith(TOKEN_PREFIX)) return false;
-	const token = safeDecode(hash.slice(TOKEN_PREFIX.length));
-	scrubHash();
-	if (!token) return false;
-	setAuthToken(token);
-	return true;
 }
 
 /**
