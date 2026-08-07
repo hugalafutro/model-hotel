@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -997,4 +998,148 @@ func TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice(t *testing.T) {
 func TestClearQuotaAdvice_NilAdvisorNoop(t *testing.T) {
 	h := newTestHandler(t)
 	h.ClearQuotaAdvice(context.Background())
+}
+
+// ---------------------------------------------------------------------------
+// Breaker-open quota nudge
+// ---------------------------------------------------------------------------
+
+// waitForQuotaSnapshot returns the snapshot a nudge stores from its own
+// goroutine, failing once the deadline passes. The poll interval is a retry
+// cadence, not a synchronization point: the assertion is the snapshot existing.
+func waitForQuotaSnapshot(t *testing.T, h *Handler, id uuid.UUID, kind string) *quota.Snapshot {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		snap, err := h.quotaRepo.Get(context.Background(), id, kind)
+		if err != nil {
+			t.Fatalf("get snapshot: %v", err)
+		}
+		if snap != nil {
+			return snap
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the nudge to store a snapshot")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// exhaustedZaiCodingDiscovery returns a discovery service whose zai-coding quota
+// endpoint reports a fully spent 5-hour window resetting at resetsAt. percentage
+// is set because the stored payload is a re-marshal of ZAICodingQuotaResponse,
+// whose non-pointer percentage field always serializes: the normalizer trusts a
+// percentage inside [0,100] over remaining, so a payload carrying only
+// remaining=0 would round-trip as percentage=0 and read as healthy.
+func exhaustedZaiCodingDiscovery(resetsAt time.Time) *provider.DiscoveryService {
+	body := `{"code":200,"success":true,"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":0,"percentage":100,"nextResetTime":` +
+		strconv.FormatInt(resetsAt.UnixMilli(), 10) + `}]}}`
+	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+		}},
+	})
+	ds.SetRetryBaseDelay(time.Millisecond)
+	return ds
+}
+
+// TestNudgeQuotaPoll_DebouncesRepeatOpens verifies a flapping circuit cannot
+// turn into a poll storm against the provider it just gave up on. The discovery
+// service is built on the caller's goroutine before the poll is spawned, so the
+// factory count is a synchronous readout of how many nudges were admitted.
+func TestNudgeQuotaPoll_DebouncesRepeatOpens(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-nudge-debounce", "https://api.nano-gpt.com/v1", true)
+
+	var admitted atomic.Int64
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		admitted.Add(1)
+		return nanoGPTPollDiscovery(7)
+	}
+
+	h.NudgeQuotaPoll(id)
+	waitForQuotaSnapshot(t, h, id, "usage")
+	if got := admitted.Load(); got != 1 {
+		t.Fatalf("first nudge: got %d polls, want 1", got)
+	}
+
+	h.NudgeQuotaPoll(id)
+	if got := admitted.Load(); got != 1 {
+		t.Fatalf("a second open inside the debounce window must not poll again, got %d polls", got)
+	}
+}
+
+// TestNudgeQuotaPoll_SkipsProvidersWithNothingToPoll verifies the two cases
+// where an open circuit says nothing about quota: the provider is switched off,
+// or its type exposes no quota endpoint at all.
+func TestNudgeQuotaPoll_SkipsProvidersWithNothingToPoll(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		enabled bool
+		why     string
+	}{
+		{"disabled", "https://api.nano-gpt.com/v1", false, "a disabled provider serves no traffic and must not be called"},
+		{"no-quota-endpoint", "https://api.openai.com/v1", true, "this provider type exposes no quota endpoint"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newTestHandler(t)
+			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nudge-"+c.name, c.baseURL, c.enabled)
+
+			var admitted atomic.Int64
+			orig := newDiscoveryService
+			defer func() { newDiscoveryService = orig }()
+			newDiscoveryService = func() *provider.DiscoveryService {
+				admitted.Add(1)
+				return nanoGPTPollDiscovery(1)
+			}
+
+			h.NudgeQuotaPoll(id)
+
+			if got := admitted.Load(); got != 0 {
+				t.Fatalf("got %d polls, want 0: %s", got, c.why)
+			}
+		})
+	}
+}
+
+// TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading is the whole point of the
+// nudge: a circuit that opens on a spent quota window gets its cooldown pinned
+// from advice, and advice only exists once a snapshot has been read and
+// assessed. Polling alone is not enough, so this asserts the advisor carries the
+// provider's real reset deadline afterwards rather than only that a row landed.
+func TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading(t *testing.T) {
+	h := newTestHandler(t)
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-nudge", "https://api.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+
+	h.NudgeQuotaPoll(id)
+
+	snap := waitForQuotaSnapshot(t, h, id, "usage")
+	if snap.Source != "poll" {
+		t.Fatalf("want source=poll, got %q", snap.Source)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if at, ok := advisor.ResetsAt(id); ok {
+			if at.UnixMilli() != resetsAt.UnixMilli() {
+				t.Fatalf("advised reset %s, want %s", at, resetsAt)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the nudge to refresh quota advice")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }

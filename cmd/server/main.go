@@ -200,6 +200,11 @@ func main() {
 	apiHandler.SetQuotaAdvisor(quotaAdvisor)
 	proxyHandler.CircuitBreaker().SetQuotaAdvisor(quotaAdvisor)
 
+	// A circuit that opens on a spent quota window needs the reading that pins
+	// its cooldown now, not on the next poll pass up to an interval away, so the
+	// open transition triggers a debounced single-provider poll.
+	proxyHandler.CircuitBreaker().SetOnOpen(apiHandler.NudgeQuotaPoll)
+
 	// Outbound alerting: a single consumer of the events bus that forwards
 	// operator-selected events to a stateless apprise-api container. Best-effort
 	// — a missing/failing apprise-api never affects request serving. Runs for the

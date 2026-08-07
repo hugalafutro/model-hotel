@@ -96,6 +96,13 @@ type CircuitBreaker struct {
 	// cooldown of an already-open circuit. Nil disables quota pinning.
 	quota QuotaAdvisor
 
+	// onOpen is notified whenever a circuit transitions to Open. It exists so a
+	// consumer can refresh what it knows about the provider at the one moment
+	// that knowledge decides how long the circuit stays dark. A plain callback
+	// rather than a package dependency: the breaker must not know what the
+	// consumer does with the notification. Nil when nothing is wired.
+	onOpen func(providerID uuid.UUID)
+
 	// Threshold is the number of consecutive failures before opening.
 	Threshold int
 
@@ -132,6 +139,27 @@ func (cb *CircuitBreaker) SetQuotaAdvisor(a QuotaAdvisor) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.quota = a
+}
+
+// SetOnOpen installs the open-transition callback. Call during startup wiring,
+// before the breaker serves traffic. A nil callback disables the notification.
+func (cb *CircuitBreaker) SetOnOpen(fn func(providerID uuid.UUID)) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.onOpen = fn
+}
+
+// notifyOpen fires the open-transition callback for a circuit that just went
+// open. The callback runs on its own goroutine, so it never executes under
+// cb.mu and never adds latency to the request that opened the circuit: this is
+// reached from RecordFailure on the proxy path, and a consumer is free to reach
+// the network. Must be called with cb.mu held.
+func (cb *CircuitBreaker) notifyOpen(providerID uuid.UUID) {
+	if cb.onOpen == nil {
+		return
+	}
+	fn := cb.onOpen
+	go fn(providerID)
 }
 
 func (cb *CircuitBreaker) getOrCreate(providerID string) *circuit {
@@ -217,6 +245,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 			// about that. Routing metadata only — never payload or credentials.
 			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c))
 			cb.publishEvent(providerID, providerName, "open", c)
+			cb.notifyOpen(providerID)
 		}
 	case StateHalfOpen:
 		c.state = StateOpen
@@ -225,6 +254,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 		cb.applyQuotaPin(providerID, c)
 		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerName, "provider_id", providerID, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c))
 		cb.publishEvent(providerID, providerName, "open", c)
+		cb.notifyOpen(providerID)
 	case StateOpen:
 		// Already open — no-op.
 	}

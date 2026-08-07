@@ -1770,3 +1770,81 @@ func TestPublishEvent_UnpinnedOmitsNextRetryAt(t *testing.T) {
 		t.Fatalf("the old resets_at name must not linger alongside it, got %#v", v)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Open-transition callback tests
+// ---------------------------------------------------------------------------
+
+// waitForOnOpen returns the provider the open callback reported, or fails the
+// test if nothing arrives. The callback runs on its own goroutine, so a channel
+// with a deadline is the only sound way to observe it.
+func waitForOnOpen(t *testing.T, got <-chan uuid.UUID) uuid.UUID {
+	t.Helper()
+	select {
+	case id := <-got:
+		return id
+	case <-time.After(2 * time.Second):
+		t.Fatal("open transition did not invoke the open callback")
+		return uuid.Nil
+	}
+}
+
+// TestOnOpen_FiresOnClosedToOpen verifies the callback the quota nudge hangs
+// off: a circuit that opens on the ordinary failure-threshold path must report
+// which provider went dark, so a fresh quota reading can be fetched while the
+// pin still matters.
+func TestOnOpen_FiresOnClosedToOpen(t *testing.T) {
+	cb := newTestCB(2, 30*time.Second)
+	id := uuid.New()
+
+	got := make(chan uuid.UUID, 1)
+	cb.SetOnOpen(func(providerID uuid.UUID) { got <- providerID })
+
+	cb.RecordFailure(id, "test-provider")
+	cb.RecordFailure(id, "test-provider") // threshold reached → opens
+
+	if reported := waitForOnOpen(t, got); reported != id {
+		t.Errorf("callback got provider %s, want %s", reported, id)
+	}
+}
+
+// TestOnOpen_FiresOnHalfOpenToOpen covers the second open transition: a failed
+// half-open probe re-opens the circuit with a fresh cooldown, which is exactly
+// the cooldown a quota pin would retarget, so it must nudge too. The callback is
+// installed after the first open so only the re-open can feed the channel.
+func TestOnOpen_FiresOnHalfOpenToOpen(t *testing.T) {
+	cb := newTestCB(1, 0) // zero cooldown: the first IsOpen call hands out a probe
+	id := uuid.New()
+
+	cb.RecordFailure(id, "test-provider") // closed→open, no callback installed yet
+
+	got := make(chan uuid.UUID, 1)
+	cb.SetOnOpen(func(providerID uuid.UUID) { got <- providerID })
+
+	if cb.IsOpen(id, "test-provider") {
+		t.Fatal("setup: elapsed cooldown should hand out a half-open probe")
+	}
+	if s := cb.GetState(id); s != StateHalfOpen {
+		t.Fatalf("setup: got state %v, want half-open", s)
+	}
+
+	cb.RecordFailure(id, "test-provider") // probe fails → half-open→open
+
+	if reported := waitForOnOpen(t, got); reported != id {
+		t.Errorf("callback got provider %s, want %s", reported, id)
+	}
+}
+
+// TestOnOpen_NoCallbackIsSafe verifies a breaker with nothing wired still opens
+// normally. Every deployment that does not run the quota nudge is this case, and
+// an unguarded invocation would panic on the request path.
+func TestOnOpen_NoCallbackIsSafe(t *testing.T) {
+	cb := newTestCB(1, 30*time.Second)
+	id := uuid.New()
+
+	cb.RecordFailure(id, "test-provider")
+
+	if s := cb.GetState(id); s != StateOpen {
+		t.Errorf("got state %v, want open", s)
+	}
+}

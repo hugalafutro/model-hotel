@@ -149,26 +149,105 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 			}
 		}
 
-		provCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		_, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
-		if ferr != nil {
-			debuglog.Warn("quota: poll fetch failed", "provider", prov.Name, "error", ferr)
-			if rerr := h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error()); rerr != nil {
-				debuglog.Warn("quota: record failure failed", "provider", prov.Name, "error", rerr)
-			}
-		} else if uerr := h.quotaRepo.Upsert(provCtx, quota.Snapshot{
-			ProviderID: prov.ID,
-			Kind:       kind,
-			Payload:    payload,
-			HTTPStatus: status,
-			Source:     "poll",
-		}); uerr != nil {
-			debuglog.Warn("quota: poll upsert failed", "provider", prov.Name, "error", uerr)
-		}
-		cancel()
+		h.pollQuotaForProvider(ctx, disc, prov, kind)
 	}
 
 	h.RefreshQuotaAdvice(ctx)
+}
+
+// pollQuotaForProvider fetches and stores one provider's quota snapshot. The
+// fetch is bounded by its own timeout so a single slow upstream cannot stall
+// the caller, and a failure is recorded (via RecordFailure) without discarding
+// the last good snapshot. kind comes from the caller, which has already
+// established that this provider type exposes quota.
+func (h *Handler) pollQuotaForProvider(ctx context.Context, disc *provider.DiscoveryService, prov *provider.Provider, kind string) {
+	provCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	_, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
+	if ferr != nil {
+		debuglog.Warn("quota: poll fetch failed", "provider", prov.Name, "error", ferr)
+		if rerr := h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error()); rerr != nil {
+			debuglog.Warn("quota: record failure failed", "provider", prov.Name, "error", rerr)
+		}
+		return
+	}
+	if uerr := h.quotaRepo.Upsert(provCtx, quota.Snapshot{
+		ProviderID: prov.ID,
+		Kind:       kind,
+		Payload:    payload,
+		HTTPStatus: status,
+		Source:     "poll",
+	}); uerr != nil {
+		debuglog.Warn("quota: poll upsert failed", "provider", prov.Name, "error", uerr)
+	}
+}
+
+// quotaNudgeDebounce is the minimum spacing between breaker-triggered polls of
+// one provider. A flapping circuit opens over and over, and every open would
+// otherwise become another upstream quota call against a provider that is
+// already refusing traffic.
+const quotaNudgeDebounce = 60 * time.Second
+
+// quotaNudgeTimeout bounds a nudge end to end, matching the per-provider budget
+// the background poll pass uses.
+const quotaNudgeTimeout = 30 * time.Second
+
+// NudgeQuotaPoll refreshes one provider's quota snapshot out of band and
+// rebuilds the advice from it. The background pass polls every few minutes, so
+// a circuit that opens because the provider's window is spent can be most of a
+// cycle away from the reading that would pin its cooldown to the real reset
+// time, and every probe it lets through until then is a guaranteed 429.
+//
+// The breaker stamps a pin when a circuit opens, so this reading governs the
+// circuit's next open transition rather than the cooldown already in force: the
+// pin lands on the first failed probe instead of however many probes fit in a
+// poll interval.
+//
+// The upstream call runs on its own goroutine under a fresh context, so it
+// never adds latency to whatever opened the circuit and never inherits that
+// caller's cancellation. Providers that serve no traffic or expose no quota
+// endpoint are rejected before any of that.
+func (h *Handler) NudgeQuotaPoll(providerID uuid.UUID) {
+	ctx, cancel := context.WithTimeout(context.Background(), quotaNudgeTimeout)
+	defer cancel()
+
+	prov, err := h.providerRepo.Get(ctx, providerID)
+	if err != nil || prov == nil || !prov.Enabled {
+		return
+	}
+	kind, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL))
+	if !ok {
+		return
+	}
+	if !h.allowQuotaNudge(providerID, time.Now()) {
+		return
+	}
+
+	disc := newDiscoveryService()
+	go func() {
+		pollCtx, pollCancel := context.WithTimeout(context.Background(), quotaNudgeTimeout)
+		defer pollCancel()
+		h.pollQuotaForProvider(pollCtx, disc, prov, kind)
+		h.RefreshQuotaAdvice(pollCtx)
+	}()
+}
+
+// allowQuotaNudge reports whether a nudge for this provider is due, stamping it
+// when it is. Deliberately in-memory: a restart re-arms every provider, which
+// costs one extra poll at worst.
+func (h *Handler) allowQuotaNudge(providerID uuid.UUID, now time.Time) bool {
+	h.quotaNudgeMu.Lock()
+	defer h.quotaNudgeMu.Unlock()
+
+	if last, ok := h.quotaNudgeLast[providerID]; ok && now.Sub(last) < quotaNudgeDebounce {
+		return false
+	}
+	if h.quotaNudgeLast == nil {
+		h.quotaNudgeLast = make(map[uuid.UUID]time.Time)
+	}
+	h.quotaNudgeLast[providerID] = now
+	return true
 }
 
 // RefreshQuotaAdvice rebuilds the in-memory quota advice from stored snapshots.
