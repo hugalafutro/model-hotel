@@ -1848,3 +1848,206 @@ func TestOnOpen_NoCallbackIsSafe(t *testing.T) {
 		t.Errorf("got state %v, want open", s)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Quota re-pin tests
+// ---------------------------------------------------------------------------
+
+// backdateOpen moves a circuit's open instant into the past, so a cooldown
+// computed from openedAt is distinguishable from one computed from now without
+// the test waiting out real time.
+func backdateOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, by time.Duration) {
+	t.Helper()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	c, ok := cb.circuits[id.String()]
+	if !ok {
+		t.Fatalf("setup: no circuit tracked for %s", id)
+	}
+	c.openedAt = c.openedAt.Add(-by)
+}
+
+// overrideFor reads a circuit's stored quota override. Status reports the
+// cooldown actually governing the circuit, which hides the override whenever
+// pinning is switched off, so assertions about the override itself read it here.
+func overrideFor(t *testing.T, cb *CircuitBreaker, id uuid.UUID) time.Duration {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	c, ok := cb.circuits[id.String()]
+	if !ok {
+		t.Fatalf("no circuit tracked for %s", id)
+	}
+	return c.cooldownOverride
+}
+
+func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {
+	t.Helper()
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Fatalf("got %d statuses, want 1", len(statuses))
+	}
+	return statuses[0]
+}
+
+// TestApplyQuotaPins_RetargetsOpenCircuit is the whole point of the re-pin: a
+// circuit that opened before the exhaustion was known carries an ordinary
+// cooldown, and the reading that arrives seconds later must move its retry
+// instant out to the real reset rather than waiting for the circuit to open a
+// second time.
+//
+// The circuit is backdated so the assertion can tell the two candidate
+// computations apart. The breaker enforces a cooldown measured from openedAt,
+// so a pin derived from "time until reset" expires early by however long the
+// circuit has already been open and probes before the window rolls over. The
+// backdate has to clear the 5% positive jitter to be decisive, hence two hours
+// against a six-hour reset, and the configured cooldown has to outlast the
+// backdate or the circuit would read as half-open and be skipped by design.
+func TestApplyQuotaPins_RetargetsOpenCircuit(t *testing.T) {
+	cb := newTestCB(1, 3*time.Hour)
+	id := uuid.New()
+
+	cb.RecordFailure(id, "test-provider") // opens unpinned: no advice existed yet
+	if got := overrideFor(t, cb, id); got != 0 {
+		t.Fatalf("setup: got override %v, want an unpinned circuit", got)
+	}
+	backdateOpen(t, cb, id, 2*time.Hour)
+
+	resetsAt := time.Now().Add(6 * time.Hour).Truncate(time.Second)
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: resetsAt}); got != 1 {
+		t.Fatalf("got %d circuits retargeted, want 1", got)
+	}
+
+	s := onlyStatus(t, cb)
+	if !s.QuotaPinned {
+		t.Error("a retargeted circuit must report quota_pinned")
+	}
+	next, err := time.Parse(time.RFC3339, s.NextRetryAt)
+	if err != nil {
+		t.Fatalf("parse next_retry_at %q: %v", s.NextRetryAt, err)
+	}
+	if next.Before(resetsAt) {
+		t.Errorf("next retry %s falls before the quota reset %s: the pin must be measured from openedAt, not from now", next, resetsAt)
+	}
+	// Positive-only jitter is capped at 5% of the pin, which spans openedAt to
+	// the reset, so the retry cannot land arbitrarily far past it either.
+	if latest := resetsAt.Add(8 * time.Hour / 20); next.After(latest) {
+		t.Errorf("next retry %s lands past %s, further than jitter allows", next, latest)
+	}
+}
+
+// TestApplyQuotaPins_LeavesNonOpenCircuitsAlone verifies the re-pin only touches
+// circuits that are actually holding traffic back. A closed circuit has no
+// cooldown to retarget, and a half-open one has a probe out or due, so HTTP is
+// mid-verdict: pushing it back into the dark would overturn a decision the
+// breaker has already handed to the request path.
+func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t *testing.T, cb *CircuitBreaker, id uuid.UUID)
+		why   string
+	}{
+		{
+			name: "closed",
+			setup: func(_ *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+				cb.RecordFailure(id, "test-provider") // one short of the threshold
+			},
+			why: "a closed circuit is serving traffic and has no cooldown to retarget",
+		},
+		{
+			name: "half-open probe out",
+			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+				cb.RecordFailure(id, "test-provider")
+				cb.RecordFailure(id, "test-provider") // opens
+				backdateOpen(t, cb, id, time.Second)
+				cb.IsOpen(id, "test-provider") // cooldown elapsed: hands out a probe
+			},
+			why: "a probe is in flight and HTTP is about to decide",
+		},
+		{
+			name: "cooldown elapsed",
+			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+				cb.RecordFailure(id, "test-provider")
+				cb.RecordFailure(id, "test-provider") // opens
+				backdateOpen(t, cb, id, time.Second)  // probe due, reads as half-open
+			},
+			why: "the cooldown already elapsed, so the circuit is due a probe",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cb := newTestCB(2, 50*time.Millisecond)
+			id := uuid.New()
+			c.setup(t, cb, id)
+
+			got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+
+			if got != 0 {
+				t.Errorf("got %d circuits retargeted, want 0: %s", got, c.why)
+			}
+			if o := overrideFor(t, cb, id); o != 0 {
+				t.Errorf("got override %v, want none: %s", o, c.why)
+			}
+		})
+	}
+}
+
+// TestApplyQuotaPins_NeverShortensExistingPin verifies the re-pin only ever
+// lengthens a wait. Releasing a pin needs affirmative proof the provider
+// recovered, which is ReleaseQuotaPins' job; a shorter deadline arriving here
+// is not that proof.
+func TestApplyQuotaPins_NeverShortensExistingPin(t *testing.T) {
+	cb := newTestCB(1, 60*time.Second)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	cb.RecordFailure(id, "test-provider") // opens pinned to ~6h
+	before := overrideFor(t, cb, id)
+	if before == 0 {
+		t.Fatal("setup: expected the open transition to pin the circuit")
+	}
+
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(time.Hour)}); got != 0 {
+		t.Errorf("got %d circuits retargeted, want 0 for a nearer deadline", got)
+	}
+	if after := overrideFor(t, cb, id); after != before {
+		t.Errorf("got override %v, want the longer existing pin %v left alone", after, before)
+	}
+}
+
+// TestApplyQuotaPins_SkipsWhenPinDisabled verifies the operator kill switch
+// covers this path too. Status would hide the override anyway, so the stored
+// value is checked directly: a circuit must not carry a pin an operator has
+// switched off, or re-enabling would resurrect deadlines from a disabled span.
+func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
+	disabled := false
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinEnabled: &disabled})
+	id := uuid.New()
+
+	cb.RecordFailure(id, "test-provider")
+
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}); got != 0 {
+		t.Errorf("got %d circuits retargeted, want 0 while quota pinning is disabled", got)
+	}
+	if o := overrideFor(t, cb, id); o != 0 {
+		t.Errorf("got override %v, want none while quota pinning is disabled", o)
+	}
+}
+
+// TestApplyQuotaPins_CeilingCapsRunawayDeadline verifies the re-pin obeys the
+// same ceiling the open-time pin does, so a nonsense deadline cannot bench a
+// provider indefinitely.
+func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second, pinMax: time.Hour})
+	id := uuid.New()
+
+	cb.RecordFailure(id, "test-provider")
+
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(500 * 24 * time.Hour)}); got != 1 {
+		t.Fatalf("got %d circuits retargeted, want 1", got)
+	}
+	ceiling := time.Hour
+	if o := overrideFor(t, cb, id); o > ceiling+ceiling/20 {
+		t.Errorf("got override %v, want capped near the settings max %v", o, ceiling)
+	}
+}

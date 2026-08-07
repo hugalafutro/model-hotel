@@ -508,6 +508,11 @@ func (p *pinReleaseRecorder) ReleaseAllQuotaPins() int {
 	return 0
 }
 
+// ApplyQuotaPins records nothing: these tests are about the release half of the
+// contract, and returning 0 keeps a refresh that retargets pins from disturbing
+// the release assertions.
+func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]time.Time) int { return 0 }
+
 func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -1139,6 +1144,58 @@ func TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading(t *testing.T) {
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("timed out waiting for the nudge to refresh quota advice")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit wires the feature end to end.
+// A circuit opens while nothing yet knows the provider's window is spent, so it
+// is pinned to nothing and holds an ordinary cooldown. The open transition
+// triggers the nudge, and the reading it fetches must move the retry instant on
+// that same circuit out to the real reset, rather than waiting for the circuit
+// to fail a probe and open a second time.
+func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
+	h := newTestHandler(t)
+
+	// One advisor behind both sides, as main.go wires it.
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	cb := failover.NewCircuitBreaker(nil) // threshold 5, cooldown 60s
+	cb.SetQuotaAdvisor(advisor)
+	cb.SetOnOpen(h.NudgeQuotaPoll)
+	h.SetCircuitBreaker(cb)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-repin", "https://api.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+
+	// The advisor is empty until the nudge refreshes it, so this open is
+	// necessarily unpinned and lands on the 60s default cooldown.
+	for i := 0; i < 5; i++ {
+		cb.RecordFailure(id, "zai-repin")
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		statuses := cb.Status()
+		if len(statuses) == 1 && statuses[0].QuotaPinned {
+			got := statuses[0].CooldownMs
+			minMs := (4*time.Hour - time.Minute).Milliseconds()
+			maxMs := (4 * time.Hour).Milliseconds() * 21 / 20
+			if got < minMs || got > maxMs {
+				t.Fatalf("got CooldownMs=%d, want the circuit retargeted to the ~4h quota reset (within [%d,%d])", got, minMs, maxMs)
+			}
+			if statuses[0].State != "open" {
+				t.Fatalf("got state %q, want the circuit still open: quota must never close a circuit", statuses[0].State)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for the nudge to retarget the open circuit, last status %+v", statuses)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

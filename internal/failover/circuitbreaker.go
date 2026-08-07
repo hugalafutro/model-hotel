@@ -474,6 +474,77 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 	return released
 }
 
+// ApplyQuotaPins retargets the cooldown of every already-open circuit whose
+// provider is now known to be exhausted, and reports how many it retargeted. It
+// is the counterpart to applyQuotaPin, which stamps a pin at the instant a
+// circuit opens and therefore only ever sees the advice that existed by then. A
+// reading that lands moments later (the poll a breaker open triggers) has to
+// reach the circuit that prompted it, or that circuit serves out an ordinary
+// cooldown and probes into a certain 429 before the pin finally applies on the
+// re-open.
+//
+// It only ever lengthens a wait, and only for circuits open right now:
+//
+//   - A closed circuit is serving traffic and has no cooldown to retarget.
+//   - A half-open circuit has a probe out or due, so HTTP is mid-verdict.
+//     logicalState decides that, which means an open circuit whose cooldown has
+//     already elapsed counts as half-open here too: it is owed a probe, and
+//     pushing it back into the dark would overturn a decision the breaker has
+//     already handed to the request path.
+//   - A pin already reaching further than the advice stands. Releasing needs
+//     affirmative proof the provider recovered, which is ReleaseQuotaPins' job;
+//     a nearer deadline arriving here is not that proof.
+//
+// advice is read, never retained: the caller may hand the same map to the
+// advisor afterwards.
+func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if len(advice) == 0 || !cb.quotaPinEnabled() {
+		return 0
+	}
+	base := cb.effectiveCooldown()
+
+	// Walk the advice rather than every circuit, for the same reason
+	// ReleaseQuotaPins walks the recovered set: it is the smaller side, and the
+	// circuits map is keyed by the provider's UUID string.
+	retargeted := 0
+	for providerID, resetsAt := range advice {
+		c, ok := cb.circuits[providerID.String()]
+		if !ok || cb.logicalState(c) != StateOpen {
+			continue
+		}
+		// Measured from openedAt, because that is what the enforced cooldown is
+		// measured from. applyQuotaPin computes this from time.Until(resetsAt)
+		// instead, which is the same number at the one instant it runs; here
+		// openedAt is already in the past, and a pin derived from "time until
+		// reset" would expire that much too early and probe before the window
+		// rolls over.
+		d := resetsAt.Sub(c.openedAt)
+		// Ceiling first, so a clamped value is compared against the floors
+		// rather than smuggled past them: capping after those checks could
+		// shorten a pin that is already longer.
+		if maxPin := cb.quotaPinMax(); d > maxPin {
+			d = maxPin
+		}
+		if d <= base || d <= c.cooldownOverride {
+			continue
+		}
+		if spread := int64(d / 20); spread > 0 {
+			d += time.Duration(rand.Int64N(spread + 1))
+		}
+		c.cooldownOverride = d
+		retargeted++
+		// The open transition already logged a cooldown_ms that is now wrong,
+		// and the corrected one can mean hours of darkness, so an operator gets
+		// the same Info-level line a release gets. Routing metadata only, never
+		// payload or credentials.
+		debuglog.Info("circuit-breaker: quota pin retargeted (fresh exhaustion reading)", "provider_id", providerID, "cooldown_ms", d.Milliseconds())
+	}
+	return retargeted
+}
+
 // ReleaseAllQuotaPins lifts the quota cooldown override from every circuit that
 // carries one, and reports how many it lifted.
 //

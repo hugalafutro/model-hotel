@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -34,6 +35,10 @@ func (f fakeBreakerReader) ReleaseQuotaPins(map[uuid.UUID]struct{}) int {
 }
 
 func (f fakeBreakerReader) ReleaseAllQuotaPins() int {
+	panic("metrics must never mutate quota pins")
+}
+
+func (f fakeBreakerReader) ApplyQuotaPins(map[uuid.UUID]time.Time) int {
 	panic("metrics must never mutate quota pins")
 }
 

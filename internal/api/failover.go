@@ -74,6 +74,13 @@ type CircuitBreakerQuotaPinner interface {
 	// switched off, so no refresh will ever report a recovery again. It must
 	// not change any circuit's state either.
 	ReleaseAllQuotaPins() int
+	// ApplyQuotaPins retargets the cooldown of every already-open circuit whose
+	// provider appears in advice, returning how many it retargeted. It only
+	// lengthens a wait: it must not change any circuit's state, must leave
+	// closed and half-open circuits alone, and must never shorten a pin already
+	// reaching further than the advice. Implementations may read advice only for
+	// the duration of the call.
+	ApplyQuotaPins(advice map[uuid.UUID]time.Time) int
 }
 
 // CircuitBreakerControl is the whole breaker surface the failover API needs.

@@ -199,10 +199,9 @@ const quotaNudgeTimeout = 30 * time.Second
 // cycle away from the reading that would pin its cooldown to the real reset
 // time, and every probe it lets through until then is a guaranteed 429.
 //
-// The breaker stamps a pin when a circuit opens, so this reading governs the
-// circuit's next open transition rather than the cooldown already in force: the
-// pin lands on the first failed probe instead of however many probes fit in a
-// poll interval.
+// The refresh this ends with retargets circuits that are already open, so the
+// reading reaches the very circuit whose opening asked for it rather than only
+// governing the next one to open.
 //
 // The upstream call runs on its own goroutine under a fresh context, so it
 // never adds latency to whatever opened the circuit and never inherits that
@@ -297,6 +296,16 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	// cannot touch it.
 	advice, recovered := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
 	advised := len(advice)
+
+	// Retarget the circuits that are already open before handing the map over:
+	// Replace takes ownership, so this is the last point at which advice may be
+	// read. The breaker only pins at the instant a circuit opens, so without
+	// this a reading that arrives even a second later reaches nothing until the
+	// circuit fails a probe and opens again — which is most of what the poll a
+	// breaker open triggers exists to prevent.
+	if h.circuitBreaker != nil {
+		h.circuitBreaker.ApplyQuotaPins(advice)
+	}
 
 	h.quotaAdvisor.Replace(advice)
 
