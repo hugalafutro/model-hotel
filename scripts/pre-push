@@ -134,44 +134,78 @@ has_measurable_change() {
 	gate_status "$status" "has_measurable_change($1)"
 }
 
-# run_vitest_coverage <app-subdir> <source-file-regex> - build lcov for one
-# frontend, preferring the tests vitest believes the change affects (~4x faster).
-#
-# The scoped run is not trusted on its own: vitest's affected-test detection misses
-# real dependents, and diff_coverage.py skips any changed file it has no coverage
-# for, reporting PASS when that leaves nothing to measure. assert_instrumented.py
-# checks every changed file was measured, and the full suite reruns when it was not.
-# Worst case costs both runs; the gate stays honest.
-run_vitest_coverage() {
-	local app=$1 include=$2
-	local dir="$REPO_ROOT/$app" lcov="$REPO_ROOT/$app/coverage/lcov.info"
-	local changed_files=""
-	# Keep only files that still exist. A deleted path can never appear in an lcov
-	# report, so it would read as unmeasured and rerun the full suite for nothing.
-	# Its lines are gone from HEAD, so they are not in the gated changed-line set.
+# existing_changed <regex> - the changed files matching regex that still exist
+# on disk, one per line. A deleted path can never appear in an lcov report, so
+# it would read as unmeasured and rerun the full suite for nothing; its lines
+# are gone from HEAD, so they are not in the gated changed-line set either.
+existing_changed() {
 	while read -r _file; do
 		[ -n "$_file" ] || continue
 		[ -f "$REPO_ROOT/$_file" ] || continue
-		changed_files="$changed_files$_file
-"
-	done < <(printf '%s\n' "$CHANGED_FILES" | grep -E "$include" || true)
+		printf '%s\n' "$_file"
+	done < <(printf '%s\n' "$CHANGED_FILES" | grep -E "$1" || true)
+}
 
-	if [ -n "$SYNC_BASE" ] && [ -n "$changed_files" ]; then
-		echo "pre-push: coverage - $app vitest (tests affected by this branch)"
-		# --passWithNoTests: "nothing affected" is a legitimate outcome, not a
-		# failure. The guard below still decides whether that result is usable.
-		if ! (cd "$dir" && env -u NODE_ENV pnpm exec vitest run --changed "$SYNC_BASE" --passWithNoTests --coverage --coverage.reporter=lcov); then
-			echo "pre-push: FAILED - $app vitest (affected tests)" >&2
-			return 1
+# run_vitest_coverage <app-subdir> <report-file-regex> [<seed-file-regex>] -
+# build lcov for one frontend, running only the tests vitest can tie to the
+# changed files.
+#
+# <report-file-regex> names the changed files this app's report must measure.
+# <seed-file-regex> (default: the report regex) names the files test selection
+# seeds from and may be broader: Front Desk seeds on web-shared/ too, whose
+# lines are measured by web/'s report.
+#
+# Selection is `vitest related <changed files>` rather than `--changed <base>`.
+# --changed seeds from every file in the raw diff, so a types-only hub like
+# web/src/api/types.ts - imported by every page, erased at compile time, exempt
+# from the instrumentation guard - turned "affected" into a near-full suite
+# (183 of 190 test files, 6m29s) while contributing nothing measurable.
+# select_related.py drops exactly the files that guard exempts, so the two
+# stay one filter, and a seed list that comes back empty means no changed file
+# can appear in any report: the truthful lcov is an empty one, and the guard
+# below still vets that conclusion file by file.
+#
+# The scoped run is not trusted on its own: vitest's import graph misses real
+# dependents, and diff_coverage.py skips any changed file it has no coverage
+# for, reporting PASS when that leaves nothing to measure. assert_instrumented.py
+# checks every changed file was measured, and the full suite reruns when it was
+# not. Worst case costs both runs; the gate stays honest.
+run_vitest_coverage() {
+	local app=$1 report_include=$2 seed_include=${3:-$2}
+	local dir="$REPO_ROOT/$app" lcov="$REPO_ROOT/$app/coverage/lcov.info"
+	local report_files seed_files
+	report_files="$(existing_changed "$report_include")"
+
+	if [ -n "$SYNC_BASE" ]; then
+		# Unquoted expansions on purpose, here and below: one argument per
+		# file. A path containing whitespace splits into names that match
+		# nothing, which under-selects or reads as unmeasured and falls back
+		# to the full suite - the safe direction.
+		# shellcheck disable=SC2046
+		seed_files="$(python3 "$REPO_ROOT/scripts/coverage/select_related.py" $(existing_changed "$seed_include"))"
+		if [ -n "$seed_files" ]; then
+			echo "pre-push: coverage - $app vitest (tests related to the changed files)"
+			# Absolute paths: vitest resolves the seeds against its own CWD,
+			# and web/'s seeds can live outside web/ (web-shared/).
+			local seed_abs
+			seed_abs="$(printf '%s\n' "$seed_files" | sed "s#^#$REPO_ROOT/#")"
+			# --passWithNoTests: "nothing related" is a legitimate outcome, not
+			# a failure. The guard below still decides whether it is usable.
+			# shellcheck disable=SC2086
+			if ! (cd "$dir" && env -u NODE_ENV pnpm exec vitest related --run $seed_abs --passWithNoTests --coverage --coverage.reporter=lcov); then
+				echo "pre-push: FAILED - $app vitest (related tests)" >&2
+				return 1
+			fi
+		else
+			echo "pre-push: coverage - $app vitest skipped (changed files emit no runtime code)"
+			mkdir -p "${lcov%/*}"
+			: >"$lcov"
 		fi
-		# Unquoted on purpose: one argument per changed file. A path containing
-		# whitespace splits into names that match nothing, which reads as
-		# unmeasured and falls back to the full suite - the safe direction.
 		# shellcheck disable=SC2086
-		if python3 "$REPO_ROOT/scripts/coverage/assert_instrumented.py" --lcov "$lcov" --root "$app/" $changed_files; then
+		if python3 "$REPO_ROOT/scripts/coverage/assert_instrumented.py" --lcov "$lcov" --root "$app/" $report_files; then
 			return 0
 		fi
-		echo "pre-push: affected-test run left changed files unmeasured; rerunning the full $app suite" >&2
+		echo "pre-push: related-test run left changed files unmeasured; rerunning the full $app suite" >&2
 	fi
 
 	echo "pre-push: coverage - $app vitest (full suite)"
@@ -354,11 +388,13 @@ else
 	fi
 
 	# Front Desk frontend. A web-shared/ change runs this suite too - Front Desk
-	# imports the same modules through @quota-shared - but the scoping regex stays
+	# imports the same modules through @quota-shared - but the report regex stays
 	# frontdesk-only: those lines are measured by web/'s report, and asking for
-	# them here would fail the instrumentation guard on every push.
+	# them here would fail the instrumentation guard on every push. The broader
+	# seed regex still hands them to test selection, so a web-shared change runs
+	# the Front Desk tests that import it rather than the whole suite.
 	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.ts$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
-		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$'; then
+		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$' '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.ts$'; then
 			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
 		else
 			exit 1
