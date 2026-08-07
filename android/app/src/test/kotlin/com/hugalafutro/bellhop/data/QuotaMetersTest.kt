@@ -130,6 +130,33 @@ class QuotaMetersTest {
     }
 
     @Test
+    fun kimiUnreadableUsedDrawsNoBarForThatWindow() {
+        // `used` present but unreadable, and no `remaining` to fall back on:
+        // the window has no reading, and a bar drawn from a guess is worse
+        // than no bar. The weekly window beside it still reads, so the loss is
+        // confined to the window that stopped making sense.
+        val meters =
+            quotaMeters(
+                quotaOf(
+                    QuotaType.KIMI_CODE,
+                    QuotaData.KimiCode(
+                        limits =
+                            listOf(
+                                KimiCodeLimitEntry(
+                                    window = KimiCodeWindowSpec(duration = 300, timeUnit = "TIME_UNIT_MINUTE"),
+                                    detail = KimiCodeDetail(limit = "100", used = "abc"),
+                                ),
+                            ),
+                        usage = KimiCodeDetail(limit = "1000", remaining = "900"),
+                    ),
+                ),
+            )
+
+        assertEquals(listOf(QuotaMeterKind.WEEKLY), meters.map { it.kind })
+        assertEquals(10.0, meters.single().usedPercent, 0.001)
+    }
+
+    @Test
     fun miniMaxMetersOnlyModelsOnThePlan() {
         val meters =
             quotaMeters(

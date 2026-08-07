@@ -951,7 +951,7 @@ describe("useQuotaData", () => {
 			expect(getKimiCodeFiveHourLimit(data)).toBeUndefined();
 		});
 
-		it("returns undefined when the window detail is missing limit/remaining", () => {
+		it("returns undefined when the window detail has no limit to read", () => {
 			const data = {
 				limits: [window300(undefined, undefined)],
 			} as never;
@@ -972,6 +972,75 @@ describe("useQuotaData", () => {
 			const win = getKimiCodeFiveHourLimit(data);
 			expect(win).toBeDefined();
 			expect(win?.percentage).toBe(0);
+		});
+
+		// Kimi omits a zero-valued field and the stored snapshot materializes the
+		// omission as "", so both spellings mean the value is zero rather than
+		// unknown. `used` carries the count once `remaining` disappears.
+		const detailWindow = (detail: Record<string, string>) => ({
+			window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+			detail,
+		});
+
+		it("derives remaining from used when remaining is omitted", () => {
+			const win = getKimiCodeFiveHourLimit({
+				limits: [detailWindow({ limit: "100", used: "100" })],
+			} as never);
+			expect(win?.remaining).toBe(0);
+			expect(win?.percentage).toBe(100);
+		});
+
+		it("treats an empty remaining exactly like an omitted one", () => {
+			const win = getKimiCodeFiveHourLimit({
+				limits: [detailWindow({ limit: "100", remaining: "", used: "75" })],
+			} as never);
+			expect(win?.remaining).toBe(25);
+			expect(win?.percentage).toBe(75);
+		});
+
+		it("prefers a reported remaining over the used derivation", () => {
+			const win = getKimiCodeFiveHourLimit({
+				limits: [detailWindow({ limit: "100", remaining: "5", used: "100" })],
+			} as never);
+			expect(win?.remaining).toBe(5);
+			expect(win?.percentage).toBe(95);
+		});
+
+		it("reads an omitted used as zero used, leaving the whole limit", () => {
+			const win = getKimiCodeFiveHourLimit({
+				limits: [detailWindow({ limit: "100" })],
+			} as never);
+			expect(win?.remaining).toBe(100);
+			expect(win?.percentage).toBe(0);
+		});
+
+		it("skips a window whose used is present but unreadable", () => {
+			expect(
+				getKimiCodeFiveHourLimit({
+					limits: [detailWindow({ limit: "100", used: "lots" })],
+				} as never),
+			).toBeUndefined();
+		});
+
+		it("clamps the percentage to the 0-100 range", () => {
+			expect(
+				getKimiCodeFiveHourLimit({
+					limits: [detailWindow({ limit: "100", used: "150" })],
+				} as never)?.percentage,
+			).toBe(100);
+			expect(
+				getKimiCodeFiveHourLimit({
+					limits: [detailWindow({ limit: "100", remaining: "150" })],
+				} as never)?.percentage,
+			).toBe(0);
+		});
+
+		it("derives the weekly window from used as well", () => {
+			const win = getKimiCodeWeeklyLimit({
+				usage: { limit: "1000", used: "250" },
+			} as never);
+			expect(win?.remaining).toBe(750);
+			expect(win?.percentage).toBe(25);
 		});
 
 		it("returns the weekly window from top-level usage", () => {

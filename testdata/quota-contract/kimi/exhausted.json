@@ -1,0 +1,33 @@
+{
+	"payload": {
+		"user": {
+			"userId": "d9ebt1t22qd2lajpoiig",
+			"region": "REGION_OVERSEA",
+			"membership": { "level": "LEVEL_BASIC" }
+		},
+		"limited": true,
+		"usage": {
+			"limit": "100",
+			"used": "23",
+			"remaining": "77",
+			"resetTime": "2026-08-09T12:10:02.008931Z"
+		},
+		"limits": [
+			{
+				"window": { "duration": 300, "timeUnit": "TIME_UNIT_MINUTE" },
+				"detail": {
+					"limit": "100",
+					"used": "100",
+					"resetTime": "2026-08-07T01:10:02.008931Z"
+				}
+			}
+		],
+		"parallel": { "limit": "10" },
+		"totalQuota": {},
+		"subType": "TYPE_PURCHASE"
+	},
+	"expected": {
+		"fiveHourUsedPercent": 100,
+		"weeklyUsedPercent": 23
+	}
+}

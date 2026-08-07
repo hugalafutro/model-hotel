@@ -127,11 +127,11 @@ export function MiniMaxQuotaModal({
 	onClose,
 }: MiniMaxQuotaModalProps) {
 	const { t } = useTranslation();
-	// Unlike getMiniMaxGeneralEntry (utils/quota.ts), this does not gate on
+	// Unlike getMiniMaxGeneralEntry (web-shared/quota), this does not gate on
 	// base_resp.status_code === 0. That is safe, not an oversight: a non-zero
-	// status produces no visible badge (toBadgeModels/isVisible), so this modal
-	// is never opened for that payload in the first place. Model Hotel's
-	// equivalent modal makes the same simplification.
+	// status produces no visible badge (toBadgeModels/isQuotaPayloadVisible), so
+	// this modal is never opened for that payload in the first place. Model
+	// Hotel's equivalent modal makes the same simplification.
 	const entries = payload.model_remains ?? [];
 
 	return (

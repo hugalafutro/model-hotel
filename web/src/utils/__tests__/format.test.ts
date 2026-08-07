@@ -361,6 +361,26 @@ describe("formatTimeUntil", () => {
 		expect(formatTimeUntil(Date.now())).toBe("now");
 	});
 
+	// Sub-hour resets are minutes, not "0 hours". Kimi's 5-hour window and the
+	// Z.ai ones routinely sit inside the last hour before a reset.
+	it("returns minutes for timestamps less than an hour away", () => {
+		expect(formatTimeUntil(Date.now() + 60 * 1000)).toBe("in 1 minute");
+		expect(formatTimeUntil(Date.now() + 30 * 60 * 1000)).toBe("in 30 minutes");
+		expect(formatTimeUntil(Date.now() + 59 * 60 * 1000)).toBe("in 59 minutes");
+	});
+
+	it("rounds a sub-minute gap up to one minute rather than zero", () => {
+		expect(formatTimeUntil(Date.now() + 1000)).toBe("in 1 minute");
+		expect(formatTimeUntil(Date.now() + 59 * 1000)).toBe("in 1 minute");
+	});
+
+	it("switches to hours at exactly one hour", () => {
+		// The hour strings come from i18next, which glues the number to its unit
+		// with a non-breaking space; the Intl minute strings above use a plain one.
+		expect(formatTimeUntil(Date.now() + 60 * 60 * 1000)).toBe("in 1\u00a0hour");
+		expect(formatTimeUntil(Date.now() + 61 * 60 * 1000)).toBe("in 1\u00a0hour");
+	});
+
 	// Each number is glued to its unit word with a non-breaking space ( )
 	// so a line wrap can't strand the digit from "day(s)"/"hour(s)".
 	it("returns hours for timestamps less than a day away", () => {

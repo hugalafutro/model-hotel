@@ -321,15 +321,7 @@ export interface TotpEnrollVerify {
 // QuotaSnapshot.payload, so the field names are the providers', not ours.
 
 /** The provider families that expose a quota or balance endpoint. */
-export type QuotaProviderType =
-	| "nanogpt"
-	| "zai-coding"
-	| "kimi-code"
-	| "minimax"
-	| "deepseek"
-	| "openrouter"
-	| "ollama-cloud"
-	| "neuralwatt";
+export type { QuotaProviderType } from "@quota-shared";
 
 /**
  * One provider's quota snapshot as proxied from the fleet primary.
@@ -413,52 +405,22 @@ export interface ZAICodingQuotaResponse {
 	};
 }
 
-export interface KimiCodeQuotaLimitEntry {
-	window?: { timeUnit?: string; duration?: number };
-	detail?: { limit?: string; remaining?: string; resetTime?: string };
-}
+// ── Kimi Code + MiniMax quota ───────────────────────────────────
+// Declared in web-shared/quota, which both Front Desk and the Model Hotel
+// dashboard parse these payloads with, and re-exported here so app code keeps
+// importing every API type from one place.
 
-export interface KimiCodeQuotaResponse {
-	user?: { membership?: { level?: string } };
-	usage?: { limit?: string; remaining?: string; resetTime?: string };
-	limits?: KimiCodeQuotaLimitEntry[];
-	// Kimi encodes numeric fields as JSON strings throughout, which is why
-	// toKimiCodeWindow parses with Number(). These two are no exception.
-	parallel?: { limit?: string };
-	totalQuota?: { limit?: string; remaining?: string };
-}
-
-/** Derived Kimi Code window. `percentage` is percent USED. */
-export interface KimiCodeQuotaWindow {
-	limit: number;
-	remaining: number;
-	resetTime: string;
-	percentage: number;
-}
-
-export interface MiniMaxModelRemains {
-	model_name: string;
-	start_time?: number;
-	end_time?: number;
-	remains_time: number;
-	weekly_remains_time: number;
-	current_interval_status: number;
-	current_interval_remaining_percent: number;
-	current_weekly_status: number;
-	current_weekly_remaining_percent: number;
-}
-
-export interface MiniMaxQuotaResponse {
-	model_remains: MiniMaxModelRemains[] | null;
-	base_resp: { status_code: number; status_msg: string };
-}
-
-/** Derived MiniMax window. `percentage` is percent USED. */
-export interface MiniMaxQuotaWindow {
-	percentage: number;
-	remainingPercent: number;
-	resetMs: number;
-}
+export type {
+	KimiCodeQuotaLimitEntry,
+	KimiCodeQuotaResponse,
+	KimiCodeQuotaUsageWindow,
+	KimiCodeQuotaWindow,
+	KimiCodeQuotaWindowSpec,
+	MiniMaxBaseResp,
+	MiniMaxModelRemains,
+	MiniMaxQuotaResponse,
+	MiniMaxQuotaWindow,
+} from "@quota-shared";
 
 export interface DeepSeekBalanceInfo {
 	currency: "CNY" | "USD";
@@ -502,9 +464,9 @@ export interface NeuralWattQuotaUsagePeriod {
  * NeuralWatt's quota body, as relayed by the fleet primary.
  *
  * Only `balance` is declared required, and only because the badge visibility
- * gate (utils/quota.ts isVisible) refuses to render a NeuralWatt badge at all
- * unless balance.credits_remaining_usd is present, so nothing downstream can be
- * reached without it. Every other block is optional on purpose: this is an
+ * gate (isNeuralWattQuotaVisible in web-shared/quota) refuses to render a
+ * NeuralWatt badge at all unless balance.credits_remaining_usd is present, so
+ * nothing downstream can be reached without it. Every other block is optional on purpose: this is an
  * upstream provider's JSON forwarded through another machine's export, not a
  * shape this build controls, and a fleet primary on a different version may
  * relay less than the current one does. Optional here is what makes the

@@ -2,6 +2,7 @@ package quota
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -349,12 +350,11 @@ func TestAssess_Neuralwatt_PastPeriodEndIsNoPin(t *testing.T) {
 }
 
 // TestAssess_KimiCode_AbsentRemainingIsNotExhausted guards the same hole in the
-// Kimi parser. Kimi encodes remaining as a JSON string, so an absent key decodes
-// to "" and ParseInt rejects it — the parser is safe, but only because a string's
-// zero value happens to be unparseable rather than because absence is handled.
-// Pinning that behaviour here means a future switch to a numeric field (which is
-// exactly the kind of reshape the drift watch exists for) fails this test rather
-// than silently sidelining a healthy provider.
+// Kimi parser. A block that carries neither remaining nor used says nothing
+// about consumption, whatever its limit reads, so it must not pin. Pinning that
+// behaviour here means a future switch to a numeric field (which is exactly the
+// kind of reshape the drift watch exists for) fails this test rather than
+// silently sidelining a healthy provider.
 func TestAssess_KimiCode_AbsentRemainingIsNotExhausted(t *testing.T) {
 	payload, err := json.Marshal(map[string]any{
 		"limits": []map[string]any{{
@@ -544,6 +544,99 @@ func TestAssess_KimiCode_EpochStringResetTime(t *testing.T) {
 
 	if !got.Exhausted || got.ResetsAt.Unix() != reset {
 		t.Errorf("got Exhausted=%v ResetsAt=%d, want true/%d", got.Exhausted, got.ResetsAt.Unix(), reset)
+	}
+}
+
+// kimiEnvelope is the live Kimi Code /usages response (prod fetch 2026-08-07)
+// with the two blocks under test substituted in: the top-level cycle counter
+// and the rolling window's detail. Everything around them is the payload
+// verbatim, so a decode regression in the envelope surfaces here too.
+const kimiEnvelope = `{
+	"user": {"userId": "d9ebt1t22qd2lajpoiig", "region": "REGION_OVERSEA", "membership": {"level": "LEVEL_BASIC"}},
+	"limited": true,
+	"usage": %s,
+	"limits": [
+		{"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"},
+		 "detail": %s}
+	],
+	"parallel": {"limit": "10"},
+	"totalQuota": {},
+	"subType": "TYPE_PURCHASE"
+}`
+
+// TestAssess_KimiCode_Proto3OmitsZeroValuedFields covers the shape Kimi
+// actually sends. /usages is proto3 JSON and drops zero-valued fields, so an
+// exhausted window carries used="100" and no remaining at all, while a fresh
+// window carries remaining and no used. Reading remaining alone therefore goes
+// blind at exactly the moment the pin exists for. Reset timestamps are relative
+// to now because a reset in the past never pins.
+func TestAssess_KimiCode_Proto3OmitsZeroValuedFields(t *testing.T) {
+	usageReset := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
+	windowReset := time.Now().Add(90 * time.Minute).UTC().Format(time.RFC3339)
+	healthyUsage := fmt.Sprintf(`{"limit": "100", "used": "23", "remaining": "77", "resetTime": %q}`, usageReset)
+	healthyWindow := fmt.Sprintf(`{"limit": "100", "used": "23", "remaining": "77", "resetTime": %q}`, windowReset)
+
+	cases := []struct {
+		name          string
+		usage         string
+		detail        string
+		wantExhausted bool
+		wantReset     string
+	}{
+		{
+			name:          "spent window omits remaining and reports used",
+			usage:         healthyUsage,
+			detail:        fmt.Sprintf(`{"limit": "100", "used": "100", "resetTime": %q}`, windowReset),
+			wantExhausted: true,
+			wantReset:     windowReset,
+		},
+		{
+			name:   "healthy window reports remaining",
+			usage:  healthyUsage,
+			detail: healthyWindow,
+		},
+		{
+			name:   "untouched window omits used",
+			usage:  healthyUsage,
+			detail: fmt.Sprintf(`{"limit": "100", "remaining": "100", "resetTime": %q}`, windowReset),
+		},
+		{
+			name:   "neither remaining nor used parses",
+			usage:  healthyUsage,
+			detail: fmt.Sprintf(`{"limit": "100", "remaining": "", "used": "", "resetTime": %q}`, windowReset),
+		},
+		{
+			name:          "spent cycle counter pins while the window is healthy",
+			usage:         fmt.Sprintf(`{"limit": "100", "used": "100", "resetTime": %q}`, usageReset),
+			detail:        healthyWindow,
+			wantExhausted: true,
+			wantReset:     usageReset,
+		},
+		{
+			name:   "explicit remaining wins over the used derivation",
+			usage:  healthyUsage,
+			detail: fmt.Sprintf(`{"limit": "100", "used": "100", "remaining": "5", "resetTime": %q}`, windowReset),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := fmt.Sprintf(kimiEnvelope, tc.usage, tc.detail)
+
+			got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: json.RawMessage(payload)})
+
+			if !got.OK {
+				t.Fatalf("a well-formed payload must assess OK, got %+v", got)
+			}
+			if got.Exhausted != tc.wantExhausted {
+				t.Fatalf("got Exhausted=%v, want %v", got.Exhausted, tc.wantExhausted)
+			}
+			if !tc.wantExhausted {
+				return
+			}
+			if got.ResetsAt.Format(time.RFC3339) != tc.wantReset {
+				t.Errorf("got ResetsAt=%s, want %s", got.ResetsAt.Format(time.RFC3339), tc.wantReset)
+			}
+		})
 	}
 }
 

@@ -155,6 +155,12 @@ type Handler struct {
 	// process-wide state, even though only the poll goroutine touches it today.
 	quotaSchemaMu   sync.Mutex
 	quotaSchemaSeen map[uuid.UUID]quotaSchemaCandidate
+
+	// Debounce state for the breaker-open quota nudge: when each provider was
+	// last polled out of band. Guarded because a nudge arrives on whichever
+	// goroutine opened the circuit, so several can land at once.
+	quotaNudgeMu   sync.Mutex
+	quotaNudgeLast map[uuid.UUID]time.Time
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -360,6 +361,66 @@ func TestGetKimiCodeQuota_DecodeError(t *testing.T) {
 	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+// kimiExhaustedUsagePayload is the real /usages response of an account that has
+// spent its 5-hour window (live-captured 2026-08-07). /usages is proto3 JSON and
+// omits zero-valued fields, so the spent window carries "used" and no
+// "remaining" at all.
+const kimiExhaustedUsagePayload = `{
+	"user": {"userId": "u-1", "region": "REGION_OVERSEA", "membership": {"level": "LEVEL_BASIC"}},
+	"limited": true,
+	"usage": {"limit": "100", "used": "23", "remaining": "77", "resetTime": "2026-08-09T12:10:02.008931Z"},
+	"limits": [{"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "100", "used": "100", "resetTime": "2026-08-07T01:10:02.008931Z"}}],
+	"parallel": {"limit": "10"},
+	"totalQuota": {},
+	"subType": "TYPE_PURCHASE"
+}`
+
+// TestGetKimiCodeQuota_UsedSurvivesRoundTrip pins the passthrough the stored
+// quota snapshot depends on: the snapshot is a re-marshal of this struct, so a
+// field the struct does not model is dropped before the dashboards ever see it.
+// "used" is the only evidence of consumption an exhausted window carries.
+func TestGetKimiCodeQuota_UsedSurvivesRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(kimiExhaustedUsagePayload))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client()}
+
+	quota, err := svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.NoError(t, err)
+	if assert.NotNil(t, quota) && assert.Len(t, quota.Limits, 1) {
+		assert.Equal(t, "100", quota.Limits[0].Detail.Used)
+		assert.Empty(t, quota.Limits[0].Detail.Remaining)
+	}
+	assert.Equal(t, "23", quota.Usage.Used)
+
+	stored, err := json.Marshal(quota)
+	assert.NoError(t, err)
+	var reread KimiCodeQuotaResponse
+	assert.NoError(t, json.Unmarshal(stored, &reread))
+	if assert.Len(t, reread.Limits, 1) {
+		assert.Equal(t, "100", reread.Limits[0].Detail.Used)
+	}
 }
 
 // TestDiscoverModels_KimiCodeDispatch exercises the kimi-code arm of the

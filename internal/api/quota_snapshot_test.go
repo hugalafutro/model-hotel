@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -507,6 +508,11 @@ func (p *pinReleaseRecorder) ReleaseAllQuotaPins() int {
 	return 0
 }
 
+// ApplyQuotaPins records nothing: these tests are about the release half of the
+// contract, and returning 0 keeps a refresh that retargets pins from disturbing
+// the release assertions.
+func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]time.Time) int { return 0 }
+
 func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -997,4 +1003,260 @@ func TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice(t *testing.T) {
 func TestClearQuotaAdvice_NilAdvisorNoop(t *testing.T) {
 	h := newTestHandler(t)
 	h.ClearQuotaAdvice(context.Background())
+}
+
+// ---------------------------------------------------------------------------
+// Breaker-open quota nudge
+// ---------------------------------------------------------------------------
+
+// waitForQuotaSnapshot returns the snapshot a nudge stores from its own
+// goroutine, failing once the deadline passes. The poll interval is a retry
+// cadence, not a synchronization point: the assertion is the snapshot existing.
+func waitForQuotaSnapshot(t *testing.T, h *Handler, id uuid.UUID, kind string) *quota.Snapshot {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		snap, err := h.quotaRepo.Get(context.Background(), id, kind)
+		if err != nil {
+			t.Fatalf("get snapshot: %v", err)
+		}
+		if snap != nil {
+			return snap
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the nudge to store a snapshot")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// exhaustedZaiCodingDiscovery returns a discovery service whose zai-coding quota
+// endpoint reports a fully spent 5-hour window resetting at resetsAt. percentage
+// is set because the stored payload is a re-marshal of ZAICodingQuotaResponse,
+// whose non-pointer percentage field always serializes: the normalizer trusts a
+// percentage inside [0,100] over remaining, so a payload carrying only
+// remaining=0 would round-trip as percentage=0 and read as healthy.
+func exhaustedZaiCodingDiscovery(resetsAt time.Time) *provider.DiscoveryService {
+	body := `{"code":200,"success":true,"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":0,"percentage":100,"nextResetTime":` +
+		strconv.FormatInt(resetsAt.UnixMilli(), 10) + `}]}}`
+	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+		}},
+	})
+	ds.SetRetryBaseDelay(time.Millisecond)
+	return ds
+}
+
+// TestNudgeQuotaPoll_DebouncesRepeatOpens verifies a flapping circuit cannot
+// turn into a poll storm against the provider it just gave up on. The discovery
+// service is built on the caller's goroutine before the poll is spawned, so the
+// factory count is a synchronous readout of how many nudges were admitted.
+func TestNudgeQuotaPoll_DebouncesRepeatOpens(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-nudge-debounce", "https://api.nano-gpt.com/v1", true)
+
+	var admitted atomic.Int64
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		admitted.Add(1)
+		return nanoGPTPollDiscovery(7)
+	}
+
+	h.NudgeQuotaPoll(id)
+	waitForQuotaSnapshot(t, h, id, "usage")
+	if got := admitted.Load(); got != 1 {
+		t.Fatalf("first nudge: got %d polls, want 1", got)
+	}
+
+	h.NudgeQuotaPoll(id)
+	if got := admitted.Load(); got != 1 {
+		t.Fatalf("a second open inside the debounce window must not poll again, got %d polls", got)
+	}
+}
+
+// TestNudgeQuotaPoll_SkipsProvidersWithNothingToPoll verifies the two cases
+// where an open circuit says nothing about quota: the provider is switched off,
+// or its type exposes no quota endpoint at all.
+func TestNudgeQuotaPoll_SkipsProvidersWithNothingToPoll(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		enabled bool
+		why     string
+	}{
+		{"disabled", "https://api.nano-gpt.com/v1", false, "a disabled provider serves no traffic and must not be called"},
+		{"no-quota-endpoint", "https://api.openai.com/v1", true, "this provider type exposes no quota endpoint"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newTestHandler(t)
+			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nudge-"+c.name, c.baseURL, c.enabled)
+
+			var admitted atomic.Int64
+			orig := newDiscoveryService
+			defer func() { newDiscoveryService = orig }()
+			newDiscoveryService = func() *provider.DiscoveryService {
+				admitted.Add(1)
+				return nanoGPTPollDiscovery(1)
+			}
+
+			h.NudgeQuotaPoll(id)
+
+			if got := admitted.Load(); got != 0 {
+				t.Fatalf("got %d polls, want 0: %s", got, c.why)
+			}
+		})
+	}
+}
+
+// TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading is the whole point of the
+// nudge: a circuit that opens on a spent quota window gets its cooldown pinned
+// from advice, and advice only exists once a snapshot has been read and
+// assessed. Polling alone is not enough, so this asserts the advisor carries the
+// provider's real reset deadline afterwards rather than only that a row landed.
+func TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading(t *testing.T) {
+	h := newTestHandler(t)
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-nudge", "https://api.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+
+	h.NudgeQuotaPoll(id)
+
+	snap := waitForQuotaSnapshot(t, h, id, "usage")
+	if snap.Source != "poll" {
+		t.Fatalf("want source=poll, got %q", snap.Source)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if at, ok := advisor.ResetsAt(id); ok {
+			if at.UnixMilli() != resetsAt.UnixMilli() {
+				t.Fatalf("advised reset %s, want %s", at, resetsAt)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the nudge to refresh quota advice")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit wires the feature end to end.
+// A circuit opens while nothing yet knows the provider's window is spent, so it
+// is pinned to nothing and holds an ordinary cooldown. The open transition
+// triggers the nudge, and the reading it fetches must move the retry instant on
+// that same circuit out to the real reset, rather than waiting for the circuit
+// to fail a probe and open a second time.
+func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
+	h := newTestHandler(t)
+
+	// One advisor behind both sides, as main.go wires it.
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	cb := failover.NewCircuitBreaker(nil) // threshold 5, cooldown 60s
+	cb.SetQuotaAdvisor(advisor)
+	cb.SetOnOpen(h.NudgeQuotaPoll)
+	h.SetCircuitBreaker(cb)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-repin", "https://api.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+
+	// The advisor is empty until the nudge refreshes it, so this open is
+	// necessarily unpinned and lands on the 60s default cooldown.
+	for i := 0; i < 5; i++ {
+		cb.RecordFailure(id, "zai-repin")
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		statuses := cb.Status()
+		if len(statuses) == 1 && statuses[0].QuotaPinned {
+			got := statuses[0].CooldownMs
+			minMs := (4*time.Hour - time.Minute).Milliseconds()
+			maxMs := (4 * time.Hour).Milliseconds() * 21 / 20
+			if got < minMs || got > maxMs {
+				t.Fatalf("got CooldownMs=%d, want the circuit retargeted to the ~4h quota reset (within [%d,%d])", got, minMs, maxMs)
+			}
+			if statuses[0].State != "open" {
+				t.Fatalf("got state %q, want the circuit still open: quota must never close a circuit", statuses[0].State)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for the nudge to retarget the open circuit, last status %+v", statuses)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice pins the blast radius of a
+// hanging quota endpoint. The poll and the advice refresh must not share one
+// budget: a fetch that runs to its deadline leaves the refresh unable to read,
+// and a refresh that cannot read fails closed by clearing *every* provider's
+// advice, not just this one's. That would turn one slow endpoint into a
+// fleet-wide loss of pins until the next successful background pass, under
+// exactly the conditions the nudge exists for, since a provider that just failed
+// requests is a provider whose quota endpoint is plausibly hanging too.
+//
+// A cancelled context is what an exhausted poll budget leaves behind at the
+// moment the refresh would start, without the test waiting out the real budget.
+func TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice(t *testing.T) {
+	h := newTestHandler(t)
+	advisor := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(advisor)
+	ctx := context.Background()
+
+	// Two exhausted providers, so the assertion can tell a wipe confined to the
+	// nudged provider apart from the fleet-wide one this guards against.
+	nudged := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-nudged", "https://api.z.ai/api/coding/paas/v4", true)
+	bystander := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-bystander", "https://gw.z.ai/api/coding/paas/v4", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	for _, id := range []uuid.UUID{nudged, bystander} {
+		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+			ProviderID: id, Kind: "usage", Payload: exhaustedZaiCodingPayload(t, resetsAt),
+			HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("seed snapshot: %v", err)
+		}
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+	for _, c := range []struct {
+		name string
+		id   uuid.UUID
+	}{{"nudged", nudged}, {"bystander", bystander}} {
+		if _, ok := advisor.ResetsAt(c.id); !ok {
+			t.Fatalf("setup: %s provider must start out advised", c.name)
+		}
+	}
+
+	prov, err := h.providerRepo.Get(ctx, nudged)
+	if err != nil {
+		t.Fatalf("get provider: %v", err)
+	}
+
+	spent, cancel := context.WithCancel(ctx)
+	cancel()
+
+	h.runQuotaNudge(spent, exhaustedZaiCodingDiscovery(resetsAt), prov, "usage")
+
+	if _, ok := advisor.ResetsAt(bystander); !ok {
+		t.Error("a spent poll budget wiped advice for an unrelated provider: the refresh must not run on a context the poll could exhaust")
+	}
+	if _, ok := advisor.ResetsAt(nudged); !ok {
+		t.Error("a spent poll budget dropped the nudged provider's own advice, which its stored snapshot still supports")
+	}
 }

@@ -241,8 +241,10 @@ fi
 # Main-dashboard lint + typecheck, only when web/ changed. tsc -b runs here rather
 # than in the Docker image build, catching type errors before the push, and is
 # incremental (tsbuildinfo). Covers web/ only; frontdesk/web is not linted here.
-if ! touched '^web/'; then
-	echo "pre-push: no web/ changes, skipping pnpm lint + tsc -b"
+# web-shared/ counts as a web/ change: the dashboard imports it through the
+# @quota-shared alias, so its types are checked by web/'s tsc -b.
+if ! touched '^web/|^web-shared/'; then
+	echo "pre-push: no web/ or web-shared/ changes, skipping pnpm lint + tsc -b"
 elif [ -d "$REPO_ROOT/web/node_modules" ]; then
 	echo "pre-push: pnpm lint + tsc -b (local)..."
 	if ! (cd "$REPO_ROOT/web" && pnpm run lint && pnpm exec tsc -b); then
@@ -341,17 +343,21 @@ else
 		fi
 	fi
 
-	# web dashboard frontend.
-	if has_measurable_change '^web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
-		if run_vitest_coverage web '^web/src/.*\.tsx?$'; then
+	# web dashboard frontend. web/ owns web-shared/ for coverage (its vitest
+	# config instruments it), so shared files are measured and gated here.
+	if has_measurable_change '^web/src/.*\.tsx?$|^web-shared/.*\.ts$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
+		if run_vitest_coverage web '^web/src/.*\.tsx?$|^web-shared/.*\.ts$'; then
 			DC_ARGS+=(--lcov "web/=$REPO_ROOT/web/coverage/lcov.info")
 		else
 			exit 1
 		fi
 	fi
 
-	# Front Desk frontend.
-	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
+	# Front Desk frontend. A web-shared/ change runs this suite too - Front Desk
+	# imports the same modules through @quota-shared - but the scoping regex stays
+	# frontdesk-only: those lines are measured by web/'s report, and asking for
+	# them here would fail the instrumentation guard on every push.
+	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.ts$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
 		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$'; then
 			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
 		else

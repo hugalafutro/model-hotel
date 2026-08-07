@@ -199,19 +199,47 @@ func assessKimiCode(payload json.RawMessage) Assessment {
 		return Assessment{}
 	}
 	var e earliestReset
+	// The top-level usage block is the subscription cycle counter and carries
+	// its own reset. Spending it blocks the account just as a spent rolling
+	// window does, so it is judged by the same rule.
+	addKimiWindow(&e, res.Usage)
 	for _, l := range res.Limits {
-		// Kimi encodes limit/remaining as JSON strings. A value we cannot parse
-		// is never treated as exhausted: guessing here would pin a healthy
-		// provider, which the behaviour contract forbids.
-		remaining, err := strconv.ParseInt(strings.TrimSpace(l.Detail.Remaining), 10, 64)
-		if err != nil || remaining > 0 {
-			continue
-		}
-		if t, ok := parseResetString(l.Detail.ResetTime); ok {
-			e.add(t)
-		}
+		addKimiWindow(&e, l.Detail)
 	}
 	return e.result(time.Now())
+}
+
+// kimiRemaining reports how much of a Kimi window is left. Kimi's /usages is
+// proto3 JSON and omits zero-valued fields, so a spent window carries used and
+// no remaining while a fresh one carries remaining and no used. An explicit
+// remaining decides; otherwise limit minus used does, but only when both parse.
+// A window we cannot read either way reports not-ok and is never treated as
+// exhausted: guessing here would pin a healthy provider, which the behaviour
+// contract forbids.
+func kimiRemaining(d provider.KimiCodeQuotaDetail) (int64, bool) {
+	if remaining, err := strconv.ParseInt(strings.TrimSpace(d.Remaining), 10, 64); err == nil {
+		return remaining, true
+	}
+	limit, limitErr := strconv.ParseInt(strings.TrimSpace(d.Limit), 10, 64)
+	used, usedErr := strconv.ParseInt(strings.TrimSpace(d.Used), 10, 64)
+	if limitErr != nil || usedErr != nil {
+		return 0, false
+	}
+	if used >= limit {
+		return 0, true
+	}
+	return limit - used, true
+}
+
+// addKimiWindow records one Kimi quota block if it is spent.
+func addKimiWindow(e *earliestReset, d provider.KimiCodeQuotaDetail) {
+	remaining, ok := kimiRemaining(d)
+	if !ok || remaining > 0 {
+		return
+	}
+	if t, ok := parseResetString(d.ResetTime); ok {
+		e.add(t)
+	}
 }
 
 // minimaxModelRemain is the subset of a MiniMax model_remains entry the quota

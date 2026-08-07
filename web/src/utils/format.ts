@@ -144,6 +144,16 @@ export function formatTimeUntil(ts: number): string {
 	const diff = ts - now;
 	if (diff <= 0) return i18next.t("format.now");
 
+	// Under an hour is minutes, which Intl phrases for every locale we ship, so
+	// no catalog key is involved. Anything above zero rounds up to one minute
+	// rather than reading as a whole "0 hours" away.
+	if (diff < 1000 * 60 * 60) {
+		const minutes = Math.max(1, Math.floor(diff / 60000));
+		return new Intl.RelativeTimeFormat(i18next.language, {
+			numeric: "always",
+		}).format(minutes, "minute");
+	}
+
 	const hours = Math.floor(diff / (1000 * 60 * 60));
 	const days = Math.floor(hours / 24);
 	const remainingHours = hours % 24;

@@ -12,6 +12,10 @@ COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir=/pnpm-store
 
+# The quota parsing helpers live outside the app tree and are pulled in through
+# the @quota-shared alias, so the build needs them beside it.
+COPY web-shared/ /app/web-shared/
+
 COPY web/ ./
 # build:docker skips `tsc -b` — type-checking is gated by the pre-push hook and
 # CI's full `pnpm run build`, so the image build stays off the typecheck path.

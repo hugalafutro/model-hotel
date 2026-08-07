@@ -291,10 +291,15 @@ type ZAICodingQuotaResponse struct {
 	Success bool               `json:"success"`
 }
 
-// KimiCodeQuotaDetail is one limit/remaining/reset block in the Kimi Code
-// /usages response. Numeric fields arrive as JSON strings.
+// KimiCodeQuotaDetail is one limit/used/remaining/reset block in the Kimi Code
+// /usages response. Numeric fields arrive as JSON strings, and the response is
+// proto3 JSON: zero-valued fields are omitted, so a spent block carries only
+// used and a fresh one carries only remaining. Both are modelled because the
+// stored quota snapshot is a re-marshal of this struct and consumers need
+// whichever one the payload actually carried.
 type KimiCodeQuotaDetail struct {
 	Limit     string `json:"limit"`
+	Used      string `json:"used"`
 	Remaining string `json:"remaining"`
 	ResetTime string `json:"resetTime"`
 }
@@ -320,8 +325,9 @@ type KimiCodeQuotaUser struct {
 	} `json:"membership"`
 }
 
-// KimiCodeQuotaResponse is the Kimi Code /usages payload, passed through to
-// the dashboard as-is.
+// KimiCodeQuotaResponse is the Kimi Code /usages payload. The stored snapshot is
+// a re-marshal of this struct, so only the fields modelled here reach the
+// dashboard and anything Kimi adds outside them is dropped.
 type KimiCodeQuotaResponse struct {
 	User     KimiCodeQuotaUser    `json:"user"`
 	Usage    KimiCodeQuotaDetail  `json:"usage"`

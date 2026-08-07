@@ -1,4 +1,5 @@
 """Shared coverage parsing/exclusion helpers (stdlib only)."""
+import posixpath
 import re
 
 MODULE_PREFIX = "github.com/hugalafutro/model-hotel/"
@@ -138,7 +139,11 @@ def parse_lcov(text: str, root: str) -> dict:
     cur = None
     for line in text.splitlines():
         if line.startswith("SF:"):
-            rel = root + line[3:].strip()
+            # An app's report can name a file outside its own tree: web/'s suite
+            # covers web-shared/, which vitest records as `../web-shared/...`.
+            # Normalising folds that back onto the repo-relative path git reports,
+            # so those lines are matched rather than silently skipped.
+            rel = posixpath.normpath(root + line[3:].strip())
             cur = None if is_excluded(rel) else rel
         elif line.startswith("DA:") and cur is not None:
             ln, hits = line[3:].split(",", 1)
