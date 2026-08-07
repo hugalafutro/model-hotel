@@ -485,7 +485,7 @@ func TestConfigSyncStampFailureFailsResult(t *testing.T) {
 	okBefore := configSyncCount(t, srv, "ok")
 	errBefore := configSyncCount(t, srv, "err")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", true, 1)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", true, 1, "")
 	if res.OK || res.Error == "" {
 		t.Fatalf("stamp failure must fail the result, got OK=%v err=%q", res.OK, res.Error)
 	}
@@ -719,7 +719,7 @@ func TestAutoSync_FailedModelReconcileDoesNotBlameFailoverGroups(t *testing.T) {
 		`"incomplete":true,"model_state_failed":true,"diff":{}}`
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 	if !res.Incomplete {
 		t.Fatal("Incomplete = false, want true")
@@ -745,7 +745,7 @@ func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
 		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 		srv.syncClient = newProbeClient(60 * time.Millisecond)
 
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
 		if err != nil {
@@ -757,15 +757,45 @@ func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
 		if evs[0].Severity != "info" {
 			t.Errorf("severity = %q, want info: the member is very likely still importing", evs[0].Severity)
 		}
+		if evs[0].Metadata["unconfirmed"] != true {
+			t.Errorf("metadata unconfirmed = %v, want true: a timed-out push is a lost answer", evs[0].Metadata["unconfirmed"])
+		}
+	})
+
+	t.Run("a gateway timeout is info", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		replica := newStubConfigMember(t, "rtoken")
+		replica.importCode = http.StatusGatewayTimeout // a proxy waited on the member and gave up
+		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
+
+		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		if len(evs) != 1 {
+			t.Fatalf("config.sync_failed events = %d, want 1", len(evs))
+		}
+		if evs[0].Severity != "info" {
+			t.Errorf("severity = %q, want info: a proxy cut a live import, the member is very likely still applying", evs[0].Severity)
+		}
+		if evs[0].Metadata["timed_out"] != false || evs[0].Metadata["unconfirmed"] != true {
+			t.Errorf("metadata timed_out = %v, unconfirmed = %v; a consumer must be able to tell a lost answer from a rejection",
+				evs[0].Metadata["timed_out"], evs[0].Metadata["unconfirmed"])
+		}
+		if !strings.Contains(evs[0].Message, "may still be applying") {
+			t.Errorf("message = %q, want it to say the member may still be applying, not that it rejected the push", evs[0].Message)
+		}
 	})
 
 	t.Run("a refusal still warns", func(t *testing.T) {
 		srv, store := newTestServer(t)
 		replica := newStubConfigMember(t, "rtoken")
-		replica.importCode = http.StatusInternalServerError
+		replica.importCode = http.StatusInternalServerError // instant: an error the member had at hand
 		rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+		srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
 		if err != nil {
@@ -774,5 +804,33 @@ func TestAutoSync_TimedOutPushIsNotPagedAsAFailure(t *testing.T) {
 		if len(evs) != 1 || evs[0].Severity != "warning" {
 			t.Errorf("events = %+v, want one at warning", evs)
 		}
+		if len(evs) == 1 && evs[0].Metadata["unconfirmed"] != false {
+			t.Errorf("metadata unconfirmed = %v, want false: an instant 500 is a plain failure", evs[0].Metadata["unconfirmed"])
+		}
 	})
+}
+
+// TestLostAnswer5xx pins the boundary between a 5xx that may be standing in
+// front of a live import (a lost answer: unconfirmed, rate-limited, stamped on
+// verification) and one that is a plain failure retried next tick.
+func TestLostAnswer5xx(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		elapsed time.Duration
+		want    bool
+	}{
+		{"instant 502: the proxy's upstream is down", http.StatusBadGateway, 10 * time.Millisecond, false},
+		{"instant 500: the member erred on the spot", http.StatusInternalServerError, 10 * time.Millisecond, false},
+		{"slow 502: a proxy cut a live import", http.StatusBadGateway, unconfirmed5xxFloor, true},
+		{"504 is an intermediary's timeout whatever the clock says", http.StatusGatewayTimeout, 0, true},
+		{"4xx is a definite refusal however slow", http.StatusUnauthorized, time.Minute, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := lostAnswer5xx(tc.status, tc.elapsed); got != tc.want {
+				t.Errorf("lostAnswer5xx(%d, %v) = %v, want %v", tc.status, tc.elapsed, got, tc.want)
+			}
+		})
+	}
 }

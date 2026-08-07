@@ -410,6 +410,15 @@ server {
 }
 ```
 
+If the member URLs you register in Front Desk also sit behind reverse proxies
+(each member's own dashboard hostname), give those proxies a read timeout of at
+least 240s (`proxy_read_timeout 240s;` in nginx, which defaults to 60s). A
+config sync push runs model discovery on the member and can legitimately take
+minutes on a slow box; Front Desk itself waits up to 240s, and a proxy that
+gives up earlier answers 502/504 while the member is still applying. Front Desk
+recovers on its own (the next verification pass detects the member converged and
+stamps the sync), but every long import gets reported as a failed push first.
+
 Set `FRONTDESK_PUBLIC_ORIGIN=https://frontdesk.example.com` and
 `FRONTDESK_TRUSTED_PROXIES` to the proxy's address in `.env`.
 

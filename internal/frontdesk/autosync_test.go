@@ -55,6 +55,11 @@ type stubAutoMember struct {
 	// the member claims about its own apply: an explicit "incomplete":false, or an
 	// older member's response that omits the field entirely.
 	realImportBody string
+	// realImportCode, when set, is the status the real import answers with even
+	// though the member applies the config anyway: what a reverse proxy answering
+	// 502/504 mid-import looks like from Front Desk, with the member finishing
+	// the apply behind it.
+	realImportCode int
 	gotBackup      bool
 	backups        int // how many backups this member was asked to take; must stay 0
 	dryRuns        int // how many dry-run imports this member was asked for
@@ -149,6 +154,11 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			}
 			if sm.appliedHash != "" {
 				sm.versionHash = sm.appliedHash // the member now holds the primary's config
+			}
+			if sm.realImportCode != 0 {
+				// The apply above still happened; only the answer is lost.
+				w.WriteHeader(sm.realImportCode)
+				return
 			}
 			if sm.realImportBody != "" {
 				_, _ = w.Write([]byte(sm.realImportBody))
@@ -771,6 +781,360 @@ func TestAutoSyncSchemaBlockedMemberSkipped(t *testing.T) {
 	}
 	if memberVerified(srv, bm.ID) {
 		t.Error("a member that cannot take the config was recorded verified in sync")
+	}
+}
+
+// TestAutoSync_GatewayErroredPushStampsOnVerify: a push answered 5xx by a proxy
+// mid-import is not stamped (the write was never confirmed), but the import
+// completes member-side; the next pass measures the member holding the primary's
+// hash, which proves the push landed, and stamps last_config_sync_at then. A
+// converged pass after that must not stamp again: the marker still means a real
+// write, not a heartbeat.
+func TestAutoSync_GatewayErroredPushStampsOnVerify(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.appliedHash = "hash-B"                     // the import applies...
+	replica.realImportCode = http.StatusGatewayTimeout // ...but the answer is a proxy's 504
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if got := replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1", got)
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Fatal("a push answered 504 was stamped as a sync; the write was never confirmed")
+	}
+
+	// The next pass measures the member serving hash-B: the lost push is proven
+	// landed, so the marker it missed is stamped now.
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	got, err = store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt == nil {
+		t.Fatal("a verified member with an unconfirmed push behind it was not stamped")
+	}
+	if got.LastConfigSyncReason != unconfirmedSyncReason {
+		t.Errorf("reason = %q, want %q", got.LastConfigSyncReason, unconfirmedSyncReason)
+	}
+	if !memberVerified(srv, rm.ID) {
+		t.Error("the converged member was not verified in sync")
+	}
+
+	// The stamp is once per lost push, not per converged tick: overwrite the
+	// marker with a sentinel and prove a further converged pass leaves it alone.
+	if err := store.SetMemberLastSync(t.Context(), rm.ID, time.Now().UTC(), "sentinel"); err != nil {
+		t.Fatalf("SetMemberLastSync: %v", err)
+	}
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	got, err = store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncReason != "sentinel" {
+		t.Errorf("reason = %q after a quiet converged pass, want the sentinel untouched: converged ticks must not stamp", got.LastConfigSyncReason)
+	}
+}
+
+// TestAutoSync_TimedOutPushStampsOnVerify: the same proof for the other lost
+// answer, Front Desk's own relay deadline expiring while the member is still
+// importing. The push is not stamped; the pass that measures the member holding
+// the primary's hash stamps it.
+func TestAutoSync_TimedOutPushStampsOnVerify(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.appliedHash = "hash-B"
+	replica.onImport = func(context.Context) bool {
+		time.Sleep(time.Second) // outlives the relay deadline below, then commits
+		return true
+	}
+	// Comfortably above the dry-run round-trip even on a loaded machine, and a
+	// quarter of the import sleep above, so the real import always times out.
+	srv.syncClient = newProbeClient(250 * time.Millisecond)
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	// realSyncCount waits on the stub's mutex, so this both proves the import
+	// committed after the client hung up and fences the next pass behind it.
+	if got := replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1: the import commits after the deadline", got)
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Fatal("a timed-out push was stamped as a sync; the write was never confirmed")
+	}
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	got, err = store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt == nil {
+		t.Fatal("a verified member with a timed-out push behind it was not stamped")
+	}
+	if got.LastConfigSyncReason != unconfirmedSyncReason {
+		t.Errorf("reason = %q, want %q", got.LastConfigSyncReason, unconfirmedSyncReason)
+	}
+}
+
+// TestAutoSync_RefusedPushDoesNotStampOnVerify: a 4xx is a definite refusal, so
+// no unconfirmed push is remembered. A member that later converges anyway (the
+// primary edited back to what it already held) is verified but NOT stamped:
+// Front Desk never wrote to it.
+func TestAutoSync_RefusedPushDoesNotStampOnVerify(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.realImportCode = http.StatusUnauthorized // definite refusal, nothing applied
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	// The member ends up holding the primary's config through no write of Front
+	// Desk's (a revert on the primary looks like this).
+	replica.setVersionHash("hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a refused push was stamped on convergence; Front Desk never wrote to this member")
+	}
+	if !memberVerified(srv, rm.ID) {
+		t.Error("the converged member was not verified in sync")
+	}
+}
+
+// TestAutoSync_ConfirmedStampClearsUnconfirmedPush: a lost push followed by a
+// confirmed one must not leave the flag behind, or the converged pass after the
+// confirmed sync would overwrite its honest stamp (timestamp AND reason) with the
+// unconfirmed-push wording.
+func TestAutoSync_ConfirmedStampClearsUnconfirmedPush(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.realImportCode = http.StatusGatewayTimeout // lost answer, nothing adopted
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // lost push: flag set, no stamp
+
+	// The lost push is rate-limited like a timeout; drop the timer so the next
+	// pass may push again, as a primary edit would.
+	srv.resetIncompleteRetries()
+	replica.mu.Lock()
+	replica.realImportCode = 0
+	replica.mu.Unlock()
+	replica.setAppliedHash("hash-B")
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // confirmed push: honest stamp, flag cleared
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncReason != autoSyncReason {
+		t.Fatalf("reason = %q, want %q from the confirmed push", got.LastConfigSyncReason, autoSyncReason)
+	}
+
+	// The converged pass must leave the confirmed stamp alone: prove it with a
+	// sentinel it would overwrite if the flag had survived.
+	if err := store.SetMemberLastSync(t.Context(), rm.ID, time.Now().UTC(), "sentinel"); err != nil {
+		t.Fatalf("SetMemberLastSync: %v", err)
+	}
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	got, err = store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncReason != "sentinel" {
+		t.Errorf("reason = %q, want the sentinel: a confirmed stamp must clear the unconfirmed-push flag", got.LastConfigSyncReason)
+	}
+}
+
+// TestAutoSync_IncompleteStampClearsUnconfirmedPush: the incomplete arm stamps
+// too (the member committed the config), so it must clear the flag for the same
+// reason as the OK arm.
+func TestAutoSync_IncompleteStampClearsUnconfirmedPush(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	// A 504 is a lost answer on its own; an instant 502 would be a plain failure
+	// now (see lostAnswer5xx).
+	replica.realImportCode = http.StatusGatewayTimeout // lost answer, nothing adopted
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // lost push: flag set
+
+	srv.resetIncompleteRetries()
+	replica.mu.Lock()
+	replica.realImportCode = 0
+	replica.incompleteImport = true // commits, but cannot build a group
+	replica.mu.Unlock()
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // incomplete apply: stamps, must clear the flag
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt == nil {
+		t.Fatal("an incomplete apply did not stamp; the member committed the config")
+	}
+
+	// The member later comes to hold the primary's config. With the flag cleared
+	// the converged pass must not restamp; overwrite with a sentinel to see.
+	if err := store.SetMemberLastSync(t.Context(), rm.ID, time.Now().UTC(), "sentinel"); err != nil {
+		t.Fatalf("SetMemberLastSync: %v", err)
+	}
+	replica.setVersionHash("hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	got, err = store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncReason != "sentinel" {
+		t.Errorf("reason = %q, want the sentinel: an incomplete apply's stamp must clear the unconfirmed-push flag", got.LastConfigSyncReason)
+	}
+}
+
+// TestAutoSync_FailedVerifyStampKeepsFlag: a converged measurement whose stamp
+// write fails must keep the flag, so the next converged pass retries the stamp
+// instead of losing it forever.
+func TestAutoSync_FailedVerifyStampKeepsFlag(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubAutoMember(t, "rtoken")
+	replica.versionHash = "hash-B"
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	srv.markUnconfirmedPush(rm.ID, "hash-B")
+	// Delete the row so the in-memory member still resolves for the hash read
+	// while SetMemberLastSync affects zero rows and errors (the same seam as
+	// TestConfigSyncStampFailureFailsResult).
+	if err := store.DeleteMember(t.Context(), rm.ID); err != nil {
+		t.Fatalf("delete member: %v", err)
+	}
+
+	converged, measured := srv.measureMember(t.Context(), t.Context(), rm, "rtoken", "hash-B")
+	if !converged || !measured {
+		t.Fatalf("converged=%v measured=%v, want both true", converged, measured)
+	}
+	if !srv.hasUnconfirmedPush(rm.ID, "hash-B") {
+		t.Error("the flag was dropped on a failed stamp write; the next converged pass has nothing left to retry")
+	}
+}
+
+// TestAutoSync_InstantGatewayErrorRetriesNextTick: an instant 5xx is not a lost
+// answer. A proxy answers 502 immediately when its upstream is down (a member
+// that crashed mid-import looks like this), so nothing is importing behind such
+// an answer: the re-push must come on the next tick rather than sitting out
+// incompleteRetryInterval, and no unconfirmed push is remembered, so a member
+// that later converges through no write of Front Desk's is verified but never
+// stamped.
+func TestAutoSync_InstantGatewayErrorRetriesNextTick(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.realImportCode = http.StatusBadGateway // instant: the proxy's upstream is down
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	if got := replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1", got)
+	}
+
+	// The push failed outright, so it must not be rate-limited: the next pass
+	// pushes again instead of waiting out incompleteRetryInterval.
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	if got := replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports after the next tick = %d, want 2: an instant 5xx is a plain failure, not a maybe-landed import", got)
+	}
+
+	// The member comes to hold the primary's config through no write of Front
+	// Desk's (an operator restore, or the primary edited back): verified, but not
+	// stamped, because no unconfirmed push was remembered for it.
+	replica.setVersionHash("hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("an instant-5xx push was stamped on convergence; the write was never confirmed and nothing was importing behind the answer")
+	}
+	if !memberVerified(srv, rm.ID) {
+		t.Error("the converged member was not verified in sync")
+	}
+}
+
+// TestClearUnconfirmedPushKeepsNewerHash: clearing is compare-and-delete. The
+// stamp paths check the flag, write the stamp, then clear; a concurrent push
+// (the wizard runs on its own goroutine) can lose ITS answer to newer config in
+// that window and re-mark the member. The stale clear must not drop the newer
+// entry, or that push would never be stamped on verification.
+func TestClearUnconfirmedPushKeepsNewerHash(t *testing.T) {
+	srv, _ := newTestServer(t)
+	srv.markUnconfirmedPush("m1", "hash-C")
+
+	srv.clearUnconfirmedPush("m1", "hash-B") // a stamp for an older push landing late
+	if !srv.hasUnconfirmedPush("m1", "hash-C") {
+		t.Fatal("a stale clear dropped a newer unconfirmed push; its verify stamp is lost")
+	}
+
+	srv.clearUnconfirmedPush("m1", "hash-C")
+	if srv.hasUnconfirmedPush("m1", "hash-C") {
+		t.Error("clearing the matching hash must drop the entry")
 	}
 }
 
@@ -1580,7 +1944,7 @@ func TestAutoSync_IncompleteMemberIsNotConverged(t *testing.T) {
 		`"incomplete":true,"unapplied":["ds4flash","glm52"],"diff":{}}`
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 	if res.OK {
 		t.Fatal("OK = true, want false: the member did not fully apply the config")
@@ -1613,7 +1977,7 @@ func TestAutoSync_ResponseWithoutIncompleteFieldReadsAsApplied(t *testing.T) {
 	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 	if !res.OK {
 		t.Fatalf("OK = false (%s), want true: an older member omits the field", res.Error)
@@ -1632,7 +1996,7 @@ func TestAutoSync_IncompleteWithEmptyUnappliedHasSensibleMessage(t *testing.T) {
 	replica.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"incomplete":true,"diff":{}}`
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 0, "")
 
 	if res.OK {
 		t.Fatal("OK = true, want false: the member did not fully apply the config")
@@ -2551,11 +2915,11 @@ func TestConfigSync_WizardStampsVerifiedOnItsOwnWrite(t *testing.T) {
 
 	// emitSuccessEvent true is the wizard's call; false is the auto-syncer's.
 	if res := srv.applyMemberConfig(t.Context(), wm, "wtoken", []byte(fleetExportWithKey),
-		manualSyncReason("the dashboard"), true, 0); !res.OK {
+		manualSyncReason("the dashboard"), true, 0, ""); !res.OK {
 		t.Fatalf("wizard sync OK = false (%s), want true", res.Error)
 	}
 	if res := srv.applyMemberConfig(t.Context(), am, "atoken", []byte(fleetExportWithKey),
-		autoSyncReason, false, 0); !res.OK {
+		autoSyncReason, false, 0, ""); !res.OK {
 		t.Fatalf("auto sync OK = false (%s), want true", res.Error)
 	}
 

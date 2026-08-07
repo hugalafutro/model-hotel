@@ -68,6 +68,14 @@ type syncResultItem struct {
 	// like from here. Not on the wire: it only tells the auto-sync loop the member
 	// did receive the config, so the re-push is rate-limited.
 	TimedOut bool `json:"-"`
+	// Unconfirmed marks a push whose answer was lost in either of the two ways a
+	// still-running import looks like a failure from here: the deadline expired
+	// (TimedOut), or a 5xx came back that can stand in front of a live import (a
+	// gateway timeout, or another 5xx after the call ran long enough for a proxy
+	// deadline to have cut it; see lostAnswer5xx). The import may have landed, so
+	// the auto-sync loop rate-limits the re-push the same way it does a timeout
+	// instead of restarting the member's import every tick. Not on the wire.
+	Unconfirmed bool `json:"-"`
 }
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
@@ -175,6 +183,16 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The primary's config hash keys any lost-answer push so a later verification
+	// pass can stamp it (see unconfirmedSync). Best-effort: with the hash
+	// unreadable the run proceeds and a lost answer simply stays unstamped, since
+	// a stamp that cannot be tied to the pushed config must not be promised.
+	pushedHash, err := s.fetchMemberConfigVersion(ctx, primary, primaryToken)
+	if err != nil {
+		debuglog.Debug("frontdesk: config sync: read primary config hash", "member", primary.Name, "error", err)
+		pushedHash = ""
+	}
+
 	primaryVer := s.poller.MemberVersion(primary.ID)
 	results := make([]syncResultItem, 0)
 	for _, m := range members {
@@ -201,7 +219,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			results = append(results, *item)
 			continue
 		}
-		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen))
+		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen, pushedHash))
 	}
 	s.recordFleetSyncRun(ctx, primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
@@ -279,8 +297,11 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // heartbeat moves with the write. The auto-syncer sets it false: it emits one
 // roll-up rather than toasting per member, and takes its heartbeat from its own hash
 // comparison. Failure events fire either way.
-func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
+func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64, pushedHash string) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
+	// How long the push ran separates a 5xx that cut a live import from one the
+	// answerer had at hand (see lostAnswer5xx).
+	pushStart := time.Now()
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
 	// Carried on the success path too: neither a group built short nor a disable
 	// the member has no model for is a failure to apply, so neither reaches the
@@ -296,12 +317,27 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// member-side discovery.
 		res.Error = "this member did not answer in time"
 		res.TimedOut = true
+		res.Unconfirmed = true
+		// No stamp lands below, but the import may still complete member-side; the
+		// pass that measures the member holding this exact config stamps it then.
+		s.markUnconfirmedPush(m.ID, pushedHash)
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:
 		// The member answered, just with a status we cannot apply: surface it so a
 		// wrong stored token or a member-side error is not mislabeled "offline".
 		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
+		if lostAnswer5xx(status, time.Since(pushStart)) {
+			// This 5xx is not proof the import failed: a reverse proxy between Front
+			// Desk and the member answers 502/504 when the import outlives its own
+			// read timeout, with the member still applying behind it. The hash
+			// binding covers the other slow 5xx source, the member's own import
+			// erroring before commit: nothing landed there, so it can only converge
+			// on this exact hash through an operator restoring precisely this config.
+			res.Error = fmt.Sprintf("this member's answer was lost (HTTP %d); it may still be applying", status)
+			res.Unconfirmed = true
+			s.markUnconfirmedPush(m.ID, pushedHash)
+		}
 	case !out.SchemaVersionOK:
 		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
 		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
@@ -341,6 +377,10 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// reported diverged either way.
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		} else {
+			// This stamp covers a lost-answer push of this same config; a concurrent
+			// push of newer config keeps its own flag (see clearUnconfirmedPush).
+			s.clearUnconfirmedPush(m.ID, pushedHash)
 		}
 		// This arm returns before the shared failure branch below, so without this an
 		// incomplete apply would leave no trace in the logs when alerting is off.
@@ -358,6 +398,10 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
 			res.OK = false
 			res.Error = "applied but could not record the sync stamp"
+		} else {
+			// This stamp covers a lost-answer push of this same config; a concurrent
+			// push of newer config keeps its own flag (see clearUnconfirmedPush).
+			s.clearUnconfirmedPush(m.ID, pushedHash)
 		}
 	}
 
@@ -384,24 +428,28 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
-		// A timed-out push is published at info, not warning. The type stays the same,
-		// because it is still the outcome of a push that did not converge the member
-		// and belongs in the same log, but alert dispatch derives its notification
-		// severity from the live event, and paging an operator at warning for a
-		// condition this very message describes as probably fine is noise. The caller
-		// agrees with the message: it stamps the push as received and rate-limits the
-		// re-push on exactly that reading. A member that is genuinely refusing, or
-		// unreachable, or mismatched, still warns.
+		// An unconfirmed push (timed out, or 5xx'd in a way that can stand in front
+		// of a live import) is published at info, not warning. The type stays the
+		// same, because it is still the outcome of a push that did not converge the
+		// member and belongs in the same log, but alert dispatch derives its
+		// notification severity from the live event, and paging an operator at
+		// warning for a condition this very message describes as probably fine is
+		// noise. The caller agrees with the message: it stamps the push as received
+		// and rate-limits the re-push on exactly that reading. A member that is
+		// genuinely refusing, or unreachable, or mismatched, still warns.
 		severity := "warning"
-		if res.TimedOut {
+		if res.Unconfirmed {
 			severity = "info"
 		}
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: severity, Source: "frontdesk",
 			Message: syncFailureMessage(m.Name, res.Error, res.TimedOut), MemberID: m.ID,
-			// error carries the specific cause the message renders; timed_out is always
-			// present so a consumer reads one shape rather than testing for the key.
-			Metadata: map[string]any{"reason": reason, "error": res.Error, "timed_out": res.TimedOut},
+			// error carries the specific cause the message renders; timed_out and
+			// unconfirmed are always present so a consumer reads one shape rather than
+			// testing for the keys. unconfirmed is what separates a lost answer, which
+			// is rate-limited and may prove itself landed on a later verification pass,
+			// from a genuine rejection.
+			Metadata: map[string]any{"reason": reason, "error": res.Error, "timed_out": res.TimedOut, "unconfirmed": res.Unconfirmed},
 		})
 	}
 	return res
@@ -463,6 +511,33 @@ func isTimeout(err error) bool {
 		return true
 	}
 	return errors.Is(err, context.DeadlineExceeded)
+}
+
+// unconfirmed5xxFloor is how long a real import call must have run for a 5xx
+// other than 504 to be read as a proxy giving up on a live import rather than a
+// refusal the answerer already had at hand. A reverse proxy only 5xxes a live
+// import once its own read timeout expires, 30-60s at the low end, while a
+// connection-refused 502 (the member's process is down) or an immediate
+// member-side 500 answers within milliseconds.
+const unconfirmed5xxFloor = 10 * time.Second
+
+// lostAnswer5xx reports whether a 5xx answer to a real import may be standing
+// in front of an import that is still running member-side, making it a lost
+// answer rather than a refusal. A 4xx is a definite refusal (auth, schema) and
+// never qualifies.
+//
+// 504 qualifies on its own: a gateway timeout means an intermediary waited for
+// the member and gave up, however long that wait was configured to be. Any
+// other 5xx qualifies only after unconfirmed5xxFloor: an instant 502/500
+// cannot mean "still importing" — it is a proxy whose upstream is down, or a
+// member handler erroring on the spot — and treating it as maybe-landed would
+// rate-limit the re-push (see applyAutoSync) for a push that demonstrably did
+// nothing, where retrying next tick is right.
+func lostAnswer5xx(status int, elapsed time.Duration) bool {
+	if status == http.StatusGatewayTimeout {
+		return true
+	}
+	return status >= http.StatusInternalServerError && elapsed >= unconfirmed5xxFloor
 }
 
 // maxMemberConfigExportBody is the read limit for a member's config envelope. It

@@ -272,10 +272,10 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 }
 
 // forgetMemberState drops the in-memory per-member state Front Desk keeps outside
-// the store: the version-skew hold, the config divergence, and the backup
-// staleness flag. All three are read against the live member list, so this is
-// hygiene rather than correctness: a re-added member starts clean, and the maps do
-// not grow with every member ever removed.
+// the store: the version-skew hold, the config divergence, the unconfirmed-push
+// hash, and the backup staleness flag. All are read against the live member list,
+// so this is hygiene rather than correctness: a re-added member starts clean, and
+// the maps do not grow with every member ever removed.
 func (s *Server) forgetMemberState(id string) {
 	s.syncHeldMu.Lock()
 	delete(s.syncHeld, id)
@@ -283,6 +283,7 @@ func (s *Server) forgetMemberState(id string) {
 
 	s.syncIncompleteMu.Lock()
 	delete(s.syncIncomplete, id)
+	delete(s.unconfirmedSync, id)
 	s.syncIncompleteMu.Unlock()
 
 	s.backupStaleMu.Lock()

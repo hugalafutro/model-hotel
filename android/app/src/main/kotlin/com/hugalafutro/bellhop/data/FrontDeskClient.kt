@@ -551,10 +551,12 @@ open class FrontDeskClient(
 
         // Generous ceiling for the synchronous fleet sync: per-member imports
         // run model discovery and Front Desk answers only after every member is
-        // done, so this must comfortably cover a few slow members. Front Desk
-        // also detaches the run from the connection, so even tripping this
-        // no longer aborts the sync — it only stops the phone waiting.
-        private const val SYNC_READ_TIMEOUT_SECONDS = 180L
+        // done. Front Desk allows each import up to 240s (memberSyncTimeout), so
+        // this covers one legitimately slow member plus overhead; a fleet of
+        // several slow members can outlive it. Front Desk detaches the run from
+        // the connection, so tripping this never aborts the sync — it only stops
+        // the phone waiting for the summary.
+        private const val SYNC_READ_TIMEOUT_SECONDS = 300L
 
         // eventQueryString renders an EventQuery as an encoded query string
         // ("" when every field is unset). Internal so the omission and encoding

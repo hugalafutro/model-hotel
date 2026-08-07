@@ -89,6 +89,17 @@ type Server struct {
 	// incompleteState). In-memory and bounded by fleet size, like syncHeld.
 	syncIncompleteMu sync.Mutex
 	syncIncomplete   map[string]incompleteState
+	// unconfirmedSync maps a member to the primary config hash of its latest real
+	// push that got no usable answer (relay deadline expired, or a 5xx that can
+	// stand in front of a live import; see lostAnswer5xx) and so was never stamped as a sync, even
+	// though the import may have completed member-side. The pass that later
+	// measures the member holding exactly that hash stamps the last-sync marker
+	// then (see measureMember); the hash binding is what keeps a member that
+	// converged by any other route (a definite-failure 500 followed by an operator
+	// fix, a primary that moved on) from being stamped for a push that never
+	// landed. Guarded by syncIncompleteMu; in-memory and bounded by fleet size,
+	// like syncIncomplete.
+	unconfirmedSync map[string]string
 	// backupStale tracks which members have no database backup from the last
 	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
 	// backup.recovered once on the way out. In-memory and bounded by fleet size,
@@ -146,28 +157,29 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:          cfg.Store,
-		poller:         cfg.Poller,
-		bus:            cfg.Bus,
-		adminMgr:       cfg.AdminMgr,
-		sessionMgr:     sessionMgr,
-		totpRepo:       totpRepo,
-		totpStatus:     newTotpEnabledCache(totpRepo),
-		probe:          newProbeClient(httpProbeTimeout),
-		readClient:     newProbeClient(memberReadTimeout),
-		syncClient:     newProbeClient(memberSyncTimeout),
-		backupClient:   newProbeClient(memberBackupTimeout),
-		lbPort:         lbPort,
-		version:        version,
-		masterKey:      cfg.MasterKey,
-		metricsToken:   strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		pairing:        newPairingCodes(),
-		ipLimiter:      cfg.IPLimiter,
-		rearmCh:        make(chan struct{}),
-		syncHeld:       make(map[string]bool),
-		syncIncomplete: make(map[string]incompleteState),
-		backupStale:    make(map[string]bool),
-		startedAt:      time.Now(),
+		store:           cfg.Store,
+		poller:          cfg.Poller,
+		bus:             cfg.Bus,
+		adminMgr:        cfg.AdminMgr,
+		sessionMgr:      sessionMgr,
+		totpRepo:        totpRepo,
+		totpStatus:      newTotpEnabledCache(totpRepo),
+		probe:           newProbeClient(httpProbeTimeout),
+		readClient:      newProbeClient(memberReadTimeout),
+		syncClient:      newProbeClient(memberSyncTimeout),
+		backupClient:    newProbeClient(memberBackupTimeout),
+		lbPort:          lbPort,
+		version:         version,
+		masterKey:       cfg.MasterKey,
+		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		pairing:         newPairingCodes(),
+		ipLimiter:       cfg.IPLimiter,
+		rearmCh:         make(chan struct{}),
+		syncHeld:        make(map[string]bool),
+		syncIncomplete:  make(map[string]incompleteState),
+		unconfirmedSync: make(map[string]string),
+		backupStale:     make(map[string]bool),
+		startedAt:       time.Now(),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and
