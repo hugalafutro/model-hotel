@@ -325,8 +325,9 @@ type KimiCodeQuotaUser struct {
 	} `json:"membership"`
 }
 
-// KimiCodeQuotaResponse is the Kimi Code /usages payload, passed through to
-// the dashboard as-is.
+// KimiCodeQuotaResponse is the Kimi Code /usages payload. The stored snapshot is
+// a re-marshal of this struct, so only the fields modelled here reach the
+// dashboard and anything Kimi adds outside them is dropped.
 type KimiCodeQuotaResponse struct {
 	User     KimiCodeQuotaUser    `json:"user"`
 	Usage    KimiCodeQuotaDetail  `json:"usage"`

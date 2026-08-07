@@ -159,7 +159,9 @@ runs:
         # to those scripts has to reach them even with no code change.
         covtools=$(match '^scripts/coverage/')
         python=$(match '\.py$')
-        android=$(match '^android/')
+        # Bellhop's quota tests read the same testdata/quota-contract/ fixtures
+        # the two SPAs do, so a fixture change is an android change too.
+        android=$(match '^android/|^testdata/quota-contract/')
         # Loose JS/TS outside the two app trees (build scripts, config).
         jsts=$(match '\.(m|c)?[jt]sx?$')
 

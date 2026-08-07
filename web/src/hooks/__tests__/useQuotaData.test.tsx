@@ -951,7 +951,7 @@ describe("useQuotaData", () => {
 			expect(getKimiCodeFiveHourLimit(data)).toBeUndefined();
 		});
 
-		it("returns undefined when the window detail is missing limit/remaining", () => {
+		it("returns undefined when the window detail has no limit to read", () => {
 			const data = {
 				limits: [window300(undefined, undefined)],
 			} as never;

@@ -2038,7 +2038,10 @@ func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
 // same ceiling the open-time pin does, so a nonsense deadline cannot bench a
 // provider indefinitely.
 func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second, pinMax: time.Hour})
+	// A cooldown long enough that scheduling delay cannot age the circuit into
+	// half-open before ApplyQuotaPins reads it; still far below the 1h ceiling
+	// under test, so the pin is a genuine lengthening.
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinMax: time.Hour})
 	id := uuid.New()
 
 	cb.RecordFailure(id, "test-provider")

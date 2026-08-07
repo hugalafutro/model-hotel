@@ -5,11 +5,13 @@ on:
     branches: [master]
     paths:
       - "android/**"
+      - "testdata/quota-contract/**"
       - ".github/workflows/android.yml"
   pull_request:
     branches: [master]
     paths:
       - "android/**"
+      - "testdata/quota-contract/**"
       - ".github/workflows/android.yml"
 
 permissions:

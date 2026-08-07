@@ -505,6 +505,9 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 		return 0
 	}
 	base := cb.effectiveCooldown()
+	// Hoisted with base: both read settings, and a cold settings cache turns that
+	// into a DB round trip under cb.mu held for write.
+	maxPin := cb.quotaPinMax()
 
 	// Walk the advice rather than every circuit, for the same reason
 	// ReleaseQuotaPins walks the recovered set: it is the smaller side, and the
@@ -525,7 +528,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 		// Ceiling first, so a clamped value is compared against the floors
 		// rather than smuggled past them: capping after those checks could
 		// shorten a pin that is already longer.
-		if maxPin := cb.quotaPinMax(); d > maxPin {
+		if d > maxPin {
 			d = maxPin
 		}
 		if d <= base || d <= c.cooldownOverride {

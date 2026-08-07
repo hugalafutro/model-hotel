@@ -167,7 +167,12 @@ func (h *Handler) pollQuotaForProvider(ctx context.Context, disc *provider.Disco
 	_, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
 	if ferr != nil {
 		debuglog.Warn("quota: poll fetch failed", "provider", prov.Name, "error", ferr)
-		if rerr := h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error()); rerr != nil {
+		// Its own context: a fetch that hung to its deadline is exactly the case
+		// worth recording, and provCtx is already expired by then, so writing the
+		// failure through it would drop the record for every timeout.
+		recCtx, recCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer recCancel()
+		if rerr := h.quotaRepo.RecordFailure(recCtx, prov.ID, kind, ferr.Error()); rerr != nil {
 			debuglog.Warn("quota: record failure failed", "provider", prov.Name, "error", rerr)
 		}
 		return
