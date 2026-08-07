@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAuthToken } from "../../api/client";
+import { ApiError, api } from "../../api/client";
 import { server } from "../../test/server";
 import { Login } from "../Login";
 
@@ -34,9 +34,10 @@ describe("Login", () => {
 				const body = (await request.json()) as { token: string; code: string };
 				expect(body.token).toBe("tok");
 				expect(body.code).toBe("123456");
-				return HttpResponse.json({ token: "session-token" });
+				return HttpResponse.json({ success: true });
 			}),
 		);
+		const totpLogin = vi.spyOn(api, "totpLogin");
 		const onAuth = vi.fn();
 		render(<Login onAuthenticated={onAuth} />);
 
@@ -47,7 +48,7 @@ describe("Login", () => {
 		await userEvent.click(screen.getByRole("button", { name: /Verify/i }));
 
 		await waitFor(() => expect(onAuth).toHaveBeenCalled());
-		expect(getAuthToken()).toBe("session-token");
+		expect(totpLogin).toHaveBeenCalledWith("tok", "123456");
 	});
 
 	it("signs in with a passkey", async () => {
@@ -60,7 +61,7 @@ describe("Login", () => {
 				HttpResponse.json({ session_id: "s1", options: { challenge: "abc" } }),
 			),
 			http.post("/api/webauthn/login/finish", () =>
-				HttpResponse.json({ token: "passkey-session" }),
+				HttpResponse.json({ success: true }),
 			),
 		);
 		startAuthentication.mockResolvedValue({ id: "cred" });
@@ -76,7 +77,6 @@ describe("Login", () => {
 		expect(startAuthentication).toHaveBeenCalledWith({
 			optionsJSON: { challenge: "abc" },
 		});
-		expect(getAuthToken()).toBe("passkey-session");
 	});
 
 	it("shows an error on a rejected token (TOTP off)", async () => {
@@ -85,12 +85,36 @@ describe("Login", () => {
 			http.get("/api/webauthn/available", () =>
 				HttpResponse.json({ enabled: false }),
 			),
-			http.get("/api/members", () => new HttpResponse("nope", { status: 401 })),
 		);
-		render(<Login onAuthenticated={vi.fn()} />);
+		const adminExchange = vi
+			.spyOn(api, "adminExchange")
+			.mockRejectedValue(new ApiError(401, "unauthorized"));
+		const onAuth = vi.fn();
+		render(<Login onAuthenticated={onAuth} />);
 		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "bad");
 		await userEvent.click(screen.getByRole("button", { name: /Sign in/i }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(/not accepted/i);
+		expect(adminExchange).toHaveBeenCalledWith("bad");
+		expect(onAuth).not.toHaveBeenCalled();
+	});
+
+	it("signs in with the raw token via admin exchange (TOTP off)", async () => {
+		server.use(
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false }),
+			),
+		);
+		const adminExchange = vi.spyOn(api, "adminExchange").mockResolvedValue();
+		const listMembers = vi.spyOn(api, "listMembers");
+		const onAuth = vi.fn();
+		render(<Login onAuthenticated={onAuth} />);
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "tok");
+		await userEvent.click(screen.getByRole("button", { name: /Sign in/i }));
+
+		await waitFor(() => expect(onAuth).toHaveBeenCalled());
+		expect(adminExchange).toHaveBeenCalledWith("tok");
+		expect(listMembers).not.toHaveBeenCalled();
 	});
 
 	it("shows the SSO button (with provider name) and links to the start route when OIDC is enabled", async () => {

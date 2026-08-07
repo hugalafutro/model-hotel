@@ -2,7 +2,7 @@ import { FingerprintIcon, SignInIcon } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, api, clearAuthToken, setAuthToken } from "../api/client";
+import { ApiError, api } from "../api/client";
 import { Logo } from "./Logo";
 
 interface LoginProps {
@@ -15,8 +15,9 @@ interface LoginProps {
 
 // Login covers all three Front Desk auth paths (HTTPS-only ingress, so every
 // method is available): raw FRONTDESK_TOKEN when TOTP is off, token + TOTP code
-// when 2FA is on, and passkey. Each path ends by storing a bearer token the rest
-// of the app sends (raw token or a minted session token).
+// when 2FA is on, and passkey. Each path ends with the server setting the
+// HttpOnly session cookie pair; the app's only signal is the onAuthenticated
+// callback.
 export function Login({ onAuthenticated, initialError }: LoginProps) {
 	const { t } = useTranslation();
 	const [token, setToken] = useState("");
@@ -62,21 +63,11 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 		setBusy(true);
 		try {
 			if (totpEnabled) {
-				const res = await api.totpLogin(token, code);
-				setAuthToken(res.token);
+				await api.totpLogin(token, code);
 			} else {
-				// No 2FA: the raw token is the bearer, so it must be installed before
-				// the validating call can authenticate. If validation fails for any
-				// reason (a wrong token OR a plain network error), clear it again so a
-				// bad token can't linger in storage and brief-render the authenticated
-				// view on the next page load.
-				setAuthToken(token);
-				try {
-					await api.listMembers();
-				} catch (err) {
-					clearAuthToken();
-					throw err;
-				}
+				// The exchange validates the raw token server-side and answers with the
+				// HttpOnly session cookie pair; nothing about the session is stored here.
+				await api.adminExchange(token);
 			}
 			onAuthenticated();
 		} catch (err) {
@@ -94,8 +85,7 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 			const credential = await startAuthentication({
 				optionsJSON: start.options,
 			});
-			const res = await api.webauthnLoginFinish(start.session_id, credential);
-			setAuthToken(res.token);
+			await api.webauthnLoginFinish(start.session_id, credential);
 			onAuthenticated();
 		} catch (err) {
 			fail(err, t("login.failed"));
@@ -191,8 +181,8 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 				)}
 				{ssoEnabled && (
 					// A full navigation (not fetch): the backend redirects to the IdP and
-					// later back to the SPA with the session token in the URL fragment,
-					// which App consumes at boot.
+					// later back to the SPA with the session already in the HttpOnly
+					// cookie and a clean URL; only a failure rides a #oidc_error fragment.
 					<a
 						className="ui-btn ui-btn-ghost"
 						href="/api/auth/oidc/start"
