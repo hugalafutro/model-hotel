@@ -251,9 +251,10 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 	r := chi.NewRouter()
 
 	// Security headers. The Front Desk admin UI manages the whole HA fleet
-	// (member admin tokens, device pairing, config sync, OIDC/alert settings)
-	// and its session rides cookies, so a framed copy of this origin
-	// auto-authenticates. Deny framing outright and mirror the main server's
+	// (member admin tokens, device pairing, config sync, OIDC/alert settings),
+	// so framing it is only ever an attack: a same-origin frame inherits the
+	// session outright, and any frame invites clickjacking / UI redress on a
+	// privileged console. Deny framing outright and mirror the main server's
 	// content-type / referrer / CSP hardening (cmd/server/main.go). Front Desk
 	// is never embedded, so there is no ALLOW_EMBED escape hatch here.
 	r.Use(func(next http.Handler) http.Handler {
@@ -406,9 +407,23 @@ func (s *Server) metricsAuth(next http.Handler) http.Handler {
 // auto-logout drops the session everywhere, not just in the calling browser
 // tab. The token comes from the fd_session cookie first, with a bearer-header
 // fallback for header-mode clients; the raw FRONTDESK_TOKEN has no session row,
-// so RevokeAuthToken is a harmless no-op for it. The cookie pair is expired
-// either way. Always returns 200: logging out an expired or absent session is a
-// no-op, not an error, so the SPA can always converge to the login screen.
+// so RevokeAuthToken is a harmless no-op for it. Always returns 200: logging out
+// an expired or absent session is a no-op, not an error, so the SPA can always
+// converge to the login screen.
+//
+// Credential-gated against forced-logout CSRF, exactly like the dashboard's
+// AuthLogout. A cross-site POST cannot carry either Front Desk cookie (both are
+// SameSite=Strict) nor an Authorization header, so it arrives here bare;
+// emitting Set-Cookie deletions unconditionally would let any third-party page
+// log the victim out. Requests with no credential at all therefore get a success
+// answer with no cookie headers - there is nothing to log out. Same-site logout
+// is unaffected, including an already-revoked or otherwise invalid session,
+// because the cookies still ride along.
+//
+// Deliberately not gated on the CSRF double-submit header instead: SameSite
+// strips the CSRF cookie from a cross-site request too, so the server cannot
+// tell "no session" from "cross-site", and requiring the header would break
+// bearer-token callers that never have one.
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	token, ok := authcookie.FrontDesk.SessionToken(r)
 	if !ok {
@@ -417,7 +432,18 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		s.sessionMgr.RevokeAuthToken(r.Context(), token)
 	}
-	authcookie.FrontDesk.ClearSession(w, authcookie.Secure(r, s.cookieSecure))
+
+	// A stray CSRF cookie with no session still counts as the caller's own
+	// state, so clear on either cookie rather than only on a full session.
+	// Non-empty, matching SessionToken's treatment of the session cookie: a bare
+	// "fd_csrf=" carries no state and must not stand in for a credential.
+	csrf, err := r.Cookie(authcookie.FrontDesk.CSRFCookie)
+	csrfPresent := err == nil && csrf.Value != ""
+
+	if ok || csrfPresent {
+		authcookie.FrontDesk.ClearSession(w, authcookie.Secure(r, s.cookieSecure))
+	}
+
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 

@@ -812,9 +812,10 @@ func TestCookieAuth_ExchangeLoginCSRFAndLogout(t *testing.T) {
 	}
 }
 
-// TestCookieAuth_HeaderBearerPathUnaffected pins the header-bearer contract:
-// Bellhop devices and raw FRONTDESK_TOKEN M2M callers are exempt from CSRF and
-// keep mutating with nothing but an Authorization header.
+// TestCookieAuth_HeaderBearerPathUnaffected pins the header-bearer contract for
+// raw FRONTDESK_TOKEN M2M callers: an Authorization header alone still mutates,
+// with no CSRF header. (Paired-device bearers take the same branch; their
+// coverage lives in the device tests.)
 func TestCookieAuth_HeaderBearerPathUnaffected(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rec := do(t, srv, http.MethodPost, "/api/quota/refresh", "", true)
@@ -825,12 +826,18 @@ func TestCookieAuth_HeaderBearerPathUnaffected(t *testing.T) {
 
 // TestLogout_WorksUnauthenticated pins logout as auth-exempt: an expired or
 // absent session can still log out, so the SPA always converges on the login
-// screen instead of getting stuck on a 401.
+// screen instead of getting stuck on a 401. A caller presenting no credential
+// at all also gets no Set-Cookie back: that request is indistinguishable from a
+// cross-site POST (SameSite=Strict strips both cookies), so emitting cookie
+// deletions for it would hand any third-party page a forced logout.
 func TestLogout_WorksUnauthenticated(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rec := do(t, srv, http.MethodPost, "/api/logout", "", false)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("unauthenticated logout: %d, want 200", rec.Code)
+	}
+	if got := rec.Result().Cookies(); len(got) != 0 {
+		t.Fatalf("credential-less logout must emit no Set-Cookie, got %+v", got)
 	}
 }
 
