@@ -244,6 +244,7 @@ data class KimiCodeMembership(
 @Serializable
 data class KimiCodeDetail(
     val limit: String = "",
+    val used: String = "",
     val remaining: String = "",
     val resetTime: String = "",
 )
@@ -700,12 +701,55 @@ private fun amountMeter(
     )
 }
 
-/** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
+/**
+ * parseKimiNumber reads one of Kimi's wire-string numbers, or null when the
+ * field carries no value.
+ *
+ * Absent, "" and whitespace are one case: Kimi's proto3 JSON omits a
+ * zero-valued field and the Go snapshot re-marshal writes "" for the omission,
+ * so both arrive here as null and what the omission means is the caller's to
+ * decide, field by field. Mirrors `parseKimiNumber` in web-shared/quota/kimi.ts.
+ */
+private fun parseKimiNumber(v: String?): Double? {
+    val trimmed = v?.trim().orEmpty()
+    if (trimmed.isEmpty()) return null
+    val n = trimmed.toDoubleOrNull() ?: return null
+    return if (n.isFinite()) n else null
+}
+
+/**
+ * resolveKimiRemaining is how many units of the window are still available.
+ *
+ * `remaining` wins when it carries a value. Otherwise the window is exhausted
+ * enough for Kimi to have dropped `remaining` and `used` carries the count, so
+ * remaining is limit minus used, floored at zero. An omitted `used` means zero
+ * used, hence the full limit. A `used` that is present but unreadable yields
+ * null: an unparseable window must not be turned into a number, ever.
+ */
+private fun resolveKimiRemaining(
+    limit: Double,
+    remainingStr: String?,
+    usedStr: String?,
+): Double? {
+    parseKimiNumber(remainingStr)?.let { return it }
+    parseKimiNumber(usedStr)?.let { return (limit - it).coerceAtLeast(0.0) }
+    return if (usedStr.isNullOrBlank()) limit else null
+}
+
+/**
+ * kimiUsedPercent computes used% for one Kimi window, clamped to [0, 100].
+ * Null means the window cannot be read (an unparseable limit, or a `used` that
+ * is present but not a number), which callers render as "-". A zero or
+ * negative limit meters as 0% rather than as no reading, matching
+ * `toKimiCodeWindow` in web-shared/quota/kimi.ts; the shared fixtures under
+ * testdata/quota-contract/kimi hold the two platforms to the same figures.
+ */
 private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
-    val limit = detail?.limit?.toDoubleOrNull() ?: return null
-    val remaining = detail.remaining.toDoubleOrNull() ?: return null
-    if (limit == 0.0) return null
-    return (limit - remaining) / limit * 100.0
+    if (detail == null) return null
+    val limit = parseKimiNumber(detail.limit) ?: return null
+    val remaining = resolveKimiRemaining(limit, detail.remaining, detail.used) ?: return null
+    val raw = if (limit > 0.0) (limit - remaining) / limit * 100.0 else 0.0
+    return raw.coerceIn(0.0, 100.0)
 }
 
 /**

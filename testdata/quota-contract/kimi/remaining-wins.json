@@ -1,0 +1,26 @@
+{
+	"payload": {
+		"usage": {
+			"limit": "100",
+			"used": "5",
+			"remaining": "45",
+			"resetTime": "2026-08-09T12:10:02.008931Z"
+		},
+		"limits": [
+			{
+				"window": { "duration": 300, "timeUnit": "TIME_UNIT_MINUTE" },
+				"detail": {
+					"limit": "100",
+					"used": "10",
+					"remaining": "70",
+					"resetTime": "2026-08-07T01:10:02.008931Z"
+				}
+			}
+		],
+		"parallel": { "limit": "10" }
+	},
+	"expected": {
+		"fiveHourUsedPercent": 30,
+		"weeklyUsedPercent": 55
+	}
+}

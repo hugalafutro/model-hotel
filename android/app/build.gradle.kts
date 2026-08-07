@@ -103,6 +103,19 @@ android {
                 // Print each test as it starts, not just failures, so a future
                 // wedge names its culprit in the CI log instead of going silent.
                 test.testLogging.events("started", "failed", "skipped")
+                // The cross-platform contract fixtures live at the repo root,
+                // one level above this Gradle root, and back the web, Front
+                // Desk and Bellhop suites alike. Passing the absolute path to
+                // the test JVM keeps them resolvable whichever directory
+                // Gradle was invoked from, and declaring the directory as a
+                // task input re-runs the tests when a fixture changes rather
+                // than reporting an up-to-date pass against the old figures.
+                val testdata = rootDir.parentFile.resolve("testdata")
+                test.systemProperty("modelhotel.testdata.dir", testdata.absolutePath)
+                test.inputs
+                    .dir(testdata)
+                    .withPropertyName("modelHotelTestdata")
+                    .withPathSensitivity(PathSensitivity.RELATIVE)
             }
         }
     }
