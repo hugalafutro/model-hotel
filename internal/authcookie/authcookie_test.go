@@ -163,3 +163,54 @@ func TestSecure_Modes(t *testing.T) {
 		t.Error("auto must detect TLS and X-Forwarded-Proto=https")
 	}
 }
+
+func TestJarFrontDeskUsesOwnCookieNames(t *testing.T) {
+	rec := httptest.NewRecorder()
+	if err := FrontDesk.SetSession(rec, "tok123", false, time.Hour); err != nil {
+		t.Fatalf("SetSession: %v", err)
+	}
+	cookies := rec.Result().Cookies()
+	var names []string
+	for _, c := range cookies {
+		names = append(names, c.Name)
+	}
+	want := map[string]bool{"fd_session": true, "fd_csrf": true}
+	for _, n := range names {
+		if !want[n] {
+			t.Errorf("unexpected cookie %q (dashboard names must not leak into the Front Desk jar)", n)
+		}
+		delete(want, n)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing cookies: %v (got %v)", want, names)
+	}
+}
+
+func TestJarSessionTokenReadsOwnNameOnly(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	r.AddCookie(&http.Cookie{Name: "mh_session", Value: "dash"})
+	if _, ok := FrontDesk.SessionToken(r); ok {
+		t.Fatal("FrontDesk jar must not read the dashboard session cookie")
+	}
+	r.AddCookie(&http.Cookie{Name: "fd_session", Value: "fd"})
+	tok, ok := FrontDesk.SessionToken(r)
+	if !ok || tok != "fd" {
+		t.Fatalf("FrontDesk.SessionToken = %q, %v; want fd, true", tok, ok)
+	}
+}
+
+func TestPackageFuncsDelegateToDashboardJar(t *testing.T) {
+	rec := httptest.NewRecorder()
+	if err := SetSession(rec, "tok", false, time.Hour); err != nil {
+		t.Fatalf("SetSession: %v", err)
+	}
+	found := false
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "mh_session" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("package-level SetSession must keep writing mh_session")
+	}
+}
