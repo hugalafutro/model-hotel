@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "このモデルは利用できなくなりました - 削除されたか、プロバイダーが削除された可能性があります",
 			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用量は、Model Hotel 独自の「{{name}}」ルートによるものです。"
 		},
-		"latency": {
-			"topModels": "最も遅いモデル",
-			"emptyState": "遅延データはまだありません。トラフィックが流れると、レイテンシーの内訳がここに表示されます。",
-			"tooltip": "プロキシ: {{overhead}}ms ({{ratio}}%) · プロバイダー: {{provider}}ms",
-			"providerTip": "プロバイダー: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "プロバイダーのレイテンシ",
 			"response": "レスポンス",

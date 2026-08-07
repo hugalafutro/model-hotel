@@ -32,15 +32,6 @@ func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 	}
 }
 
-// ModelLatencyEntry holds per-model latency breakdown for the dashboard.
-type ModelLatencyEntry struct {
-	ModelID      string  `json:"model_id"`
-	TotalMs      float64 `json:"total_ms"`
-	OverheadMs   float64 `json:"overhead_ms"`
-	ProviderMs   float64 `json:"provider_ms"`
-	RequestCount int     `json:"request_count"`
-}
-
 // ProviderLatencyEntry holds per-provider latency breakdown for the dashboard.
 type ProviderLatencyEntry struct {
 	ProviderName string  `json:"provider_name"`
@@ -67,7 +58,6 @@ type StatsResponse struct {
 	RateLimitHits         int                    `json:"rate_limit_hits"`
 	AvgTTFTMs             float64                `json:"avg_ttft_ms"`
 	RequestsLast1h        int                    `json:"requests_last_1h"`
-	ByModelLatency        []ModelLatencyEntry    `json:"by_model_latency"`
 	ByProviderLatency     []ProviderLatencyEntry `json:"by_provider_latency"`
 }
 
@@ -208,27 +198,32 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// modelKeySQL is the aggregation key for per-model stats: the "Provider/model"
+// form the dashboard matches against its model catalog. request_logs.model_id
+// holds the model-only component for direct requests — which may itself
+// contain slashes (HF-style IDs like "zai-org/glm-5.2"), so its shape says
+// nothing about whether the provider prefix is present — and the full
+// "hotel/<group>" for failover requests. Rows without a resolved provider
+// (validation failures, deleted providers) keep their raw value.
+const modelKeySQL = `
+			CASE
+				WHEN rl.model_id LIKE 'hotel/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END`
+
 // statByModel fills stats.ByModel with the top-10 models by the requested
 // metric (Q2). A query failure is fatal (returned); a per-row scan error skips
 // the row, matching the original loop.
 func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
 	query := `
 		SELECT
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END as model_id,
+			` + modelKeySQL + ` as model_id,
 			` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END
+		GROUP BY 1
 		ORDER BY val DESC
 		LIMIT 10`
 
@@ -522,52 +517,13 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 	return nil
 }
 
-// statLatencyBreakdown fills ByModelLatency / ByProviderLatency with the top-N
-// model (Q12) and provider (Q13) latency breakdowns. Best-effort: a query
-// failure logs and leaves that slice empty; a per-row scan error skips the row.
-// Only invoked when the caller requested latency data.
+// statLatencyBreakdown fills ByProviderLatency with the top-N provider (Q13)
+// latency breakdown. Best-effort: a query failure logs and leaves the slice
+// empty; a per-row scan error skips the row. Only invoked when the caller
+// requested latency data.
 func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since time.Time) {
-	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
-	query := `
-			WITH model_latency AS (
-				SELECT
-					CASE
-						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-						ELSE rl.model_id
-					END as model_id,
-					COUNT(*) as req_count,
-					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
-				FROM request_logs rl
-				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
-				GROUP BY 1
-				HAVING COUNT(*) >= 3
-				ORDER BY avg_total DESC
-				LIMIT 6
-			)
-			SELECT model_id, req_count, avg_total, avg_overhead,
-				GREATEST(0, avg_total - avg_overhead) as avg_provider
-			FROM model_latency`
-
-	rows, err := h.dbPool.Query(ctx, query, since)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
-	} else {
-		for rows.Next() {
-			var entry ModelLatencyEntry
-			if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-				continue
-			}
-			stats.ByModelLatency = append(stats.ByModelLatency, entry)
-		}
-		// Close promptly (not deferred) so the connection is released before Q13.
-		rows.Close()
-	}
-
 	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
-	query = `
+	query := `
 			WITH provider_latency AS (
 				SELECT
 					p.name as provider_name,
@@ -586,7 +542,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
 			FROM provider_latency`
 
-	rows, err = h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
 	} else {

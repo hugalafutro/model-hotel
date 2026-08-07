@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "모델을 더 이상 사용할 수 없습니다 - 삭제되었거나 해당 프로바이더가 제거되었을 수 있습니다",
 			"reservedKeyTooltip": "사용자가 생성한 키가 아닌 내부 예약 이름입니다. 이 용법은 Model Hotel의 자체 \"{{name}}\" 경로에서 유래했습니다."
 		},
-		"latency": {
-			"topModels": "가장 느린 모델",
-			"emptyState": "아직 지연 시간 데이터가 없습니다. 트래픽이 발생하면 지연 시간 세부 정보가 이곳에 표시됩니다.",
-			"tooltip": "프록시: {{overhead}}ms ({{ratio}}%) · 제공업체: {{provider}}ms",
-			"providerTip": "제공자: {{value}}",
-			"overheadTip": "프록시 오버헤드: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "프로바이더 지연 시간",
 			"response": "응답",

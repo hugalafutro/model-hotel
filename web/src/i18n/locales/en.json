@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Model no longer available - it may have been deleted or its provider was removed",
 			"reservedKeyTooltip": "Internal reserved name, not a key you created - this usage comes from Model Hotel's own \"{{name}}\" routes"
 		},
-		"latency": {
-			"topModels": "Slowest Models",
-			"emptyState": "No latency data yet. Latency breakdown will appear here once traffic flows.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms",
-			"providerTip": "Provider: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Provider Latency",
 			"response": "Response",

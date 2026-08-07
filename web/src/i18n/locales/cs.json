@@ -328,13 +328,6 @@
 			"deletedModelTooltip": "Tento model již není k dispozici – mohl být smazán nebo byl odebrán jeho poskytovatel",
 			"reservedKeyTooltip": "Interní vyhrazené jméno, nikoli klíč, který jste vytvořili – toto použití pochází z vlastních tras „{{name}}“ služby Model Hotel."
 		},
-		"latency": {
-			"topModels": "Nejpomalejší modely",
-			"emptyState": "Údaje o latenci zatím nejsou k dispozici. Rozpis latence se zde zobrazí, jakmile začne proudit provoz.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Poskytovatel: {{provider}}ms",
-			"providerTip": "Poskytovatel: {{value}}",
-			"overheadTip": "Režie proxy: {{value}} ({{ratio}} %)"
-		},
 		"providerLatency": {
 			"title": "Zpoždění poskytovatele",
 			"response": "Odpověď",

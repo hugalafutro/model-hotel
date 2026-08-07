@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht",
 			"reservedKeyTooltip": "Interner reservierter Name, kein von Ihnen erstellter Schlüssel – diese Verwendung stammt aus den eigenen „{{name}}“-Routen von Model Hotel"
 		},
-		"latency": {
-			"topModels": "Langsamste Modelle",
-			"emptyState": "Noch keine Latenzdaten. Die Latenzaufteilung wird hier erscheinen, sobald der Verkehr abläuft.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms",
-			"providerTip": "Anbieter: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Anbieter-Latenz",
 			"response": "Antwort",

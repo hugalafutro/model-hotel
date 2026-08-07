@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a szolgáltatóját eltávolították",
 			"reservedKeyTooltip": "Belső fenntartott név, nem az Ön által létrehozott kulcs – ez a használat a Model Hotel saját „{{name}}” útvonalából származik"
 		},
-		"latency": {
-			"topModels": "Leglassúbb modellek",
-			"emptyState": "Még nincsenek késleltetési adatok. A késleltetési adatok itt jelennek meg, amint megindul a forgalom.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Szolgáltató: {{provider}}ms",
-			"providerTip": "Szolgáltató: {{value}}",
-			"overheadTip": "A proxy által okozott terhelés: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Szolgáltatói késleltetés",
 			"response": "Válasz",

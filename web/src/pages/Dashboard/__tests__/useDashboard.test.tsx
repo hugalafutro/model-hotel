@@ -691,7 +691,7 @@ describe("useDashboard", () => {
 		});
 	});
 
-	describe("byModel / byModelLatency / byProviderLatency / byVK", () => {
+	describe("byModel / byProviderLatency / byVK", () => {
 		it("byModel filters zeros, sorts descending, limits to 5", async () => {
 			server.use(
 				http.get("/api/stats", () => {
@@ -786,50 +786,6 @@ describe("useDashboard", () => {
 
 			await waitFor(() => {
 				expect(result.current.byModel[0].suffix).toBe(" tokens");
-			});
-		});
-
-		it("byModelLatency maps latency entries from stats", async () => {
-			server.use(
-				http.get("/api/stats", () => {
-					return HttpResponse.json({
-						...mockStats,
-						by_model_latency: [
-							{
-								model_id: "OpenAI/gpt-4",
-								total_ms: 3200,
-								overhead_ms: 12,
-								provider_ms: 3188,
-								request_count: 10,
-							},
-							{
-								model_id: "Anthropic/claude-3",
-								total_ms: 1800,
-								overhead_ms: 8,
-								provider_ms: 1792,
-								request_count: 5,
-							},
-						],
-					} as Stats);
-				}),
-			);
-
-			const { result } = renderHook(() => useDashboard(), {
-				wrapper: AllProviders,
-			});
-
-			await waitFor(() => {
-				expect(result.current.byModelLatency).toHaveLength(2);
-				expect(result.current.byModelLatency[0]).toEqual({
-					label: "OpenAI/gpt-4",
-					totalMs: 3200,
-					overheadMs: 12,
-					providerMs: 3188,
-					requestCount: 10,
-				});
-				expect(result.current.byModelLatency[1].label).toBe(
-					"Anthropic/claude-3",
-				);
 			});
 		});
 

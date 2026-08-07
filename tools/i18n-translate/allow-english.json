@@ -2144,34 +2144,6 @@
 		"pt",
 		"sv"
 	],
-	"dashboard.latency.overheadTip": [
-		"ar",
-		"da",
-		"de",
-		"el",
-		"es",
-		"fi",
-		"fr",
-		"it",
-		"ja",
-		"nl",
-		"no",
-		"pl",
-		"pt",
-		"ro",
-		"ru",
-		"sv",
-		"uk",
-		"zh"
-	],
-	"dashboard.latency.providerTip": [
-		"nl"
-	],
-	"dashboard.latency.tooltip": [
-		"de",
-		"it",
-		"nl"
-	],
 	"dashboard.metric.requests": [
 		"af",
 		"ca",

@@ -323,13 +323,6 @@
 			"deletedModelTooltip": "El model ja no està disponible - pot haver estat suprimit o el seu proveïdor s'ha eliminat",
 			"reservedKeyTooltip": "Nom intern reservat, no és una clau que hàgiu creat - aquest ús prové de les rutes \"{{name}}\" del mateix Model Hotel."
 		},
-		"latency": {
-			"topModels": "Models més lents",
-			"emptyState": "Encara no hi ha dades de latència. El desglossament de la latència apareixerà aquí un cop hi hagi trànsit.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Proveïdor: {{provider}}ms",
-			"providerTip": "Proveïdor: {{value}}",
-			"overheadTip": "Sobrecàrrega del proxy: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Latència dels proveïdors",
 			"response": "Resposta",

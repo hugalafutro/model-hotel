@@ -328,13 +328,6 @@
 			"deletedModelTooltip": "Model nie jest już dostępny - mógł zostać usunięty lub jego dostawca został wycofany",
 			"reservedKeyTooltip": "Wewnętrzna nazwa zarezerwowana, a nie klucz utworzony przez użytkownika - to użycie pochodzi z własnych tras „{{name}}” serwisu Model Hotel"
 		},
-		"latency": {
-			"topModels": "Najwolniejsze modele",
-			"emptyState": "Brak danych o opóźnieniach. Podział opóźnień pojawi się tutaj po przepływie ruchu.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Dostawca: {{provider}}ms",
-			"providerTip": "Dostawca: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Opóźnienie dostawców",
 			"response": "Odpowiedź",

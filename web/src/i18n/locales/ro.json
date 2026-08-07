@@ -323,13 +323,6 @@
 			"deletedModelTooltip": "Modelul nu mai este disponibil - este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat",
 			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel"
 		},
-		"latency": {
-			"topModels": "Cele mai lente modele",
-			"emptyState": "Nu există date de latență încă. Defalcarea latenței va apărea aici odată cu traficul de date.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Furnizor: {{provider}}ms",
-			"providerTip": "Furnizor: {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "Latența furnizorilor",
 			"response": "Răspuns",

@@ -54,9 +54,9 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 
 	s2 := newStats()
 	handler.statLatencyBreakdown(ctx, s2, "", "", since)
-	if len(s2.ByModelLatency) != 0 || len(s2.ByProviderLatency) != 0 {
-		t.Errorf("statLatencyBreakdown on error: expected empty slices, got %d/%d",
-			len(s2.ByModelLatency), len(s2.ByProviderLatency))
+	if len(s2.ByProviderLatency) != 0 {
+		t.Errorf("statLatencyBreakdown on error: expected empty slice, got %d",
+			len(s2.ByProviderLatency))
 	}
 
 	// calculateStats must propagate the first fatal helper's error.
@@ -154,9 +154,6 @@ func TestStats_CalculateStatsWithoutLatency(t *testing.T) {
 		t.Fatal("expected non-nil result from calculateStats")
 	}
 	// When includeLatency=false, latency breakdown should not be populated
-	if len(result.ByModelLatency) != 0 {
-		t.Errorf("expected empty ByModelLatency with includeLatency=false, got %d entries", len(result.ByModelLatency))
-	}
 	if len(result.ByProviderLatency) != 0 {
 		t.Errorf("expected empty ByProviderLatency with includeLatency=false, got %d entries", len(result.ByProviderLatency))
 	}
@@ -164,7 +161,7 @@ func TestStats_CalculateStatsWithoutLatency(t *testing.T) {
 
 // TestStats_CalculateStatsWithLatency verifies the includeLatency=true
 // path in calculateStats, which calls statLatencyBreakdown and populates
-// ByModelLatency and ByProviderLatency.
+// ByProviderLatency.
 func TestStats_CalculateStatsWithLatency(t *testing.T) {
 	handler, _, cleanup := newStatsHandler(t)
 	defer cleanup()

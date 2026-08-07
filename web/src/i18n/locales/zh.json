@@ -318,13 +318,6 @@
 			"deletedModelTooltip": "模型已不可用——可能已被删除，或其提供商已被移除",
 			"reservedKeyTooltip": "内部保留名称，并非您创建的密钥 - 此用量来自 Model Hotel 自身的“{{name}}”路由"
 		},
-		"latency": {
-			"topModels": "最慢的模型",
-			"emptyState": "尚无延迟数据。有流量后，延迟明细将显示在此处。",
-			"tooltip": "代理： {{overhead}}毫秒（{{ratio}}%）· 服务商： {{provider}}毫秒",
-			"providerTip": "提供商： {{value}}",
-			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
-		},
 		"providerLatency": {
 			"title": "提供商延迟",
 			"response": "响应",
