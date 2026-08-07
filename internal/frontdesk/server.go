@@ -90,8 +90,8 @@ type Server struct {
 	syncIncompleteMu sync.Mutex
 	syncIncomplete   map[string]incompleteState
 	// unconfirmedSync maps a member to the primary config hash of its latest real
-	// push that got no usable answer (relay deadline expired, or a 5xx from the
-	// member or a proxy in front of it) and so was never stamped as a sync, even
+	// push that got no usable answer (relay deadline expired, or a 5xx that can
+	// stand in front of a live import; see lostAnswer5xx) and so was never stamped as a sync, even
 	// though the import may have completed member-side. The pass that later
 	// measures the member holding exactly that hash stamps the last-sync marker
 	// then (see measureMember); the hash binding is what keeps a member that

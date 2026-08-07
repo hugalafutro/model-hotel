@@ -1000,7 +1000,9 @@ func TestAutoSync_IncompleteStampClearsUnconfirmedPush(t *testing.T) {
 	primary.versionHash = "hash-B"
 	replica := newStubAutoMember(t, "rtoken")
 	replica.dryDiff = driftDiff
-	replica.realImportCode = http.StatusBadGateway // lost answer, nothing adopted
+	// A 504 is a lost answer on its own; an instant 502 would be a plain failure
+	// now (see lostAnswer5xx).
+	replica.realImportCode = http.StatusGatewayTimeout // lost answer, nothing adopted
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -1064,6 +1066,75 @@ func TestAutoSync_FailedVerifyStampKeepsFlag(t *testing.T) {
 	}
 	if !srv.hasUnconfirmedPush(rm.ID, "hash-B") {
 		t.Error("the flag was dropped on a failed stamp write; the next converged pass has nothing left to retry")
+	}
+}
+
+// TestAutoSync_InstantGatewayErrorRetriesNextTick: an instant 5xx is not a lost
+// answer. A proxy answers 502 immediately when its upstream is down (a member
+// that crashed mid-import looks like this), so nothing is importing behind such
+// an answer: the re-push must come on the next tick rather than sitting out
+// incompleteRetryInterval, and no unconfirmed push is remembered, so a member
+// that later converges through no write of Front Desk's is verified but never
+// stamped.
+func TestAutoSync_InstantGatewayErrorRetriesNextTick(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.realImportCode = http.StatusBadGateway // instant: the proxy's upstream is down
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	if got := replica.realSyncCount(); got != 1 {
+		t.Fatalf("real imports = %d, want 1", got)
+	}
+
+	// The push failed outright, so it must not be rate-limited: the next pass
+	// pushes again instead of waiting out incompleteRetryInterval.
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	if got := replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports after the next tick = %d, want 2: an instant 5xx is a plain failure, not a maybe-landed import", got)
+	}
+
+	// The member comes to hold the primary's config through no write of Front
+	// Desk's (an operator restore, or the primary edited back): verified, but not
+	// stamped, because no unconfirmed push was remembered for it.
+	replica.setVersionHash("hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-B")
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("an instant-5xx push was stamped on convergence; the write was never confirmed and nothing was importing behind the answer")
+	}
+	if !memberVerified(srv, rm.ID) {
+		t.Error("the converged member was not verified in sync")
+	}
+}
+
+// TestClearUnconfirmedPushKeepsNewerHash: clearing is compare-and-delete. The
+// stamp paths check the flag, write the stamp, then clear; a concurrent push
+// (the wizard runs on its own goroutine) can lose ITS answer to newer config in
+// that window and re-mark the member. The stale clear must not drop the newer
+// entry, or that push would never be stamped on verification.
+func TestClearUnconfirmedPushKeepsNewerHash(t *testing.T) {
+	srv, _ := newTestServer(t)
+	srv.markUnconfirmedPush("m1", "hash-C")
+
+	srv.clearUnconfirmedPush("m1", "hash-B") // a stamp for an older push landing late
+	if !srv.hasUnconfirmedPush("m1", "hash-C") {
+		t.Fatal("a stale clear dropped a newer unconfirmed push; its verify stamp is lost")
+	}
+
+	srv.clearUnconfirmedPush("m1", "hash-C")
+	if srv.hasUnconfirmedPush("m1", "hash-C") {
+		t.Error("clearing the matching hash must drop the entry")
 	}
 }
 

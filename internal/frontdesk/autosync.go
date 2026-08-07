@@ -498,7 +498,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 			if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), unconfirmedSyncReason); err != nil {
 				debuglog.Warn("frontdesk: stamp member last-sync on verified convergence", "member", m.Name, "error", err)
 			} else {
-				s.clearUnconfirmedPush(m.ID)
+				s.clearUnconfirmedPush(m.ID, hash)
 			}
 		}
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
@@ -625,13 +625,19 @@ func (s *Server) markUnconfirmedPush(memberID, hash string) {
 	s.unconfirmedSync[memberID] = hash
 }
 
-// clearUnconfirmedPush forgets a member's unconfirmed push once a sync stamp has
-// landed for it: either a later push was confirmed and stamped itself, or the
-// verification pass stamped on the hash match.
-func (s *Server) clearUnconfirmedPush(memberID string) {
+// clearUnconfirmedPush forgets a member's unconfirmed push of exactly this
+// config once a sync stamp has landed for it: either a later push of it was
+// confirmed and stamped itself, or the verification pass stamped on the hash
+// match. Compare-and-delete rather than delete: between the caller reading the
+// flag and stamping, a concurrent push (the wizard runs on its own goroutine)
+// can lose ITS answer and re-mark the member with a newer hash, and that entry
+// must survive to earn its own stamp.
+func (s *Server) clearUnconfirmedPush(memberID, hash string) {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
-	delete(s.unconfirmedSync, memberID)
+	if hash != "" && s.unconfirmedSync[memberID] == hash {
+		delete(s.unconfirmedSync, memberID)
+	}
 }
 
 // hasUnconfirmedPush reports whether this member has a lost-answer push of
