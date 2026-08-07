@@ -6,6 +6,7 @@ import type {
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
+	ZAICodingQuotaResponse,
 } from "../api/types";
 import { formatDollars, formatKwh, formatTokens } from "../utils/format";
 import {
@@ -94,7 +95,7 @@ function contentFor(
 			};
 		}
 		case "zai-coding": {
-			const u = payload as Parameters<typeof getZaiCodingFiveHourLimit>[0];
+			const u = payload as ZAICodingQuotaResponse;
 			return {
 				label: windowsLabel(
 					getZaiCodingFiveHourLimit(u)?.percentage,

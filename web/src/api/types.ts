@@ -665,101 +665,22 @@ export interface ZAICodingQuotaResponse {
 	success: boolean;
 }
 
-// ── Kimi Code quota ────────────────────────────────────────────────────
-// Numeric fields arrive as JSON strings; parse with Number() before math.
+// ── Kimi Code + MiniMax quota ───────────────────────────────────
+// Declared in web-shared/quota, which both this dashboard and Front Desk parse
+// these payloads with, and re-exported here so app code keeps importing every
+// API type from one place.
 
-export interface KimiCodeQuotaMembership {
-	level?: string;
-}
-
-export interface KimiCodeQuotaUser {
-	userId?: string;
-	region?: string;
-	membership?: KimiCodeQuotaMembership;
-}
-
-/** A quota window: limit/remaining are string-encoded numbers, resetTime an ISO timestamp. */
-export interface KimiCodeQuotaUsageWindow {
-	limit: string;
-	remaining: string;
-	resetTime: string;
-}
-
-export interface KimiCodeQuotaWindowSpec {
-	duration: number;
-	timeUnit: string;
-}
-
-export interface KimiCodeQuotaLimitEntry {
-	window: KimiCodeQuotaWindowSpec;
-	detail: KimiCodeQuotaUsageWindow;
-}
-
-export interface KimiCodeQuotaResponse {
-	user?: KimiCodeQuotaUser;
-	/** Weekly window. */
-	usage?: KimiCodeQuotaUsageWindow;
-	/** Rolling windows; the 300-minute entry is the 5-hour window. */
-	limits?: KimiCodeQuotaLimitEntry[];
-	parallel?: { limit?: string };
-	totalQuota?: { limit?: string; remaining?: string };
-	authentication?: { method?: string; scope?: string };
-	subType?: string;
-}
-
-/**
- * Normalized quota window returned by the Kimi limit helpers. Mirrors the shape
- * the Z.ai helpers return (an object exposing `percentage`) so badge code stays
- * uniform across providers.
- */
-export interface KimiCodeQuotaWindow {
-	limit: number;
-	remaining: number;
-	resetTime: string;
-	percentage: number;
-}
-
-/**
- * MiniMax token-plan quota. Raw `/token_plan/remains` payload: one entry per
- * model class ("general", "video"). Percentages are already 0-100 numbers
- * (REMAINING, not used); `remains_time`/`weekly_remains_time` are millisecond
- * durations until the 5-hour / weekly window resets. `current_interval_status`
- * / `current_weekly_status` of 3 means the class is not in the active plan.
- */
-export interface MiniMaxModelRemains {
-	model_name: string;
-	start_time?: number;
-	end_time?: number;
-	remains_time: number;
-	weekly_start_time?: number;
-	weekly_end_time?: number;
-	weekly_remains_time: number;
-	current_interval_status: number;
-	current_interval_remaining_percent: number;
-	current_weekly_status: number;
-	current_weekly_remaining_percent: number;
-}
-
-export interface MiniMaxBaseResp {
-	status_code: number;
-	status_msg: string;
-}
-
-export interface MiniMaxQuotaResponse {
-	model_remains: MiniMaxModelRemains[] | null;
-	base_resp: MiniMaxBaseResp;
-}
-
-/**
- * Normalized MiniMax quota window returned by the helpers. `percentage` is the
- * USED percentage (100 − remaining) so badge/modal code stays uniform with the
- * other providers; `resetMs` is the millisecond duration until reset.
- */
-export interface MiniMaxQuotaWindow {
-	percentage: number;
-	remainingPercent: number;
-	resetMs: number;
-}
+export type {
+	KimiCodeQuotaLimitEntry,
+	KimiCodeQuotaResponse,
+	KimiCodeQuotaUsageWindow,
+	KimiCodeQuotaWindow,
+	KimiCodeQuotaWindowSpec,
+	MiniMaxBaseResp,
+	MiniMaxModelRemains,
+	MiniMaxQuotaResponse,
+	MiniMaxQuotaWindow,
+} from "@quota-shared";
 
 export interface NeuralWattQuotaBalance {
 	credits_remaining_usd: number;

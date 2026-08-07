@@ -143,8 +143,11 @@ runs:
         # the SQL migrations and testdata too, and the Makefile drives the local
         # equivalents of these jobs.
         go=$(match '^(cmd|internal)/|\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$|^Makefile$')
-        web=$(match '^web/')
-        fdweb=$(match '^frontdesk/web/')
+        # web-shared/ holds the quota parsing both SPAs import through their
+        # @quota-shared alias, and testdata/quota-contract/ the fixtures their
+        # suites read, so a change to either is a change to BOTH app surfaces.
+        web=$(match '^web/|^web-shared/|^testdata/quota-contract/')
+        fdweb=$(match '^frontdesk/web/|^web-shared/|^testdata/quota-contract/')
         workflows=$(match '^\.github/')
         # THIRD-PARTY-NOTICES.md is generated FROM these, so a hand-edit to the
         # committed file must be caught by regenerating it.
@@ -183,7 +186,7 @@ runs:
         if [ "$grep_status" -gt 1 ]; then
           run_everything "could not filter test files out of the diff"
         fi
-        if grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))' <<< "$src"; then
+        if grep -qE '^(internal/|cmd/|web/|web-shared/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))' <<< "$src"; then
           image=true
         else
           image=false

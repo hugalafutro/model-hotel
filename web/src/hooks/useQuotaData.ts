@@ -1,3 +1,20 @@
+import type { QuotaProviderType } from "@quota-shared";
+import {
+	getKimiCodeFiveHourLimit,
+	getKimiCodeWeeklyLimit,
+	getMiniMaxFiveHourLimit,
+	getMiniMaxWeeklyLimit,
+	getZaiCodingFiveHourLimit,
+	getZaiCodingWeeklyLimit,
+	isDeepSeekQuotaVisible,
+	isKimiCodeQuotaVisible,
+	isMiniMaxQuotaVisible,
+	isNanoGptQuotaVisible,
+	isNeuralWattQuotaVisible,
+	isOllamaCloudQuotaVisible,
+	isOpenRouterQuotaVisible,
+	isZaiCodingQuotaVisible,
+} from "@quota-shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +23,6 @@ import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
 	KimiCodeQuotaWindow,
-	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
 	NanoGPTUsage,
@@ -18,12 +34,23 @@ import type {
 	ZAICodingQuotaResponse,
 } from "../api/types";
 
+// The payload parsing behind these helpers lives in web-shared/quota so Front
+// Desk derives identical numbers from identical payloads. Re-exported here
+// because app code has always reached them through this hook module.
+export type { QuotaProviderType } from "@quota-shared";
+export {
+	getKimiCodeFiveHourLimit,
+	getKimiCodeWeeklyLimit,
+	getMiniMaxFiveHourLimit,
+	getMiniMaxGeneralEntry,
+	getMiniMaxWeeklyLimit,
+	getZaiCodingFiveHourLimit,
+	getZaiCodingWeeklyLimit,
+} from "@quota-shared";
+
 // ── Cache helpers (shared across consumers) ──────────────────────────────
 
 const CACHE_PREFIX = "model-hotel";
-
-/** Subscription plans that don't qualify for quota badge display (lowest/free tier). */
-const NEURALWATT_BADGE_EXCLUDED_PLANS = new Set(["free", "starter"]);
 
 export function getCachedData<T>(key: string): T | undefined {
 	try {
@@ -44,16 +71,9 @@ export function setCachedData<T>(key: string, data: T) {
 }
 
 // ── Provider type detection ──────────────────────────────────────────────
-
-export type QuotaProviderType =
-	| "nanogpt"
-	| "zai-coding"
-	| "kimi-code"
-	| "minimax"
-	| "deepseek"
-	| "openrouter"
-	| "ollama-cloud"
-	| "neuralwatt";
+// The type union is the shared one; sniffing a base URL for it is the
+// dashboard's own job, because only it holds provider records. Front Desk reads
+// the type the fleet primary stamps on each snapshot instead.
 
 function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 	try {
@@ -86,126 +106,6 @@ function findProviderId(
 ): string | undefined {
 	return providers?.find((p) => detectQuotaProviderType(p.base_url) === type)
 		?.id;
-}
-
-// NOTE: the limit helpers below, and the badge-visibility booleans further down,
-// are duplicated in Front Desk at frontdesk/web/src/utils/quota.ts. The two
-// frontends are separate pnpm projects with no shared package, so the copy is
-// deliberate -- but it means both dashboards only show the same numbers for the
-// same fleet as long as they stay in step. Change one, change the other.
-
-// ── Z.ai Coding limit helpers ───────────────────────────────────────────
-
-export function getZaiCodingFiveHourLimit(
-	data: ZAICodingQuotaResponse | undefined | null,
-): ZAICodingQuotaLimit | undefined {
-	return data?.data?.limits?.find(
-		(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
-	);
-}
-
-export function getZaiCodingWeeklyLimit(
-	data: ZAICodingQuotaResponse | undefined | null,
-): ZAICodingQuotaLimit | undefined {
-	return data?.data?.limits?.find(
-		(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
-	);
-}
-
-// ── Kimi Code limit helpers ─────────────────────────────────────────────
-// Kimi encodes limit/remaining as JSON strings; parse with Number() before
-// computing percentage. Percentage used = (limit - remaining) / limit * 100.
-
-function toKimiCodeWindow(
-	limitStr: string | undefined,
-	remainingStr: string | undefined,
-	resetTime: string | undefined,
-): KimiCodeQuotaWindow | undefined {
-	if (limitStr == null || remainingStr == null) return undefined;
-	const limit = Number(limitStr);
-	const remaining = Number(remainingStr);
-	if (!Number.isFinite(limit) || !Number.isFinite(remaining)) return undefined;
-	const percentage = limit > 0 ? ((limit - remaining) / limit) * 100 : 0;
-	return { limit, remaining, resetTime: resetTime ?? "", percentage };
-}
-
-/** The rolling 300-minute (5-hour) window. */
-export function getKimiCodeFiveHourLimit(
-	data: KimiCodeQuotaResponse | undefined | null,
-): KimiCodeQuotaWindow | undefined {
-	const entry = data?.limits?.find(
-		(l) =>
-			l.window?.timeUnit === "TIME_UNIT_MINUTE" && l.window?.duration === 300,
-	);
-	if (!entry) return undefined;
-	return toKimiCodeWindow(
-		entry.detail?.limit,
-		entry.detail?.remaining,
-		entry.detail?.resetTime,
-	);
-}
-
-/** The weekly window (top-level `usage`). */
-export function getKimiCodeWeeklyLimit(
-	data: KimiCodeQuotaResponse | undefined | null,
-): KimiCodeQuotaWindow | undefined {
-	const usage = data?.usage;
-	if (!usage) return undefined;
-	return toKimiCodeWindow(usage.limit, usage.remaining, usage.resetTime);
-}
-
-// ── MiniMax token-plan helpers ─────────────────────────────────────────────
-// MiniMax reports REMAINING percentages (0-100) per model class. The active
-// class is the first "general" entry with current_interval_status === 1. Used%
-// is 100 − remaining%. Badge/panel hide entirely when base_resp.status_code is
-// non-zero (e.g. 2062 "no active token plan"), model_remains is empty, or no
-// active general entry exists.
-
-/** First active "general" model-class entry, or undefined. */
-export function getMiniMaxGeneralEntry(
-	data: MiniMaxQuotaResponse | undefined | null,
-): MiniMaxModelRemains | undefined {
-	const entries =
-		data?.base_resp?.status_code === 0 ? data.model_remains : null;
-	if (!Array.isArray(entries)) return undefined;
-	return entries.find(
-		(m) => m.model_name === "general" && m.current_interval_status === 1,
-	);
-}
-
-function toMiniMaxWindow(
-	remainingPercent: number | undefined,
-	resetMs: number | undefined,
-): MiniMaxQuotaWindow | undefined {
-	if (remainingPercent == null || !Number.isFinite(remainingPercent)) {
-		return undefined;
-	}
-	return {
-		percentage: 100 - remainingPercent,
-		remainingPercent,
-		resetMs: resetMs ?? 0,
-	};
-}
-
-/** Rolling 5-hour window derived from the active general entry. */
-export function getMiniMaxFiveHourLimit(
-	data: MiniMaxQuotaResponse | undefined | null,
-): MiniMaxQuotaWindow | undefined {
-	const g = getMiniMaxGeneralEntry(data);
-	if (!g) return undefined;
-	return toMiniMaxWindow(g.current_interval_remaining_percent, g.remains_time);
-}
-
-/** Weekly window derived from the active general entry. */
-export function getMiniMaxWeeklyLimit(
-	data: MiniMaxQuotaResponse | undefined | null,
-): MiniMaxQuotaWindow | undefined {
-	const g = getMiniMaxGeneralEntry(data);
-	if (!g) return undefined;
-	return toMiniMaxWindow(
-		g.current_weekly_remaining_percent,
-		g.weekly_remains_time,
-	);
 }
 
 // ── Hook options ─────────────────────────────────────────────────────────
@@ -643,57 +543,48 @@ export function useQuotaData(
 	const nanoWeeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
 	const nanoWeeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
 
-	const isNanoCancelled =
-		nanogptUsage?.providerStatus === "canceled" ||
-		nanogptUsage?.providerStatus === "cancelled";
-
+	// Badge visibility: the provider has to exist and its payload has to have
+	// arrived here, then the shared rule decides whether the payload is worth a
+	// badge. Front Desk gates on the same rule.
 	const showNanoBadge =
 		Boolean(nanogptProviderId) &&
-		Boolean(nanogptUsage) &&
-		!isNanoCancelled &&
-		nanoWeeklyUsed != null &&
-		Boolean(nanoWeeklyLimit);
+		nanogptUsage != null &&
+		isNanoGptQuotaVisible(nanogptUsage);
 
 	const showZaiCodingBadge =
 		Boolean(zaiCodingProviderId) &&
-		Boolean(zaiCodingUsage?.success) &&
-		Boolean(zaiCodingFiveHour || zaiCodingWeekly);
+		zaiCodingUsage != null &&
+		isZaiCodingQuotaVisible(zaiCodingUsage);
 
 	const showKimiCodeBadge =
 		Boolean(kimiCodeProviderId) &&
-		Boolean(kimiCodeUsage) &&
-		Boolean(kimiCodeFiveHour || kimiCodeWeekly);
+		kimiCodeUsage != null &&
+		isKimiCodeQuotaVisible(kimiCodeUsage);
 
 	const showMiniMaxBadge =
 		Boolean(minimaxProviderId) &&
-		Boolean(minimaxUsage) &&
-		Boolean(getMiniMaxGeneralEntry(minimaxUsage));
+		minimaxUsage != null &&
+		isMiniMaxQuotaVisible(minimaxUsage);
 
 	const showDsBadge =
 		Boolean(deepseekProviderId) &&
-		Boolean(deepseekBalance) &&
-		Boolean(deepseekBalance?.is_available);
+		deepseekBalance != null &&
+		isDeepSeekQuotaVisible(deepseekBalance);
 
 	const showOrBadge =
 		Boolean(openrouterProviderId) &&
-		Boolean(openrouterBalance) &&
-		openrouterBalance?.credits_remaining != null;
-
-	const isOllamaCloudSuspended =
-		ollamaCloudAccount?.suspended_at?.valid === true;
+		openrouterBalance != null &&
+		isOpenRouterQuotaVisible(openrouterBalance);
 
 	const showOllamaCloudBadge =
 		Boolean(ollamaCloudProviderId) &&
-		Boolean(ollamaCloudAccount) &&
-		!isOllamaCloudSuspended;
+		ollamaCloudAccount != null &&
+		isOllamaCloudQuotaVisible(ollamaCloudAccount);
 
 	const showNeuralwattBadge =
 		Boolean(neuralwattProviderId) &&
-		Boolean(neuralwattQuota) &&
-		neuralwattQuota?.balance?.credits_remaining_usd != null &&
-		!NEURALWATT_BADGE_EXCLUDED_PLANS.has(
-			neuralwattQuota?.subscription?.plan?.toLowerCase() ?? "",
-		);
+		neuralwattQuota != null &&
+		isNeuralWattQuotaVisible(neuralwattQuota);
 
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||

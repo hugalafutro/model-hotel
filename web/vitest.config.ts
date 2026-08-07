@@ -7,6 +7,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
+			"@quota-shared": path.resolve(__dirname, "../web-shared/quota/index.ts"),
 		},
 	},
 	test: {

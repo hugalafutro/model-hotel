@@ -773,14 +773,15 @@ jobs:
           # (base == HEAD) legitimately means nothing new to publish.
           changed=$(git diff --name-only "$base" "$HEAD_SHA")
           # The :dev image carries the compiled Go binary (cmd/ + internal/) and
-          # the built+embedded frontend (web/, frontdesk/web/). Docs, screenshots,
+          # the built+embedded frontend (web/, frontdesk/web/, and the
+          # web-shared/ module both of them bundle). Docs, screenshots,
           # wiki, AGENTS.md, CI workflows, the Makefile, and test files cannot
           # affect it. Drop test files first (not compiled or bundled), then match
           # the image-affecting surface the Dockerfiles COPY wholesale. Kept broad
           # on purpose: a wasted build is cheap, a stale :dev is not — a genuinely
           # new top-level COPY source must be added here.
           src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' || true)
-          code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.mod|go\.sum)' || true)
+          code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/|web-shared/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.mod|go\.sum)' || true)
           if [ -n "$code" ]; then
             echo "image-affecting changes since last published :dev ($base); building:"
             printf '%s\n' "$code"

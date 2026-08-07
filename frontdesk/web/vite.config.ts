@@ -9,9 +9,18 @@ import { defineConfig } from "vite";
 export default defineConfig({
 	plugins: [react()],
 	resolve: {
-		alias: { "@": path.resolve(__dirname, "./src") },
+		alias: {
+			"@": path.resolve(__dirname, "./src"),
+			"@quota-shared": path.resolve(
+				__dirname,
+				"../../web-shared/quota/index.ts",
+			),
+		},
 	},
 	server: {
+		// The quota helpers live outside this project root, so the dev server has
+		// to be allowed to serve them alongside the app's own files.
+		fs: { allow: [__dirname, path.resolve(__dirname, "../../web-shared")] },
 		// `pnpm dev` proxies the API to a locally running frontdesk binary so the
 		// SPA and its REST/SSE backend share an origin during development.
 		proxy: {

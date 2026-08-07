@@ -26,7 +26,13 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
+			"@quota-shared": path.resolve(__dirname, "../web-shared/quota/index.ts"),
 		},
+	},
+	server: {
+		// The quota helpers live outside this project root, so the dev server has
+		// to be allowed to serve them alongside the app's own files.
+		fs: { allow: [__dirname, path.resolve(__dirname, "../web-shared")] },
 	},
 	build: {
 		// The two chunks over Vite's default 500 kB warning line are both benign:
