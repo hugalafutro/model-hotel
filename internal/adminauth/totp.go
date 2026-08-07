@@ -284,9 +284,9 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, resp)
 		return
 	}
-	// Legacy path (Front Desk): return the session token in the body exactly
-	// as before the httpOnly-cookie migration. Front Desk's web client keeps
-	// its bearer token in localStorage rather than reading a cookie.
+	// Header-bearer mode: the session token rides the JSON body, for clients
+	// that hold it themselves and send it as an Authorization header rather
+	// than letting the browser carry a cookie.
 	resp := map[string]any{"recovery_codes": codes}
 	if h.sessionMgr != nil {
 		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
@@ -391,10 +391,9 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	h.loginThrottle.RecordSuccess(throttleKey)
 	if !h.useCookieAuth {
-		// Legacy path (Front Desk): return the session token in the body
-		// exactly as before the httpOnly-cookie migration. Front Desk's web
-		// client keeps its bearer token in localStorage rather than reading
-		// a cookie.
+		// Header-bearer mode: the session token rides the JSON body, for
+		// clients that hold it themselves and send it as an Authorization
+		// header rather than letting the browser carry a cookie.
 		writeJSON(w, map[string]string{"token": sessionToken})
 		return
 	}

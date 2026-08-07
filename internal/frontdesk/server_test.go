@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	otptotp "github.com/pquerna/otp/totp"
+
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
@@ -343,12 +345,7 @@ func TestServerSettings(t *testing.T) {
 func TestServerLogout(t *testing.T) {
 	srv, _ := newTestServer(t)
 
-	// Unauthenticated logout is refused by the auth gate.
-	if rec := do(t, srv, http.MethodPost, "/api/logout", "", false); rec.Code != http.StatusUnauthorized {
-		t.Errorf("unauth logout = %d, want 401", rec.Code)
-	}
-
-	// Authenticated with the raw FRONTDESK_TOKEN (no server session row): the
+	// Called with the raw FRONTDESK_TOKEN (no server session row): the
 	// revoke is a harmless no-op and the route still returns 200 success.
 	rec := do(t, srv, http.MethodPost, "/api/logout", "", true)
 	if rec.Code != http.StatusOK {
@@ -698,6 +695,193 @@ func TestServerEventsTimeFilter(t *testing.T) {
 	// A malformed bound is ignored (treated as no bound), not an error.
 	if n := count("since=not-a-time"); n < 1 {
 		t.Errorf("malformed since should be ignored, got %d", n)
+	}
+}
+
+// totpCodeForStep returns a TOTP code offset by `steps` 30-second windows from
+// now. Verify accepts one code per step (single use) within a skew=1 window, so
+// a test that chains enroll-verify and login has to spend distinct steps:
+// enroll -1, login 0. The initial wait keeps generation and server-side
+// validation inside the same 30s window, so an edge step cannot fall out of the
+// skew window when the clock crosses a boundary between the two reads.
+func totpCodeForStep(t *testing.T, secret string, steps int) string {
+	t.Helper()
+	if rem := time.Until(time.Now().Truncate(30 * time.Second).Add(30 * time.Second)); rem < time.Second {
+		time.Sleep(rem + 50*time.Millisecond)
+	}
+	midWindow := time.Now().Truncate(30 * time.Second).Add(15 * time.Second)
+	code, err := otptotp.GenerateCode(secret, midWindow.Add(time.Duration(steps)*30*time.Second))
+	if err != nil {
+		t.Fatalf("GenerateCode(step %d): %v", steps, err)
+	}
+	return code
+}
+
+// fdCookies picks the Front Desk session/CSRF pair out of a response.
+func fdCookies(rec *httptest.ResponseRecorder) (session, csrf *http.Cookie) {
+	for _, c := range rec.Result().Cookies() {
+		switch c.Name {
+		case "fd_session":
+			session = c
+		case "fd_csrf":
+			csrf = c
+		}
+	}
+	return session, csrf
+}
+
+// TestCookieAuth_ExchangeLoginCSRFAndLogout walks the browser contract end to
+// end: the exchange mints the cookie pair, the cookie authenticates reads,
+// mutations demand the CSRF header, and logout clears both cookies and revokes
+// the session server-side.
+func TestCookieAuth_ExchangeLoginCSRFAndLogout(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	// 1. Exchange the raw token for cookies.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
+		strings.NewReader(`{"admin_token":"`+testFrontdeskToken+`"}`))
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("exchange: %d %s", rec.Code, rec.Body.String())
+	}
+	session, csrf := fdCookies(rec)
+	if session == nil || !session.HttpOnly || csrf == nil || csrf.HttpOnly {
+		t.Fatalf("want HttpOnly fd_session + readable fd_csrf, got %+v", rec.Result().Cookies())
+	}
+	if strings.Contains(rec.Body.String(), session.Value) {
+		t.Fatal("session token must not be echoed in the body")
+	}
+
+	withCookies := func(r *http.Request) {
+		r.AddCookie(session)
+		r.AddCookie(csrf)
+	}
+
+	// 2. Cookie authenticates a read with no Authorization header.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/members", http.NoBody)
+	withCookies(req)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cookie read: %d", rec.Code)
+	}
+
+	// 3. Mutation without the CSRF header is refused...
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody)
+	withCookies(req)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("mutation without CSRF header: %d, want 403", rec.Code)
+	}
+
+	// 4. ...and passes with it.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody)
+	withCookies(req)
+	req.Header.Set("X-CSRF-Token", csrf.Value)
+	srv.ServeHTTP(rec, req)
+	if rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
+		t.Fatalf("mutation with CSRF header: %d", rec.Code)
+	}
+
+	// 5. Logout clears both cookies and revokes the session server-side.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/logout", http.NoBody)
+	withCookies(req)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("logout: %d", rec.Code)
+	}
+	cleared := 0
+	for _, c := range rec.Result().Cookies() {
+		if (c.Name == "fd_session" || c.Name == "fd_csrf") && c.MaxAge < 0 {
+			cleared++
+		}
+	}
+	if cleared != 2 {
+		t.Fatalf("logout must expire both cookies, expired %d", cleared)
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/members", http.NoBody)
+	withCookies(req)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked session still authenticates: %d", rec.Code)
+	}
+}
+
+// TestCookieAuth_HeaderBearerPathUnaffected pins the header-bearer contract:
+// Bellhop devices and raw FRONTDESK_TOKEN M2M callers are exempt from CSRF and
+// keep mutating with nothing but an Authorization header.
+func TestCookieAuth_HeaderBearerPathUnaffected(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(t, srv, http.MethodPost, "/api/quota/refresh", "", true)
+	if rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
+		t.Fatalf("header bearer mutation without CSRF: %d, want success", rec.Code)
+	}
+}
+
+// TestLogout_WorksUnauthenticated pins logout as auth-exempt: an expired or
+// absent session can still log out, so the SPA always converges on the login
+// screen instead of getting stuck on a 401.
+func TestLogout_WorksUnauthenticated(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(t, srv, http.MethodPost, "/api/logout", "", false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unauthenticated logout: %d, want 200", rec.Code)
+	}
+}
+
+// TestTotpLogin_CookieMode_NoTokenInBody drives the real TOTP enroll/login
+// ceremony over the Front Desk router and pins the cookie contract: the session
+// arrives as an HttpOnly fd_session cookie and never in the JSON body.
+func TestTotpLogin_CookieMode_NoTokenInBody(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	rec := do(t, srv, http.MethodPost, "/api/totp/enroll/start", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enroll/start: %d %s", rec.Code, rec.Body.String())
+	}
+	var start map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &start); err != nil {
+		t.Fatalf("decode enroll/start: %v", err)
+	}
+	secret := start["secret"]
+	if secret == "" {
+		t.Fatalf("enroll/start returned no secret: %s", rec.Body.String())
+	}
+
+	rec = do(t, srv, http.MethodPost, "/api/totp/enroll/verify",
+		`{"code":"`+totpCodeForStep(t, secret, -1)+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enroll/verify: %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = do(t, srv, http.MethodPost, "/api/totp/login",
+		`{"token":"`+testFrontdeskToken+`","code":"`+totpCodeForStep(t, secret, 0)+`"}`, false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("totp login: %d %s", rec.Code, rec.Body.String())
+	}
+	sessionCookie, _ := fdCookies(rec)
+	if sessionCookie == nil || sessionCookie.Value == "" || !sessionCookie.HttpOnly {
+		t.Fatalf("TOTP login must set an HttpOnly fd_session cookie, got %+v", rec.Result().Cookies())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("login body: %v", err)
+	}
+	if _, hasToken := body["token"]; hasToken {
+		t.Fatal("cookie-mode login body must not carry the session token")
+	}
+	// The cookie is a working session, not just a well-shaped one.
+	req := httptest.NewRequest(http.MethodGet, "/api/members", http.NoBody)
+	req.AddCookie(sessionCookie)
+	authed := httptest.NewRecorder()
+	srv.ServeHTTP(authed, req)
+	if authed.Code != http.StatusOK {
+		t.Fatalf("fd_session from TOTP login does not authenticate: %d", authed.Code)
 	}
 }
 

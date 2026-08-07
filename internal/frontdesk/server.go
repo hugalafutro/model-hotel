@@ -50,6 +50,9 @@ type ServerConfig struct {
 	MetricsToken string                        // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
 	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
 	Version      string                        // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
+	// CookieSecure controls the Secure attribute on Front Desk auth cookies:
+	// "always" (default), "auto", or "never" for plain-http LAN.
+	CookieSecure string
 }
 
 // Server is the Front Desk HTTP server.
@@ -69,6 +72,7 @@ type Server struct {
 	version      string       // running build, surfaced read-only over GET /api/version
 	masterKey    string       // encrypts the Apprise target secret at rest
 	metricsToken string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
+	cookieSecure string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
 	alertDisp    *alert.Dispatcher
 	pairing      *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
 	ipLimiter    adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
@@ -157,6 +161,15 @@ func NewServer(cfg ServerConfig) *Server {
 		version = "dev"
 	}
 
+	// Secure-by-default: an unset knob forces Secure on rather than inferring it
+	// from the request, so a deployment that never sets COOKIE_SECURE cannot
+	// silently ship the session cookie over cleartext. cmd/frontdesk normalizes
+	// the env value; this covers programmatic callers.
+	cookieSecure := cfg.CookieSecure
+	if cookieSecure == "" {
+		cookieSecure = "always"
+	}
+
 	s := &Server{
 		store:           cfg.Store,
 		poller:          cfg.Poller,
@@ -173,6 +186,7 @@ func NewServer(cfg ServerConfig) *Server {
 		version:         version,
 		masterKey:       cfg.MasterKey,
 		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		cookieSecure:    cookieSecure,
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
 		rearmCh:         make(chan struct{}),
@@ -200,24 +214,21 @@ func NewServer(cfg ServerConfig) *Server {
 		alert.WithResultHook(recordAlertDispatch),
 	)
 
+	// Every login path hands the session to the browser as the Front Desk cookie
+	// pair (authcookie.FrontDesk: fd_session/fd_csrf), never in the JSON body, so
+	// the SPA holds no bearer token JS can read. The jar has to be named at every
+	// site: a zero-value Jar mints nothing, because net/http drops cookies with
+	// an empty name.
 	webauthnHandler := adminauth.NewWebAuthnHandler(
-		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, false, "auto", authcookie.FrontDesk,
+		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, true, s.cookieSecure, authcookie.FrontDesk,
 	)
-	// NOTE: Front Desk's own web client (frontdesk/web) still consumes the
-	// TOTP login/enroll-verify session token from the JSON body (bearer
-	// auth), not the HttpOnly cookie the main dashboard reads. useCookieAuth
-	// is false here so the legacy token-in-body shape is preserved
-	// byte-for-byte until Front Desk's frontend migrates to cookie auth in a
-	// follow-up. "auto" still keeps the cookie Secure attribute sane in case
-	// that migration lands, but is otherwise unused while useCookieAuth is
-	// false.
 	totpHandler := adminauth.NewTotpHandler(
-		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh, "auto", false, authcookie.FrontDesk,
+		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh, s.cookieSecure, true, authcookie.FrontDesk,
 	)
 	// OIDC SSO: a fourth admin-login path. The shared adminauth handler is reused
 	// as-is; newOIDCSettings adapts Front Desk's typed settings row to its key/value
 	// contract, and the config secret rides the same MasterKey encryption as above.
-	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, false, "auto", authcookie.FrontDesk)
+	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, true, s.cookieSecure, authcookie.FrontDesk)
 
 	s.router = s.buildRouter(webauthnHandler, totpHandler, oidcHandler, cfg.UI)
 	return s
@@ -241,7 +252,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 
 	// Security headers. The Front Desk admin UI manages the whole HA fleet
 	// (member admin tokens, device pairing, config sync, OIDC/alert settings)
-	// and keeps its bearer in localStorage, so a framed copy of this origin
+	// and its session rides cookies, so a framed copy of this origin
 	// auto-authenticates. Deny framing outright and mirror the main server's
 	// content-type / referrer / CSP hardening (cmd/server/main.go). Front Desk
 	// is never embedded, so there is no ALLOW_EMBED escape hatch here.
@@ -290,14 +301,22 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			oidc.Register(r)
 		})
 
-		// Public pairing exchange (Bellhop): validates a one-time code and mints
-		// a device token. Login-like and unauthenticated, so it rides the same
-		// per-IP limiter as the login ceremonies.
+		// Public, login-like routes: unauthenticated by design, so they ride the
+		// same per-IP limiter as the login ceremonies.
 		r.Group(func(r chi.Router) {
 			if s.ipLimiter != nil {
 				r.Use(s.ipLimiter.Middleware)
 			}
+			// Pairing exchange (Bellhop): validates a one-time code and mints a
+			// device token.
 			r.Post("/pair", s.handlePair)
+			// Login front-end: trades the raw FRONTDESK_TOKEN for the HttpOnly
+			// session cookie pair so the SPA never stores the raw token.
+			r.Post("/auth/admin-exchange", adminauth.TokenExchange(
+				s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, s.cookieSecure))
+			// Auth-exempt like the dashboard's logout: it must work for an
+			// already-expired session, and it only revokes/clears.
+			r.Post("/logout", s.logout)
 		})
 
 		// Control-plane REST + SSE, behind the admin-or-session-or-device gate.
@@ -320,7 +339,6 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
 			r.Get("/fleet/autosync", s.getAutoSync)
-			r.Post("/logout", s.logout)
 			r.Get("/sse", s.sse)
 			r.Delete("/devices/self", s.revokeSelf)
 
@@ -384,15 +402,22 @@ func (s *Server) metricsAuth(next http.Handler) http.Handler {
 	})
 }
 
-// logout revokes the caller's server-side session so a manual or idle auto-logout
-// drops the session everywhere, not just in the calling browser tab. The bearer
-// is either a passkey/TOTP session token (revoked here) or the raw FRONTDESK_TOKEN
-// (no session row, so RevokeAuthToken is a harmless no-op). Always returns 200;
-// the client clears its local token regardless.
+// logout revokes the caller's server-side session so a manual or idle
+// auto-logout drops the session everywhere, not just in the calling browser
+// tab. The token comes from the fd_session cookie first, with a bearer-header
+// fallback for header-mode clients; the raw FRONTDESK_TOKEN has no session row,
+// so RevokeAuthToken is a harmless no-op for it. The cookie pair is expired
+// either way. Always returns 200: logging out an expired or absent session is a
+// no-op, not an error, so the SPA can always converge to the login screen.
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if token, ok := util.ParseBearerToken(r); ok {
+	token, ok := authcookie.FrontDesk.SessionToken(r)
+	if !ok {
+		token, ok = util.ParseBearerToken(r)
+	}
+	if ok {
 		s.sessionMgr.RevokeAuthToken(r.Context(), token)
 	}
+	authcookie.FrontDesk.ClearSession(w, authcookie.Secure(r, s.cookieSecure))
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 

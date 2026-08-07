@@ -138,6 +138,10 @@ func main() {
 		MetricsToken: os.Getenv("FRONTDESK_METRICS_TOKEN"),
 		LBPort:       lbPort,
 		Version:      version,
+		// Secure attribute on the fd_session/fd_csrf pair; shares COOKIE_SECURE
+		// and its normalization with the dashboard so one fleet-wide knob covers
+		// both surfaces.
+		CookieSecure: config.NormalizeCookieSecure(os.Getenv("COOKIE_SECURE")),
 	})
 
 	go poller.Run(ctx)
