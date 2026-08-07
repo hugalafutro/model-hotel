@@ -90,6 +90,11 @@ services:
             # Dedicated bearer for Prometheus /metrics scrapes; empty keeps the
             # endpoint behind the admin login.
             - FRONTDESK_METRICS_TOKEN=${FRONTDESK_METRICS_TOKEN:-}
+            # Secure attribute on the fd_session/fd_csrf login cookies (shares
+            # COOKIE_SECURE with the dashboard). Default "always" works behind
+            # this stack's required TLS proxy and on localhost dev; set "never"
+            # only for deliberate plain-HTTP LAN testing (see .env.example).
+            - COOKIE_SECURE=${COOKIE_SECURE:-always}
         ports:
             # Front Desk admin UI. Front the external TLS proxy at this port on a
             # separate hostname. Do NOT expose /traefik/config publicly through
