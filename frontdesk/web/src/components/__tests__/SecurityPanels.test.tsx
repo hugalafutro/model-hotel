@@ -21,7 +21,6 @@ function renderPanels() {
 }
 
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	mockRegisterPasskey.mockReset();
 });
 

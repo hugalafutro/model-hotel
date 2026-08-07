@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
+import { api, hasSession } from "../api/client";
 import { server } from "../test/server";
 import { sseHandler } from "../test/sse";
 
@@ -24,8 +25,23 @@ vi.mock("../components/QuotaStrip", () => ({
 	},
 }));
 
-// Auth-gating handlers: TOTP off, no passkey, members list reflects the token.
-// Includes the SSE stream the authenticated shell opens after login.
+// The session itself rides an HttpOnly cookie the page cannot see; the readable
+// fd_csrf half is what the SPA reads as "logged in", so these two stand in for
+// the server's Set-Cookie pair on login and logout.
+function setSessionCookie() {
+	document.cookie = "fd_csrf=csrf-abc; path=/";
+}
+function clearSessionCookie() {
+	document.cookie = "fd_csrf=; path=/; max-age=0";
+}
+
+// Cookies outlive a test in jsdom (setup.ts only clears localStorage), so an
+// authenticated test would otherwise boot the next one straight into the shell.
+afterEach(clearSessionCookie);
+
+// Auth-gating handlers: TOTP off, no passkey, cookie-authenticated members list.
+// The admin exchange validates the raw token and answers with the session
+// cookies, which is the only thing that makes the shell reachable.
 function authHandlers(validToken: string) {
 	return [
 		sseHandler(),
@@ -33,15 +49,19 @@ function authHandlers(validToken: string) {
 		http.get("/api/webauthn/available", () =>
 			HttpResponse.json({ enabled: false }),
 		),
-		http.get("/api/members", ({ request }) => {
-			const auth = request.headers.get("Authorization");
-			if (auth !== `Bearer ${validToken}`) {
-				return new HttpResponse("Invalid admin token or session token", {
-					status: 401,
-				});
+		http.post("/api/auth/admin-exchange", async ({ request }) => {
+			const body = (await request.json()) as { admin_token?: string };
+			if (body.admin_token !== validToken) {
+				return new HttpResponse("Invalid admin token", { status: 401 });
 			}
-			return HttpResponse.json([]);
+			setSessionCookie();
+			return new HttpResponse(null, { status: 204 });
 		}),
+		http.post("/api/logout", () => {
+			clearSessionCookie();
+			return new HttpResponse(null, { status: 204 });
+		}),
+		http.get("/api/members", () => HttpResponse.json([])),
 		// The authed shell renders QuotaStrip, which reads /api/quota. An empty
 		// list keeps the strip hidden (see QuotaStrip.test.tsx) so it does not
 		// disturb any existing assertion here; onUnhandledRequest is "error", so
@@ -51,10 +71,19 @@ function authHandlers(validToken: string) {
 }
 
 describe("App auth gating", () => {
-	it("shows the login screen when no token is stored", () => {
+	it("shows the login screen when no session cookie is present", () => {
 		server.use(...authHandlers("good"));
 		render(<App />);
 		expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument();
+	});
+
+	it("boots straight into the shell when the session cookie is present", async () => {
+		server.use(...authHandlers("good"));
+		setSessionCookie();
+		render(<App />);
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
 	});
 
 	it("signs in with a valid token (TOTP off) and shows the tabs", async () => {
@@ -78,6 +107,50 @@ describe("App auth gating", () => {
 		expect(
 			screen.queryByRole("tab", { name: /members/i }),
 		).not.toBeInTheDocument();
+	});
+
+	it("logs out to the login screen and drops the session marker", async () => {
+		const logout = vi.spyOn(api, "logout");
+		server.use(...authHandlers("good"));
+		setSessionCookie();
+		render(<App />);
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
+
+		await userEvent.click(screen.getByRole("button", { name: /log out/i }));
+
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(logout).toHaveBeenCalled();
+		expect(hasSession()).toBe(false);
+	});
+
+	it("still logs out locally when the revoke request is rate limited", async () => {
+		// /api/logout sits behind a per-IP limiter and can answer 429. The UI must
+		// not stay signed in on a session the operator asked to end: the local
+		// clear is unconditional and the server-side revoke is best effort.
+		// Overrides go FIRST: server.use keeps the order it is given and the first
+		// match wins, so a 429 listed after authHandlers' 204 would never be seen.
+		server.use(
+			http.post("/api/logout", () =>
+				HttpResponse.json({ error: "too many requests" }, { status: 429 }),
+			),
+			...authHandlers("good"),
+		);
+		setSessionCookie();
+		render(<App />);
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
+
+		await userEvent.click(screen.getByRole("button", { name: /log out/i }));
+
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(hasSession()).toBe(false);
 	});
 
 	it("clears a stale SSO error after an unrelated login then logout", async () => {
@@ -107,9 +180,8 @@ describe("App auth gating", () => {
 
 	it("returns to the Members tab when the brand logo is clicked", async () => {
 		server.use(...authHandlers("good"));
+		setSessionCookie();
 		render(<App />);
-		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 		await waitFor(() =>
 			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
 		);
@@ -129,31 +201,23 @@ describe("App auth gating", () => {
 	});
 
 	it("drops back to login when an authed request later 401s", async () => {
-		// First /api/members call (login validation) succeeds; the next one (the
-		// authed shell's own fetch) 401s, which must bounce back to login.
-		let calls = 0;
+		// The cookie boots the shell optimistically; the first authenticated fetch
+		// is what proves the session, and an expired one must bounce back to login
+		// with the readable marker cleared.
+		// Override first: the first matching handler wins (see the logout test).
 		server.use(
-			sseHandler(),
-			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
-			http.get("/api/webauthn/available", () =>
-				HttpResponse.json({ enabled: false }),
+			http.get(
+				"/api/members",
+				() => new HttpResponse("expired", { status: 401 }),
 			),
-			http.get("/api/members", () => {
-				calls += 1;
-				return calls === 1
-					? HttpResponse.json([])
-					: new HttpResponse("expired", { status: 401 });
-			}),
-			http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
+			...authHandlers("good"),
 		);
+		setSessionCookie();
 		render(<App />);
-		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-		// The shell mounts, its members fetch 401s, and we return to the login form.
 		await waitFor(() =>
 			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
 		);
-		expect(localStorage.getItem("fdAuthToken")).toBeNull();
+		expect(hasSession()).toBe(false);
 	});
 
 	it("contains a QuotaStrip render failure to the strip and keeps the rest of the shell up", async () => {
@@ -165,9 +229,8 @@ describe("App auth gating", () => {
 		quotaStripThrows.current = true;
 		try {
 			server.use(...authHandlers("good"));
+			setSessionCookie();
 			render(<App />);
-			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 			// The rest of the authenticated shell renders normally: tabs, and the
 			// Members page content past its own loading state. If the ErrorBoundary
 			// around QuotaStrip in App.tsx were removed, this throw would unmount
@@ -199,9 +262,8 @@ describe("App auth gating", () => {
 		quotaStripThrows.current = true;
 		try {
 			server.use(...authHandlers("good"));
+			setSessionCookie();
 			render(<App />);
-			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 			await waitFor(() => {
 				expect(
 					screen.getByRole("tab", { name: /members/i }),

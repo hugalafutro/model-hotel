@@ -1,17 +1,13 @@
 import { useEffect, useRef } from "react";
-import {
-	API_BASE,
-	getAuthToken,
-	notifyUnauthorized,
-	onUnauthorized,
-} from "../api/client";
+import { API_BASE, notifyUnauthorized, onUnauthorized } from "../api/client";
 import type { FdEvent } from "../api/types";
 
 // useSSE subscribes to the Front Desk event stream (GET /api/sse) and invokes
-// onEvent for each control-plane event. EventSource cannot send an
-// Authorization header, so this uses fetch + a streamed ReadableStream (the same
-// approach as the main dashboard) to attach the bearer token. It reconnects with
-// exponential backoff and stops on a 401 (the app drops to login then).
+// onEvent for each control-plane event. The session cookie authenticates the
+// stream, so EventSource would do; fetch + a streamed ReadableStream (the same
+// approach as the main dashboard) is used instead for the abort and backoff
+// control it gives. It reconnects with exponential backoff and stops on a 401
+// (the app drops to login then).
 export function useSSE(onEvent: (e: FdEvent) => void, enabled: boolean) {
 	// Keep the latest handler in a ref so the long-lived stream effect (keyed
 	// only on `enabled`) always calls the current callback without reconnecting.
@@ -21,7 +17,7 @@ export function useSSE(onEvent: (e: FdEvent) => void, enabled: boolean) {
 	}, [onEvent]);
 
 	useEffect(() => {
-		if (!enabled || !getAuthToken()) return;
+		if (!enabled) return;
 
 		let unmounted = false;
 		let delay = 1000;
@@ -33,17 +29,16 @@ export function useSSE(onEvent: (e: FdEvent) => void, enabled: boolean) {
 		});
 
 		const connect = () => {
-			const token = getAuthToken();
-			if (!token || unmounted) return;
+			if (unmounted) return;
 			const ac = new AbortController();
 			abort = ac;
 
 			fetch(`${API_BASE}/api/sse`, {
-				headers: { Authorization: `Bearer ${token}` },
+				credentials: "same-origin",
 				signal: ac.signal,
 			})
 				.then(async (resp) => {
-					// A dead token must drop to login, not reconnect forever. This
+					// A dead session must drop to login, not reconnect forever. This
 					// fires the same listeners request() does (one of which is the
 					// in-effect onUnauthorized below, which stops the reconnect).
 					if (resp.status === 401) {

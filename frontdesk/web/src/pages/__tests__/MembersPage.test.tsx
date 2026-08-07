@@ -38,7 +38,6 @@ function renderPage() {
 }
 
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	server.use(sseHandler());
 	// Default: no primary designated. The page derives the primary from
 	// /api/fleet/autosync (primary_id), the single source of truth;

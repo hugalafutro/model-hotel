@@ -9,8 +9,8 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	api,
-	clearAuthToken,
-	getAuthToken,
+	clearSessionHint,
+	hasSession,
 	onUnauthorized,
 } from "./api/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -24,7 +24,7 @@ import { useIdleLogout } from "./hooks/useIdleLogout";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { consumeOidcError, consumeOidcToken } from "./utils/oidc";
+import { consumeOidcError } from "./utils/oidc";
 
 // Traffic carries recharts (the one heavy dependency), so it loads lazily to
 // keep the initial bundle small; the other tabs are cheap and stay eager.
@@ -44,14 +44,10 @@ export default function App() {
 
 function Shell() {
 	const { t } = useTranslation();
-	// An OIDC SSO callback hands the session token back in the URL fragment (the
-	// error code likewise). Consume both synchronously at boot, before reading the
-	// stored token, so an SSO redirect lands logged in and a failure surfaces on
-	// the login screen. consumeOidcToken scrubs the token hash; consumeOidcError
-	// only matches/scrubs the error hash, so order is safe either way.
-	const [authed, setAuthed] = useState(
-		() => consumeOidcToken() || !!getAuthToken(),
-	);
+	// A successful OIDC callback lands with the session already in the HttpOnly
+	// cookie and a clean URL; only a failed callback carries a #oidc_error
+	// fragment, consumed at boot for the login screen's banner.
+	const [authed, setAuthed] = useState(() => hasSession());
 	// The SSO error is a one-shot boot signal: it must clear once we leave the
 	// failed-login screen, or it sticks in Shell state and re-seeds Login's banner
 	// on every later logout (Shell never unmounts), showing a stale failure long
@@ -68,10 +64,10 @@ function Shell() {
 	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
 
 	const logout = useCallback(() => {
-		// Best-effort server-side revoke so an idle/manual logout drops the session
-		// everywhere, not just this tab; failure is non-fatal (we clear locally).
+		// Server-side: revokes the session and expires the cookie pair everywhere.
+		// Local hint-clear keeps the UI honest even if the request never lands.
 		void api.logout().catch(() => {});
-		clearAuthToken();
+		clearSessionHint();
 		setSsoError(null);
 		setAuthed(false);
 	}, []);

@@ -54,7 +54,6 @@ function renderWizard() {
 // mount. Default to "no primary set" (fresh wizard) + "never run"; individual
 // tests override with their own server.use, which takes precedence.
 beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
 	autosyncPuts = [];
 	server.use(
 		http.get("/api/fleet/autosync", () =>

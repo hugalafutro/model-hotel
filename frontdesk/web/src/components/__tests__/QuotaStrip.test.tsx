@@ -2,7 +2,6 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setAuthToken } from "../../api/client";
 import type { QuotaSnapshot } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
@@ -58,9 +57,15 @@ function renderStrip() {
 }
 
 // The strip only ever renders inside the authenticated shell, so every test here
-// runs with a session token stored, exactly as the real component is used.
-// setup.ts clears localStorage after each test, so this does not leak.
-beforeEach(() => setAuthToken("operator-a"));
+// runs with the readable half of the session cookie pair present, exactly as the
+// real component is used (the refresh button's POST reads it for CSRF). Cookies
+// outlive a test in jsdom, so it is cleared again after each one.
+beforeEach(() => {
+	document.cookie = "fd_csrf=csrf-abc; path=/";
+});
+afterEach(() => {
+	document.cookie = "fd_csrf=; path=/; max-age=0";
+});
 
 describe("QuotaStrip", () => {
 	it("renders a badge per snapshot once loaded", async () => {

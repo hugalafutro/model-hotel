@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { AlertEventDef, AlertStatus, Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
@@ -82,10 +82,6 @@ function baseHandlers(opts?: {
 		),
 	);
 }
-
-beforeEach(() => {
-	localStorage.setItem("fdAuthToken", "tok");
-});
 
 it("renders friendly labels and reflects the stored selection", async () => {
 	baseHandlers();

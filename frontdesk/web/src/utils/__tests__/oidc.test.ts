@@ -1,45 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { consumeOidcError, consumeOidcToken } from "../oidc";
+import { consumeOidcError } from "../oidc";
 
-// consumeOidcToken / consumeOidcError read the SSO result from the URL fragment
-// and scrub it. Drive them by setting window.location.hash directly (jsdom keeps
-// a live location) and assert on the stored token slot + the scrubbed fragment.
+// consumeOidcError reads a failed SSO callback's code from the URL fragment and
+// scrubs it. Drive it by setting window.location.hash directly (jsdom keeps a
+// live location) and assert on the return value + the scrubbed fragment. A
+// SUCCESSFUL callback carries no fragment at all: the session is already in the
+// HttpOnly cookie and the redirect URL is clean.
 
 afterEach(() => {
 	window.location.hash = "";
-	localStorage.clear();
-});
-
-describe("consumeOidcToken", () => {
-	it("stores a token from the fragment, scrubs it, and returns true", () => {
-		window.location.hash = "#oidc_token=session-abc";
-
-		expect(consumeOidcToken()).toBe(true);
-		expect(localStorage.getItem("fdAuthToken")).toBe("session-abc");
-		expect(window.location.hash).toBe("");
-	});
-
-	it("returns false and stores nothing when the fragment has no token prefix", () => {
-		window.location.hash = "#something-else";
-
-		expect(consumeOidcToken()).toBe(false);
-		expect(localStorage.getItem("fdAuthToken")).toBeNull();
-	});
-
-	it("returns false when the token is empty after decoding", () => {
-		window.location.hash = "#oidc_token=";
-
-		expect(consumeOidcToken()).toBe(false);
-		expect(localStorage.getItem("fdAuthToken")).toBeNull();
-		expect(window.location.hash).toBe("");
-	});
-
-	it("returns false without throwing on a malformed percent-encoded token", () => {
-		window.location.hash = "#oidc_token=%E0%A4%A";
-
-		expect(consumeOidcToken()).toBe(false);
-		expect(localStorage.getItem("fdAuthToken")).toBeNull();
-	});
 });
 
 describe("consumeOidcError", () => {
@@ -56,9 +25,17 @@ describe("consumeOidcError", () => {
 		expect(consumeOidcError()).toBe("unknown");
 	});
 
-	it("returns null when the fragment carries no error prefix", () => {
-		window.location.hash = "#oidc_token=abc";
+	it("returns null and leaves an unrelated fragment alone", () => {
+		window.location.hash = "#something-else";
 
 		expect(consumeOidcError()).toBeNull();
+		expect(window.location.hash).toBe("#something-else");
+	});
+
+	it("returns 'unknown' without throwing on a malformed percent-encoded code", () => {
+		window.location.hash = "#oidc_error=%E0%A4%A";
+
+		expect(consumeOidcError()).toBe("unknown");
+		expect(window.location.hash).toBe("");
 	});
 });
