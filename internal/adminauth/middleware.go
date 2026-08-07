@@ -35,12 +35,11 @@ func RequireAdminOrSession(
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Cookie path (browser). The session token rides an HttpOnly cookie
-		// instead of an Authorization header, named by the caller's jar so the
-		// dashboard and Front Desk never read each other's cookie when they
-		// share a hostname. This branch is additive and keeps
-		// the same admin-only gate: it admits only the admin session
-		// (UserID == "admin"). A valid but non-admin (UUID) session cookie, or
-		// an absent/expired cookie, falls through to the header logic below so
+		// instead of an Authorization header, named by the caller's jar so
+		// the dashboard and Front Desk never read each other's cookie when
+		// they share a hostname. It admits only the admin session (UserID
+		// == "admin"). A valid but non-admin (UUID) session cookie, or an
+		// absent/expired cookie, falls through to the header logic below so
 		// header (admin-token / bearer) callers stay unaffected. On unsafe
 		// methods a matching CSRF header is also required.
 		if tok, ok := jar.SessionToken(r); ok && sessionMgr != nil {

@@ -58,8 +58,9 @@ func newTotpTestHandler(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 }
 
 // newTotpTestHandlerLegacy is newTotpTestHandler with useCookieAuth=false,
-// pinning the Front Desk contract: session tokens travel in the JSON body,
-// never as an mh_session cookie.
+// exercising header-bearer mode: session tokens travel in the JSON body,
+// never as an mh_session cookie. Neither production app uses this mode
+// anymore; it stays a tested capability.
 func newTotpTestHandlerLegacy(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	t.Helper()
 	truncateTOTPTables(t)
@@ -553,10 +554,11 @@ func TestTotpEnrollVerify_SetsSessionCookie_NoTokenInBody(t *testing.T) {
 	}
 }
 
-// TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie pins the Front
-// Desk contract: with useCookieAuth=false the post-enroll session token
-// travels in the JSON body alongside recovery_codes, exactly as before the
-// httpOnly-cookie migration, and no mh_session cookie is ever set.
+// TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie covers
+// header-bearer mode: with useCookieAuth=false the post-enroll session token
+// travels in the JSON body alongside recovery_codes, and no mh_session
+// cookie is ever set. Neither production app uses this mode anymore; it
+// stays a tested capability.
 func TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie(t *testing.T) {
 	_, th := newTotpTestHandlerLegacy(t)
 

@@ -58,6 +58,7 @@ Set these in `deploy/ha/.env` (the compose file maps them into the container):
 | `LB_PORT` | optional | Host port for client traffic (Traefik). Default `8080`. |
 | `FRONTDESK_PORT` | optional | Host port for the Front Desk dashboard. Default `8090`. |
 | `FRONTDESK_DEBUG_LOG` | optional | Verbose structured logging. Default `false`. |
+| `COOKIE_SECURE` | optional | `Secure` attribute on the `fd_session`/`fd_csrf` login cookies. `always` (default) sends them only over HTTPS, right for this stack's TLS-terminating proxy and for localhost. `auto` sets `Secure` from the request scheme (TLS or `X-Forwarded-Proto: https`). `never` disables it for plain-http LAN access; otherwise the browser drops the cookies and login fails. |
 
 ## Security and privacy
 

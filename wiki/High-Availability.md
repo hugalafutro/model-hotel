@@ -190,10 +190,12 @@ all keep sending the token in a header, same as before.
 The `Secure` attribute on those cookies is controlled by `COOKIE_SECURE`, default
 `always`. That default works out of the box behind the TLS-terminating proxy this
 stack requires (see [Prerequisites](#prerequisites)) and on localhost dev, since
-both are secure contexts. Set `COOKIE_SECURE=never` only if you deliberately reach
-Front Desk over plain `http://<LAN-IP>` (for example, testing without the TLS
-proxy in front); otherwise the browser silently drops the cookies and login loops
-back to the login screen.
+both are secure contexts. Set `COOKIE_SECURE=auto` to derive `Secure` from the
+request scheme (TLS or `X-Forwarded-Proto: https`) instead. Set
+`COOKIE_SECURE=never` only if you deliberately reach Front Desk over plain
+`http://<LAN-IP>` (for example, testing without the TLS proxy in front);
+otherwise the browser silently drops the cookies and login loops back to the
+login screen.
 
 Two things are worth understanding about authentication in an HA deployment:
 

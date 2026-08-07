@@ -309,13 +309,13 @@ const oidcTestClientID = "model-hotel-test"
 
 func newOIDCTestHandler(t *testing.T, idp *mockIDP, allowed string) (*OIDCHandler, *fakeSettings, *webauthn.SessionManager) {
 	t.Helper()
-	// Default to legacy mode (token-in-fragment) so the existing round-trip and
-	// rejection tests exercise the Front Desk contract unchanged.
+	// Default to header-bearer mode (token-in-fragment) so the existing
+	// round-trip and rejection tests exercise that delivery mode.
 	return newOIDCTestHandlerMode(t, idp, allowed, false, "auto")
 }
 
 // newOIDCTestHandlerMode builds a handler with an explicit cookie-auth mode so
-// tests can cover both the dashboard (cookie) and Front Desk (legacy) surfaces.
+// tests can cover both the cookie-session and header-bearer delivery modes.
 func newOIDCTestHandlerMode(t *testing.T, idp *mockIDP, allowed string, useCookieAuth bool, cookieSecure string) (*OIDCHandler, *fakeSettings, *webauthn.SessionManager) {
 	t.Helper()
 	store := newMemStore()
@@ -486,11 +486,12 @@ func TestOIDCCallback_SetsCookie_RedirectsClean(t *testing.T) {
 	}
 }
 
-// TestOIDCCallback_LegacyMode_NoCookie pins the Front Desk contract: legacy mode
-// keeps the token in the URL fragment and sets no session cookie.
+// TestOIDCCallback_LegacyMode_NoCookie covers header-bearer mode: the token
+// stays in the URL fragment and no session cookie is set. Neither production
+// app uses this mode anymore; it stays a tested capability.
 func TestOIDCCallback_LegacyMode_NoCookie(t *testing.T) {
 	idp := newMockIDP(t, oidcTestClientID)
-	h, _, _ := newOIDCTestHandler(t, idp, "admin@example.com") // legacy default
+	h, _, _ := newOIDCTestHandler(t, idp, "admin@example.com") // header-bearer default
 
 	loc, cookie := runStart(t, h)
 	state := loc.Query().Get("state")

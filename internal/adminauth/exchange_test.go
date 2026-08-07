@@ -63,6 +63,25 @@ func TestTokenExchange_RefusesWhenTotpEnabled(t *testing.T) {
 	}
 }
 
+func TestTokenExchange_NilSessionManager_ReturnsServerErrorWithoutValidating(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(string) bool {
+		t.Error("Validate must not be called before the nil sessionMgr guard")
+		return false
+	}}
+	h := TokenExchange(adminMgr, nil, nil, authcookie.FrontDesk, "never")
+
+	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"x"}`))
+	rec := httptest.NewRecorder()
+	h(rec, r)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 (nil sessionMgr)", rec.Code)
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Fatal("no Set-Cookie header may be sent when sessionMgr is nil")
+	}
+}
+
 func TestTokenExchange_RejectsBadToken(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
 	h := TokenExchange(adminMgr, newTestSessionManager(t), nil, authcookie.FrontDesk, "never")

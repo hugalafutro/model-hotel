@@ -379,7 +379,7 @@ func TestWebAuthnLoginFinish_SetsSessionCookie(t *testing.T) {
 // sets no session cookie, preserving the legacy contract byte-for-byte.
 func TestWebAuthnLoginFinish_LegacyReturnsToken(t *testing.T) {
 	h := newTestWebAuthnHandler(nil, nil, nil, nil)
-	// useCookieAuth defaults to false (Front Desk legacy).
+	// useCookieAuth defaults to false (header-bearer mode).
 
 	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
 	w := httptest.NewRecorder()
@@ -473,7 +473,7 @@ func TestWebAuthnHandler_Logout_LegacyMode_NoSetCookie(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(repo)
 	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
 	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
-	// useCookieAuth defaults to false (Front Desk legacy).
+	// useCookieAuth defaults to false (header-bearer mode).
 
 	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
 	if err != nil {
