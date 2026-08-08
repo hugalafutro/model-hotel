@@ -90,3 +90,29 @@ func TestFleetDivisor_StaleReverts(t *testing.T) {
 		t.Errorf("no-timestamp divisor = %d, want reverted 1", got)
 	}
 }
+
+func TestFleetDivisor_FutureStampReverts(t *testing.T) {
+	ctx := context.Background()
+
+	// A refresh stamp in the future makes time.Since negative, which can never
+	// exceed the TTL — so without an explicit guard the divisor would be pinned
+	// forever and the self-expiry would silently never fire. Treat it as stale.
+	s := newStubSettings()
+	setFleetActive(s, 3)
+	s.set(settingsKeyFleetActiveMembersAt, strconv.FormatInt(time.Now().Add(fleetDivisorTTL*10).Unix(), 10))
+	if got := fleetDivisor(ctx, s); got != 1 {
+		t.Errorf("future-stamp divisor = %d, want reverted 1", got)
+	}
+
+	// Even a stamp only slightly ahead (a backwards clock jump) expires rather
+	// than pinning: the next announce rewrites it from the local clock.
+	s.set(settingsKeyFleetActiveMembersAt, strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10))
+	if got := fleetDivisor(ctx, s); got != 1 {
+		t.Errorf("near-future-stamp divisor = %d, want reverted 1", got)
+	}
+
+	// And the shared TPM path inherits it: no division on an untrustworthy stamp.
+	if got := fleetShareTPM(ctx, s, 900); got != 900 {
+		t.Errorf("future-stamp shared tpm = %d, want undivided 900", got)
+	}
+}

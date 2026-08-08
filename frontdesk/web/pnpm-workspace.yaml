@@ -10,6 +10,16 @@ packages: []
 # install/update/add; --frozen-lockfile CI installs are unaffected. pnpm >= 10.16.
 minimumReleaseAge: 1440
 
+# Supply-chain trust gates mirrored from web/pnpm-workspace.yaml (see there for
+# the rationale): reject a version that drops supply-chain trust rank relative to
+# the package's own history (the fingerprint of a stolen maintainer token), and
+# reject subdependencies resolved from git refs, tarball URLs or local paths
+# instead of a registry. Both gate fresh resolution only, so --frozen-lockfile CI
+# installs are unaffected. Verified against the pinned pnpm 10.33.
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 129600
+blockExoticSubdeps: true
+
 # Transitive build/lint-time dep pins mirrored from web/pnpm-workspace.yaml so
 # the same Dependabot advisories stay closed here. Remove each once a direct
 # dependency requires the patched range on its own.

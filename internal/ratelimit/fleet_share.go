@@ -43,13 +43,25 @@ const fleetDivisorTTL = 24 * time.Hour
 // member is standalone, has been pulled from the fleet, or is under a control
 // plane too old to send the count — so the divisor reverts to 1 rather than
 // under-serve on a frozen fraction of the configured capacity.
+//
+// A timestamp in the future counts as untrustworthy, not as fresh: time.Since
+// returns a negative duration for it, which can never exceed the TTL, so a
+// future stamp would pin the divisor forever and defeat the self-expiry this
+// whole check exists to provide. The stamp is written member-locally from
+// time.Now (internal/api/fleet.go), so the only ways to get one are a backwards
+// clock jump or a direct settings write; both are cases where expiring is the
+// honest answer. The next announce writes a sane stamp and restores division.
 func fleetDivisor(ctx context.Context, s SettingsReader) int {
 	n := s.GetInt(ctx, settingsKeyFleetActiveMembers, 1)
 	if n <= 1 {
 		return 1
 	}
 	at := s.GetInt(ctx, settingsKeyFleetActiveMembersAt, 0)
-	if at == 0 || time.Since(time.Unix(int64(at), 0)) > fleetDivisorTTL {
+	if at == 0 {
+		return 1
+	}
+	// Negative age == future stamp; both ends of the range are untrustworthy.
+	if age := time.Since(time.Unix(int64(at), 0)); age < 0 || age > fleetDivisorTTL {
 		return 1
 	}
 	return n
