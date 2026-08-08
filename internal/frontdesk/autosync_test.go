@@ -2074,17 +2074,25 @@ func TestAutoSync_PromotedPrimaryClosesItsHold(t *testing.T) {
 	if len(evs) != 1 || evs[0].MemberID != rm.ID {
 		t.Fatalf("config.sync_recovered after promotion = %d events, want exactly 1 for the promoted member", len(evs))
 	}
+	// The message must tell the promotion story: sync was not "resumed" to a
+	// member that is now the source and is never synced to.
+	if !strings.Contains(evs[0].Message, "it is now the primary") {
+		t.Errorf("promoted-primary recovered message = %q, want the promotion wording", evs[0].Message)
+	}
 	if replica.didRealSync() {
 		t.Error("the promoted primary was pushed to; the source is never written to")
 	}
 }
 
 // TestAutoSync_TokenlessMemberStillClosesItsHold: a held member whose admin
-// token is cleared is skipped for measuring and pushing, but once its versions
-// realign its hold must still close. The version verdict comes from the poller,
-// not the sync token, so Front Desk knows the skew is over and must say so
-// rather than leave config.sync_held dangling against a member the versions
-// say is fine.
+// token is cleared is skipped for measuring and pushing, but once the versions
+// realign its hold must still close. The version verdict comes from the
+// poller, not the sync token, so Front Desk knows the skew is over and must
+// say so rather than leave config.sync_held dangling against a member the
+// versions say is fine. The realignment is the primary's version moving onto
+// the member's, because that is the direction reachable in production: the
+// poller skips a tokenless member, so its own polled version stays frozen at
+// the last read taken while it had a token.
 func TestAutoSync_TokenlessMemberStillClosesItsHold(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
@@ -2099,11 +2107,12 @@ func TestAutoSync_TokenlessMemberStillClosesItsHold(t *testing.T) {
 	setMemberVersion(srv, rm.ID, "v0.9.0")
 	srv.forceAutoSyncNow(t.Context()) // announces the hold on the replica
 
-	// The member's token is cleared while held, then its versions realign.
+	// The member's token is cleared while held, then the operator rolls the
+	// primary back onto the member's (frozen) version.
 	if err := store.SetMemberToken(t.Context(), rm.ID, ""); err != nil {
 		t.Fatalf("SetMemberToken: %v", err)
 	}
-	setMemberVersion(srv, rm.ID, "v1.0.0")
+	setMemberVersion(srv, pm.ID, "v0.9.0")
 	srv.forceAutoSyncNow(t.Context())
 
 	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
@@ -2112,6 +2121,11 @@ func TestAutoSync_TokenlessMemberStillClosesItsHold(t *testing.T) {
 	}
 	if len(evs) != 1 || evs[0].MemberID != rm.ID {
 		t.Fatalf("config.sync_recovered for the tokenless member = %d events, want exactly 1", len(evs))
+	}
+	// The message must not claim sync resumed: without a token there is
+	// nothing to resume with, only a skew that ended.
+	if strings.Contains(evs[0].Message, "Resumed sync") {
+		t.Errorf("tokenless recovered message = %q, want no resumed-sync claim", evs[0].Message)
 	}
 	if replica.didRealSync() {
 		t.Error("a tokenless member was pushed to")
@@ -2135,7 +2149,7 @@ func TestAutoSync_FailedRecoveredEmitIsNotMemoisedAsClosed(t *testing.T) {
 	if err := store.db.Close(); err != nil {
 		t.Fatalf("close store db: %v", err)
 	}
-	srv.closeSyncHold(t.Context(), m)
+	srv.closeSyncHold(t.Context(), m, "m1 is no longer held for sync: its app version matches the primary's again")
 
 	srv.syncHeldMu.Lock()
 	checked := srv.holdLogChecked[m.ID]

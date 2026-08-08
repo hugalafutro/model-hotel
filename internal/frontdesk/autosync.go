@@ -325,7 +325,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			// member's promotion must still close here: no other pass will ever
 			// reach it, and an unclosed config.sync_held would stay the new
 			// primary's newest event forever.
-			s.closeSyncHold(ctx, m)
+			s.closeSyncHold(ctx, m, fmt.Sprintf("%s is no longer held for sync: it is now the primary", m.Name))
 			continue
 		}
 		if stale() {
@@ -347,7 +347,13 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		memberVer := s.poller.MemberVersion(m.ID)
 		skewed := versionSkew(primaryVer, memberVer)
 		if !skewed {
-			s.closeSyncHold(ctx, m)
+			// "Resumed" is only claimed when a token exists to resume with; for a
+			// tokenless member the versions realigned but sync stays impossible.
+			message := fmt.Sprintf("%s is no longer held for sync: its app version matches the primary's again", m.Name)
+			if m.HasToken {
+				message = fmt.Sprintf("Resumed sync to %s: its app version matches the primary's again", m.Name)
+			}
+			s.closeSyncHold(ctx, m, message)
 		}
 		if !m.HasToken {
 			// Cannot be authenticated to, so it can be measured in neither direction.
@@ -567,7 +573,13 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 // from before its promotion; a member that was never held emits nothing. The
 // persisted log is consulted too (heldPerLog), so a hold announced before a
 // restart — syncHeld itself is in-memory — is also closed out.
-func (s *Server) closeSyncHold(ctx context.Context, m *Member) {
+//
+// message is the operator-facing reason the hold is over, supplied by the call
+// site because only it knows which story is true: sync resuming, versions
+// realigning on a member sync cannot reach, or the member's promotion. It must
+// keep to one of the two shapes Bellhop's name-stripper knows (the member name
+// leading the sentence, or a " to <name>" target).
+func (s *Server) closeSyncHold(ctx context.Context, m *Member, message string) {
 	s.syncHeldMu.Lock()
 	was := s.syncHeld[m.ID]
 	delete(s.syncHeld, m.ID)
@@ -575,19 +587,26 @@ func (s *Server) closeSyncHold(ctx context.Context, m *Member) {
 	if !was && !s.heldPerLog(ctx, m) {
 		return
 	}
-	if !s.emitPersisted(ctx, Event{
+	ev := Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
-		Message:  fmt.Sprintf("Resumed sync to %s: its app version matches the primary's again", m.Name),
-		MemberID: m.ID,
-	}) {
-		// The closing event never reached the log, which therefore still ends
-		// with the member held. Drop the memoised log verdict so the next pass
-		// re-reads the log, finds the hold still open, and retries the event.
-		// The in-memory hold stays cleared: the fleet state is already right.
+		Message: message, MemberID: m.ID,
+	}
+	// Inserted and published by hand rather than through emit: the publish must
+	// wait for the insert. On a failed insert the log still ends with the member
+	// held, so the memoised log verdict is dropped and the next pass re-reads
+	// the log, finds the hold still open, and retries — and holding the bus
+	// publish back with it keeps SSE consumers and the alert dispatcher at one
+	// event per close instead of one per retry. The in-memory hold stays
+	// cleared either way: the fleet state is already right.
+	stored, err := s.store.InsertEvent(ctx, ev)
+	if err != nil {
+		debuglog.Warn("frontdesk: persist event", "type", ev.Type, "error", err)
 		s.syncHeldMu.Lock()
 		delete(s.holdLogChecked, m.ID)
 		s.syncHeldMu.Unlock()
+		return
 	}
+	s.bus.Publish(busEvent(stored))
 }
 
 // heldPerLog reports whether the event log left this member inside an open

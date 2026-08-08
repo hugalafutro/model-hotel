@@ -171,23 +171,16 @@ func (c *totpEnabledCache) Refresh(ctx context.Context) {
 	c.val.Store(enabled)
 }
 
-// emit persists a control-plane event and publishes it on the SSE bus.
+// emit persists a control-plane event and publishes it on the SSE bus. The
+// publish is best-effort on a failed insert; closeSyncHold, whose correctness
+// leans on the persisted log, inserts and publishes by hand instead.
 func (s *Server) emit(ctx context.Context, e Event) {
-	s.emitPersisted(ctx, e)
-}
-
-// emitPersisted is emit, reporting whether the event reached the store. The
-// bus publish happens either way; a caller whose correctness leans on the
-// persisted log (closeSyncHold's restart reconciliation) retries on false,
-// where emit's callers treat persistence as best-effort.
-func (s *Server) emitPersisted(ctx context.Context, e Event) bool {
 	stored, err := s.store.InsertEvent(ctx, e)
 	if err != nil {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
 	s.bus.Publish(busEvent(stored))
-	return err == nil
 }
 
 // busEvent maps a stored Front Desk Event to a bus event. When the event concerns
