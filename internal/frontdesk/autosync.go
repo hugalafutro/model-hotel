@@ -580,20 +580,23 @@ func (s *Server) heldPerLog(ctx context.Context, memberID string) bool {
 	if done {
 		return false
 	}
-	held, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_held", Limit: 1})
-	if err != nil {
-		debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
-		return false
-	}
-	recovered, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_recovered", Limit: 1})
-	if err != nil {
-		debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
-		return false
+	var newest [2]time.Time // when the newest sync_held / sync_recovered was emitted
+	var have [2]bool
+	for i, typ := range []string{"config.sync_held", "config.sync_recovered"} {
+		evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: typ, Limit: 1})
+		if err != nil {
+			debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
+			return false
+		}
+		if len(evs) > 0 {
+			have[i] = true
+			newest[i] = evs[0].CreatedAt
+		}
 	}
 	s.syncHeldMu.Lock()
 	s.holdLogChecked[memberID] = true
 	s.syncHeldMu.Unlock()
-	return len(held) > 0 && (len(recovered) == 0 || recovered[0].CreatedAt.Before(held[0].CreatedAt))
+	return have[0] && (!have[1] || newest[1].Before(newest[0]))
 }
 
 // incompleteState is what Front Desk remembers about a member it has given the

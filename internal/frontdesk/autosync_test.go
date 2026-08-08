@@ -1984,6 +1984,26 @@ func TestAutoSync_ClosesHoldAcrossRestart(t *testing.T) {
 	}
 }
 
+// TestAutoSync_HoldLogReadErrorIsNotMemoised: a store error while reconciling
+// the persisted hold state reads as "not held" for that pass but is not
+// remembered as resolved, so the next pass retries the read instead of
+// treating a transient DB failure as a clean log.
+func TestAutoSync_HoldLogReadErrorIsNotMemoised(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close store db: %v", err)
+	}
+	if srv.heldPerLog(t.Context(), "m1") {
+		t.Error("heldPerLog = true on a store read error, want false")
+	}
+	srv.syncHeldMu.Lock()
+	checked := srv.holdLogChecked["m1"]
+	srv.syncHeldMu.Unlock()
+	if checked {
+		t.Error("a failed log read was memoised as checked; it must retry on the next pass")
+	}
+}
+
 // TestAutoSync_StillHeldAfterRestartDoesNotRealert: a restart that comes back
 // up with the member still skewed is continuing a hold the previous process
 // already announced, not entering a new one, so config.sync_held is not
