@@ -352,7 +352,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
 			continue
 		}
-		s.clearSyncHold(m.ID)
+		s.closeSyncHold(ctx, m)
 		converged, measured := s.measureMember(ctx, passCtx, m, token, hash)
 		if converged {
 			continue
@@ -527,6 +527,12 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 	if already {
 		return
 	}
+	if s.heldPerLog(ctx, m.ID) {
+		// The previous process already announced this hold and it never closed:
+		// the member is continuing a hold, not entering one, so re-emitting
+		// config.sync_held would duplicate the alert after every restart.
+		return
+	}
 	debuglog.Debug("frontdesk: auto-sync: holding member for version skew",
 		"member", m.Name, "primary_version", primaryVer, "member_version", memberVer)
 	s.emit(ctx, Event{
@@ -537,12 +543,57 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 	})
 }
 
-// clearSyncHold forgets a member's held-for-skew state so a future divergence
-// re-emits config.sync_held. Called whenever the member is not skewed on a pass.
-func (s *Server) clearSyncHold(memberID string) {
+// closeSyncHold forgets a member's held-for-skew state so a future divergence
+// re-emits config.sync_held, and emits config.sync_recovered once on the
+// transition out. Without the closing event, config.sync_held stays the
+// member's newest event indefinitely, and every consumer that leads with it
+// (Bellhop's member pill, the events feed) keeps telling a "held" story about a
+// member the live status shows verified in sync. Called whenever the member is
+// not skewed on a pass; a member that was never held emits nothing. The
+// persisted log is consulted too (heldPerLog), so a hold announced before a
+// restart — syncHeld itself is in-memory — is also closed out.
+func (s *Server) closeSyncHold(ctx context.Context, m *Member) {
 	s.syncHeldMu.Lock()
-	delete(s.syncHeld, memberID)
+	was := s.syncHeld[m.ID]
+	delete(s.syncHeld, m.ID)
 	s.syncHeldMu.Unlock()
+	if !was && !s.heldPerLog(ctx, m.ID) {
+		return
+	}
+	s.emit(ctx, Event{
+		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+		Message:  fmt.Sprintf("Resumed sync to %s: its app version matches the primary's again", m.Name),
+		MemberID: m.ID,
+	})
+}
+
+// heldPerLog reports whether the event log left this member inside an open
+// hold: a config.sync_held with no config.sync_recovered after it. The
+// in-memory syncHeld map is authoritative from the moment a pass touches the
+// member, so the log is read at most once per member per process (a read error
+// is not memoised and retries on the next pass). A tie on timestamps counts as
+// closed, so an ambiguous log never produces a spurious event.
+func (s *Server) heldPerLog(ctx context.Context, memberID string) bool {
+	s.syncHeldMu.Lock()
+	done := s.holdLogChecked[memberID]
+	s.syncHeldMu.Unlock()
+	if done {
+		return false
+	}
+	held, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_held", Limit: 1})
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
+		return false
+	}
+	recovered, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_recovered", Limit: 1})
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
+		return false
+	}
+	s.syncHeldMu.Lock()
+	s.holdLogChecked[memberID] = true
+	s.syncHeldMu.Unlock()
+	return len(held) > 0 && (len(recovered) == 0 || recovered[0].CreatedAt.Before(held[0].CreatedAt))
 }
 
 // incompleteState is what Front Desk remembers about a member it has given the
@@ -744,8 +795,7 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 // LAN hostname and port should not start reaching a notification provider as a
 // side effect of this check. The unredacted error still goes to the local log.
 func unreadableCause(err error) string {
-	var uerr *url.Error
-	if errors.As(err, &uerr) {
+	if _, ok := errors.AsType[*url.Error](err); ok {
 		if isTimeout(err) {
 			return "the member did not answer in time"
 		}

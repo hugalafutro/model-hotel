@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Wersja",
 		"colLastSync": "Ostatnia synchronizacja konfiguracji",
-		"colUpdated": "Aktualizacja",
 		"lastSyncNever": "Nigdy",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "Ten członek jest źródłem konfiguracji.",

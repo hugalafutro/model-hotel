@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "バージョン",
 		"colLastSync": "最終設定同期",
-		"colUpdated": "更新",
 		"lastSyncNever": "なし",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "このメンバーが設定の来源です。",

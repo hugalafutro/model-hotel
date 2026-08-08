@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Verze",
 		"colLastSync": "Poslední synchronizace konfigurace",
-		"colUpdated": "Aktualizováno",
 		"lastSyncNever": "Nikdy",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "Tento člen je zdrojem konfigurace.",

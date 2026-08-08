@@ -193,7 +193,6 @@ export function MembersPage() {
 								<th>{t("members.colVerified")}</th>
 								<th>{t("members.colLastSync")}</th>
 								<th>{t("members.colState")}</th>
-								<th>{t("members.colUpdated")}</th>
 								<th />
 							</tr>
 						</thead>
@@ -426,7 +425,6 @@ function MemberRow({
 					</span>
 				)}
 			</td>
-			<td className="fd-faint">{formatRelative(m.updated_at)}</td>
 			<td>
 				<div className="fd-row" style={{ justifyContent: "flex-end" }}>
 					{m.state === "active" ? (
