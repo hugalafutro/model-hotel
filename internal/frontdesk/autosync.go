@@ -321,13 +321,33 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	primaryVer := s.poller.MemberVersion(primary.ID)
 	for _, m := range members {
 		if m.ID == primary.ID {
-			continue // the source is never written to
+			// The source is never written to, but a hold announced before this
+			// member's promotion must still close here: no other pass will ever
+			// reach it, and an unclosed config.sync_held would stay the new
+			// primary's newest event forever.
+			s.closeSyncHold(ctx, m)
+			continue
 		}
 		if stale() {
 			// A rearm/repoint landed mid-pass: stop before importing the stale export
 			// into any further member, and leave the rest to the rearm's own pass.
 			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", applied)
 			break
+		}
+		// Version gate: never push onto a member running a different app version. An
+		// older primary's export omits settings the newer member legitimately has, and
+		// the member-side converge-delete would drop them. Fails closed on an unknown
+		// version, and is re-evaluated every pass, so it resumes automatically.
+		//
+		// Decided before the token guards, because the verdict comes from the poller,
+		// not the token: a held member whose token was cleared must still close its
+		// hold once versions realign, or the "held" story outlives the skew. Entering
+		// a hold stays behind the guards: sync to a tokenless member is not held, it
+		// is impossible, and holds on unsyncable members would be noise.
+		memberVer := s.poller.MemberVersion(m.ID)
+		skewed := versionSkew(primaryVer, memberVer)
+		if !skewed {
+			s.closeSyncHold(ctx, m)
 		}
 		if !m.HasToken {
 			// Cannot be authenticated to, so it can be measured in neither direction.
@@ -343,16 +363,10 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			debuglog.Debug("frontdesk: auto-sync: member token unavailable, will retry", "member", m.Name, "loaded", ok, "error", err)
 			continue
 		}
-		// Version gate: never push onto a member running a different app version. An
-		// older primary's export omits settings the newer member legitimately has, and
-		// the member-side converge-delete would drop them. Fails closed on an unknown
-		// version, and is re-evaluated every pass, so it resumes automatically.
-		memberVer := s.poller.MemberVersion(m.ID)
-		if versionSkew(primaryVer, memberVer) {
+		if skewed {
 			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
 			continue
 		}
-		s.closeSyncHold(ctx, m)
 		converged, measured := s.measureMember(ctx, passCtx, m, token, hash)
 		if converged {
 			continue
@@ -527,7 +541,7 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 	if already {
 		return
 	}
-	if s.heldPerLog(ctx, m.ID) {
+	if s.heldPerLog(ctx, m) {
 		// The previous process already announced this hold and it never closed:
 		// the member is continuing a hold, not entering one, so re-emitting
 		// config.sync_held would duplicate the alert after every restart.
@@ -549,7 +563,8 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 // member's newest event indefinitely, and every consumer that leads with it
 // (Bellhop's member pill, the events feed) keeps telling a "held" story about a
 // member the live status shows verified in sync. Called whenever the member is
-// not skewed on a pass; a member that was never held emits nothing. The
+// not skewed on a pass, and for the primary itself, which may carry a hold
+// from before its promotion; a member that was never held emits nothing. The
 // persisted log is consulted too (heldPerLog), so a hold announced before a
 // restart — syncHeld itself is in-memory — is also closed out.
 func (s *Server) closeSyncHold(ctx context.Context, m *Member) {
@@ -557,46 +572,47 @@ func (s *Server) closeSyncHold(ctx context.Context, m *Member) {
 	was := s.syncHeld[m.ID]
 	delete(s.syncHeld, m.ID)
 	s.syncHeldMu.Unlock()
-	if !was && !s.heldPerLog(ctx, m.ID) {
+	if !was && !s.heldPerLog(ctx, m) {
 		return
 	}
-	s.emit(ctx, Event{
+	if !s.emitPersisted(ctx, Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
 		Message:  fmt.Sprintf("Resumed sync to %s: its app version matches the primary's again", m.Name),
 		MemberID: m.ID,
-	})
+	}) {
+		// The closing event never reached the log, which therefore still ends
+		// with the member held. Drop the memoised log verdict so the next pass
+		// re-reads the log, finds the hold still open, and retries the event.
+		// The in-memory hold stays cleared: the fleet state is already right.
+		s.syncHeldMu.Lock()
+		delete(s.holdLogChecked, m.ID)
+		s.syncHeldMu.Unlock()
+	}
 }
 
 // heldPerLog reports whether the event log left this member inside an open
-// hold: a config.sync_held with no config.sync_recovered after it. The
-// in-memory syncHeld map is authoritative from the moment a pass touches the
-// member, so the log is read at most once per member per process (a read error
-// is not memoised and retries on the next pass). A tie on timestamps counts as
-// closed, so an ambiguous log never produces a spurious event.
-func (s *Server) heldPerLog(ctx context.Context, memberID string) bool {
+// hold: a config.sync_held with no config.sync_recovered after it, decided by
+// one newest-of-the-two-types read under the store's deterministic tie-break.
+// The in-memory syncHeld map is authoritative from the moment a pass touches
+// the member, so the log is read at most once per member per process (a read
+// error is not memoised and retries on the next pass, and closeSyncHold drops
+// the memo again when its closing event fails to persist).
+func (s *Server) heldPerLog(ctx context.Context, m *Member) bool {
 	s.syncHeldMu.Lock()
-	done := s.holdLogChecked[memberID]
+	done := s.holdLogChecked[m.ID]
 	s.syncHeldMu.Unlock()
 	if done {
 		return false
 	}
-	var newest [2]time.Time // when the newest sync_held / sync_recovered was emitted
-	var have [2]bool
-	for i, typ := range []string{"config.sync_held", "config.sync_recovered"} {
-		evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: typ, Limit: 1})
-		if err != nil {
-			debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", memberID, "error", err)
-			return false
-		}
-		if len(evs) > 0 {
-			have[i] = true
-			newest[i] = evs[0].CreatedAt
-		}
+	newest, found, err := s.store.NewestEventOfTypes(ctx, m.ID, "config.sync_held", "config.sync_recovered")
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync: read persisted hold state", "member", m.Name, "error", err)
+		return false
 	}
 	s.syncHeldMu.Lock()
-	s.holdLogChecked[memberID] = true
+	s.holdLogChecked[m.ID] = true
 	s.syncHeldMu.Unlock()
-	return have[0] && (!have[1] || newest[1].Before(newest[0]))
+	return found && newest.Type == "config.sync_held"
 }
 
 // incompleteState is what Front Desk remembers about a member it has given the

@@ -412,6 +412,38 @@ func TestNewestEventPerMember(t *testing.T) {
 	}
 }
 
+func TestNewestEventOfTypes(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	a, _ := s.CreateMember(ctx, "a", "http://a:8081", "")
+	b, _ := s.CreateMember(ctx, "b", "http://b:8081", "")
+
+	base := time.Now().UTC()
+	_, _ = s.InsertEvent(ctx, Event{Type: "config.sync_held", Severity: "warning", Source: "frontdesk", Message: "held", MemberID: a.ID, CreatedAt: base})
+	_, _ = s.InsertEvent(ctx, Event{Type: "config.sync_recovered", Severity: "success", Source: "frontdesk", Message: "recovered", MemberID: a.ID, CreatedAt: base.Add(time.Minute)})
+	// Newer events of other types, and other members' events, must not shadow the pick.
+	_, _ = s.InsertEvent(ctx, Event{Type: "health.up", Severity: "success", Source: "poller", Message: "up", MemberID: a.ID, CreatedAt: base.Add(2 * time.Minute)})
+	_, _ = s.InsertEvent(ctx, Event{Type: "config.sync_held", Severity: "warning", Source: "frontdesk", Message: "held", MemberID: b.ID, CreatedAt: base.Add(3 * time.Minute)})
+
+	ev, found, err := s.NewestEventOfTypes(ctx, a.ID, "config.sync_held", "config.sync_recovered")
+	if err != nil {
+		t.Fatalf("NewestEventOfTypes: %v", err)
+	}
+	if !found || ev.Type != "config.sync_recovered" {
+		t.Errorf("newest of the two types = (%q, %v), want config.sync_recovered", ev.Type, found)
+	}
+
+	// A member with no event of the given types reports found=false, whatever
+	// else its log holds.
+	if _, found, err := s.NewestEventOfTypes(ctx, a.ID, "config.auto_synced"); err != nil || found {
+		t.Errorf("no event of type: found=%v err=%v, want found=false", found, err)
+	}
+	if _, found, err := s.NewestEventOfTypes(ctx, a.ID); err != nil || found {
+		t.Errorf("no types given: found=%v err=%v, want found=false", found, err)
+	}
+}
+
 func TestEventsPagination(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
