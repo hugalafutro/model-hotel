@@ -418,6 +418,39 @@ describe("MembersPage", () => {
 		expect(await screen.findByText("hotel-2")).toBeInTheDocument();
 	});
 
+	it("live-refreshes the primary badge when a settings event arrives", async () => {
+		// Repointing the primary (or toggling auto-sync) emits only
+		// settings.changed, so the event filter must refresh the auto-sync
+		// status on it or the badge stays stale until the next unrelated event.
+		let autosyncCalls = 0;
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/fleet/autosync", () => {
+				autosyncCalls += 1;
+				return HttpResponse.json(
+					autosyncCalls === 1
+						? { enabled: false, primary_id: "" }
+						: { enabled: true, primary_id: "1" },
+				);
+			}),
+			sseEmitting([
+				{
+					id: "e1",
+					type: "settings.changed",
+					severity: "info",
+					source: "frontdesk",
+					message: "auto-sync settings updated",
+					created_at: "",
+				},
+			]),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(await screen.findByTestId("primary-badge")).toBeInTheDocument();
+	});
+
 	it("shows the error state when the list cannot be loaded", async () => {
 		server.use(
 			http.get("/api/members", () => new HttpResponse("boom", { status: 500 })),

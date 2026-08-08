@@ -81,10 +81,12 @@ export function MembersPage() {
 	}, []);
 	const primaryId = autoSync?.primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
-	// refresh the auto-sync status when membership, a sync, health, or a fleet /
-	// Traefik signal changes, rather than opening a second stream to /api/sse.
-	// The health/fleet/traefik events are what move the fleet-state badge, so the
-	// filter is wider here than the membership-only refresh the primary needed.
+	// refresh the auto-sync status when membership, a sync, health, a fleet /
+	// Traefik signal, or a settings change lands, rather than opening a second
+	// stream to /api/sse. The health/fleet/traefik events are what move the
+	// fleet-state badge, and settings.changed is the only event emitted when
+	// auto-sync is toggled or the primary is repointed, so the filter is wider
+	// here than the membership-only refresh the primary needed.
 	const { members, loading, error, refetch, lastUpdatedAt } = useMembers(
 		useCallback(
 			(e) => {
@@ -93,7 +95,8 @@ export function MembersPage() {
 					e.type.startsWith("config.") ||
 					e.type.startsWith("health.") ||
 					e.type.startsWith("fleet.") ||
-					e.type.startsWith("traefik.")
+					e.type.startsWith("traefik.") ||
+					e.type.startsWith("settings.")
 				) {
 					refreshPrimary();
 				}

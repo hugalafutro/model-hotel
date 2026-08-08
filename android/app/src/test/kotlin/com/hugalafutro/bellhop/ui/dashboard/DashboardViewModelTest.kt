@@ -791,16 +791,20 @@ class DashboardViewModelTest {
 
     @Test
     fun triggersRefreshOnlyForRenderedEventFamilies() {
-        // Membership/config/health/version events change a member card, and
-        // fleet/traefik events move the fleet-state summary; alerts ride the same
-        // stream but must not trigger a refetch.
+        // Membership/config/health/version events change a member card,
+        // fleet/traefik events move the fleet-state summary, and settings
+        // events carry the auto-sync toggle and primary repoints; device and
+        // backup events (real types the stream does carry) show nowhere on the
+        // dashboard and must not trigger a refetch.
         assertTrue(DashboardViewModel.triggersRefresh("member.added"))
         assertTrue(DashboardViewModel.triggersRefresh("config.auto_synced"))
         assertTrue(DashboardViewModel.triggersRefresh("health.down"))
         assertTrue(DashboardViewModel.triggersRefresh("version.fetch_failed"))
         assertTrue(DashboardViewModel.triggersRefresh("fleet.state_changed"))
         assertTrue(DashboardViewModel.triggersRefresh("traefik.stale"))
-        assertFalse(DashboardViewModel.triggersRefresh("alert.fired"))
+        assertTrue(DashboardViewModel.triggersRefresh("settings.changed"))
+        assertFalse(DashboardViewModel.triggersRefresh("device.paired"))
+        assertFalse(DashboardViewModel.triggersRefresh("backup.pruned"))
     }
 
     @Test
