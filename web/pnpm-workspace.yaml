@@ -10,6 +10,32 @@ packages: []
 # exact lockfile versions and are unaffected. pnpm >= 10.16.
 minimumReleaseAge: 1440
 
+# Refuse a version whose supply-chain trust rank is lower than the ranks already
+# seen for that package (trusted-publisher > provenance attestation > neither).
+# That drop is the signature of a stolen maintainer token publishing outside the
+# package's normal CI: the release still looks like a routine bump, but arrives
+# without the attestation every prior release carried. Like the cooldown above it
+# only gates fresh resolution, so --frozen-lockfile CI installs are unaffected.
+# Verified against the pinned pnpm 10.33 (packageManager in package.json).
+trustPolicy: no-downgrade
+
+# Enforce that trust check only on releases younger than 90 days (129600 min).
+# The check is by publish date, not semver, so unscoped it also condemns the
+# pre-provenance long tail: a from-scratch resolve fails on semver@6.3.1 (2023,
+# transitive under @babel/core) purely because a later-published sibling carries
+# an attestation it predates. That is archaeology, not an incident. A real
+# takeover ships a *new* version, which is exactly what this window still
+# covers, and minimumReleaseAge above already holds the first 24h of it.
+trustPolicyIgnoreAfter: 129600
+
+# Refuse subdependencies resolved from anywhere but a registry (git refs, bare
+# tarball URLs, local paths). Direct dependencies here are all registry packages,
+# so an exotic spec appearing at depth > 0 means some transitive maintainer
+# started pulling code from a URL nobody in this repo reviewed. Checked only on
+# fresh resolution; entries replayed from the lockfile are skipped. Verified
+# against the pinned pnpm 10.33.
+blockExoticSubdeps: true
+
 # Force the transitive @babel/core (pulled in by eslint-plugin-react-hooks,
 # build/lint-time only) to a patched release. Fixes Dependabot advisory
 # GHSA-4x5r-pxfx-6jf8; 7.29.0 is the vulnerable pin. Remove once a direct
