@@ -171,7 +171,9 @@ func (c *totpEnabledCache) Refresh(ctx context.Context) {
 	c.val.Store(enabled)
 }
 
-// emit persists a control-plane event and publishes it on the SSE bus.
+// emit persists a control-plane event and publishes it on the SSE bus. The
+// publish is best-effort on a failed insert; closeSyncHold, whose correctness
+// leans on the persisted log, inserts and publishes by hand instead.
 func (s *Server) emit(ctx context.Context, e Event) {
 	stored, err := s.store.InsertEvent(ctx, e)
 	if err != nil {

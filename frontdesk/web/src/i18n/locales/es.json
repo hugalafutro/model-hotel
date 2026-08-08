@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Versión",
 		"colLastSync": "Última sinc. de config",
-		"colUpdated": "Actualizado",
 		"lastSyncNever": "Nunca",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "Este miembro es el origen de la configuración.",

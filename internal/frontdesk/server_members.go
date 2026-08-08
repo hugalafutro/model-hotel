@@ -279,6 +279,7 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 func (s *Server) forgetMemberState(id string) {
 	s.syncHeldMu.Lock()
 	delete(s.syncHeld, id)
+	delete(s.holdLogChecked, id)
 	s.syncHeldMu.Unlock()
 
 	s.syncIncompleteMu.Lock()

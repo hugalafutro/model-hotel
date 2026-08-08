@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "版本",
 		"colLastSync": "上次配置同步",
-		"colUpdated": "更新时间",
 		"lastSyncNever": "从未",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "此成员是配置的来源。",

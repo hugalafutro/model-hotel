@@ -83,11 +83,18 @@ type Server struct {
 	rearmMu sync.Mutex
 	rearmCh chan struct{}
 	// syncHeld tracks which members autosync is currently holding for version
-	// skew, so config.sync_held fires once on the transition into held rather than
-	// every pass (mirrors the poller's versionFailures edge-trigger). In-memory and
-	// bounded by fleet size; a restart re-emits at most once per still-held member.
+	// skew, so config.sync_held fires once on the transition into held and
+	// config.sync_recovered once on the way out rather than every pass (mirrors
+	// the poller's versionFailures edge-trigger). In-memory and bounded by fleet
+	// size; a restart reconciles against the event log (heldPerLog) so a hold the
+	// previous process announced is still closed out, and a still-held member is
+	// not re-alerted.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
+	// holdLogChecked marks members whose persisted hold state this process has
+	// already reconciled, so heldPerLog reads the event log at most once per
+	// member. Guarded by syncHeldMu; in-memory and bounded by fleet size.
+	holdLogChecked map[string]bool
 	// syncIncomplete tracks which members took a config and when, and which of them
 	// still do not serve the primary's hash. Drives the once-per-transition
 	// config.sync_incomplete event and the rate-limited re-push (see
@@ -191,6 +198,7 @@ func NewServer(cfg ServerConfig) *Server {
 		ipLimiter:       cfg.IPLimiter,
 		rearmCh:         make(chan struct{}),
 		syncHeld:        make(map[string]bool),
+		holdLogChecked:  make(map[string]bool),
 		syncIncomplete:  make(map[string]incompleteState),
 		unconfirmedSync: make(map[string]string),
 		backupStale:     make(map[string]bool),

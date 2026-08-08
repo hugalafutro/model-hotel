@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -135,6 +136,29 @@ class DashboardScreenTest {
         pill.assertIsDisplayed()
         pill.performClick()
         assertEquals("m1", opened)
+    }
+
+    @Test
+    fun recentEventPillDropsTheMembersOwnName() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            recentEvents =
+                                mapOf("m1" to FdEvent(id = "e1", severity = "success", message = "alpha is healthy")),
+                        ),
+                )
+            }
+        }
+        // The card header already says "alpha", so the pill under it doesn't. The
+        // message is server-composed English rather than app copy, so asserting on
+        // it here ties the test to Front Desk's wording, not to a translation.
+        composeTestRule.onNodeWithText("is healthy").assertIsDisplayed()
+        composeTestRule.onNodeWithText("alpha is healthy").assertDoesNotExist()
     }
 
     @Test

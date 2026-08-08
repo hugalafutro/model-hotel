@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Versie",
 		"colLastSync": "Laatste config-sync",
-		"colUpdated": "Bijgewerkt",
 		"lastSyncNever": "Nooit",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "Deze member is de bron van de configuratie.",

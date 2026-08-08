@@ -75,6 +75,7 @@ import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.events.eventClipboardText
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -261,6 +262,10 @@ fun MemberDetailScreen(
                             itemsIndexed(ui.events) { index, event ->
                                 MemberEventRow(
                                     event = event,
+                                    // Only this member's own events lose the name --
+                                    // the screen is headed by it. An event about
+                                    // someone else keeps its message whole.
+                                    memberName = member.name.takeIf { event.memberId == member.id }.orEmpty(),
                                     onCopy = if (holdToCopy) ({ onCopyEvent(event) }) else null,
                                 )
                                 if (index < ui.events.lastIndex) {
@@ -858,6 +863,9 @@ private fun trafficAxisLabels(
 private fun MemberEventRow(
     event: FdEvent,
     modifier: Modifier = Modifier,
+    // The member this log belongs to, stripped out of the message so the screen's
+    // own heading doesn't repeat inside every line. Blank leaves it in.
+    memberName: String = "",
     // Long-press to copy, or null when hold-to-copy is off (the row is inert).
     onCopy: (() -> Unit)? = null,
 ) {
@@ -890,7 +898,7 @@ private fun MemberEventRow(
             )
         }
         Text(
-            text = event.message,
+            text = withoutMemberName(event.message, memberName),
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

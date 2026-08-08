@@ -1898,6 +1898,271 @@ func TestAutoSyncHoldsVersionSkew(t *testing.T) {
 	}
 }
 
+// TestAutoSync_EmitsRecoveredWhenHoldClears: leaving the held-for-skew state
+// emits config.sync_recovered exactly once, so config.sync_held is never a
+// member's last word once its versions realign (consumers that lead with the
+// newest per-member event — Bellhop's member pill, the events feed — would
+// otherwise show "held" forever against a live status of verified in sync).
+func TestAutoSync_EmitsRecoveredWhenHoldClears(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+
+	srv.forceAutoSyncNow(t.Context())
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
+		t.Fatalf("config.sync_recovered events while still held = %d, want 0", n)
+	}
+
+	// Versions align: the same pass that resumes syncing closes the hold.
+	setMemberVersion(srv, rm.ID, "v1.0.0")
+	srv.forceAutoSyncNow(t.Context())
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_recovered events = %d, want exactly 1 on the transition out of held", len(evs))
+	}
+	if evs[0].MemberID != rm.ID {
+		t.Errorf("recovered event member = %q, want %q", evs[0].MemberID, rm.ID)
+	}
+
+	// Edge-triggered: further aligned passes stay quiet.
+	srv.forceAutoSyncNow(t.Context())
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered events after another aligned pass = %d, want still 1", n)
+	}
+}
+
+// TestAutoSync_ClosesHoldAcrossRestart: the hold set is in-memory, so a restart
+// forgets a hold config.sync_held already announced. The first pass that finds
+// the member's versions aligned must still emit config.sync_recovered, seeded
+// from the persisted event log, or the warning dangles as the member's newest
+// event forever.
+func TestAutoSync_ClosesHoldAcrossRestart(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+	srv.forceAutoSyncNow(t.Context()) // announces the hold
+
+	// Simulate a restart: the in-memory hold state is gone, the event log is not.
+	srv.syncHeldMu.Lock()
+	srv.syncHeld = make(map[string]bool)
+	srv.holdLogChecked = make(map[string]bool)
+	srv.syncHeldMu.Unlock()
+
+	setMemberVersion(srv, rm.ID, "v1.0.0")
+	srv.forceAutoSyncNow(t.Context())
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || evs[0].MemberID != rm.ID {
+		t.Fatalf("config.sync_recovered after restart = %d events, want exactly 1 for the held member", len(evs))
+	}
+
+	// The log verdict is consumed: later aligned passes emit nothing more.
+	srv.forceAutoSyncNow(t.Context())
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered events after another aligned pass = %d, want still 1", n)
+	}
+}
+
+// TestAutoSync_HoldLogReadErrorIsNotMemoised: a store error while reconciling
+// the persisted hold state reads as "not held" for that pass but is not
+// remembered as resolved, so the next pass retries the read instead of
+// treating a transient DB failure as a clean log.
+func TestAutoSync_HoldLogReadErrorIsNotMemoised(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close store db: %v", err)
+	}
+	if srv.heldPerLog(t.Context(), &Member{ID: "m1", Name: "m1"}) {
+		t.Error("heldPerLog = true on a store read error, want false")
+	}
+	srv.syncHeldMu.Lock()
+	checked := srv.holdLogChecked["m1"]
+	srv.syncHeldMu.Unlock()
+	if checked {
+		t.Error("a failed log read was memoised as checked; it must retry on the next pass")
+	}
+}
+
+// TestAutoSync_StillHeldAfterRestartDoesNotRealert: a restart that comes back
+// up with the member still skewed is continuing a hold the previous process
+// already announced, not entering a new one, so config.sync_held is not
+// duplicated after every restart.
+func TestAutoSync_StillHeldAfterRestartDoesNotRealert(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+	srv.forceAutoSyncNow(t.Context()) // announces the hold
+
+	// Simulate a restart with the member still skewed.
+	srv.syncHeldMu.Lock()
+	srv.syncHeld = make(map[string]bool)
+	srv.holdLogChecked = make(map[string]bool)
+	srv.syncHeldMu.Unlock()
+
+	srv.forceAutoSyncNow(t.Context())
+	if n := countEventsOfType(t, store, "config.sync_held"); n != 1 {
+		t.Errorf("config.sync_held events after restart while still skewed = %d, want still 1", n)
+	}
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 0 {
+		t.Errorf("config.sync_recovered events while still skewed = %d, want 0", n)
+	}
+
+	// And the continued hold still closes normally once versions align.
+	setMemberVersion(srv, rm.ID, "v1.0.0")
+	srv.forceAutoSyncNow(t.Context())
+	if n := countEventsOfType(t, store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered once the continued hold cleared = %d, want 1", n)
+	}
+}
+
+// TestAutoSync_PromotedPrimaryClosesItsHold: a held member the operator
+// upgrades and promotes to primary is skipped as the sync source from then on,
+// but the hold it carried must still close. Without that, config.sync_held
+// stays the new primary's newest event forever: no pass would ever emit
+// config.sync_recovered for the one member every pass skips.
+func TestAutoSync_PromotedPrimaryClosesItsHold(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+	srv.forceAutoSyncNow(t.Context()) // announces the hold on the replica
+
+	// The operator promotes the held member to primary and the next pass runs.
+	enableAutoSync(t, store, rm.ID)
+	srv.forceAutoSyncNow(t.Context())
+
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || evs[0].MemberID != rm.ID {
+		t.Fatalf("config.sync_recovered after promotion = %d events, want exactly 1 for the promoted member", len(evs))
+	}
+	// The message must tell the promotion story: sync was not "resumed" to a
+	// member that is now the source and is never synced to.
+	if !strings.Contains(evs[0].Message, "it is now the primary") {
+		t.Errorf("promoted-primary recovered message = %q, want the promotion wording", evs[0].Message)
+	}
+	if replica.didRealSync() {
+		t.Error("the promoted primary was pushed to; the source is never written to")
+	}
+}
+
+// TestAutoSync_TokenlessMemberStillClosesItsHold: a held member whose admin
+// token is cleared is skipped for measuring and pushing, but once the versions
+// realign its hold must still close. The version verdict comes from the
+// poller, not the sync token, so Front Desk knows the skew is over and must
+// say so rather than leave config.sync_held dangling against a member the
+// versions say is fine. The realignment is the primary's version moving onto
+// the member's, because that is the direction reachable in production: the
+// poller skips a tokenless member, so its own polled version stays frozen at
+// the last read taken while it had a token.
+func TestAutoSync_TokenlessMemberStillClosesItsHold(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+	srv.forceAutoSyncNow(t.Context()) // announces the hold on the replica
+
+	// The member's token is cleared while held, then the operator rolls the
+	// primary back onto the member's (frozen) version.
+	if err := store.SetMemberToken(t.Context(), rm.ID, ""); err != nil {
+		t.Fatalf("SetMemberToken: %v", err)
+	}
+	setMemberVersion(srv, pm.ID, "v0.9.0")
+	srv.forceAutoSyncNow(t.Context())
+
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || evs[0].MemberID != rm.ID {
+		t.Fatalf("config.sync_recovered for the tokenless member = %d events, want exactly 1", len(evs))
+	}
+	// The message must not claim sync resumed: without a token there is
+	// nothing to resume with, only a skew that ended.
+	if strings.Contains(evs[0].Message, "Resumed sync") {
+		t.Errorf("tokenless recovered message = %q, want no resumed-sync claim", evs[0].Message)
+	}
+	if replica.didRealSync() {
+		t.Error("a tokenless member was pushed to")
+	}
+}
+
+// TestAutoSync_FailedRecoveredEmitIsNotMemoisedAsClosed: when the
+// config.sync_recovered insert fails, the persisted log still ends with the
+// member held, so the memoised log verdict must be dropped: the next pass then
+// re-reads the log, finds the hold still open, and retries the event (the same
+// path TestAutoSync_ClosesHoldAcrossRestart proves emits). The in-memory hold
+// stays cleared either way; the fleet state is already right.
+func TestAutoSync_FailedRecoveredEmitIsNotMemoisedAsClosed(t *testing.T) {
+	srv, store := newTestServer(t)
+	m := &Member{ID: "m1", Name: "m1"}
+	srv.syncHeldMu.Lock()
+	srv.syncHeld[m.ID] = true
+	srv.holdLogChecked[m.ID] = true
+	srv.syncHeldMu.Unlock()
+
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close store db: %v", err)
+	}
+	srv.closeSyncHold(t.Context(), m, "m1 is no longer held for sync: its app version matches the primary's again")
+
+	srv.syncHeldMu.Lock()
+	checked := srv.holdLogChecked[m.ID]
+	held := srv.syncHeld[m.ID]
+	srv.syncHeldMu.Unlock()
+	if checked {
+		t.Error("a failed config.sync_recovered persist stayed memoised as closed; the next pass must re-read the log and retry")
+	}
+	if held {
+		t.Error("the in-memory hold must stay cleared even when the closing event fails to persist")
+	}
+}
+
 // TestAutoSync_VersionSkewedMemberIsHeldEvenWhenItsConfigMatches pins where the
 // hash check sits: after the version gate, not before it. A member running a
 // different app version is held even when it already holds this exact config, so

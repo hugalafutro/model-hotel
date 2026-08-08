@@ -112,6 +112,40 @@ func (s *Store) NewestEventPerMember(ctx context.Context) (map[string]Event, err
 	return out, rows.Err()
 }
 
+// NewestEventOfTypes returns the member's most recent event among the given
+// types, in one indexed read: no pagination count, and one query rather than
+// one per type, so a caller ranking two types (heldPerLog's sync_held vs
+// sync_recovered) inherits the store's deterministic id tie-break instead of
+// comparing timestamps across separate reads. found is false when the member
+// has no event of any given type.
+func (s *Store) NewestEventOfTypes(ctx context.Context, memberID string, types ...string) (ev Event, found bool, err error) {
+	if len(types) == 0 {
+		return Event{}, false, nil
+	}
+	args := make([]any, 0, len(types)+1)
+	args = append(args, memberID)
+	for _, t := range types {
+		args = append(args, t)
+	}
+	//nolint:gosec // the placeholder list is derived from len(types) alone; all values are bound parameters.
+	query := `SELECT id, type, severity, source, message, metadata, member_id, created_at FROM events
+		WHERE member_id = ? AND type IN (` + strings.TrimSuffix(strings.Repeat("?,", len(types)), ",") + `)
+		ORDER BY created_at DESC, id DESC LIMIT 1`
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return Event{}, false, fmt.Errorf("frontdesk: newest event of types: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		return Event{}, false, rows.Err()
+	}
+	ev, err = scanEvent(rows)
+	if err != nil {
+		return Event{}, false, err
+	}
+	return ev, true, nil
+}
+
 // PruneEvents deletes events older than retentionDays and returns the count
 // removed.
 func (s *Store) PruneEvents(ctx context.Context, retentionDays int) (int64, error) {

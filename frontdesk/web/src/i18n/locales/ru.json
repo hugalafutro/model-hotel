@@ -69,7 +69,6 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Версия",
 		"colLastSync": "Последняя синхронизация",
-		"colUpdated": "Обновлено",
 		"lastSyncNever": "Никогда",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "Этот узел является источником конфигурации.",
