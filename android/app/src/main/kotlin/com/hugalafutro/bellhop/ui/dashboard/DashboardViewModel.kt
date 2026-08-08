@@ -857,15 +857,21 @@ class DashboardViewModel(
                 (current * 2).coerceAtMost(SSE_BACKOFF_MAX_MS)
             }
 
-        // triggersRefresh mirrors the Front Desk web dashboard: only membership,
-        // config, health, and version events change what a member card shows, so
-        // only those warrant a refetch. Other events (alerts, traefik notices) ride
-        // the same stream but the dashboard ignores them. internal so the filter can
-        // be unit-tested directly without driving the whole stream.
+        // triggersRefresh mirrors the Front Desk web Members page: membership,
+        // config, health, and version events change what a member card shows,
+        // fleet/traefik events move the server fleet-state summary, and
+        // settings events carry the auto-sync toggle and primary repoints,
+        // all state the dashboard renders, so each warrants a refetch. Device
+        // and backup events ride the same stream but nothing on the dashboard
+        // shows them. internal so the filter can be unit-tested directly
+        // without driving the whole stream.
         internal fun triggersRefresh(type: String): Boolean =
             type.startsWith("member.") ||
                 type.startsWith("config.") ||
                 type.startsWith("health.") ||
-                type.startsWith("version.")
+                type.startsWith("version.") ||
+                type.startsWith("fleet.") ||
+                type.startsWith("traefik.") ||
+                type.startsWith("settings.")
     }
 }
