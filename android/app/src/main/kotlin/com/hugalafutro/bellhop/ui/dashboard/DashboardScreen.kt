@@ -85,6 +85,7 @@ import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
 import com.hugalafutro.bellhop.ui.common.severityColors
+import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -827,7 +828,9 @@ private fun MemberCard(
                                     .background(evAccent),
                         )
                         Text(
-                            text = ev.message.ifBlank { ev.type },
+                            // The card header already names the member, so the
+                            // message drops its copy of the name.
+                            text = withoutMemberName(ev.message, member.name).ifBlank { ev.type },
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

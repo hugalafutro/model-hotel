@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -173,6 +174,49 @@ class MemberDetailScreenTest {
         assertTrue(
             composeTestRule.onAllNodesWithTag("member-event-row").fetchSemanticsNodes().isNotEmpty(),
         )
+    }
+
+    @Test
+    fun eventRowsDropThisMembersOwnNameButKeepAnotherMembers() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                listOf(
+                                    FdEvent(
+                                        id = "e1",
+                                        severity = "success",
+                                        message = "alpha is healthy",
+                                        memberId = "m1",
+                                    ),
+                                    FdEvent(
+                                        id = "e2",
+                                        severity = "warn",
+                                        message = "beta is unreachable",
+                                        memberId = "m2",
+                                    ),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-event-row"))
+        // The screen is headed by "alpha", so its own line doesn't repeat it. The
+        // line about another member keeps the name it needs to be readable. Both
+        // messages are server-composed English, not app copy, so asserting on them
+        // doesn't tie the test to a translation.
+        composeTestRule.onNodeWithText("is healthy").assertIsDisplayed()
+        composeTestRule.onNodeWithText("alpha is healthy").assertDoesNotExist()
+        composeTestRule.onNodeWithText("beta is unreachable").assertIsDisplayed()
     }
 
     @Test
