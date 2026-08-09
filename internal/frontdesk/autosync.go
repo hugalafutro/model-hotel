@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -43,9 +44,10 @@ const (
 	autoSyncIntervalSecs = 15
 
 	// autoSyncReason is stamped on each synced member's last-sync record and shown
-	// in the Members table tooltip. Subject-free: the same string is the tail of the
-	// fleet-wide roll-up event ("Auto-synced 2 members: ..."), where a singular
-	// subject would have no referent.
+	// in the Members table tooltip. Subject-free: the same string rides in the
+	// fleet-wide roll-up event ("Auto-synced 2 members: ...", possibly followed by
+	// a per-member section detail), where a singular subject would have no
+	// referent.
 	autoSyncReason = "did not hold the primary's config"
 
 	// autoSyncKickReason is stamped instead when the operator turns auto-sync on
@@ -161,7 +163,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return ""
 	}
 
-	primary, primaryToken, hash, ok := s.primaryConfigHash(ctx, cfg)
+	primary, primaryToken, hash, primarySections, ok := s.primaryConfigHash(ctx, cfg)
 	if !ok {
 		return ""
 	}
@@ -176,7 +178,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return hash
 	}
 
-	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncReason, cfg.Gen)
+	s.convergeFleet(ctx, primary, primaryToken, hash, primarySections, autoSyncReason, cfg.Gen)
 	return hash
 }
 
@@ -194,33 +196,34 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	if !cfg.Enabled || cfg.PrimaryID == "" {
 		return
 	}
-	primary, primaryToken, hash, ok := s.primaryConfigHash(ctx, cfg)
+	primary, primaryToken, hash, primarySections, ok := s.primaryConfigHash(ctx, cfg)
 	if !ok {
 		return
 	}
 	// A kick is a deliberate operator action, so it retries every incomplete
 	// member now rather than leaving it inside its retry interval.
 	s.resetIncompleteRetries()
-	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncKickReason, cfg.Gen)
+	s.convergeFleet(ctx, primary, primaryToken, hash, primarySections, autoSyncKickReason, cfg.Gen)
 }
 
 // primaryConfigHash resolves the designated primary, loads its admin token, and
-// reads its current syncable-config hash. ok is false (with a debug log) when
-// the primary was removed, lost its token, or is unreachable, in which case the
-// caller skips this round and retries later.
-func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, ok bool) {
+// reads its current syncable-config hash together with its per-section hashes.
+// ok is false (with a debug log) when the primary was removed, lost its token,
+// or is unreachable, in which case the caller skips this round and retries
+// later.
+func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, sections map[string]string, ok bool) {
 	primary, token, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
 	if err != nil {
 		// No source to sync from: the primary was removed or lost its token.
 		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "error", err)
-		return nil, "", "", false
+		return nil, "", "", nil, false
 	}
-	hash, err = s.fetchMemberConfigVersion(ctx, primary, token)
+	hash, sections, err = s.fetchMemberConfigVersion(ctx, primary, token)
 	if err != nil {
 		debuglog.Debug("frontdesk: auto-sync: read primary version", "member", primary.Name, "error", err)
-		return nil, "", "", false
+		return nil, "", "", nil, false
 	}
-	return primary, token, hash, true
+	return primary, token, hash, sections, true
 }
 
 // convergeFleet pushes the primary's config to every member that needs it and
@@ -229,32 +232,118 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // was read; applyAutoSync aborts on it, so a rearm landing mid-pass stops this
 // pass rather than letting it finish a stale write.
 //
+// The roll-up names, per synced member, which config sections its pre-push
+// measurement found differing ("replica: failover groups"), so the operator can
+// see what the repair was for; whether the push then converged the member is
+// the next pass's verdict, not this event's. primarySections is read once at
+// pass start, so a primary edit landing mid-pass can understate what the
+// lazily-fetched export actually carried, the same staleness window hash
+// already has. A member measured without section detail (an older app version
+// on either side, or a hash that could not be read before the push) is counted
+// but carries no parenthetical.
+//
 // Nothing fleet-wide is recorded. Convergence is per member: the verified-in-sync
 // heartbeat when a member's hash matches, the diverged flag and amber badge when
 // it does not.
-func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
-	applied := s.applyAutoSync(ctx, primary, primaryToken, hash, reason, gen)
+func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) {
+	details := s.applyAutoSync(ctx, primary, primaryToken, hash, primarySections, reason, gen)
 	// The pass has judged every member, so the version-skew hold and
 	// incomplete-apply sets now reflect observations, not a cold start.
 	s.autoSyncEvaluated.Store(true)
-	if applied > 0 {
-		noun := "members"
-		if applied == 1 {
-			noun = "member"
-		}
-		s.emit(ctx, Event{
-			Type: "config.auto_synced", Severity: "info", Source: "frontdesk",
-			Message: fmt.Sprintf("Auto-synced %d %s: %s", applied, noun, reason),
-		})
+	if len(details) == 0 {
+		return
 	}
+	noun := "members"
+	if len(details) == 1 {
+		noun = "member"
+	}
+	message := fmt.Sprintf("Auto-synced %d %s: %s", len(details), noun, reason)
+	if d := describeSectionDetails(details); d != "" {
+		message += " (" + d + ")"
+	}
+	meta := make([]any, 0, len(details))
+	for _, det := range details {
+		entry := map[string]any{"member_id": det.id, "name": det.name}
+		if len(det.sections) > 0 {
+			entry["sections"] = det.sections
+		}
+		meta = append(meta, entry)
+	}
+	s.emit(ctx, Event{
+		Type: "config.auto_synced", Severity: "info", Source: "frontdesk",
+		Message:  message,
+		Metadata: map[string]any{"members": meta},
+	})
+}
+
+// syncedMemberDetail records one member a pass re-synced: who it was and which
+// config sections its pre-push measurement found differing from the primary's
+// (nil when no section detail was available).
+type syncedMemberDetail struct {
+	id, name string
+	sections []string
+}
+
+// configSections lists the syncable payload's sections in payload order, keyed
+// exactly as the member's /api/config/version "sections" map keys them, with
+// the operator-facing label each renders as in the auto-synced roll-up.
+var configSections = []struct{ key, label string }{
+	{"providers", "providers"},
+	{"virtual_keys", "virtual keys"},
+	{"settings", "settings"},
+	{"failover_groups", "failover groups"},
+	{"users", "users"},
+	{"disabled_models", "disabled models"},
+}
+
+// differingSections names the payload sections whose hashes disagree, in payload
+// order. Either side missing its section map (an older app version's response)
+// answers nil: with nothing to compare, the honest claim is "no detail", never
+// "everything differs".
+func differingSections(primary, member map[string]string) []string {
+	if len(primary) == 0 || len(member) == 0 {
+		return nil
+	}
+	var out []string
+	for _, sec := range configSections {
+		if primary[sec.key] != member[sec.key] {
+			out = append(out, sec.key)
+		}
+	}
+	return out
+}
+
+// describeSectionDetails renders the per-member section detail for the roll-up
+// message: "replica: failover groups, disabled models; other: providers".
+// Members with no section detail are left out; an empty result means the
+// message carries no parenthetical at all. Labels come from configSections,
+// which is also the only vocabulary differingSections emits.
+func describeSectionDetails(details []syncedMemberDetail) string {
+	parts := make([]string, 0, len(details))
+	for _, det := range details {
+		labels := make([]string, 0, len(det.sections))
+		for _, sec := range configSections {
+			if slices.Contains(det.sections, sec.key) {
+				labels = append(labels, sec.label)
+			}
+		}
+		// Guarding on labels, not det.sections, so a detail carrying only keys
+		// this build does not label can never render a dangling "name: ".
+		if len(labels) == 0 {
+			continue
+		}
+		parts = append(parts, det.name+": "+strings.Join(labels, ", "))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // applyAutoSync pushes the primary's config to every other tokened member that
-// does not already hold it, and returns how many members it actually re-synced.
-// hash is the primary's current config hash, and comparing it with each member's
-// own is the convergence criterion: a member matching it is converged and left
-// untouched, a member that differs is not, whatever it reported about its own
-// import. reason is stamped onto each synced member's last-sync marker.
+// does not already hold it, and returns a detail per member it actually
+// re-synced. hash is the primary's current config hash, and comparing it with
+// each member's own is the convergence criterion: a member matching it is
+// converged and left untouched, a member that differs is not, whatever it
+// reported about its own import. reason is stamped onto each synced member's
+// last-sync marker.
 //
 // The pass that pushes a member does not verify it; the next pass's hash query
 // does, one tick later.
@@ -267,7 +356,7 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 // now-stale config into a member the operator has just repointed away from. The
 // in-flight import call is the one window no pre-check can close; passCtx covers
 // it, and the rearm's own pass converges whatever is left.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) (applied int) {
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) (applied []syncedMemberDetail) {
 	// A read error reports "not stale": a transient DB failure must not abort an
 	// otherwise valid pass.
 	stale := func() bool {
@@ -275,7 +364,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return err == nil && cur != gen
 	}
 	if stale() {
-		return 0 // a rearm already landed: don't push the stale export at all
+		return nil // a rearm already landed: don't push the stale export at all
 	}
 
 	// passCtx is the cancellation point the pre-import gates cannot provide: a
@@ -315,7 +404,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: list members", "error", err)
-		return 0
+		return nil
 	}
 
 	primaryVer := s.poller.MemberVersion(primary.ID)
@@ -331,7 +420,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		if stale() {
 			// A rearm/repoint landed mid-pass: stop before importing the stale export
 			// into any further member, and leave the rest to the rearm's own pass.
-			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", applied)
+			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", len(applied))
 			break
 		}
 		// Version gate: never push onto a member running a different app version. An
@@ -373,7 +462,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
 			continue
 		}
-		converged, measured := s.measureMember(ctx, passCtx, m, token, hash)
+		converged, measured, differing := s.measureMember(ctx, passCtx, m, token, hash, primarySections)
 		if converged {
 			continue
 		}
@@ -424,7 +513,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// member's slow dry-run. The window between here and the commit on the member
 		// is covered by passCtx, which watchRearm cancels.
 		if stale() {
-			debuglog.Debug("frontdesk: auto-sync: aborting stale pass before import", "synced", applied)
+			debuglog.Debug("frontdesk: auto-sync: aborting stale pass before import", "synced", len(applied))
 			break
 		}
 
@@ -453,14 +542,17 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			// supersede. The next pass measures this member again either way.
 			continue
 		}
-		applied++
+		applied = append(applied, syncedMemberDetail{id: m.ID, name: m.Name, sections: differing})
 	}
 	return applied
 }
 
 // measureMember asks a member what config it actually holds and records what the
 // answer means. It reports whether the member is converged, so the caller can move
-// on, and whether its hash could be read at all.
+// on, and whether its hash could be read at all. On a measured divergence it also
+// names the payload sections whose hashes disagree with primarySections (nil when
+// either side carries no section detail), which the caller threads into the
+// auto-synced roll-up.
 //
 // The hash is the criterion because nothing else establishes convergence. Every
 // member hashes the same syncable payload (providers, virtual keys, syncable
@@ -473,8 +565,8 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 //
 // ctx carries the events this emits; passCtx is the cancellable pass context the
 // member call runs under.
-func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, hash string) (converged, measured bool) {
-	memberHash, err := s.fetchMemberConfigVersion(passCtx, m, token)
+func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, hash string, primarySections map[string]string) (converged, measured bool, differing []string) {
+	memberHash, memberSections, err := s.fetchMemberConfigVersion(passCtx, m, token)
 	if err != nil {
 		// One unread hash proves nothing either way: neither converged nor flagged. A
 		// hash that stays unreadable is different, and is the fault itself: the
@@ -498,7 +590,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		if s.recordUnreadableHash(m.ID, unreadableCause(err), time.Now()) {
 			s.markMemberUnmeasured(ctx, m)
 		}
-		return false, false
+		return false, false, nil
 	}
 	// Measurable again: stop any unreadable clock before deciding anything else, so
 	// a member that answers once never carries a stale one.
@@ -522,7 +614,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 			}
 		}
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
-		return true, true
+		return true, true, nil
 	}
 	if s.hasBeenPushedSinceReset(m.ID) {
 		// Measured divergence in a member that has already committed this config: a
@@ -531,7 +623,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// moves, so an ordinary edit never turns the badge amber for a tick.
 		s.markMemberIncomplete(ctx, m)
 	}
-	return false, true
+	return false, true, differingSections(primarySections, memberSections)
 }
 
 // holdMemberForSkew marks a member as held for version skew and emits
@@ -1032,26 +1124,32 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 // pass, and from a member it answers whether that member holds the primary's
 // config.
 //
-// It uses readClient, not the health-probe client: the handler builds and hashes
-// the entire config envelope, the same work as /api/config/export, so it needs an
-// interactive-read budget. Every member is read once per tick, so a probe timeout
-// here would leave a slow but healthy member permanently unmeasured.
-func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token string) (string, error) {
+// It uses readClient, not the health-probe client: the handler builds the entire
+// config envelope and hashes it whole and per section, at least the work of
+// /api/config/export, so it needs an interactive-read budget. Every member is
+// read once per tick, so a probe timeout here would leave a slow but healthy
+// member permanently unmeasured.
+//
+// The per-section hash map rides in the same response on current members; an
+// older member answers without it, and the nil map means "no section detail",
+// never "everything differs".
+func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token string) (string, map[string]string, error) {
 	status, body, err := s.callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if status != http.StatusOK {
-		return "", fmt.Errorf("member config-version returned %d", status)
+		return "", nil, fmt.Errorf("member config-version returned %d", status)
 	}
 	var v struct {
-		Version string `json:"version"`
+		Version  string            `json:"version"`
+		Sections map[string]string `json:"sections"`
 	}
 	if err := json.Unmarshal(body, &v); err != nil {
-		return "", fmt.Errorf("frontdesk: parse member config-version: %w", err)
+		return "", nil, fmt.Errorf("frontdesk: parse member config-version: %w", err)
 	}
 	if v.Version == "" {
-		return "", errors.New("frontdesk: empty member config-version")
+		return "", nil, errors.New("frontdesk: empty member config-version")
 	}
-	return v.Version, nil
+	return v.Version, v.Sections, nil
 }

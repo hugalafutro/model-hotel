@@ -146,7 +146,9 @@
 			"autosync_stale": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako deň",
 			"autosync_stale_long": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako tri dni",
 			"traefik_config_stale": "Traefik prestal načítavať konfiguráciu smerovania"
-		}
+		},
+		"colVerifiedTip": "Automatická synchronizácia každých pár sekúnd porovnáva hash konfigurácie tohto člena s primárnym. Nedávny čas tu znamená, že člen práve teraz drží presnú konfiguráciu primárneho.",
+		"colLastSyncTip": "Kedy Front Desk naposledy zapísal konfiguráciu do tohto člena (zmena konfigurácie alebo oprava). Nejde o čerstvosť konfigurácie: člen dostane pečiatku len vtedy, keď zápis potreboval, takže synchronizovaní členovia tu môžu mať rôzne časy."
 	},
 	"traffic": {
 		"title": "Prevádzka",

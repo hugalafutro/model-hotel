@@ -152,6 +152,31 @@ describe("MembersPage", () => {
 		);
 	});
 
+	it("explains the Verified and Last Config Sync columns in header tooltips", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		// The two columns are routinely misread as the same claim; each header
+		// carries a tooltip stating what it actually measures (live hash check vs
+		// last write). Distinct, non-empty titles are the contract.
+		const verified = screen.getByTestId("col-verified");
+		const lastSync = screen.getByTestId("col-last-sync");
+		expect(verified.getAttribute("title")).toBeTruthy();
+		expect(lastSync.getAttribute("title")).toBeTruthy();
+		// i18next renders the raw key for a missing translation, which is truthy
+		// and distinct; requiring resolved copy makes a deleted locale key fail
+		// here instead of shipping a tooltip that reads "members.colVerifiedTip".
+		expect(verified.getAttribute("title")).not.toMatch(/^members\./);
+		expect(lastSync.getAttribute("title")).not.toMatch(/^members\./);
+		expect(verified.getAttribute("title")).not.toBe(
+			lastSync.getAttribute("title"),
+		);
+	});
+
 	it("shows a last-updated footer below the members card", async () => {
 		server.use(
 			http.get("/api/members", () =>

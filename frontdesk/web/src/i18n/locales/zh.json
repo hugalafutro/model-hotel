@@ -146,7 +146,9 @@
 			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",
 			"autosync_stale_long": "自动同步已关闭，且集群超过三天未同步",
 			"traefik_config_stale": "Traefik 已停止获取路由配置"
-		}
+		},
+		"colVerifiedTip": "自动同步每隔几秒将此成员的配置哈希与主节点比对。此处时间越近，说明该成员此刻持有与主节点完全相同的配置。",
+		"colLastSyncTip": "Front Desk 上次向此成员写入配置的时间（配置变更或修复）。这不代表配置的新旧：只有需要写入的成员才会被记录时间，因此已同步的成员在此处的时间可能各不相同。"
 	},
 	"traffic": {
 		"title": "流量",

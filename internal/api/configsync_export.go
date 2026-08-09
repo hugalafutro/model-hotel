@@ -42,6 +42,11 @@ func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
 // custom failover groups, users), never the volatile envelope fields
 // (exported_at), so
 // it changes if and only if a synced entity changed. Same auth as Export.
+//
+// Alongside the overall hash it names a hash per payload section, keyed by the
+// section's JSON field name. Front Desk compares a diverged member's section
+// hashes with the primary's to say WHICH part of the config differed in the
+// config.auto_synced event, without pulling either export.
 func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 	env, err := h.buildEnvelope(r.Context())
 	if err != nil {
@@ -63,8 +68,29 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not read config", http.StatusInternalServerError)
 		return
 	}
+	sections := map[string]string{}
+	for name, part := range map[string]any{
+		"providers":       env.Config.Providers,
+		"virtual_keys":    env.Config.VirtualKeys,
+		"settings":        env.Config.Settings,
+		"failover_groups": env.Config.FailoverGroups,
+		"users":           env.Config.Users,
+		"disabled_models": env.Config.DisabledModels,
+	} {
+		b, err := json.Marshal(part)
+		if err != nil {
+			debuglog.Error("configsync: marshal config section for version", "section", name, "error", err)
+			http.Error(w, "could not read config", http.StatusInternalServerError)
+			return
+		}
+		s := sha256.Sum256(b)
+		sections[name] = hex.EncodeToString(s[:])
+	}
 	sum := sha256.Sum256(payload)
-	writeJSON(w, map[string]string{"version": hex.EncodeToString(sum[:])})
+	writeJSON(w, struct {
+		Version  string            `json:"version"`
+		Sections map[string]string `json:"sections"`
+	}{Version: hex.EncodeToString(sum[:]), Sections: sections})
 }
 
 // buildEnvelope reads this member's full config (providers with key ciphertext,

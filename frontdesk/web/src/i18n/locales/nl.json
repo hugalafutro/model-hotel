@@ -146,7 +146,9 @@
 			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",
 			"autosync_stale_long": "auto-sync staat uit en de vloot is al meer dan drie dagen niet gesynchroniseerd",
 			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
-		}
+		},
+		"colVerifiedTip": "Auto-sync vergelijkt elke paar seconden de configuratie-hash van deze member met die van de primaire. Een recente tijd hier betekent dat de member op dit moment exact de configuratie van de primaire heeft.",
+		"colLastSyncTip": "Wanneer Front Desk voor het laatst configuratie naar deze member heeft geschreven (een wijziging of een reparatie). Dit is geen versheid van de configuratie: een member krijgt alleen een stempel als die een schrijfactie nodig had, dus gesynchroniseerde members kunnen hier verschillende tijden tonen."
 	},
 	"traffic": {
 		"title": "Verkeer",

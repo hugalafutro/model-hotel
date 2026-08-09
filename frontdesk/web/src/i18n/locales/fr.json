@@ -146,7 +146,9 @@
 			"autosync_stale": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus d'un jour",
 			"autosync_stale_long": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus de trois jours",
 			"traefik_config_stale": "Traefik ne récupère plus la configuration de routage"
-		}
+		},
+		"colVerifiedTip": "La synchronisation automatique compare le hachage de configuration de ce membre avec celui du primaire toutes les quelques secondes. Une heure récente ici signifie que le membre détient en ce moment la configuration exacte du primaire.",
+		"colLastSyncTip": "Quand Front Desk a écrit pour la dernière fois la configuration sur ce membre (un changement ou une réparation). Ce n'est pas la fraîcheur de la configuration : un membre n'est estampillé que lorsqu'il avait besoin d'une écriture, donc des membres synchronisés peuvent afficher ici des heures différentes."
 	},
 	"traffic": {
 		"title": "Trafic",
