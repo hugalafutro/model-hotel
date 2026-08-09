@@ -187,7 +187,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	// pass can stamp it (see unconfirmedSync). Best-effort: with the hash
 	// unreadable the run proceeds and a lost answer simply stays unstamped, since
 	// a stamp that cannot be tied to the pushed config must not be promised.
-	pushedHash, err := s.fetchMemberConfigVersion(ctx, primary, primaryToken)
+	pushedHash, _, err := s.fetchMemberConfigVersion(ctx, primary, primaryToken)
 	if err != nil {
 		debuglog.Debug("frontdesk: config sync: read primary config hash", "member", primary.Name, "error", err)
 		pushedHash = ""

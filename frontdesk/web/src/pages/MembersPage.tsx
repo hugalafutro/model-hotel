@@ -190,8 +190,22 @@ export function MembersPage() {
 								<th>{t("members.colFrontdesk")}</th>
 								<th>{t("members.colTraefik")}</th>
 								<th>{t("members.colVersion")}</th>
-								<th>{t("members.colVerified")}</th>
-								<th>{t("members.colLastSync")}</th>
+								{/* Header tooltips carry the semantic the two columns are
+								    routinely misread over: Verified is the live hash check
+								    (the actual "in sync" claim), Last Config Sync is the last
+								    WRITE to that member, not config freshness. */}
+								<th
+									data-testid="col-verified"
+									title={t("members.colVerifiedTip")}
+								>
+									{t("members.colVerified")}
+								</th>
+								<th
+									data-testid="col-last-sync"
+									title={t("members.colLastSyncTip")}
+								>
+									{t("members.colLastSync")}
+								</th>
 								<th>{t("members.colState")}</th>
 								<th />
 							</tr>

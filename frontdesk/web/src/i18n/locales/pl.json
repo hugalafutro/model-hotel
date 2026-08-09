@@ -146,7 +146,9 @@
 			"autosync_stale": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad dnia",
 			"autosync_stale_long": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad trzech dni",
 			"traefik_config_stale": "Traefik przestał pobierać konfigurację routingu"
-		}
+		},
+		"colVerifiedTip": "Auto-synchronizacja co kilka sekund porównuje hash konfiguracji tego członka z hashem głównego. Niedawny czas oznacza, że członek w tej chwili ma dokładnie tę samą konfigurację co główny.",
+		"colLastSyncTip": "Kiedy Front Desk ostatnio zapisał konfigurację na tym członku (zmiana konfiguracji lub naprawa). To nie jest świeżość konfiguracji: członek dostaje znacznik tylko wtedy, gdy potrzebował zapisu, więc zsynchronizowani członkowie mogą tu pokazywać różne czasy."
 	},
 	"traffic": {
 		"title": "Ruch",

@@ -146,7 +146,9 @@
 			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",
 			"autosync_stale_long": "Auto-Sync ist aus und die Flotte wurde seit über drei Tagen nicht synchronisiert",
 			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"
-		}
+		},
+		"colVerifiedTip": "Der Auto-Sync vergleicht alle paar Sekunden den Konfigurations-Hash dieses Mitglieds mit dem des Primärs. Eine aktuelle Zeit hier bedeutet, dass das Mitglied gerade exakt die Konfiguration des Primärs hält.",
+		"colLastSyncTip": "Wann Front Desk zuletzt Konfiguration auf dieses Mitglied geschrieben hat (eine Änderung oder eine Reparatur). Das ist keine Konfigurations-Frische: Ein Mitglied wird nur gestempelt, wenn es einen Schreibvorgang brauchte, daher können synchrone Mitglieder hier unterschiedliche Zeiten zeigen."
 	},
 	"traffic": {
 		"title": "Traffic",

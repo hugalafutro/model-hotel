@@ -146,7 +146,9 @@
 			"autosync_stale": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de un día",
 			"autosync_stale_long": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de tres días",
 			"traefik_config_stale": "Traefik ha dejado de obtener la configuración de enrutamiento"
-		}
+		},
+		"colVerifiedTip": "La sincronización automática compara el hash de configuración de este miembro con el del principal cada pocos segundos. Un tiempo reciente aquí significa que el miembro tiene ahora mismo la configuración exacta del principal.",
+		"colLastSyncTip": "Cuándo Front Desk escribió configuración por última vez en este miembro (un cambio o una reparación). No es la frescura de la configuración: un miembro solo se marca cuando necesitó una escritura, así que miembros sincronizados pueden mostrar aquí tiempos distintos."
 	},
 	"traffic": {
 		"title": "Tráfico",

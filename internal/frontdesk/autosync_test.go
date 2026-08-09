@@ -41,6 +41,10 @@ type stubAutoMember struct {
 	appliedHash string
 	versionCode int    // status for the version GET (default 200)
 	versionRaw  string // raw version body; overrides the {"version":...} JSON when set
+	// versionSections, when set, rides in the version response as the per-section
+	// hash map a current member serves; nil models an older member whose response
+	// carries only the overall hash.
+	versionSections map[string]string
 	// versionDelay, when set, holds the version GET response for that long before
 	// answering. It stands in for the envelope-build-and-hash cost the real
 	// endpoint pays, to prove which client (probe vs. read) the caller used.
@@ -115,6 +119,10 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			w.WriteHeader(sm.versionCode)
 			if sm.versionRaw != "" {
 				_, _ = w.Write([]byte(sm.versionRaw))
+				return
+			}
+			if sm.versionSections != nil {
+				_ = json.NewEncoder(w).Encode(map[string]any{"version": sm.versionHash, "sections": sm.versionSections})
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]string{"version": sm.versionHash})
@@ -421,7 +429,7 @@ func TestConvergeFleetAbortsAfterRearm(t *testing.T) {
 	// The older pass runs at the stale generation. It must not mutate members: no
 	// stale primary config is pushed, and the member is left for the rearm's own
 	// pass rather than being measured or written by this one.
-	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", nil, autoSyncReason, staleGen)
 
 	if replica.didBackup() || replica.didRealSync() {
 		t.Error("stale pass pushed config to a member after the rearm; want aborted before mutating")
@@ -433,11 +441,11 @@ func TestConvergeFleetAbortsAfterRearm(t *testing.T) {
 
 	// A pass at the current generation pushes, and the one after it verifies the
 	// member normally.
-	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, got.Gen)
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", nil, autoSyncReason, got.Gen)
 	if !replica.didRealSync() {
 		t.Error("a pass at the current generation did not push to the member")
 	}
-	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, got.Gen)
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", nil, autoSyncReason, got.Gen)
 	if !memberVerified(srv, rm.ID) {
 		t.Error("member was not verified in sync by the pass after the push")
 	}
@@ -470,7 +478,7 @@ func TestConvergeFleetAbortsImportWhenRearmLandsAfterDryRun(t *testing.T) {
 		}
 	}
 
-	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", nil, autoSyncReason, staleGen)
 
 	if replica.dryRunCount() == 0 {
 		t.Fatal("test setup: the dry-run never ran, so the post-dry-run window was not exercised")
@@ -518,7 +526,7 @@ func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
 	}
 
 	start := time.Now()
-	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", nil, autoSyncReason, staleGen)
 	if elapsed := time.Since(start); elapsed > stall-time.Second {
 		t.Errorf("convergeFleet ran %v; watchRearm did not cancel the in-flight import", elapsed)
 	}
@@ -1060,7 +1068,7 @@ func TestAutoSync_FailedVerifyStampKeepsFlag(t *testing.T) {
 		t.Fatalf("delete member: %v", err)
 	}
 
-	converged, measured := srv.measureMember(t.Context(), t.Context(), rm, "rtoken", "hash-B")
+	converged, measured, _ := srv.measureMember(t.Context(), t.Context(), rm, "rtoken", "hash-B", nil)
 	if !converged || !measured {
 		t.Fatalf("converged=%v measured=%v, want both true", converged, measured)
 	}
@@ -1426,7 +1434,7 @@ func TestFetchMemberConfigVersionRejectsBadResponses(t *testing.T) {
 			stub.versionRaw = ""
 			stub.mu.Unlock()
 			mutate()
-			if _, err := srv.fetchMemberConfigVersion(t.Context(), m, "tok"); err == nil {
+			if _, _, err := srv.fetchMemberConfigVersion(t.Context(), m, "tok"); err == nil {
 				t.Errorf("%s: expected an error, got nil", name)
 			}
 		})
