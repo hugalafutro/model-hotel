@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Đã cập nhật {{count}} hạn mức/số dư",
 		"toast_refresh_success_other": "Đã cập nhật {{count}} hạn mức/số dư",
 		"toast_discovery_failed_all_one": "Khám phá không thành công cho nhà cung cấp",
-		"toast_discovery_failed_all_other": "Khám phá không thành công cho tất cả {{count}} nhà cung cấp"
+		"toast_discovery_failed_all_other": "Khám phá không thành công cho tất cả {{count}} nhà cung cấp",
+		"schedule_disable_tooltip": "Lên lịch tắt",
+		"schedule_disable_hint": "Nhà cung cấp sẽ bị tắt ngay khi ngày trên máy chủ đến ngày đã chọn.",
+		"schedule_disable_cancel": "Hủy lịch",
+		"scheduled_disable_card_tooltip": "Đã lên lịch tắt vào {{date}}"
 	},
 	"models": {
 		"page_title_one": "Mô hình",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Nhà cung cấp đã thay đổi cấu trúc phản hồi hạn ngạch",
 				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản",
 				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý",
-				"model_auto_disabled_gone": "Đã tắt mô hình (nhà cung cấp không còn phục vụ)"
+				"model_auto_disabled_gone": "Đã tắt mô hình (nhà cung cấp không còn phục vụ)",
+				"provider_scheduled_disable": "Nhà cung cấp đã bị tắt theo lịch"
 			},
 			"events": {
 				"all": "Chọn tất cả",

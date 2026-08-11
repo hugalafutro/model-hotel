@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Actualizate {{count}} de cote/solduri",
 		"toast_discovery_failed_all_one": "Descoperirea a eșuat pentru furnizor",
 		"toast_discovery_failed_all_few": "Descoperirea a eșuat pentru toți cei {{count}} furnizori",
-		"toast_discovery_failed_all_other": "Descoperirea a eșuat pentru toți cei {{count}} de furnizori"
+		"toast_discovery_failed_all_other": "Descoperirea a eșuat pentru toți cei {{count}} de furnizori",
+		"schedule_disable_tooltip": "Programează dezactivarea",
+		"schedule_disable_hint": "Furnizorul va fi dezactivat imediat ce data serverului ajunge la ziua aleasă.",
+		"schedule_disable_cancel": "Anulează programarea",
+		"scheduled_disable_card_tooltip": "Dezactivare programată pentru {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "Furnizorul a modificat structura răspunsului privind cota",
 				"auth_sso_identity_bound": "Identitate SSO asociată unui cont",
 				"discovery_claims_outstanding": "Discrepanțe ale modelelor nerezolvate",
-				"model_auto_disabled_gone": "Model dezactivat (furnizorul nu îl mai oferă)"
+				"model_auto_disabled_gone": "Model dezactivat (furnizorul nu îl mai oferă)",
+				"provider_scheduled_disable": "Furnizor dezactivat conform programării"
 			},
 			"events": {
 				"all": "Selectați tot",

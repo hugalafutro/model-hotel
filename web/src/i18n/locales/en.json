@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",
 		"toast_refresh_success_other": "Refreshed {{count}} quotas/balances",
 		"toast_discovery_failed_all_one": "Discovery failed for the provider",
-		"toast_discovery_failed_all_other": "Discovery failed for all {{count}} providers"
+		"toast_discovery_failed_all_other": "Discovery failed for all {{count}} providers",
+		"schedule_disable_tooltip": "Schedule disable",
+		"schedule_disable_hint": "The provider will be disabled as soon as the server's date reaches the chosen day.",
+		"schedule_disable_cancel": "Cancel schedule",
+		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",

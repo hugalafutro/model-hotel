@@ -998,7 +998,11 @@
 		"toast_discovery_failed_all_one": "Wykrywanie nie powiodło się dla dostawcy",
 		"toast_discovery_failed_all_few": "Wykrywanie nie powiodło się dla wszystkich {{count}} dostawców",
 		"toast_discovery_failed_all_many": "Wykrywanie nie powiodło się dla wszystkich {{count}} dostawców",
-		"toast_discovery_failed_all_other": "Wykrywanie nie powiodło się dla wszystkich {{count}} dostawców"
+		"toast_discovery_failed_all_other": "Wykrywanie nie powiodło się dla wszystkich {{count}} dostawców",
+		"schedule_disable_tooltip": "Zaplanuj wyłączenie",
+		"schedule_disable_hint": "Dostawca zostanie wyłączony, gdy tylko data serwera osiągnie wybrany dzień.",
+		"schedule_disable_cancel": "Anuluj zaplanowane wyłączenie",
+		"scheduled_disable_card_tooltip": "Zaplanowane wyłączenie: {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2079,7 +2083,8 @@
 				"quota_schema_drift": "Dostawca zmienił strukturę odpowiedzi o kontyngencie",
 				"auth_sso_identity_bound": "Tożsamość SSO powiązana z kontem",
 				"discovery_claims_outstanding": "Nierozwiązane rozbieżności modeli",
-				"model_auto_disabled_gone": "Model wyłączony (dostawca już go nie udostępnia)"
+				"model_auto_disabled_gone": "Model wyłączony (dostawca już go nie udostępnia)",
+				"provider_scheduled_disable": "Dostawca wyłączony zgodnie z harmonogramem"
 			},
 			"events": {
 				"all": "Zaznacz wszystko",

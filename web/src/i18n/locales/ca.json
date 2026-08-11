@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Quotes/saldos de {{count}} actualitzats",
 		"toast_discovery_failed_all_one": "El descobriment ha fallat per al proveïdor",
 		"toast_discovery_failed_all_many": "El descobriment ha fallat per a tots els {{count}} proveïdors",
-		"toast_discovery_failed_all_other": "El descobriment ha fallat per a tots els {{count}} proveïdors"
+		"toast_discovery_failed_all_other": "El descobriment ha fallat per a tots els {{count}} proveïdors",
+		"schedule_disable_tooltip": "Programa la desactivació",
+		"schedule_disable_hint": "El proveïdor es desactivarà tan bon punt la data del servidor arribi al dia escollit.",
+		"schedule_disable_cancel": "Cancel·la la programació",
+		"scheduled_disable_card_tooltip": "Programat per desactivar-se el {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "El proveïdor ha canviat l'estructura de la resposta de quota",
 				"auth_sso_identity_bound": "Identitat SSO vinculada a un compte",
 				"discovery_claims_outstanding": "Discrepàncies de models sense atendre",
-				"model_auto_disabled_gone": "Model desactivat (el proveïdor ja no l'ofereix)"
+				"model_auto_disabled_gone": "Model desactivat (el proveïdor ja no l'ofereix)",
+				"provider_scheduled_disable": "Proveïdor desactivat segons la programació"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",

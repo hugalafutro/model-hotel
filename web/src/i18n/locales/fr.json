@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Quotas/Soldes {{count}} actualisés",
 		"toast_discovery_failed_all_one": "La découverte a échoué pour le fournisseur",
 		"toast_discovery_failed_all_many": "La découverte a échoué pour tous les {{count}} fournisseurs",
-		"toast_discovery_failed_all_other": "La découverte a échoué pour tous les {{count}} fournisseurs"
+		"toast_discovery_failed_all_other": "La découverte a échoué pour tous les {{count}} fournisseurs",
+		"schedule_disable_tooltip": "Planifier la désactivation",
+		"schedule_disable_hint": "Le fournisseur sera désactivé dès que la date du serveur atteindra le jour choisi.",
+		"schedule_disable_cancel": "Annuler la planification",
+		"scheduled_disable_card_tooltip": "Désactivation planifiée le {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modèle",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "Le fournisseur a modifié la structure de sa réponse de quota",
 				"auth_sso_identity_bound": "Identité SSO associée à un compte",
 				"discovery_claims_outstanding": "Écarts de modèles non traités",
-				"model_auto_disabled_gone": "Modèle désactivé (le fournisseur ne le propose plus)"
+				"model_auto_disabled_gone": "Modèle désactivé (le fournisseur ne le propose plus)",
+				"provider_scheduled_disable": "Fournisseur désactivé comme planifié"
 			},
 			"events": {
 				"all": "Tout sélectionner",

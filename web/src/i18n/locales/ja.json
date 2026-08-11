@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "{{count}} 件のクォータ/残高を更新しました",
 		"toast_refresh_success_other": "{{count}} 件のクォータ/残高を更新しました",
 		"toast_discovery_failed_all_one": "プロバイダーの検出に失敗しました",
-		"toast_discovery_failed_all_other": "すべての {{count}} プロバイダーの検出に失敗しました"
+		"toast_discovery_failed_all_other": "すべての {{count}} プロバイダーの検出に失敗しました",
+		"schedule_disable_tooltip": "無効化をスケジュール",
+		"schedule_disable_hint": "サーバーの日付が選択した日に達すると、プロバイダーは無効化されます。",
+		"schedule_disable_cancel": "スケジュールをキャンセル",
+		"scheduled_disable_card_tooltip": "{{date}} に無効化予定"
 	},
 	"models": {
 		"page_title_one": "モデル",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "プロバイダーがクォータ応答の構造を変更しました",
 				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました",
 				"discovery_claims_outstanding": "未対応のモデルの不一致",
-				"model_auto_disabled_gone": "モデルを無効化（プロバイダーが提供を終了）"
+				"model_auto_disabled_gone": "モデルを無効化（プロバイダーが提供を終了）",
+				"provider_scheduled_disable": "プロバイダーをスケジュールどおり無効化"
 			},
 			"events": {
 				"all": "すべて選択",
