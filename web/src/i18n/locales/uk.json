@@ -2084,7 +2084,7 @@
 				"auth_sso_identity_bound": "Ідентифікатор SSO прив'язано до облікового запису",
 				"discovery_claims_outstanding": "Розбіжності моделей залишилися без розгляду",
 				"model_auto_disabled_gone": "Модель вимкнено (провайдер більше її не надає)",
-				"provider_scheduled_disable": "Провайдер вимкнено за розкладом"
+				"provider_scheduled_disable": "Провайдера вимкнено за розкладом"
 			},
 			"events": {
 				"all": "Виділити все",
