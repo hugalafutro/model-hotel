@@ -24,7 +24,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.2 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.1 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.4 | Go | Apache-2.0 |
-| [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.3 | Go | Apache-2.0 |
+| [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
 | [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.17.4 | Go | BSD-3-Clause |
@@ -48,16 +48,16 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/tinylib/msgp](https://github.com/tinylib/msgp) | v1.6.4 | Go | MIT |
 | [github.com/x448/float16](https://github.com/x448/float16) | v0.8.4 | Go | MIT |
 | [go.opentelemetry.io/auto/sdk](https://go.opentelemetry.io/auto/sdk) | v1.2.1 | Go | Apache-2.0 |
-| [go.opentelemetry.io/contrib/bridges/otelslog](https://go.opentelemetry.io/contrib/bridges/otelslog) | v0.19.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel](https://go.opentelemetry.io/otel) | v1.44.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc) | v0.20.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp) | v0.20.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/log](https://go.opentelemetry.io/otel/log) | v0.20.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/metric](https://go.opentelemetry.io/otel/metric) | v1.44.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/sdk](https://go.opentelemetry.io/otel/sdk) | v1.44.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.20.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.44.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.10.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/contrib/bridges/otelslog](https://go.opentelemetry.io/contrib/bridges/otelslog) | v0.20.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel](https://go.opentelemetry.io/otel) | v1.45.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc) | v0.21.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp) | v0.21.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/log](https://go.opentelemetry.io/otel/log) | v0.21.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/metric](https://go.opentelemetry.io/otel/metric) | v1.45.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/sdk](https://go.opentelemetry.io/otel/sdk) | v1.45.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.21.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.45.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
 | [golang.org/x/crypto](https://golang.org/x/crypto) | v0.54.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.57.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
@@ -65,9 +65,9 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [golang.org/x/sys](https://golang.org/x/sys) | v0.47.0 | Go | BSD-3-Clause |
 | [golang.org/x/text](https://golang.org/x/text) | v0.40.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
-| [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
-| [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
-| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.82.1 | Go | Apache-2.0 |
+| [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
+| [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
+| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.0 | Go | Apache-2.0 |
 | [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.11 | Go | BSD-3-Clause |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
@@ -79,13 +79,13 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.3.0 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
-| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
-| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
 | [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
@@ -177,7 +177,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
 | [i18next](https://www.i18next.com) | 26.3.6 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
-| [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
+| [immer](https://github.com/immerjs/immer#readme) | 11.1.16 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
 | [internmap](https://github.com/mbostock/internmap/) | 2.0.3 | npm | ISC |
 | [is-alphabetical](https://github.com/wooorm/is-alphabetical#readme) | 2.0.1 | npm | MIT |
@@ -274,7 +274,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
 | [scheduler](https://react.dev/) | 0.27.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
-| [shiki](https://github.com/shikijs/shiki#readme) | 4.4.1 | npm | MIT |
+| [shiki](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
 | [string-width](https://github.com/sindresorhus/string-width#readme) | 4.2.3 | npm | MIT |
 | [stringify-entities](https://github.com/wooorm/stringify-entities#readme) | 4.0.4 | npm | MIT |
@@ -487,7 +487,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `go.opentelemetry.io/contrib/bridges/otelslog@v0.19.0`, `go.opentelemetry.io/otel@v1.44.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.20.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.20.0`, `go.opentelemetry.io/otel/log@v0.20.0`, `go.opentelemetry.io/otel/metric@v1.44.0`, `go.opentelemetry.io/otel/sdk@v1.44.0`, `go.opentelemetry.io/otel/sdk/log@v0.20.0`, `go.opentelemetry.io/otel/trace@v1.44.0`
+Applies to: `go.opentelemetry.io/contrib/bridges/otelslog@v0.20.0`, `go.opentelemetry.io/otel@v1.45.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.21.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.21.0`, `go.opentelemetry.io/otel/log@v0.21.0`, `go.opentelemetry.io/otel/metric@v1.45.0`, `go.opentelemetry.io/otel/sdk@v1.45.0`, `go.opentelemetry.io/otel/sdk/log@v0.21.0`, `go.opentelemetry.io/otel/trace@v1.45.0`
 
 ```
 Apache License
@@ -727,7 +727,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021 Pine Wu
 
-Applies to: `@shikijs/core@4.4.1`, `@shikijs/engine-javascript@4.4.1`, `@shikijs/engine-oniguruma@4.4.1`, `@shikijs/langs@4.4.1`, `@shikijs/primitive@4.4.1`, `@shikijs/themes@4.4.1`, `@shikijs/types@4.4.1`, `shiki@4.4.1`
+Applies to: `@shikijs/core@4.4.2`, `@shikijs/engine-javascript@4.4.2`, `@shikijs/engine-oniguruma@4.4.2`, `@shikijs/langs@4.4.2`, `@shikijs/primitive@4.4.2`, `@shikijs/themes@4.4.2`, `@shikijs/types@4.4.2`, `shiki@4.4.2`
 
 ```
 MIT License
@@ -758,7 +758,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.10.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260526163538-3dc84a4a5aaa`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260526163538-3dc84a4a5aaa`
+Applies to: `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260803160001-6ac0973c030d`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260803160001-6ac0973c030d`
 
 ```
 Apache License
@@ -1849,7 +1849,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-logr/logr@v1.4.3`
+Applies to: `github.com/go-logr/logr@v1.4.4`
 
 ```
 Apache License
@@ -3606,7 +3606,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `google.golang.org/grpc@v1.82.1`
+Applies to: `google.golang.org/grpc@v1.83.0`
 
 ```
 Apache License
@@ -5263,7 +5263,7 @@ SOFTWARE.
 
 Copyright (c) 2017 Michel Weststrate
 
-Applies to: `immer@11.1.15`
+Applies to: `immer@11.1.16`
 
 ```
 MIT License
