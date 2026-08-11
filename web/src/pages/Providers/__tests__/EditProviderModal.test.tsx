@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
+import { pad } from "../../../components/AccentCalendar.utils";
 import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -643,6 +644,157 @@ describe("EditProviderModal", () => {
 			await waitFor(() =>
 				expect(screen.queryByTestId("discovery-status-badge")).toBeNull(),
 			);
+		});
+	});
+
+	describe("scheduled disable", () => {
+		// The picker's minimum is tomorrow, so the calendar opens on tomorrow's
+		// month and tomorrow is the first selectable day.
+		const tomorrow = () => {
+			const d = new Date();
+			d.setDate(d.getDate() + 1);
+			return {
+				iso: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+				dayLabel: String(d.getDate()),
+			};
+		};
+
+		const capturePut = () => {
+			const captured: { payload?: unknown } = {};
+			server.use(
+				http.put("/api/providers/:id", async ({ request }) => {
+					captured.payload = await request.json();
+					return HttpResponse.json({
+						...mockProvider,
+						updated_at: new Date().toISOString(),
+					});
+				}),
+			);
+			return captured;
+		};
+
+		it("renders the schedule button next to the enabled toggle", () => {
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			expect(screen.getByTestId("schedule-disable-btn")).toBeInTheDocument();
+		});
+
+		it("disables the schedule button when the provider is toggled off", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByLabelText("Provider enabled"));
+			expect(screen.getByTestId("schedule-disable-btn")).toBeDisabled();
+		});
+
+		it("shows no date row when nothing is scheduled", () => {
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			expect(screen.queryByTestId("scheduled-disable-date")).toBeNull();
+		});
+
+		it("shows the existing schedule date for a scheduled provider", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, scheduled_disable_on: "2030-06-20" }}
+				/>,
+			);
+			expect(screen.getByTestId("scheduled-disable-date")).toHaveTextContent(
+				/2030/,
+			);
+		});
+
+		it("hides the date row when the provider is toggled off", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, scheduled_disable_on: "2030-06-20" }}
+				/>,
+			);
+			await user.click(screen.getByLabelText("Provider enabled"));
+			expect(screen.queryByTestId("scheduled-disable-date")).toBeNull();
+		});
+
+		it("stages a date picked in the popover and saves it", async () => {
+			const captured = capturePut();
+			const { iso, dayLabel } = tomorrow();
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			await user.click(screen.getByRole("button", { name: dayLabel }));
+			await user.click(screen.getByTestId("date-picker-apply"));
+			expect(screen.getByTestId("scheduled-disable-date")).toBeInTheDocument();
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ scheduled_disable_on: iso });
+			});
+		});
+
+		it("stages null when the schedule is cancelled", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, scheduled_disable_on: "2030-06-20" }}
+				/>,
+			);
+			await user.click(screen.getByTestId("schedule-disable-cancel"));
+			expect(screen.queryByTestId("scheduled-disable-date")).toBeNull();
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ scheduled_disable_on: null });
+			});
+		});
+
+		it("omits scheduled_disable_on from the payload when it is untouched", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, scheduled_disable_on: "2030-06-20" }}
+				/>,
+			);
+			await user.click(screen.getByLabelText("Provider autodiscovery"));
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ autodiscovery_enabled: false });
+			});
+		});
+
+		it("shows the unsaved-changes dialog for a staged schedule date", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			await user.click(
+				screen.getByRole("button", { name: tomorrow().dayLabel }),
+			);
+			await user.click(screen.getByTestId("date-picker-apply"));
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+			expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+		});
+
+		it("discards the pending date when the popover is cancelled", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			await user.click(
+				screen.getByRole("button", { name: tomorrow().dayLabel }),
+			);
+			await user.click(screen.getByTestId("date-picker-cancel"));
+			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
+			expect(screen.queryByTestId("scheduled-disable-date")).toBeNull();
+		});
+
+		it("closes the popover on a click outside it", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			expect(screen.getByTestId("date-picker-apply")).toBeInTheDocument();
+			await user.click(screen.getByLabelText("Name"));
+			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
 		});
 	});
 });
