@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import i18next from "i18next";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
@@ -15,6 +15,18 @@ import type {
 import type { useQuotaData } from "../../../hooks/useQuotaData";
 import { AllProviders } from "../../../test/utils";
 import { ProviderCard } from "../ProviderCard";
+
+// The real English copy for this key ships in a later i18n task; captured at
+// module load (before any test mutates it) so the "scheduled disable
+// indicator" suite below can restore it exactly and a later sanity test can
+// confirm the restore actually took.
+const SCHEDULED_DISABLE_TOOLTIP_KEY =
+	"providers.scheduled_disable_card_tooltip";
+const originalScheduledDisableTooltip: string | undefined = i18next.getResource(
+	"en",
+	"translation",
+	SCHEDULED_DISABLE_TOOLTIP_KEY,
+);
 
 const mockProvider: Provider = {
 	id: "provider-001",
@@ -756,11 +768,17 @@ describe("ProviderCard", () => {
 	});
 
 	describe("scheduled disable indicator", () => {
-		// The real English copy for providers.scheduled_disable_card_tooltip
-		// ships in a later i18n task; this suite must not depend on when that
-		// lands, so (following the src/utils/__tests__/format.test.ts
-		// countLabel convention) it registers its own value for the exact key
-		// the component calls and asserts against that.
+		// This suite must not depend on when the real copy for
+		// SCHEDULED_DISABLE_TOOLTIP_KEY lands (a later i18n task), so
+		// (following the src/utils/__tests__/format.test.ts countLabel
+		// convention) it registers its own value for the exact key the
+		// component calls and asserts against that. Vitest does not isolate
+		// the i18next singleton between describe blocks in this file, so the
+		// override is undone in afterEach: it restores the value captured at
+		// module load (see originalScheduledDisableTooltip above), leaving no
+		// shadowing behind for later tests in this file (verified by the
+		// "restores the i18next tooltip resource" test right after this
+		// describe block).
 		beforeEach(() => {
 			i18next.addResourceBundle(
 				"en",
@@ -773,6 +791,22 @@ describe("ProviderCard", () => {
 				true,
 				true,
 			);
+		});
+
+		afterEach(() => {
+			if (originalScheduledDisableTooltip === undefined) {
+				const data = i18next.getDataByLanguage("en") as
+					| { translation?: { providers?: Record<string, unknown> } }
+					| undefined;
+				delete data?.translation?.providers?.scheduled_disable_card_tooltip;
+			} else {
+				i18next.addResource(
+					"en",
+					"translation",
+					SCHEDULED_DISABLE_TOOLTIP_KEY,
+					originalScheduledDisableTooltip,
+				);
+			}
 		});
 
 		it("shows the scheduled-disable icon with a dated tooltip when scheduled", () => {
@@ -817,6 +851,18 @@ describe("ProviderCard", () => {
 
 			expect(screen.queryByTestId("scheduled-disable-icon")).toBeNull();
 		});
+	});
+
+	// Outside the "scheduled disable indicator" describe on purpose: its own
+	// beforeEach/afterEach don't apply here, so this observes the ambient
+	// i18next state left behind once that suite has finished. Regression
+	// check for the resource-bundle override in that suite actually being
+	// undone rather than permanently shadowing the real key for the rest of
+	// this file's run.
+	it("restores the i18next tooltip resource after the scheduled disable indicator suite", () => {
+		expect(
+			i18next.getResource("en", "translation", SCHEDULED_DISABLE_TOOLTIP_KEY),
+		).toBe(originalScheduledDisableTooltip);
 	});
 
 	describe("copyable pills", () => {
