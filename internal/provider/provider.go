@@ -292,6 +292,48 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	return p, nil
 }
 
+// DisableDueScheduled flips enabled off for every provider whose scheduled
+// disable day has arrived on the app server's clock, which is the same clock
+// the update validation uses when it rejects a date in the past. The comparison
+// date travels as a parameter rather than reading CURRENT_DATE, because the DB
+// session's timezone can differ from the server's and a date one path accepts
+// as tomorrow would already be due for the other. The schedule is cleared in the
+// same statement so the disable fires once. Returns the providers it disabled.
+func (r *Repository) DisableDueScheduled(ctx context.Context) ([]*Provider, error) {
+	rows, err := r.pool.Query(ctx, `
+		UPDATE providers
+		SET enabled = false, scheduled_disable_on = NULL, updated_at = now()
+		WHERE enabled = true AND scheduled_disable_on IS NOT NULL
+		  AND scheduled_disable_on <= $1::date
+		RETURNING `+providerColumns, time.Now().Format("2006-01-02"))
+	if err != nil {
+		debuglog.Error("provider: scheduled disable sweep failed", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*Provider
+	for rows.Next() {
+		p, err := scanProvider(rows)
+		if err != nil {
+			debuglog.Error("provider: scheduled disable scan failed", "error", err)
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("provider: scheduled disable sweep failed", "error", err)
+		return nil, err
+	}
+	if len(out) > 0 {
+		// The same invalidations a manual disable through Update performs:
+		// cached model rows denormalize the provider's enabled state.
+		InvalidateProviderCache()
+		model.InvalidateModelCache()
+	}
+	return out, nil
+}
+
 // Delete removes a provider by ID, along with every reference to it in the
 // allow-list columns.
 //
