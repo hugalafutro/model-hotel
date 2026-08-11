@@ -740,6 +740,20 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.ScheduledDisableOn.Set && req.ScheduledDisableOn.Value != nil {
+		v := *req.ScheduledDisableOn.Value
+		if _, err := time.Parse("2006-01-02", v); err != nil {
+			respondBadRequest(w, "invalid scheduled_disable_on", err)
+			return
+		}
+		// ISO dates compare correctly as strings; the schedule fires when the
+		// server date reaches the day, so today or earlier is meaningless.
+		if v <= time.Now().Format("2006-01-02") {
+			http.Error(w, "scheduled_disable_on must be a future date", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Application-level duplicate name check when renaming
 	if req.Name != nil {
 		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)

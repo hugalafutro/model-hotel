@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,11 +40,35 @@ type CreateProviderRequest struct {
 
 // UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
-	Name                 *string `json:"name"`
-	BaseURL              *string `json:"base_url"`
-	APIKey               *string `json:"api_key"`
-	Enabled              *bool   `json:"enabled"`
-	AutodiscoveryEnabled *bool   `json:"autodiscovery_enabled"`
+	Name                 *string      `json:"name"`
+	BaseURL              *string      `json:"base_url"`
+	APIKey               *string      `json:"api_key"`
+	Enabled              *bool        `json:"enabled"`
+	AutodiscoveryEnabled *bool        `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   OptionalDate `json:"scheduled_disable_on"`
+}
+
+// OptionalDate is a JSON field with three states an ordinary pointer cannot
+// express: absent (keep the stored value), null (clear it), and a value.
+type OptionalDate struct {
+	Set   bool
+	Value *string // nil with Set means an explicit null
+}
+
+// UnmarshalJSON is only invoked when the field is present, which is what makes
+// Set a presence flag.
+func (o *OptionalDate) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	o.Value = &s
+	return nil
 }
 
 // ProviderResponse is the response body for provider operations.
@@ -240,11 +265,19 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		    masked_key = COALESCE($6, masked_key),
 		    enabled = COALESCE($7, enabled),
 		    autodiscovery_enabled = COALESCE($8, autodiscovery_enabled),
+		    scheduled_disable_on = CASE
+		        WHEN COALESCE($7, enabled) = false THEN NULL
+		        WHEN $9 THEN $10::date
+		        ELSE scheduled_disable_on
+		    END,
 		    updated_at = now()
-		WHERE id = $9
+		WHERE id = $11
 		RETURNING ` + providerColumns
 
-	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, req.AutodiscoveryEnabled, id))
+	p, err := scanProvider(r.pool.QueryRow(ctx, query,
+		req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey,
+		req.Enabled, req.AutodiscoveryEnabled,
+		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
