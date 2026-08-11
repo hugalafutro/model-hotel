@@ -230,6 +230,13 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 
 	provID := seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	// A schedule on one provider and none on the other proves the column both
+	// exports as a stable date string and round-trips NULL correctly.
+	if _, err := apiTestDB.Pool().Exec(ctx,
+		`UPDATE providers SET scheduled_disable_on = '2030-01-02' WHERE name = 'openai'`); err != nil {
+		t.Fatalf("seed schedule: %v", err)
+	}
+	seedProvider(t, "together", "sk-secret-value2", configSyncMasterKey)
 	_, err := apiTestDB.Pool().Exec(ctx, `
 		INSERT INTO virtual_keys (name, key_hash, key_preview, allowed_providers, strip_reasoning)
 		VALUES ('vk1', 'hash1', 'mh-***', $1, true)`, []string{provID})
@@ -252,11 +259,17 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	if env.SchemaVersion != configSchemaVersion {
 		t.Fatalf("schema_version = %d", env.SchemaVersion)
 	}
-	if len(env.Config.Providers) != 1 || env.Config.Providers[0].Name != "openai" {
+	if len(env.Config.Providers) != 2 || env.Config.Providers[0].Name != "openai" || env.Config.Providers[1].Name != "together" {
 		t.Fatalf("providers = %+v", env.Config.Providers)
 	}
 	if len(env.Config.Providers[0].EncryptedKey) == 0 {
 		t.Fatal("provider encrypted key not exported")
+	}
+	if env.Config.Providers[0].ScheduledDisableOn == nil || *env.Config.Providers[0].ScheduledDisableOn != "2030-01-02" {
+		t.Fatalf("openai scheduled_disable_on = %v, want 2030-01-02", env.Config.Providers[0].ScheduledDisableOn)
+	}
+	if env.Config.Providers[1].ScheduledDisableOn != nil {
+		t.Fatalf("together scheduled_disable_on = %v, want nil", *env.Config.Providers[1].ScheduledDisableOn)
 	}
 	if len(env.Config.VirtualKeys) != 1 ||
 		env.Config.VirtualKeys[0].AllowedProviderNames == nil ||
@@ -301,6 +314,28 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	plain, err := auth.Decrypt(ek, nonce, salt, configSyncMasterKey)
 	if err != nil || plain != "sk-secret-value" {
 		t.Fatalf("decrypt imported key = %q, err %v", plain, err)
+	}
+
+	// The imported "openai" row carries the applied schedule; "together" (no
+	// schedule in the envelope) converges to NULL rather than keeping a stale
+	// local value, per fleet semantics (primary is authoritative).
+	var gotSchedule *string
+	if err := apiTestDB.Pool().QueryRow(ctx,
+		`SELECT to_char(scheduled_disable_on, 'YYYY-MM-DD') FROM providers WHERE name = 'openai'`).
+		Scan(&gotSchedule); err != nil {
+		t.Fatalf("read imported provider schedule: %v", err)
+	}
+	if gotSchedule == nil || *gotSchedule != "2030-01-02" {
+		t.Fatalf("imported openai scheduled_disable_on = %v, want 2030-01-02", gotSchedule)
+	}
+	var gotNoSchedule *string
+	if err := apiTestDB.Pool().QueryRow(ctx,
+		`SELECT to_char(scheduled_disable_on, 'YYYY-MM-DD') FROM providers WHERE name = 'together'`).
+		Scan(&gotNoSchedule); err != nil {
+		t.Fatalf("read imported provider (no schedule): %v", err)
+	}
+	if gotNoSchedule != nil {
+		t.Fatalf("imported together scheduled_disable_on = %v, want NULL", *gotNoSchedule)
 	}
 
 	// VK allowed_providers re-points at the replica's own provider UUID.
