@@ -1399,6 +1399,65 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 	}
 }
 
+// TestProviderResponse_CarriesScheduledDisableOn verifies that a
+// scheduled_disable_on date set directly on the row round-trips through the
+// list endpoint as a "YYYY-MM-DD" string on ProviderResponse.
+func TestProviderResponse_CarriesScheduledDisableOn(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	provName := "sched-carrier-" + uuid.New().String()[:8]
+	provBody := fmt.Sprintf(`{"name":"%s","base_url":"https://api.example.com/v1","api_key":"sk-testkey123"}`, provName)
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Seed the column directly; the update endpoint learns about it in a
+	// later task.
+	if _, err := h.dbPool.Pool().Exec(context.Background(),
+		`UPDATE providers SET scheduled_disable_on = '2030-01-02' WHERE id = $1`, createResp.ID); err != nil {
+		t.Fatal(err)
+	}
+	provider.InvalidateProviderCache()
+
+	req = httptest.NewRequest("GET", "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var got []provider.ProviderResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("Failed to parse list response: %v", err)
+	}
+
+	found := false
+	for _, r := range got {
+		if r.ID.String() == createResp.ID {
+			found = true
+			if r.ScheduledDisableOn == nil || *r.ScheduledDisableOn != "2030-01-02" {
+				t.Fatalf("scheduled_disable_on = %v, want 2030-01-02", r.ScheduledDisableOn)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("provider missing from list")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 10. ListProviders — scan error with cancelled context
 // ---------------------------------------------------------------------------

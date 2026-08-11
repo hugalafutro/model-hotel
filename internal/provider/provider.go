@@ -23,6 +23,7 @@ type Provider struct {
 	MaskedKey            *string    `json:"masked_key"`
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   *time.Time `json:"scheduled_disable_on"`
 	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
 	LastUsedAt           *time.Time `json:"last_used_at"`
 	CreatedAt            time.Time  `json:"created_at"`
@@ -55,6 +56,7 @@ type ProviderResponse struct {
 	MaskedKey            string     `json:"masked_key"`
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   *string    `json:"scheduled_disable_on"`
 	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
 	LastUsedAt           *time.Time `json:"last_used_at"`
 	CreatedAt            time.Time  `json:"created_at"`
@@ -93,7 +95,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return p, nil
 }
 
-const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, last_discovered_at, last_used_at, created_at, updated_at`
+const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, last_discovered_at, last_used_at, created_at, updated_at`
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
@@ -103,7 +105,7 @@ func scanProvider(row scanner) (*Provider, error) {
 	var p Provider
 	err := row.Scan(
 		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
+		&p.ScheduledDisableOn, &p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -365,6 +367,12 @@ func ToResponse(p *Provider) ProviderResponse {
 		}
 	}
 
+	var sched *string
+	if p.ScheduledDisableOn != nil {
+		s := p.ScheduledDisableOn.Format("2006-01-02")
+		sched = &s
+	}
+
 	return ProviderResponse{
 		ID:                   p.ID,
 		Name:                 p.Name,
@@ -372,6 +380,7 @@ func ToResponse(p *Provider) ProviderResponse {
 		MaskedKey:            maskedKey,
 		Enabled:              p.Enabled,
 		AutodiscoveryEnabled: p.AutodiscoveryEnabled,
+		ScheduledDisableOn:   sched,
 		LastDiscoveredAt:     p.LastDiscoveredAt,
 		LastUsedAt:           p.LastUsedAt,
 		CreatedAt:            p.CreatedAt,
