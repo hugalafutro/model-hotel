@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import i18next from "i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	DeepSeekBalance,
@@ -751,6 +752,70 @@ describe("ProviderCard", () => {
 					"error",
 				);
 			});
+		});
+	});
+
+	describe("scheduled disable indicator", () => {
+		// The real English copy for providers.scheduled_disable_card_tooltip
+		// ships in a later i18n task; this suite must not depend on when that
+		// lands, so (following the src/utils/__tests__/format.test.ts
+		// countLabel convention) it registers its own value for the exact key
+		// the component calls and asserts against that.
+		beforeEach(() => {
+			i18next.addResourceBundle(
+				"en",
+				"translation",
+				{
+					providers: {
+						scheduled_disable_card_tooltip: "Scheduled to disable on {{date}}",
+					},
+				},
+				true,
+				true,
+			);
+		});
+
+		it("shows the scheduled-disable icon with a dated tooltip when scheduled", () => {
+			const scheduledProvider: Provider = {
+				...mockProvider,
+				scheduled_disable_on: "2030-06-20",
+			};
+
+			render(<ProviderCard {...defaultProps} provider={scheduledProvider} />, {
+				wrapper: AllProviders,
+			});
+
+			const icon = screen.getByTestId("scheduled-disable-icon");
+			expect(icon).toBeInTheDocument();
+			// Locale-independent: assert the title contains the same string formatDate produces.
+			expect(icon.getAttribute("title")).toContain(
+				new Date("2030-06-20T00:00:00").toLocaleDateString(undefined, {
+					day: "numeric",
+					month: "short",
+					year: "numeric",
+				}),
+			);
+		});
+
+		it("shows no icon when nothing is scheduled", () => {
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			expect(screen.queryByTestId("scheduled-disable-icon")).toBeNull();
+		});
+
+		it("shows no icon when scheduled but the provider is disabled", () => {
+			const scheduledDisabledProvider: Provider = {
+				...mockProvider,
+				enabled: false,
+				scheduled_disable_on: "2030-06-20",
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={scheduledDisabledProvider} />,
+				{ wrapper: AllProviders },
+			);
+
+			expect(screen.queryByTestId("scheduled-disable-icon")).toBeNull();
 		});
 	});
 
