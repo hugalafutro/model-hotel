@@ -13,6 +13,7 @@ export interface Provider {
 	masked_key: string;
 	enabled: boolean;
 	autodiscovery_enabled: boolean;
+	scheduled_disable_on: string | null;
 	last_discovered_at: string | null;
 	last_used_at: string | null;
 	created_at: string;
@@ -33,6 +34,7 @@ export interface UpdateProviderRequest {
 	api_key?: string;
 	enabled?: boolean;
 	autodiscovery_enabled?: boolean;
+	scheduled_disable_on?: string | null;
 }
 
 export interface ModelCapabilities {

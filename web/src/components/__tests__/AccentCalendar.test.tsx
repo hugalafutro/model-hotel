@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../test/utils";
@@ -209,5 +209,24 @@ describe("AccentCalendar", () => {
 		expect(buttons[buttons.length - 1]).toHaveClass(
 			"rounded-(--radius-button)",
 		);
+	});
+
+	it("does not select days before minDate", () => {
+		const onSelect = vi.fn();
+		// June 2030: render with initialYear=2030 initialMonth=5, minDate="2030-06-15"
+		renderWithProviders(
+			<AccentCalendar
+				initialYear={2030}
+				initialMonth={5}
+				from=""
+				to=""
+				onSelect={onSelect}
+				minDate="2030-06-15"
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "14" }));
+		expect(onSelect).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "15" }));
+		expect(onSelect).toHaveBeenCalledWith("2030-06-15");
 	});
 });

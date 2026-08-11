@@ -14,6 +14,7 @@ describe("EditProviderModal", () => {
 		masked_key: "sk-****test",
 		enabled: true,
 		autodiscovery_enabled: true,
+		scheduled_disable_on: null,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
