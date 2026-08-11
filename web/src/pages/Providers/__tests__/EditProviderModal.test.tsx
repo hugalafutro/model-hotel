@@ -796,5 +796,57 @@ describe("EditProviderModal", () => {
 			await user.click(screen.getByLabelText("Name"));
 			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
 		});
+
+		it("seeds the picker with the committed date, so Apply alone changes nothing", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, scheduled_disable_on: "2030-06-20" }}
+				/>,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			// Apply is enabled straight away only because the trigger seeded the
+			// pending date from the committed one.
+			await user.click(screen.getByTestId("date-picker-apply"));
+			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
+			expect(screen.getByTestId("scheduled-disable-date")).toBeInTheDocument();
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({});
+			});
+		});
+
+		it("reseeds the pending date when the picker is reopened after a dismissal", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			await user.click(
+				screen.getByRole("button", { name: tomorrow().dayLabel }),
+			);
+			// Dismissing without applying leaves the form unscheduled, so reopening
+			// must start from empty rather than from the abandoned pick.
+			await user.click(screen.getByLabelText("Name"));
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			expect(screen.getByTestId("date-picker-apply")).toBeDisabled();
+		});
+
+		it("closes the popover when the provider is switched off from the keyboard", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.click(screen.getByTestId("schedule-disable-btn"));
+			expect(screen.getByTestId("date-picker-apply")).toBeInTheDocument();
+			// The keyboard path fires no mousedown, so the popover's click-outside
+			// handler never runs and only the toggle itself can close it.
+			screen.getByLabelText("Provider enabled").focus();
+			await user.keyboard(" ");
+			expect(screen.getByLabelText("Provider enabled")).toHaveAttribute(
+				"aria-checked",
+				"false",
+			);
+			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
+		});
 	});
 });

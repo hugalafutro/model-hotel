@@ -251,12 +251,17 @@ export function EditProviderModal({
 						<div className="flex items-center gap-3">
 							<Toggle
 								checked={formData.enabled}
-								onChange={(v) =>
+								onChange={(v) => {
+									// Switching off hides the schedule row and disables its
+									// trigger, so an open picker goes with it. The keyboard
+									// path fires no mousedown and so never reaches the
+									// popover's own click-outside handler.
+									if (!v) setPickerOpen(false);
 									setFormData({
 										...formData,
 										enabled: v,
-									})
-								}
+									});
+								}}
 								showFocusRing
 								ariaLabel={t("providers.edit.enabledToggle")}
 							/>
