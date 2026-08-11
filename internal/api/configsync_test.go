@@ -266,7 +266,7 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 		t.Fatal("provider encrypted key not exported")
 	}
 	if env.Config.Providers[0].ScheduledDisableOn == nil || *env.Config.Providers[0].ScheduledDisableOn != "2030-01-02" {
-		t.Fatalf("openai scheduled_disable_on = %v, want 2030-01-02", env.Config.Providers[0].ScheduledDisableOn)
+		t.Fatalf("openai scheduled_disable_on = %s, want 2030-01-02", strPtr(env.Config.Providers[0].ScheduledDisableOn))
 	}
 	if env.Config.Providers[1].ScheduledDisableOn != nil {
 		t.Fatalf("together scheduled_disable_on = %v, want nil", *env.Config.Providers[1].ScheduledDisableOn)
@@ -316,9 +316,10 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 		t.Fatalf("decrypt imported key = %q, err %v", plain, err)
 	}
 
-	// The imported "openai" row carries the applied schedule; "together" (no
-	// schedule in the envelope) converges to NULL rather than keeping a stale
-	// local value, per fleet semantics (primary is authoritative).
+	// Both rows are freshly INSERTed by this first import (cleanConfigTables
+	// wiped the table above), so this only proves the field carries through
+	// the INSERT branch of upsertProviders: "openai" gets the applied
+	// schedule, "together" (no schedule in the envelope) gets none.
 	var gotSchedule *string
 	if err := apiTestDB.Pool().QueryRow(ctx,
 		`SELECT to_char(scheduled_disable_on, 'YYYY-MM-DD') FROM providers WHERE name = 'openai'`).
@@ -326,7 +327,7 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 		t.Fatalf("read imported provider schedule: %v", err)
 	}
 	if gotSchedule == nil || *gotSchedule != "2030-01-02" {
-		t.Fatalf("imported openai scheduled_disable_on = %v, want 2030-01-02", gotSchedule)
+		t.Fatalf("imported openai scheduled_disable_on = %s, want 2030-01-02", strPtr(gotSchedule))
 	}
 	var gotNoSchedule *string
 	if err := apiTestDB.Pool().QueryRow(ctx,
@@ -372,6 +373,27 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	}
 	if !contains(resp.Diff.Users.Added, "alice") {
 		t.Fatalf("user diff missing alice in Added: %+v", resp.Diff.Users)
+	}
+
+	// Re-import with the schedule cleared, onto the LIVE replica rows (no
+	// cleanup in between): "openai" already has scheduled_disable_on set from
+	// the import above, so this exercises the ON CONFLICT (name) DO UPDATE SET
+	// scheduled_disable_on = EXCLUDED.scheduled_disable_on branch of
+	// upsertProviders, proving an envelope without the field converges an
+	// existing schedule to NULL (primary is authoritative).
+	env.Config.Providers[0].ScheduledDisableOn = nil
+	rec = doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("re-import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var clearedSchedule *string
+	if err := apiTestDB.Pool().QueryRow(ctx,
+		`SELECT to_char(scheduled_disable_on, 'YYYY-MM-DD') FROM providers WHERE name = 'openai'`).
+		Scan(&clearedSchedule); err != nil {
+		t.Fatalf("read re-imported provider schedule: %v", err)
+	}
+	if clearedSchedule != nil {
+		t.Fatalf("re-imported openai scheduled_disable_on = %s, want NULL", strPtr(clearedSchedule))
 	}
 }
 
@@ -1085,4 +1107,15 @@ func TestUpsertProviders_ProviderURLGuard(t *testing.T) {
 // contains reports whether s is in xs.
 func contains(xs []string, s string) bool {
 	return slices.Contains(xs, s)
+}
+
+// strPtr renders a *string for failure messages: "<nil>" for nil, the
+// pointee's value otherwise. Using %v directly on a *string would print a
+// pointer address in the "non-nil but wrong value" case, which is useless
+// in test output.
+func strPtr(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
