@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CalendarDays, Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
-import { pad } from "../../components/AccentCalendar.utils";
+import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
 import { Modal } from "../../components/Modal";
@@ -18,7 +18,7 @@ import { isKnownProviderUrl } from "./constants";
 function tomorrowISO(): string {
 	const d = new Date();
 	d.setDate(d.getDate() + 1);
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	return toISODate(d);
 }
 
 export function EditProviderModal({

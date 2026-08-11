@@ -1624,9 +1624,10 @@ func TestListProviders_TokenRowScanError(t *testing.T) {
 
 // TestUpdateProvider_ScheduledDisable verifies the tri-state
 // scheduled_disable_on semantics on the update endpoint: a future date sets
-// it, an explicit null clears it, an absent field keeps it, past/invalid
-// dates are rejected, and disabling a provider always forces it back to null
-// (even when the same request tries to set one).
+// it, today is accepted (and fires on the next sweep), an explicit null
+// clears it, an absent field keeps it, past/invalid dates are rejected, and
+// disabling a provider always forces it back to null (even when the same
+// request tries to set one).
 func TestUpdateProvider_ScheduledDisable(t *testing.T) {
 	h := newTestHandler(t)
 	r := chi.NewRouter()
@@ -1712,9 +1713,21 @@ func TestUpdateProvider_ScheduledDisable(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects today and past", func(t *testing.T) {
+	t.Run("accepts today (fires on next sweep)", func(t *testing.T) {
+		id := createProvider(t, "sched-today")
+		rec := putProvider(t, id, `{"scheduled_disable_on": "`+today+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn == nil || *resp.ScheduledDisableOn != today {
+			t.Fatalf("got %v, want %s", resp.ScheduledDisableOn, today)
+		}
+	})
+
+	t.Run("rejects past and malformed", func(t *testing.T) {
 		id := createProvider(t, "sched-past")
-		for _, bad := range []string{today, "2020-01-01", "not-a-date"} {
+		for _, bad := range []string{"2020-01-01", "not-a-date"} {
 			rec := putProvider(t, id, `{"scheduled_disable_on": "`+bad+`"}`)
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("date %q: expected 400, got %d: %s", bad, rec.Code, rec.Body.String())

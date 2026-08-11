@@ -746,10 +746,13 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			respondBadRequest(w, "invalid scheduled_disable_on", err)
 			return
 		}
-		// ISO dates compare correctly as strings; the schedule fires when the
-		// server date reaches the day, so today or earlier is meaningless.
-		if v <= time.Now().Format("2006-01-02") {
-			http.Error(w, "scheduled_disable_on must be a future date", http.StatusBadRequest)
+		// ISO dates compare correctly as strings. The client's calendar floors
+		// at browser-tomorrow, but the server accepts its own today: a browser
+		// lagging the server clock would otherwise get a 400 on its earliest
+		// selectable day. A server-today schedule is due immediately, and the
+		// sweep fires it on its next tick.
+		if v < time.Now().Format("2006-01-02") {
+			http.Error(w, "scheduled_disable_on must not be in the past", http.StatusBadRequest)
 			return
 		}
 	}
