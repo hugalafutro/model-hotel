@@ -853,6 +853,33 @@ func TestSweepScheduledDisables_NothingDue(t *testing.T) {
 	assertNoScheduledDisableEvent(t, ch)
 }
 
+// TestSweepScheduledDisables_CompletesOnCancelledContext pins the shutdown
+// behaviour: the sweep drops its caller's cancellation, because the UPDATE
+// clears the schedule as it fires and a sweep abandoned midway would strand the
+// disable with no event and no way for a later sweep to notice.
+func TestSweepScheduledDisables_CompletesOnCancelledContext(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	pool := cmdTestDB.Pool()
+	due := insertScheduledProvider(t, "sched-cancelled-ctx", true, time.Now().Format("2006-01-02"))
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if n := sweepScheduledDisables(ctx, provider.NewRepository(pool), failover.NewRepository(pool)); n != 1 {
+		t.Fatalf("disabled %d providers under a cancelled context, want 1", n)
+	}
+	assertProviderState(t, due, "cancelled-ctx", false, false)
+	if fired := collectScheduledDisableEvents(t, ch, 1); fired["sched-cancelled-ctx"] != due.String() {
+		t.Errorf("event carries provider_id %q, want %s", fired["sched-cancelled-ctx"], due)
+	}
+}
+
 func TestSweepScheduledDisablesDBError(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")

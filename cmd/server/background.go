@@ -363,13 +363,29 @@ func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	}
 }
 
+// sweepScheduledDisableTimeout bounds a sweep that outlives its caller's
+// context, so shutdown still terminates promptly.
+const sweepScheduledDisableTimeout = 30 * time.Second
+
 // sweepScheduledDisables fires every due scheduled disable and returns how many
 // providers it disabled. It mirrors the manual-disable path in
 // api.UpdateProvider: the repo call invalidates the caches, the failover sync
 // removes the provider's models from auto-created groups, and one warning event
 // per provider tells the operator what happened.
+//
+// A sweep that has begun finishes even while the server is shutting down, which
+// is why the caller's cancellation is dropped here the way api.UpdateProvider
+// drops the request's. The UPDATE clears scheduled_disable_on as it fires, so
+// the disable is only ever due once: a cancellation landing between that commit
+// and the drained rows would lose the operator's event permanently — no later
+// sweep can re-derive it — and leave the failover groups carrying models of a
+// provider that is already off. scheduledDisableLoop keeps selecting on the
+// original context, so the loop itself still exits at once.
 func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository) int {
-	disabled, err := providerRepo.DisableDueScheduled(ctx)
+	sweepCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sweepScheduledDisableTimeout)
+	defer cancel()
+
+	disabled, err := providerRepo.DisableDueScheduled(sweepCtx)
 	if err != nil || len(disabled) == 0 {
 		return 0
 	}
@@ -382,7 +398,7 @@ func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Reposito
 			Metadata: map[string]any{"provider": p.Name, "provider_id": p.ID.String()},
 		})
 	}
-	if _, err := failoverRepo.SyncAllModels(ctx); err != nil {
+	if _, err := failoverRepo.SyncAllModels(sweepCtx); err != nil {
 		debuglog.Info("scheduled disable: failover sync failed", "error", err)
 	}
 	return len(disabled)
