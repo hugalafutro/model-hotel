@@ -141,10 +141,10 @@ export function AccentCalendar({
 																		? "bg-(--accent) text-white font-semibold"
 																		: inRange
 																			? "bg-(--accent)/20 text-(--accent)"
-																			: isToday
-																				? "border border-(--accent)/50 text-(--accent)"
-																				: belowMin
-																					? "text-gray-600 cursor-not-allowed"
+																			: belowMin
+																				? "text-gray-600 cursor-not-allowed"
+																				: isToday
+																					? "border border-(--accent)/50 text-(--accent)"
 																					: "text-gray-300 hover:bg-gray-700"
 																}
                             `}

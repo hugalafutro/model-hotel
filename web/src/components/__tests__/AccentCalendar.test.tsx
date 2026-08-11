@@ -229,4 +229,27 @@ describe("AccentCalendar", () => {
 		fireEvent.click(screen.getByRole("button", { name: "15" }));
 		expect(onSelect).toHaveBeenCalledWith("2030-06-15");
 	});
+
+	it("disables today's cell and drops the today styling when today is below minDate", () => {
+		const onSelect = vi.fn();
+		// todayISO is mocked to 2024-03-15 (module-level mock above). minDate is
+		// tomorrow (2024-03-16), so today itself falls below minDate — the greyed
+		// disabled style must win over the accent isToday border.
+		renderWithProviders(
+			<AccentCalendar
+				initialYear={2024}
+				initialMonth={2}
+				from=""
+				to=""
+				onSelect={onSelect}
+				minDate="2024-03-16"
+			/>,
+		);
+		const todayCell = screen.getByRole("button", { name: "15" });
+		expect(todayCell).toBeDisabled();
+		expect(todayCell.className).toContain("cursor-not-allowed");
+		expect(todayCell.className).not.toContain("border-(--accent)/50");
+		fireEvent.click(todayCell);
+		expect(onSelect).not.toHaveBeenCalled();
+	});
 });
