@@ -109,6 +109,7 @@
 		"disbandTip": "Eliminar este miembro disuelve toda la flota (una flota no puede tener menos de dos miembros).",
 		"disbanded": "{{name}} eliminado; flota disuelta",
 		"removeLastActiveError": "No se puede eliminar el último miembro activo; activa antes otro miembro.",
+		"membershipChangedError": "La flota cambió mientras se eliminaba el miembro. Revisa la lista actualizada e inténtalo de nuevo.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "La versión difiere del grupo",
 		"syncHeld": "Sincronización retenida",
@@ -303,6 +304,7 @@
 				"member_added": "Miembro añadido",
 				"member_removed": "Miembro eliminado",
 				"member_state_changed": "Miembro activado o retirado",
+				"fleet_disbanded": "Flota disuelta",
 				"fleet_state_changed": "Estado de la flota cambiado",
 				"backup_stale": "Miembro sin copia reciente",
 				"backup_recovered": "Miembro con copias al día de nuevo",
@@ -421,7 +423,8 @@
 			"confirmTokenLabel": "Token de administrador",
 			"confirmTokenPlaceholder": "Introduce el token de administrador de Front Desk",
 			"stepN": "Paso {{n}}",
-			"sameHostError": "No puedes reemplazar el primario por el mismo host: ese host ya es el primario de la flota."
+			"sameHostError": "No puedes reemplazar el primario por el mismo host: ese host ya es el primario de la flota.",
+			"fleetTooSmallError": "Una flota necesita al menos dos miembros antes de poder designar un principal. Añade antes un segundo miembro."
 		},
 		"primaryTag": "principal",
 		"memberResultOk": "{{name}} ✓",

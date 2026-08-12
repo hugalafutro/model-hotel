@@ -109,6 +109,7 @@
 		"disbandTip": "Das Entfernen dieses Mitglieds löst die gesamte Flotte auf (eine Flotte kann nicht weniger als zwei Mitglieder haben).",
 		"disbanded": "{{name}} entfernt; Flotte aufgelöst",
 		"removeLastActiveError": "Das letzte aktive Mitglied kann nicht entfernt werden; aktivieren Sie zuerst ein anderes Mitglied.",
+		"membershipChangedError": "Die Flotte hat sich während des Entfernens geändert. Prüfen Sie die aktualisierte Liste und versuchen Sie es erneut.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Version weicht von der Gruppe ab",
 		"syncHeld": "Sync angehalten",
@@ -299,6 +300,7 @@
 				"member_added": "Mitglied hinzugefügt",
 				"member_removed": "Mitglied entfernt",
 				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen",
+				"fleet_disbanded": "Flotte aufgelöst",
 				"fleet_state_changed": "Flottenstatus geändert",
 				"backup_stale": "Mitglied ohne aktuelles Backup",
 				"backup_recovered": "Mitglied wird wieder gesichert",
@@ -414,7 +416,8 @@
 			"confirmTokenLabel": "Admin-Token",
 			"confirmTokenPlaceholder": "Front Desk-Admin-Token eingeben",
 			"stepN": "Schritt {{n}}",
-			"sameHostError": "Sie können den Primary nicht durch denselben Host ersetzen: dieser Host ist bereits der Primary der Flotte."
+			"sameHostError": "Sie können den Primary nicht durch denselben Host ersetzen: dieser Host ist bereits der Primary der Flotte.",
+			"fleetTooSmallError": "Eine Flotte benötigt mindestens zwei Mitglieder, bevor ein primäres bestimmt werden kann. Fügen Sie zuerst ein zweites Mitglied hinzu."
 		},
 		"primaryTag": "Primär",
 		"memberResultOk": "{{name}} ✓",

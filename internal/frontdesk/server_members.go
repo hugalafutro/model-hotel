@@ -258,6 +258,14 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 				"cannot remove the last active member: the fleet would have no routable backends")
 			return
 		}
+		// The roster changed under the operator's confirmed action (a concurrent
+		// add or removal): what would happen now (plain removal vs disband) may
+		// not be what the confirm described, so refuse and have them look again.
+		if errors.Is(err, ErrMembershipChanged) {
+			writeCodedError(w, http.StatusConflict, "membership_changed",
+				"the fleet membership changed while removing this member; review the updated list and retry")
+			return
+		}
 		writeError(w, err)
 		return
 	}

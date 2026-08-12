@@ -109,6 +109,7 @@
 		"disbandTip": "移除此成员将解散整个集群（集群不能少于两个成员）。",
 		"disbanded": "已移除 {{name}}；集群已解散",
 		"removeLastActiveError": "无法移除最后一个活动成员；请先激活另一个成员。",
+		"membershipChangedError": "移除成员时集群发生了变化。请查看更新后的列表并重试。",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "版本与集群不一致",
 		"syncHeld": "同步已暂停",
@@ -299,6 +300,7 @@
 				"member_added": "成员已添加",
 				"member_removed": "成员已移除",
 				"member_state_changed": "成员已激活或排空",
+				"fleet_disbanded": "集群已解散",
 				"fleet_state_changed": "集群状态已更改",
 				"backup_stale": "成员没有最近的备份",
 				"backup_recovered": "成员备份已恢复",
@@ -414,7 +416,8 @@
 			"confirmTokenLabel": "管理员令牌",
 			"confirmTokenPlaceholder": "输入 Front Desk 管理员令牌",
 			"stepN": "第 {{n}} 步",
-			"sameHostError": "无法用同一主机替换主节点：该主机已经是机群的主节点。"
+			"sameHostError": "无法用同一主机替换主节点：该主机已经是机群的主节点。",
+			"fleetTooSmallError": "集群至少需要两个成员才能指定主节点。请先添加第二个成员。"
 		},
 		"primaryTag": "主节点",
 		"memberResultOk": "{{name}} ✓",

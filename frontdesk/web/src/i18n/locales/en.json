@@ -109,6 +109,7 @@
 		"disbandTip": "Removing this member disbands the whole fleet (a fleet cannot have fewer than two members).",
 		"disbanded": "{{name}} removed; fleet disbanded",
 		"removeLastActiveError": "Cannot remove the last active member; activate another member first.",
+		"membershipChangedError": "The fleet changed while removing the member. Check the updated list and try again.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Version differs from the group",
 		"syncHeld": "Sync held",
@@ -299,6 +300,7 @@
 				"member_added": "Member added",
 				"member_removed": "Member removed",
 				"member_state_changed": "Member activated or drained",
+				"fleet_disbanded": "Fleet disbanded",
 				"fleet_state_changed": "Fleet state changed",
 				"backup_stale": "Member has no recent backup",
 				"backup_recovered": "Member backups healthy again",
@@ -414,7 +416,8 @@
 			"confirmTokenLabel": "Admin token",
 			"confirmTokenPlaceholder": "Enter the Front Desk admin token",
 			"stepN": "Step {{n}}",
-			"sameHostError": "You cannot replace the primary with the same host: it is already the fleet primary."
+			"sameHostError": "You cannot replace the primary with the same host: it is already the fleet primary.",
+			"fleetTooSmallError": "A fleet needs at least two members before a primary can be designated. Add a second member first."
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",

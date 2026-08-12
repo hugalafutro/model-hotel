@@ -109,6 +109,7 @@
 		"disbandTip": "このメンバーを削除するとフリート全体が解散されます (フリートは 2 メンバー未満にはできません)。",
 		"disbanded": "{{name}} を削除しました。フリートは解散されました",
 		"removeLastActiveError": "最後のアクティブなメンバーは削除できません。先に別のメンバーを有効化してください。",
+		"membershipChangedError": "メンバーの削除中にフリートが変更されました。最新のリストを確認して、もう一度お試しください。",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "グループとバージョンが異なります",
 		"syncHeld": "同期保留",
@@ -299,6 +300,7 @@
 				"member_added": "メンバーが追加されました",
 				"member_removed": "メンバーが削除されました",
 				"member_state_changed": "メンバーがアクティブ化またはドレインされました",
+				"fleet_disbanded": "フリート解散",
 				"fleet_state_changed": "フリートの状態が変化しました",
 				"backup_stale": "メンバーに最近のバックアップがない",
 				"backup_recovered": "メンバーのバックアップが復旧した",
@@ -414,7 +416,8 @@
 			"confirmTokenLabel": "管理トークン",
 			"confirmTokenPlaceholder": "Front Desk 管理トークンを入力",
 			"stepN": "ステップ {{n}}",
-			"sameHostError": "プライマリを同じホストに置き換えることはできません。そのホストはすでにフリートのプライマリです。"
+			"sameHostError": "プライマリを同じホストに置き換えることはできません。そのホストはすでにフリートのプライマリです。",
+			"fleetTooSmallError": "プライマリを指定するには、フリートに少なくとも 2 つのメンバーが必要です。先に 2 つ目のメンバーを追加してください。"
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",

@@ -243,14 +243,18 @@ export function FleetSyncWizard({
 			);
 		} catch (e) {
 			// Designation rejected. Nothing was pushed; keep the modal open so the
-			// operator can retry. A 409 is the same-host guard: the selected host is
-			// already the primary, reached under a different address.
+			// operator can retry. Coded 409s route on their machine code
+			// (fleet_too_small: the two-member floor); an uncoded 409 is the
+			// same-host guard: the selected host is already the primary, reached
+			// under a different address.
 			setCommitError(
-				e instanceof ApiError && e.status === 409
-					? t("settings.wizard.sameHostError")
-					: e instanceof ApiError && (e.status === 400 || e.status === 403)
-						? e.message
-						: t("errors.generic"),
+				e instanceof ApiError && e.code === "fleet_too_small"
+					? t("settings.wizard.fleetTooSmallError")
+					: e instanceof ApiError && e.status === 409
+						? t("settings.wizard.sameHostError")
+						: e instanceof ApiError && (e.status === 400 || e.status === 403)
+							? e.message
+							: t("errors.generic"),
 			);
 			setBusy(false);
 			return;

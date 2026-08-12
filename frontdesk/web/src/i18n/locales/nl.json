@@ -109,6 +109,7 @@
 		"disbandTip": "Het verwijderen van dit lid ontbindt de hele vloot (een vloot kan niet minder dan twee leden hebben).",
 		"disbanded": "{{name}} verwijderd; vloot ontbonden",
 		"removeLastActiveError": "Het laatste actieve lid kan niet worden verwijderd; activeer eerst een ander lid.",
+		"membershipChangedError": "De vloot is gewijzigd tijdens het verwijderen van het lid. Controleer de bijgewerkte lijst en probeer het opnieuw.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Versie wijkt af van de groep",
 		"syncHeld": "Sync aangehouden",
@@ -299,6 +300,7 @@
 				"member_added": "Member toegevoegd",
 				"member_removed": "Member verwijderd",
 				"member_state_changed": "Member geactiveerd of gedrained",
+				"fleet_disbanded": "Vloot ontbonden",
 				"fleet_state_changed": "Vlootstatus gewijzigd",
 				"backup_stale": "Lid zonder recente back-up",
 				"backup_recovered": "Lid wordt weer geback-upt",
@@ -414,7 +416,8 @@
 			"confirmTokenLabel": "Admin-token",
 			"confirmTokenPlaceholder": "Voer het Front Desk-admin-token in",
 			"stepN": "Stap {{n}}",
-			"sameHostError": "Je kunt de primary niet vervangen door dezelfde host: die host is al de primary van de fleet."
+			"sameHostError": "Je kunt de primary niet vervangen door dezelfde host: die host is al de primary van de fleet.",
+			"fleetTooSmallError": "Een vloot heeft minstens twee leden nodig voordat een primaire kan worden aangewezen. Voeg eerst een tweede lid toe."
 		},
 		"primaryTag": "primaire",
 		"memberResultOk": "{{name}} ✓",

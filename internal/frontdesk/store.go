@@ -46,6 +46,12 @@ var (
 	// sentinel so the server maps it to 409 with a stable machine code rather than
 	// a generic validation 400.
 	ErrLastActiveMember = errors.New("frontdesk: operation would leave no active members")
+	// ErrMembershipChanged is returned when a member removal raced a concurrent
+	// roster change (an add or another removal) and the guards refused the write:
+	// the action the caller confirmed (plain removal vs fleet disband) may no
+	// longer be the action that would happen, so the operator must look again and
+	// retry against the fresh roster. 409 with a stable machine code.
+	ErrMembershipChanged = errors.New("frontdesk: fleet membership changed concurrently")
 )
 
 // MemberState is the operational state of a member as the control plane sees it.

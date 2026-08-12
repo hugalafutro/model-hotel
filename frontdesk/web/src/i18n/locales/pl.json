@@ -109,6 +109,7 @@
 		"disbandTip": "Usunięcie tego członka rozwiązuje całą flotę (flota nie może mieć mniej niż dwóch członków).",
 		"disbanded": "{{name}} usunięty; flota rozwiązana",
 		"removeLastActiveError": "Nie można usunąć ostatniego aktywnego członka; najpierw aktywuj innego członka.",
+		"membershipChangedError": "Flota zmieniła się podczas usuwania członka. Sprawdź zaktualizowaną listę i spróbuj ponownie.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Wersja różni się od grupy",
 		"syncHeld": "Synchronizacja wstrzymana",
@@ -307,6 +308,7 @@
 				"member_added": "Członek dodany",
 				"member_removed": "Członek usunięty",
 				"member_state_changed": "Członek aktywowany lub odłączony",
+				"fleet_disbanded": "Flota rozwiązana",
 				"fleet_state_changed": "Stan floty zmieniony",
 				"backup_stale": "Członek bez świeżej kopii zapasowej",
 				"backup_recovered": "Członek znowu ma kopie zapasowe",
@@ -428,7 +430,8 @@
 			"confirmTokenLabel": "Token administratora",
 			"confirmTokenPlaceholder": "Wpisz token administratora Front Desk",
 			"stepN": "Krok {{n}}",
-			"sameHostError": "Nie można zastąpić podstawowego tym samym hostem: ten host jest już podstawowym we flocie."
+			"sameHostError": "Nie można zastąpić podstawowego tym samym hostem: ten host jest już podstawowym we flocie.",
+			"fleetTooSmallError": "Flota potrzebuje co najmniej dwóch członków, zanim będzie można wyznaczyć głównego. Najpierw dodaj drugiego członka."
 		},
 		"primaryTag": "główny",
 		"memberResultOk": "{{name}} ✓",

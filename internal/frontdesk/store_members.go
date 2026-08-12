@@ -258,11 +258,21 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 			return 0, nil, err
 		}
 		if n == 0 {
-			// The statement's own guards refused: the target is the designated
-			// primary of a two-member fleet (or a concurrent add just grew the
-			// roster, in which case pointing at the wizard is still the safe
-			// answer for a delete that raced a membership change).
-			return DeleteRefusedPrimary, nil, nil
+			// The statement's own guards refused. The one steady-state refusal is
+			// the designated primary of a two-member fleet; anything else (the
+			// target vanished, or a concurrent add grew the roster past two) means
+			// the roster moved under the operator's confirmed action, so make them
+			// look again rather than guess.
+			var isPrimary bool
+			if err := tx.QueryRowContext(ctx,
+				`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
+				id).Scan(&isPrimary); err != nil {
+				return 0, nil, fmt.Errorf("frontdesk: disband primary check: %w", err)
+			}
+			if isPrimary {
+				return DeleteRefusedPrimary, nil, nil
+			}
+			return 0, nil, ErrMembershipChanged
 		}
 		// auto_sync_gen deliberately survives the disband: members keep their
 		// last-applied generation as an import fence, and a future re-formed
@@ -303,16 +313,26 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 		return 0, nil, err
 	}
 	if n == 0 {
-		// Not deleted: either the member is the primary or it is the last active
-		// member. Disambiguate so the server returns the right 409.
-		var isPrimary bool
+		// Not deleted: the member is the primary, the roster shrank to two under
+		// this call (a concurrent removal, where retrying would DISBAND, a
+		// materially different action than the one the operator confirmed), or it
+		// is the last active member. Disambiguate so the server returns the right
+		// 409. The failed DELETE already ran as a write statement, so these
+		// re-reads see the roster the guards saw.
+		var isPrimary, exists bool
+		var count int
 		if err := tx.QueryRowContext(ctx,
-			`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
-			id).Scan(&isPrimary); err != nil {
+			`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?),
+			        EXISTS(SELECT 1 FROM members WHERE id = ?),
+			        (SELECT COUNT(*) FROM members)`,
+			id, id).Scan(&isPrimary, &exists, &count); err != nil {
 			return 0, nil, fmt.Errorf("frontdesk: delete member primary check: %w", err)
 		}
 		if isPrimary {
 			return DeleteRefusedPrimary, nil, nil
+		}
+		if !exists || count <= 2 {
+			return 0, nil, ErrMembershipChanged
 		}
 		return 0, nil, ErrLastActiveMember
 	}

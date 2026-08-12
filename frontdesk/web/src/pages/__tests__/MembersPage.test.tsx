@@ -866,6 +866,72 @@ describe("MembersPage", () => {
 		).toBeInTheDocument();
 	});
 
+	it("gives a lone designated primary a Remove button (disband is its only exit)", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			// Legacy state from before the two-member floor: the sole row is the
+			// designated primary. It must still be removable via disband.
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: false, primary_id: "1" }),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		expect(
+			within(dialog).getByText(/disbands the whole fleet/i),
+		).toBeInTheDocument();
+	});
+
+	it("surfaces the membership-changed refusal and refetches the roster", async () => {
+		let membersCalls = 0;
+		server.use(
+			http.get("/api/members", () => {
+				membersCalls += 1;
+				return HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+					member({ id: "3", name: "hotel-3" }),
+				]);
+			}),
+			http.delete("/api/members/1", () =>
+				HttpResponse.json(
+					{
+						code: "membership_changed",
+						error:
+							"the fleet membership changed while removing this member; review the updated list and retry",
+					},
+					{ status: 409 },
+				),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		const callsBefore = membersCalls;
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
+
+		expect(
+			await screen.findByText(/fleet changed while removing/i),
+		).toBeInTheDocument();
+		// The stale roster is what caused the mismatch, so the page refetches it.
+		await waitFor(() => expect(membersCalls).toBeGreaterThan(callsBefore));
+	});
+
 	it("falls back to the generic error toast on an uncoded failure", async () => {
 		server.use(
 			http.get("/api/members", () =>

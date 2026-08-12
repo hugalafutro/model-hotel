@@ -109,6 +109,7 @@
 		"disbandTip": "Odstránenie tohto člena rozpustí celú flotilu (flotila nemôže mať menej ako dvoch členov).",
 		"disbanded": "{{name}} odstránený; flotila rozpustená",
 		"removeLastActiveError": "Posledného aktívneho člena nemožno odstrániť; najprv aktivujte iného člena.",
+		"membershipChangedError": "Flotila sa počas odstraňovania člena zmenila. Skontrolujte aktualizovaný zoznam a skúste to znova.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Verzia sa líši od skupiny",
 		"syncHeld": "Synchronizácia pozastavená",
@@ -307,6 +308,7 @@
 				"member_added": "Člen pridaný",
 				"member_removed": "Člen odstránený",
 				"member_state_changed": "Člen aktivovaný alebo vybraný z prevádzky",
+				"fleet_disbanded": "Flotila rozpustená",
 				"fleet_state_changed": "Stav flotily sa zmenil",
 				"backup_stale": "Člen bez aktuálnej zálohy",
 				"backup_recovered": "Člen sa opäť zálohuje",
@@ -428,7 +430,8 @@
 			"confirmTokenLabel": "Admin token",
 			"confirmTokenPlaceholder": "Zadajte admin token Front Desk",
 			"stepN": "Krok {{n}}",
-			"sameHostError": "Primárny uzol nemožno nahradiť rovnakým hostiteľom: tento hostiteľ už je primárnym uzlom flotily."
+			"sameHostError": "Primárny uzol nemožno nahradiť rovnakým hostiteľom: tento hostiteľ už je primárnym uzlom flotily.",
+			"fleetTooSmallError": "Flotila potrebuje aspoň dvoch členov, kým možno určiť primárneho. Najprv pridajte druhého člena."
 		},
 		"primaryTag": "primárny",
 		"memberResultOk": "{{name}} ✓",

@@ -178,9 +178,16 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 			ELSE auto_sync_enabled
 		END,
 		auto_sync_gen = auto_sync_gen + 1
-	WHERE id = 1`
+	WHERE id = 1
+	  AND (? = '' OR auto_sync_primary_id = ? OR (SELECT COUNT(*) FROM members) >= 2)`
+	// The trailing condition is the fleet-size floor, enforced in the same
+	// statement as the write for the same reason as the repoint guard: the
+	// handler's own member-count check reads before writing, so a disband that
+	// lands in between could otherwise leave a designated primary (a deleted id,
+	// even) on a sub-two-member fleet. Clearing and unchanged-primary writes
+	// (auto-sync toggles, including on a legacy one-member fleet) always pass.
 	query := set
-	args := []any{primaryID, primaryID, primaryID, boolToInt(enabled)}
+	args := []any{primaryID, primaryID, primaryID, boolToInt(enabled), primaryID, primaryID}
 	if !tokenValid {
 		// Unauthorized writes may not repoint a configured primary: apply only when
 		// none is set yet or the primary is left unchanged.
