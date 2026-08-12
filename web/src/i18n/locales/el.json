@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Ενημέρωση {{count}} ποσόστωσης/υπολοίπου",
 		"toast_refresh_success_other": "Ενημέρωση {{count}} ποσοστώσεων/υπολοίπων",
 		"toast_discovery_failed_all_one": "Η αναζήτηση απέτυχε για τον πάροχο",
-		"toast_discovery_failed_all_other": "Η αναζήτηση απέτυχε για όλους τους {{count}} παρόχους"
+		"toast_discovery_failed_all_other": "Η αναζήτηση απέτυχε για όλους τους {{count}} παρόχους",
+		"schedule_disable_tooltip": "Προγραμματισμός απενεργοποίησης",
+		"schedule_disable_hint": "Ο πάροχος θα απενεργοποιηθεί μόλις η ημερομηνία του διακομιστή φτάσει στην επιλεγμένη ημέρα.",
+		"schedule_disable_cancel": "Ακύρωση προγραμματισμού",
+		"scheduled_disable_card_tooltip": "Προγραμματισμένη απενεργοποίηση στις {{date}}"
 	},
 	"models": {
 		"page_title_one": "Μοντέλο",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Ο πάροχος άλλαξε τη δομή της απόκρισης ποσόστωσης",
 				"auth_sso_identity_bound": "Ταυτότητα SSO συνδέθηκε με λογαριασμό",
 				"discovery_claims_outstanding": "Αποκλίσεις μοντέλων χωρίς αντιμετώπιση",
-				"model_auto_disabled_gone": "Το μοντέλο απενεργοποιήθηκε (ο πάροχος δεν το προσφέρει πλέον)"
+				"model_auto_disabled_gone": "Το μοντέλο απενεργοποιήθηκε (ο πάροχος δεν το προσφέρει πλέον)",
+				"provider_scheduled_disable": "Ο πάροχος απενεργοποιήθηκε όπως είχε προγραμματιστεί"
 			},
 			"events": {
 				"all": "Επιλογή όλων",

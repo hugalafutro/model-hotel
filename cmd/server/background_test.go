@@ -693,3 +693,294 @@ func TestLogRetentionLoopStopsOnCancel(t *testing.T) {
 		t.Fatal("log retention loop did not stop on cancellation")
 	}
 }
+
+// insertScheduledProvider writes a provider row straight to the table, with the
+// key material the schema demands. sched is a YYYY-MM-DD date, or "" for a
+// provider with no scheduled disable.
+func insertScheduledProvider(t *testing.T, name string, enabled bool, sched string) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	err := cmdTestDB.Pool().QueryRow(context.Background(), `
+		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, enabled, autodiscovery_enabled, scheduled_disable_on)
+		VALUES ($1, 'https://example.invalid/v1', '\x00'::bytea, '\x00'::bytea, '\x00'::bytea, $2, true, NULLIF($3, '')::date)
+		RETURNING id`, name, enabled, sched).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert provider %q failed: %v", name, err)
+	}
+	return id
+}
+
+// assertProviderState checks the two columns the sweep owns.
+func assertProviderState(t *testing.T, id uuid.UUID, label string, wantEnabled, wantScheduled bool) {
+	t.Helper()
+	var enabled bool
+	var sched *time.Time
+	if err := cmdTestDB.Pool().QueryRow(context.Background(),
+		`SELECT enabled, scheduled_disable_on FROM providers WHERE id = $1`, id).Scan(&enabled, &sched); err != nil {
+		t.Fatalf("%s: query failed: %v", label, err)
+	}
+	if enabled != wantEnabled {
+		t.Errorf("%s: enabled = %v, want %v", label, enabled, wantEnabled)
+	}
+	if (sched != nil) != wantScheduled {
+		t.Errorf("%s: scheduled_disable_on = %v, want scheduled=%v", label, sched, wantScheduled)
+	}
+}
+
+// collectScheduledDisableEvents drains ch until want events of the scheduled
+// disable type have arrived, returning the provider names they name.
+func collectScheduledDisableEvents(t *testing.T, ch chan events.Event, want int) map[string]string {
+	t.Helper()
+	got := make(map[string]string, want)
+	deadline := time.After(5 * time.Second)
+	for len(got) < want {
+		select {
+		case ev := <-ch:
+			if ev.Type != "provider.scheduled_disable" {
+				continue
+			}
+			if ev.Severity != "warning" {
+				t.Errorf("event severity = %q, want warning", ev.Severity)
+			}
+			name, _ := ev.Metadata["provider"].(string)
+			if name == "" {
+				t.Fatalf("event carries no provider name: %+v", ev.Metadata)
+			}
+			if _, dup := got[name]; dup {
+				t.Fatalf("provider %q announced more than once", name)
+			}
+			id, _ := ev.Metadata["provider_id"].(string)
+			got[name] = id
+			if wantMsg := "Provider '" + name + "' disabled as scheduled"; ev.Message != wantMsg {
+				t.Errorf("event message = %q, want %q", ev.Message, wantMsg)
+			}
+		case <-deadline:
+			t.Fatalf("timed out after %d of %d provider.scheduled_disable events", len(got), want)
+		}
+	}
+	return got
+}
+
+// assertNoScheduledDisableEvent fails if another disable event shows up in the
+// grace window: the sweep announces exactly one event per fired provider.
+func assertNoScheduledDisableEvent(t *testing.T, ch chan events.Event) {
+	t.Helper()
+	grace := time.After(200 * time.Millisecond)
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "provider.scheduled_disable" {
+				t.Fatalf("unexpected scheduled disable event: %s", ev.Message)
+			}
+		case <-grace:
+			return
+		}
+	}
+}
+
+func TestSweepScheduledDisables(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	ctx := context.Background()
+	pool := cmdTestDB.Pool()
+	providerRepo := provider.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+
+	now := time.Now()
+	due := insertScheduledProvider(t, "sched-due-yesterday", true, now.AddDate(0, 0, -1).Format("2006-01-02"))
+	dueToday := insertScheduledProvider(t, "sched-due-today", true, now.Format("2006-01-02"))
+	future := insertScheduledProvider(t, "sched-future", true, now.AddDate(0, 0, 2).Format("2006-01-02"))
+	// A disabled provider with a leftover schedule only exists if written
+	// directly to the DB, since the update path forces the date to NULL on
+	// disable. The sweep must still leave it alone.
+	alreadyOff := insertScheduledProvider(t, "sched-already-off", false, now.Format("2006-01-02"))
+	unscheduled := insertScheduledProvider(t, "sched-unscheduled", true, "")
+
+	// Cached rows carry the old enabled state; the sweep has to drop them the
+	// way a manual disable does.
+	if _, err := providerRepo.Get(ctx, due); err != nil {
+		t.Fatalf("warm cache failed: %v", err)
+	}
+	if _, ok := provider.GetCachedByID(due); !ok {
+		t.Fatal("setup: provider must be cached before the sweep")
+	}
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	if n := sweepScheduledDisables(ctx, providerRepo, failoverRepo); n != 2 {
+		t.Fatalf("disabled %d providers, want 2", n)
+	}
+
+	assertProviderState(t, due, "due-yesterday", false, false)
+	assertProviderState(t, dueToday, "due-today", false, false)
+	assertProviderState(t, future, "future", true, true)
+	assertProviderState(t, alreadyOff, "already-off", false, true)
+	assertProviderState(t, unscheduled, "unscheduled", true, false)
+
+	if _, ok := provider.GetCachedByID(due); ok {
+		t.Error("sweep left a stale provider cache entry behind")
+	}
+
+	fired := collectScheduledDisableEvents(t, ch, 2)
+	if fired["sched-due-yesterday"] != due.String() {
+		t.Errorf("due-yesterday event carries provider_id %q, want %s", fired["sched-due-yesterday"], due)
+	}
+	if fired["sched-due-today"] != dueToday.String() {
+		t.Errorf("due-today event carries provider_id %q, want %s", fired["sched-due-today"], dueToday)
+	}
+	assertNoScheduledDisableEvent(t, ch)
+}
+
+func TestSweepScheduledDisables_NothingDue(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	ctx := context.Background()
+	pool := cmdTestDB.Pool()
+	future := insertScheduledProvider(t, "sched-nothing-due", true, time.Now().AddDate(0, 0, 3).Format("2006-01-02"))
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	if n := sweepScheduledDisables(ctx, provider.NewRepository(pool), failover.NewRepository(pool)); n != 0 {
+		t.Fatalf("disabled %d providers, want 0", n)
+	}
+	assertProviderState(t, future, "future", true, true)
+	assertNoScheduledDisableEvent(t, ch)
+}
+
+// TestSweepScheduledDisables_CompletesOnCancelledContext pins the shutdown
+// behaviour: the sweep drops its caller's cancellation, because the UPDATE
+// clears the schedule as it fires and a sweep abandoned midway would strand the
+// disable with no event and no way for a later sweep to notice.
+func TestSweepScheduledDisables_CompletesOnCancelledContext(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	pool := cmdTestDB.Pool()
+	due := insertScheduledProvider(t, "sched-cancelled-ctx", true, time.Now().Format("2006-01-02"))
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if n := sweepScheduledDisables(ctx, provider.NewRepository(pool), failover.NewRepository(pool)); n != 1 {
+		t.Fatalf("disabled %d providers under a cancelled context, want 1", n)
+	}
+	assertProviderState(t, due, "cancelled-ctx", false, false)
+	if fired := collectScheduledDisableEvents(t, ch, 1); fired["sched-cancelled-ctx"] != due.String() {
+		t.Errorf("event carries provider_id %q, want %s", fired["sched-cancelled-ctx"], due)
+	}
+}
+
+func TestSweepScheduledDisablesDBError(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	broken := closedTestPool(t)
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	// A dead pool only logs: no panic, nothing disabled, nothing announced.
+	if n := sweepScheduledDisables(context.Background(), provider.NewRepository(broken.Pool()), failover.NewRepository(broken.Pool())); n != 0 {
+		t.Fatalf("disabled %d providers on a dead pool, want 0", n)
+	}
+	assertNoScheduledDisableEvent(t, ch)
+}
+
+// TestScheduledDisableLoop_SweepsAtStartup pins the property a restart across
+// midnight depends on: the loop sweeps once before its first tick, so a disable
+// whose day arrived while the process was down still fires.
+func TestScheduledDisableLoop_SweepsAtStartup(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	pool := cmdTestDB.Pool()
+	due := insertScheduledProvider(t, "sched-loop-startup", true, time.Now().AddDate(0, 0, -1).Format("2006-01-02"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		// An hour-long tick guarantees the disable below is the startup
+		// sweep's doing rather than a tick's.
+		scheduledDisableLoop(ctx, provider.NewRepository(pool), failover.NewRepository(pool), time.Hour)
+		close(done)
+	}()
+
+	deadline := time.After(5 * time.Second)
+	for {
+		var enabled bool
+		if err := pool.QueryRow(ctx, `SELECT enabled FROM providers WHERE id = $1`, due).Scan(&enabled); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+		if !enabled {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("scheduled disable loop never swept at startup")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("scheduled disable loop did not stop on context cancellation")
+	}
+}
+
+// TestScheduledDisableLoop_SweepsOnTick covers the ticker arm: a schedule that
+// becomes due after the startup sweep still fires without a restart.
+func TestScheduledDisableLoop_SweepsOnTick(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	pool := cmdTestDB.Pool()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		scheduledDisableLoop(ctx, provider.NewRepository(pool), failover.NewRepository(pool), 10*time.Millisecond)
+		close(done)
+	}()
+
+	// Inserted after the loop started, so only a tick can pick it up.
+	time.Sleep(50 * time.Millisecond)
+	due := insertScheduledProvider(t, "sched-loop-tick", true, time.Now().Format("2006-01-02"))
+
+	deadline := time.After(5 * time.Second)
+	for {
+		var enabled bool
+		if err := pool.QueryRow(ctx, `SELECT enabled FROM providers WHERE id = $1`, due).Scan(&enabled); err != nil {
+			t.Fatalf("query failed: %v", err)
+		}
+		if !enabled {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("scheduled disable loop never swept on tick")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("scheduled disable loop did not stop on context cancellation")
+	}
+}

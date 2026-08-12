@@ -998,7 +998,11 @@
 		"toast_discovery_failed_all_one": "Vyhledávání selhalo u poskytovatele",
 		"toast_discovery_failed_all_few": "Vyhledávání selhalo u všech {{count}} poskytovatelů",
 		"toast_discovery_failed_all_many": "Vyhledávání selhalo u všech {{count}} poskytovatelů",
-		"toast_discovery_failed_all_other": "Vyhledávání selhalo u všech {{count}} poskytovatelů"
+		"toast_discovery_failed_all_other": "Vyhledávání selhalo u všech {{count}} poskytovatelů",
+		"schedule_disable_tooltip": "Naplánovat deaktivaci",
+		"schedule_disable_hint": "Poskytovatel bude deaktivován, jakmile datum serveru dosáhne zvoleného dne.",
+		"schedule_disable_cancel": "Zrušit plán",
+		"scheduled_disable_card_tooltip": "Naplánováno k deaktivaci dne {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2079,7 +2083,8 @@
 				"quota_schema_drift": "Poskytovatel změnil strukturu odpovědi o kvótě",
 				"auth_sso_identity_bound": "Identita SSO byla propojena s účtem",
 				"discovery_claims_outstanding": "Nesrovnalosti modelů ponechané bez řešení",
-				"model_auto_disabled_gone": "Model deaktivován (poskytovatel jej již neposkytuje)"
+				"model_auto_disabled_gone": "Model deaktivován (poskytovatel jej již neposkytuje)",
+				"provider_scheduled_disable": "Poskytovatel deaktivován podle plánu"
 			},
 			"events": {
 				"all": "Vybrat vše",

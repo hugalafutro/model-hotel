@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Opgedateer {{count}} kwota/balans",
 		"toast_refresh_success_other": "Opgedateer {{count}} kwotas/balanse",
 		"toast_discovery_failed_all_one": "Ontdekking het vir die verskaffer misluk.",
-		"toast_discovery_failed_all_other": "Ontdekking het vir al {{count}} verskaffers misluk."
+		"toast_discovery_failed_all_other": "Ontdekking het vir al {{count}} verskaffers misluk.",
+		"schedule_disable_tooltip": "Skeduleer deaktivering",
+		"schedule_disable_hint": "Die verskaffer word gedeaktiveer sodra die bediener se datum die gekose dag bereik.",
+		"schedule_disable_cancel": "Kanselleer skedule",
+		"scheduled_disable_card_tooltip": "Geskeduleer om op {{date}} gedeaktiveer te word"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Verskaffer het sy kwota-antwoord se vorm verander",
 				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel",
 				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly",
-				"model_auto_disabled_gone": "Model gedeaktiveer (verskaffer bied dit nie meer aan nie)"
+				"model_auto_disabled_gone": "Model gedeaktiveer (verskaffer bied dit nie meer aan nie)",
+				"provider_scheduled_disable": "Verskaffer gedeaktiveer soos geskeduleer"
 			},
 			"events": {
 				"all": "Kies alles",

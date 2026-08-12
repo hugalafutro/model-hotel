@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18next from "i18next";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
@@ -15,6 +16,18 @@ import type { useQuotaData } from "../../../hooks/useQuotaData";
 import { AllProviders } from "../../../test/utils";
 import { ProviderCard } from "../ProviderCard";
 
+// The real English copy for this key ships in a later i18n task; captured at
+// module load (before any test mutates it) so the "scheduled disable
+// indicator" suite below can restore it exactly and a later sanity test can
+// confirm the restore actually took.
+const SCHEDULED_DISABLE_TOOLTIP_KEY =
+	"providers.scheduled_disable_card_tooltip";
+const originalScheduledDisableTooltip: string | undefined = i18next.getResource(
+	"en",
+	"translation",
+	SCHEDULED_DISABLE_TOOLTIP_KEY,
+);
+
 const mockProvider: Provider = {
 	id: "provider-001",
 	name: "Test Provider",
@@ -22,6 +35,7 @@ const mockProvider: Provider = {
 	masked_key: "sk_test_••••••••••••••••••••••••",
 	enabled: true,
 	autodiscovery_enabled: true,
+	scheduled_disable_on: null,
 	last_discovered_at: "2026-05-10T12:00:00Z",
 	last_used_at: "2026-05-11T08:30:00Z",
 	created_at: "2026-01-15T10:00:00Z",
@@ -751,6 +765,104 @@ describe("ProviderCard", () => {
 				);
 			});
 		});
+	});
+
+	describe("scheduled disable indicator", () => {
+		// This suite must not depend on when the real copy for
+		// SCHEDULED_DISABLE_TOOLTIP_KEY lands (a later i18n task), so
+		// (following the src/utils/__tests__/format.test.ts countLabel
+		// convention) it registers its own value for the exact key the
+		// component calls and asserts against that. Vitest does not isolate
+		// the i18next singleton between describe blocks in this file, so the
+		// override is undone in afterEach: it restores the value captured at
+		// module load (see originalScheduledDisableTooltip above), leaving no
+		// shadowing behind for later tests in this file (verified by the
+		// "restores the i18next tooltip resource" test right after this
+		// describe block).
+		beforeEach(() => {
+			i18next.addResourceBundle(
+				"en",
+				"translation",
+				{
+					providers: {
+						scheduled_disable_card_tooltip: "Scheduled to disable on {{date}}",
+					},
+				},
+				true,
+				true,
+			);
+		});
+
+		afterEach(() => {
+			if (originalScheduledDisableTooltip === undefined) {
+				const data = i18next.getDataByLanguage("en") as
+					| { translation?: { providers?: Record<string, unknown> } }
+					| undefined;
+				delete data?.translation?.providers?.scheduled_disable_card_tooltip;
+			} else {
+				i18next.addResource(
+					"en",
+					"translation",
+					SCHEDULED_DISABLE_TOOLTIP_KEY,
+					originalScheduledDisableTooltip,
+				);
+			}
+		});
+
+		it("shows the scheduled-disable icon with a dated tooltip when scheduled", () => {
+			const scheduledProvider: Provider = {
+				...mockProvider,
+				scheduled_disable_on: "2030-06-20",
+			};
+
+			render(<ProviderCard {...defaultProps} provider={scheduledProvider} />, {
+				wrapper: AllProviders,
+			});
+
+			const icon = screen.getByTestId("scheduled-disable-icon");
+			expect(icon).toBeInTheDocument();
+			// Locale-independent: assert the title contains the same string formatDate produces.
+			expect(icon.getAttribute("title")).toContain(
+				new Date("2030-06-20T00:00:00").toLocaleDateString(undefined, {
+					day: "numeric",
+					month: "short",
+					year: "numeric",
+				}),
+			);
+		});
+
+		it("shows no icon when nothing is scheduled", () => {
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			expect(screen.queryByTestId("scheduled-disable-icon")).toBeNull();
+		});
+
+		it("shows no icon when scheduled but the provider is disabled", () => {
+			const scheduledDisabledProvider: Provider = {
+				...mockProvider,
+				enabled: false,
+				scheduled_disable_on: "2030-06-20",
+			};
+
+			render(
+				<ProviderCard {...defaultProps} provider={scheduledDisabledProvider} />,
+				{ wrapper: AllProviders },
+			);
+
+			expect(screen.queryByTestId("scheduled-disable-icon")).toBeNull();
+		});
+	});
+
+	// Outside the "scheduled disable indicator" describe on purpose: its own
+	// beforeEach/afterEach don't apply here, so this observes the ambient
+	// i18next state left behind once that suite has finished. Regression
+	// check for the resource-bundle override in that suite actually being
+	// undone rather than permanently shadowing the real key for the rest of
+	// this file's run.
+	it("restores the i18next tooltip resource after the scheduled disable indicator suite", () => {
+		expect(
+			i18next.getResource("en", "translation", SCHEDULED_DISABLE_TOOLTIP_KEY),
+		).toBe(originalScheduledDisableTooltip);
 	});
 
 	describe("copyable pills", () => {

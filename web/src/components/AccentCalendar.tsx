@@ -16,12 +16,14 @@ export function AccentCalendar({
 	from,
 	to,
 	onSelect,
+	minDate,
 }: {
 	initialYear: number;
 	initialMonth: number;
 	from: string;
 	to: string;
 	onSelect: (dateStr: string) => void;
+	minDate?: string;
 }) {
 	const [year, setYear] = useState(initialYear);
 	const [month, setMonth] = useState(initialMonth);
@@ -124,11 +126,13 @@ export function AccentCalendar({
 					const inRange = isInRange(day);
 					const sel = isSelected(day);
 					const isToday = dStr === today;
+					const belowMin = minDate ? dStr < minDate : false;
 
 					return (
 						<button
 							key={day}
 							type="button"
+							disabled={belowMin}
 							onClick={() => onSelect(dStr)}
 							className={`
                                 text-[11px] w-7 h-7                                 rounded-(--radius-button) flex items-center justify-center transition-colors
@@ -137,9 +141,11 @@ export function AccentCalendar({
 																		? "bg-(--accent) text-white font-semibold"
 																		: inRange
 																			? "bg-(--accent)/20 text-(--accent)"
-																			: isToday
-																				? "border border-(--accent)/50 text-(--accent)"
-																				: "text-gray-300 hover:bg-gray-700"
+																			: belowMin
+																				? "text-gray-600 cursor-not-allowed"
+																				: isToday
+																					? "border border-(--accent)/50 text-(--accent)"
+																					: "text-gray-300 hover:bg-gray-700"
 																}
                             `}
 						>

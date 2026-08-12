@@ -998,7 +998,11 @@
 		"toast_discovery_failed_all_one": "Помилка виявлення для постачальника",
 		"toast_discovery_failed_all_few": "Помилка виявлення для всіх {{count}} постачальників",
 		"toast_discovery_failed_all_many": "Помилка виявлення для всіх {{count}} постачальників",
-		"toast_discovery_failed_all_other": "Помилка виявлення для всіх {{count}} постачальників"
+		"toast_discovery_failed_all_other": "Помилка виявлення для всіх {{count}} постачальників",
+		"schedule_disable_tooltip": "Запланувати вимкнення",
+		"schedule_disable_hint": "Постачальника буде вимкнено, щойно дата сервера досягне обраного дня.",
+		"schedule_disable_cancel": "Скасувати заплановане вимкнення",
+		"scheduled_disable_card_tooltip": "Вимкнення заплановано на {{date}}"
 	},
 	"models": {
 		"page_title_one": "Модель",
@@ -2079,7 +2083,8 @@
 				"quota_schema_drift": "Провайдер змінив структуру відповіді про квоту",
 				"auth_sso_identity_bound": "Ідентифікатор SSO прив'язано до облікового запису",
 				"discovery_claims_outstanding": "Розбіжності моделей залишилися без розгляду",
-				"model_auto_disabled_gone": "Модель вимкнено (провайдер більше її не надає)"
+				"model_auto_disabled_gone": "Модель вимкнено (провайдер більше її не надає)",
+				"provider_scheduled_disable": "Провайдера вимкнено за розкладом"
 			},
 			"events": {
 				"all": "Виділити все",

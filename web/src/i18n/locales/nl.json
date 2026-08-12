@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "{{count}} quota/saldo vernieuwd",
 		"toast_refresh_success_other": "{{count}} quota/saldi vernieuwd",
 		"toast_discovery_failed_all_one": "Ontdekken mislukt voor de provider",
-		"toast_discovery_failed_all_other": "Ontdekken mislukt voor alle {{count}} providers"
+		"toast_discovery_failed_all_other": "Ontdekken mislukt voor alle {{count}} providers",
+		"schedule_disable_tooltip": "Uitschakelen plannen",
+		"schedule_disable_hint": "De provider wordt uitgeschakeld zodra de datum van de server de gekozen dag bereikt.",
+		"schedule_disable_cancel": "Planning annuleren",
+		"scheduled_disable_card_tooltip": "Gepland om uitgeschakeld te worden op {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Provider heeft de structuur van zijn quotarespons gewijzigd",
 				"auth_sso_identity_bound": "SSO-identiteit gekoppeld aan een account",
 				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost",
-				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)"
+				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)",
+				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning"
 			},
 			"events": {
 				"all": "Alles selecteren",

@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Oppdaterte {{count}} kvote/saldo",
 		"toast_refresh_success_other": "Oppdaterte {{count}} kvoter/saldoer",
 		"toast_discovery_failed_all_one": "Oppdagelse mislyktes for leverandøren",
-		"toast_discovery_failed_all_other": "Oppdagelse mislyktes for alle {{count}} leverandører"
+		"toast_discovery_failed_all_other": "Oppdagelse mislyktes for alle {{count}} leverandører",
+		"schedule_disable_tooltip": "Planlegg deaktivering",
+		"schedule_disable_hint": "Leverandøren deaktiveres så snart serverens dato når den valgte dagen.",
+		"schedule_disable_cancel": "Avbryt planlegging",
+		"scheduled_disable_card_tooltip": "Planlagt deaktivert {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Leverandøren endret strukturen i kvotesvaret",
 				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
 				"discovery_claims_outstanding": "Modellavvik forblir uhåndtert",
-				"model_auto_disabled_gone": "Modell deaktivert (leverandøren tilbyr den ikke lenger)"
+				"model_auto_disabled_gone": "Modell deaktivert (leverandøren tilbyr den ikke lenger)",
+				"provider_scheduled_disable": "Leverandør deaktivert som planlagt"
 			},
 			"events": {
 				"all": "Velg alt",

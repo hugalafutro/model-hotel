@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ type Provider struct {
 	MaskedKey            *string    `json:"masked_key"`
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   *time.Time `json:"scheduled_disable_on"`
 	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
 	LastUsedAt           *time.Time `json:"last_used_at"`
 	CreatedAt            time.Time  `json:"created_at"`
@@ -38,11 +40,35 @@ type CreateProviderRequest struct {
 
 // UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
-	Name                 *string `json:"name"`
-	BaseURL              *string `json:"base_url"`
-	APIKey               *string `json:"api_key"`
-	Enabled              *bool   `json:"enabled"`
-	AutodiscoveryEnabled *bool   `json:"autodiscovery_enabled"`
+	Name                 *string      `json:"name"`
+	BaseURL              *string      `json:"base_url"`
+	APIKey               *string      `json:"api_key"`
+	Enabled              *bool        `json:"enabled"`
+	AutodiscoveryEnabled *bool        `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   OptionalDate `json:"scheduled_disable_on"`
+}
+
+// OptionalDate is a JSON field with three states an ordinary pointer cannot
+// express: absent (keep the stored value), null (clear it), and a value.
+type OptionalDate struct {
+	Set   bool
+	Value *string // nil with Set means an explicit null
+}
+
+// UnmarshalJSON is only invoked when the field is present, which is what makes
+// Set a presence flag.
+func (o *OptionalDate) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	o.Value = &s
+	return nil
 }
 
 // ProviderResponse is the response body for provider operations.
@@ -55,6 +81,7 @@ type ProviderResponse struct {
 	MaskedKey            string     `json:"masked_key"`
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
+	ScheduledDisableOn   *string    `json:"scheduled_disable_on"`
 	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
 	LastUsedAt           *time.Time `json:"last_used_at"`
 	CreatedAt            time.Time  `json:"created_at"`
@@ -93,7 +120,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return p, nil
 }
 
-const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, last_discovered_at, last_used_at, created_at, updated_at`
+const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, last_discovered_at, last_used_at, created_at, updated_at`
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
@@ -103,7 +130,7 @@ func scanProvider(row scanner) (*Provider, error) {
 	var p Provider
 	err := row.Scan(
 		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
+		&p.ScheduledDisableOn, &p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -238,11 +265,19 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		    masked_key = COALESCE($6, masked_key),
 		    enabled = COALESCE($7, enabled),
 		    autodiscovery_enabled = COALESCE($8, autodiscovery_enabled),
+		    scheduled_disable_on = CASE
+		        WHEN COALESCE($7, enabled) = false THEN NULL
+		        WHEN $9 THEN $10::date
+		        ELSE scheduled_disable_on
+		    END,
 		    updated_at = now()
-		WHERE id = $9
+		WHERE id = $11
 		RETURNING ` + providerColumns
 
-	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, req.AutodiscoveryEnabled, id))
+	p, err := scanProvider(r.pool.QueryRow(ctx, query,
+		req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey,
+		req.Enabled, req.AutodiscoveryEnabled,
+		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
@@ -255,6 +290,48 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	// provider_enabled until the model cache TTL expires.
 	model.InvalidateModelCache()
 	return p, nil
+}
+
+// DisableDueScheduled flips enabled off for every provider whose scheduled
+// disable day has arrived on the app server's clock, which is the same clock
+// the update validation uses when it rejects a date in the past. The comparison
+// date travels as a parameter rather than reading CURRENT_DATE, because the DB
+// session's timezone can differ from the server's and a date one path accepts
+// as tomorrow would already be due for the other. The schedule is cleared in the
+// same statement so the disable fires once. Returns the providers it disabled.
+func (r *Repository) DisableDueScheduled(ctx context.Context) ([]*Provider, error) {
+	rows, err := r.pool.Query(ctx, `
+		UPDATE providers
+		SET enabled = false, scheduled_disable_on = NULL, updated_at = now()
+		WHERE enabled = true AND scheduled_disable_on IS NOT NULL
+		  AND scheduled_disable_on <= $1::date
+		RETURNING `+providerColumns, time.Now().Format("2006-01-02"))
+	if err != nil {
+		debuglog.Error("provider: scheduled disable sweep failed", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*Provider
+	for rows.Next() {
+		p, err := scanProvider(rows)
+		if err != nil {
+			debuglog.Error("provider: scheduled disable scan failed", "error", err)
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("provider: scheduled disable sweep failed", "error", err)
+		return nil, err
+	}
+	if len(out) > 0 {
+		// The same invalidations a manual disable through Update performs:
+		// cached model rows denormalize the provider's enabled state.
+		InvalidateProviderCache()
+		model.InvalidateModelCache()
+	}
+	return out, nil
 }
 
 // Delete removes a provider by ID, along with every reference to it in the
@@ -365,6 +442,12 @@ func ToResponse(p *Provider) ProviderResponse {
 		}
 	}
 
+	var sched *string
+	if p.ScheduledDisableOn != nil {
+		s := p.ScheduledDisableOn.Format("2006-01-02")
+		sched = &s
+	}
+
 	return ProviderResponse{
 		ID:                   p.ID,
 		Name:                 p.Name,
@@ -372,6 +455,7 @@ func ToResponse(p *Provider) ProviderResponse {
 		MaskedKey:            maskedKey,
 		Enabled:              p.Enabled,
 		AutodiscoveryEnabled: p.AutodiscoveryEnabled,
+		ScheduledDisableOn:   sched,
 		LastDiscoveredAt:     p.LastDiscoveredAt,
 		LastUsedAt:           p.LastUsedAt,
 		CreatedAt:            p.CreatedAt,

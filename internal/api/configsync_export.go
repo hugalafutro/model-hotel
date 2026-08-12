@@ -427,7 +427,8 @@ func (h *ConfigSyncHandler) providerIDToName(ctx context.Context, q querier) (ma
 
 func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	rows, err := q.Query(ctx, `
-		SELECT name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled
+		SELECT name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled,
+		       to_char(scheduled_disable_on, 'YYYY-MM-DD')
 		FROM providers ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -437,7 +438,7 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	for rows.Next() {
 		var p ExportProvider
 		if err := rows.Scan(&p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt,
-			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled); err != nil {
+			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

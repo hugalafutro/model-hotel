@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "已刷新 {{count}} 个配额/余额",
 		"toast_refresh_success_other": "已刷新 {{count}} 个配额/余额",
 		"toast_discovery_failed_all_one": "无法发现该提供商",
-		"toast_discovery_failed_all_other": "无法发现所有 {{count}} 个提供商"
+		"toast_discovery_failed_all_other": "无法发现所有 {{count}} 个提供商",
+		"schedule_disable_tooltip": "计划禁用",
+		"schedule_disable_hint": "当服务器日期到达所选日期时，提供商将立即被禁用。",
+		"schedule_disable_cancel": "取消计划",
+		"scheduled_disable_card_tooltip": "计划于 {{date}} 禁用"
 	},
 	"models": {
 		"page_title_one": "模型",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "提供商更改了配额响应结构",
 				"auth_sso_identity_bound": "SSO 身份已绑定到账户",
 				"discovery_claims_outstanding": "未处理的模型差异",
-				"model_auto_disabled_gone": "模型已禁用（提供商不再提供）"
+				"model_auto_disabled_gone": "模型已禁用（提供商不再提供）",
+				"provider_scheduled_disable": "提供商已按计划禁用"
 			},
 			"events": {
 				"all": "全选",

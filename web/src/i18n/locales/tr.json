@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "{{count}} kota/bakiye güncellendi",
 		"toast_refresh_success_other": "{{count}} kota/bakiye güncellendi",
 		"toast_discovery_failed_all_one": "Sağlayıcı için keşif başarısız oldu",
-		"toast_discovery_failed_all_other": "Tüm {{count}} sağlayıcı için keşif başarısız oldu"
+		"toast_discovery_failed_all_other": "Tüm {{count}} sağlayıcı için keşif başarısız oldu",
+		"schedule_disable_tooltip": "Devre dışı bırakmayı zamanla",
+		"schedule_disable_hint": "Sunucunun tarihi seçilen güne ulaştığı anda sağlayıcı devre dışı bırakılacak.",
+		"schedule_disable_cancel": "Zamanlamayı iptal et",
+		"scheduled_disable_card_tooltip": "{{date}} tarihinde devre dışı bırakılmak üzere zamanlandı"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Sağlayıcı kota yanıtının yapısını değiştirdi",
 				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı",
 				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları",
-				"model_auto_disabled_gone": "Model devre dışı bırakıldı (sağlayıcı artık sunmuyor)"
+				"model_auto_disabled_gone": "Model devre dışı bırakıldı (sağlayıcı artık sunmuyor)",
+				"provider_scheduled_disable": "Sağlayıcı zamanlandığı gibi devre dışı bırakıldı"
 			},
 			"events": {
 				"all": "Tümünü seç",

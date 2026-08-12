@@ -1399,6 +1399,65 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 	}
 }
 
+// TestProviderResponse_CarriesScheduledDisableOn verifies that a
+// scheduled_disable_on date set directly on the row round-trips through the
+// list endpoint as a "YYYY-MM-DD" string on ProviderResponse.
+func TestProviderResponse_CarriesScheduledDisableOn(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	provName := "sched-carrier-" + uuid.New().String()[:8]
+	provBody := fmt.Sprintf(`{"name":"%s","base_url":"https://api.example.com/v1","api_key":"sk-testkey123"}`, provName)
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d %s", w.Code, w.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Seed the column directly; the update endpoint learns about it in a
+	// later task.
+	if _, err := h.dbPool.Pool().Exec(context.Background(),
+		`UPDATE providers SET scheduled_disable_on = '2030-01-02' WHERE id = $1`, createResp.ID); err != nil {
+		t.Fatal(err)
+	}
+	provider.InvalidateProviderCache()
+
+	req = httptest.NewRequest("GET", "/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var got []provider.ProviderResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("Failed to parse list response: %v", err)
+	}
+
+	found := false
+	for _, r := range got {
+		if r.ID.String() == createResp.ID {
+			found = true
+			if r.ScheduledDisableOn == nil || *r.ScheduledDisableOn != "2030-01-02" {
+				t.Fatalf("scheduled_disable_on = %v, want 2030-01-02", r.ScheduledDisableOn)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("provider missing from list")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 10. ListProviders — scan error with cancelled context
 // ---------------------------------------------------------------------------
@@ -1561,4 +1620,144 @@ func TestListProviders_TokenRowScanError(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
+}
+
+// TestUpdateProvider_ScheduledDisable verifies the tri-state
+// scheduled_disable_on semantics on the update endpoint: a future date sets
+// it, today is accepted (and fires on the next sweep), an explicit null
+// clears it, an absent field keeps it, past/invalid dates are rejected, and
+// disabling a provider always forces it back to null (even when the same
+// request tries to set one).
+func TestUpdateProvider_ScheduledDisable(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
+
+	createProvider := func(t *testing.T, name string) string {
+		t.Helper()
+		body := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, name)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("failed to create provider: %d %s", rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to parse create response: %v", err)
+		}
+		return resp.ID
+	}
+
+	putProvider := func(t *testing.T, id, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/providers/"+id, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		return rec
+	}
+
+	decodeProviderResponse := func(t *testing.T, rec *httptest.ResponseRecorder) provider.ProviderResponse {
+		t.Helper()
+		var resp provider.ProviderResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to parse response: %v, body: %s", err, rec.Body.String())
+		}
+		return resp
+	}
+
+	t.Run("sets a future date", func(t *testing.T) {
+		id := createProvider(t, "sched-set")
+		rec := putProvider(t, id, `{"scheduled_disable_on": "`+tomorrow+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn == nil || *resp.ScheduledDisableOn != tomorrow {
+			t.Fatalf("got %v, want %s", resp.ScheduledDisableOn, tomorrow)
+		}
+	})
+
+	t.Run("explicit null clears", func(t *testing.T) {
+		id := createProvider(t, "sched-clear")
+		putProvider(t, id, `{"scheduled_disable_on": "`+tomorrow+`"}`)
+		rec := putProvider(t, id, `{"scheduled_disable_on": null}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn != nil {
+			t.Fatalf("schedule not cleared: %v", *resp.ScheduledDisableOn)
+		}
+	})
+
+	t.Run("absent field keeps the schedule", func(t *testing.T) {
+		id := createProvider(t, "sched-keep")
+		putProvider(t, id, `{"scheduled_disable_on": "`+tomorrow+`"}`)
+		rec := putProvider(t, id, `{"name": "sched-keep-2"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn == nil {
+			t.Fatal("schedule lost on unrelated update")
+		}
+	})
+
+	t.Run("accepts today (fires on next sweep)", func(t *testing.T) {
+		id := createProvider(t, "sched-today")
+		rec := putProvider(t, id, `{"scheduled_disable_on": "`+today+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn == nil || *resp.ScheduledDisableOn != today {
+			t.Fatalf("got %v, want %s", resp.ScheduledDisableOn, today)
+		}
+	})
+
+	t.Run("rejects past and malformed", func(t *testing.T) {
+		id := createProvider(t, "sched-past")
+		for _, bad := range []string{"2020-01-01", "not-a-date"} {
+			rec := putProvider(t, id, `{"scheduled_disable_on": "`+bad+`"}`)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("date %q: expected 400, got %d: %s", bad, rec.Code, rec.Body.String())
+			}
+		}
+	})
+
+	t.Run("disabling clears the schedule", func(t *testing.T) {
+		id := createProvider(t, "sched-disable")
+		putProvider(t, id, `{"scheduled_disable_on": "`+tomorrow+`"}`)
+		rec := putProvider(t, id, `{"enabled": false}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn != nil {
+			t.Fatal("disable must clear the schedule")
+		}
+	})
+
+	t.Run("setting while disabled stays null", func(t *testing.T) {
+		id := createProvider(t, "sched-while-off")
+		putProvider(t, id, `{"enabled": false}`)
+		rec := putProvider(t, id, `{"scheduled_disable_on": "`+tomorrow+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		resp := decodeProviderResponse(t, rec)
+		if resp.ScheduledDisableOn != nil {
+			t.Fatal("schedule must not stick to a disabled provider")
+		}
+	})
 }

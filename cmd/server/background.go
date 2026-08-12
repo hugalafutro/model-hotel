@@ -1,8 +1,9 @@
 package main
 
 // Background maintenance loops for the server binary: the periodic discovery
-// scheduler, stale request-log cleanup, log retention, and WebAuthn session
-// pruning. Each runs for the app lifetime and exits on ctx cancellation.
+// scheduler, quota polling, stale request-log cleanup, log retention, scheduled
+// provider disables, and WebAuthn session pruning. Each runs for the app
+// lifetime and exits on ctx cancellation.
 
 import (
 	"context"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -357,6 +360,65 @@ func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 		`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
 	if err == nil {
 		debuglog.Info("retention: app log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
+	}
+}
+
+// sweepScheduledDisableTimeout bounds a sweep that outlives its caller's
+// context, so shutdown still terminates promptly.
+const sweepScheduledDisableTimeout = 30 * time.Second
+
+// sweepScheduledDisables fires every due scheduled disable and returns how many
+// providers it disabled. It mirrors the manual-disable path in
+// api.UpdateProvider: the repo call invalidates the caches, the failover sync
+// removes the provider's models from auto-created groups, and one warning event
+// per provider tells the operator what happened.
+//
+// A sweep that has begun finishes even while the server is shutting down, which
+// is why the caller's cancellation is dropped here the way api.UpdateProvider
+// drops the request's. The UPDATE clears scheduled_disable_on as it fires, so
+// the disable is only ever due once: a cancellation landing between that commit
+// and the drained rows would lose the operator's event permanently — no later
+// sweep can re-derive it — and leave the failover groups carrying models of a
+// provider that is already off. scheduledDisableLoop keeps selecting on the
+// original context, so the loop itself still exits at once.
+func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository) int {
+	sweepCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sweepScheduledDisableTimeout)
+	defer cancel()
+
+	disabled, err := providerRepo.DisableDueScheduled(sweepCtx)
+	if err != nil || len(disabled) == 0 {
+		return 0
+	}
+	for _, p := range disabled {
+		debuglog.Info("scheduled disable: provider disabled", "provider", p.Name)
+		events.Publish(events.Event{
+			Type:     "provider.scheduled_disable",
+			Severity: "warning",
+			Message:  fmt.Sprintf("Provider '%s' disabled as scheduled", p.Name),
+			Metadata: map[string]any{"provider": p.Name, "provider_id": p.ID.String()},
+		})
+	}
+	if _, err := failoverRepo.SyncAllModels(sweepCtx); err != nil {
+		debuglog.Info("scheduled disable: failover sync failed", "error", err)
+	}
+	return len(disabled)
+}
+
+// scheduledDisableLoop runs sweepScheduledDisables once at startup (a restart
+// that straddled midnight must still fire the disable) and then on every tick.
+// A one-minute tick keeps "as soon as the date flips" honest at negligible cost:
+// the sweep is a single UPDATE on a table of tens of rows.
+func scheduledDisableLoop(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository, tick time.Duration) {
+	sweepScheduledDisables(ctx, providerRepo, failoverRepo)
+	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			sweepScheduledDisables(ctx, providerRepo, failoverRepo)
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

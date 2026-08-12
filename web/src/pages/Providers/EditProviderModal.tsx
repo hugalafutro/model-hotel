@@ -1,14 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff } from "@/lib/icons";
+import { CalendarDays, Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
+import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { DatePickerPopover } from "../../components/DatePickerPopover";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
+import { formatDate } from "../../utils/format";
 import { isKnownProviderUrl } from "./constants";
+
+// Earliest schedulable day. Today is excluded because a same-day schedule is
+// indistinguishable from disabling the provider outright.
+function tomorrowISO(): string {
+	const d = new Date();
+	d.setDate(d.getDate() + 1);
+	return toISODate(d);
+}
 
 export function EditProviderModal({
 	provider,
@@ -31,10 +42,16 @@ export function EditProviderModal({
 		api_key: "",
 		enabled: provider.enabled,
 		autodiscovery_enabled: provider.autodiscovery_enabled,
+		scheduled_disable_on: provider.scheduled_disable_on,
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
 	const [showApiKey, setShowApiKey] = useState(false);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	// The picked day is held aside until Apply, so dismissing the popover leaves
+	// the form untouched.
+	const [pendingDate, setPendingDate] = useState<string | null>(null);
+	const scheduleRowRef = useRef<HTMLDivElement>(null);
 
 	const updateMutation = useMutation({
 		mutationFn: (data: {
@@ -43,6 +60,7 @@ export function EditProviderModal({
 			api_key?: string;
 			enabled?: boolean;
 			autodiscovery_enabled?: boolean;
+			scheduled_disable_on?: string | null;
 		}) => api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
 			onToast(
@@ -75,6 +93,11 @@ export function EditProviderModal({
 		if (formData.enabled !== provider.enabled) fields.push("enabled");
 		if (formData.autodiscovery_enabled !== provider.autodiscovery_enabled)
 			fields.push("autodiscovery_enabled");
+		if (
+			(formData.scheduled_disable_on ?? null) !==
+			(provider.scheduled_disable_on ?? null)
+		)
+			fields.push("scheduled_disable_on");
 		return fields;
 	};
 
@@ -96,6 +119,7 @@ export function EditProviderModal({
 			api_key?: string;
 			enabled?: boolean;
 			autodiscovery_enabled?: boolean;
+			scheduled_disable_on?: string | null;
 		} = {};
 		if (formData.name !== provider.name) payload.name = formData.name.trim();
 		if (formData.base_url !== provider.base_url)
@@ -105,6 +129,11 @@ export function EditProviderModal({
 			payload.enabled = formData.enabled;
 		if (formData.autodiscovery_enabled !== provider.autodiscovery_enabled)
 			payload.autodiscovery_enabled = formData.autodiscovery_enabled;
+		if (
+			(formData.scheduled_disable_on ?? null) !==
+			(provider.scheduled_disable_on ?? null)
+		)
+			payload.scheduled_disable_on = formData.scheduled_disable_on ?? null;
 		updateMutation.mutate(payload);
 	};
 
@@ -218,16 +247,21 @@ export function EditProviderModal({
 						</p>
 					</div>
 
-					<div className="space-y-1">
+					<div className="space-y-1" ref={scheduleRowRef}>
 						<div className="flex items-center gap-3">
 							<Toggle
 								checked={formData.enabled}
-								onChange={(v) =>
+								onChange={(v) => {
+									// Switching off hides the schedule row and disables its
+									// trigger, so an open picker goes with it. The keyboard
+									// path fires no mousedown and so never reaches the
+									// popover's own click-outside handler.
+									if (!v) setPickerOpen(false);
 									setFormData({
 										...formData,
 										enabled: v,
-									})
-								}
+									});
+								}}
 								showFocusRing
 								ariaLabel={t("providers.edit.enabledToggle")}
 							/>
@@ -237,11 +271,63 @@ export function EditProviderModal({
 							>
 								{t("providers.edit_enabled_label")}
 							</label>
+							<button
+								type="button"
+								data-testid="schedule-disable-btn"
+								data-popover-trigger="schedule-disable"
+								disabled={!formData.enabled}
+								onClick={() => {
+									setPendingDate(formData.scheduled_disable_on);
+									setPickerOpen((o) => !o);
+								}}
+								className="ui-icon-btn p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+								title={t("providers.schedule_disable_tooltip")}
+								aria-label={t("providers.schedule_disable_tooltip")}
+							>
+								<CalendarDays size={16} />
+							</button>
+							{formData.enabled && formData.scheduled_disable_on && (
+								<>
+									<span
+										data-testid="scheduled-disable-date"
+										className="text-xs text-orange-400"
+									>
+										{formatDate(`${formData.scheduled_disable_on}T00:00:00`)}
+									</span>
+									<button
+										type="button"
+										data-testid="schedule-disable-cancel"
+										onClick={() =>
+											setFormData({ ...formData, scheduled_disable_on: null })
+										}
+										className="text-xs text-(--text-secondary) hover:text-(--text-primary) underline"
+									>
+										{t("providers.schedule_disable_cancel")}
+									</button>
+								</>
+							)}
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
 							{t("providers.edit.enabledHelper")}
 						</p>
 					</div>
+					{pickerOpen && (
+						<DatePickerPopover
+							value={pendingDate}
+							minDate={tomorrowISO()}
+							onSelect={(d) => setPendingDate(d)}
+							onApply={() => {
+								setFormData({ ...formData, scheduled_disable_on: pendingDate });
+								setPickerOpen(false);
+							}}
+							onCancel={() => {
+								setPendingDate(null);
+								setPickerOpen(false);
+							}}
+							onClose={() => setPickerOpen(false)}
+							triggerRef={scheduleRowRef}
+						/>
+					)}
 
 					<div
 						className={`space-y-3 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}

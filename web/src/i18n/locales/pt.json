@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Atualizadas {{count}} cotas/saldos",
 		"toast_discovery_failed_all_one": "A descoberta falhou para o provedor",
 		"toast_discovery_failed_all_many": "A descoberta falhou para todos os {{count}} provedores",
-		"toast_discovery_failed_all_other": "A descoberta falhou para todos os {{count}} provedores"
+		"toast_discovery_failed_all_other": "A descoberta falhou para todos os {{count}} provedores",
+		"schedule_disable_tooltip": "Agendar desativação",
+		"schedule_disable_hint": "O provedor será desativado assim que a data do servidor chegar ao dia escolhido.",
+		"schedule_disable_cancel": "Cancelar agendamento",
+		"scheduled_disable_card_tooltip": "Desativação agendada para {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modelo",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "O provedor alterou a estrutura da resposta de cota",
 				"auth_sso_identity_bound": "Identidade SSO vinculada a uma conta",
 				"discovery_claims_outstanding": "Divergências de modelos não tratadas",
-				"model_auto_disabled_gone": "Modelo desativado (o provedor já não o disponibiliza)"
+				"model_auto_disabled_gone": "Modelo desativado (o provedor já não o disponibiliza)",
+				"provider_scheduled_disable": "Provedor desativado conforme agendado"
 			},
 			"events": {
 				"all": "Selecionar tudo",
