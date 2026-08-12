@@ -2262,6 +2262,51 @@ describe("Layout", () => {
 			await new Promise((r) => setTimeout(r, 100));
 			expect(fetchCount).toBe(countAfterMatch);
 		});
+
+		it("refetches the providers list on a provider.scheduled_disable SSE event", async () => {
+			let providersFetches = 0;
+			server.use(
+				http.get("/api/providers", () => {
+					providersFetches++;
+					return HttpResponse.json([]);
+				}),
+			);
+
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			// The sidebar quota panel holds the ["providers"] query.
+			await waitFor(() => {
+				expect(providersFetches).toBeGreaterThanOrEqual(1);
+			});
+			const initialCount = providersFetches;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "provider.scheduled_disable",
+							message: "Provider 'x' disabled as scheduled",
+						},
+					}),
+				);
+			});
+
+			await waitFor(() => {
+				expect(providersFetches).toBeGreaterThan(initialCount);
+			});
+
+			// An unrelated event leaves the query alone.
+			const countAfterMatch = providersFetches;
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: { type: "provider.created", message: "New provider" },
+					}),
+				);
+			});
+			await new Promise((r) => setTimeout(r, 100));
+			expect(providersFetches).toBe(countAfterMatch);
+		});
 	});
 
 	describe("Logout", () => {
