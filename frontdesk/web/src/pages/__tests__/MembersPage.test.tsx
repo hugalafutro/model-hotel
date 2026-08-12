@@ -865,4 +865,35 @@ describe("MembersPage", () => {
 			await screen.findByText(/Cannot remove the last active member/i),
 		).toBeInTheDocument();
 	});
+
+	it("falls back to the generic error toast on an uncoded failure", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+					member({ id: "3", name: "hotel-3" }),
+				]),
+			),
+			http.delete(
+				"/api/members/1",
+				() => new HttpResponse("boom", { status: 500 }),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
+
+		expect(
+			await screen.findByText(/Something went wrong/i),
+		).toBeInTheDocument();
+	});
 });

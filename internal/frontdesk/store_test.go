@@ -3,7 +3,9 @@ package frontdesk
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -646,6 +648,99 @@ func TestDeleteMemberOrDisband_LoneRow(t *testing.T) {
 	}
 	if cfg.PrimaryID != "" {
 		t.Errorf("stale designation survived: %+v", cfg)
+	}
+}
+
+func TestDeleteMemberOrDisband_NotFound(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if _, err := s.CreateMember(ctx, "only", "https://only.example.com", ""); err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	if _, _, err := s.DeleteMemberOrDisband(ctx, "no-such-id"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete unknown id: err=%v, want ErrNotFound", err)
+	}
+}
+
+// TestDeleteMemberOrDisband_StatementFailures forces each statement of the
+// delete transaction to fail for real (RAISE(ABORT) triggers and a dropped
+// table) so the error paths are exercised without any fault-injection seam in
+// production code. Each case gets a fresh store; the trigger or drop is applied
+// through the store's own connection.
+func TestDeleteMemberOrDisband_StatementFailures(t *testing.T) {
+	ctx := context.Background()
+	seed := func(t *testing.T, n int) (*Store, []string) {
+		t.Helper()
+		s := newTestStore(t)
+		ids := make([]string, 0, n)
+		for i := range n {
+			m, err := s.CreateMember(ctx, fmt.Sprintf("m%d", i), fmt.Sprintf("https://m%d.example.com", i), "")
+			if err != nil {
+				t.Fatalf("create member %d: %v", i, err)
+			}
+			ids = append(ids, m.ID)
+		}
+		return s, ids
+	}
+	breakWith := func(t *testing.T, s *Store, ddl string) {
+		t.Helper()
+		if _, err := s.db.ExecContext(ctx, ddl); err != nil {
+			t.Fatalf("apply breakage %q: %v", ddl, err)
+		}
+	}
+	wantErr := func(t *testing.T, s *Store, id, fragment string) {
+		t.Helper()
+		_, _, err := s.DeleteMemberOrDisband(ctx, id)
+		if err == nil || !strings.Contains(err.Error(), fragment) {
+			t.Fatalf("err = %v, want it to contain %q", err, fragment)
+		}
+	}
+
+	t.Run("roster read fails", func(t *testing.T) {
+		s, _ := seed(t, 1)
+		breakWith(t, s, `DROP TABLE members`)
+		wantErr(t, s, "x", "read member roster")
+	})
+	t.Run("disband delete fails", func(t *testing.T) {
+		s, ids := seed(t, 2)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "disband fleet")
+	})
+	t.Run("disband cleanup fails", func(t *testing.T) {
+		s, ids := seed(t, 2)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE UPDATE ON settings BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "clear auto-sync on disband")
+	})
+	t.Run("plain delete fails", func(t *testing.T) {
+		s, ids := seed(t, 3)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "delete member")
+	})
+	t.Run("ghost cleanup fails", func(t *testing.T) {
+		s, ids := seed(t, 3)
+		// The ghost-state UPDATE only touches a row naming the target, so seed
+		// one; the trigger then fires on that row and aborts the statement.
+		if err := s.SetFleetSyncState(ctx, ids[0], "m0", time.Now()); err != nil {
+			t.Fatalf("seed fleet sync state: %v", err)
+		}
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE UPDATE ON fleet_sync_state BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "clear ghost fleet state")
+	})
+}
+
+// TestCommitTxWrapsError covers commitTx's failure wrap via the one commit
+// error reachable without a driver seam: committing an already-finished tx.
+func TestCommitTxWrapsError(t *testing.T) {
+	s := newTestStore(t)
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("first commit: %v", err)
+	}
+	if err := commitTx(tx, "commit disband"); err == nil || !strings.Contains(err.Error(), "commit disband") {
+		t.Fatalf("commitTx on finished tx: err=%v, want wrapped commit error", err)
 	}
 }
 

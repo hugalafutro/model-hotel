@@ -227,10 +227,11 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 	if err != nil {
 		return 0, nil, err
 	}
+	var target RemovedMember
 	found := false
 	for _, m := range roster {
 		if m.ID == id {
-			found = true
+			target, found = m, true
 		}
 	}
 	if !found {
@@ -266,15 +267,16 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 		// auto_sync_gen deliberately survives the disband: members keep their
 		// last-applied generation as an import fence, and a future re-formed
 		// fleet must continue counting upward or its first push would look stale.
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE settings SET auto_sync_enabled = 0, auto_sync_primary_id = '', auto_sync_last_hash = '' WHERE id = 1`); err != nil {
-			return 0, nil, fmt.Errorf("frontdesk: clear auto-sync on disband: %w", err)
+		for _, step := range []txStep{
+			{"clear auto-sync on disband", `UPDATE settings SET auto_sync_enabled = 0, auto_sync_primary_id = '', auto_sync_last_hash = '' WHERE id = 1`},
+			{"clear fleet sync state on disband", `DELETE FROM fleet_sync_state`},
+		} {
+			if err := step.exec(ctx, tx); err != nil {
+				return 0, nil, err
+			}
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_sync_state`); err != nil {
-			return 0, nil, fmt.Errorf("frontdesk: clear fleet sync state on disband: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return 0, nil, fmt.Errorf("frontdesk: commit disband: %w", err)
+		if err := commitTx(tx, "commit disband"); err != nil {
+			return 0, nil, err
 		}
 		return DeleteDisbanded, roster, nil
 	}
@@ -316,21 +318,37 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 	}
 	// A removed non-primary member must not linger as the auto-sync primary (it
 	// never should, but stay defensive) nor as the stale "last run" marker.
-	if _, err := tx.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id); err != nil {
-		return 0, nil, fmt.Errorf("frontdesk: clear auto-sync primary: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE fleet_sync_state SET primary_id = '', primary_name = '' WHERE id = 1 AND primary_id = ?`, id); err != nil {
-		return 0, nil, fmt.Errorf("frontdesk: clear ghost fleet state: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return 0, nil, fmt.Errorf("frontdesk: commit delete member: %w", err)
-	}
-	for _, m := range roster {
-		if m.ID == id {
-			return DeleteApplied, []RemovedMember{m}, nil
+	for _, step := range []txStep{
+		{"clear auto-sync primary", `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`},
+		{"clear ghost fleet state", `UPDATE fleet_sync_state SET primary_id = '', primary_name = '' WHERE id = 1 AND primary_id = ?`},
+	} {
+		if err := step.exec(ctx, tx, id); err != nil {
+			return 0, nil, err
 		}
 	}
-	return DeleteApplied, nil, nil // unreachable: the target was in the roster
+	if err := commitTx(tx, "commit delete member"); err != nil {
+		return 0, nil, err
+	}
+	return DeleteApplied, []RemovedMember{target}, nil
+}
+
+// txStep is one named statement of a multi-statement transaction; the name
+// keys the wrapped error so a failure says which cleanup step broke.
+type txStep struct{ what, query string }
+
+func (s txStep) exec(ctx context.Context, tx *sql.Tx, args ...any) error {
+	if _, err := tx.ExecContext(ctx, s.query, args...); err != nil {
+		return fmt.Errorf("frontdesk: %s: %w", s.what, err)
+	}
+	return nil
+}
+
+// commitTx commits and wraps the error under the caller's step name.
+func commitTx(tx *sql.Tx, what string) error {
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("frontdesk: %s: %w", what, err)
+	}
+	return nil
 }
 
 // rosterSnapshot reads every member's id and name inside the caller's
