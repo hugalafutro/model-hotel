@@ -102,16 +102,17 @@ func assertOpen(t *testing.T, done <-chan struct{}, why string) {
 func startStream(t *testing.T, srv *Server, req *http.Request) (*sseRecorder, chan struct{}) {
 	t.Helper()
 	rec := newSSERecorder()
-	return rec, startStreamWith(t, srv, req, rec)
+	return rec, startStreamWith(t, srv, req, rec, sseTick)
 }
 
-// startStreamWith is startStream against a recorder the test has configured.
-func startStreamWith(t *testing.T, srv *Server, req *http.Request, rec *sseRecorder) chan struct{} {
+// startStreamWith is startStream against a recorder and a cadence the test has
+// chosen, for the cases that need a configured writer or a wider tick.
+func startStreamWith(t *testing.T, srv *Server, req *http.Request, rec *sseRecorder, every time.Duration) chan struct{} {
 	t.Helper()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		srv.stream(rec, req, sseTick)
+		srv.stream(rec, req, every)
 	}()
 	return done
 }
@@ -249,13 +250,17 @@ func TestSSESingleFailureDoesNotClose(t *testing.T) {
 // survives. TOTP is flipped on to make the raw admin token stop resolving (with
 // TOTP enabled it is a first factor only) and back off to heal it, which is the
 // in-memory equivalent of a store blip clearing on the next tick.
+//
+// The healing flip has to land before the tick after the one it reacts to, so
+// this is the one test that runs at a wider cadence than the rest.
 func TestSSEFailedCheckRecovers(t *testing.T) {
 	srv, _ := newTestServer(t)
 
 	req, cancel := sseRequest(t)
 	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
 
-	rec, done := startStream(t, srv, req)
+	rec := newSSERecorder()
+	done := startStreamWith(t, srv, req, rec, 500*time.Millisecond)
 	awaitWrite(t, rec, "keep-alive on a live admin token")
 
 	srv.totpStatus.val.Store(true)
@@ -272,23 +277,50 @@ func TestSSEFailedCheckRecovers(t *testing.T) {
 }
 
 // A device-token lookup that errors for a reason other than "no such device"
-// counts as a failed check rather than falling through to the admin gate, so a
-// broken store closes streams instead of silently widening admission.
-func TestSSEStoreErrorCountsAsFailure(t *testing.T) {
-	srv, store := newTestServer(t)
-	token, _ := pairDevice(t, srv, RoleMonitor, "phone")
+// falls through to the admin/session gate, exactly as requireAuth does. An admin
+// bearer never depended on paired_devices, so a broken table must not close its
+// stream; a device token has nothing else to fall back on, so its stream closes
+// once the tolerance is used up.
+func TestSSEDeviceStoreErrorFallsThroughToTheAdminGate(t *testing.T) {
+	t.Run("admin bearer survives", func(t *testing.T) {
+		srv, store := newTestServer(t)
 
-	req, cancel := sseRequest(t)
-	defer cancel()
-	req.Header.Set("Authorization", "Bearer "+token)
+		req, cancel := sseRequest(t)
+		req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
 
-	// Closing the store makes every DeviceByTokenHash return a driver error.
-	if err := store.Close(); err != nil {
-		t.Fatalf("store.Close: %v", err)
-	}
+		// Closing the store makes every DeviceByTokenHash return a driver error.
+		if err := store.Close(); err != nil {
+			t.Fatalf("store.Close: %v", err)
+		}
 
-	_, done := startStream(t, srv, req)
-	awaitClosed(t, done, "with a store that errors on every re-check")
+		rec, done := startStream(t, srv, req)
+		for range 3 {
+			awaitWrite(t, rec, "keep-alive")
+			assertOpen(t, done, "on an admin bearer while the device table was unreadable")
+		}
+
+		cancel()
+		awaitClosed(t, done, "after the client hung up")
+	})
+
+	t.Run("device token closes", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		token, _ := pairDevice(t, srv, RoleMonitor, "phone")
+
+		req, cancel := sseRequest(t)
+		defer cancel()
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		if err := store.Close(); err != nil {
+			t.Fatalf("store.Close: %v", err)
+		}
+
+		rec, done := startStream(t, srv, req)
+		awaitClosed(t, done, "on a device token the store could no longer confirm")
+		if got := strings.Count(rec.String(), ": keep-alive"); got != 1 {
+			t.Errorf("keep-alives = %d, want exactly 1 (the first failure is tolerated, the second closes)", got)
+		}
+	})
 }
 
 // Bus events still reach the stream alongside the re-auth tick.
@@ -330,7 +362,7 @@ func TestSSEStopsWhenTheClientIsGone(t *testing.T) {
 
 		rec := newSSERecorder()
 		rec.failOn = func(string) bool { return true }
-		done := startStreamWith(t, srv, req, rec)
+		done := startStreamWith(t, srv, req, rec, sseTick)
 		awaitClosed(t, done, "after the keep-alive write failed")
 	})
 
@@ -342,7 +374,7 @@ func TestSSEStopsWhenTheClientIsGone(t *testing.T) {
 
 		rec := newSSERecorder()
 		rec.failOn = func(frame string) bool { return strings.HasPrefix(frame, "data: ") }
-		done := startStreamWith(t, srv, req, rec)
+		done := startStreamWith(t, srv, req, rec, sseTick)
 		awaitWrite(t, rec, "keep-alive")
 		srv.bus.Publish(events.Event{Type: "member.state_changed", Severity: "info", Source: "frontdesk"})
 		awaitClosed(t, done, "after the event write failed")

@@ -114,17 +114,22 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 // revalidate re-runs the connect-time admission of requireAuth: a device token
 // that still resolves to a non-revoked device, otherwise the admin-or-session
 // gate. last_seen_at is deliberately not re-stamped; it records requests the
-// device made, not a heartbeat this server drives. A store error other than
-// ErrNotFound counts as a failed check, which the failure tolerance absorbs.
+// device made, not a heartbeat this server drives.
+//
+// A device-lookup failure falls through to the admin/session gate, exactly as
+// requireAuth does: that gate never reads paired_devices, so a broken or
+// unavailable table cannot close an admin-bearer stream. A device token then
+// fails the gate and the tick counts as a failed check, which the tolerance
+// absorbs when the failure was a one-off blip. The error is logged only while
+// the request is live; a client hanging up races the tick and is not a fault.
 func (s *Server) revalidate(r *http.Request) bool {
 	if token, ok := util.ParseBearerToken(r); ok {
 		_, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))
 		if err == nil {
 			return true
 		}
-		if !errors.Is(err, ErrNotFound) {
+		if !errors.Is(err, ErrNotFound) && r.Context().Err() == nil {
 			debuglog.Error("frontdesk: sse device token re-check", "error", err)
-			return false
 		}
 	}
 	return adminauth.ValidAdminOrSession(r, s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk)
