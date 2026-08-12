@@ -713,6 +713,14 @@ export function Layout({ children }: LayoutProps) {
 			if (detail?.type?.startsWith("circuit_breaker.")) {
 				queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
 			}
+			// The scheduled-disable sweep flips providers off outside any user
+			// action, so every open tab must refetch what denormalizes provider
+			// enabled state: the providers list (cards + quota badges hide via
+			// the enabled filter) and the failover groups the sweep re-synced.
+			if (detail?.type === "provider.scheduled_disable") {
+				queryClient.invalidateQueries({ queryKey: ["providers"] });
+				queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			}
 		};
 		window.addEventListener("server-event", handler);
 		return () => window.removeEventListener("server-event", handler);

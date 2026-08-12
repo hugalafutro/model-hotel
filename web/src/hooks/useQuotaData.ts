@@ -99,13 +99,16 @@ export function detectQuotaProviderType(
 	return null;
 }
 
-/** Find the first provider ID matching a quota provider type. */
+/** Find the first enabled provider ID matching a quota provider type. Disabled
+ * providers are invisible to the quota surface entirely: no provider ID means
+ * every downstream query stays disabled and every badge stays hidden. */
 function findProviderId(
 	providers: Provider[] | undefined,
 	type: QuotaProviderType,
 ): string | undefined {
-	return providers?.find((p) => detectQuotaProviderType(p.base_url) === type)
-		?.id;
+	return providers?.find(
+		(p) => p.enabled && detectQuotaProviderType(p.base_url) === type,
+	)?.id;
 }
 
 // ── Hook options ─────────────────────────────────────────────────────────
