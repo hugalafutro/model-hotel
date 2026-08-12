@@ -147,6 +147,7 @@
     <string name="alerts_event_fleet_state_changed">集群状态已更改</string>
     <string name="alerts_event_member_added">成员已添加</string>
     <string name="alerts_event_member_removed">成员已移除</string>
+    <string name="alerts_event_fleet_disbanded">集群已解散</string>
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>
     <string name="alerts_event_backup_stale">成员没有最近的备份</string>
     <string name="alerts_event_backup_recovered">成员备份已恢复</string>

@@ -150,6 +150,7 @@
     <string name="alerts_event_fleet_state_changed">Estado de la flota cambiado</string>
     <string name="alerts_event_member_added">Miembro añadido</string>
     <string name="alerts_event_member_removed">Miembro eliminado</string>
+    <string name="alerts_event_fleet_disbanded">Flota disuelta</string>
     <string name="alerts_event_member_state_changed">Miembro drenado o activado</string>
     <string name="alerts_event_backup_stale">Miembro sin copia reciente</string>
     <string name="alerts_event_backup_recovered">Miembro con copias al día de nuevo</string>

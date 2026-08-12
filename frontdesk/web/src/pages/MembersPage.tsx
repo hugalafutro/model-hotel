@@ -144,17 +144,33 @@ export function MembersPage() {
 	// Only non-primary members are removable (the primary row has no Remove
 	// button, and the backend refuses a primary delete with 409). The primary is
 	// the config source of truth; it is changed only by re-running the Fleet Sync
-	// wizard.
+	// wizard. A fleet is never allowed to shrink to a single member: at two
+	// members (or a lone just-added row) the same Remove disbands the whole
+	// fleet, primary included, and the confirm modal says so.
+	const disbandOnRemove = members.length <= 2;
 	const confirmRemove = async () => {
 		if (!removing) return;
 		const m = removing;
+		const disband = disbandOnRemove;
 		setRemoving(null);
 		try {
 			await api.deleteMember(m.id);
-			toast(t("members.removed", { name: m.name }), "info");
+			toast(
+				t(disband ? "members.disbanded" : "members.removed", { name: m.name }),
+				"info",
+			);
 			refetch();
-		} catch {
-			toast(t("errors.generic"), "error");
+			// A disband also drops the primary designation; refresh so the badge
+			// and fleet-state header clear without waiting for an SSE round-trip.
+			refreshPrimary();
+		} catch (err) {
+			// Still reachable in a 3+ fleet: the last active member cannot be
+			// removed while its peers are drained.
+			if (err instanceof ApiError && err.code === "last_active_member") {
+				toast(t("members.removeLastActiveError"), "error");
+			} else {
+				toast(t("errors.generic"), "error");
+			}
 		}
 	};
 
@@ -219,6 +235,7 @@ export function MembersPage() {
 									primaryVersion={primaryVersion}
 									isPrimary={m.id === primaryId}
 									soleActive={soleActive}
+									disbandOnRemove={disbandOnRemove}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
 								/>
@@ -250,13 +267,20 @@ export function MembersPage() {
 
 			{removing && (
 				<ConfirmModal
-					title={t("members.removeTitle", { name: removing.name })}
-					confirmLabel={t("common.remove")}
+					title={t(
+						disbandOnRemove ? "members.disbandTitle" : "members.removeTitle",
+						{ name: removing.name },
+					)}
+					confirmLabel={t(
+						disbandOnRemove ? "members.disbandConfirm" : "common.remove",
+					)}
 					onConfirm={confirmRemove}
 					onClose={() => setRemoving(null)}
 				>
 					<p className="fd-muted">
-						{t("members.removeBody", { name: removing.name })}
+						{t(disbandOnRemove ? "members.disbandBody" : "members.removeBody", {
+							name: removing.name,
+						})}
 					</p>
 				</ConfirmModal>
 			)}
@@ -270,6 +294,7 @@ function MemberRow({
 	primaryVersion,
 	isPrimary,
 	soleActive,
+	disbandOnRemove,
 	onSetState,
 	onRemove,
 }: {
@@ -283,6 +308,9 @@ function MemberRow({
 	// disabled for the active member in that case: draining the last active member
 	// would empty the routing pool (the backend refuses it with a 409).
 	soleActive: boolean;
+	// True when the fleet has at most two members, so removing this one disbands
+	// the whole fleet (a fleet below two members is not allowed to exist).
+	disbandOnRemove: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
 }) {
@@ -474,7 +502,9 @@ function MemberRow({
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm ui-btn-danger"
-							title={t("members.removeTip")}
+							title={t(
+								disbandOnRemove ? "members.disbandTip" : "members.removeTip",
+							)}
 							onClick={onRemove}
 						>
 							{t("common.remove")}

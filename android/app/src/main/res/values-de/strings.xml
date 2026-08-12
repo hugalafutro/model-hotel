@@ -150,6 +150,7 @@
     <string name="alerts_event_fleet_state_changed">Flottenstatus geändert</string>
     <string name="alerts_event_member_added">Mitglied hinzugefügt</string>
     <string name="alerts_event_member_removed">Mitglied entfernt</string>
+    <string name="alerts_event_fleet_disbanded">Flotte aufgelöst</string>
     <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>
     <string name="alerts_event_backup_stale">Mitglied ohne aktuelles Backup</string>
     <string name="alerts_event_backup_recovered">Mitglied wird wieder gesichert</string>

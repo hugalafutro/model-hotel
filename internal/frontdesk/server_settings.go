@@ -300,6 +300,18 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "store an admin token for that primary first; auto-sync needs it to read the primary's config", http.StatusBadRequest)
 			return
 		}
+		// A fleet below two members is not allowed to exist (removal disbands at
+		// that point rather than shrink past it), so a primary cannot be
+		// designated for one: with a single row there is nobody to sync to.
+		members, merr := s.store.ListMembers(r.Context())
+		if merr != nil {
+			writeError(w, merr)
+			return
+		}
+		if len(members) < 2 {
+			http.Error(w, "a fleet needs at least two members before a primary can be designated", http.StatusConflict)
+			return
+		}
 	} else if req.Enabled {
 		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
 		return

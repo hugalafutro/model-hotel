@@ -181,74 +181,176 @@ func (s *Store) SetMemberInstanceID(ctx context.Context, id, instanceID string) 
 	return err
 }
 
-// DeleteMemberIfNotPrimary removes a member by id, but never the configured
-// fleet primary. The primary is the config source of truth and can only be
-// changed by re-running the Fleet Sync wizard (a token-gated repoint), so there
-// is deliberately no way to delete it directly, with or without a token. The
-// primary-status check and the delete are a single atomic SQL statement, so a
-// concurrent primary reassignment cannot slip between the check and the delete
-// (the TOCTOU window a two-step GetAutoSync + DeleteMember would have). Returns
-// applied=false when the member is the current primary; the caller should
-// respond 409 and point the operator at the wizard.
-func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applied bool, err error) {
-	// The delete and its ghost-state cleanup run in one transaction, so a crash
-	// mid-way can never leave a fleet_sync_state row naming a member that was
-	// already removed (exactly the ghost that made the old badge misreport who the
-	// primary was).
+// DeleteOutcome describes what DeleteMemberOrDisband did.
+type DeleteOutcome int
+
+const (
+	// DeleteRefusedPrimary means the target is the designated fleet primary of
+	// a fleet that keeps existing (two or more members). The primary is the
+	// config source of truth and can only be changed by re-running the Fleet
+	// Sync wizard (a token-gated repoint), so it is never deletable directly.
+	DeleteRefusedPrimary DeleteOutcome = iota
+	// DeleteApplied means one member was removed and the fleet lives on (it had
+	// three or more members).
+	DeleteApplied
+	// DeleteDisbanded means the fleet had two members (or was a lone just-added
+	// row), so removing one would have left a single-member fleet, a state that
+	// is not allowed to exist. Every member row was removed, auto-sync switched
+	// off, the primary designation cleared and the last-sync marker dropped.
+	DeleteDisbanded
+)
+
+// RemovedMember identifies a member row a delete removed: the id for in-memory
+// state cleanup, the name for the operator-facing event message.
+type RemovedMember struct{ ID, Name string }
+
+// DeleteMemberOrDisband removes a member by id, enforcing the fleet-size
+// invariant that a fleet never shrinks to a single member: removal from a
+// two-member fleet (or of a lone just-added row) disbands the whole fleet,
+// primary included, returning Front Desk to its pristine no-fleet state. In a
+// fleet of three or more it removes just the target, still refusing the
+// designated primary and the last active member (the routing pool must never
+// empty while a fleet exists). Every guard is re-checked inside the DELETE
+// statement itself, so a concurrent add, drain or repoint cannot slip between
+// the roster read and the write.
+func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOutcome, []RemovedMember, error) {
+	// The delete and its designation/sync-state cleanup run in one transaction,
+	// so a crash mid-way can never leave a fleet_sync_state row or auto-sync
+	// pointer naming a member that was already removed.
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("frontdesk: begin delete member: %w", err)
+		return 0, nil, fmt.Errorf("frontdesk: begin delete member: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
 
-	// Delete only if the member is NOT the fleet primary AND removing it would not
-	// empty the routing pool (an active member must never be the last active one:
-	// that is the same invariant SetMemberState enforces for draining, reached
-	// here via the delete door). Draining a drained member is always safe (it is
-	// already out of the pool). The sub-queries make the checks and the delete a
-	// single atomic statement, so a concurrent repoint or drain cannot slip
-	// between the check and the delete.
+	roster, err := rosterSnapshot(ctx, tx)
+	if err != nil {
+		return 0, nil, err
+	}
+	found := false
+	for _, m := range roster {
+		if m.ID == id {
+			found = true
+		}
+	}
+	if !found {
+		return 0, nil, ErrNotFound
+	}
+
+	if len(roster) <= 2 {
+		// Two members: only the non-primary side may pull the plug (changing the
+		// primary is the wizard's job). A lone row cannot be anyone's primary in
+		// a functioning fleet, so it is always removable; if a stale designation
+		// points at it anyway, disbanding clears it.
+		res, err := tx.ExecContext(ctx, `
+			DELETE FROM members
+			WHERE (SELECT COUNT(*) FROM members) <= 2
+			  AND EXISTS (SELECT 1 FROM members WHERE id = ?)
+			  AND (? NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)
+			       OR (SELECT COUNT(*) FROM members) = 1)`,
+			id, id)
+		if err != nil {
+			return 0, nil, fmt.Errorf("frontdesk: disband fleet: %w", err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return 0, nil, err
+		}
+		if n == 0 {
+			// The statement's own guards refused: the target is the designated
+			// primary of a two-member fleet (or a concurrent add just grew the
+			// roster, in which case pointing at the wizard is still the safe
+			// answer for a delete that raced a membership change).
+			return DeleteRefusedPrimary, nil, nil
+		}
+		// auto_sync_gen deliberately survives the disband: members keep their
+		// last-applied generation as an import fence, and a future re-formed
+		// fleet must continue counting upward or its first push would look stale.
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE settings SET auto_sync_enabled = 0, auto_sync_primary_id = '', auto_sync_last_hash = '' WHERE id = 1`); err != nil {
+			return 0, nil, fmt.Errorf("frontdesk: clear auto-sync on disband: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_sync_state`); err != nil {
+			return 0, nil, fmt.Errorf("frontdesk: clear fleet sync state on disband: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, nil, fmt.Errorf("frontdesk: commit disband: %w", err)
+		}
+		return DeleteDisbanded, roster, nil
+	}
+
+	// Three or more members: remove just the target. Delete only if the member
+	// is NOT the fleet primary, removing it would not empty the routing pool (an
+	// active member must never be the last active one: the same invariant
+	// SetMemberState enforces for draining, reached here via the delete door;
+	// removing a drained member is always safe), and the roster is still big
+	// enough that this cannot create a single-member fleet. The sub-queries make
+	// the checks and the delete a single atomic statement.
 	res, err := tx.ExecContext(ctx, `
 		DELETE FROM members
 		WHERE id = ?
+		  AND (SELECT COUNT(*) FROM members) > 2
 		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)
 		  AND (state != ? OR EXISTS (SELECT 1 FROM members WHERE state = ? AND id != ?))`,
 		id, string(StateActive), string(StateActive), id)
 	if err != nil {
-		return false, fmt.Errorf("frontdesk: delete member: %w", err)
+		return 0, nil, fmt.Errorf("frontdesk: delete member: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return 0, nil, err
 	}
 	if n == 0 {
-		// Not deleted: either the member is the primary (existing refusal, reported
-		// as applied=false) or it is the last active member (new routing-pool
-		// guard). The caller has already confirmed the member exists, so
-		// disambiguate the two so the server returns the right 409.
+		// Not deleted: either the member is the primary or it is the last active
+		// member. Disambiguate so the server returns the right 409.
 		var isPrimary bool
 		if err := tx.QueryRowContext(ctx,
 			`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
 			id).Scan(&isPrimary); err != nil {
-			return false, fmt.Errorf("frontdesk: delete member primary check: %w", err)
+			return 0, nil, fmt.Errorf("frontdesk: delete member primary check: %w", err)
 		}
 		if isPrimary {
-			return false, nil
+			return DeleteRefusedPrimary, nil, nil
 		}
-		return false, ErrLastActiveMember
+		return 0, nil, ErrLastActiveMember
 	}
 	// A removed non-primary member must not linger as the auto-sync primary (it
 	// never should, but stay defensive) nor as the stale "last run" marker.
 	if _, err := tx.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id); err != nil {
-		return false, fmt.Errorf("frontdesk: clear auto-sync primary: %w", err)
+		return 0, nil, fmt.Errorf("frontdesk: clear auto-sync primary: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE fleet_sync_state SET primary_id = '', primary_name = '' WHERE id = 1 AND primary_id = ?`, id); err != nil {
-		return false, fmt.Errorf("frontdesk: clear ghost fleet state: %w", err)
+		return 0, nil, fmt.Errorf("frontdesk: clear ghost fleet state: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("frontdesk: commit delete member: %w", err)
+		return 0, nil, fmt.Errorf("frontdesk: commit delete member: %w", err)
 	}
-	return true, nil
+	for _, m := range roster {
+		if m.ID == id {
+			return DeleteApplied, []RemovedMember{m}, nil
+		}
+	}
+	return DeleteApplied, nil, nil // unreachable: the target was in the roster
+}
+
+// rosterSnapshot reads every member's id and name inside the caller's
+// transaction, so disband events and state cleanup describe exactly the rows
+// the delete saw.
+func rosterSnapshot(ctx context.Context, tx *sql.Tx) ([]RemovedMember, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id, name FROM members ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("frontdesk: read member roster: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []RemovedMember
+	for rows.Next() {
+		var m RemovedMember
+		if err := rows.Scan(&m.ID, &m.Name); err != nil {
+			return nil, fmt.Errorf("frontdesk: scan member roster: %w", err)
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }
 
 // MemberToken decrypts and returns a member's stored admin token. ok is false

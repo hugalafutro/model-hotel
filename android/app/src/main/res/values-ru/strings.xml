@@ -156,6 +156,7 @@
     <string name="alerts_event_fleet_state_changed">Состояние флота изменилось</string>
     <string name="alerts_event_member_added">Узел добавлен</string>
     <string name="alerts_event_member_removed">Узел удалён</string>
+    <string name="alerts_event_fleet_disbanded">Флот расформирован</string>
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
     <string name="alerts_event_backup_stale">У участника нет свежей резервной копии</string>
     <string name="alerts_event_backup_recovered">Участник снова резервируется</string>

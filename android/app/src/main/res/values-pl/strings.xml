@@ -156,6 +156,7 @@
     <string name="alerts_event_fleet_state_changed">Stan floty zmieniony</string>
     <string name="alerts_event_member_added">Węzeł dodany</string>
     <string name="alerts_event_member_removed">Węzeł usunięty</string>
+    <string name="alerts_event_fleet_disbanded">Flota rozwiązana</string>
     <string name="alerts_event_member_state_changed">Węzeł wygaszony lub aktywowany</string>
     <string name="alerts_event_backup_stale">Członek bez świeżej kopii zapasowej</string>
     <string name="alerts_event_backup_recovered">Członek znowu ma kopie zapasowe</string>

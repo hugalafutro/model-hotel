@@ -147,6 +147,7 @@
     <string name="alerts_event_fleet_state_changed">フリートの状態が変化</string>
     <string name="alerts_event_member_added">メンバーを追加</string>
     <string name="alerts_event_member_removed">メンバーを削除</string>
+    <string name="alerts_event_fleet_disbanded">フリート解散</string>
     <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>
     <string name="alerts_event_backup_stale">メンバーに最近のバックアップがない</string>
     <string name="alerts_event_backup_recovered">メンバーのバックアップが復旧した</string>

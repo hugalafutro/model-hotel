@@ -61,6 +61,11 @@ var fdCatalog = []alert.EventDef{
 	{Type: "member.added", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.removed", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.state_changed", Category: "Membership", Severity: "info", DefaultOn: false},
+	// Removing a member of a two-member fleet disbands the whole fleet (a fleet
+	// below two members is not allowed to exist). Operator-initiated behind a
+	// confirm, so off by default like member.removed, but warning-severity: it
+	// also switches auto-sync off fleet-wide.
+	{Type: "fleet.disbanded", Category: "Membership", Severity: "warning", DefaultOn: false},
 	// A member has no database backup from the last day. Front Desk takes no
 	// snapshot of its own, so a member's scheduled dumps are the only copy of its
 	// config, and the age of the newest catches both switched-off backups and a

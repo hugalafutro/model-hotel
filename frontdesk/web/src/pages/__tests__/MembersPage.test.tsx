@@ -387,13 +387,16 @@ describe("MembersPage", () => {
 	});
 
 	it("removes a member after confirming", async () => {
+		// Three members so this is a plain removal; the two-member and lone-row
+		// variants disband instead (covered below).
 		let deleted = false;
+		const roster = () => [
+			...(deleted ? [] : [member({ id: "1", name: "hotel-1" })]),
+			member({ id: "2", name: "hotel-2" }),
+			member({ id: "3", name: "hotel-3" }),
+		];
 		server.use(
-			http.get("/api/members", () =>
-				HttpResponse.json(
-					deleted ? [] : [member({ id: "1", name: "hotel-1" })],
-				),
-			),
+			http.get("/api/members", () => HttpResponse.json(roster())),
 			http.delete("/api/members/1", () => {
 				deleted = true;
 				return new HttpResponse(null, { status: 204 });
@@ -401,14 +404,17 @@ describe("MembersPage", () => {
 		);
 		renderPage();
 		await screen.findByText("hotel-1");
-		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
 		// Confirm modal → click the destructive Remove inside it.
 		const dialog = await screen.findByRole("dialog");
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: /^Remove$/i }),
 		);
 		await waitFor(() =>
-			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
+			expect(screen.queryByText("hotel-1")).not.toBeInTheDocument(),
 		);
 	});
 
@@ -711,7 +717,7 @@ describe("MembersPage", () => {
 		).toBeInTheDocument();
 	});
 
-	it("removes a non-primary member with no token, one click", async () => {
+	it("removes a lone bootstrap row via the disband confirm", async () => {
 		let deleted = false;
 		let deleteBody = "unset";
 		server.use(
@@ -732,12 +738,16 @@ describe("MembersPage", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
 		const dialog = await screen.findByRole("dialog");
-		// No token field: non-primary removal is a plain confirm.
+		// A single row is below the two-member floor, so the confirm is the
+		// disband variant. No token field: it is still a plain confirm.
+		expect(
+			within(dialog).getByText(/disbands the whole fleet/i),
+		).toBeInTheDocument();
 		expect(
 			within(dialog).queryByLabelText(/Admin token/i),
 		).not.toBeInTheDocument();
 		await userEvent.click(
-			within(dialog).getByRole("button", { name: /^Remove$/i }),
+			within(dialog).getByRole("button", { name: /Disband fleet/i }),
 		);
 
 		// The delete request carried no confirm_token.
@@ -745,5 +755,114 @@ describe("MembersPage", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
 		);
+	});
+
+	it("warns that removing a member of a two-member fleet disbands it, primary included", async () => {
+		let deleted = false;
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json(
+					deleted
+						? []
+						: [
+								member({ id: "1", name: "hotel-1" }),
+								member({ id: "2", name: "hotel-2" }),
+							],
+				),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "2" }),
+			),
+			http.delete("/api/members/1", () => {
+				deleted = true;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+
+		// Only the non-primary row has a Remove button; its tooltip and modal both
+		// carry the disband warning.
+		const otherRow = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(otherRow).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		expect(within(dialog).getByText(/disband the fleet/i)).toBeInTheDocument();
+		expect(
+			within(dialog).getByText(/every member including the primary/i),
+		).toBeInTheDocument();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /Disband fleet/i }),
+		);
+
+		await waitFor(() => expect(deleted).toBe(true));
+		// The success toast says the fleet is gone, not just the member.
+		expect(
+			await screen.findByText(/hotel-1 removed; fleet disbanded/i),
+		).toBeInTheDocument();
+	});
+
+	it("keeps the plain remove confirm in a fleet of three", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+					member({ id: "3", name: "hotel-3" }),
+				]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		expect(
+			within(dialog).queryByText(/disbands the whole fleet/i),
+		).not.toBeInTheDocument();
+		expect(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
+	});
+
+	it("surfaces the last-active-member refusal instead of a generic error", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2", state: "drained" }),
+					member({ id: "3", name: "hotel-3", state: "drained" }),
+				]),
+			),
+			http.delete("/api/members/1", () =>
+				HttpResponse.json(
+					{
+						code: "last_active_member",
+						error:
+							"cannot remove the last active member: the fleet would have no routable backends",
+					},
+					{ status: 409 },
+				),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
+
+		expect(
+			await screen.findByText(/Cannot remove the last active member/i),
+		).toBeInTheDocument();
 	});
 });
