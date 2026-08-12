@@ -144,17 +144,41 @@ export function MembersPage() {
 	// Only non-primary members are removable (the primary row has no Remove
 	// button, and the backend refuses a primary delete with 409). The primary is
 	// the config source of truth; it is changed only by re-running the Fleet Sync
-	// wizard.
+	// wizard. A fleet is never allowed to shrink to a single member: at two
+	// members (or a lone just-added row) the same Remove disbands the whole
+	// fleet, primary included, and the confirm modal says so. A lone row is the
+	// one place even a (stale-)designated primary gets a Remove button: with
+	// nothing to sync it protects nothing, and disbanding is the only exit from
+	// that legacy state (the wizard refuses sub-two fleets, so it cannot recur).
+	const disbandOnRemove = members.length <= 2;
+	const loneRow = members.length === 1;
 	const confirmRemove = async () => {
 		if (!removing) return;
 		const m = removing;
+		const disband = disbandOnRemove;
 		setRemoving(null);
 		try {
 			await api.deleteMember(m.id);
-			toast(t("members.removed", { name: m.name }), "info");
+			toast(
+				t(disband ? "members.disbanded" : "members.removed", { name: m.name }),
+				"info",
+			);
 			refetch();
-		} catch {
-			toast(t("errors.generic"), "error");
+			// A disband also drops the primary designation; refresh so the badge
+			// and fleet-state header clear without waiting for an SSE round-trip.
+			refreshPrimary();
+		} catch (err) {
+			// last_active_member is still reachable in a 3+ fleet (peers drained);
+			// membership_changed means the roster moved between the confirm and the
+			// delete, so the action shown may not be the action that would happen.
+			if (err instanceof ApiError && err.code === "last_active_member") {
+				toast(t("members.removeLastActiveError"), "error");
+			} else if (err instanceof ApiError && err.code === "membership_changed") {
+				toast(t("members.membershipChangedError"), "error");
+				refetch();
+			} else {
+				toast(t("errors.generic"), "error");
+			}
 		}
 	};
 
@@ -219,6 +243,8 @@ export function MembersPage() {
 									primaryVersion={primaryVersion}
 									isPrimary={m.id === primaryId}
 									soleActive={soleActive}
+									disbandOnRemove={disbandOnRemove}
+									loneRow={loneRow}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
 								/>
@@ -250,13 +276,20 @@ export function MembersPage() {
 
 			{removing && (
 				<ConfirmModal
-					title={t("members.removeTitle", { name: removing.name })}
-					confirmLabel={t("common.remove")}
+					title={t(
+						disbandOnRemove ? "members.disbandTitle" : "members.removeTitle",
+						{ name: removing.name },
+					)}
+					confirmLabel={t(
+						disbandOnRemove ? "members.disbandConfirm" : "common.remove",
+					)}
 					onConfirm={confirmRemove}
 					onClose={() => setRemoving(null)}
 				>
 					<p className="fd-muted">
-						{t("members.removeBody", { name: removing.name })}
+						{t(disbandOnRemove ? "members.disbandBody" : "members.removeBody", {
+							name: removing.name,
+						})}
 					</p>
 				</ConfirmModal>
 			)}
@@ -270,6 +303,8 @@ function MemberRow({
 	primaryVersion,
 	isPrimary,
 	soleActive,
+	disbandOnRemove,
+	loneRow,
 	onSetState,
 	onRemove,
 }: {
@@ -283,6 +318,13 @@ function MemberRow({
 	// disabled for the active member in that case: draining the last active member
 	// would empty the routing pool (the backend refuses it with a 409).
 	soleActive: boolean;
+	// True when the fleet has at most two members, so removing this one disbands
+	// the whole fleet (a fleet below two members is not allowed to exist).
+	disbandOnRemove: boolean;
+	// True when this is the only member row. A lone row is always removable,
+	// designated primary or not: disbanding is the only exit from a legacy
+	// one-member fleet.
+	loneRow: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
 }) {
@@ -469,12 +511,16 @@ function MemberRow({
 						</button>
 					)}
 					{/* The primary is the config source of truth and cannot be removed
-					    here; it is changed only by re-running the Fleet Sync wizard. */}
-					{!isPrimary && (
+					    here; it is changed only by re-running the Fleet Sync wizard.
+					    Exception: a lone row protects nothing, so it is removable
+					    (disband) even while a stale designation names it. */}
+					{(!isPrimary || loneRow) && (
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm ui-btn-danger"
-							title={t("members.removeTip")}
+							title={t(
+								disbandOnRemove ? "members.disbandTip" : "members.removeTip",
+							)}
 							onClick={onRemove}
 						>
 							{t("common.remove")}

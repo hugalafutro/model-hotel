@@ -548,6 +548,11 @@ func TestServerCannotDeletePrimary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create other: %v", err)
 	}
+	// A third member so removing `other` is a plain removal rather than a
+	// two-member disband (see TestServerDeleteFromTwoMemberFleetDisbands).
+	if _, err := store.CreateMember(ctx, "third", "https://t.example.com", ""); err != nil {
+		t.Fatalf("create third: %v", err)
+	}
 
 	// Designate pm as the fleet primary (first selection needs no token).
 	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
@@ -556,7 +561,7 @@ func TestServerCannotDeletePrimary(t *testing.T) {
 		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Deleting the non-primary member needs no token and succeeds.
+	// Deleting a non-primary member needs no token and succeeds.
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+om.ID, "", true); rec.Code != http.StatusNoContent {
 		t.Errorf("delete non-primary = %d, want 204", rec.Code)
 	}
@@ -582,9 +587,151 @@ func TestServerCannotDeletePrimary(t *testing.T) {
 	}
 }
 
+// TestServerDeleteFromTwoMemberFleetDisbands covers the fleet-size invariant
+// over HTTP: a fleet is never allowed to shrink to one member, so removing the
+// non-primary of a two-member fleet removes BOTH rows, clears the designation
+// and records a fleet.disbanded event.
+func TestServerDeleteFromTwoMemberFleetDisbands(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	pm, err := store.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	om, err := store.CreateMember(ctx, "other", "https://o.example.com", "")
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+om.ID, "", true); rec.Code != http.StatusNoContent {
+		t.Fatalf("disbanding delete = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+
+	members, err := store.ListMembers(ctx)
+	if err != nil {
+		t.Fatalf("list members: %v", err)
+	}
+	if len(members) != 0 {
+		t.Errorf("members remain after disband: %+v", members)
+	}
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.Enabled || cfg.PrimaryID != "" {
+		t.Errorf("auto-sync survived the disband: %+v", cfg)
+	}
+
+	rec := do(t, srv, http.MethodGet, "/api/events?type=fleet.disbanded", "", true)
+	var events struct {
+		Events []Event `json:"events"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &events)
+	if len(events.Events) == 0 {
+		t.Fatal("expected a fleet.disbanded event")
+	}
+	// The disband is one event, not a member.removed per row: the roster did not
+	// shrink, the fleet ceased to exist.
+	rec = do(t, srv, http.MethodGet, "/api/events?type=member.removed", "", true)
+	events.Events = nil
+	_ = json.Unmarshal(rec.Body.Bytes(), &events)
+	if len(events.Events) != 0 {
+		t.Errorf("disband also emitted member.removed: %+v", events.Events)
+	}
+}
+
+// TestServerRefusesDesignatingPrimaryOfLoneMember: a fleet below two members is
+// not allowed to exist, so the wizard cannot designate a primary while only one
+// member row exists (the door that used to create wedged one-member "fleets").
+func TestServerRefusesDesignatingPrimaryOfLoneMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	lm, err := store.CreateMember(ctx, "lone", "https://l.example.com", "ltok")
+	if err != nil {
+		t.Fatalf("create lone: %v", err)
+	}
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+lm.ID+`"}`, true)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("designate lone primary = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	// Carries a stable code so the wizard can say "add a second member" instead
+	// of misreporting it as the same-host repoint guard (both are 409s).
+	var coded map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &coded); err != nil || coded["code"] != "fleet_too_small" {
+		t.Errorf("409 code = %q (err=%v), want fleet_too_small; body=%s", coded["code"], err, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.PrimaryID != "" {
+		t.Errorf("primary_id = %q, want empty after refusal", cfg.PrimaryID)
+	}
+}
+
+// TestServerDeleteMembershipChangedReturns409 covers the membership-changed
+// refusal over HTTP: the store's guards refuse a delete whose roster moved
+// underneath it, and the server maps that to a coded 409 so the dashboard can
+// tell the operator to look again (a RAISE(IGNORE) trigger plays the
+// concurrent operator, exactly like the store-level test).
+func TestServerDeleteMembershipChangedReturns409(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	m1, err := store.CreateMember(ctx, "m1", "https://m1.example.com", "")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	if _, err := store.CreateMember(ctx, "m2", "https://m2.example.com", ""); err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	if _, err := store.db.ExecContext(ctx,
+		`CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(IGNORE); END`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	rec := do(t, srv, http.MethodDelete, "/api/members/"+m1.ID, "", true)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	var coded map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &coded); err != nil || coded["code"] != "membership_changed" {
+		t.Errorf("409 code = %q (err=%v), want membership_changed; body=%s", coded["code"], err, rec.Body.String())
+	}
+}
+
+// TestServerAutoSyncToggleSurvivesLegacyLoneFleet: a one-member fleet with a
+// designated primary predates the two-member floor. The floor only guards NEW
+// designations, so pausing/resuming auto-sync (the wizard PUTs the primary back
+// unchanged) must keep working on that legacy state.
+func TestServerAutoSyncToggleSurvivesLegacyLoneFleet(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	lm, err := store.CreateMember(ctx, "lone", "https://l.example.com", "ltok")
+	if err != nil {
+		t.Fatalf("create lone: %v", err)
+	}
+	// Seed the legacy designation below the handler (the door the floor closed).
+	if err := store.SetAutoSync(ctx, true, lm.ID); err != nil {
+		t.Fatalf("seed legacy designation: %v", err)
+	}
+
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+lm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("toggle on legacy lone fleet = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.Enabled || cfg.PrimaryID != lm.ID {
+		t.Errorf("after toggle: %+v, want disabled with the designation kept", cfg)
+	}
+}
+
 // TestDeleteLastActiveMemberReturns409 covers the delete door of the routing-pool
-// guard over HTTP: with the primary drained, removing the sole active replica is
-// refused with 409 carrying the stable last_active_member code.
+// guard over HTTP in a 3+ fleet: with the primary and a spare drained, removing
+// the sole active replica is refused with 409 carrying the stable
+// last_active_member code. (At two members the same delete disbands instead.)
 func TestDeleteLastActiveMemberReturns409(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -595,6 +742,13 @@ func TestDeleteLastActiveMemberReturns409(t *testing.T) {
 	rm, err := store.CreateMember(ctx, "replica", "https://r.example.com", "rtok")
 	if err != nil {
 		t.Fatalf("create replica: %v", err)
+	}
+	sm, err := store.CreateMember(ctx, "spare", "https://s.example.com", "")
+	if err != nil {
+		t.Fatalf("create spare: %v", err)
+	}
+	if err := store.SetMemberState(ctx, sm.ID, StateDrained); err != nil {
+		t.Fatalf("drain spare: %v", err)
 	}
 	if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
 		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusOK {

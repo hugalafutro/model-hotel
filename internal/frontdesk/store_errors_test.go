@@ -36,8 +36,8 @@ func TestStoreMethodsErrorWhenDBClosed(t *testing.T) {
 	if err := s.DeleteMember(ctx, "x"); err == nil {
 		t.Error("DeleteMember: want error")
 	}
-	if _, err := s.DeleteMemberIfNotPrimary(ctx, "x"); err == nil {
-		t.Error("DeleteMemberIfNotPrimary: want error")
+	if _, _, err := s.DeleteMemberOrDisband(ctx, "x"); err == nil {
+		t.Error("DeleteMemberOrDisband: want error")
 	}
 	if _, _, err := s.MemberToken(ctx, "x"); err == nil {
 		t.Error("MemberToken: want error")

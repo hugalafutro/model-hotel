@@ -150,6 +150,7 @@
     <string name="alerts_event_fleet_state_changed">Vlootstatus gewijzigd</string>
     <string name="alerts_event_member_added">Lid toegevoegd</string>
     <string name="alerts_event_member_removed">Lid verwijderd</string>
+    <string name="alerts_event_fleet_disbanded">Vloot ontbonden</string>
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
     <string name="alerts_event_backup_stale">Lid zonder recente back-up</string>
     <string name="alerts_event_backup_recovered">Lid wordt weer geback-upt</string>

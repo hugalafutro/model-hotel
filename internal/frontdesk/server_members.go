@@ -243,31 +243,58 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	}
 	// The fleet primary is the config source of truth and cannot be removed here
 	// at all: changing it goes through the Fleet Sync wizard (a token-gated
-	// repoint). The primary-status check and the delete run as one atomic SQL
-	// statement inside DeleteMemberIfNotPrimary, so a concurrent repoint cannot
-	// race past the check.
-	applied, err := s.store.DeleteMemberIfNotPrimary(r.Context(), id)
+	// repoint). A fleet is also never allowed to shrink to a single member:
+	// removing a member from a two-member fleet disbands the whole fleet, primary
+	// included (the UI warns before this call). Every guard runs inside the
+	// delete statement itself, so a concurrent repoint cannot race past it.
+	outcome, removed, err := s.store.DeleteMemberOrDisband(r.Context(), id)
 	if err != nil {
-		// Removing the last active member would empty the routing pool; refuse with
-		// the same stable code the drain guard uses (drain first is not enough here:
-		// the member must first be reactivated elsewhere or another member added).
+		// Removing the last active member of a 3+ fleet would empty the routing
+		// pool; refuse with the same stable code the drain guard uses (drain
+		// first is not enough here: the member must first be reactivated
+		// elsewhere or another member added).
 		if errors.Is(err, ErrLastActiveMember) {
 			writeCodedError(w, http.StatusConflict, "last_active_member",
 				"cannot remove the last active member: the fleet would have no routable backends")
 			return
 		}
+		// The roster changed under the operator's confirmed action (a concurrent
+		// add or removal): what would happen now (plain removal vs disband) may
+		// not be what the confirm described, so refuse and have them look again.
+		if errors.Is(err, ErrMembershipChanged) {
+			writeCodedError(w, http.StatusConflict, "membership_changed",
+				"the fleet membership changed while removing this member; review the updated list and retry")
+			return
+		}
 		writeError(w, err)
 		return
 	}
-	if !applied {
+	switch outcome {
+	case DeleteRefusedPrimary:
 		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it", http.StatusConflict)
 		return
+	case DeleteDisbanded:
+		// Cancel any auto-sync pass still importing from the now-cleared primary
+		// before announcing; the loop itself sees auto-sync disabled next tick.
+		s.signalRearm()
+		names := make([]string, 0, len(removed))
+		for _, rm := range removed {
+			s.forgetMemberState(rm.ID)
+			names = append(names, rm.Name)
+		}
+		s.emit(r.Context(), Event{
+			Type: "fleet.disbanded", Severity: "warning", Source: "frontdesk",
+			Message: fmt.Sprintf("%s removed; fleet disbanded (a fleet cannot have fewer than two members): released %s",
+				m.Name, strings.Join(names, ", ")),
+			MemberID: m.ID,
+		})
+	case DeleteApplied:
+		s.forgetMemberState(m.ID)
+		s.emit(r.Context(), Event{
+			Type: "member.removed", Severity: "info", Source: "frontdesk",
+			Message: m.Name + " removed", MemberID: m.ID,
+		})
 	}
-	s.forgetMemberState(m.ID)
-	s.emit(r.Context(), Event{
-		Type: "member.removed", Severity: "info", Source: "frontdesk",
-		Message: m.Name + " removed", MemberID: m.ID,
-	})
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -3,7 +3,9 @@ package frontdesk
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -560,7 +562,7 @@ func TestEnsureFrontdeskIDPersists(t *testing.T) {
 	}
 }
 
-func TestDeleteMemberIfNotPrimary(t *testing.T) {
+func TestDeleteMemberOrDisband_TwoMemberFleet(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -572,29 +574,257 @@ func TestDeleteMemberIfNotPrimary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create other: %v", err)
 	}
-	// Designate pm as the auto-sync primary.
-	if _, err := s.SetAutoSyncGuarded(ctx, false, pm.ID, true); err != nil {
+	// Designate pm as the auto-sync primary and record a sync run, so the
+	// disband has real designation state to clear.
+	if _, err := s.SetAutoSyncGuarded(ctx, true, pm.ID, true); err != nil {
 		t.Fatalf("set primary: %v", err)
+	}
+	if err := s.SetFleetSyncState(ctx, pm.ID, "primary", time.Now()); err != nil {
+		t.Fatalf("seed fleet sync state: %v", err)
 	}
 
 	// The primary cannot be deleted (no token bypass exists anymore).
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, pm.ID); err != nil || applied {
-		t.Fatalf("delete primary: applied=%v err=%v, want applied=false", applied, err)
+	if outcome, _, err := s.DeleteMemberOrDisband(ctx, pm.ID); err != nil || outcome != DeleteRefusedPrimary {
+		t.Fatalf("delete primary: outcome=%v err=%v, want DeleteRefusedPrimary", outcome, err)
 	}
 	if _, err := s.GetMember(ctx, pm.ID); err != nil {
 		t.Errorf("primary should still exist: %v", err)
 	}
 
-	// A non-primary member deletes.
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, om.ID); err != nil || !applied {
-		t.Fatalf("delete non-primary: applied=%v err=%v, want applied=true", applied, err)
+	// Removing the non-primary member of a two-member fleet disbands the whole
+	// fleet: both rows go, auto-sync switches off, the designation and the
+	// last-sync marker clear.
+	outcome, removed, err := s.DeleteMemberOrDisband(ctx, om.ID)
+	if err != nil || outcome != DeleteDisbanded {
+		t.Fatalf("delete non-primary: outcome=%v err=%v, want DeleteDisbanded", outcome, err)
+	}
+	if len(removed) != 2 {
+		t.Fatalf("removed = %v, want both members", removed)
+	}
+	members, err := s.ListMembers(ctx)
+	if err != nil {
+		t.Fatalf("list members: %v", err)
+	}
+	if len(members) != 0 {
+		t.Errorf("members remain after disband: %v", members)
+	}
+	cfg, err := s.GetAutoSync(ctx)
+	if err != nil {
+		t.Fatalf("get auto-sync: %v", err)
+	}
+	if cfg.Enabled || cfg.PrimaryID != "" {
+		t.Errorf("auto-sync survived the disband: %+v", cfg)
+	}
+	if _, found, err := s.GetFleetSyncState(ctx); err != nil || found {
+		t.Errorf("fleet sync state survived the disband: found=%v err=%v", found, err)
+	}
+	// The generation must SURVIVE the disband: members keep their last-applied
+	// gen as an import fence, so a re-formed fleet has to keep counting upward
+	// or its first push would look stale to every surviving member.
+	if cfg.Gen == 0 {
+		t.Error("auto_sync_gen was reset by the disband; it must survive as the import fence")
+	}
+}
+
+// TestSetAutoSyncGuarded_FleetSizeFloor pins the in-statement two-member floor:
+// a NEW designation is refused while fewer than two member rows exist (closing
+// the race where a disband lands between the handler's count read and the
+// write), while clearing and unchanged-primary toggles (legacy one-member
+// fleets included) still apply.
+func TestSetAutoSyncGuarded_FleetSizeFloor(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	lm, err := s.CreateMember(ctx, "lone", "https://l.example.com", "ltok")
+	if err != nil {
+		t.Fatalf("create lone: %v", err)
+	}
+
+	// New designation on a one-member fleet: refused even with a valid token.
+	if applied, err := s.SetAutoSyncGuarded(ctx, false, lm.ID, true); err != nil || applied {
+		t.Fatalf("designate on lone fleet: applied=%v err=%v, want refused", applied, err)
+	}
+
+	// A legacy designation (seeded unguarded) can still be toggled: the write
+	// leaves the primary unchanged, so the floor does not apply.
+	if err := s.SetAutoSync(ctx, false, lm.ID); err != nil {
+		t.Fatalf("seed legacy designation: %v", err)
+	}
+	if applied, err := s.SetAutoSyncGuarded(ctx, true, lm.ID, false); err != nil || !applied {
+		t.Fatalf("toggle legacy lone designation: applied=%v err=%v, want applied", applied, err)
+	}
+	// And clearing it always works.
+	if applied, err := s.SetAutoSyncGuarded(ctx, false, "", true); err != nil || !applied {
+		t.Fatalf("clear lone designation: applied=%v err=%v, want applied", applied, err)
+	}
+
+	// With a second member the same designation applies.
+	if _, err := s.CreateMember(ctx, "second", "https://s.example.com", ""); err != nil {
+		t.Fatalf("create second: %v", err)
+	}
+	if applied, err := s.SetAutoSyncGuarded(ctx, false, lm.ID, true); err != nil || !applied {
+		t.Fatalf("designate on two-member fleet: applied=%v err=%v, want applied", applied, err)
+	}
+}
+
+// TestDeleteMemberOrDisband_LoneRow covers the bootstrap escape hatch: a single
+// just-added row is removable (it is not a functioning fleet), and a stale
+// primary designation pointing at it cannot wedge it in place.
+func TestDeleteMemberOrDisband_LoneRow(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	lm, err := s.CreateMember(ctx, "lone", "https://l.example.com", "ltok")
+	if err != nil {
+		t.Fatalf("create lone: %v", err)
+	}
+	// Seed the stale designation with the unguarded setter: the guarded one now
+	// enforces the two-member floor, and this legacy state predates it.
+	if err := s.SetAutoSync(ctx, false, lm.ID); err != nil {
+		t.Fatalf("designate lone: %v", err)
+	}
+
+	outcome, removed, err := s.DeleteMemberOrDisband(ctx, lm.ID)
+	if err != nil || outcome != DeleteDisbanded {
+		t.Fatalf("delete lone row: outcome=%v err=%v, want DeleteDisbanded", outcome, err)
+	}
+	if len(removed) != 1 || removed[0].ID != lm.ID {
+		t.Fatalf("removed = %v, want just the lone row", removed)
+	}
+	cfg, err := s.GetAutoSync(ctx)
+	if err != nil {
+		t.Fatalf("get auto-sync: %v", err)
+	}
+	if cfg.PrimaryID != "" {
+		t.Errorf("stale designation survived: %+v", cfg)
+	}
+}
+
+func TestDeleteMemberOrDisband_NotFound(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if _, err := s.CreateMember(ctx, "only", "https://only.example.com", ""); err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	if _, _, err := s.DeleteMemberOrDisband(ctx, "no-such-id"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete unknown id: err=%v, want ErrNotFound", err)
+	}
+}
+
+// TestDeleteMemberOrDisband_StatementFailures forces each statement of the
+// delete transaction to fail for real (RAISE(ABORT) triggers and a dropped
+// table) so the error paths are exercised without any fault-injection seam in
+// production code. Each case gets a fresh store; the trigger or drop is applied
+// through the store's own connection.
+func TestDeleteMemberOrDisband_StatementFailures(t *testing.T) {
+	ctx := context.Background()
+	seed := func(t *testing.T, n int) (*Store, []string) {
+		t.Helper()
+		s := newTestStore(t)
+		ids := make([]string, 0, n)
+		for i := range n {
+			m, err := s.CreateMember(ctx, fmt.Sprintf("m%d", i), fmt.Sprintf("https://m%d.example.com", i), "")
+			if err != nil {
+				t.Fatalf("create member %d: %v", i, err)
+			}
+			ids = append(ids, m.ID)
+		}
+		return s, ids
+	}
+	breakWith := func(t *testing.T, s *Store, ddl string) {
+		t.Helper()
+		if _, err := s.db.ExecContext(ctx, ddl); err != nil {
+			t.Fatalf("apply breakage %q: %v", ddl, err)
+		}
+	}
+	wantErr := func(t *testing.T, s *Store, id, fragment string) {
+		t.Helper()
+		_, _, err := s.DeleteMemberOrDisband(ctx, id)
+		if err == nil || !strings.Contains(err.Error(), fragment) {
+			t.Fatalf("err = %v, want it to contain %q", err, fragment)
+		}
+	}
+
+	t.Run("roster read fails", func(t *testing.T) {
+		s, _ := seed(t, 1)
+		breakWith(t, s, `DROP TABLE members`)
+		wantErr(t, s, "x", "read member roster")
+	})
+	t.Run("disband delete fails", func(t *testing.T) {
+		s, ids := seed(t, 2)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "disband fleet")
+	})
+	t.Run("disband cleanup fails", func(t *testing.T) {
+		s, ids := seed(t, 2)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE UPDATE ON settings BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "clear auto-sync on disband")
+	})
+	t.Run("plain delete fails", func(t *testing.T) {
+		s, ids := seed(t, 3)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "delete member")
+	})
+	t.Run("guards refusing a non-primary maps to membership-changed", func(t *testing.T) {
+		// RAISE(IGNORE) makes the disband DELETE silently skip every row: n==0
+		// with the target present and not primary, which is exactly what a
+		// concurrent roster change looks like from inside the transaction.
+		s, ids := seed(t, 2)
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE DELETE ON members BEGIN SELECT RAISE(IGNORE); END`)
+		if _, _, err := s.DeleteMemberOrDisband(ctx, ids[0]); !errors.Is(err, ErrMembershipChanged) {
+			t.Fatalf("err = %v, want ErrMembershipChanged", err)
+		}
+	})
+	t.Run("roster shrinking under a plain delete maps to membership-changed", func(t *testing.T) {
+		// The trigger plays the concurrent operator: while the target's DELETE is
+		// refused (RAISE(IGNORE)), it removes the other spare rows, so the
+		// disambiguation re-read sees a two-member roster where the guarded
+		// statement saw four. Retrying would DISBAND, not remove, so the caller
+		// must get the look-again refusal rather than a bogus last-active error.
+		s, ids := seed(t, 4)
+		breakWith(t, s, fmt.Sprintf(
+			`CREATE TRIGGER boom BEFORE DELETE ON members BEGIN
+				DELETE FROM members WHERE id NOT IN ('%s', '%s');
+				SELECT RAISE(IGNORE);
+			END`, ids[0], ids[1]))
+		if _, _, err := s.DeleteMemberOrDisband(ctx, ids[0]); !errors.Is(err, ErrMembershipChanged) {
+			t.Fatalf("err = %v, want ErrMembershipChanged", err)
+		}
+	})
+	t.Run("ghost cleanup fails", func(t *testing.T) {
+		s, ids := seed(t, 3)
+		// The ghost-state UPDATE only touches a row naming the target, so seed
+		// one; the trigger then fires on that row and aborts the statement.
+		if err := s.SetFleetSyncState(ctx, ids[0], "m0", time.Now()); err != nil {
+			t.Fatalf("seed fleet sync state: %v", err)
+		}
+		breakWith(t, s, `CREATE TRIGGER boom BEFORE UPDATE ON fleet_sync_state BEGIN SELECT RAISE(ABORT, 'boom'); END`)
+		wantErr(t, s, ids[0], "clear ghost fleet state")
+	})
+}
+
+// TestCommitTxWrapsError covers commitTx's failure wrap via the one commit
+// error reachable without a driver seam: committing an already-finished tx.
+func TestCommitTxWrapsError(t *testing.T) {
+	s := newTestStore(t)
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("first commit: %v", err)
+	}
+	if err := commitTx(tx, "commit disband"); err == nil || !strings.Contains(err.Error(), "commit disband") {
+		t.Fatalf("commitTx on finished tx: err=%v, want wrapped commit error", err)
 	}
 }
 
 // TestDeleteMemberLastActiveGuard covers the delete door of the routing-pool
-// invariant: removing an active member is refused when it is the last active one,
-// so a drained primary plus a delete of the sole active replica cannot empty the
-// Traefik pool. Deleting a drained member is always allowed.
+// invariant in a fleet big enough to keep existing (3+ members): removing an
+// active member is refused when it is the last active one, so drained peers
+// plus a delete of the sole active replica cannot empty the Traefik pool.
+// Deleting a drained member is always allowed. (At two members the same click
+// disbands the fleet instead; see TestDeleteMemberOrDisband_TwoMemberFleet.)
 func TestDeleteMemberLastActiveGuard(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -611,8 +841,17 @@ func TestDeleteMemberLastActiveGuard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create spare: %v", err)
 	}
+	sm2, err := s.CreateMember(ctx, "spare2", "https://s2.example.com", "")
+	if err != nil {
+		t.Fatalf("create spare2: %v", err)
+	}
 	if _, err := s.SetAutoSyncGuarded(ctx, false, pm.ID, true); err != nil {
 		t.Fatalf("set primary: %v", err)
+	}
+	// spare2 only pads the roster above the two-member disband threshold; drain
+	// it so it never counts as routing-pool headroom below.
+	if err := s.SetMemberState(ctx, sm2.ID, StateDrained); err != nil {
+		t.Fatalf("drain spare2: %v", err)
 	}
 
 	// A drained member is always removable (it is not in the routing pool), even
@@ -620,18 +859,18 @@ func TestDeleteMemberLastActiveGuard(t *testing.T) {
 	if err := s.SetMemberState(ctx, dm.ID, StateDrained); err != nil {
 		t.Fatalf("drain spare: %v", err)
 	}
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, dm.ID); err != nil || !applied {
-		t.Fatalf("delete drained spare: applied=%v err=%v, want applied", applied, err)
+	if outcome, _, err := s.DeleteMemberOrDisband(ctx, dm.ID); err != nil || outcome != DeleteApplied {
+		t.Fatalf("delete drained spare: outcome=%v err=%v, want DeleteApplied", outcome, err)
 	}
 
 	// Drain the primary (allowed: the replica stays active), leaving the replica
-	// as the only active member.
+	// as the only active member of the three remaining.
 	if err := s.SetMemberState(ctx, pm.ID, StateDrained); err != nil {
 		t.Fatalf("drain primary: %v", err)
 	}
 	// Deleting that sole active replica would empty the pool: refused.
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, rm.ID); applied || !errors.Is(err, ErrLastActiveMember) {
-		t.Fatalf("delete last active replica: applied=%v err=%v, want ErrLastActiveMember", applied, err)
+	if outcome, _, err := s.DeleteMemberOrDisband(ctx, rm.ID); outcome == DeleteApplied || !errors.Is(err, ErrLastActiveMember) {
+		t.Fatalf("delete last active replica: outcome=%v err=%v, want ErrLastActiveMember", outcome, err)
 	}
 	if _, err := s.GetMember(ctx, rm.ID); err != nil {
 		t.Errorf("replica should still exist after a refused delete: %v", err)
@@ -641,8 +880,8 @@ func TestDeleteMemberLastActiveGuard(t *testing.T) {
 	if err := s.SetMemberState(ctx, pm.ID, StateActive); err != nil {
 		t.Fatalf("reactivate primary: %v", err)
 	}
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, rm.ID); err != nil || !applied {
-		t.Fatalf("delete replica after reactivate: applied=%v err=%v, want applied", applied, err)
+	if outcome, _, err := s.DeleteMemberOrDisband(ctx, rm.ID); err != nil || outcome != DeleteApplied {
+		t.Fatalf("delete replica after reactivate: outcome=%v err=%v, want DeleteApplied", outcome, err)
 	}
 }
 
@@ -656,17 +895,20 @@ func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ghost: %v", err)
 	}
-	// A second active member so deleting the ghost is allowed (the last active
-	// member cannot be removed; see TestDeleteMemberLastActiveGuard).
+	// Two more members so deleting the ghost is a plain removal, not a
+	// two-member disband (see TestDeleteMemberOrDisband_TwoMemberFleet).
 	if _, err := s.CreateMember(ctx, "keep", "https://k.example.com", ""); err != nil {
 		t.Fatalf("create keep: %v", err)
+	}
+	if _, err := s.CreateMember(ctx, "keep2", "https://k2.example.com", ""); err != nil {
+		t.Fatalf("create keep2: %v", err)
 	}
 	if err := s.SetFleetSyncState(ctx, gm.ID, "ghost", time.Now()); err != nil {
 		t.Fatalf("seed fleet sync state: %v", err)
 	}
 
-	if applied, err := s.DeleteMemberIfNotPrimary(ctx, gm.ID); err != nil || !applied {
-		t.Fatalf("delete ghost: applied=%v err=%v", applied, err)
+	if outcome, _, err := s.DeleteMemberOrDisband(ctx, gm.ID); err != nil || outcome != DeleteApplied {
+		t.Fatalf("delete ghost: outcome=%v err=%v", outcome, err)
 	}
 
 	st, found, err := s.GetFleetSyncState(ctx)

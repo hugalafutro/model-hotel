@@ -156,6 +156,7 @@
     <string name="alerts_event_fleet_state_changed">Stav flotily se změnil</string>
     <string name="alerts_event_member_added">Člen přidán</string>
     <string name="alerts_event_member_removed">Člen odebrán</string>
+    <string name="alerts_event_fleet_disbanded">Flotila rozpuštěna</string>
     <string name="alerts_event_member_state_changed">Člen odstaven nebo aktivován</string>
     <string name="alerts_event_backup_stale">Člen bez aktuální zálohy</string>
     <string name="alerts_event_backup_recovered">Člen se opět zálohuje</string>

@@ -460,6 +460,63 @@ describe("FleetSyncWizard", () => {
 		).toBeInTheDocument();
 	});
 
+	it("routes the coded fleet_too_small 409 to its own message, not the same-host one", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+			http.get("/api/fleet/status", ({ request }) => {
+				const id = new URL(request.url).searchParams.get("primary") ?? "1";
+				return HttpResponse.json({
+					primary_id: id,
+					primary_reachable: true,
+					members: [primaryRow(id, `hotel-${id}`)],
+				});
+			}),
+			// The backend refuses designating a primary while the fleet is below
+			// two members; both this and the same-host guard are 409s, so only the
+			// machine code separates them.
+			http.put("/api/fleet/autosync", () =>
+				HttpResponse.json(
+					{
+						code: "fleet_too_small",
+						error:
+							"a fleet needs at least two members before a primary can be designated",
+					},
+					{ status: 409 },
+				),
+			),
+		);
+		renderWizard();
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Re-run wizard" }),
+		);
+		await pickPrimary("2");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+		await userEvent.click(
+			screen.getByRole("button", { name: "Set as primary" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.type(
+			within(dialog).getByLabelText(/Admin token/i),
+			"test-token",
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /Change primary/i }),
+		);
+
+		expect(
+			await screen.findByText(/at least two members/i),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText(/cannot replace the primary with the same host/i),
+		).not.toBeInTheDocument();
+	});
+
 	it("gates a re-run that changes the primary behind the admin token", async () => {
 		server.use(
 			http.get("/api/fleet/autosync", () =>

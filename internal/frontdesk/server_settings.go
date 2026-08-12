@@ -300,6 +300,33 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "store an admin token for that primary first; auto-sync needs it to read the primary's config", http.StatusBadRequest)
 			return
 		}
+		// A fleet below two members is not allowed to exist (removal disbands at
+		// that point rather than shrink past it), so a NEW designation cannot land
+		// on one: with a single row there is nobody to sync to. Scoped to actual
+		// designation changes so an auto-sync toggle that merely echoes an
+		// existing primary (a legacy one-member fleet from before the floor) keeps
+		// working; the way out of that state is removing the member, which
+		// disbands. The floor is also enforced inside SetAutoSyncGuarded's write
+		// statement, so a disband racing past this read cannot slip a designation
+		// onto an emptied fleet; this handler check exists to give the operator
+		// the specific coded refusal.
+		cur, cerr := s.store.GetAutoSync(r.Context())
+		if cerr != nil {
+			writeError(w, cerr)
+			return
+		}
+		if req.PrimaryID != cur.PrimaryID {
+			members, merr := s.store.ListMembers(r.Context())
+			if merr != nil {
+				writeError(w, merr)
+				return
+			}
+			if len(members) < 2 {
+				writeCodedError(w, http.StatusConflict, "fleet_too_small",
+					"a fleet needs at least two members before a primary can be designated")
+				return
+			}
+		}
 	} else if req.Enabled {
 		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
 		return

@@ -14,6 +14,8 @@ const EVENT_TYPES = [
 	"member.added",
 	"member.removed",
 	"member.state_changed",
+	"fleet.disbanded",
+	"fleet.state_changed",
 	"health.up",
 	"health.down",
 	"version.fetch_failed",
@@ -21,6 +23,18 @@ const EVENT_TYPES = [
 	"traefik.stale",
 	"config.synced",
 	"config.sync_failed",
+	"config.auto_synced",
+	"config.autosync_stale",
+	"config.sync_held",
+	"config.sync_incomplete",
+	"config.sync_recovered",
+	"config.regenerated",
+	"backup.stale",
+	"backup.recovered",
+	"backup.pruned",
+	"device.paired",
+	"device.revoked",
+	"settings.changed",
 ];
 
 const SEVERITIES = ["info", "success", "warning", "error"] as const;

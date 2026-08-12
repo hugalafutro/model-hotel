@@ -166,6 +166,7 @@
     <string name="alerts_event_fleet_state_changed">Fleet state changed</string>
     <string name="alerts_event_member_added">Member added</string>
     <string name="alerts_event_member_removed">Member removed</string>
+    <string name="alerts_event_fleet_disbanded">Fleet disbanded</string>
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
     <string name="alerts_event_backup_stale">Member has no recent backup</string>
     <string name="alerts_event_backup_recovered">Member backups healthy again</string>

@@ -1111,8 +1111,9 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 	select {
 	case <-ctx.Done():
 	case <-rearmCh:
-		// A rearm/repoint broadcast woke us. It only fires after auto_sync_gen has
-		// moved, so any wake means this pass is stale: cancel it.
+		// A rearm broadcast woke us: the fleet's sync inputs changed (a gen-bumping
+		// rearm/repoint, or a disband that cleared the designation without touching
+		// the gen), so this pass is stale either way: cancel it.
 		cancel()
 	}
 }
