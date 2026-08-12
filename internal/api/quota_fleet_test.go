@@ -111,6 +111,77 @@ func TestQuotaFleetExportSnapshots(t *testing.T) {
 	}
 }
 
+// TestQuotaFleetExportSkipsDisabledProviders: a disabled provider's badge must
+// disappear everywhere a disable happens (dashboard, Front Desk, Bellhop). The
+// dashboard filters client-side; FD and Bellhop render whatever this export
+// serves, so the frozen snapshot of a disabled provider is dropped here and
+// comes back when the provider is re-enabled.
+func TestQuotaFleetExportSkipsDisabledProviders(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+	ctx := context.Background()
+
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "zai-export-toggle",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: prov.ID,
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{"used":4}`),
+		HTTPStatus: 200,
+		Source:     "poll",
+	}); err != nil {
+		t.Fatalf("upsert snapshot: %v", err)
+	}
+
+	export := func(t *testing.T) []QuotaSnapshotWire {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		fleet.ExportSnapshots(rr, httptest.NewRequest(http.MethodGet, "/config/quota-snapshots", http.NoBody))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+		var body struct {
+			Snapshots []QuotaSnapshotWire `json:"snapshots"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return body.Snapshots
+	}
+	has := func(snaps []QuotaSnapshotWire) bool {
+		for _, s := range snaps {
+			if s.ProviderName == prov.Name {
+				return true
+			}
+		}
+		return false
+	}
+	setEnabled := func(t *testing.T, enabled bool) {
+		t.Helper()
+		if _, err := h.providerRepo.Update(ctx, prov.ID,
+			provider.UpdateProviderRequest{Enabled: &enabled}, nil, nil, nil); err != nil {
+			t.Fatalf("set enabled=%v: %v", enabled, err)
+		}
+	}
+
+	if !has(export(t)) {
+		t.Fatal("enabled provider's snapshot missing from the export")
+	}
+	setEnabled(t, false)
+	if has(export(t)) {
+		t.Fatal("disabled provider's snapshot still exported; its badge would linger on FD and Bellhop")
+	}
+	setEnabled(t, true)
+	if !has(export(t)) {
+		t.Fatal("re-enabled provider's snapshot did not return to the export")
+	}
+}
+
 // TestQuotaFleetExportSkipsFailurePlaceholders: RecordFailure leaves a
 // placeholder row (http_status=0, no real payload, fresh fetched_at). It must
 // not be distributed, or a member would store it as source='fleet' and suppress

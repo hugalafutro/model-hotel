@@ -70,6 +70,17 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 	idToName := make(map[uuid.UUID]string, len(provs))
 	idToType := make(map[uuid.UUID]string, len(provs))
 	for _, p := range provs {
+		if !p.Enabled {
+			// A disabled provider's snapshot is frozen (the poller skips it) and
+			// its badge must disappear everywhere a disable happens, not just on
+			// the dashboard: this export feeds Front Desk's /api/quota proxy, which
+			// is what the FD dashboard and Bellhop render. Dropping it here is also
+			// harmless for the member-to-member distribution the same wire serves:
+			// members skip disabled providers in their own polls, and quota advice
+			// is meaningless for a provider that is not routed. Config-sync keeps
+			// enabled state fleet-wide, so the primary's view is the fleet's view.
+			continue
+		}
 		idToName[p.ID] = p.Name
 		idToType[p.ID] = provider.DetectProviderType(p.BaseURL)
 	}
@@ -86,7 +97,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 		}
 		name, ok := idToName[s.ProviderID]
 		if !ok {
-			continue // provider deleted since the snapshot was stored; skip it
+			continue // provider deleted or disabled since the snapshot was stored
 		}
 		wire = append(wire, QuotaSnapshotWire{
 			ProviderName: name,
