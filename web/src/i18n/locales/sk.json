@@ -998,7 +998,11 @@
 		"toast_discovery_failed_all_one": "Zisťovanie zlyhalo pre poskytovateľa",
 		"toast_discovery_failed_all_few": "Zisťovanie zlyhalo pre všetkých {{count}} poskytovateľov",
 		"toast_discovery_failed_all_many": "Zisťovanie zlyhalo pre všetkých {{count}} poskytovateľov",
-		"toast_discovery_failed_all_other": "Zisťovanie zlyhalo pre všetkých {{count}} poskytovateľov"
+		"toast_discovery_failed_all_other": "Zisťovanie zlyhalo pre všetkých {{count}} poskytovateľov",
+		"schedule_disable_tooltip": "Naplánovať deaktiváciu",
+		"schedule_disable_hint": "Poskytovateľ bude deaktivovaný, hneď ako dátum servera dosiahne zvolený deň.",
+		"schedule_disable_cancel": "Zrušiť plán",
+		"scheduled_disable_card_tooltip": "Naplánované na deaktiváciu dňa {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2079,7 +2083,8 @@
 				"quota_schema_drift": "Poskytovateľ zmenil štruktúru odpovede o kvóte",
 				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom",
 				"discovery_claims_outstanding": "Nezrovnalosti modelov ponechané bez riešenia",
-				"model_auto_disabled_gone": "Model deaktivovaný (poskytovateľ ho už neposkytuje)"
+				"model_auto_disabled_gone": "Model deaktivovaný (poskytovateľ ho už neposkytuje)",
+				"provider_scheduled_disable": "Poskytovateľ deaktivovaný podľa plánu"
 			},
 			"events": {
 				"all": "Vybrať všetko",

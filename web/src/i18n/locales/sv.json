@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Uppdaterade {{count}} kvot/saldo",
 		"toast_refresh_success_other": "Uppdaterade {{count}} kvoter/saldon",
 		"toast_discovery_failed_all_one": "Upptäckten misslyckades för leverantören",
-		"toast_discovery_failed_all_other": "Upptäckten misslyckades för alla {{count}} leverantörer"
+		"toast_discovery_failed_all_other": "Upptäckten misslyckades för alla {{count}} leverantörer",
+		"schedule_disable_tooltip": "Schemalägg inaktivering",
+		"schedule_disable_hint": "Leverantören inaktiveras så snart serverns datum når den valda dagen.",
+		"schedule_disable_cancel": "Avbryt schemaläggning",
+		"scheduled_disable_card_tooltip": "Schemalagd för inaktivering den {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "Leverantören ändrade strukturen på sitt kvotsvar",
 				"auth_sso_identity_bound": "SSO-identitet kopplad till ett konto",
 				"discovery_claims_outstanding": "Modellavvikelser förblir oåtgärdade",
-				"model_auto_disabled_gone": "Modellen inaktiverad (leverantören tillhandahåller den inte längre)"
+				"model_auto_disabled_gone": "Modellen inaktiverad (leverantören tillhandahåller den inte längre)",
+				"provider_scheduled_disable": "Leverantören inaktiverad enligt schema"
 			},
 			"events": {
 				"all": "Markera allt",

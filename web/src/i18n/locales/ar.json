@@ -1056,7 +1056,11 @@
 		"toast_refresh_success_two": "تم تحديث {{count}} حصتين/رصيدين",
 		"toast_refresh_success_few": "تم تحديث {{count}} حصص/أرصدة",
 		"toast_refresh_success_many": "تم تحديث {{count}} حصةً/رصيدًا",
-		"toast_refresh_success_other": "تم تحديث {{count}} حصة/رصيد"
+		"toast_refresh_success_other": "تم تحديث {{count}} حصة/رصيد",
+		"schedule_disable_tooltip": "جدولة التعطيل",
+		"schedule_disable_hint": "سيتم تعطيل المزود بمجرد أن يصل تاريخ الخادم إلى اليوم المحدد.",
+		"schedule_disable_cancel": "إلغاء الجدولة",
+		"scheduled_disable_card_tooltip": "مجدول للتعطيل في {{date}}"
 	},
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",
@@ -2181,7 +2185,8 @@
 				"quota_schema_drift": "غيّر المزود بنية استجابة الحصة",
 				"auth_sso_identity_bound": "تم ربط هوية SSO بحساب",
 				"discovery_claims_outstanding": "تباينات النماذج التي تُركت دون معالجة",
-				"model_auto_disabled_gone": "تم تعطيل النموذج (المزود لم يعد يقدمه)"
+				"model_auto_disabled_gone": "تم تعطيل النموذج (المزود لم يعد يقدمه)",
+				"provider_scheduled_disable": "تم تعطيل المزود حسب الجدولة"
 			},
 			"events": {
 				"all": "تحديد الكل",

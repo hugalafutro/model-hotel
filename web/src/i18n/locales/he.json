@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "עודכנו {{count}} מכסות/יתרות",
 		"toast_discovery_failed_all_one": "הגילוי נכשל עבור הספק",
 		"toast_discovery_failed_all_two": "הגילוי נכשל עבור כל {{count}} הספקים",
-		"toast_discovery_failed_all_other": "הגילוי נכשל עבור כל {{count}} הספקים"
+		"toast_discovery_failed_all_other": "הגילוי נכשל עבור כל {{count}} הספקים",
+		"schedule_disable_tooltip": "תזמון השבתה",
+		"schedule_disable_hint": "הספק יושבת ברגע שתאריך השרת יגיע ליום שנבחר.",
+		"schedule_disable_cancel": "ביטול התזמון",
+		"scheduled_disable_card_tooltip": "מתוזמן להשבתה בתאריך {{date}}"
 	},
 	"models": {
 		"page_title_one": "מודל",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "הספק שינה את מבנה תגובת המכסה",
 				"auth_sso_identity_bound": "זהות SSO שויכה לחשבון",
 				"discovery_claims_outstanding": "אי-התאמות במודלים שנותרו ללא טיפול",
-				"model_auto_disabled_gone": "הדגם הושבת (הספק כבר אינו מספק אותו)"
+				"model_auto_disabled_gone": "הדגם הושבת (הספק כבר אינו מספק אותו)",
+				"provider_scheduled_disable": "הספק הושבת לפי התזמון"
 			},
 			"events": {
 				"all": "בחר הכל",

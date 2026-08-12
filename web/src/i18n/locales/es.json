@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Actualización de {{count}} cuotas/saldos",
 		"toast_discovery_failed_all_one": "El descubrimiento falló para el proveedor",
 		"toast_discovery_failed_all_many": "El descubrimiento falló para todos los {{count}} proveedores",
-		"toast_discovery_failed_all_other": "El descubrimiento falló para todos los {{count}} proveedores"
+		"toast_discovery_failed_all_other": "El descubrimiento falló para todos los {{count}} proveedores",
+		"schedule_disable_tooltip": "Programar desactivación",
+		"schedule_disable_hint": "El proveedor se desactivará en cuanto la fecha del servidor alcance el día elegido.",
+		"schedule_disable_cancel": "Cancelar programación",
+		"scheduled_disable_card_tooltip": "Programado para desactivarse el {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modelo",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "El proveedor ha cambiado la estructura de su respuesta de cuota",
 				"auth_sso_identity_bound": "Identidad SSO vinculada a una cuenta",
 				"discovery_claims_outstanding": "Discrepancias de modelos sin atender",
-				"model_auto_disabled_gone": "Modelo desactivado (el proveedor ya no lo ofrece)"
+				"model_auto_disabled_gone": "Modelo desactivado (el proveedor ya no lo ofrece)",
+				"provider_scheduled_disable": "Proveedor desactivado según lo programado"
 			},
 			"events": {
 				"all": "Seleccionar todo",

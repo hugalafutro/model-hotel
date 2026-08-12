@@ -59,6 +59,7 @@ func TestScanProvider_Success(t *testing.T) {
 			&masked,                   // MaskedKey
 			true,                      // Enabled
 			true,                      // AutodiscoveryEnabled
+			(*time.Time)(nil),         // ScheduledDisableOn
 			(*time.Time)(nil),         // LastDiscoveredAt
 			(*time.Time)(nil),         // LastUsedAt
 			now,                       // CreatedAt
@@ -91,6 +92,9 @@ func TestScanProvider_Success(t *testing.T) {
 	}
 	if p.UpdatedAt != now {
 		t.Errorf("UpdatedAt = %v, want %v", p.UpdatedAt, now)
+	}
+	if p.ScheduledDisableOn != nil {
+		t.Error("ScheduledDisableOn should be nil")
 	}
 	if p.LastDiscoveredAt != nil {
 		t.Error("LastDiscoveredAt should be nil")

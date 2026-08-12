@@ -52,6 +52,12 @@ var catalog = []EventDef{
 	// listings (Google served gemini-2.0-flash from /models for two months after
 	// shutting it down), so nothing else in the system will ever say so.
 	{Type: "model.auto_disabled_gone", Category: "Discovery", Severity: "warning", DefaultOn: true},
+	// A provider reached the disable date the operator set for it and the
+	// background sweep switched it off. Grouped with the circuit breaker because
+	// the operator-visible consequence is the same — that provider stops serving
+	// — and default-on because the date is typically set weeks ahead of the day
+	// it fires, so the firing itself is the only reminder routing just changed.
+	{Type: "provider.scheduled_disable", Category: "Failover", Severity: "warning", DefaultOn: true},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.

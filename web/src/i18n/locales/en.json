@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",
 		"toast_refresh_success_other": "Refreshed {{count}} quotas/balances",
 		"toast_discovery_failed_all_one": "Discovery failed for the provider",
-		"toast_discovery_failed_all_other": "Discovery failed for all {{count}} providers"
+		"toast_discovery_failed_all_other": "Discovery failed for all {{count}} providers",
+		"schedule_disable_tooltip": "Schedule disable",
+		"schedule_disable_hint": "The provider will be disabled as soon as the server's date reaches the chosen day.",
+		"schedule_disable_cancel": "Cancel schedule",
+		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1617,7 +1621,8 @@
 				"quota_schema_drift": "Provider changed its quota response shape",
 				"auth_sso_identity_bound": "SSO identity bound to an account",
 				"discovery_claims_outstanding": "Model discrepancies left unaddressed",
-				"model_auto_disabled_gone": "Model disabled (provider no longer serves it)"
+				"model_auto_disabled_gone": "Model disabled (provider no longer serves it)",
+				"provider_scheduled_disable": "Provider disabled as scheduled"
 			},
 			"events": {
 				"title": "Events to notify on",

@@ -650,8 +650,8 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 			}
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+			INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, now())
 			ON CONFLICT (name) DO UPDATE SET
 				base_url = EXCLUDED.base_url,
 				encrypted_key = EXCLUDED.encrypted_key,
@@ -660,8 +660,9 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				masked_key = EXCLUDED.masked_key,
 				enabled = EXCLUDED.enabled,
 				autodiscovery_enabled = EXCLUDED.autodiscovery_enabled,
+				scheduled_disable_on = EXCLUDED.scheduled_disable_on,
 				updated_at = now()`,
-			p.Name, p.BaseURL, p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled)
+			p.Name, p.BaseURL, p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn)
 		if err != nil {
 			return err
 		}

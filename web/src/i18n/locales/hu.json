@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "Frissítve: {{count}} kvóta/egyenleg",
 		"toast_refresh_success_other": "Frissítve: {{count}} kvóta/egyenleg",
 		"toast_discovery_failed_all_one": "A felfedezés sikertelen volt a szolgáltatónál",
-		"toast_discovery_failed_all_other": "A felfedezés sikertelen volt mind a(z) {{count}} szolgáltatónál"
+		"toast_discovery_failed_all_other": "A felfedezés sikertelen volt mind a(z) {{count}} szolgáltatónál",
+		"schedule_disable_tooltip": "Letiltás ütemezése",
+		"schedule_disable_hint": "A rendszer letiltja a szolgáltatót, amint a szerver dátuma eléri a kiválasztott napot.",
+		"schedule_disable_cancel": "Ütemezés törlése",
+		"scheduled_disable_card_tooltip": "Letiltás ütemezve erre a napra: {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "A szolgáltató megváltoztatta a kvótaválasz szerkezetét",
 				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva",
 				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések",
-				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)"
+				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)",
+				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint"
 			},
 			"events": {
 				"all": "Összes kijelölése",

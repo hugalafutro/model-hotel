@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { CalendarDays } from "@/lib/icons";
 import type { Provider } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { QuotaBadges } from "../../components/QuotaBadge";
 import { Spinner } from "../../components/Spinner";
 import type { useQuotaData } from "../../hooks/useQuotaData";
-import { formatTimestamp, formatTokens } from "../../utils/format";
+import { formatDate, formatTimestamp, formatTokens } from "../../utils/format";
 
 interface ProviderCardProps {
 	provider: Provider;
@@ -57,12 +58,25 @@ export function ProviderCard({
 		>
 			<div className="mb-2">
 				<div className="flex items-center justify-between">
-					<CopyablePill
-						text={provider.name}
-						displayText={provider.name}
-						textClassName="text-lg font-semibold text-white"
-						tooltip={t("providers.card_copy_name")}
-					/>
+					<span className="inline-flex items-center gap-2 min-w-0">
+						{provider.enabled && provider.scheduled_disable_on && (
+							<span
+								data-testid="scheduled-disable-icon"
+								className="text-orange-400 shrink-0 inline-flex"
+								title={t("providers.scheduled_disable_card_tooltip", {
+									date: formatDate(`${provider.scheduled_disable_on}T00:00:00`),
+								})}
+							>
+								<CalendarDays size={16} />
+							</span>
+						)}
+						<CopyablePill
+							text={provider.name}
+							displayText={provider.name}
+							textClassName="text-lg font-semibold text-white"
+							tooltip={t("providers.card_copy_name")}
+						/>
+					</span>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 mt-1">
 					{!provider.enabled && (

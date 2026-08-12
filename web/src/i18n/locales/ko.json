@@ -940,7 +940,11 @@
 		"toast_refresh_success_one": "{{count}}개의 할당량/잔액 업데이트",
 		"toast_refresh_success_other": "{{count}}개의 할당량/잔액 업데이트",
 		"toast_discovery_failed_all_one": "공급자 검색에 실패했습니다",
-		"toast_discovery_failed_all_other": "모든 {{count}}개 공급자 검색에 실패했습니다"
+		"toast_discovery_failed_all_other": "모든 {{count}}개 공급자 검색에 실패했습니다",
+		"schedule_disable_tooltip": "비활성화 예약",
+		"schedule_disable_hint": "서버 날짜가 선택한 날에 도달하는 즉시 제공자가 비활성화됩니다.",
+		"schedule_disable_cancel": "예약 취소",
+		"scheduled_disable_card_tooltip": "{{date}}에 비활성화 예정"
 	},
 	"models": {
 		"page_title_one": "모델",
@@ -1977,7 +1981,8 @@
 				"quota_schema_drift": "프로바이더가 할당량 응답 구조를 변경함",
 				"auth_sso_identity_bound": "SSO 아이디가 계정에 연결됨",
 				"discovery_claims_outstanding": "처리되지 않은 모델 불일치",
-				"model_auto_disabled_gone": "모델 비활성화됨 (프로바이더가 더 이상 제공하지 않음)"
+				"model_auto_disabled_gone": "모델 비활성화됨 (프로바이더가 더 이상 제공하지 않음)",
+				"provider_scheduled_disable": "프로바이더가 예약대로 비활성화됨"
 			},
 			"events": {
 				"all": "모두 선택",

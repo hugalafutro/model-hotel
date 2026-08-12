@@ -969,7 +969,11 @@
 		"toast_refresh_success_other": "Aggiornate {{count}} quote/saldi",
 		"toast_discovery_failed_all_one": "Rilevamento non riuscito per il provider",
 		"toast_discovery_failed_all_many": "Rilevamento non riuscito per tutti i {{count}} provider",
-		"toast_discovery_failed_all_other": "Rilevamento non riuscito per tutti i {{count}} provider"
+		"toast_discovery_failed_all_other": "Rilevamento non riuscito per tutti i {{count}} provider",
+		"schedule_disable_tooltip": "Programma disabilitazione",
+		"schedule_disable_hint": "Il provider verrà disabilitato non appena la data del server raggiunge il giorno scelto.",
+		"schedule_disable_cancel": "Annulla programmazione",
+		"scheduled_disable_card_tooltip": "Disabilitazione programmata per il {{date}}"
 	},
 	"models": {
 		"page_title_one": "Modello",
@@ -2028,7 +2032,8 @@
 				"quota_schema_drift": "Il provider ha modificato la struttura della risposta sulla quota",
 				"auth_sso_identity_bound": "Identità SSO associata a un account",
 				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite",
-				"model_auto_disabled_gone": "Modello disattivato (il provider non lo fornisce più)"
+				"model_auto_disabled_gone": "Modello disattivato (il provider non lo fornisce più)",
+				"provider_scheduled_disable": "Provider disabilitato come programmato"
 			},
 			"events": {
 				"all": "Seleziona tutto",

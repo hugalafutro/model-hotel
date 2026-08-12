@@ -998,7 +998,11 @@
 		"toast_discovery_failed_all_one": "Не удалось выполнить обнаружение для провайдера",
 		"toast_discovery_failed_all_few": "Не удалось выполнить обнаружение для всех {{count}} провайдеров",
 		"toast_discovery_failed_all_many": "Не удалось выполнить обнаружение для всех {{count}} провайдеров",
-		"toast_discovery_failed_all_other": "Не удалось выполнить обнаружение для всех {{count}} провайдеров"
+		"toast_discovery_failed_all_other": "Не удалось выполнить обнаружение для всех {{count}} провайдеров",
+		"schedule_disable_tooltip": "Запланировать отключение",
+		"schedule_disable_hint": "Провайдер будет отключён, как только дата сервера достигнет выбранного дня.",
+		"schedule_disable_cancel": "Отменить запланированное отключение",
+		"scheduled_disable_card_tooltip": "Отключение запланировано на {{date}}"
 	},
 	"models": {
 		"page_title_one": "Модель",
@@ -2079,7 +2083,8 @@
 				"quota_schema_drift": "Провайдер изменил структуру ответа о квоте",
 				"auth_sso_identity_bound": "Идентификатор SSO привязан к учётной записи",
 				"discovery_claims_outstanding": "Расхождения по моделям остались без внимания",
-				"model_auto_disabled_gone": "Модель отключена (провайдер больше её не предоставляет)"
+				"model_auto_disabled_gone": "Модель отключена (провайдер больше её не предоставляет)",
+				"provider_scheduled_disable": "Провайдер отключён по расписанию"
 			},
 			"events": {
 				"all": "Выделить всё",
