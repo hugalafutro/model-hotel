@@ -144,6 +144,47 @@ describe("useQuotaData", () => {
 		expect(result.current.hasAnyProvider).toBe(true);
 	});
 
+	it("ignores disabled providers entirely: no ID, no fetch, no badge", async () => {
+		const disabled = mockProviders.map((p) => ({ ...p, enabled: false }));
+		const { result } = renderHook(() => useQuotaData(disabled), {
+			wrapper: createWrapper(),
+		});
+
+		expect(result.current.nanogptProviderId).toBeUndefined();
+		expect(result.current.zaiCodingProviderId).toBeUndefined();
+		expect(result.current.deepseekProviderId).toBeUndefined();
+		expect(result.current.openrouterProviderId).toBeUndefined();
+		expect(result.current.ollamaCloudProviderId).toBeUndefined();
+		expect(result.current.hasAnyProvider).toBe(false);
+
+		// With no provider ID every query stays disabled, so no usage ever
+		// arrives and no badge can show, even after the queries would have
+		// settled for an enabled provider.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 50));
+		});
+		expect(result.current.nanogptUsage).toBeUndefined();
+		expect(result.current.showNanoBadge).toBe(false);
+		expect(result.current.showZaiCodingBadge).toBe(false);
+		expect(result.current.showDsBadge).toBe(false);
+		expect(result.current.showOrBadge).toBe(false);
+		expect(result.current.showOllamaCloudBadge).toBe(false);
+	});
+
+	it("picks the first enabled provider of a type over an earlier disabled one", async () => {
+		const twoNanos: Provider[] = [
+			{ ...mockProviders[0], id: "nanogpt-off", enabled: false },
+			{ ...mockProviders[0], id: "nanogpt-on" },
+		];
+		const { result } = renderHook(() => useQuotaData(twoNanos), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.nanogptProviderId).toBe("nanogpt-on");
+		});
+	});
+
 	it("configures quota queries to refetch on mount with staleTime 0", () => {
 		const useQueryMock = reactQuery.useQuery as unknown as Mock;
 
