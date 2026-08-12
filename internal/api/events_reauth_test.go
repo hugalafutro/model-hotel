@@ -31,6 +31,14 @@ func (m *revocableSessionMgr) revoke() {
 	m.revoked = true
 }
 
+// setRevoked flips validity in both directions, for staging a failed re-check
+// that heals on the next tick.
+func (m *revocableSessionMgr) setRevoked(revoked bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.revoked = revoked
+}
+
 func (m *revocableSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte) (string, error) {
 	return "stream-token", nil
 }
@@ -231,6 +239,57 @@ func TestStreamEvents_RefreshesGrantsMidStream(t *testing.T) {
 	if strings.Contains(delivered, "request.completed") {
 		t.Errorf("stream kept delivering request events after the logs grant was revoked: %q", delivered)
 	}
+
+	cancel()
+	<-done
+}
+
+// A passing re-check resets the consecutive-failure count, so failures have to
+// be consecutive to close a stream. The third phase is the assertion that
+// matters: it is the stream's second failed check overall but the first since a
+// passing one, so the stream must survive it. A counter that only ever climbed
+// would drop a caller whose credential blipped twice over an afternoon.
+func TestStreamEvents_PassingRecheckResetsFailureCount(t *testing.T) {
+	mgr := &revocableSessionMgr{}
+	h := testHandler(nil, nil, nil, nil, nil)
+	h.SetWebAuthnSessionManager(mgr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rec := newSyncRecorder()
+	done := make(chan struct{})
+	go func() {
+		// Wide enough that flipping the session in reaction to one heartbeat
+		// comfortably lands before the next re-check.
+		h.streamEvents(rec, streamRequest(ctx), 200*time.Millisecond)
+		close(done)
+	}()
+	<-rec.flushed
+
+	// beat waits for the nth heartbeat and asserts the stream is still open.
+	beat := func(n int, why string) {
+		t.Helper()
+		if !waitFor(t, func() bool { return strings.Count(rec.String(), ": heartbeat") >= n }) {
+			t.Fatalf("heartbeat %d never arrived (%s): %q", n, why, rec.String())
+		}
+		select {
+		case <-done:
+			t.Fatalf("stream closed %s", why)
+		default:
+		}
+	}
+
+	beat(1, "while the session was valid")
+
+	mgr.setRevoked(true)
+	beat(2, "on the first failed re-check")
+
+	mgr.setRevoked(false)
+	beat(3, "after the credential recovered")
+
+	mgr.setRevoked(true)
+	beat(4, "on a failure the passing re-check should have reset the counter for")
 
 	cancel()
 	<-done

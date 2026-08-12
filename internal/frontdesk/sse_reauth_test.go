@@ -112,7 +112,7 @@ func startStreamWith(t *testing.T, srv *Server, req *http.Request, rec *sseRecor
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		srv.stream(rec, req, every)
+		srv.streamEvents(rec, req, every)
 	}()
 	return done
 }
@@ -251,7 +251,11 @@ func TestSSESingleFailureDoesNotClose(t *testing.T) {
 // TOTP enabled it is a first factor only) and back off to heal it, which is the
 // in-memory equivalent of a store blip clearing on the next tick.
 //
-// The healing flip has to land before the tick after the one it reacts to, so
+// The last flip is what pins the reset: it is the second failure of the stream
+// but the first since the passing check, so the stream must live through it. A
+// counter that only ever climbed would close here.
+//
+// Each healing flip has to land before the tick after the one it reacts to, so
 // this is the one test that runs at a wider cadence than the rest.
 func TestSSEFailedCheckRecovers(t *testing.T) {
 	srv, _ := newTestServer(t)
@@ -269,8 +273,11 @@ func TestSSEFailedCheckRecovers(t *testing.T) {
 
 	srv.totpStatus.val.Store(false)
 	awaitWrite(t, rec, "keep-alive after the credential recovered")
-	awaitWrite(t, rec, "further keep-alive proving the counter reset")
-	assertOpen(t, done, "after the failure counter was reset by a passing re-check")
+	assertOpen(t, done, "after a passing re-check followed the failure")
+
+	srv.totpStatus.val.Store(true)
+	awaitWrite(t, rec, "keep-alive after the second isolated failure")
+	assertOpen(t, done, "on a failure the passing re-check should have reset the counter for")
 
 	cancel()
 	awaitClosed(t, done, "after the client hung up")
@@ -415,7 +422,7 @@ func TestSSERejectsNonFlushingWriter(t *testing.T) {
 	req, cancel := sseRequest(t)
 	defer cancel()
 	rec := &nonFlushingWriter{hdr: http.Header{}}
-	srv.stream(rec, req, sseTick)
+	srv.streamEvents(rec, req, sseTick)
 
 	if rec.status != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", rec.status)

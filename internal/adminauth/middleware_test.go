@@ -46,31 +46,39 @@ func TestValidAdminOrSession(t *testing.T) {
 		want   bool
 	}{
 		{
-			name:  "admin cookie",
-			build: func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "fd_session", Value: adminTok}) },
-			mgr:   mgr,
-			want:  true,
+			name: "admin cookie",
+			build: func(r *http.Request) {
+				r.AddCookie(&http.Cookie{Name: authcookie.FrontDesk.SessionCookie, Value: adminTok})
+			},
+			mgr:  mgr,
+			want: true,
 		},
 		{
 			name:   "admin cookie on an unsafe method without CSRF",
 			method: http.MethodPost,
-			build:  func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "fd_session", Value: adminTok}) },
-			mgr:    mgr,
+			build: func(r *http.Request) {
+				r.AddCookie(&http.Cookie{Name: authcookie.FrontDesk.SessionCookie, Value: adminTok})
+			},
+			mgr: mgr,
 			// CSRF belongs to the middleware: the credential itself is valid, which
 			// is all a re-check on an already-open stream asks about.
 			want: true,
 		},
 		{
-			name:  "user cookie session",
-			build: func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "fd_session", Value: userTok}) },
-			mgr:   mgr,
-			want:  false,
+			name: "user cookie session",
+			build: func(r *http.Request) {
+				r.AddCookie(&http.Cookie{Name: authcookie.FrontDesk.SessionCookie, Value: userTok})
+			},
+			mgr:  mgr,
+			want: false,
 		},
 		{
-			name:  "admin cookie under the other app's jar name",
-			build: func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "mh_session", Value: adminTok}) },
-			mgr:   mgr,
-			want:  false,
+			name: "admin cookie under the other app's jar name",
+			build: func(r *http.Request) {
+				r.AddCookie(&http.Cookie{Name: authcookie.Dashboard.SessionCookie, Value: adminTok})
+			},
+			mgr:  mgr,
+			want: false,
 		},
 		{
 			name:  "raw admin token, TOTP off",
@@ -117,10 +125,12 @@ func TestValidAdminOrSession(t *testing.T) {
 			want:  true,
 		},
 		{
-			name:  "session cookie with no session manager",
-			build: func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "fd_session", Value: adminTok}) },
-			mgr:   nil,
-			want:  false,
+			name: "session cookie with no session manager",
+			build: func(r *http.Request) {
+				r.AddCookie(&http.Cookie{Name: authcookie.FrontDesk.SessionCookie, Value: adminTok})
+			},
+			mgr:  nil,
+			want: false,
 		},
 		{
 			name:  "unknown bearer with no session manager",

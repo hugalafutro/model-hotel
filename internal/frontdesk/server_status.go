@@ -108,7 +108,7 @@ const sseReauthFailuresBeforeClose = 2
 // Desk SSE has no per-subscriber filtering (every authenticated caller sees the
 // whole bus), so there is no identity to refresh.
 func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
-	s.stream(w, r, sseHeartbeat)
+	s.streamEvents(w, r, sseHeartbeat)
 }
 
 // revalidate re-runs the connect-time admission of requireAuth: a device token
@@ -161,10 +161,10 @@ func (s *Server) reauthLoop(r *http.Request, every time.Duration, out chan<- boo
 	}
 }
 
-// stream is sse with the heartbeat cadence supplied by the caller, so the
+// streamEvents is sse with the heartbeat cadence supplied by the caller, so the
 // keep-alive/re-auth tick can be driven without waiting out the production
 // interval.
-func (s *Server) stream(w http.ResponseWriter, r *http.Request, heartbeatEvery time.Duration) {
+func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatEvery time.Duration) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
