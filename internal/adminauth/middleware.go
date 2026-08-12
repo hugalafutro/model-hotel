@@ -34,48 +34,96 @@ func RequireAdminOrSession(
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Cookie path (browser). The session token rides an HttpOnly cookie
-		// instead of an Authorization header, named by the caller's jar so
-		// the dashboard and Front Desk never read each other's cookie when
-		// they share a hostname. It admits only the admin session (UserID
-		// == "admin"). A valid but non-admin (UUID) session cookie, or an
-		// absent/expired cookie, falls through to the header logic below so
-		// header (admin-token / bearer) callers stay unaffected. On unsafe
-		// methods a matching CSRF header is also required.
-		if tok, ok := jar.SessionToken(r); ok && sessionMgr != nil {
-			if userID, ok := sessionMgr.TokenUser(r.Context(), tok); ok && string(userID) == "admin" {
-				if !authcookie.IsSafeMethod(r.Method) && !jar.ValidCSRF(r) {
-					http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
-					return
-				}
-				next.ServeHTTP(w, r)
+		if validAdminCookie(r, sessionMgr, jar) {
+			if !authcookie.IsSafeMethod(r.Method) && !jar.ValidCSRF(r) {
+				http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 				return
 			}
-			// Non-admin or invalid cookie session: fall through to header logic.
+			next.ServeHTTP(w, r)
+			return
 		}
 
+		// A caller with no bearer at all is told what is missing; a caller
+		// carrying one that does not resolve is told it was rejected. The two
+		// messages stay distinct, so the bearer branch is asked separately
+		// rather than folded into one boolean.
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
 			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
 
-		if (totpEnabled == nil || !totpEnabled()) && adminMgr.Validate(token) {
+		if validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if sessionMgr != nil {
-			// Admin-only gate: resolve the session's identity and admit only the
-			// admin session (UserID == "admin"). A UUID-carrying multi-user/SSO
-			// user session must NOT pass, or a regular user could enroll admin
-			// TOTP or register an admin passkey and escalate to full admin.
-			if userID, ok := sessionMgr.TokenUser(r.Context(), token); ok && string(userID) == "admin" {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-
 		http.Error(w, "Invalid admin token or session token", http.StatusUnauthorized)
 	})
+}
+
+// ValidAdminOrSession reports whether r carries a credential RequireAdminOrSession
+// would admit: an admin session token (cookie or bearer), or the raw admin token
+// while TOTP is disabled. CSRF is not checked here; it is an unsafe-method concern
+// the middleware owns.
+//
+// It exists for long-lived connections that outlive the middleware: an SSE stream
+// is gated once at connect, so the handler re-asks this question on its heartbeat
+// to bound how long a revoked credential keeps a stream alive.
+func ValidAdminOrSession(
+	r *http.Request,
+	adminMgr AdminAuthenticator,
+	sessionMgr *webauthn.SessionManager,
+	totpEnabled func() bool,
+	jar authcookie.Jar,
+) bool {
+	if validAdminCookie(r, sessionMgr, jar) {
+		return true
+	}
+	token, ok := util.ParseBearerToken(r)
+	if !ok {
+		return false
+	}
+	return validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled)
+}
+
+// validAdminCookie reports whether r carries an admin session on the jar's
+// session cookie. The session token rides an HttpOnly cookie instead of an
+// Authorization header, named by the caller's jar so the dashboard and Front
+// Desk never read each other's cookie when they share a hostname. Only the
+// admin session (UserID == "admin") qualifies: a valid but non-admin (UUID)
+// session cookie, or an absent/expired cookie, reports false so callers fall
+// through to the header path and header (admin-token / bearer) callers stay
+// unaffected.
+func validAdminCookie(r *http.Request, sessionMgr *webauthn.SessionManager, jar authcookie.Jar) bool {
+	tok, ok := jar.SessionToken(r)
+	if !ok || sessionMgr == nil {
+		return false
+	}
+	userID, ok := sessionMgr.TokenUser(r.Context(), tok)
+	return ok && string(userID) == "admin"
+}
+
+// validAdminBearer reports whether the bearer token parsed from r is admissible:
+// the raw admin token with TOTP off, or an admin session token.
+//
+// The admin-only gate resolves the session's identity and admits only the admin
+// session (UserID == "admin"). A UUID-carrying multi-user/SSO user session must
+// NOT pass, or a regular user could enroll admin TOTP or register an admin
+// passkey and escalate to full admin.
+func validAdminBearer(
+	r *http.Request,
+	token string,
+	adminMgr AdminAuthenticator,
+	sessionMgr *webauthn.SessionManager,
+	totpEnabled func() bool,
+) bool {
+	if (totpEnabled == nil || !totpEnabled()) && adminMgr.Validate(token) {
+		return true
+	}
+	if sessionMgr == nil {
+		return false
+	}
+	userID, ok := sessionMgr.TokenUser(r.Context(), token)
+	return ok && string(userID) == "admin"
 }

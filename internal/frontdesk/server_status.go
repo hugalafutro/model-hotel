@@ -3,11 +3,14 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/http"
 	"sync/atomic"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
@@ -78,10 +81,90 @@ func (s *Server) getObservability(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// sseHeartbeat keeps idle SSE connections alive through proxies.
+// sseHeartbeat keeps idle SSE connections alive through proxies, and is
+// therefore also how often the caller's credentials are re-checked.
 const sseHeartbeat = 25 * time.Second
 
+// sseReauthFailuresBeforeClose is how many consecutive failed credential
+// re-checks close a stream, bounding authorization staleness at
+// sseHeartbeat * this.
+//
+// Tolerance rather than fail-fast because revalidate cannot distinguish "this
+// device was unpaired" from "the store could not be asked": both surface as a
+// plain false. A revoked credential fails every check and is dropped on the
+// second, while a transient store failure (a locked SQLite file, a restart mid
+// query) recovers on the next tick. Failing on the first miss would turn a brief
+// blip into a forced logout, since the SPA's SSE reconnect treats a 401 as
+// "session gone" and sends the operator back to the login screen.
+const sseReauthFailuresBeforeClose = 2
+
+// sse streams control-plane events to the dashboard and to paired devices.
+//
+// The caller's credentials are re-checked on every heartbeat rather than pinned
+// at connect. requireAuth only runs once, so a stream opened before a device was
+// unpaired or a session revoked would otherwise keep delivering events for as
+// long as the client held the socket open - unbounded, since the heartbeat keeps
+// it alive. Unlike the main server's stream this re-check is validity-only: Front
+// Desk SSE has no per-subscriber filtering (every authenticated caller sees the
+// whole bus), so there is no identity to refresh.
 func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
+	s.streamEvents(w, r, sseHeartbeat)
+}
+
+// revalidate re-runs the connect-time admission of requireAuth: a device token
+// that still resolves to a non-revoked device, otherwise the admin-or-session
+// gate. last_seen_at is deliberately not re-stamped; it records requests the
+// device made, not a heartbeat this server drives.
+//
+// A device-lookup failure falls through to the admin/session gate, exactly as
+// requireAuth does: that gate never reads paired_devices, so a broken or
+// unavailable table cannot close an admin-bearer stream. A device token then
+// fails the gate and the tick counts as a failed check, which the tolerance
+// absorbs when the failure was a one-off blip. The error is logged only while
+// the request is live; a client hanging up races the tick and is not a fault.
+func (s *Server) revalidate(r *http.Request) bool {
+	if token, ok := util.ParseBearerToken(r); ok {
+		_, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))
+		if err == nil {
+			return true
+		}
+		if !errors.Is(err, ErrNotFound) && r.Context().Err() == nil {
+			debuglog.Error("frontdesk: sse device token re-check", "error", err)
+		}
+	}
+	return adminauth.ValidAdminOrSession(r, s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk)
+}
+
+// reauthLoop re-checks the caller's credentials on every tick and reports the
+// verdict on out. Exits when the request context is cancelled.
+//
+// Runs off the read loop deliberately. revalidate makes a store round-trip, and
+// the event bus drops events for any subscriber that is not draining its channel
+// (internal/events/bus.go), so doing this inline would trade a slow credential
+// lookup for lost live events on a busy control plane.
+func (s *Server) reauthLoop(r *http.Request, every time.Duration, out chan<- bool) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			valid := s.revalidate(r)
+			select {
+			case out <- valid:
+			case <-r.Context().Done():
+				return
+			}
+		}
+	}
+}
+
+// streamEvents is sse with the heartbeat cadence supplied by the caller, so the
+// keep-alive/re-auth tick can be driven without waiting out the production
+// interval.
+func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatEvery time.Duration) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
@@ -96,14 +179,28 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 	ch := s.bus.Subscribe()
 	defer s.bus.Unsubscribe(ch)
 
-	ticker := time.NewTicker(sseHeartbeat)
-	defer ticker.Stop()
+	// Buffered so a re-auth verdict never parks its goroutine while this loop is
+	// busy writing an event; the loop drains it on the next pass.
+	reauth := make(chan bool, 1)
+	go s.reauthLoop(r, heartbeatEvery, reauth)
 
+	failures := 0
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-ticker.C:
+		case valid := <-reauth:
+			// A re-auth verdict doubles as the keep-alive tick.
+			if valid {
+				failures = 0
+			} else {
+				failures++
+				if failures >= sseReauthFailuresBeforeClose {
+					debuglog.Info("frontdesk: sse stream closed, credentials no longer valid",
+						"remote_addr", r.RemoteAddr, "consecutive_failures", failures)
+					return
+				}
+			}
 			if _, err := w.Write([]byte(": keep-alive\n\n")); err != nil {
 				return
 			}

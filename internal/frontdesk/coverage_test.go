@@ -10,8 +10,6 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
-
-	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 // TestPollerRunTicksAndStops exercises Run + tickLoop and one tick of every poll
@@ -263,8 +261,11 @@ func TestHandleTraefikConfig(t *testing.T) {
 	}
 }
 
-// TestSSEStreamsAndStops covers the SSE handler: it sets up the stream, delivers
-// a published event, and returns when the request context is cancelled.
+// TestSSEStreamsAndStops covers the routed /api/sse path end to end: the auth
+// gate admits the admin bearer, the handler answers with event-stream headers,
+// and it returns when the client hangs up. The streaming behaviour behind it
+// (keep-alives, credential re-checks, event frames) is covered against the
+// handler directly in sse_reauth_test.go.
 func TestSSEStreamsAndStops(t *testing.T) {
 	srv, _ := newTestServer(t)
 
@@ -278,18 +279,15 @@ func TestSSEStreamsAndStops(t *testing.T) {
 		srv.ServeHTTP(rec, req)
 		close(done)
 	}()
-
-	// Give the handler time to subscribe, then publish an event so the data
-	// branch runs, then cancel so the handler exits via ctx.Done().
-	time.Sleep(40 * time.Millisecond)
-	srv.bus.Publish(events.Event{Type: "member.added", Severity: "info", Source: "test", Message: "hi"})
-	time.Sleep(40 * time.Millisecond)
 	cancel()
 
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("sse did not return after context cancel")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
 	}
 	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
 		t.Errorf("content-type = %q, want text/event-stream", ct)
