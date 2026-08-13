@@ -16,9 +16,11 @@ services:
             # Allow embedding in workspace browsers (e.g. Cursor, VS Code).
             # Not enabled in production compose to keep frame-protection headers.
             - ALLOW_EMBED=true
-            - KNOWN_PROXIES=192.168.1.101/32
-            # Trust the local NPM reverse proxy so sessions record the real
-            # client IP from X-Forwarded-For instead of the proxy address.
-            - TRUSTED_PROXIES=192.168.1.101/32
+            # Proxy CIDRs come from the gitignored .env so private addresses
+            # never land in the repo. TRUSTED_PROXIES makes sessions record
+            # the real client IP from X-Forwarded-For instead of the proxy
+            # address - but only when the peer is in the trusted list.
+            - KNOWN_PROXIES=${KNOWN_PROXIES:-}
+            - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
