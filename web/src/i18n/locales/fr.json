@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gérée par l'instance principale de la flotte. Les modifications apportées ici sont remplacées à la prochaine synchronisation de configuration.",
 			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance.",
-			"authNote": "La politique de mots de passe et l'authentification unique (SSO) ci-dessous sont gérées par l'instance principale de la flotte. Les clés d'accès, la 2FA, l'expiration de l'onglet et les sessions actives ci-dessus restent locaux à cette instance."
+			"authNote": "La politique de mots de passe et les listes d'e-mails autorisés à se connecter sont gérées par l'instance principale de la flotte. Tout le reste ici est local à ce membre, y compris les fournisseurs d'authentification unique qu'il propose."
 		},
 		"activeSessions": {
 			"title": "Sessions actives",

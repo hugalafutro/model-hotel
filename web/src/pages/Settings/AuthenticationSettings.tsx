@@ -28,12 +28,13 @@ interface AuthenticationSettingsProps {
  * consumed by useIdleLogout to sign the admin out after inactivity (0 =
  * never).
  *
- * Like Alerts, this is a mixed section: passkeys, TOTP, sessions, and the
- * session timeout are instance-local, but the password-policy and SSO
- * settings below them are fleet-synced (a managed member 403s those writes),
- * so while managed those groups are disabled behind their own note instead
- * of forwarding `managed` to SettingsSection, which would disable the local
- * half too.
+ * Like Alerts, this is a mixed section: passkeys, TOTP, sessions, the tab
+ * timeout, and the SSO provider config (which IdPs this member offers) are
+ * instance-local, while the password policy and the SSO email allowlists are
+ * fleet-synced (a managed member 403s those writes). While managed, the
+ * password policy sits in a disabled fieldset behind its own note and each
+ * SSO panel disables just its allowlist input, instead of forwarding
+ * `managed` to SettingsSection, which would disable the local parts too.
  */
 export function AuthenticationSettings({
 	collapsed,
@@ -106,8 +107,10 @@ export function AuthenticationSettings({
 					{t("settings.managed.authNote")}
 				</p>
 			)}
-			{/* A disabled fieldset natively disables every control it wraps, the
-			    same idiom SettingsSection uses for fully-synced sections. */}
+			{/* Only the password policy is fully fleet-synced; the SSO panels are
+			    per-member apart from their email allowlists, which each panel
+			    disables itself. A disabled fieldset natively disables every
+			    control it wraps, the same idiom SettingsSection uses. */}
 			<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
 				<div className="mt-5">
 					<SettingsGroup title={t("settings.passwordPolicy.title")}>
@@ -146,17 +149,17 @@ export function AuthenticationSettings({
 						</div>
 					</SettingsGroup>
 				</div>
-				<div className="mt-5">
-					<SettingsGroup title={t("settings.oidc.title")}>
-						<OidcPanel />
-					</SettingsGroup>
-				</div>
-				<div className="mt-5">
-					<SettingsGroup title={t("settings.github.title")}>
-						<GithubPanel />
-					</SettingsGroup>
-				</div>
 			</fieldset>
+			<div className="mt-5">
+				<SettingsGroup title={t("settings.oidc.title")}>
+					<OidcPanel managed={managed} />
+				</SettingsGroup>
+			</div>
+			<div className="mt-5">
+				<SettingsGroup title={t("settings.github.title")}>
+					<GithubPanel managed={managed} />
+				</SettingsGroup>
+			</div>
 		</SettingsSection>
 	);
 }

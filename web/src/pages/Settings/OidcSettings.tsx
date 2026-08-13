@@ -19,7 +19,7 @@ import { useSettingsMutations } from "./useSettingsMutations";
  * the operator out. The redirect URI shown here is what the operator registers
  * with their IdP; it is derived from the configured public base URL.
  */
-export function OidcPanel() {
+export function OidcPanel({ managed }: { managed?: boolean }) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
@@ -261,39 +261,46 @@ export function OidcPanel() {
 						</div>
 					)}
 
-					{/* Allowed emails */}
-					<div className="space-y-1.5">
-						<label
-							htmlFor="oidc-allowed-emails"
-							className="text-sm font-medium text-gray-300"
-						>
-							{t("settings.oidc.allowedEmails")}
-						</label>
-						<textarea
-							id="oidc-allowed-emails"
-							rows={3}
-							value={emailsDraft ?? allowedEmails}
-							placeholder="admin@example.com, ops@example.com"
-							spellCheck={false}
-							autoComplete="off"
-							onChange={(e) => setEmailsDraft(e.target.value)}
-							onBlur={() => {
-								commit("oidc_allowed_emails", emailsDraft, allowedEmails);
-								setEmailsDraft(null);
-							}}
-							className="ui-input text-sm w-full font-mono"
-							data-testid="oidc-allowed-emails-input"
-						/>
-						<p className="text-gray-500 text-xs">
-							{t("settings.oidc.allowedEmailsDescription")}
-						</p>
-					</div>
-
 					<p className="text-gray-500 text-xs">
 						{t("settings.oidc.fallbackNote")}
 					</p>
 				</>
 			)}
+
+			{/* Allowed emails: rendered even while the provider is disabled. The
+			    allowlist is fleet-synced (the ACL), so on a fleet primary that
+			    does not itself offer this IdP it is still THE place to set who
+			    may log in on the members that do. */}
+			<div className="space-y-1.5">
+				<label
+					htmlFor="oidc-allowed-emails"
+					className="text-sm font-medium text-gray-300"
+				>
+					{t("settings.oidc.allowedEmails")}
+				</label>
+				<textarea
+					id="oidc-allowed-emails"
+					rows={3}
+					value={emailsDraft ?? allowedEmails}
+					placeholder="admin@example.com, ops@example.com"
+					spellCheck={false}
+					autoComplete="off"
+					onChange={(e) => setEmailsDraft(e.target.value)}
+					onBlur={() => {
+						commit("oidc_allowed_emails", emailsDraft, allowedEmails);
+						setEmailsDraft(null);
+					}}
+					className="ui-input text-sm w-full font-mono"
+					data-testid="oidc-allowed-emails-input"
+					// The allowlist is the fleet-wide ACL: unlike the rest of
+					// this panel it stays synced, so a managed member cannot
+					// edit it.
+					disabled={managed}
+				/>
+				<p className="text-gray-500 text-xs">
+					{t("settings.oidc.allowedEmailsDescription")}
+				</p>
+			</div>
 		</div>
 	);
 }

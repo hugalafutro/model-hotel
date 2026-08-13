@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Bestuur deur die vloot se primêre instansie. Veranderinge hier word met die volgende konfigurasiesinkronisasie vervang.",
 			"alertsNote": "Die aan- en afskakel van waarskuwings en gebeurtenisroetering word deur die vloot se primêre instansie bestuur. Die Apprise-afleweringsinstellings hieronder bly plaaslik tot hierdie instansie.",
-			"authNote": "Die instellings vir wagwoordbeleid en enkelaanmelding (SSO) hieronder word deur die vloot se primêre instansie bestuur. Pasleutels, 2FA, oortjie-uitteltyd en aktiewe sessies hierbo bly plaaslik op hierdie instansie."
+			"authNote": "Die wagwoordbeleid en die aanmeld-e-poslyste word deur die vloot se primêre instansie bestuur. Al die res hier is plaaslik tot hierdie lid, insluitend watter enkelaanmelding-verskaffers dit aanbied."
 		},
 		"activeSessions": {
 			"title": "Aktiewe sessies",

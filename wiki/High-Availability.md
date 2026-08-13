@@ -253,6 +253,8 @@ own HA self-report and refuses a host that already is the primary.
 | Custom failover groups | Auto-formed failover groups |
 | Models you switched off by hand | Discovered models themselves |
 | Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Alerting destination (apprise URL/targets) |
+| SSO email allowlists (who may log in, fleet-wide) | SSO provider config (enable flags, issuer, client credentials, callback base URL - each member chooses which IdPs it offers) |
+| Password policy (breached-password check) | Tab timeout (per-instance operator preference) |
 
 Model rows and auto-formed failover groups are **not** copied: each member
 rediscovers models from the synced providers and re-forms those groups on its own.

@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
 			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen.",
-			"authNote": "Lösenordspolicyn och enkel inloggning (SSO) nedanför hanteras av flottans primära instans. Lösenordsnycklar, 2FA, flik-timeout och aktiva sessioner ovanför förblir lokala på denna instans."
+			"authNote": "Lösenordspolicyn och listorna över tillåtna inloggnings-e-postadresser hanteras av flottans primära instans. Allt annat här är lokalt för denna medlem, inklusive vilka leverantörer av enkel inloggning den erbjuder."
 		},
 		"activeSessions": {
 			"title": "Aktiva sessioner",

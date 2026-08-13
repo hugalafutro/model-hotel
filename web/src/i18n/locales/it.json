@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestita dall'istanza primaria della flotta. Le modifiche apportate qui vengono sostituite alla successiva sincronizzazione della configurazione.",
 			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza.",
-			"authNote": "I criteri per le password e l'accesso unico (SSO) qui sotto sono gestiti dall'istanza primaria della flotta. Passkeys, 2FA, timeout della scheda e sessioni attive qui sopra restano locali a questa istanza."
+			"authNote": "I criteri per le password e le liste di email autorizzate all'accesso sono gestiti dall'istanza primaria della flotta. Tutto il resto qui è locale a questo membro, compresi i provider di accesso unico che offre."
 		},
 		"activeSessions": {
 			"title": "Sessioni attive",

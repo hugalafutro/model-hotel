@@ -2162,7 +2162,7 @@
 		"managed": {
 			"sectionNote": "Spravováno primární instancí flotily. Změny provedené zde se při příští synchronizaci konfigurace nahradí.",
 			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci.",
-			"authNote": "Zásady hesel a jednotné přihlášení (SSO) níže spravuje primární instance flotily. Přístupové klíče, 2FA, časový limit karty a aktivní relace výše zůstávají lokální pro tuto instanci."
+			"authNote": "Zásady hesel a seznamy povolených přihlašovacích e-mailů spravuje primární instance flotily. Vše ostatní je zde lokální pro tohoto člena, včetně toho, které poskytovatele jednotného přihlášení nabízí."
 		},
 		"activeSessions": {
 			"title": "Aktivní relace",

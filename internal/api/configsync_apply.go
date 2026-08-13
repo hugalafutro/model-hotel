@@ -262,7 +262,10 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 //
 // url / url_public get the full netguard treatment: these are values the server
 // itself later fetches or reflects into a redirect URI (reported SSRF bypass,
-// CWE-918).
+// CWE-918). Standing guard with no live path today: every current url-typed
+// setting (apprise + SSO) is instance-local and skipped before validation, so
+// these branches fire only if a future url-typed setting joins the syncable
+// set.
 //
 // int / float get their MINIMUM enforced, and deliberately not their maximum or
 // their parseability. The floors are the ones that change runtime enforcement:
