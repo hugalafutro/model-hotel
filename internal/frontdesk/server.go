@@ -373,6 +373,12 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Post("/pair/status", s.pairStatus)
 				r.Get("/devices", s.listDevices)
 				r.Delete("/devices/{id}", s.revokeDevice)
+				// Browser-session hygiene (list / revoke one / revoke others).
+				// Admin-tier because a paired device is not the operator's
+				// browser: sessions are none of its business.
+				r.Get("/auth/sessions", s.listAuthSessions)
+				r.Delete("/auth/sessions/{id}", s.revokeAuthSession)
+				r.Post("/auth/sessions/revoke-others", s.revokeOtherSessions)
 			})
 		})
 	})

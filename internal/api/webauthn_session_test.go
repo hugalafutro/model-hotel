@@ -3,6 +3,10 @@ package api
 import (
 	"context"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // These tests cover Handler.SetWebAuthnSessionManager, an api.Handler concern.
@@ -15,6 +19,8 @@ type mockWebAuthnSessionMgr struct {
 	revokeFn       func(ctx context.Context, token string) bool
 	createFn       func(ctx context.Context, userID, credentialID []byte) (string, error)
 	revokeOthersFn func(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
+	listFn         func(ctx context.Context, identity []byte, candidateTokens ...string) ([]webauthn.AuthSessionInfo, error)
+	revokeByIDFn   func(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error
 }
 
 // RevokeOtherSessions defers to revokeOthersFn when set, so a test can assert
@@ -28,11 +34,29 @@ func (m *mockWebAuthnSessionMgr) RevokeOtherSessions(ctx context.Context, identi
 
 // CreateAuthToken mints a session token, deferring to createFn when set so
 // tests can return a deterministic token (or an error) without a session store.
-func (m *mockWebAuthnSessionMgr) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
+// The device meta is dropped: none of these tests read it back.
+func (m *mockWebAuthnSessionMgr) CreateAuthToken(ctx context.Context, userID, credentialID []byte, _ webauthn.SessionMeta) (string, error) {
 	if m.createFn != nil {
 		return m.createFn(ctx, userID, credentialID)
 	}
 	return "mock-session-token", nil
+}
+
+// ListAuthSessions defers to listFn when set; otherwise an empty list.
+func (m *mockWebAuthnSessionMgr) ListAuthSessions(ctx context.Context, identity []byte, candidateTokens ...string) ([]webauthn.AuthSessionInfo, error) {
+	if m.listFn != nil {
+		return m.listFn(ctx, identity, candidateTokens...)
+	}
+	return nil, nil
+}
+
+// RevokeSessionByID defers to revokeByIDFn when set; otherwise not-found,
+// matching a store with no sessions.
+func (m *mockWebAuthnSessionMgr) RevokeSessionByID(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error {
+	if m.revokeByIDFn != nil {
+		return m.revokeByIDFn(ctx, identity, id, candidateTokens...)
+	}
+	return webauthn.ErrNotFound
 }
 
 func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) bool {

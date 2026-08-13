@@ -23,10 +23,10 @@ func newValidAdminSession(t *testing.T) (mgr *webauthn.SessionManager, adminTok,
 	t.Helper()
 	mgr = webauthn.NewSessionManager(newMemStore())
 	var err error
-	if adminTok, err = mgr.CreateAuthToken(context.Background(), []byte("admin"), nil); err != nil {
+	if adminTok, err = mgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{}); err != nil {
 		t.Fatalf("CreateAuthToken(admin): %v", err)
 	}
-	if userTok, err = mgr.CreateAuthToken(context.Background(), []byte("6f1d0f26-0f77-4a0a-9a1e-2b6b1f8f0f11"), nil); err != nil {
+	if userTok, err = mgr.CreateAuthToken(context.Background(), []byte("6f1d0f26-0f77-4a0a-9a1e-2b6b1f8f0f11"), nil, webauthn.SessionMeta{}); err != nil {
 		t.Fatalf("CreateAuthToken(user): %v", err)
 	}
 	return mgr, adminTok, userTok

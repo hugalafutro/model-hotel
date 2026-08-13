@@ -2121,7 +2121,12 @@
 			"signedOut_one": "Одјављена је {{count}} друга сесија",
 			"signedOut_few": "Одјављене су {{count}} друге сесије",
 			"signedOut_other": "Одјављено је {{count}} других сесија",
-			"noneToSignOut": "Није било других отворених сесија"
+			"noneToSignOut": "Није било других отворених сесија",
+			"unknownDevice": "Непознат уређај",
+			"currentBadge": "Овај уређај",
+			"signOutOne": "Одјави",
+			"signedIn": "Пријава {{when}}",
+			"lastSeen": "Активна {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Истек сесије",

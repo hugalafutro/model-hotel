@@ -2121,7 +2121,12 @@
 			"signedOut_one": "Terminada {{count}} outra sessão",
 			"signedOut_many": "Terminadas {{count}} outras sessões",
 			"signedOut_other": "Terminadas {{count}} outras sessões",
-			"noneToSignOut": "Não havia outras sessões abertas"
+			"noneToSignOut": "Não havia outras sessões abertas",
+			"unknownDevice": "Dispositivo desconhecido",
+			"currentBadge": "Este dispositivo",
+			"signOutOne": "Encerrar sessão",
+			"signedIn": "Sessão iniciada {{when}}",
+			"lastSeen": "Ativa {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Tempo limite da sessão",

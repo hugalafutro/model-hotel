@@ -395,7 +395,7 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Mint the same session token as passkey/TOTP/OIDC login, carrying the
 	// resolved identity handle (nil credentialID: no passkey to cascade-revoke).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil)
+	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil, webauthn.MetaFromRequest(r))
 	if err != nil {
 		h.fail(w, r, throttleKey, "failed to create session", err)
 		return

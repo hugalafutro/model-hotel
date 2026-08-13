@@ -2121,7 +2121,12 @@
 			"signedOut_one": "{{count}} autre session déconnectée",
 			"signedOut_many": "{{count}} autres sessions déconnectées",
 			"signedOut_other": "{{count}} autres sessions déconnectées",
-			"noneToSignOut": "Aucune autre session n'était ouverte"
+			"noneToSignOut": "Aucune autre session n'était ouverte",
+			"unknownDevice": "Appareil inconnu",
+			"currentBadge": "Cet appareil",
+			"signOutOne": "Déconnecter",
+			"signedIn": "Connexion {{when}}",
+			"lastSeen": "Dernière activité {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Délai d'expiration de la session",

@@ -2173,7 +2173,12 @@
 			"signedOut_few": "Odhlášeny {{count}} další relace",
 			"signedOut_many": "Odhlášeno {{count}} dalších relací",
 			"signedOut_other": "Odhlášeno {{count}} dalších relací",
-			"noneToSignOut": "Žádné další relace nebyly otevřené"
+			"noneToSignOut": "Žádné další relace nebyly otevřené",
+			"unknownDevice": "Neznámé zařízení",
+			"currentBadge": "Toto zařízení",
+			"signOutOne": "Odhlásit",
+			"signedIn": "Přihlášení {{when}}",
+			"lastSeen": "Aktivní {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Časový limit relace",

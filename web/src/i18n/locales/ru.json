@@ -2173,7 +2173,12 @@
 			"signedOut_few": "Завершено {{count}} других сеанса",
 			"signedOut_many": "Завершено {{count}} других сеансов",
 			"signedOut_other": "Завершено {{count}} других сеансов",
-			"noneToSignOut": "Других открытых сеансов не было"
+			"noneToSignOut": "Других открытых сеансов не было",
+			"unknownDevice": "Неизвестное устройство",
+			"currentBadge": "Это устройство",
+			"signOutOne": "Завершить сеанс",
+			"signedIn": "Вход выполнен {{when}}",
+			"lastSeen": "Активен {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Тайм-аут сессии",

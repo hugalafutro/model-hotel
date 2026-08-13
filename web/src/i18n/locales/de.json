@@ -2069,7 +2069,12 @@
 			"confirm": "Zum Bestätigen klicken",
 			"signedOut_one": "{{count}} andere Sitzung abgemeldet",
 			"signedOut_other": "{{count}} andere Sitzungen abgemeldet",
-			"noneToSignOut": "Es waren keine anderen Sitzungen offen"
+			"noneToSignOut": "Es waren keine anderen Sitzungen offen",
+			"unknownDevice": "Unbekanntes Gerät",
+			"currentBadge": "Dieses Gerät",
+			"signOutOne": "Abmelden",
+			"signedIn": "Angemeldet {{when}}",
+			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Sitzungs-Timeout",

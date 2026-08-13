@@ -524,6 +524,27 @@
 			"paired": "Zařízení spárováno",
 			"revokeTitle": "Odvolat zařízení?",
 			"revokeBody": "„{{label}}“ okamžitě ztratí přístup. Pro obnovení ho spárujte znovu."
+		},
+		"sessions": {
+			"title": "Aktivní relace",
+			"description": "Přihlášení neukončí relace otevřené jinde. Odhlaste je, pokud jste zařízení ztratili nebo máte podezření na odcizení relace.",
+			"unknownDevice": "Neznámé zařízení",
+			"currentBadge": "Tento prohlížeč",
+			"signOut": "Odhlásit",
+			"signOutOthers": "Odhlásit ostatní",
+			"confirmSignOutTitle": "Odhlásit tuto relaci?",
+			"confirmSignOut": "Odhlásit zařízení",
+			"confirmSignOutBody": "{{device}} bude odhlášeno a bude se muset znovu přihlásit.",
+			"confirmSignOutOthersTitle": "Odhlásit ostatní relace?",
+			"confirmSignOutOthers": "Odhlásit ostatní relace",
+			"confirmSignOutOthersBody": "Všechny relace kromě tohoto prohlížeče budou odhlášeny.",
+			"signedOut_one": "Odhlášena {{count}} další relace",
+			"signedOut_few": "Odhlášeny {{count}} další relace",
+			"signedOut_many": "Odhlášeno {{count}} dalších relací",
+			"signedOut_other": "Odhlášeno {{count}} dalších relací",
+			"noneToSignOut": "Žádné další relace nebyly otevřené",
+			"signedIn": "Přihlášení {{when}}",
+			"lastSeen": "Aktivní {{when}}"
 		}
 	},
 	"quota": {

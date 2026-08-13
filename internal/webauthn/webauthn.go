@@ -21,7 +21,7 @@ import (
 
 const credentialColumns = `id, name, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data, created_at, updated_at`
 
-const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at`
+const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at, user_agent, ip, last_seen_at`
 
 // ---------------------------------------------------------------------------
 // Domain types
@@ -129,6 +129,15 @@ type SessionRecord struct {
 	CredentialID []byte    `json:"credential_id,omitempty"`
 	ExpiresAt    time.Time `json:"expires_at"`
 	CreatedAt    time.Time `json:"created_at"`
+	// Device metadata captured when an auth_token session is minted (migration
+	// 069), shown in the dashboard's active-sessions list. Empty on rows minted
+	// before the migration and on non-token ceremony sessions.
+	UserAgent string `json:"user_agent,omitempty"`
+	IP        string `json:"ip,omitempty"`
+	// LastSeenAt is stamped by SessionManager.TokenUser on successful
+	// validation, throttled to one write per session per throttle window. Nil
+	// until the session first authenticates a request.
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 }
 
 // AdminUser implements the webauthn.User interface for Model Hotel's single
@@ -338,9 +347,9 @@ func (r *Repository) UpdateSignCount(ctx context.Context, id []byte, signCount u
 // CreateSession inserts a new WebAuthn session record.
 func (r *Repository) CreateSession(ctx context.Context, session *SessionRecord) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		session.ID, session.Challenge, session.SessionData, session.Type, session.UserID, session.TokenHash, session.CredentialID, session.ExpiresAt,
+		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, user_agent, ip)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		session.ID, session.Challenge, session.SessionData, session.Type, session.UserID, session.TokenHash, session.CredentialID, session.ExpiresAt, session.UserAgent, session.IP,
 	)
 	if err != nil {
 		debuglog.Error("webauthn: failed to create session", "session_id", session.ID, "type", session.Type, "error", err)
@@ -354,7 +363,7 @@ func (r *Repository) GetSession(ctx context.Context, id uuid.UUID) (*SessionReco
 	var s SessionRecord
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE id = $1`, id,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt)
+	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -371,7 +380,7 @@ func (r *Repository) GetSessionByTokenHash(ctx context.Context, tokenHash string
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE token_hash = $1 AND type = 'auth_token'`,
 		tokenHash,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt)
+	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -379,6 +388,40 @@ func (r *Repository) GetSessionByTokenHash(ctx context.Context, tokenHash string
 		return nil, err
 	}
 	return &s, nil
+}
+
+// ListAuthSessionsForUser returns the live (non-expired) auth_token sessions
+// belonging to userID, newest first. Ceremony sessions and expired rows are
+// not listed: the former are not logins, the latter the middleware already
+// rejects.
+func (r *Repository) ListAuthSessionsForUser(ctx context.Context, userID []byte) ([]*SessionRecord, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+sessionColumns+` FROM webauthn_sessions
+		 WHERE user_id = $1 AND type = 'auth_token' AND expires_at > NOW()
+		 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*SessionRecord
+	for rows.Next() {
+		var s SessionRecord
+		if err := rowsScan(rows, &s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, &s)
+	}
+	return sessions, rows.Err()
+}
+
+// TouchSessionLastSeen stamps a session's last_seen_at. Best-effort from the
+// caller's point of view: a missing row (revoked between validation and stamp)
+// is not an error worth surfacing.
+func (r *Repository) TouchSessionLastSeen(ctx context.Context, id uuid.UUID, at time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE webauthn_sessions SET last_seen_at = $1 WHERE id = $2`, at, id)
+	return err
 }
 
 // DeleteSession removes a WebAuthn session by its ID.

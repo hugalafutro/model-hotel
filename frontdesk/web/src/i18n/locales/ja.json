@@ -510,6 +510,25 @@
 			"paired": "デバイスをペアリングしました",
 			"revokeTitle": "デバイスを失効しますか？",
 			"revokeBody": "「{{label}}」は直ちにアクセスできなくなります。復旧するには再度ペアリングしてください。"
+		},
+		"sessions": {
+			"title": "アクティブなセッション",
+			"description": "サインインしても、他の場所で開いているセッションは終了しません。デバイスを紛失した場合や、セッションが盗まれた疑いがある場合はサインアウトしてください。",
+			"unknownDevice": "不明なデバイス",
+			"currentBadge": "このブラウザ",
+			"signOut": "サインアウト",
+			"signOutOthers": "他をサインアウト",
+			"confirmSignOutTitle": "このセッションをサインアウトしますか？",
+			"confirmSignOut": "デバイスをサインアウト",
+			"confirmSignOutBody": "{{device}} はサインアウトされ、再度サインインが必要になります。",
+			"confirmSignOutOthersTitle": "他のセッションをサインアウトしますか？",
+			"confirmSignOutOthers": "他のセッションをサインアウト",
+			"confirmSignOutOthersBody": "このブラウザ以外のすべてのセッションがサインアウトされます。",
+			"signedOut_other": "他の {{count}} 件のセッションをサインアウトしました",
+			"noneToSignOut": "他に開いているセッションはありませんでした",
+			"signedIn": "{{when}}にサインイン",
+			"lastSeen": "{{when}}にアクティブ",
+			"signedOut_one": "他の {{count}} 件のセッションをサインアウトしました"
 		}
 	},
 	"quota": {

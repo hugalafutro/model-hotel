@@ -10,12 +10,12 @@ func TestSessionManagerTokenUser(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	adminTok, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	adminTok, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken(admin): %v", err)
 	}
 	userHandle := "2f9c3a1e-0000-4000-8000-000000000001"
-	userTok, err := mgr.CreateAuthToken(ctx, []byte(userHandle), nil)
+	userTok, err := mgr.CreateAuthToken(ctx, []byte(userHandle), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken(user): %v", err)
 	}
@@ -40,15 +40,15 @@ func TestDeleteSessionsByUserID(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	handle := "3f9c3a1e-0000-4000-8000-000000000002"
-	tok1, err := mgr.CreateAuthToken(ctx, []byte(handle), nil)
+	tok1, err := mgr.CreateAuthToken(ctx, []byte(handle), nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	tok2, err := mgr.CreateAuthToken(ctx, []byte(handle), nil)
+	tok2, err := mgr.CreateAuthToken(ctx, []byte(handle), nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherTok, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	otherTok, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}

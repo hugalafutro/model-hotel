@@ -1586,7 +1586,7 @@ func TestBackupRestore_TotpOn_AcceptsSessionTokenInForm(t *testing.T) {
 	t.Cleanup(pool.Close)
 	repo := webauthn.NewRepository(pool)
 	sessionMgr := webauthn.NewSessionManager(repo)
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

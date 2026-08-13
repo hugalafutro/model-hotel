@@ -524,6 +524,27 @@
 			"paired": "Urządzenie sparowane",
 			"revokeTitle": "Odwołać urządzenie?",
 			"revokeBody": "„{{label}}” natychmiast straci dostęp. Aby je przywrócić, sparuj je ponownie."
+		},
+		"sessions": {
+			"title": "Aktywne sesje",
+			"description": "Zalogowanie się nie kończy sesji otwartych w innych miejscach. Wyloguj je, jeśli urządzenie zginęło lub podejrzewasz kradzież sesji.",
+			"unknownDevice": "Nieznane urządzenie",
+			"currentBadge": "Ta przeglądarka",
+			"signOut": "Wyloguj",
+			"signOutOthers": "Wyloguj pozostałe",
+			"confirmSignOutTitle": "Wylogować tę sesję?",
+			"confirmSignOut": "Wyloguj urządzenie",
+			"confirmSignOutBody": "{{device}} zostanie wylogowane i będzie musiało zalogować się ponownie.",
+			"confirmSignOutOthersTitle": "Wylogować pozostałe sesje?",
+			"confirmSignOutOthers": "Wyloguj pozostałe sesje",
+			"confirmSignOutOthersBody": "Wszystkie sesje oprócz tej przeglądarki zostaną wylogowane.",
+			"signedOut_one": "Wylogowano {{count}} inną sesję",
+			"signedOut_few": "Wylogowano {{count}} inne sesje",
+			"signedOut_many": "Wylogowano {{count}} innych sesji",
+			"signedOut_other": "Wylogowano {{count}} innej sesji",
+			"noneToSignOut": "Żadne inne sesje nie były otwarte",
+			"signedIn": "Zalogowano {{when}}",
+			"lastSeen": "Aktywna {{when}}"
 		}
 	},
 	"quota": {

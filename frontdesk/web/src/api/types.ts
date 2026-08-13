@@ -84,6 +84,19 @@ export interface PairStart {
 	expires_at: string;
 }
 
+// AuthSession is one row of Settings → Active sessions, served by
+// GET /api/auth/sessions: the admin identity's live browser sessions, with the
+// one this browser rides on flagged current. Sessions minted before the device
+// metadata existed carry empty user_agent/ip and no last_seen_at.
+export interface AuthSession {
+	id: string;
+	user_agent: string;
+	ip: string;
+	created_at: string;
+	last_seen_at?: string;
+	current: boolean;
+}
+
 // memberView from listMembers: a Member plus its live poller status.
 export interface MemberView extends Member {
 	status: MemberStatus;

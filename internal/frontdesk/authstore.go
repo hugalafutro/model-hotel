@@ -41,7 +41,7 @@ func NewWebAuthnStore(store *Store) *WebAuthnStore {
 
 const waCredentialColumns = `id, name, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data, created_at, updated_at`
 
-const waSessionColumns = `id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at`
+const waSessionColumns = `id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at, user_agent, ip, last_seen_at`
 
 // StoreCredential inserts or replaces a credential (upsert by id).
 func (s *WebAuthnStore) StoreCredential(ctx context.Context, cred *webauthn.CredentialRecord) error {
@@ -160,10 +160,11 @@ func (s *WebAuthnStore) UpdateSignCount(ctx context.Context, id []byte, signCoun
 // CreateSession inserts a session record.
 func (s *WebAuthnStore) CreateSession(ctx context.Context, session *webauthn.SessionRecord) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at, user_agent, ip)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID.String(), session.Challenge, session.SessionData, session.Type, session.UserID,
 		session.TokenHash, session.CredentialID, session.ExpiresAt.UTC().UnixNano(), time.Now().UTC().UnixNano(),
+		session.UserAgent, session.IP,
 	)
 	if err != nil {
 		return fmt.Errorf("frontdesk: create session: %w", err)
@@ -213,6 +214,43 @@ func (s *WebAuthnStore) DeleteOtherSessionsForUser(ctx context.Context, userID [
 		return 0, fmt.Errorf("frontdesk: revoke other sessions: %w", err)
 	}
 	return n, nil
+}
+
+// ListAuthSessionsForUser returns the live (non-expired) auth_token sessions
+// belonging to userID, newest first, for the operator-facing active-sessions
+// list.
+func (s *WebAuthnStore) ListAuthSessionsForUser(ctx context.Context, userID []byte) ([]*webauthn.SessionRecord, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+waSessionColumns+` FROM webauthn_sessions
+		 WHERE user_id = ? AND type = 'auth_token' AND expires_at > ?
+		 ORDER BY created_at DESC`,
+		userID, time.Now().UTC().UnixNano())
+	if err != nil {
+		return nil, fmt.Errorf("frontdesk: list auth sessions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var sessions []*webauthn.SessionRecord
+	for rows.Next() {
+		rec, err := scanSessionResult(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, rec)
+	}
+	return sessions, rows.Err()
+}
+
+// TouchSessionLastSeen stamps a session's last_seen_at. A missing row (revoked
+// between validation and stamp) is not an error.
+func (s *WebAuthnStore) TouchSessionLastSeen(ctx context.Context, id uuid.UUID, at time.Time) error {
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE webauthn_sessions SET last_seen_at = ? WHERE id = ?`,
+		at.UTC().UnixNano(), id.String(),
+	); err != nil {
+		return fmt.Errorf("frontdesk: touch session last-seen: %w", err)
+	}
+	return nil
 }
 
 // CleanupExpiredSessions removes sessions past their expiry.
@@ -265,12 +303,13 @@ func scanCredential(sc scanner) (*webauthn.CredentialRecord, error) {
 
 func scanSessionResult(sc scanner) (*webauthn.SessionRecord, error) {
 	var (
-		s         webauthn.SessionRecord
-		idStr     string
-		expiresAt int64
-		createdAt int64
+		s          webauthn.SessionRecord
+		idStr      string
+		expiresAt  int64
+		createdAt  int64
+		lastSeenAt sql.NullInt64
 	)
-	if err := sc.Scan(&idStr, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &expiresAt, &createdAt); err != nil {
+	if err := sc.Scan(&idStr, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &expiresAt, &createdAt, &s.UserAgent, &s.IP, &lastSeenAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, webauthn.ErrNotFound
 		}
@@ -283,6 +322,10 @@ func scanSessionResult(sc scanner) (*webauthn.SessionRecord, error) {
 	s.ID = parsed
 	s.ExpiresAt = time.Unix(0, expiresAt).UTC()
 	s.CreatedAt = time.Unix(0, createdAt).UTC()
+	if lastSeenAt.Valid {
+		seen := time.Unix(0, lastSeenAt.Int64).UTC()
+		s.LastSeenAt = &seen
+	}
 	return &s, nil
 }
 

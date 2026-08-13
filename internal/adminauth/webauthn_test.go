@@ -182,7 +182,7 @@ func TestAdminOrSessionAuth_SessionToken(t *testing.T) {
 	wrapped := h.adminOrSessionAuth(handler)
 
 	// Create a session token
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("failed to create session token: %v", err)
 	}
@@ -223,7 +223,7 @@ func newCookieSessionEnv(t *testing.T, userID []byte) (http.Handler, string) {
 	})
 	wrapped := h.adminOrSessionAuth(handler)
 
-	token, err := sessionMgr.CreateAuthToken(context.Background(), userID, nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), userID, nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("failed to create session token: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestWebAuthnHandler_Logout_WithValidToken(t *testing.T) {
 	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
 
 	// Create a session token
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("failed to create session token: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestWebAuthnHandler_Logout_CookieMode_ClearsCookie(t *testing.T) {
 	h.useCookieAuth = true
 	h.cookieSecure = "never"
 
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("failed to create session token: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestWebAuthnHandler_Logout_LegacyMode_NoSetCookie(t *testing.T) {
 	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
 	// useCookieAuth defaults to false (header-bearer mode).
 
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("failed to create session token: %v", err)
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // The SSE stream re-checks the caller's credentials on every heartbeat, so a
@@ -155,7 +156,7 @@ func TestSSEClosesAfterSessionRevoked(t *testing.T) {
 		t.Run(carrier, func(t *testing.T) {
 			srv, _ := newTestServer(t)
 			ctx := context.Background()
-			token, err := srv.SessionManager().CreateAuthToken(ctx, []byte("admin"), nil)
+			token, err := srv.SessionManager().CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 			if err != nil {
 				t.Fatalf("CreateAuthToken: %v", err)
 			}

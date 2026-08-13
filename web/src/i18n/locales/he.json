@@ -2121,7 +2121,12 @@
 			"signedOut_one": "{{count}} הפעלה אחרת נותקה",
 			"signedOut_two": "{{count}} הפעלות אחרות נותקו",
 			"signedOut_other": "{{count}} הפעלות אחרות נותקו",
-			"noneToSignOut": "לא היו הפעלות אחרות פתוחות"
+			"noneToSignOut": "לא היו הפעלות אחרות פתוחות",
+			"unknownDevice": "מכשיר לא מוכר",
+			"currentBadge": "המכשיר הזה",
+			"signOutOne": "ניתוק",
+			"signedIn": "התחברות {{when}}",
+			"lastSeen": "פעיל {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "תפוגת זמן ההפעלה",

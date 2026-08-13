@@ -19,7 +19,7 @@ import (
 func newTestSessionWithAdminToken(t *testing.T) (*webauthn.SessionManager, string) {
 	t.Helper()
 	sessionMgr := webauthn.NewSessionManager(newMemStore())
-	tok, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	tok, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestWebAuthnLogout_HonorsHandlerJar(t *testing.T) {
 	h.cookieSecure = "never"
 	h.jar = authcookie.FrontDesk
 
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

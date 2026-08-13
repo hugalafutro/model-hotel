@@ -435,7 +435,7 @@ func TestTotpEnrollStart_RejectsUserSession(t *testing.T) {
 	ctx := context.Background()
 
 	// Minted exactly like userlogin.Login: UserID is a user UUID string.
-	userToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("11111111-1111-1111-1111-111111111111"), nil)
+	userToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("11111111-1111-1111-1111-111111111111"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken(user): %v", err)
 	}
@@ -449,7 +449,7 @@ func TestTotpEnrollStart_RejectsUserSession(t *testing.T) {
 
 	// The admin sentinel every admin login front-end mints must still pass, so
 	// the fix does not lock legitimate passkey/TOTP/SSO-admin sessions out.
-	adminToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	adminToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken(admin): %v", err)
 	}
@@ -995,7 +995,7 @@ func TestTotpAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
 	}
 
 	// Session token: should pass.
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

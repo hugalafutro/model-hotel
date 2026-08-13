@@ -2173,7 +2173,12 @@
 			"signedOut_few": "Odhlásené {{count}} ďalšie relácie",
 			"signedOut_many": "Odhlásených {{count}} ďalších relácií",
 			"signedOut_other": "Odhlásených {{count}} ďalších relácií",
-			"noneToSignOut": "Žiadne ďalšie relácie neboli otvorené"
+			"noneToSignOut": "Žiadne ďalšie relácie neboli otvorené",
+			"unknownDevice": "Neznáme zariadenie",
+			"currentBadge": "Toto zariadenie",
+			"signOutOne": "Odhlásiť",
+			"signedIn": "Prihlásenie {{when}}",
+			"lastSeen": "Aktívna {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Časový limit relácie",

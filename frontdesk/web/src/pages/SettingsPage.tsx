@@ -2,6 +2,7 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
+import { ActiveSessionsPanel } from "../components/ActiveSessionsPanel";
 import { AlertsPanel } from "../components/AlertsPanel";
 import { FleetMaintenancePanel } from "../components/FleetMaintenancePanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
@@ -255,6 +256,8 @@ export function SettingsPage() {
 			<AlertsPanel />
 
 			<SecurityPanels />
+
+			<ActiveSessionsPanel />
 
 			<PairedDevicesPanel />
 

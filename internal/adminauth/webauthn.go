@@ -415,7 +415,7 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.sessionMgr.CreateAuthToken(r.Context(), user.WebAuthnID(), parsedCred.ID)
+	token, err := h.sessionMgr.CreateAuthToken(r.Context(), user.WebAuthnID(), parsedCred.ID, webauthn.MetaFromRequest(r))
 	if err != nil {
 		debuglog.Error("webauthn: failed to create auth token", "error", err)
 		respondError(w, "failed to create auth token", err, http.StatusInternalServerError)

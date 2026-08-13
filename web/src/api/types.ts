@@ -939,6 +939,19 @@ export interface Me {
 	allowed_providers?: string[] | null;
 }
 
+// AuthSession is one row of the Settings active-sessions list, served by
+// GET /api/auth/sessions: the caller's own live sessions only, with the one
+// this browser rides on flagged current. Sessions minted before the device
+// metadata existed carry empty user_agent/ip and no last_seen_at.
+export interface AuthSession {
+	id: string;
+	user_agent: string;
+	ip: string;
+	created_at: string;
+	last_seen_at?: string;
+	current: boolean;
+}
+
 // DashboardUser is a managed user account (admin-only Users page). The
 // password hash never leaves the backend.
 export interface DashboardUser {

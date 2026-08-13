@@ -9,6 +9,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/user"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // The route, exercised through the real auth middleware rather than by calling
@@ -26,12 +27,12 @@ func TestRevokeOtherSessionsRoute_JunkCookieCannotTargetAdmin(t *testing.T) {
 	ctx := context.Background()
 
 	// A plain, lowest-privilege account and a session for it.
-	victimAdminToken, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	victimAdminToken, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("mint admin session: %v", err)
 	}
 	u := seedRouteUser(t, userRepo, "mallory", "user")
-	attackerToken, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil)
+	attackerToken, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("mint user session: %v", err)
 	}
@@ -67,15 +68,15 @@ func TestRevokeOtherSessionsRoute_EndsOnlyTheCallersOwnOtherSessions(t *testing.
 	ctx := context.Background()
 
 	u := seedRouteUser(t, userRepo, "alice", "user")
-	mine, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil)
+	mine, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	phone, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil)
+	phone, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	adminSession, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	adminSession, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,6 +98,134 @@ func TestRevokeOtherSessionsRoute_EndsOnlyTheCallersOwnOtherSessions(t *testing.
 	if _, ok := sessionMgr.TokenUser(ctx, adminSession); !ok {
 		t.Error("a different identity's session was revoked")
 	}
+}
+
+// The list and per-row revoke, through the real middleware: a user sees only
+// their own sessions with the calling one marked current, can end their other
+// session, cannot end the one they are on, and cannot touch another identity's
+// session even with its real id.
+func TestAuthSessionsRoute_ListAndRevokeAreIdentityScoped(t *testing.T) {
+	r, userRepo, sessionMgr := setupUsersTest(t)
+	ctx := context.Background()
+
+	u := seedRouteUser(t, userRepo, "carol", "user")
+	mine, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil, webauthn.SessionMeta{UserAgent: "here"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	phone, err := sessionMgr.CreateAuthToken(ctx, []byte(u.ID.String()), nil, webauthn.SessionMeta{UserAgent: "phone"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminSession, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// List: two rows, the caller's marked current, the admin's absent.
+	req := httptest.NewRequest(http.MethodGet, "/auth/sessions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+mine)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("list status = %d (%s)", w.Code, w.Body.String())
+	}
+	var list listSessionsResult
+	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(list.Sessions) != 2 {
+		t.Fatalf("sessions = %d, want 2 (only the caller's own)", len(list.Sessions))
+	}
+	var phoneID, adminVisible string
+	for _, s := range list.Sessions {
+		if s.UserAgent == "here" && !s.Current {
+			t.Error("the calling session is not marked current")
+		}
+		if s.UserAgent == "phone" {
+			if s.Current {
+				t.Error("the other session is marked current")
+			}
+			phoneID = s.ID.String()
+		}
+		if s.UserAgent == "" {
+			adminVisible = s.ID.String()
+		}
+	}
+	if adminVisible != "" {
+		t.Error("another identity's session appeared in the list")
+	}
+	if phoneID == "" {
+		t.Fatal("the caller's other session is missing from the list")
+	}
+
+	// Revoking the current session is refused.
+	var mineID string
+	for _, s := range list.Sessions {
+		if s.Current {
+			mineID = s.ID.String()
+		}
+	}
+	req = httptest.NewRequest(http.MethodDelete, "/auth/sessions/"+mineID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+mine)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("delete current status = %d, want 409 (%s)", w.Code, w.Body.String())
+	}
+	if _, ok := sessionMgr.TokenUser(ctx, mine); !ok {
+		t.Fatal("the current session died despite the refusal")
+	}
+
+	// Revoking the other session works and is surgical.
+	req = httptest.NewRequest(http.MethodDelete, "/auth/sessions/"+phoneID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+mine)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("delete other status = %d, want 204 (%s)", w.Code, w.Body.String())
+	}
+	if _, ok := sessionMgr.TokenUser(ctx, phone); ok {
+		t.Error("the targeted session survived")
+	}
+	if _, ok := sessionMgr.TokenUser(ctx, mine); !ok {
+		t.Error("the caller's session died as collateral")
+	}
+
+	// A foreign session id reads as not-found and the session survives, even
+	// though the id is real.
+	adminID := listOnlySessionID(t, r, adminSession)
+	req = httptest.NewRequest(http.MethodDelete, "/auth/sessions/"+adminID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+mine)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("delete foreign status = %d, want 404 (%s)", w.Code, w.Body.String())
+	}
+	if _, ok := sessionMgr.TokenUser(ctx, adminSession); !ok {
+		t.Error("another identity's session was revoked")
+	}
+}
+
+// listOnlySessionID fetches the single session id visible to the given token's
+// identity, for aiming a cross-identity delete at a real id.
+func listOnlySessionID(t *testing.T, r http.Handler, token string) string {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/auth/sessions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("list status = %d (%s)", w.Code, w.Body.String())
+	}
+	var list listSessionsResult
+	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(list.Sessions) != 1 {
+		t.Fatalf("sessions = %d, want exactly 1", len(list.Sessions))
+	}
+	return list.Sessions[0].ID.String()
 }
 
 // seedRouteUser creates an enabled account directly, so the test does not

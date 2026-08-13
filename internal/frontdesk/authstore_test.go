@@ -107,7 +107,7 @@ func TestSessionManagerOverSQLite(t *testing.T) {
 	mgr := webauthn.NewSessionManager(store)
 	ctx := context.Background()
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-x"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-x"), webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestDeleteCredentialCascadesSessions(t *testing.T) {
 	if err := store.StoreCredential(ctx, newCred("cred-del")); err != nil {
 		t.Fatalf("StoreCredential: %v", err)
 	}
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-del"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-del"), webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -341,6 +341,121 @@ func TestDeleteOtherSessionsForUser_EmptyKeepHashRevokesAll(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("revoked %d, want 1", n)
+	}
+}
+
+// Device metadata must survive the SQLite round-trip, or Front Desk's
+// active-sessions list would show every login as an unknown device.
+func TestSQLiteSessionMetaRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hash := "hash-meta"
+	rec := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hash, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "Mozilla/5.0 Firefox/141.0", IP: "203.0.113.7",
+	}
+	if err := store.CreateSession(ctx, rec); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	got, err := store.GetSession(ctx, rec.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.UserAgent != "Mozilla/5.0 Firefox/141.0" || got.IP != "203.0.113.7" {
+		t.Errorf("meta round-trip lost: ua=%q ip=%q", got.UserAgent, got.IP)
+	}
+	if got.LastSeenAt != nil {
+		t.Errorf("LastSeenAt = %v, want nil before first touch", got.LastSeenAt)
+	}
+}
+
+// The SQLite side of the sessions list: only this identity's live auth tokens,
+// newest first, ceremonies and expired rows excluded.
+func TestSQLiteListAuthSessionsForUser(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hashOld, hashNew, hashExp, hashStranger := "h-old", "h-new", "h-exp", "h-stranger"
+	older := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashOld, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "older",
+	}
+	ceremony := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "login",
+		UserID: []byte("admin"), ExpiresAt: time.Now().Add(time.Hour),
+	}
+	expired := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashExp, ExpiresAt: time.Now().Add(-time.Hour),
+	}
+	stranger := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("someone-else"), TokenHash: &hashStranger, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	for _, rec := range []*webauthn.SessionRecord{older, ceremony, expired, stranger} {
+		if err := store.CreateSession(ctx, rec); err != nil {
+			t.Fatalf("CreateSession: %v", err)
+		}
+	}
+	// A strictly later created_at for the newer row, so the ordering assertion
+	// cannot pass by insertion accident.
+	time.Sleep(5 * time.Millisecond)
+	newer := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashNew, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "newer",
+	}
+	if err := store.CreateSession(ctx, newer); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	sessions, err := store.ListAuthSessionsForUser(ctx, []byte("admin"))
+	if err != nil {
+		t.Fatalf("ListAuthSessionsForUser: %v", err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("len = %d, want 2 (ceremony, expired, and foreign rows excluded)", len(sessions))
+	}
+	if sessions[0].UserAgent != "newer" || sessions[1].UserAgent != "older" {
+		t.Errorf("order = [%q, %q], want newest first", sessions[0].UserAgent, sessions[1].UserAgent)
+	}
+}
+
+// Touch stamps last_seen_at; a row revoked in between is not an error.
+func TestSQLiteTouchSessionLastSeen(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hash := "hash-touch"
+	rec := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	if err := store.CreateSession(ctx, rec); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	at := time.Now().Truncate(time.Millisecond)
+	if err := store.TouchSessionLastSeen(ctx, rec.ID, at); err != nil {
+		t.Fatalf("TouchSessionLastSeen: %v", err)
+	}
+	got, err := store.GetSession(ctx, rec.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.LastSeenAt == nil || !got.LastSeenAt.Equal(at) {
+		t.Errorf("LastSeenAt = %v, want %v", got.LastSeenAt, at)
+	}
+
+	if err := store.TouchSessionLastSeen(ctx, uuid.New(), at); err != nil {
+		t.Errorf("touching a missing session should not error, got %v", err)
 	}
 }
 

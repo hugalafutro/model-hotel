@@ -42,7 +42,7 @@ func TokenExchange(
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil)
+		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r))
 		if err != nil {
 			http.Error(w, "failed to create session", http.StatusInternalServerError)
 			return

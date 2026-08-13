@@ -2277,7 +2277,12 @@
 			"signedOut_few": "تم تسجيل خروج {{count}} جلسات أخرى",
 			"signedOut_many": "تم تسجيل خروج {{count}} جلسة أخرى",
 			"signedOut_other": "تم تسجيل خروج {{count}} جلسة أخرى",
-			"noneToSignOut": "لم تكن هناك جلسات أخرى مفتوحة"
+			"noneToSignOut": "لم تكن هناك جلسات أخرى مفتوحة",
+			"unknownDevice": "جهاز غير معروف",
+			"currentBadge": "هذا الجهاز",
+			"signOutOne": "تسجيل الخروج",
+			"signedIn": "سجّل الدخول {{when}}",
+			"lastSeen": "نشط {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "مهلة الجلسة",

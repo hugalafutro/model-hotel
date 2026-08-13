@@ -1072,7 +1072,7 @@ func TestAuthMiddleware_TotpEnabled_SessionTokenWorks(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(repo)
 	h.SetWebAuthnSessionManager(sessionMgr)
 
-	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

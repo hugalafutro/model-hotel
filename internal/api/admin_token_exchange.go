@@ -49,7 +49,7 @@ func (h *Handler) AdminTokenExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tok, err := h.webauthnSessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil)
+	tok, err := h.webauthnSessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r))
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return

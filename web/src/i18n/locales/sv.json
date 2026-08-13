@@ -2069,7 +2069,12 @@
 			"confirm": "Klicka för att bekräfta",
 			"signedOut_one": "{{count}} annan session utloggad",
 			"signedOut_other": "{{count}} andra sessioner utloggade",
-			"noneToSignOut": "Inga andra sessioner var öppna"
+			"noneToSignOut": "Inga andra sessioner var öppna",
+			"unknownDevice": "Okänd enhet",
+			"currentBadge": "Den här enheten",
+			"signOutOne": "Logga ut",
+			"signedIn": "Inloggad {{when}}",
+			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Tidsgräns för session",
