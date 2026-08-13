@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
 			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie.",
-			"authNote": "Het wachtwoordbeleid en de eenmalige aanmelding (SSO) hieronder worden beheerd door de primaire instantie van de vloot. Toegangssleutels, 2FA, sessietime-out en actieve sessies hierboven blijven lokaal op deze instantie."
+			"authNote": "Het wachtwoordbeleid en de eenmalige aanmelding (SSO) hieronder worden beheerd door de primaire instantie van de vloot. Toegangssleutels, 2FA, tabblad-time-out en actieve sessies hierboven blijven lokaal op deze instantie."
 		},
 		"activeSessions": {
 			"title": "Actieve sessies",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Actief {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Sessietime-out",
-			"label": "Automatisch afmelden na inactiviteit",
-			"hint": "Meldt het dashboard automatisch af na deze periode zonder activiteit. Stel in op Nooit om de sessie onbeperkt open te houden."
+			"title": "Tabblad-time-out",
+			"label": "Inactief tabblad afmelden na",
+			"hint": "Meldt een vergeten open tabblad af na deze periode zonder activiteit. Gesloten tabbladen worden niet beïnvloed: elke aanmelding verloopt vanzelf na 1 dag. Stel in op ∞ om open tabbladen aangemeld te houden."
 		},
 		"oidc": {
 			"title": "Eenmalige aanmelding (SSO)",

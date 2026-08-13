@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
 			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä.",
-			"authNote": "Alla olevia salasanakäytäntöä ja kertakirjautumista (SSO) hallinnoi laivaston ensisijainen ilmentymä. Yllä olevat avainkoodit, 2FA, istunnon aikakatkaisu ja aktiiviset istunnot pysyvät paikallisina tässä ilmentymässä."
+			"authNote": "Alla olevia salasanakäytäntöä ja kertakirjautumista (SSO) hallinnoi laivaston ensisijainen ilmentymä. Yllä olevat avainkoodit, 2FA, välilehden aikakatkaisu ja aktiiviset istunnot pysyvät paikallisina tässä ilmentymässä."
 		},
 		"activeSessions": {
 			"title": "Aktiiviset istunnot",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Aktiivinen {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Istunnon aikakatkaisu",
-			"label": "Automaattinen uloskirjautuminen käyttämättömyyden jälkeen",
-			"hint": "Sinut kirjataan ulos hallintapaneelista automaattisesti tämän käyttämättömyysajan jälkeen. Aseta arvoon Ei koskaan pitääksesi istunnon auki rajattomasti."
+			"title": "Välilehden aikakatkaisu",
+			"label": "Kirjaa toimeton välilehti ulos",
+			"hint": "Kirjaa unohtuneen avoimen välilehden ulos, kun se on ollut näin kauan käyttämättä. Suljettuihin välilehtiin tämä ei vaikuta: jokainen kirjautuminen vanhenee itsestään 1 päivässä. Aseta arvoon ∞, jos haluat pitää avoimet välilehdet kirjautuneina."
 		},
 		"oidc": {
 			"title": "Kertakirjautuminen (SSO)",

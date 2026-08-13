@@ -4,6 +4,9 @@
 # Changes from production defaults:
 #   - Docker socket mounted (container-level stats in sidebar)
 #   - DEBUG_LOG=true (verbose structured logging)
+#   - ALLOW_EMBED=true (workspace browser embedding)
+#   - KNOWN_PROXIES / TRUSTED_PROXIES read from .env, with the docker bridge
+#     range as the TRUSTED_PROXIES dev fallback
 #
 # ⚠️  Docker socket access allows the container to control the Docker daemon.
 #     Only use in trusted development environments.
@@ -16,6 +19,15 @@ services:
             # Allow embedding in workspace browsers (e.g. Cursor, VS Code).
             # Not enabled in production compose to keep frame-protection headers.
             - ALLOW_EMBED=true
-            - KNOWN_PROXIES=192.168.1.101/32
+            # Proxy CIDRs come from the gitignored .env so private addresses
+            # never land in the repo. TRUSTED_PROXIES makes sessions record
+            # the real client IP from X-Forwarded-For instead of the proxy
+            # address - but only when the peer is in the trusted list. The dev
+            # default trusts the docker bridge range, which is where a
+            # host-forwarded reverse proxy appears from inside the container.
+            # ${VAR-default} (no colon) so an explicit TRUSTED_PROXIES= in .env
+            # can turn the trust OFF; :- would resurrect the fallback.
+            - KNOWN_PROXIES=${KNOWN_PROXIES-}
+            - TRUSTED_PROXIES=${TRUSTED_PROXIES-172.16.0.0/12}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro

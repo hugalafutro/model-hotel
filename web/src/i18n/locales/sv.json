@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
 			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen.",
-			"authNote": "Lösenordspolicyn och enkel inloggning (SSO) nedanför hanteras av flottans primära instans. Lösenordsnycklar, 2FA, tidsgräns för session och aktiva sessioner ovanför förblir lokala på denna instans."
+			"authNote": "Lösenordspolicyn och enkel inloggning (SSO) nedanför hanteras av flottans primära instans. Lösenordsnycklar, 2FA, flik-timeout och aktiva sessioner ovanför förblir lokala på denna instans."
 		},
 		"activeSessions": {
 			"title": "Aktiva sessioner",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Tidsgräns för session",
-			"label": "Automatisk utloggning efter inaktivitet",
-			"hint": "Loggar automatiskt ut från panelen efter denna period utan aktivitet. Ställ in på Aldrig för att hålla sessionen öppen på obestämd tid."
+			"title": "Flik-timeout",
+			"label": "Logga ut en inaktiv flik efter",
+			"hint": "Loggar ut en bortglömd öppen flik efter denna tid utan aktivitet. Stängda flikar påverkas inte: varje inloggning går ut av sig själv efter 1 dag. Ställ in på ∞ för att hålla öppna flikar inloggade."
 		},
 		"oidc": {
 			"title": "Enkel inloggning (SSO)",

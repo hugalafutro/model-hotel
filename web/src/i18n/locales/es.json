@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestionada por la instancia primaria de la flota. Los cambios realizados aquí se reemplazan en la próxima sincronización de configuración.",
 			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia.",
-			"authNote": "La política de contraseñas y el inicio de sesión único (SSO) de abajo los gestiona la instancia primaria de la flota. Las claves de acceso, la 2FA, el tiempo de espera de la sesión y las sesiones activas de arriba se mantienen locales en esta instancia."
+			"authNote": "La política de contraseñas y el inicio de sesión único (SSO) de abajo los gestiona la instancia primaria de la flota. Las claves de acceso, la 2FA, el tiempo de espera de la pestaña y las sesiones activas de arriba se mantienen locales en esta instancia."
 		},
 		"activeSessions": {
 			"title": "Sesiones activas",
@@ -2130,9 +2130,9 @@
 			"lastSeen": "Activa {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Tiempo de espera de la sesión",
-			"label": "Cierre de sesión automático por inactividad",
-			"hint": "Cierra la sesión del panel automáticamente tras este periodo sin actividad. Ponlo en Nunca para mantener la sesión abierta indefinidamente."
+			"title": "Tiempo de espera de la pestaña",
+			"label": "Cerrar la sesión de una pestaña inactiva tras",
+			"hint": "Cierra la sesión de una pestaña abierta y olvidada tras este periodo sin actividad. Las pestañas cerradas no se ven afectadas: cada inicio de sesión caduca por sí solo al cabo de 1 día. Ponlo en ∞ para mantener las pestañas abiertas con la sesión iniciada."
 		},
 		"oidc": {
 			"title": "Inicio de sesión único (SSO)",

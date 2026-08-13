@@ -301,16 +301,19 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 ### Settings Page Sections
 
-The Settings page has 9 collapsible sections (in page order):
+The Settings page has 10 collapsible sections. On a managed fleet member the instance-local
+sections (Authentication, Appearance, Observability, and the local half of Alerts) come first,
+followed by the managed banner and the fleet-synced sections.
+
+#### Authentication
+- **Passkeys:** WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).
+- **Two-Factor (TOTP):** Authenticator-app 2FA (RFC 6238) for admin login. Enabled at runtime from Settings (scan a QR code, confirm a 6-digit code, save the one-time recovery codes); no environment variable is required. When enabled, the raw admin token alone no longer authenticates and must be combined with a code on the login screen (see [Security](Security)). If you lose the authenticator and all recovery codes, an operator can clear it with `make totp-disable`.
+- **Tab timeout** (`session_idle_timeout_minutes`, default 60, 0 = disabled): signs out a forgotten **open** tab after this long without activity. It is a browser-side timer only — closed tabs are unaffected, and every login expires on its own after 1 day (`AuthTokenTTL`, see [Security](Security)). Instance-local: not replicated by config sync.
+- **Active sessions:** every live login for your identity with device, IP (trusted-proxy-aware), and last-seen; revoke one or sign out all others.
+- **Password policy & SSO:** the breached-password check and the OIDC / GitHub single sign-on settings. These are fleet-synced on managed members, unlike the rest of this section.
 
 #### Model Discovery
 Backend settings: `discovery_interval`, `discovery_on_startup`, `discovery_on_provider_create`
-
-#### Passkeys
-WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).
-
-#### Two-Factor Authentication (TOTP)
-Authenticator-app 2FA (RFC 6238) for admin login. Enabled at runtime from Settings (scan a QR code, confirm a 6-digit code, save the one-time recovery codes); no environment variable is required. When enabled, the raw admin token alone no longer authenticates and must be combined with a code on the login screen (see [Security](Security)). If you lose the authenticator and all recovery codes, an operator can clear it with `make totp-disable`.
 
 #### Appearance (localStorage only)
 - **UI Style:** `clean-saas` (default), `cyber-terminal`, `glassmorphism-lite` - stored in localStorage `uiStyle`
