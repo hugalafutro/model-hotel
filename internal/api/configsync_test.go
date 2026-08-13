@@ -733,25 +733,26 @@ func TestConfigSync_RefusesUsersOnlyEnvelope(t *testing.T) {
 	}
 }
 
-// TestConfigSync_ImportRejectsPoisonedURLSetting reproduces the reported SSRF
-// bypass (CWE-918). The interactive PUT /api/settings validates url-typed
-// settings with netguard.ValidateURL, but the config-sync apply path wrote them
-// straight through SetTx. A compromised primary could push an oidc_issuer_url the
-// interactive endpoint would reject, and the gateway would later fetch it during
-// OIDC discovery / token exchange (leaking the client secret). The import must
-// refuse the whole envelope with a 400, and its transaction must roll back so no
-// provider or setting from the poisoned envelope survives.
-func TestConfigSync_ImportRejectsPoisonedURLSetting(t *testing.T) {
+// TestConfigSync_ImportIgnoresInstanceLocalSSOSettings pins the per-member SSO
+// carve-out: the SSO provider settings (enabled flags, issuer, client id/secret,
+// public base URL) are instance-local, so an envelope carrying them - whether a
+// poisoned SSRF URL (the old CWE-918 vector) or a perfectly valid one - is
+// applied WITHOUT touching this member's own SSO config. The poison never lands
+// because the key is skipped outright, and a member's locally-enabled IdP
+// survives a sync from a primary that has none.
+func TestConfigSync_ImportIgnoresInstanceLocalSSOSettings(t *testing.T) {
 	for _, tc := range []struct {
 		name, key, value string
 	}{
-		{"oidc issuer link-local", "oidc_issuer_url", "http://169.254.169.254/"},
-		{"oidc issuer bad scheme", "oidc_issuer_url", "ftp://evil.example/"},
-		{"oidc issuer missing host", "oidc_issuer_url", "http://"},
-		{"public base bad scheme", "oidc_public_base_url", "javascript:alert(1)"},
+		{"oidc issuer link-local poison", "oidc_issuer_url", "http://169.254.169.254/"},
+		{"oidc issuer bad scheme poison", "oidc_issuer_url", "ftp://evil.example/"},
+		{"public base scheme poison", "oidc_public_base_url", "javascript:alert(1)"},
+		{"valid issuer also stays out", "oidc_issuer_url", "https://idp.example.com/"},
+		{"github enable stays out", "github_sso_enabled", "true"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cleanConfigTables(t)
+			ctx := context.Background()
 			r := newConfigSyncRouter(t, configSyncMasterKey)
 			seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 			env := doExport(t, r)
@@ -760,52 +761,57 @@ func TestConfigSync_ImportRejectsPoisonedURLSetting(t *testing.T) {
 			}
 			env.Config.Settings[tc.key] = tc.value
 
-			cleanConfigTables(t) // fresh replica: the whole envelope must fail atomically
-			rec := doImport(t, r, env, "")
-			if rec.Code != http.StatusBadRequest {
-				t.Fatalf("poisoned %s status = %d, want 400; body %s", tc.key, rec.Code, rec.Body.String())
-			}
-			if !bytes.Contains(rec.Body.Bytes(), []byte(tc.key)) {
-				t.Errorf("rejection body should name the setting %q, got %s", tc.key, rec.Body.String())
+			cleanConfigTables(t)
+			// The member's own value for the key must survive the import.
+			settingsRepo := settings.NewRepository(apiTestDB.Pool())
+			if err := settingsRepo.Set(ctx, tc.key, "member-local"); err != nil {
+				t.Fatalf("seed member-local %s: %v", tc.key, err)
 			}
 
-			ctx := context.Background()
-			var providers, poisoned int
-			_ = apiTestDB.Pool().QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&providers)
-			if providers != 0 {
-				t.Errorf("refused import must roll back: providers = %d, want 0", providers)
+			rec := doImport(t, r, env, "")
+			if rec.Code != http.StatusOK {
+				t.Fatalf("import with SSO key %s status = %d, want 200; body %s", tc.key, rec.Code, rec.Body.String())
 			}
-			_ = apiTestDB.Pool().QueryRow(ctx,
-				`SELECT count(*) FROM settings WHERE key = $1`, tc.key).Scan(&poisoned)
-			if poisoned != 0 {
-				t.Errorf("poisoned %s must not be written, count = %d", tc.key, poisoned)
+			if got := settingsRepo.GetWithDefault(ctx, tc.key, ""); got != "member-local" {
+				t.Errorf("member-local %s = %q after import, want untouched", tc.key, got)
 			}
 		})
 	}
 }
 
-// A valid url-typed setting must still sync: the CWE-918 guard rejects only
-// values the interactive endpoint would reject, never a legitimate primary's
-// already-validated URL (including the empty string that clears the setting).
-func TestConfigSync_ImportAcceptsValidURLSetting(t *testing.T) {
+// The email allowlists are the ACL half of SSO and DO stay fleet-synced: a
+// revoked address must lose access on every member on the next sync, and the
+// declarative delete clears a member's leftover allowlist when the primary
+// carries none.
+func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
-	env := doExport(t, r)
-	if env.Config.Settings == nil {
-		env.Config.Settings = map[string]string{}
+	settingsRepo := settings.NewRepository(apiTestDB.Pool())
+	if err := settingsRepo.Set(ctx, "oidc_allowed_emails", "admin@example.com"); err != nil {
+		t.Fatalf("seed primary allowlist: %v", err)
 	}
-	env.Config.Settings["oidc_issuer_url"] = "https://idp.example.com/"
+	env := doExport(t, r)
+	if got := env.Config.Settings["oidc_allowed_emails"]; got != "admin@example.com" {
+		t.Fatalf("export allowlist = %q, want it exported", got)
+	}
+	for k := range ssoInstanceLocalKeys {
+		if _, ok := env.Config.Settings[k]; ok {
+			t.Errorf("export must not carry instance-local SSO key %s", k)
+		}
+	}
 
 	cleanConfigTables(t)
+	if err := settingsRepo.Set(ctx, "oidc_allowed_emails", "stale@example.com"); err != nil {
+		t.Fatalf("seed member allowlist: %v", err)
+	}
 	rec := doImport(t, r, env, "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("valid URL import status = %d, body %s", rec.Code, rec.Body.String())
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
 	}
-	if got := settings.NewRepository(apiTestDB.Pool()).
-		GetWithDefault(ctx, "oidc_issuer_url", ""); got != "https://idp.example.com/" {
-		t.Fatalf("valid oidc_issuer_url = %q, want it applied", got)
+	if got := settingsRepo.GetWithDefault(ctx, "oidc_allowed_emails", ""); got != "admin@example.com" {
+		t.Fatalf("member allowlist = %q, want converged to primary's", got)
 	}
 }
 

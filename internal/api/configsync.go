@@ -492,13 +492,34 @@ var appriseSettingKeys = map[string]bool{
 // secrets above: a managed member keeps and can edit its own value.
 const sessionIdleTimeoutKey = "session_idle_timeout_minutes"
 
+// ssoInstanceLocalKeys are the SSO provider settings each member keeps to
+// itself: which IdPs this member offers and how it reaches them. Per-member so
+// a fleet can enable an IdP on some members and not others, and because the
+// public base URL (the IdP callback) is inherently this member's own address.
+// The email allowlists are deliberately NOT here: who may log in is an ACL,
+// and ACL drift across members is how a revoked account keeps access - the
+// allowlists stay fleet-synced alongside the user accounts they bind to.
+var ssoInstanceLocalKeys = map[string]bool{
+	"oidc_enabled":           true,
+	"oidc_issuer_url":        true,
+	"oidc_client_id":         true,
+	"oidc_client_secret":     true,
+	"oidc_public_base_url":   true,
+	"github_sso_enabled":     true,
+	"github_client_id":       true,
+	"github_client_secret":   true,
+	"github_public_base_url": true,
+}
+
 // isSyncableSetting reports whether a settings key is replicated by config sync:
 // it must be in the shared settings allowlist and not an instance-local apprise
-// secret or session preference. Used on both ends (export, diff, apply) so a
-// hand-crafted envelope cannot push a key this member would not itself export.
+// secret, session preference, or per-member SSO provider setting. Used on both
+// ends (export, diff, apply) so a hand-crafted envelope cannot push a key this
+// member would not itself export.
 func isSyncableSetting(key string) bool {
 	return settings.AllowedSettings[key] &&
 		!appriseSettingKeys[key] &&
+		!ssoInstanceLocalKeys[key] &&
 		key != sessionIdleTimeoutKey
 }
 

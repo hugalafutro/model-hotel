@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestionada per la instància primària de la flota. Els canvis fets aquí se substitueixen en la propera sincronització de configuració.",
 			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància.",
-			"authNote": "La política de contrasenyes i l'inici de sessió únic (SSO) de sota els gestiona la instància primària de la flota. Les claus d'accés, la 2FA, el temps d'espera de la pestanya i les sessions actives de dalt es mantenen locals en aquesta instància."
+			"authNote": "La política de contrasenyes i les llistes de correus permesos per iniciar sessió les gestiona la instància primària de la flota. La resta és local d'aquest membre, incloent-hi quins proveïdors d'inici de sessió únic ofereix."
 		},
 		"activeSessions": {
 			"title": "Sessions actives",

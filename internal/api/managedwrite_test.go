@@ -106,6 +106,12 @@ func TestManagedBlocksSyncableSettings(t *testing.T) {
 		{"member + mixed batch", member, []string{"alert_apprise_api_url", "alert_enabled"}, true},
 		{"member + no keys", member, nil, false},
 		{"primary + syncable key", primary, []string{"alert_enabled"}, false},
+		// SSO provider config is per-member (which IdPs this member offers), so
+		// a member may edit it; the email allowlists are the fleet-wide ACL and
+		// stay blocked.
+		{"member + sso provider keys", member, []string{"oidc_enabled", "oidc_client_secret", "github_public_base_url"}, false},
+		{"member + sso allowlist", member, []string{"oidc_allowed_emails"}, true},
+		{"member + sso config with allowlist", member, []string{"oidc_issuer_url", "github_allowed_emails"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

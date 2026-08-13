@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Styres af flådens primære instans. Ændringer her erstattes ved næste konfigurationssynkronisering.",
 			"alertsNote": "Til- og frakobling af advarsler og hændelsesrouting styres af flådens primære instans. Apprise-leveringsindstillingerne nedenfor forbliver lokale for denne instans.",
-			"authNote": "Adgangskodepolitikken og enkeltlogin (SSO) nedenfor styres af flådens primære instans. Adgangsnøgler, 2FA, fane-timeout og aktive sessioner ovenfor forbliver lokale på denne instans."
+			"authNote": "Adgangskodepolitikken og listerne over tilladte login-e-mails styres af flådens primære instans. Alt andet her er lokalt for dette medlem, inklusive hvilke enkeltlogin-udbydere det tilbyder."
 		},
 		"activeSessions": {
 			"title": "Aktive sessioner",

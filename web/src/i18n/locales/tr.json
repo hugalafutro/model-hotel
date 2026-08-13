@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
 			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır.",
-			"authNote": "Aşağıdaki parola politikası ve çoklu oturum açma (SSO) ayarları filo birincil örneği tarafından yönetilir. Yukarıdaki geçiş anahtarları, 2FA, sekme zaman aşımı ve etkin oturumlar bu örnekte yerel kalır."
+			"authNote": "Parola politikası ve oturum açma e-posta izin listeleri filo birincil örneği tarafından yönetilir. Buradaki diğer her şey, hangi çoklu oturum açma sağlayıcılarının sunulduğu dahil, bu üyeye yereldir."
 		},
 		"activeSessions": {
 			"title": "Etkin oturumlar",

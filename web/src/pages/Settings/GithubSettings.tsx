@@ -22,7 +22,7 @@ import { useSettingsMutations } from "./useSettingsMutations";
  * TOTP paths always remain, so a misconfigured or unreachable IdP cannot lock
  * the operator out.
  */
-export function GithubPanel() {
+export function GithubPanel({ managed }: { managed?: boolean }) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
@@ -265,6 +265,10 @@ export function GithubPanel() {
 							}}
 							className="ui-input text-sm w-full font-mono"
 							data-testid="github-allowed-emails-input"
+							// The allowlist is the fleet-wide ACL: unlike the rest of
+							// this panel it stays synced, so a managed member cannot
+							// edit it.
+							disabled={managed}
 						/>
 						<p className="text-gray-500 text-xs">
 							{t("settings.github.allowedEmailsDescription")}

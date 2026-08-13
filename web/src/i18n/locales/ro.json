@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
 			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță.",
-			"authNote": "Politica parolelor și autentificarea unică (SSO) de mai jos sunt gestionate de instanța primară a flotei. Cheile de acces, 2FA, limita de timp a filei și sesiunile active de mai sus rămân locale pe această instanță."
+			"authNote": "Politica parolelor și listele de e-mailuri permise la autentificare sunt gestionate de instanța primară a flotei. Restul de aici este local acestui membru, inclusiv ce furnizori de autentificare unică oferă."
 		},
 		"activeSessions": {
 			"title": "Sesiuni active",

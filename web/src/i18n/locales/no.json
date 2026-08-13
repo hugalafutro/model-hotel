@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
 			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen.",
-			"authNote": "Passordreglene og enkeltpålogging (SSO) nedenfor styres av flåtens primære instans. Tilgangsnøkler, 2FA, fane-tidsavbrudd og aktive økter ovenfor forblir lokale på denne instansen."
+			"authNote": "Passordreglene og listene over tillatte påloggings-e-poster styres av flåtens primære instans. Alt annet her er lokalt for dette medlemmet, inkludert hvilke enkeltpåloggingsleverandører det tilbyr."
 		},
 		"activeSessions": {
 			"title": "Aktive økter",

@@ -2085,7 +2085,7 @@
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
 			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance.",
-			"authNote": "The password policy and single sign-on settings below are managed by the fleet primary. Passkeys, two-factor, tab timeout, and active sessions above stay local to this instance."
+			"authNote": "The password policy and the sign-in email allowlists are managed by the fleet primary. Everything else here is local to this member, including which single sign-on providers it offers."
 		},
 		"oidc": {
 			"title": "Single sign-on (SSO)",

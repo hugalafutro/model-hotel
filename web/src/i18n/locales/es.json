@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestionada por la instancia primaria de la flota. Los cambios realizados aquí se reemplazan en la próxima sincronización de configuración.",
 			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia.",
-			"authNote": "La política de contraseñas y el inicio de sesión único (SSO) de abajo los gestiona la instancia primaria de la flota. Las claves de acceso, la 2FA, el tiempo de espera de la pestaña y las sesiones activas de arriba se mantienen locales en esta instancia."
+			"authNote": "La política de contraseñas y las listas de correos permitidos para iniciar sesión las gestiona la instancia primaria de la flota. Todo lo demás aquí es local de este miembro, incluido qué proveedores de inicio de sesión único ofrece."
 		},
 		"activeSessions": {
 			"title": "Sesiones activas",

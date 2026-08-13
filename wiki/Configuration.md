@@ -310,7 +310,7 @@ followed by the managed banner and the fleet-synced sections.
 - **Two-Factor (TOTP):** Authenticator-app 2FA (RFC 6238) for admin login. Enabled at runtime from Settings (scan a QR code, confirm a 6-digit code, save the one-time recovery codes); no environment variable is required. When enabled, the raw admin token alone no longer authenticates and must be combined with a code on the login screen (see [Security](Security)). If you lose the authenticator and all recovery codes, an operator can clear it with `make totp-disable`.
 - **Tab timeout** (`session_idle_timeout_minutes`, default 60, 0 = disabled): signs out a forgotten **open** tab after this long without activity. It is a browser-side timer only — closed tabs are unaffected, and every login expires on its own after 1 day (`AuthTokenTTL`, see [Security](Security)). Instance-local: not replicated by config sync.
 - **Active sessions:** every live login for your identity with device, IP (trusted-proxy-aware), and last-seen; revoke one or sign out all others.
-- **Password policy & SSO:** the breached-password check and the OIDC / GitHub single sign-on settings. These are fleet-synced on managed members, unlike the rest of this section.
+- **Password policy & SSO:** the breached-password check and the OIDC / GitHub single sign-on settings. The password policy and the SSO **email allowlists** are fleet-synced on managed members; the rest of the SSO config (enable flags, issuer, client credentials, public base URL) is per-member, so a fleet can offer an IdP on some members and not others.
 
 #### Model Discovery
 Backend settings: `discovery_interval`, `discovery_on_startup`, `discovery_on_provider_create`

@@ -19,7 +19,7 @@ import { useSettingsMutations } from "./useSettingsMutations";
  * the operator out. The redirect URI shown here is what the operator registers
  * with their IdP; it is derived from the configured public base URL.
  */
-export function OidcPanel() {
+export function OidcPanel({ managed }: { managed?: boolean }) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
@@ -283,6 +283,10 @@ export function OidcPanel() {
 							}}
 							className="ui-input text-sm w-full font-mono"
 							data-testid="oidc-allowed-emails-input"
+							// The allowlist is the fleet-wide ACL: unlike the rest of
+							// this panel it stays synced, so a managed member cannot
+							// edit it.
+							disabled={managed}
 						/>
 						<p className="text-gray-500 text-xs">
 							{t("settings.oidc.allowedEmailsDescription")}

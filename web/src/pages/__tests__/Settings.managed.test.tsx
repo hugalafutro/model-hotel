@@ -60,10 +60,13 @@ describe("Settings managed (fleet member) mode", {
 		expect(notes).toHaveLength(8);
 		expect(notes.filter((n) => precedes(n, banner))).toHaveLength(2);
 
-		// The synced half of Authentication (SSO + password policy) is
-		// disabled behind its note while the local half stays live (the
-		// session-timeout slider is the instance-local setting).
-		expect(await screen.findByTestId("oidc-issuer-input")).toBeDisabled();
+		// The SSO provider config is per-member, so its inputs stay live on a
+		// managed member; only the fleet-synced email allowlist is disabled,
+		// and the instance-local tab-timeout slider stays live too.
+		expect(await screen.findByTestId("oidc-issuer-input")).not.toBeDisabled();
+		expect(
+			await screen.findByTestId("oidc-allowed-emails-input"),
+		).toBeDisabled();
 		expect(document.getElementById("session-idle-timeout")).not.toBeDisabled();
 	});
 
@@ -89,5 +92,8 @@ describe("Settings managed (fleet member) mode", {
 		expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("managed-note")).not.toBeInTheDocument();
 		expect(await screen.findByTestId("oidc-issuer-input")).not.toBeDisabled();
+		expect(
+			await screen.findByTestId("oidc-allowed-emails-input"),
+		).not.toBeDisabled();
 	});
 });

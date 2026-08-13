@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
 			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä.",
-			"authNote": "Alla olevia salasanakäytäntöä ja kertakirjautumista (SSO) hallinnoi laivaston ensisijainen ilmentymä. Yllä olevat avainkoodit, 2FA, välilehden aikakatkaisu ja aktiiviset istunnot pysyvät paikallisina tässä ilmentymässä."
+			"authNote": "Salasanakäytäntöä ja kirjautumisen sallittujen sähköpostien luetteloita hallinnoi laivaston ensisijainen ilmentymä. Kaikki muu täällä on tämän jäsenen paikallista, mukaan lukien sen tarjoamat kertakirjautumispalvelut."
 		},
 		"activeSessions": {
 			"title": "Aktiiviset istunnot",

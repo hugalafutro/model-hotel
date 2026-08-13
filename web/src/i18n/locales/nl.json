@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
 			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie.",
-			"authNote": "Het wachtwoordbeleid en de eenmalige aanmelding (SSO) hieronder worden beheerd door de primaire instantie van de vloot. Toegangssleutels, 2FA, tabblad-time-out en actieve sessies hierboven blijven lokaal op deze instantie."
+			"authNote": "Het wachtwoordbeleid en de lijsten met toegestane aanmeld-e-mails worden beheerd door de primaire instantie van de vloot. Al het andere hier is lokaal voor dit lid, inclusief welke eenmalige-aanmeldingsproviders het aanbiedt."
 		},
 		"activeSessions": {
 			"title": "Actieve sessies",

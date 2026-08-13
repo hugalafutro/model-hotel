@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Von der Flotten-Primärinstanz verwaltet. Änderungen hier werden bei der nächsten Konfigurationssynchronisierung ersetzt.",
 			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz.",
-			"authNote": "Die Passwortrichtlinie und das Single Sign-on (SSO) unterhalb werden von der Flotten-Primärinstanz verwaltet. Passkeys, 2FA, Tab-Timeout und aktive Sitzungen oberhalb bleiben lokal auf dieser Instanz."
+			"authNote": "Die Passwortrichtlinie und die E-Mail-Freigabelisten für die Anmeldung werden von der Flotten-Primärinstanz verwaltet. Alles andere hier ist lokal auf diesem Mitglied, einschließlich der angebotenen Single-Sign-on-Anbieter."
 		},
 		"activeSessions": {
 			"title": "Aktive Sitzungen",

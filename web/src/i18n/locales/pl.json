@@ -2162,7 +2162,7 @@
 		"managed": {
 			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
 			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji.",
-			"authNote": "Poniższymi zasadami haseł i logowaniem jednokrotnym (SSO) zarządza instancja podstawowa floty. Klucze dostępu, 2FA, limit czasu karty i aktywne sesje powyżej pozostają lokalne dla tej instancji."
+			"authNote": "Zasadami haseł i listami dozwolonych e-maili logowania zarządza instancja podstawowa floty. Cała reszta jest tutaj lokalna dla tego członka, w tym to, których dostawców logowania jednokrotnego oferuje."
 		},
 		"activeSessions": {
 			"title": "Aktywne sesje",
