@@ -286,6 +286,37 @@ func TestRevokeAuthSessionByID_WithoutSessionManager(t *testing.T) {
 	}
 }
 
+// A request that somehow reaches these handlers without a resolved identity is
+// refused, not treated as the admin. One table for all three session handlers,
+// which share the identity resolution.
+func TestSessionHandlers_Unauthenticated(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(h *Handler, w http.ResponseWriter, r *http.Request)
+	}{
+		{"list", func(h *Handler, w http.ResponseWriter, r *http.Request) { h.ListAuthSessions(w, r) }},
+		{"revoke one", func(h *Handler, w http.ResponseWriter, r *http.Request) {
+			routeWithSessionID(h).ServeHTTP(w, r)
+		}},
+		{"revoke others", func(h *Handler, w http.ResponseWriter, r *http.Request) { h.RevokeOtherSessions(w, r) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &Handler{}
+			h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{})
+
+			req := httptest.NewRequest(http.MethodDelete,
+				"/auth/sessions/33333333-3333-4333-8333-333333333333", http.NoBody)
+			w := httptest.NewRecorder()
+			tt.call(h, w, req)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Errorf("status = %d, want 401", w.Code)
+			}
+		})
+	}
+}
+
 // routeWithSessionID mounts the delete handler behind a chi router so the {id}
 // URL parameter resolves the way it does in production.
 func routeWithSessionID(h *Handler) http.Handler {

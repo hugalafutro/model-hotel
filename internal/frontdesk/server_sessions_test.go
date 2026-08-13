@@ -173,6 +173,27 @@ func TestFDSessions_RevokeOthers(t *testing.T) {
 	}
 }
 
+// A store failure must read as a server error on every session endpoint, not
+// as an empty list or a successful revoke. The raw admin token authenticates
+// without the store (file-backed admin manager), so closing the database
+// isolates exactly the handlers' store dependency.
+func TestFDSessions_StoreFailureIsAServerError(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodGet, "/api/auth/sessions"},
+		{http.MethodDelete, "/api/auth/sessions/00000000-0000-4000-8000-000000000000"},
+		{http.MethodPost, "/api/auth/sessions/revoke-others"},
+	} {
+		if rec := doSession(t, srv, tc.method, tc.path, testFrontdeskToken); rec.Code != http.StatusInternalServerError {
+			t.Errorf("%s %s = %d, want 500 on a store failure", tc.method, tc.path, rec.Code)
+		}
+	}
+}
+
 // Session hygiene is web-UI administration: a paired device, whatever its
 // role, must not see or end the operator's browser sessions.
 func TestFDSessions_DeviceTokensForbidden(t *testing.T) {

@@ -37,6 +37,18 @@ func TestMetaFromRequest_FallsBackToRemoteAddr(t *testing.T) {
 	}
 }
 
+// A RemoteAddr with no port (a unix socket, or a proxy that rewrites it) is
+// stored as-is rather than dropped.
+func TestMetaFromRequest_PortlessRemoteAddrKeptVerbatim(t *testing.T) {
+	r := httptest.NewRequest("POST", "/login", http.NoBody)
+	r.Header.Del("X-Forwarded-For")
+	r.RemoteAddr = "192.0.2.10"
+
+	if meta := MetaFromRequest(r); meta.IP != "192.0.2.10" {
+		t.Errorf("IP = %q, want the raw RemoteAddr", meta.IP)
+	}
+}
+
 // A hostile client can send arbitrarily large headers; what lands in the
 // sessions table stays bounded.
 func TestMetaFromRequest_BoundsHostileHeaders(t *testing.T) {

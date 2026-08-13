@@ -119,6 +119,41 @@ it("signs out all other sessions through the confirm modal", async () => {
 	await waitFor(() => expect(calls).toHaveLength(1));
 });
 
+it("surfaces a failed revoke instead of implying the session is gone", async () => {
+	server.use(
+		http.delete("/api/auth/sessions/:id", () =>
+			HttpResponse.json({ error: "nope" }, { status: 500 }),
+		),
+		http.post("/api/auth/sessions/revoke-others", () =>
+			HttpResponse.json({ error: "nope" }, { status: 500 }),
+		),
+	);
+	const user = userEvent.setup();
+	renderPanel();
+
+	// Per-row failure toasts the generic error.
+	await user.click(await screen.findByTestId("revoke-session"));
+	await user.click(
+		screen.getByRole("button", {
+			name: i18next.t("settings.sessions.confirmSignOut"),
+		}),
+	);
+	expect(await screen.findByText(i18next.t("errors.generic"))).toBeVisible();
+
+	// Bulk failure takes the same path.
+	await user.click(screen.getByTestId("revoke-other-sessions"));
+	await user.click(
+		screen.getByRole("button", {
+			name: i18next.t("settings.sessions.confirmSignOutOthers"),
+		}),
+	);
+	await waitFor(() =>
+		expect(
+			screen.getAllByText(i18next.t("errors.generic")).length,
+		).toBeGreaterThanOrEqual(1),
+	);
+});
+
 it("labels a session with no user agent as an unknown device", async () => {
 	mockSessions([hereRow, { ...phoneRow, user_agent: "", ip: "" }]);
 	renderPanel();

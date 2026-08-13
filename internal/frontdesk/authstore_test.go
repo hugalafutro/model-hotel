@@ -2,6 +2,8 @@ package frontdesk
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -425,6 +427,83 @@ func TestSQLiteListAuthSessionsForUser(t *testing.T) {
 	if sessions[0].UserAgent != "newer" || sessions[1].UserAgent != "older" {
 		t.Errorf("order = [%q, %q], want newest first", sessions[0].UserAgent, sessions[1].UserAgent)
 	}
+}
+
+// A row the list cannot scan (an id that is not a UUID reaches uuid.Parse)
+// surfaces an error rather than a silently truncated list.
+func TestSQLiteListAuthSessions_ScanErrorSurfaces(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	// user_id as a blob parameter, matching how CreateSession binds it: SQLite
+	// compares TEXT and BLOB as unequal, so a TEXT literal would just be
+	// filtered out instead of exercising the scan path.
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, expires_at, created_at)
+		 VALUES ('not-a-uuid', 'c', X'7B7D', 'auth_token', ?, 'h-bad', ?, ?)`,
+		[]byte("admin"), time.Now().Add(time.Hour).UTC().UnixNano(), time.Now().UTC().UnixNano(),
+	); err != nil {
+		t.Fatalf("seed malformed row: %v", err)
+	}
+
+	if _, err := store.ListAuthSessionsForUser(ctx, []byte("admin")); err == nil {
+		t.Error("a malformed row should surface an error")
+	}
+}
+
+// A last-seen stamp the database refuses surfaces an error to the manager
+// (which logs and moves on) — and, one level up, must not fail validation.
+// The trigger stands in for any UPDATE-time failure without closing the DB.
+func TestSQLiteTouchSessionLastSeen_UpdateFailureSurfaces(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	mgr := webauthn.NewSessionManager(store)
+	ctx := context.Background()
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`CREATE TRIGGER refuse_touch BEFORE UPDATE OF last_seen_at ON webauthn_sessions
+		 BEGIN SELECT RAISE(ABORT, 'simulated update failure'); END`,
+	); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	if err := store.TouchSessionLastSeen(ctx, uuid.New(), time.Now()); err != nil {
+		t.Errorf("touching a missing row does not UPDATE anything and must stay quiet, got %v", err)
+	}
+
+	// The stamp fails, validation must not: TokenUser logs and moves on.
+	if _, ok := mgr.TokenUser(ctx, token); !ok {
+		t.Error("validation failed because the last-seen stamp failed")
+	}
+	got, err := store.GetSession(ctx, sessionIDByHash(t, s, token))
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.LastSeenAt != nil {
+		t.Error("the refused stamp landed anyway")
+	}
+}
+
+// sessionIDByHash resolves a raw token to its session row id.
+func sessionIDByHash(t *testing.T, s *Store, token string) uuid.UUID {
+	t.Helper()
+	sum := sha256.Sum256([]byte(token))
+	var idStr string
+	if err := s.db.QueryRow(
+		`SELECT id FROM webauthn_sessions WHERE token_hash = ?`, hex.EncodeToString(sum[:]),
+	).Scan(&idStr); err != nil {
+		t.Fatalf("resolve session id: %v", err)
+	}
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		t.Fatalf("parse id: %v", err)
+	}
+	return id
 }
 
 // Touch stamps last_seen_at; a row revoked in between is not an error.

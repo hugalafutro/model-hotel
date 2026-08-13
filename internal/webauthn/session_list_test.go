@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func sessionByToken(t *testing.T, repo *Repository, token string) *SessionRecord {
@@ -306,6 +307,139 @@ func TestRevokeSessionByID_ForeignSessionReadsNotFound(t *testing.T) {
 	}
 	if !sessionExists(t, repo, stranger) {
 		t.Error("a foreign identity's session was revoked")
+	}
+}
+
+// No identity means no rows: the store must not be queried with an empty user
+// id, which matches nothing today but is one schema change away from matching
+// the wrong rows.
+func TestListAuthSessions_NoIdentityListsNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	sessions, err := mgr.ListAuthSessions(context.Background(), nil, "some-token")
+	if err != nil {
+		t.Fatalf("ListAuthSessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Errorf("len = %d, want 0", len(sessions))
+	}
+}
+
+// A store failure surfaces rather than reading as "no sessions", which would
+// tell an operator a stolen session is gone when nothing was checked.
+func TestListAuthSessions_StoreFailureSurfaces(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := mgr.ListAuthSessions(canceled, []byte("admin"), "some-token"); err == nil {
+		t.Error("a canceled context should surface an error")
+	}
+}
+
+// Empty candidate slots are the normal shape of a bearer-only or cookie-only
+// request (the other credential is ""); they must be skipped, not hashed.
+func TestListAuthSessions_SkipsEmptyCandidates(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-empty-candidates")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sessions, err := mgr.ListAuthSessions(ctx, identity, "", mine)
+	if err != nil {
+		t.Fatalf("ListAuthSessions: %v", err)
+	}
+	if len(sessions) != 1 || !sessions[0].Current {
+		t.Errorf("sessions = %+v, want the one session marked current", sessions)
+	}
+}
+
+func TestRevokeSessionByID_NoIdentityReadsNotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	if err := mgr.RevokeSessionByID(context.Background(), nil, uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+// The empty candidate slot of a bearer-only request must not read as "not the
+// current session was offered": the real token beside it still spares it.
+func TestRevokeSessionByID_SkipsEmptyCandidates(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-revoke-empty-cand")
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mineID := sessionByToken(t, repo, mine).ID
+
+	if err := mgr.RevokeSessionByID(ctx, identity, mineID, "", mine); !errors.Is(err, ErrCurrentSession) {
+		t.Fatalf("err = %v, want ErrCurrentSession", err)
+	}
+}
+
+// A failed last-seen stamp must not fail an otherwise valid authentication:
+// the operator's session working matters more than its freshness metadata.
+func TestTokenUser_StampFailureDoesNotFailValidation(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin-stamp-fail"), nil, SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A store whose Touch always fails, over the same underlying repo.
+	failing := NewSessionManager(&touchFailingStore{SessionStore: repo})
+	if _, ok := failing.TokenUser(ctx, token); !ok {
+		t.Error("validation failed because the last-seen stamp failed")
+	}
+}
+
+// touchFailingStore delegates everything to the wrapped store but refuses
+// last-seen stamps, isolating TokenUser's error branch.
+type touchFailingStore struct {
+	SessionStore
+}
+
+func (s *touchFailingStore) TouchSessionLastSeen(context.Context, uuid.UUID, time.Time) error {
+	return errors.New("simulated touch failure")
+}
+
+// The Postgres list surfaces a row it cannot scan rather than returning a
+// silently truncated list.
+func TestListAuthSessionsForUser_ScanError(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	identity := []byte("admin-list-scan-error")
+	if _, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{}); err != nil {
+		t.Fatal(err)
+	}
+
+	// NOTE: mutates a package-level variable; do not use t.Parallel() here.
+	origRowsScan := rowsScan
+	rowsScan = func(pgx.Rows, ...any) error {
+		return errors.New("simulated scan error")
+	}
+	defer func() { rowsScan = origRowsScan }()
+
+	if _, err := repo.ListAuthSessionsForUser(ctx, identity); err == nil {
+		t.Error("a scan failure should surface an error")
 	}
 }
 
