@@ -417,7 +417,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Mint the same session token as passkey/TOTP login, carrying the resolved
 	// identity handle; no passkey credential to cascade-revoke (nil credentialID).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil, webauthn.MetaFromRequest(r))
+	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
 		h.fail(w, r, throttleKey, "failed to create session", err)
 		return

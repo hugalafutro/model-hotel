@@ -321,8 +321,15 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Post("/pair", s.handlePair)
 			// Login front-end: trades the raw FRONTDESK_TOKEN for the HttpOnly
 			// session cookie pair so the SPA never stores the raw token.
+			// A bare interface conversion of a nil *IPLimiter would be a typed
+			// non-nil ClientIPSource that panics on use, hence the explicit guard.
+			var exchangeIPs webauthn.ClientIPSource
+			if s.ipLimiter != nil {
+				exchangeIPs = s.ipLimiter
+			}
 			r.Post("/auth/admin-exchange", adminauth.TokenExchange(
-				s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, s.cookieSecure))
+				s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, s.cookieSecure,
+				exchangeIPs))
 			// Auth-exempt like the dashboard's logout: it must work for an
 			// already-expired session, and it only revokes/clears.
 			r.Post("/logout", s.logout)

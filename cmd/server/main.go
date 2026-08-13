@@ -226,6 +226,9 @@ func main() {
 	webauthnRepo := webauthn.NewRepository(database.Pool())
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 	apiHandler.SetWebAuthnSessionManager(sessionMgr)
+	// The admin-token exchange stores device metadata on the session it mints;
+	// the IP limiter is the trusted-proxy-aware resolver for the client IP.
+	apiHandler.SetClientIPSource(ipLimiter)
 
 	// Multi-user accounts: the store resolves session user-handles into
 	// role+grant identities in the auth middleware; the webauthn repository

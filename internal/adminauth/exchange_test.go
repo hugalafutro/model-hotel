@@ -22,7 +22,7 @@ func newTestSessionManager(t *testing.T) *webauthn.SessionManager {
 func TestTokenExchange_MintsJarCookie(t *testing.T) {
 	sessionMgr := newTestSessionManager(t)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
-	h := TokenExchange(adminMgr, sessionMgr, nil, authcookie.FrontDesk, "never")
+	h := TokenExchange(adminMgr, sessionMgr, nil, authcookie.FrontDesk, "never", nil)
 
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
 		strings.NewReader(`{"admin_token":"sekrit"}`))
@@ -54,16 +54,22 @@ func TestTokenExchange_MintsJarCookie(t *testing.T) {
 // minted session, or the active-sessions list shows every login as an unknown
 // device. Pinned here on the shared token exchange; the passkey/TOTP/SSO
 // handlers use the same MetaFromRequest at their mint sites.
+//
+// The forged X-Forwarded-For must NOT land in the stored IP: without a
+// trusted-proxy resolver the peer address is the only one the server can
+// vouch for, and the header is how an attacker would relabel their own rogue
+// session to survive the operator's review.
 func TestTokenExchange_StampsDeviceMetaOnTheSession(t *testing.T) {
 	store := newMemStore()
 	sessionMgr := webauthn.NewSessionManager(store)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
-	h := TokenExchange(adminMgr, sessionMgr, nil, authcookie.FrontDesk, "never")
+	h := TokenExchange(adminMgr, sessionMgr, nil, authcookie.FrontDesk, "never", nil)
 
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
 		strings.NewReader(`{"admin_token":"sekrit"}`))
 	r.Header.Set("User-Agent", "Mozilla/5.0 Firefox/141.0")
 	r.Header.Set("X-Forwarded-For", "203.0.113.7")
+	r.RemoteAddr = "198.51.100.66:41234"
 	rec := httptest.NewRecorder()
 	h(rec, r)
 
@@ -84,15 +90,15 @@ func TestTokenExchange_StampsDeviceMetaOnTheSession(t *testing.T) {
 	if session.UserAgent != "Mozilla/5.0 Firefox/141.0" {
 		t.Errorf("UserAgent = %q, want the login request's", session.UserAgent)
 	}
-	if session.IP != "203.0.113.7" {
-		t.Errorf("IP = %q, want the forwarded client address", session.IP)
+	if session.IP != "198.51.100.66" {
+		t.Errorf("IP = %q, want the peer address, never the forged forwarded header", session.IP)
 	}
 }
 
 func TestTokenExchange_RefusesWhenTotpEnabled(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
 	h := TokenExchange(adminMgr, newTestSessionManager(t),
-		func() bool { return true }, authcookie.FrontDesk, "never")
+		func() bool { return true }, authcookie.FrontDesk, "never", nil)
 	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"sekrit"}`))
 	rec := httptest.NewRecorder()
 	h(rec, r)
@@ -109,7 +115,7 @@ func TestTokenExchange_NilSessionManager_ReturnsServerErrorWithoutValidating(t *
 		t.Error("Validate must not be called before the nil sessionMgr guard")
 		return false
 	}}
-	h := TokenExchange(adminMgr, nil, nil, authcookie.FrontDesk, "never")
+	h := TokenExchange(adminMgr, nil, nil, authcookie.FrontDesk, "never", nil)
 
 	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"x"}`))
 	rec := httptest.NewRecorder()
@@ -125,7 +131,7 @@ func TestTokenExchange_NilSessionManager_ReturnsServerErrorWithoutValidating(t *
 
 func TestTokenExchange_RejectsBadToken(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
-	h := TokenExchange(adminMgr, newTestSessionManager(t), nil, authcookie.FrontDesk, "never")
+	h := TokenExchange(adminMgr, newTestSessionManager(t), nil, authcookie.FrontDesk, "never", nil)
 	for _, body := range []string{`{"admin_token":"wrong"}`, `{}`, `not-json`} {
 		r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(body))
 		rec := httptest.NewRecorder()

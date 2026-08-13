@@ -143,6 +143,7 @@ type Handler struct {
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
+	clientIPs              webauthn.ClientIPSource                            // trusted-proxy-aware client IP for session device metadata; nil falls back to the peer address
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
 	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
 	userTotp               UserTotpFactory                                    // nil until SetUserTotp (per-user 2FA endpoints)
@@ -219,6 +220,13 @@ func (h *Handler) SetPwnedChecker(c PwnedChecker) {
 // token-based authentication fallback in AuthMiddleware.
 func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
 	h.webauthnSessionMgr = mgr
+}
+
+// SetClientIPSource wires the trusted-proxy-aware client-IP resolver (the IP
+// limiter) used for session device metadata at the admin-token exchange. Left
+// nil, forwarded headers are never trusted and the peer address is stored.
+func (h *Handler) SetClientIPSource(ips webauthn.ClientIPSource) {
+	h.clientIPs = ips
 }
 
 // SetUserAuth wires the multi-user store and session revoker into the auth

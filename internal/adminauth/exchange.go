@@ -14,12 +14,15 @@ import (
 // other login ceremonies, behind the same per-IP limiter. With TOTP enabled
 // the raw token is only a first factor, so the exchange refuses and the
 // client goes through /totp/login instead.
+// ips resolves the client address for the minted session's device metadata;
+// nil means forwarded headers are never trusted and the peer address is used.
 func TokenExchange(
 	adminMgr AdminAuthenticator,
 	sessionMgr *webauthn.SessionManager,
 	totpEnabled func() bool,
 	jar authcookie.Jar,
 	cookieSecure string,
+	ips webauthn.ClientIPSource,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -42,7 +45,7 @@ func TokenExchange(
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r))
+		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, ips))
 		if err != nil {
 			http.Error(w, "failed to create session", http.StatusInternalServerError)
 			return
