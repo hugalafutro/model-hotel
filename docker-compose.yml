@@ -29,15 +29,9 @@ services:
             - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
             - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
             - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
-            # Operator knobs, read from .env (gitignored) so private CIDRs and
-            # hostnames never land in the repo. TRUSTED_PROXIES deliberately
-            # defaults to empty (trust no forwarded headers): docker's NAT can
-            # make ANY direct client appear as the bridge gateway, so shipping
-            # a docker-subnet default would let direct clients forge
-            # X-Forwarded-For (rate-limit evasion, session-IP spoofing).
-            - ALLOWED_PROVIDER_HOSTS=${ALLOWED_PROVIDER_HOSTS:-}
-            - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
-            - KNOWN_PROXIES=${KNOWN_PROXIES:-}
+            - ALLOWED_PROVIDER_HOSTS=
+            - TRUSTED_PROXIES=
+            - KNOWN_PROXIES=
         volumes:
             - ./.data:/data
             # Docker socket (disabled by default for security).
