@@ -171,7 +171,7 @@ export function Settings() {
 	}
 
 	return (
-		<div className="space-y-8 max-w-5xl pb-8">
+		<div className="space-y-8 pb-8">
 			<div className="flex items-start justify-between">
 				<PageHeader
 					icon={SettingsIcon}
