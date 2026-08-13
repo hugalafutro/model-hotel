@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Beheerd door de primaire instantie van de vloot. Gesynchroniseerde items zijn hier alleen-lezen en worden bij de volgende configuratiesynchronisatie vervangen. Beheer ze op de primaire instantie."
+			"banner": "Beheerd door de primaire instantie van de vloot. De configuratie hieronder is hier alleen-lezen en wordt bij de volgende configuratiesynchronisatie vervangen. Beheer deze op de primaire instantie."
 		},
 		"builtFromCommit": "Gebouwd vanaf commit {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
-			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie."
+			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie.",
+			"authNote": "Het wachtwoordbeleid en de eenmalige aanmelding (SSO) hieronder worden beheerd door de primaire instantie van de vloot. Toegangssleutels, 2FA, sessietime-out en actieve sessies hierboven blijven lokaal op deze instantie."
 		},
 		"activeSessions": {
 			"title": "Actieve sessies",

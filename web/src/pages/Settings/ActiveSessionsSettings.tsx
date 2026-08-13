@@ -212,7 +212,7 @@ function SessionRow({
 					{session.current && (
 						<span
 							data-testid="current-session-chip"
-							className="shrink-0 rounded-full border border-accent/40 px-1.5 py-px text-[10px] text-accent"
+							className="ui-badge ui-badge-accent shrink-0"
 						>
 							{t("settings.activeSessions.currentBadge")}
 						</span>

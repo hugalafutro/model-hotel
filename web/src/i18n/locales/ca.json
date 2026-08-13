@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestionada per la instància primària de la flota. Els elements sincronitzats són de només lectura aquí i se substitueixen en la propera sincronització de configuració. Gestiona'ls a la instància primària."
+			"banner": "Gestionada per la instància primària de la flota. La configuració de sota és de només lectura aquí i se substitueix en la propera sincronització de configuració. Gestiona-la a la instància primària."
 		},
 		"builtFromCommit": "Compilat des del commit {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gestionada per la instància primària de la flota. Els canvis fets aquí se substitueixen en la propera sincronització de configuració.",
-			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància."
+			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància.",
+			"authNote": "La política de contrasenyes i l'inici de sessió únic (SSO) de sota els gestiona la instància primària de la flota. Les claus d'accés, la 2FA, el temps d'espera de la sessió i les sessions actives de dalt es mantenen locals en aquesta instància."
 		},
 		"activeSessions": {
 			"title": "Sessions actives",

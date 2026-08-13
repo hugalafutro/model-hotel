@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Von der Flotten-Primärinstanz verwaltet. Synchronisierte Elemente sind hier schreibgeschützt und werden bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz."
+			"banner": "Von der Flotten-Primärinstanz verwaltet. Die Konfiguration unterhalb ist hier schreibgeschützt und wird bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz."
 		},
 		"builtFromCommit": "Erstellt aus Commit {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Von der Flotten-Primärinstanz verwaltet. Änderungen hier werden bei der nächsten Konfigurationssynchronisierung ersetzt.",
-			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz."
+			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz.",
+			"authNote": "Die Passwortrichtlinie und das Single Sign-on (SSO) unterhalb werden von der Flotten-Primärinstanz verwaltet. Passkeys, 2FA, Sitzungs-Timeout und aktive Sitzungen oberhalb bleiben lokal auf dieser Instanz."
 		},
 		"activeSessions": {
 			"title": "Aktive Sitzungen",

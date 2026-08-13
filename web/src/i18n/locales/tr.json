@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Filo birincil örneği tarafından yönetiliyor. Eşitlenen öğeler burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunları birincil örnekte yönetin."
+			"banner": "Filo birincil örneği tarafından yönetiliyor. Aşağıdaki yapılandırma burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunu birincil örnekte yönetin."
 		},
 		"builtFromCommit": "{{commit}} commit'inden derlendi"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
-			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır."
+			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır.",
+			"authNote": "Aşağıdaki parola politikası ve çoklu oturum açma (SSO) ayarları filo birincil örneği tarafından yönetilir. Yukarıdaki geçiş anahtarları, 2FA, oturum zaman aşımı ve etkin oturumlar bu örnekte yerel kalır."
 		},
 		"activeSessions": {
 			"title": "Etkin oturumlar",

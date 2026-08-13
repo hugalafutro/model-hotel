@@ -247,15 +247,16 @@ describe("Settings", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 			const { user } = renderWithProviders(<Settings />);
 			await screen.findByText("Settings");
 
-			// The first resettable section is Discovery (JSX order). Assert the
-			// exact discovery keys as a literal list (NOT via SECTION_SETTINGS,
-			// which the production code also reads -- that would be circular and
-			// pass even if a key were dropped from both sides). This independently
-			// verifies the payload and pins down which section the button belongs to.
+			// Resettable sections in JSX order: Alerts first (local group), then
+			// Discovery leading the synced group. Assert the exact discovery keys
+			// as a literal list (NOT via SECTION_SETTINGS, which the production
+			// code also reads -- that would be circular and pass even if a key
+			// were dropped from both sides). This independently verifies the
+			// payload and pins down which section the button belongs to.
 			const sectionResetButtons = screen.getAllByRole("button", {
 				name: "Reset all settings in this section",
 			});
-			await user.click(sectionResetButtons[0]);
+			await user.click(sectionResetButtons[1]);
 			await user.click(
 				screen.getByRole("button", { name: "Reset to Defaults" }),
 			);
@@ -265,6 +266,20 @@ describe("Settings", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 					"discovery_interval",
 					"discovery_on_startup",
 					"discovery_on_provider_create",
+				]),
+			);
+
+			// Second probe one section further down (Data Storage) so a reorder
+			// that shifts the button-to-section mapping cannot slip through on a
+			// single lucky index.
+			await user.click(sectionResetButtons[2]);
+			await user.click(
+				screen.getByRole("button", { name: "Reset to Defaults" }),
+			);
+			await waitFor(() =>
+				expect(capturedKeys).toEqual([
+					"log_retention",
+					"stale_request_timeout",
 				]),
 			);
 		});

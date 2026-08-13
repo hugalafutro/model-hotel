@@ -235,7 +235,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Zarządzane przez instancję podstawową floty. Zsynchronizowane elementy są tutaj tylko do odczytu i zostaną zastąpione przy następnej synchronizacji konfiguracji. Zarządzaj nimi w instancji podstawowej."
+			"banner": "Zarządzane przez instancję podstawową floty. Poniższa konfiguracja jest tutaj tylko do odczytu i zostanie zastąpiona przy następnej synchronizacji konfiguracji. Zarządzaj nią w instancji podstawowej."
 		},
 		"builtFromCommit": "Zbudowano z commita {{commit}}"
 	},
@@ -2161,7 +2161,8 @@
 		},
 		"managed": {
 			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
-			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji."
+			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji.",
+			"authNote": "Poniższymi zasadami haseł i logowaniem jednokrotnym (SSO) zarządza instancja podstawowa floty. Klucze dostępu, 2FA, limit czasu sesji i aktywne sesje powyżej pozostają lokalne dla tej instancji."
 		},
 		"activeSessions": {
 			"title": "Aktywne sesje",

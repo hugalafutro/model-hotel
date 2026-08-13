@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Các mục đã đồng bộ ở đây chỉ đọc và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý chúng trên phiên bản chính."
+			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Cấu hình bên dưới chỉ đọc tại đây và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý trên phiên bản chính."
 		},
 		"builtFromCommit": "Được build từ commit {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Được quản lý bởi phiên bản chính của hạm đội. Các thay đổi ở đây sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo.",
-			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này."
+			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này.",
+			"authNote": "Chính sách mật khẩu và đăng nhập một lần (SSO) bên dưới do phiên bản chính của hạm đội quản lý. Khóa truy cập, 2FA, thời gian chờ phiên và phiên đang hoạt động bên trên vẫn là cục bộ trên phiên bản này."
 		},
 		"activeSessions": {
 			"title": "Phiên đang hoạt động",

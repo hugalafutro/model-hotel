@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gérée par l'instance principale de la flotte. Les éléments synchronisés sont en lecture seule ici et sont remplacés à la prochaine synchronisation de configuration. Gérez-les sur l'instance principale."
+			"banner": "Gérée par l'instance principale de la flotte. La configuration ci-dessous est en lecture seule ici et est remplacée à la prochaine synchronisation de configuration. Gérez-la sur l'instance principale."
 		},
 		"builtFromCommit": "Compilé depuis le commit {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gérée par l'instance principale de la flotte. Les modifications apportées ici sont remplacées à la prochaine synchronisation de configuration.",
-			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance."
+			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance.",
+			"authNote": "La politique de mots de passe et l'authentification unique (SSO) ci-dessous sont gérées par l'instance principale de la flotte. Les clés d'accès, la 2FA, le délai d'expiration de la session et les sessions actives ci-dessus restent locaux à cette instance."
 		},
 		"activeSessions": {
 			"title": "Sessions actives",

@@ -16,6 +16,7 @@ import { useSettingsMutations } from "./useSettingsMutations";
 interface AuthenticationSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	managed?: boolean;
 }
 
 /**
@@ -26,10 +27,18 @@ interface AuthenticationSettingsProps {
  * the session timeout is a stored setting (session_idle_timeout_minutes)
  * consumed by useIdleLogout to sign the admin out after inactivity (0 =
  * never).
+ *
+ * Like Alerts, this is a mixed section: passkeys, TOTP, sessions, and the
+ * session timeout are instance-local, but the password-policy and SSO
+ * settings below them are fleet-synced (a managed member 403s those writes),
+ * so while managed those groups are disabled behind their own note instead
+ * of forwarding `managed` to SettingsSection, which would disable the local
+ * half too.
  */
 export function AuthenticationSettings({
 	collapsed,
 	onToggle,
+	managed,
 }: AuthenticationSettingsProps) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
@@ -89,53 +98,65 @@ export function AuthenticationSettings({
 					</SettingsGroup>
 				</div>
 			</div>
-			<div className="mt-5">
-				<SettingsGroup title={t("settings.passwordPolicy.title")}>
-					<div className="flex items-center justify-between">
-						<div>
-							<div className="flex items-center gap-1">
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.passwordPolicy.breachCheckLabel")}
+			{managed && (
+				<p
+					data-testid="managed-note"
+					className="mt-5 text-xs text-(--text-muted)"
+				>
+					{t("settings.managed.authNote")}
+				</p>
+			)}
+			{/* A disabled fieldset natively disables every control it wraps, the
+			    same idiom SettingsSection uses for fully-synced sections. */}
+			<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+				<div className="mt-5">
+					<SettingsGroup title={t("settings.passwordPolicy.title")}>
+						<div className="flex items-center justify-between">
+							<div>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.passwordPolicy.breachCheckLabel")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate([
+												"pwned_password_check_enabled",
+											])
+										}
+										size={12}
+										disabled={isResetting || updateMutation.isPending}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.passwordPolicy.breachCheckDescription")}
 								</p>
-								<ResetButton
-									tooltip={t("settings.common.resetSetting")}
-									onClick={() =>
-										resetSettingMutation.mutate([
-											"pwned_password_check_enabled",
-										])
-									}
-									size={12}
-									disabled={isResetting || updateMutation.isPending}
-								/>
 							</div>
-							<p className="text-gray-500 text-xs mt-0.5">
-								{t("settings.passwordPolicy.breachCheckDescription")}
-							</p>
+							<Toggle
+								checked={breachCheckEnabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										pwned_password_check_enabled: v ? "true" : "false",
+									})
+								}
+								disabled={updateMutation.isPending || isResetting}
+								ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
+							/>
 						</div>
-						<Toggle
-							checked={breachCheckEnabled}
-							size="sm"
-							onChange={(v) =>
-								updateMutation.mutate({
-									pwned_password_check_enabled: v ? "true" : "false",
-								})
-							}
-							disabled={updateMutation.isPending || isResetting}
-							ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
-						/>
-					</div>
-				</SettingsGroup>
-			</div>
-			<div className="mt-5">
-				<SettingsGroup title={t("settings.oidc.title")}>
-					<OidcPanel />
-				</SettingsGroup>
-			</div>
-			<div className="mt-5">
-				<SettingsGroup title={t("settings.github.title")}>
-					<GithubPanel />
-				</SettingsGroup>
-			</div>
+					</SettingsGroup>
+				</div>
+				<div className="mt-5">
+					<SettingsGroup title={t("settings.oidc.title")}>
+						<OidcPanel />
+					</SettingsGroup>
+				</div>
+				<div className="mt-5">
+					<SettingsGroup title={t("settings.github.title")}>
+						<GithubPanel />
+					</SettingsGroup>
+				</div>
+			</fieldset>
 		</SettingsSection>
 	);
 }

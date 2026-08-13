@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestita dall'istanza primaria della flotta. Gli elementi sincronizzati sono di sola lettura qui e vengono sostituiti alla successiva sincronizzazione della configurazione. Gestiscili sull'istanza primaria."
+			"banner": "Gestita dall'istanza primaria della flotta. La configurazione qui sotto è di sola lettura e viene sostituita alla successiva sincronizzazione della configurazione. Gestiscila sull'istanza primaria."
 		},
 		"builtFromCommit": "Compilato dal commit {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gestita dall'istanza primaria della flotta. Le modifiche apportate qui vengono sostituite alla successiva sincronizzazione della configurazione.",
-			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza."
+			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza.",
+			"authNote": "I criteri per le password e l'accesso unico (SSO) qui sotto sono gestiti dall'istanza primaria della flotta. Passkeys, 2FA, timeout della sessione e sessioni attive qui sopra restano locali a questa istanza."
 		},
 		"activeSessions": {
 			"title": "Sessioni attive",

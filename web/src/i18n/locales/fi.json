@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Synkronoidut kohteet ovat täällä vain luettavissa, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi niitä ensisijaisessa ilmentymässä."
+			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Alla oleva kokoonpano on täällä vain luettavissa, ja se korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi sitä ensisijaisessa ilmentymässä."
 		},
 		"builtFromCommit": "Koottu commitista {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
-			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä."
+			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä.",
+			"authNote": "Alla olevia salasanakäytäntöä ja kertakirjautumista (SSO) hallinnoi laivaston ensisijainen ilmentymä. Yllä olevat avainkoodit, 2FA, istunnon aikakatkaisu ja aktiiviset istunnot pysyvät paikallisina tässä ilmentymässä."
 		},
 		"activeSessions": {
 			"title": "Aktiiviset istunnot",

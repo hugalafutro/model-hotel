@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "A flotta elsődleges példánya kezeli. A szinkronizált elemek itt csak olvashatók, és a következő konfigurációs szinkronizáláskor lecserélődnek. Kezelje őket az elsődleges példányon."
+			"banner": "A flotta elsődleges példánya kezeli. Az alábbi konfiguráció itt csak olvasható, és a következő konfigurációs szinkronizáláskor lecserélődik. Kezelje az elsődleges példányon."
 		},
 		"builtFromCommit": "A(z) {{commit}} commitból építve"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "A flotta elsődleges példánya kezeli. Az itt végzett módosítások a következő konfigurációs szinkronizáláskor lecserélődnek.",
-			"alertsNote": "A riasztások be- és kikapcsolását és az eseményirányítást a flotta elsődleges példánya kezeli. Az alábbi Apprise kézbesítési beállítások helyiek maradnak ezen a példányon."
+			"alertsNote": "A riasztások be- és kikapcsolását és az eseményirányítást a flotta elsődleges példánya kezeli. Az alábbi Apprise kézbesítési beállítások helyiek maradnak ezen a példányon.",
+			"authNote": "Az alábbi jelszóházirendet és egyszeri bejelentkezést (SSO) a flotta elsődleges példánya kezeli. A fenti hozzáférési kulcsok, a 2FA, a munkamenet időkorlátja és az aktív munkamenetek ezen a példányon maradnak helyiek."
 		},
 		"activeSessions": {
 			"title": "Aktív munkamenetek",

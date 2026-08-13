@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestionada por la instancia primaria de la flota. Los elementos sincronizados son de solo lectura aquí y se reemplazan en la próxima sincronización de configuración. Gestiónalos en la instancia primaria."
+			"banner": "Gestionada por la instancia primaria de la flota. La configuración de abajo es de solo lectura aquí y se reemplaza en la próxima sincronización de configuración. Gestiónala en la instancia primaria."
 		},
 		"builtFromCommit": "Compilado desde el commit {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gestionada por la instancia primaria de la flota. Los cambios realizados aquí se reemplazan en la próxima sincronización de configuración.",
-			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia."
+			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia.",
+			"authNote": "La política de contraseñas y el inicio de sesión único (SSO) de abajo los gestiona la instancia primaria de la flota. Las claves de acceso, la 2FA, el tiempo de espera de la sesión y las sesiones activas de arriba se mantienen locales en esta instancia."
 		},
 		"activeSessions": {
 			"title": "Sesiones activas",
