@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestita dall'istanza primaria della flotta. Le modifiche apportate qui vengono sostituite alla successiva sincronizzazione della configurazione.",
 			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza.",
-			"authNote": "I criteri per le password e l'accesso unico (SSO) qui sotto sono gestiti dall'istanza primaria della flotta. Passkeys, 2FA, timeout della sessione e sessioni attive qui sopra restano locali a questa istanza."
+			"authNote": "I criteri per le password e l'accesso unico (SSO) qui sotto sono gestiti dall'istanza primaria della flotta. Passkeys, 2FA, timeout della scheda e sessioni attive qui sopra restano locali a questa istanza."
 		},
 		"activeSessions": {
 			"title": "Sessioni attive",
@@ -2130,9 +2130,9 @@
 			"lastSeen": "Attiva {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Timeout della sessione",
-			"label": "Disconnessione automatica dopo inattività",
-			"hint": "Disconnette automaticamente la dashboard dopo questo periodo di inattività. Imposta su Mai per mantenere la sessione aperta a tempo indeterminato."
+			"title": "Timeout della scheda",
+			"label": "Disconnetti una scheda inattiva dopo",
+			"hint": "Disconnette una scheda aperta e dimenticata dopo questo periodo di inattività. Le schede chiuse non sono interessate: ogni accesso scade da solo dopo 1 giorno. Imposta su Mai per mantenere connesse le schede aperte."
 		},
 		"oidc": {
 			"title": "Accesso unico (SSO)",

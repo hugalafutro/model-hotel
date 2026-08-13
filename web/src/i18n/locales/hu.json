@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "A flotta elsődleges példánya kezeli. Az itt végzett módosítások a következő konfigurációs szinkronizáláskor lecserélődnek.",
 			"alertsNote": "A riasztások be- és kikapcsolását és az eseményirányítást a flotta elsődleges példánya kezeli. Az alábbi Apprise kézbesítési beállítások helyiek maradnak ezen a példányon.",
-			"authNote": "Az alábbi jelszóházirendet és egyszeri bejelentkezést (SSO) a flotta elsődleges példánya kezeli. A fenti hozzáférési kulcsok, a 2FA, a munkamenet időkorlátja és az aktív munkamenetek ezen a példányon maradnak helyiek."
+			"authNote": "Az alábbi jelszóházirendet és egyszeri bejelentkezést (SSO) a flotta elsődleges példánya kezeli. A fenti hozzáférési kulcsok, a 2FA, a lap időkorlátja és az aktív munkamenetek ezen a példányon maradnak helyiek."
 		},
 		"activeSessions": {
 			"title": "Aktív munkamenetek",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Aktív: {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Munkamenet időkorlátja",
-			"label": "Automatikus kijelentkezés inaktivitás után",
-			"hint": "Ennyi tétlenség után a rendszer automatikusan kijelentkezteti az irányítópultból. Állítsa Soha értékre, hogy a munkamenet korlátlan ideig nyitva maradjon."
+			"title": "Lap időkorlátja",
+			"label": "Tétlen lap kijelentkeztetése ennyi után",
+			"hint": "Ennyi tétlenség után kijelentkezteti az ottfelejtett nyitott lapot. A bezárt lapokat nem érinti: minden bejelentkezés magától lejár 1 nap után. Állítsa Soha értékre, hogy a nyitott lapok bejelentkezve maradjanak."
 		},
 		"oidc": {
 			"title": "Egyszeri bejelentkezés (SSO)",

@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
 			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen.",
-			"authNote": "Passordreglene og enkeltpålogging (SSO) nedenfor styres av flåtens primære instans. Tilgangsnøkler, 2FA, tidsavbrudd for økt og aktive økter ovenfor forblir lokale på denne instansen."
+			"authNote": "Passordreglene og enkeltpålogging (SSO) nedenfor styres av flåtens primære instans. Tilgangsnøkler, 2FA, fane-tidsavbrudd og aktive økter ovenfor forblir lokale på denne instansen."
 		},
 		"activeSessions": {
 			"title": "Aktive økter",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Tidsavbrudd for økt",
-			"label": "Automatisk utlogging etter inaktivitet",
-			"hint": "Logger automatisk ut av dashbordet etter denne perioden uten aktivitet. Sett til Aldri for å holde økten åpen på ubestemt tid."
+			"title": "Fane-tidsavbrudd",
+			"label": "Logg ut en inaktiv fane etter",
+			"hint": "Logger ut en glemt åpen fane etter denne perioden uten aktivitet. Lukkede faner påvirkes ikke: hver pålogging utløper av seg selv etter 1 dag. Sett til Aldri for å holde åpne faner pålogget."
 		},
 		"oidc": {
 			"title": "Enkeltpålogging (SSO)",

@@ -23,7 +23,7 @@ import (
 // Nothing revokes a session when its owner logs in again, so this TTL is the
 // only bound on how long a stolen token stays usable. Keep it short enough that
 // the exposure window is survivable; session_ttl_test.go enforces the ceiling.
-const AuthTokenTTL = 7 * 24 * time.Hour
+const AuthTokenTTL = 24 * time.Hour
 
 // lastSeenThrottle bounds how often a session's last_seen_at is rewritten.
 // Validation runs on every admin request; without the throttle each one would

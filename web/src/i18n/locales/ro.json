@@ -2111,7 +2111,7 @@
 		"managed": {
 			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
 			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță.",
-			"authNote": "Politica parolelor și autentificarea unică (SSO) de mai jos sunt gestionate de instanța primară a flotei. Cheile de acces, 2FA, expirarea sesiunii și sesiunile active de mai sus rămân locale pe această instanță."
+			"authNote": "Politica parolelor și autentificarea unică (SSO) de mai jos sunt gestionate de instanța primară a flotei. Cheile de acces, 2FA, limita de timp a filei și sesiunile active de mai sus rămân locale pe această instanță."
 		},
 		"activeSessions": {
 			"title": "Sesiuni active",
@@ -2130,9 +2130,9 @@
 			"lastSeen": "Activă {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Expirarea sesiunii",
-			"label": "Deconectare automată după inactivitate",
-			"hint": "Vă deconectează automat din tablou după această perioadă de inactivitate. Setați la Niciodată pentru a menține sesiunea deschisă pe termen nelimitat."
+			"title": "Limita de timp a filei",
+			"label": "Deconectează o filă inactivă după",
+			"hint": "Deconectează o filă deschisă și uitată după această perioadă fără activitate. Filele închise nu sunt afectate: fiecare autentificare expiră de la sine după 1 zi. Setați la Niciodată pentru ca filele deschise să rămână conectate."
 		},
 		"oidc": {
 			"title": "Autentificare unică (SSO)",

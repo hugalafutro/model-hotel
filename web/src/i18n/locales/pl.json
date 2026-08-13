@@ -2162,7 +2162,7 @@
 		"managed": {
 			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
 			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji.",
-			"authNote": "Poniższymi zasadami haseł i logowaniem jednokrotnym (SSO) zarządza instancja podstawowa floty. Klucze dostępu, 2FA, limit czasu sesji i aktywne sesje powyżej pozostają lokalne dla tej instancji."
+			"authNote": "Poniższymi zasadami haseł i logowaniem jednokrotnym (SSO) zarządza instancja podstawowa floty. Klucze dostępu, 2FA, limit czasu karty i aktywne sesje powyżej pozostają lokalne dla tej instancji."
 		},
 		"activeSessions": {
 			"title": "Aktywne sesje",
@@ -2182,9 +2182,9 @@
 			"lastSeen": "Aktywna {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Limit czasu sesji",
-			"label": "Automatyczne wylogowanie po bezczynności",
-			"hint": "Po tym okresie bezczynności nastąpi automatyczne wylogowanie z panelu. Ustaw na Nigdy, aby sesja pozostała otwarta bez ograniczeń."
+			"title": "Limit czasu karty",
+			"label": "Wyloguj bezczynną kartę po",
+			"hint": "Wylogowuje zapomnianą otwartą kartę po tym czasie bez aktywności. Zamkniętych kart to nie dotyczy: każde logowanie samo wygasa po 1 dniu. Ustaw na Nigdy, aby otwarte karty pozostały zalogowane."
 		},
 		"oidc": {
 			"title": "Logowanie jednokrotne (SSO)",

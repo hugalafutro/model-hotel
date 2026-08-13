@@ -2162,7 +2162,7 @@
 		"managed": {
 			"sectionNote": "Spravováno primární instancí flotily. Změny provedené zde se při příští synchronizaci konfigurace nahradí.",
 			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci.",
-			"authNote": "Zásady hesel a jednotné přihlášení (SSO) níže spravuje primární instance flotily. Přístupové klíče, 2FA, časový limit relace a aktivní relace výše zůstávají lokální pro tuto instanci."
+			"authNote": "Zásady hesel a jednotné přihlášení (SSO) níže spravuje primární instance flotily. Přístupové klíče, 2FA, časový limit karty a aktivní relace výše zůstávají lokální pro tuto instanci."
 		},
 		"activeSessions": {
 			"title": "Aktivní relace",
@@ -2182,9 +2182,9 @@
 			"lastSeen": "Aktivní {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Časový limit relace",
-			"label": "Automatické odhlášení po nečinnosti",
-			"hint": "Po této době nečinnosti budete z panelu automaticky odhlášeni. Nastavte na Nikdy, chcete-li relaci ponechat trvale otevřenou."
+			"title": "Časový limit karty",
+			"label": "Odhlásit neaktivní kartu po",
+			"hint": "Odhlásí zapomenutou otevřenou kartu po této době bez aktivity. Zavřených karet se to netýká: každé přihlášení samo vyprší po 1 dni. Nastavením na Nikdy zůstanou otevřené karty přihlášené."
 		},
 		"oidc": {
 			"title": "Jednotné přihlášení (SSO)",

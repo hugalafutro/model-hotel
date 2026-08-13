@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Von der Flotten-Primärinstanz verwaltet. Änderungen hier werden bei der nächsten Konfigurationssynchronisierung ersetzt.",
 			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz.",
-			"authNote": "Die Passwortrichtlinie und das Single Sign-on (SSO) unterhalb werden von der Flotten-Primärinstanz verwaltet. Passkeys, 2FA, Sitzungs-Timeout und aktive Sitzungen oberhalb bleiben lokal auf dieser Instanz."
+			"authNote": "Die Passwortrichtlinie und das Single Sign-on (SSO) unterhalb werden von der Flotten-Primärinstanz verwaltet. Passkeys, 2FA, Tab-Timeout und aktive Sitzungen oberhalb bleiben lokal auf dieser Instanz."
 		},
 		"activeSessions": {
 			"title": "Aktive Sitzungen",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Sitzungs-Timeout",
-			"label": "Automatische Abmeldung bei Inaktivität",
-			"hint": "Nach dieser Zeit ohne Aktivität wird das Dashboard automatisch abgemeldet. Auf Nie setzen, um die Sitzung dauerhaft offen zu halten."
+			"title": "Tab-Timeout",
+			"label": "Inaktiven Tab abmelden nach",
+			"hint": "Meldet einen vergessenen offenen Tab nach dieser Zeit ohne Aktivität ab. Geschlossene Tabs sind nicht betroffen: Jede Anmeldung läuft von selbst nach 1 Tag ab. Auf Nie setzen, um offene Tabs angemeldet zu lassen."
 		},
 		"oidc": {
 			"title": "Single Sign-on (SSO)",

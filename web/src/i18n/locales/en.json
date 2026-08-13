@@ -2073,9 +2073,9 @@
 			"lastSeen": "Active {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Session timeout",
-			"label": "Auto-logout after inactivity",
-			"hint": "Sign the dashboard out automatically after this period with no activity. Set to Never to keep the session open indefinitely."
+			"title": "Tab timeout",
+			"label": "Sign out an idle tab after",
+			"hint": "Signs out a forgotten open tab after this long without activity. Closed tabs are not affected: every login expires on its own after 1 day. Set to Never to leave open tabs signed in."
 		},
 		"passwordPolicy": {
 			"title": "Password policy",
@@ -2085,7 +2085,7 @@
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
 			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance.",
-			"authNote": "The password policy and single sign-on settings below are managed by the fleet primary. Passkeys, two-factor, session timeout, and active sessions above stay local to this instance."
+			"authNote": "The password policy and single sign-on settings below are managed by the fleet primary. Passkeys, two-factor, tab timeout, and active sessions above stay local to this instance."
 		},
 		"oidc": {
 			"title": "Single sign-on (SSO)",

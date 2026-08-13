@@ -14,7 +14,7 @@ import (
 // past this ceiling is a security decision, not a tuning knob, and must fail
 // here first. The literal is duplicated deliberately: deriving it from
 // AuthTokenTTL would make the assertion tautological.
-const maxAuthTokenTTL = 7 * 24 * time.Hour
+const maxAuthTokenTTL = 24 * time.Hour
 
 func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {
 	if AuthTokenTTL > maxAuthTokenTTL {

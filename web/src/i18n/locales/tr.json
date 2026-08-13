@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
 			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır.",
-			"authNote": "Aşağıdaki parola politikası ve çoklu oturum açma (SSO) ayarları filo birincil örneği tarafından yönetilir. Yukarıdaki geçiş anahtarları, 2FA, oturum zaman aşımı ve etkin oturumlar bu örnekte yerel kalır."
+			"authNote": "Aşağıdaki parola politikası ve çoklu oturum açma (SSO) ayarları filo birincil örneği tarafından yönetilir. Yukarıdaki geçiş anahtarları, 2FA, sekme zaman aşımı ve etkin oturumlar bu örnekte yerel kalır."
 		},
 		"activeSessions": {
 			"title": "Etkin oturumlar",
@@ -2078,9 +2078,9 @@
 			"lastSeen": "Son etkinlik: {{when}}"
 		},
 		"sessionTimeout": {
-			"title": "Oturum zaman aşımı",
-			"label": "Hareketsizlik sonrası otomatik çıkış",
-			"hint": "Bu hareketsizlik süresinin ardından panodan otomatik olarak çıkış yapılır. Oturumu süresiz açık tutmak için Asla olarak ayarlayın."
+			"title": "Sekme zaman aşımı",
+			"label": "Boştaki sekmenin oturumunu şu süre sonra kapat",
+			"hint": "Unutulmuş açık bir sekmenin oturumunu bu süre boyunca etkinlik olmazsa kapatır. Kapalı sekmeler etkilenmez: her oturum açma 1 gün sonra kendiliğinden sona erer. Açık sekmeler oturumda kalsın diye Hiçbir zaman olarak ayarlayın."
 		},
 		"oidc": {
 			"title": "Çoklu oturum açma (SSO)",
