@@ -235,7 +235,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Spravováno primární instancí flotily. Synchronizované položky jsou zde pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte je na primární instanci."
+			"banner": "Spravováno primární instancí flotily. Vše níže je pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte to na primární instanci."
 		},
 		"builtFromCommit": "Sestaveno z commitu {{commit}}"
 	},

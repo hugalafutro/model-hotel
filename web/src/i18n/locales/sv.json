@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Hanteras av flottans primära instans. Synkroniserade objekt är skrivskyddade här och ersätts vid nästa konfigurationssynkronisering. Hantera dem på den primära instansen."
+			"banner": "Hanteras av flottans primära instans. Allt nedanför är skrivskyddat och ersätts vid nästa konfigurationssynkronisering. Hantera det på den primära instansen."
 		},
 		"builtFromCommit": "Byggd från commit {{commit}}"
 	},

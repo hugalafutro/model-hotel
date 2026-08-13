@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestita dall'istanza primaria della flotta. Gli elementi sincronizzati sono di sola lettura qui e vengono sostituiti alla successiva sincronizzazione della configurazione. Gestiscili sull'istanza primaria."
+			"banner": "Gestita dall'istanza primaria della flotta. Tutto ciò che segue è di sola lettura e viene sostituito alla successiva sincronizzazione della configurazione. Gestiscilo sull'istanza primaria."
 		},
 		"builtFromCommit": "Compilato dal commit {{commit}}"
 	},

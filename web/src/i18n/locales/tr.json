@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Filo birincil örneği tarafından yönetiliyor. Eşitlenen öğeler burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunları birincil örnekte yönetin."
+			"banner": "Filo birincil örneği tarafından yönetiliyor. Aşağıdaki her şey salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunu birincil örnekte yönetin."
 		},
 		"builtFromCommit": "{{commit}} commit'inden derlendi"
 	},

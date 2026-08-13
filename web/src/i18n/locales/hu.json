@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "A flotta elsődleges példánya kezeli. A szinkronizált elemek itt csak olvashatók, és a következő konfigurációs szinkronizáláskor lecserélődnek. Kezelje őket az elsődleges példányon."
+			"banner": "A flotta elsődleges példánya kezeli. Minden, ami alább látható, csak olvasható, és a következő konfigurációs szinkronizáláskor lecserélődik. Kezelje az elsődleges példányon."
 		},
 		"builtFromCommit": "A(z) {{commit}} commitból építve"
 	},

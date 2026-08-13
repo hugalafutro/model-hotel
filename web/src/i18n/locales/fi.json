@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Synkronoidut kohteet ovat täällä vain luettavissa, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi niitä ensisijaisessa ilmentymässä."
+			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Kaikki alla oleva on vain luettavissa, ja se korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi sitä ensisijaisessa ilmentymässä."
 		},
 		"builtFromCommit": "Koottu commitista {{commit}}"
 	},

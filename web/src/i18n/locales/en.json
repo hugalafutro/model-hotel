@@ -225,7 +225,7 @@
 			"banner": "Read-only demo - creating, editing, and deleting are disabled."
 		},
 		"managed": {
-			"banner": "Managed by the fleet primary. Synced items here are read-only and are replaced on the next config sync. Manage them on the primary."
+			"banner": "Managed by the fleet primary. Everything below is read-only and is replaced on the next config sync. Manage it on the primary."
 		},
 		"builtFromCommit": "Built from commit {{commit}}"
 	},

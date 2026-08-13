@@ -186,16 +186,7 @@ export function Settings() {
 				/>
 			</div>
 
-			<ManagedBanner />
-
 			<div className="space-y-6">
-				<DiscoverySettings
-					collapsed={modelDiscoveryCollapsed}
-					onToggle={toggleModelDiscovery}
-					onResetSection={() => setResetSection("discovery")}
-					managed={managed}
-				/>
-
 				<AuthenticationSettings
 					collapsed={authenticationCollapsed}
 					onToggle={toggleAuthentication}
@@ -204,13 +195,6 @@ export function Settings() {
 				<AppearanceSettings
 					collapsed={appearanceCollapsed}
 					onToggle={toggleAppearance}
-				/>
-
-				<DataStorageSettings
-					collapsed={dataStorageCollapsed}
-					onToggle={toggleDataStorage}
-					onResetSection={() => setResetSection("dataStorage")}
-					managed={managed}
 				/>
 
 				<ObservabilitySettings
@@ -226,6 +210,27 @@ export function Settings() {
 					// inputs too). Drop the section reset while managed so the header
 					// matches the six fully-synced sections, which hide theirs.
 					onResetSection={managed ? undefined : () => setResetSection("alerts")}
+					managed={managed}
+				/>
+
+				{/* Sections above are local to this instance (Alerts partially,
+				    per its own in-section note); every section below is owned by
+				    the fleet primary, so the managed banner sits on the boundary
+				    and its "everything below" claim reads true. On unmanaged
+				    instances it renders nothing. */}
+				<ManagedBanner />
+
+				<DiscoverySettings
+					collapsed={modelDiscoveryCollapsed}
+					onToggle={toggleModelDiscovery}
+					onResetSection={() => setResetSection("discovery")}
+					managed={managed}
+				/>
+
+				<DataStorageSettings
+					collapsed={dataStorageCollapsed}
+					onToggle={toggleDataStorage}
+					onResetSection={() => setResetSection("dataStorage")}
 					managed={managed}
 				/>
 

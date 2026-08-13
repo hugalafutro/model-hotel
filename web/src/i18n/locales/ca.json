@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestionada per la instància primària de la flota. Els elements sincronitzats són de només lectura aquí i se substitueixen en la propera sincronització de configuració. Gestiona'ls a la instància primària."
+			"banner": "Gestionada per la instància primària de la flota. Tot el que hi ha a sota és de només lectura i se substitueix en la propera sincronització de configuració. Gestiona-ho a la instància primària."
 		},
 		"builtFromCommit": "Compilat des del commit {{commit}}"
 	},

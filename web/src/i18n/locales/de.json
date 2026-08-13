@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Von der Flotten-Primärinstanz verwaltet. Synchronisierte Elemente sind hier schreibgeschützt und werden bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz."
+			"banner": "Von der Flotten-Primärinstanz verwaltet. Alles Untenstehende ist schreibgeschützt und wird bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie es auf der Primärinstanz."
 		},
 		"builtFromCommit": "Erstellt aus Commit {{commit}}"
 	},
