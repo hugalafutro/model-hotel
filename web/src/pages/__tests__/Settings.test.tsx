@@ -268,6 +268,20 @@ describe("Settings", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 					"discovery_on_provider_create",
 				]),
 			);
+
+			// Second probe one section further down (Data Storage) so a reorder
+			// that shifts the button-to-section mapping cannot slip through on a
+			// single lucky index.
+			await user.click(sectionResetButtons[2]);
+			await user.click(
+				screen.getByRole("button", { name: "Reset to Defaults" }),
+			);
+			await waitFor(() =>
+				expect(capturedKeys).toEqual([
+					"log_retention",
+					"stale_request_timeout",
+				]),
+			);
 		});
 	});
 });
