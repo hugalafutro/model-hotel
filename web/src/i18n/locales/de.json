@@ -2080,7 +2080,7 @@
 		"sessionTimeout": {
 			"title": "Tab-Timeout",
 			"label": "Inaktiven Tab abmelden nach",
-			"hint": "Meldet einen vergessenen offenen Tab nach dieser Zeit ohne Aktivität ab. Geschlossene Tabs sind nicht betroffen: Jede Anmeldung läuft von selbst nach 1 Tag ab. Auf Nie setzen, um offene Tabs angemeldet zu lassen."
+			"hint": "Meldet einen vergessenen offenen Tab nach dieser Zeit ohne Aktivität ab. Geschlossene Tabs sind nicht betroffen: Jede Anmeldung läuft von selbst nach 1 Tag ab. Auf ∞ setzen, um offene Tabs angemeldet zu lassen."
 		},
 		"oidc": {
 			"title": "Single Sign-on (SSO)",

@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-// maxAuthTokenTTL is the ceiling this deployment accepts for a browser session.
-// Logging in does not revoke an existing session, so a stolen token stays usable
-// until it expires and this TTL is the only bound on that exposure. Raising it
-// past this ceiling is a security decision, not a tuning knob, and must fail
-// here first. The literal is duplicated deliberately: deriving it from
-// AuthTokenTTL would make the assertion tautological.
+// maxAuthTokenTTL pins the browser-session TTL. Logging in does not revoke an
+// existing session, so a stolen token stays usable until it expires and this
+// TTL is the only bound on that exposure. Raising it is a security decision,
+// not a tuning knob: it must be a deliberate two-line change (constant + this
+// pin), and any change must also sweep the user-facing copy listed on the
+// AuthTokenTTL doc comment, which quotes the value as "1 day".
 const maxAuthTokenTTL = 24 * time.Hour
 
 func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {

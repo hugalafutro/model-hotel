@@ -2132,7 +2132,7 @@
 		"sessionTimeout": {
 			"title": "Tiempo de espera de la pestaña",
 			"label": "Cerrar la sesión de una pestaña inactiva tras",
-			"hint": "Cierra la sesión de una pestaña abierta y olvidada tras este periodo sin actividad. Las pestañas cerradas no se ven afectadas: cada inicio de sesión caduca por sí solo al cabo de 1 día. Ponlo en Nunca para mantener las pestañas abiertas con la sesión iniciada."
+			"hint": "Cierra la sesión de una pestaña abierta y olvidada tras este periodo sin actividad. Las pestañas cerradas no se ven afectadas: cada inicio de sesión caduca por sí solo al cabo de 1 día. Ponlo en ∞ para mantener las pestañas abiertas con la sesión iniciada."
 		},
 		"oidc": {
 			"title": "Inicio de sesión único (SSO)",

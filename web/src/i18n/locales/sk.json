@@ -2184,7 +2184,7 @@
 		"sessionTimeout": {
 			"title": "Časový limit karty",
 			"label": "Odhlásiť neaktívnu kartu po",
-			"hint": "Odhlási zabudnutú otvorenú kartu po tomto čase bez aktivity. Zatvorených kariet sa to netýka: každé prihlásenie samo vyprší po 1 dni. Nastavením na Nikdy zostanú otvorené karty prihlásené."
+			"hint": "Odhlási zabudnutú otvorenú kartu po tomto čase bez aktivity. Zatvorených kariet sa to netýka: každé prihlásenie samo vyprší po 1 dni. Nastavením na ∞ zostanú otvorené karty prihlásené."
 		},
 		"oidc": {
 			"title": "Jednotné prihlásenie (SSO)",
