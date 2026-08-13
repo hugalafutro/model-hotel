@@ -235,7 +235,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Spravováno primární instancí flotily. Vše níže je pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte to na primární instanci."
+			"banner": "Spravováno primární instancí flotily. Konfigurace níže je zde pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte ji na primární instanci."
 		},
 		"builtFromCommit": "Sestaveno z commitu {{commit}}"
 	},
@@ -2161,7 +2161,8 @@
 		},
 		"managed": {
 			"sectionNote": "Spravováno primární instancí flotily. Změny provedené zde se při příští synchronizaci konfigurace nahradí.",
-			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci."
+			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci.",
+			"authNote": "Zásady hesel a jednotné přihlášení (SSO) níže spravuje primární instance flotily. Přístupové klíče, 2FA, časový limit relace a aktivní relace výše zůstávají lokální pro tuto instanci."
 		},
 		"activeSessions": {
 			"title": "Aktivní relace",

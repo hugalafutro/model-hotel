@@ -3,10 +3,13 @@ import { Server } from "@/lib/icons";
 import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
 
-// ManagedBanner is shown at the top of the synced-entity pages (Providers,
-// Virtual Keys, Failover Groups, Settings) when this instance is a managed fleet
+// ManagedBanner is shown on the synced-entity pages (Providers, Virtual Keys,
+// Failover Groups, Users, Settings) when this instance is a managed fleet
 // member. It explains why the create/edit/delete affordances for synced items
 // are gone: the fleet primary owns that config and replaces it on the next sync.
+// It claims "the configuration below" so everything under it must be synced:
+// the all-synced pages render it at the top, while Settings renders it on the
+// boundary between its instance-local sections and its synced ones.
 //
 // Unlike ReadOnlyBanner (demo mode, whole-app), this is scoped to the pages that
 // actually host synced entities, and uses an informational (accent) tone rather

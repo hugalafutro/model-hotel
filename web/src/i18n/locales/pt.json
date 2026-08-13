@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gerenciada pela instância primária da frota. Tudo abaixo é somente leitura e é substituído na próxima sincronização de configuração. Gerencie tudo isso na instância primária."
+			"banner": "Gerenciada pela instância primária da frota. A configuração abaixo é somente leitura aqui e é substituída na próxima sincronização de configuração. Gerencie na instância primária."
 		},
 		"builtFromCommit": "Compilado a partir do commit {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gerenciada pela instância primária da frota. As alterações feitas aqui são substituídas na próxima sincronização de configuração.",
-			"alertsNote": "A ativação de alertas e o roteamento de eventos são gerenciados pela instância primária da frota. As configurações de entrega do Apprise abaixo permanecem locais nesta instância."
+			"alertsNote": "A ativação de alertas e o roteamento de eventos são gerenciados pela instância primária da frota. As configurações de entrega do Apprise abaixo permanecem locais nesta instância.",
+			"authNote": "A política de palavras-passe e o logon único (SSO) abaixo são gerenciados pela instância primária da frota. Chaves de acesso, 2FA, tempo limite da sessão e sessões ativas acima permanecem locais nesta instância."
 		},
 		"activeSessions": {
 			"title": "Sessões ativas",

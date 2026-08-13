@@ -230,7 +230,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestionată de instanța primară a flotei. Tot ce se află mai jos este doar pentru citire și este înlocuit la următoarea sincronizare a configurației. Gestionați totul pe instanța primară."
+			"banner": "Gestionată de instanța primară a flotei. Configurația de mai jos este aici doar pentru citire și este înlocuită la următoarea sincronizare a configurației. Gestionați-o pe instanța primară."
 		},
 		"builtFromCommit": "Compilat din commitul {{commit}}"
 	},
@@ -2110,7 +2110,8 @@
 		},
 		"managed": {
 			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
-			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță."
+			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță.",
+			"authNote": "Politica parolelor și autentificarea unică (SSO) de mai jos sunt gestionate de instanța primară a flotei. Cheile de acces, 2FA, expirarea sesiunii și sesiunile active de mai sus rămân locale pe această instanță."
 		},
 		"activeSessions": {
 			"title": "Sesiuni active",

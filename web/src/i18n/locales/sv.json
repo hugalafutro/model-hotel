@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Hanteras av flottans primära instans. Allt nedanför är skrivskyddat och ersätts vid nästa konfigurationssynkronisering. Hantera det på den primära instansen."
+			"banner": "Hanteras av flottans primära instans. Konfigurationen nedanför är skrivskyddad här och ersätts vid nästa konfigurationssynkronisering. Hantera den på den primära instansen."
 		},
 		"builtFromCommit": "Byggd från commit {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
-			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen."
+			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen.",
+			"authNote": "Lösenordspolicyn och enkel inloggning (SSO) nedanför hanteras av flottans primära instans. Lösenordsnycklar, 2FA, tidsgräns för session och aktiva sessioner ovanför förblir lokala på denna instans."
 		},
 		"activeSessions": {
 			"title": "Aktiva sessioner",

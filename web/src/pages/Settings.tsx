@@ -190,6 +190,7 @@ export function Settings() {
 				<AuthenticationSettings
 					collapsed={authenticationCollapsed}
 					onToggle={toggleAuthentication}
+					managed={managed}
 				/>
 
 				<AppearanceSettings
@@ -213,11 +214,12 @@ export function Settings() {
 					managed={managed}
 				/>
 
-				{/* Sections above are local to this instance (Alerts partially,
-				    per its own in-section note); every section below is owned by
-				    the fleet primary, so the managed banner sits on the boundary
-				    and its "everything below" claim reads true. On unmanaged
-				    instances it renders nothing. */}
+				{/* Sections above are local to this instance (Authentication and
+				    Alerts partially, each behind its own in-section note); every
+				    section below is owned by the fleet primary, so the managed
+				    banner sits on the boundary and its "configuration below"
+				    claim reads true. On unmanaged instances it renders
+				    nothing. */}
 				<ManagedBanner />
 
 				<DiscoverySettings

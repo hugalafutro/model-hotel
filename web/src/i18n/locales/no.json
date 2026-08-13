@@ -225,7 +225,7 @@
 			}
 		},
 		"managed": {
-			"banner": "Styres av flåtens primære instans. Alt nedenfor er skrivebeskyttet og erstattes ved neste konfigurasjonssynkronisering. Administrer det på den primære instansen."
+			"banner": "Styres av flåtens primære instans. Konfigurasjonen nedenfor er skrivebeskyttet her og erstattes ved neste konfigurasjonssynkronisering. Administrer den på den primære instansen."
 		},
 		"builtFromCommit": "Bygget fra commit {{commit}}"
 	},
@@ -2059,7 +2059,8 @@
 		},
 		"managed": {
 			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
-			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen."
+			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen.",
+			"authNote": "Passordreglene og enkeltpålogging (SSO) nedenfor styres av flåtens primære instans. Tilgangsnøkler, 2FA, tidsavbrudd for økt og aktive økter ovenfor forblir lokale på denne instansen."
 		},
 		"activeSessions": {
 			"title": "Aktive økter",

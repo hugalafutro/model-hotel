@@ -225,7 +225,7 @@
 			"banner": "Read-only demo - creating, editing, and deleting are disabled."
 		},
 		"managed": {
-			"banner": "Managed by the fleet primary. Everything below is read-only and is replaced on the next config sync. Manage it on the primary."
+			"banner": "Managed by the fleet primary. The configuration below is read-only here and is replaced on the next config sync. Manage it on the primary."
 		},
 		"builtFromCommit": "Built from commit {{commit}}"
 	},
@@ -2084,7 +2084,8 @@
 		},
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
-			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance."
+			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance.",
+			"authNote": "The password policy and single sign-on settings below are managed by the fleet primary. Passkeys, two-factor, session timeout, and active sessions above stay local to this instance."
 		},
 		"oidc": {
 			"title": "Single sign-on (SSO)",
