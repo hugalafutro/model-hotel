@@ -407,8 +407,16 @@ that are never a legitimate destination and are the classic SSRF targets.
 
 It backs the OIDC SSO handler (discovery, token exchange, JWKS, UserInfo), the
 GitHub SSO handler, and the alert dispatcher. Without it, `go-oidc` and `oauth2`
-would fall back to `http.DefaultClient`, letting an admin-configured (or
-fleet-synced) issuer URL reach the metadata endpoint.
+would fall back to `http.DefaultClient`, letting an admin-configured issuer URL
+reach the metadata endpoint. (SSO provider config is per-instance and never
+fleet-synced; only the email allowlists replicate.)
+
+Note the trust consequence of per-member SSO config in an HA fleet: the
+fleet-wide email allowlist is only as strong as each member's own SSO
+configuration, since any member's admin can point that member's issuer at an
+IdP they control. This is not an escalation (settings writes already require
+admin), but it is why the allowlists sync while the provider config does not:
+revoking an address still takes effect everywhere on the next sync.
 
 ### Where the Check Runs
 

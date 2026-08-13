@@ -102,10 +102,11 @@ var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provi
 
 // errInvalidSyncedURL is returned by apply when a syncable url-typed setting in
 // the envelope fails the same netguard validation the interactive PUT
-// /api/settings handler enforces. Without it a compromised primary could push an
-// oidc_issuer_url the interactive endpoint rejects, which the gateway later
-// fetches during OIDC discovery / token exchange (reported SSRF bypass,
-// CWE-918). Import maps it to a 400 refusal.
+// /api/settings handler enforces (the reported CWE-918 SSRF bypass). Import
+// maps it to a 400 refusal. Currently a standing guard with no live path: every
+// url-typed setting (apprise + SSO) is instance-local and skipped before
+// validation, so this fires only if a future url-typed setting joins the
+// syncable set.
 var errInvalidSyncedURL = errors.New("configsync: refusing to apply a setting with an invalid URL")
 
 // errInvalidSyncedSettingBound is returned by apply when a syncable numeric

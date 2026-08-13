@@ -67,6 +67,9 @@ describe("Settings managed (fleet member) mode", {
 		expect(
 			await screen.findByTestId("oidc-allowed-emails-input"),
 		).toBeDisabled();
+		expect(
+			await screen.findByTestId("github-allowed-emails-input"),
+		).toBeDisabled();
 		expect(document.getElementById("session-idle-timeout")).not.toBeDisabled();
 	});
 
@@ -94,6 +97,9 @@ describe("Settings managed (fleet member) mode", {
 		expect(await screen.findByTestId("oidc-issuer-input")).not.toBeDisabled();
 		expect(
 			await screen.findByTestId("oidc-allowed-emails-input"),
+		).not.toBeDisabled();
+		expect(
+			await screen.findByTestId("github-allowed-emails-input"),
 		).not.toBeDisabled();
 	});
 });

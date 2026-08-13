@@ -792,6 +792,14 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	if err := settingsRepo.Set(ctx, "oidc_allowed_emails", "admin@example.com"); err != nil {
 		t.Fatalf("seed primary allowlist: %v", err)
 	}
+	// Seed every instance-local SSO key with a stored value: the export-side
+	// assertion below is vacuous otherwise (a key absent from the DB never
+	// exports regardless of the carve-out).
+	for k := range ssoInstanceLocalKeys {
+		if err := settingsRepo.Set(ctx, k, "local-"+k); err != nil {
+			t.Fatalf("seed %s: %v", k, err)
+		}
+	}
 	env := doExport(t, r)
 	if got := env.Config.Settings["oidc_allowed_emails"]; got != "admin@example.com" {
 		t.Fatalf("export allowlist = %q, want it exported", got)
@@ -812,6 +820,18 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	}
 	if got := settingsRepo.GetWithDefault(ctx, "oidc_allowed_emails", ""); got != "admin@example.com" {
 		t.Fatalf("member allowlist = %q, want converged to primary's", got)
+	}
+}
+
+// A typo in ssoInstanceLocalKeys would silently leave the REAL key syncable
+// (the carve-out only excludes what it names, and an export test cannot catch
+// a key it does not know it should seed), so every entry must resolve to an
+// actual allowlisted setting.
+func TestSSOInstanceLocalKeysAreRealSettings(t *testing.T) {
+	for k := range ssoInstanceLocalKeys {
+		if !settings.AllowedSettings[k] {
+			t.Errorf("ssoInstanceLocalKeys entry %q is not an allowlisted setting; a typo here re-syncs the real key", k)
+		}
 	}
 }
 

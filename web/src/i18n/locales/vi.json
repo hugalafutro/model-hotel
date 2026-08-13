@@ -2060,7 +2060,7 @@
 		"managed": {
 			"sectionNote": "Được quản lý bởi phiên bản chính của hạm đội. Các thay đổi ở đây sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo.",
 			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này.",
-			"authNote": "Chính sách mật khẩu và danh sách email được phép đăng nhập do phiên bản chính của hạm đội quản lý. Mọi thứ còn lại ở đây là cục bộ của thành viên này, bao gồm cả việc cung cấp những nhà cung cấp đăng nhập một lần nào."
+			"authNote": "Chính sách mật khẩu và danh sách email được phép đăng nhập do phiên bản chính của hạm đội quản lý. Mọi thứ còn lại ở đây là cục bộ của thành viên này, bao gồm cả những nhà cung cấp đăng nhập một lần mà thành viên này cung cấp."
 		},
 		"activeSessions": {
 			"title": "Phiên đang hoạt động",
