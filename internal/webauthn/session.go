@@ -25,6 +25,12 @@ import (
 // the exposure window is survivable; session_ttl_test.go enforces the ceiling.
 const AuthTokenTTL = 7 * 24 * time.Hour
 
+// lastSeenThrottle bounds how often a session's last_seen_at is rewritten.
+// Validation runs on every admin request; without the throttle each one would
+// carry a DB write. "Active within the last few minutes" is all the
+// active-sessions list needs.
+const lastSeenThrottle = 5 * time.Minute
+
 // errInvalidLoginState is returned by ConsumeLoginState when the record is
 // missing, of the wrong type, or expired. Kept unexported and opaque so callers
 // can't distinguish the cases (no oracle for a probing attacker).
@@ -92,8 +98,44 @@ func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, b
 		return nil, false
 	}
 
+	// Stamp last-seen so the active-sessions list can show which devices are
+	// still in use, throttled so the hot path does not gain a write per
+	// request. Best-effort: a failed stamp must not fail an otherwise valid
+	// authentication.
+	if session.LastSeenAt == nil || time.Since(*session.LastSeenAt) >= lastSeenThrottle {
+		if err := m.store.TouchSessionLastSeen(ctx, session.ID, time.Now()); err != nil {
+			debuglog.Error("webauthn: failed to stamp session last-seen", "error", err)
+		}
+	}
+
 	return session.UserID, true
 }
+
+// SessionMeta is the device metadata captured when a session is minted: the
+// login request's User-Agent and client IP. It is display metadata for the
+// operator's active-sessions list, never an authorization input, so a spoofed
+// header only mislabels the attacker's own row.
+type SessionMeta struct {
+	UserAgent string
+	IP        string
+}
+
+// AuthSessionInfo is one row of the operator-facing active-sessions list:
+// everything the dashboard shows about a live session, and nothing it must not
+// see (no token, no token hash).
+type AuthSessionInfo struct {
+	ID         uuid.UUID  `json:"id"`
+	UserAgent  string     `json:"user_agent"`
+	IP         string     `json:"ip"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	Current    bool       `json:"current"`
+}
+
+// ErrCurrentSession is returned by RevokeSessionByID when the target is the
+// session the request itself rides on. Distinct from ErrNotFound so the API
+// can tell the operator "use logout for that" instead of a puzzling 404.
+var ErrCurrentSession = errors.New("cannot revoke the current session")
 
 // CreateAuthToken creates a new admin authentication session lasting AuthTokenTTL.
 // It generates a cryptographically random token, stores only its SHA-256 hash
@@ -101,7 +143,8 @@ func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, b
 // The ctx parameter propagates request deadlines and tracing.
 // credentialID links the auth token to the passkey used for login, so that
 // deleting the passkey can cascade-revoke its derived sessions.
-func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
+// meta carries the login request's device metadata into the stored session.
+func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte, meta SessionMeta) (string, error) {
 	// Generate a high-entropy random token (32 bytes = 256 bits).
 	tokenBytes := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
@@ -136,6 +179,8 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credential
 		TokenHash:    &tokenHash,
 		CredentialID: credentialID,
 		ExpiresAt:    time.Now().Add(AuthTokenTTL),
+		UserAgent:    meta.UserAgent,
+		IP:           meta.IP,
 	}
 
 	if err := m.store.CreateSession(ctx, session); err != nil {
@@ -255,6 +300,99 @@ func (m *SessionManager) RevokeOtherSessions(ctx context.Context, identity []byt
 		}
 	}
 	return m.store.DeleteOtherSessionsForUser(ctx, identity, keepHash)
+}
+
+// ListAuthSessions returns the live auth-token sessions belonging to identity,
+// marking as current the one whose token the request itself carried. The
+// current session leads the list and the rest follow newest first, so the
+// operator's anchor row ("this is me") never sits pages deep in a long list.
+//
+// candidateTokens follow the same contract as RevokeOtherSessions: they are
+// whatever credentials the request carried, and a foreign or junk token simply
+// matches no row of this identity, so nothing is marked current. Rows are
+// already scoped to identity before matching, which is what makes the hash
+// comparison safe as a "current" test: a stolen token from another identity
+// cannot label a row here. Token hashes never leave this function; the caller
+// sees only the boolean.
+func (m *SessionManager) ListAuthSessions(ctx context.Context, identity []byte, candidateTokens ...string) ([]AuthSessionInfo, error) {
+	if len(identity) == 0 {
+		return nil, nil
+	}
+	records, err := m.store.ListAuthSessionsForUser(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	currentHash := ""
+	for _, token := range candidateTokens {
+		if token == "" {
+			continue
+		}
+		sum := sha256.Sum256([]byte(token))
+		hash := hex.EncodeToString(sum[:])
+		for _, rec := range records {
+			if rec.TokenHash != nil && *rec.TokenHash == hash {
+				currentHash = hash
+				break
+			}
+		}
+		if currentHash != "" {
+			break
+		}
+	}
+
+	sessions := make([]AuthSessionInfo, 0, len(records))
+	for _, rec := range records {
+		info := AuthSessionInfo{
+			ID:         rec.ID,
+			UserAgent:  rec.UserAgent,
+			IP:         rec.IP,
+			CreatedAt:  rec.CreatedAt,
+			LastSeenAt: rec.LastSeenAt,
+			Current:    currentHash != "" && rec.TokenHash != nil && *rec.TokenHash == currentHash,
+		}
+		if info.Current {
+			// Lead with the calling session; the store already ordered the rest
+			// newest first, and prepending one element preserves that.
+			sessions = append([]AuthSessionInfo{info}, sessions...)
+			continue
+		}
+		sessions = append(sessions, info)
+	}
+	return sessions, nil
+}
+
+// RevokeSessionByID deletes one of identity's auth-token sessions by id.
+//
+// A session that does not exist, is not an auth token, or belongs to a
+// different identity all read as ErrNotFound: a distinct answer for "exists
+// but is not yours" would confirm the id to a probing caller. The session the
+// request itself rides on (matched against candidateTokens the same way
+// RevokeOtherSessions spares it) is refused with ErrCurrentSession instead of
+// silently signing the caller out of the page they clicked from.
+func (m *SessionManager) RevokeSessionByID(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error {
+	if len(identity) == 0 {
+		return ErrNotFound
+	}
+	session, err := m.store.GetSession(ctx, id)
+	if err != nil {
+		return err
+	}
+	if session.Type != "auth_token" || !bytes.Equal(session.UserID, identity) {
+		return ErrNotFound
+	}
+	if session.TokenHash != nil {
+		for _, token := range candidateTokens {
+			if token == "" {
+				continue
+			}
+			sum := sha256.Sum256([]byte(token))
+			if hex.EncodeToString(sum[:]) == *session.TokenHash {
+				return ErrCurrentSession
+			}
+		}
+	}
+	return m.store.DeleteSession(ctx, id)
 }
 
 // RevokeAuthToken deletes an auth token session by hashing the token and

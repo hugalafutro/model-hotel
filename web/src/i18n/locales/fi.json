@@ -2069,7 +2069,12 @@
 			"confirm": "Vahvista napsauttamalla",
 			"signedOut_one": "{{count}} muu istunto kirjattu ulos",
 			"signedOut_other": "{{count}} muuta istuntoa kirjattu ulos",
-			"noneToSignOut": "Muita istuntoja ei ollut auki"
+			"noneToSignOut": "Muita istuntoja ei ollut auki",
+			"unknownDevice": "Tuntematon laite",
+			"currentBadge": "Tämä laite",
+			"signOutOne": "Kirjaa ulos",
+			"signedIn": "Kirjauduttu {{when}}",
+			"lastSeen": "Aktiivinen {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Istunnon aikakatkaisu",

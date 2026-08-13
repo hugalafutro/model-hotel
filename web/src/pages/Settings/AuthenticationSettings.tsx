@@ -19,12 +19,13 @@ interface AuthenticationSettingsProps {
 }
 
 /**
- * Authentication groups the admin sign-in hardening methods, passkeys and TOTP
- * two-factor, side by side. The session auto-logout control sits in the right
- * column beneath TOTP so it doesn't stretch across both columns. Each method
- * keeps its own panel/logic (PasskeyPanel, TotpPanel); the session timeout is a
- * stored setting (session_idle_timeout_minutes) consumed by useIdleLogout to
- * sign the admin out after inactivity (0 = never).
+ * Authentication groups the admin sign-in hardening methods side by side:
+ * passkeys with the active-sessions list beneath them on the left, TOTP
+ * two-factor with the session auto-logout control on the right. Each method
+ * keeps its own panel/logic (PasskeyPanel, TotpPanel, ActiveSessionsPanel);
+ * the session timeout is a stored setting (session_idle_timeout_minutes)
+ * consumed by useIdleLogout to sign the admin out after inactivity (0 =
+ * never).
  */
 export function AuthenticationSettings({
 	collapsed,
@@ -51,15 +52,17 @@ export function AuthenticationSettings({
 			onToggle={onToggle}
 		>
 			<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-				<SettingsGroup title={t("settings.passkeys.title")}>
-					<PasskeyPanel />
-				</SettingsGroup>
 				<div className="space-y-5">
-					<SettingsGroup title={t("settings.totp.title")}>
-						<TotpPanel />
+					<SettingsGroup title={t("settings.passkeys.title")}>
+						<PasskeyPanel />
 					</SettingsGroup>
 					<SettingsGroup title={t("settings.activeSessions.title")}>
 						<ActiveSessionsPanel />
+					</SettingsGroup>
+				</div>
+				<div className="space-y-5">
+					<SettingsGroup title={t("settings.totp.title")}>
+						<TotpPanel />
 					</SettingsGroup>
 					<SettingsGroup title={t("settings.sessionTimeout.title")}>
 						<SettingsSlider

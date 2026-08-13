@@ -2,6 +2,7 @@ package webauthn
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,6 +41,13 @@ type SessionStore interface {
 	// token (and therefore no session of its own) revokes the lot.
 	DeleteOtherSessionsForUser(ctx context.Context, userID []byte, keepTokenHash string) (int64, error)
 	CleanupExpiredSessions(ctx context.Context) (int64, error)
+	// ListAuthSessionsForUser returns the live (non-expired) auth_token
+	// sessions belonging to userID, newest first, for the operator-facing
+	// active-sessions list.
+	ListAuthSessionsForUser(ctx context.Context, userID []byte) ([]*SessionRecord, error)
+	// TouchSessionLastSeen stamps a session's last_seen_at. A missing row
+	// (revoked between validation and stamp) is not an error.
+	TouchSessionLastSeen(ctx context.Context, id uuid.UUID, at time.Time) error
 }
 
 // Store is the full WebAuthn persistence contract: credentials plus sessions.

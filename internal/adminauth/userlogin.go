@@ -170,7 +170,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte(u.ID.String()), nil)
+	token, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte(u.ID.String()), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
 		debuglog.Error("userlogin: session creation failed", "error", err, "remote_addr", r.RemoteAddr)
 		http.Error(w, "failed to create session", http.StatusInternalServerError)

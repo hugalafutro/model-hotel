@@ -510,6 +510,25 @@
 			"paired": "设备已配对",
 			"revokeTitle": "吊销设备？",
 			"revokeBody": "“{{label}}”将立即失去访问权限。如需恢复，请重新配对。"
+		},
+		"sessions": {
+			"title": "活跃会话",
+			"description": "登录不会结束在其他位置已打开的会话。如果设备丢失或怀疑会话被盗，请将其退出。",
+			"unknownDevice": "未知设备",
+			"currentBadge": "此浏览器",
+			"signOut": "退出登录",
+			"signOutOthers": "退出其他会话",
+			"confirmSignOutTitle": "退出此会话？",
+			"confirmSignOut": "退出设备",
+			"confirmSignOutBody": "{{device}} 将被退出登录，需要重新登录。",
+			"confirmSignOutOthersTitle": "退出其他会话？",
+			"confirmSignOutOthers": "退出其他所有会话",
+			"confirmSignOutOthersBody": "除此浏览器外的所有会话都将被退出。",
+			"signedOut_other": "已退出 {{count}} 个其他会话",
+			"noneToSignOut": "没有其他打开的会话",
+			"signedIn": "{{when}}登录",
+			"lastSeen": "{{when}}活跃",
+			"signedOut_one": "已退出 {{count}} 个其他会话"
 		}
 	},
 	"quota": {

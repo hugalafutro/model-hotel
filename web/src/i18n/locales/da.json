@@ -2069,7 +2069,12 @@
 			"confirm": "Klik for at bekræfte",
 			"signedOut_one": "{{count}} anden session logget ud",
 			"signedOut_other": "{{count}} andre sessioner logget ud",
-			"noneToSignOut": "Ingen andre sessioner var åbne"
+			"noneToSignOut": "Ingen andre sessioner var åbne",
+			"unknownDevice": "Ukendt enhed",
+			"currentBadge": "Denne enhed",
+			"signOutOne": "Log ud",
+			"signedIn": "Logget ind {{when}}",
+			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Sessionstimeout",

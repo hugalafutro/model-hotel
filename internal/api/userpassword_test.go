@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 func changePassword(t *testing.T, r chi.Router, token, current, next string) int {
@@ -30,7 +32,7 @@ func TestChangeOwnPassword_Success(t *testing.T) {
 	// The new password is live: a fresh login round-trip through the user
 	// login handler is covered in adminauth; here we assert the hash changed
 	// by re-running the change with old and new current passwords.
-	token2, err := sm.CreateAuthToken(context.Background(), []byte(uid), nil)
+	token2, err := sm.CreateAuthToken(context.Background(), []byte(uid), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

@@ -23,15 +23,15 @@ func TestRevokeOtherSessions_KeepsTheCallersOwnSession(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-keeps-own")
-	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	phone, err := mgr.CreateAuthToken(ctx, identity, nil)
+	phone, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	laptop, err := mgr.CreateAuthToken(ctx, identity, nil)
+	laptop, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +58,11 @@ func TestRevokeOtherSessions_LeavesOtherIdentitiesAlone(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-scoped")
-	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := mgr.CreateAuthToken(ctx, []byte("2f9c3a1e-0000-4000-8000-000000000001"), nil)
+	other, err := mgr.CreateAuthToken(ctx, []byte("2f9c3a1e-0000-4000-8000-000000000001"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestRevokeOtherSessions_RawAdminTokenRevokesAll(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-raw-token")
-	browser, err := mgr.CreateAuthToken(ctx, identity, nil)
+	browser, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestRevokeOtherSessions_NoOtherSessionsIsNotAnError(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-solo")
-	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,11 +166,11 @@ func TestRevokeOtherSessions_ForeignTokenSparesNothing(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-foreign-token")
-	mine, err := mgr.CreateAuthToken(ctx, identity, nil)
+	mine, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	stranger, err := mgr.CreateAuthToken(ctx, []byte("someone-else-entirely"), nil)
+	stranger, err := mgr.CreateAuthToken(ctx, []byte("someone-else-entirely"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,13 +200,13 @@ func TestRevokeOtherSessions_ExpiredCandidateIsNotSpared(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	identity := []byte("admin-expired-candidate")
-	live, err := mgr.CreateAuthToken(ctx, identity, nil)
+	live, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// A second session for the same identity, aged past its expiry.
-	stale, err := mgr.CreateAuthToken(ctx, identity, nil)
+	stale, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}

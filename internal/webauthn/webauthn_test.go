@@ -344,7 +344,7 @@ func TestSessionManagerValidate(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestSessionManagerRevokeAuthToken(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestSessionManagerGetSessionByTokenHash(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
 
-	token, err := NewSessionManager(repo).CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := NewSessionManager(repo).CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -514,7 +514,7 @@ func TestCreateAuthToken_WithCredentialID(t *testing.T) {
 
 	// Create an auth token with a specific credential ID
 	credentialID := []byte("test-credential-id-123")
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -563,7 +563,7 @@ func TestDeleteCredential_CascadeDelete(t *testing.T) {
 	}
 
 	// Create an auth token session with that credential's ID
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credID)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credID, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestValidate_WithCredentialID(t *testing.T) {
 
 	// Create an auth token with a credential ID
 	credentialID := []byte("validate-test-cred-id")
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -772,7 +772,7 @@ func TestSessionManagerCreateAuthToken_DifferentUserIDs(t *testing.T) {
 
 	// Create token with a custom user ID
 	customUserID := []byte("custom-user-123")
-	token, err := mgr.CreateAuthToken(ctx, customUserID, nil)
+	token, err := mgr.CreateAuthToken(ctx, customUserID, nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -798,7 +798,7 @@ func TestSessionManagerCreateAuthToken_CanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	_, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err == nil {
 		t.Error("expected error for canceled context")
 	}
@@ -811,7 +811,7 @@ func TestSessionManagerRevokeAuthToken_CanceledContext(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -1338,7 +1338,7 @@ func TestCreateAuthToken_DBError(t *testing.T) {
 	repo := NewRepository(pool)
 	mgr := NewSessionManager(repo)
 
-	_, err = mgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	_, err = mgr.CreateAuthToken(context.Background(), []byte("admin"), nil, SessionMeta{})
 	if err == nil {
 		t.Error("expected error when creating auth token with closed pool")
 	}
@@ -1357,7 +1357,7 @@ func TestRevokeAuthToken_DeleteSessionError(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	// Create a token so the session exists in the DB
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -1417,7 +1417,7 @@ func TestRevokeAuthToken_SessionFoundButDeleteFails(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	// Create a token so the session exists in the DB
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -1487,7 +1487,7 @@ func TestSessionManagerValidate_NilTokenHash(t *testing.T) {
 
 	// Create an auth_token session normally.
 	mgr := NewSessionManager(repo)
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -1800,7 +1800,7 @@ func TestRevokeAuthToken_DeleteSessionFailure(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	// Create a token so the session exists in the DB
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

@@ -272,7 +272,7 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	if h.useCookieAuth {
 		resp := map[string]any{"recovery_codes": codes, "success": true}
 		if h.sessionMgr != nil {
-			if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
+			if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter)); err != nil {
 				debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
 			} else if err := h.jar.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 				// Best effort like the mint above: the recovery codes are the
@@ -289,7 +289,7 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// than letting the browser carry a cookie.
 	resp := map[string]any{"recovery_codes": codes}
 	if h.sessionMgr != nil {
-		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
+		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter)); err != nil {
 			debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
 		} else {
 			resp["token"] = tok
@@ -383,7 +383,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session infrastructure not available", http.StatusInternalServerError)
 		return
 	}
-	sessionToken, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil)
+	sessionToken, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
 		debuglog.Error("totp: login session creation failed", "error", err, "remote_addr", r.RemoteAddr)
 		http.Error(w, "failed to create session", http.StatusInternalServerError)

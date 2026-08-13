@@ -517,6 +517,26 @@
 			"paired": "Dispositivo emparejado",
 			"revokeTitle": "¿Revocar dispositivo?",
 			"revokeBody": "“{{label}}” perderá el acceso de inmediato. Vuelva a emparejarlo para restaurarlo."
+		},
+		"sessions": {
+			"title": "Sesiones activas",
+			"description": "Iniciar sesión no cierra las sesiones abiertas en otros lugares. Ciérralas si perdiste un dispositivo o sospechas que una sesión fue robada.",
+			"unknownDevice": "Dispositivo desconocido",
+			"currentBadge": "Este navegador",
+			"signOut": "Cerrar sesión",
+			"signOutOthers": "Cerrar las demás",
+			"confirmSignOutTitle": "¿Cerrar esta sesión?",
+			"confirmSignOut": "Cerrar sesión del dispositivo",
+			"confirmSignOutBody": "{{device}} será desconectado y tendrá que iniciar sesión de nuevo.",
+			"confirmSignOutOthersTitle": "¿Cerrar las demás sesiones?",
+			"confirmSignOutOthers": "Cerrar las demás sesiones",
+			"confirmSignOutOthersBody": "Se cerrarán todas las sesiones excepto la de este navegador.",
+			"signedOut_one": "Se cerró {{count}} sesión más",
+			"signedOut_many": "Se cerraron {{count}} sesiones más",
+			"signedOut_other": "Se cerraron {{count}} sesiones más",
+			"noneToSignOut": "No había otras sesiones abiertas",
+			"signedIn": "Sesión iniciada {{when}}",
+			"lastSeen": "Activa {{when}}"
 		}
 	},
 	"quota": {

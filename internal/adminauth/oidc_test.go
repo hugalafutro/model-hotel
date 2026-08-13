@@ -100,6 +100,23 @@ func (s *memSessionStore) DeleteSession(_ context.Context, id uuid.UUID) error {
 
 func (s *memSessionStore) CleanupExpiredSessions(context.Context) (int64, error) { return 0, nil }
 
+// ListAuthSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
+// never list sessions.
+func (s *memSessionStore) ListAuthSessionsForUser(context.Context, []byte) ([]*webauthn.SessionRecord, error) {
+	return nil, nil
+}
+
+// TouchSessionLastSeen stamps last-seen on the stored record, mirroring the
+// real stores closely enough for validation-path tests.
+func (s *memSessionStore) TouchSessionLastSeen(_ context.Context, id uuid.UUID, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rec, ok := s.byID[id]; ok {
+		rec.LastSeenAt = &at
+	}
+	return nil
+}
+
 // DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
 // never sign other sessions out.
 func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {

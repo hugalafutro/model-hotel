@@ -2069,7 +2069,12 @@
 			"confirm": "クリックして確認",
 			"signedOut_one": "他のセッションを{{count}}件サインアウトしました",
 			"signedOut_other": "他のセッションを{{count}}件サインアウトしました",
-			"noneToSignOut": "他に開いているセッションはありませんでした"
+			"noneToSignOut": "他に開いているセッションはありませんでした",
+			"unknownDevice": "不明なデバイス",
+			"currentBadge": "このデバイス",
+			"signOutOne": "サインアウト",
+			"signedIn": "{{when}}にサインイン",
+			"lastSeen": "{{when}}にアクティブ"
 		},
 		"sessionTimeout": {
 			"title": "セッションのタイムアウト",

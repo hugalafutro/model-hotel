@@ -2,6 +2,8 @@ package frontdesk
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -107,7 +109,7 @@ func TestSessionManagerOverSQLite(t *testing.T) {
 	mgr := webauthn.NewSessionManager(store)
 	ctx := context.Background()
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-x"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-x"), webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -136,7 +138,7 @@ func TestDeleteCredentialCascadesSessions(t *testing.T) {
 	if err := store.StoreCredential(ctx, newCred("cred-del")); err != nil {
 		t.Fatalf("StoreCredential: %v", err)
 	}
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-del"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), []byte("cred-del"), webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -341,6 +343,198 @@ func TestDeleteOtherSessionsForUser_EmptyKeepHashRevokesAll(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("revoked %d, want 1", n)
+	}
+}
+
+// Device metadata must survive the SQLite round-trip, or Front Desk's
+// active-sessions list would show every login as an unknown device.
+func TestSQLiteSessionMetaRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hash := "hash-meta"
+	rec := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hash, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "Mozilla/5.0 Firefox/141.0", IP: "203.0.113.7",
+	}
+	if err := store.CreateSession(ctx, rec); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	got, err := store.GetSession(ctx, rec.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.UserAgent != "Mozilla/5.0 Firefox/141.0" || got.IP != "203.0.113.7" {
+		t.Errorf("meta round-trip lost: ua=%q ip=%q", got.UserAgent, got.IP)
+	}
+	if got.LastSeenAt != nil {
+		t.Errorf("LastSeenAt = %v, want nil before first touch", got.LastSeenAt)
+	}
+}
+
+// The SQLite side of the sessions list: only this identity's live auth tokens,
+// newest first, ceremonies and expired rows excluded.
+func TestSQLiteListAuthSessionsForUser(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hashOld, hashNew, hashExp, hashStranger := "h-old", "h-new", "h-exp", "h-stranger"
+	older := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashOld, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "older",
+	}
+	ceremony := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "login",
+		UserID: []byte("admin"), ExpiresAt: time.Now().Add(time.Hour),
+	}
+	expired := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashExp, ExpiresAt: time.Now().Add(-time.Hour),
+	}
+	stranger := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("someone-else"), TokenHash: &hashStranger, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	for _, rec := range []*webauthn.SessionRecord{older, ceremony, expired, stranger} {
+		if err := store.CreateSession(ctx, rec); err != nil {
+			t.Fatalf("CreateSession: %v", err)
+		}
+	}
+	// A strictly later created_at for the newer row, so the ordering assertion
+	// cannot pass by insertion accident.
+	time.Sleep(5 * time.Millisecond)
+	newer := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hashNew, ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent: "newer",
+	}
+	if err := store.CreateSession(ctx, newer); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	sessions, err := store.ListAuthSessionsForUser(ctx, []byte("admin"))
+	if err != nil {
+		t.Fatalf("ListAuthSessionsForUser: %v", err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("len = %d, want 2 (ceremony, expired, and foreign rows excluded)", len(sessions))
+	}
+	if sessions[0].UserAgent != "newer" || sessions[1].UserAgent != "older" {
+		t.Errorf("order = [%q, %q], want newest first", sessions[0].UserAgent, sessions[1].UserAgent)
+	}
+}
+
+// A row the list cannot scan (an id that is not a UUID reaches uuid.Parse)
+// surfaces an error rather than a silently truncated list.
+func TestSQLiteListAuthSessions_ScanErrorSurfaces(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	// user_id as a blob parameter, matching how CreateSession binds it: SQLite
+	// compares TEXT and BLOB as unequal, so a TEXT literal would just be
+	// filtered out instead of exercising the scan path.
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, expires_at, created_at)
+		 VALUES ('not-a-uuid', 'c', X'7B7D', 'auth_token', ?, 'h-bad', ?, ?)`,
+		[]byte("admin"), time.Now().Add(time.Hour).UTC().UnixNano(), time.Now().UTC().UnixNano(),
+	); err != nil {
+		t.Fatalf("seed malformed row: %v", err)
+	}
+
+	if _, err := store.ListAuthSessionsForUser(ctx, []byte("admin")); err == nil {
+		t.Error("a malformed row should surface an error")
+	}
+}
+
+// A last-seen stamp the database refuses surfaces an error to the manager
+// (which logs and moves on) — and, one level up, must not fail validation.
+// The trigger stands in for any UPDATE-time failure without closing the DB.
+func TestSQLiteTouchSessionLastSeen_UpdateFailureSurfaces(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	mgr := webauthn.NewSessionManager(store)
+	ctx := context.Background()
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`CREATE TRIGGER refuse_touch BEFORE UPDATE OF last_seen_at ON webauthn_sessions
+		 BEGIN SELECT RAISE(ABORT, 'simulated update failure'); END`,
+	); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	if err := store.TouchSessionLastSeen(ctx, uuid.New(), time.Now()); err != nil {
+		t.Errorf("touching a missing row does not UPDATE anything and must stay quiet, got %v", err)
+	}
+
+	// The stamp fails, validation must not: TokenUser logs and moves on.
+	if _, ok := mgr.TokenUser(ctx, token); !ok {
+		t.Error("validation failed because the last-seen stamp failed")
+	}
+	got, err := store.GetSession(ctx, sessionIDByHash(t, s, token))
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.LastSeenAt != nil {
+		t.Error("the refused stamp landed anyway")
+	}
+}
+
+// sessionIDByHash resolves a raw token to its session row id.
+func sessionIDByHash(t *testing.T, s *Store, token string) uuid.UUID {
+	t.Helper()
+	sum := sha256.Sum256([]byte(token))
+	var idStr string
+	if err := s.db.QueryRow(
+		`SELECT id FROM webauthn_sessions WHERE token_hash = ?`, hex.EncodeToString(sum[:]),
+	).Scan(&idStr); err != nil {
+		t.Fatalf("resolve session id: %v", err)
+	}
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		t.Fatalf("parse id: %v", err)
+	}
+	return id
+}
+
+// Touch stamps last_seen_at; a row revoked in between is not an error.
+func TestSQLiteTouchSessionLastSeen(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	ctx := context.Background()
+
+	hash := "hash-touch"
+	rec := &webauthn.SessionRecord{
+		ID: uuid.New(), Challenge: "c", SessionData: []byte("{}"), Type: "auth_token",
+		UserID: []byte("admin"), TokenHash: &hash, ExpiresAt: time.Now().Add(time.Hour),
+	}
+	if err := store.CreateSession(ctx, rec); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	at := time.Now().Truncate(time.Millisecond)
+	if err := store.TouchSessionLastSeen(ctx, rec.ID, at); err != nil {
+		t.Fatalf("TouchSessionLastSeen: %v", err)
+	}
+	got, err := store.GetSession(ctx, rec.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if got.LastSeenAt == nil || !got.LastSeenAt.Equal(at) {
+		t.Errorf("LastSeenAt = %v, want %v", got.LastSeenAt, at)
+	}
+
+	if err := store.TouchSessionLastSeen(ctx, uuid.New(), at); err != nil {
+		t.Errorf("touching a missing session should not error, got %v", err)
 	}
 }
 

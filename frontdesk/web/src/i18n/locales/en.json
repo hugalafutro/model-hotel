@@ -510,6 +510,25 @@
 			"paired": "Device paired",
 			"revokeTitle": "Revoke device?",
 			"revokeBody": "“{{label}}” will immediately lose access. Pair it again to restore it."
+		},
+		"sessions": {
+			"title": "Active sessions",
+			"description": "Signing in does not end sessions already open elsewhere. Sign them out if a device was lost or you suspect a session was stolen.",
+			"unknownDevice": "Unknown device",
+			"currentBadge": "This browser",
+			"signOut": "Sign out",
+			"signOutOthers": "Sign out others",
+			"confirmSignOutTitle": "Sign this session out?",
+			"confirmSignOut": "Sign out device",
+			"confirmSignOutBody": "{{device}} will be signed out and will need to sign in again.",
+			"confirmSignOutOthersTitle": "Sign out other sessions?",
+			"confirmSignOutOthers": "Sign out other sessions",
+			"confirmSignOutOthersBody": "Every session except this browser will be signed out.",
+			"signedOut_one": "Signed out {{count}} other session",
+			"signedOut_other": "Signed out {{count}} other sessions",
+			"noneToSignOut": "No other sessions were open",
+			"signedIn": "Signed in {{when}}",
+			"lastSeen": "Active {{when}}"
 		}
 	},
 	"quota": {

@@ -517,6 +517,26 @@
 			"paired": "Appareil associé",
 			"revokeTitle": "Révoquer l'appareil ?",
 			"revokeBody": "« {{label}} » perdra immédiatement l'accès. Appairez-le à nouveau pour le rétablir."
+		},
+		"sessions": {
+			"title": "Sessions actives",
+			"description": "Se connecter ne met pas fin aux sessions déjà ouvertes ailleurs. Déconnectez-les si un appareil a été perdu ou si vous soupçonnez un vol de session.",
+			"unknownDevice": "Appareil inconnu",
+			"currentBadge": "Ce navigateur",
+			"signOut": "Déconnecter",
+			"signOutOthers": "Déconnecter les autres",
+			"confirmSignOutTitle": "Déconnecter cette session ?",
+			"confirmSignOut": "Déconnecter l'appareil",
+			"confirmSignOutBody": "{{device}} sera déconnecté et devra se reconnecter.",
+			"confirmSignOutOthersTitle": "Déconnecter les autres sessions ?",
+			"confirmSignOutOthers": "Déconnecter les autres sessions",
+			"confirmSignOutOthersBody": "Toutes les sessions sauf celle de ce navigateur seront déconnectées.",
+			"signedOut_one": "{{count}} autre session déconnectée",
+			"signedOut_many": "{{count}} autres sessions déconnectées",
+			"signedOut_other": "{{count}} autres sessions déconnectées",
+			"noneToSignOut": "Aucune autre session n'était ouverte",
+			"signedIn": "Connexion {{when}}",
+			"lastSeen": "Dernière activité {{when}}"
 		}
 	},
 	"quota": {

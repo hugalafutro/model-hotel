@@ -524,6 +524,27 @@
 			"paired": "Zariadenie spárované",
 			"revokeTitle": "Odvolať zariadenie?",
 			"revokeBody": "„{{label}}“ okamžite stratí prístup. Na obnovenie ho spárujte znova."
+		},
+		"sessions": {
+			"title": "Aktívne relácie",
+			"description": "Prihlásenie neukončí relácie otvorené inde. Odhláste ich, ak ste zariadenie stratili alebo máte podozrenie na krádež relácie.",
+			"unknownDevice": "Neznáme zariadenie",
+			"currentBadge": "Tento prehliadač",
+			"signOut": "Odhlásiť",
+			"signOutOthers": "Odhlásiť ostatné",
+			"confirmSignOutTitle": "Odhlásiť túto reláciu?",
+			"confirmSignOut": "Odhlásiť zariadenie",
+			"confirmSignOutBody": "{{device}} bude odhlásené a bude sa musieť znova prihlásiť.",
+			"confirmSignOutOthersTitle": "Odhlásiť ostatné relácie?",
+			"confirmSignOutOthers": "Odhlásiť ostatné relácie",
+			"confirmSignOutOthersBody": "Všetky relácie okrem tohto prehliadača budú odhlásené.",
+			"signedOut_one": "Odhlásená {{count}} ďalšia relácia",
+			"signedOut_few": "Odhlásené {{count}} ďalšie relácie",
+			"signedOut_many": "Odhlásených {{count}} ďalších relácií",
+			"signedOut_other": "Odhlásených {{count}} ďalších relácií",
+			"noneToSignOut": "Žiadne ďalšie relácie neboli otvorené",
+			"signedIn": "Prihlásenie {{when}}",
+			"lastSeen": "Aktívna {{when}}"
 		}
 	},
 	"quota": {

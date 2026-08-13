@@ -2069,7 +2069,12 @@
 			"confirm": "Κάντε κλικ για επιβεβαίωση",
 			"signedOut_one": "Αποσυνδέθηκε {{count}} άλλη συνεδρία",
 			"signedOut_other": "Αποσυνδέθηκαν {{count}} άλλες συνεδρίες",
-			"noneToSignOut": "Δεν υπήρχαν άλλες ανοιχτές συνεδρίες"
+			"noneToSignOut": "Δεν υπήρχαν άλλες ανοιχτές συνεδρίες",
+			"unknownDevice": "Άγνωστη συσκευή",
+			"currentBadge": "Αυτή η συσκευή",
+			"signOutOne": "Αποσύνδεση",
+			"signedIn": "Σύνδεση {{when}}",
+			"lastSeen": "Ενεργή {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Χρονικό όριο συνεδρίας",

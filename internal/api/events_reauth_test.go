@@ -15,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/user"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // revocableSessionMgr is a session manager whose tokens stop resolving once
@@ -39,8 +40,16 @@ func (m *revocableSessionMgr) setRevoked(revoked bool) {
 	m.revoked = revoked
 }
 
-func (m *revocableSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte) (string, error) {
+func (m *revocableSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte, _ webauthn.SessionMeta) (string, error) {
 	return "stream-token", nil
+}
+
+func (m *revocableSessionMgr) ListAuthSessions(context.Context, []byte, ...string) ([]webauthn.AuthSessionInfo, error) {
+	return nil, nil
+}
+
+func (m *revocableSessionMgr) RevokeSessionByID(context.Context, []byte, uuid.UUID, ...string) error {
+	return webauthn.ErrNotFound
 }
 
 func (m *revocableSessionMgr) Validate(_ context.Context, _ string) bool {
@@ -140,8 +149,16 @@ func (s *syncRecorder) String() string {
 // multi-user (non-admin) session carries.
 type uuidSessionMgr struct{ id uuid.UUID }
 
-func (m *uuidSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte) (string, error) {
+func (m *uuidSessionMgr) CreateAuthToken(_ context.Context, _, _ []byte, _ webauthn.SessionMeta) (string, error) {
 	return "stream-token", nil
+}
+
+func (m *uuidSessionMgr) ListAuthSessions(context.Context, []byte, ...string) ([]webauthn.AuthSessionInfo, error) {
+	return nil, nil
+}
+
+func (m *uuidSessionMgr) RevokeSessionByID(context.Context, []byte, uuid.UUID, ...string) error {
+	return webauthn.ErrNotFound
 }
 func (m *uuidSessionMgr) Validate(_ context.Context, _ string) bool { return true }
 func (m *uuidSessionMgr) TokenUser(_ context.Context, _ string) ([]byte, bool) {

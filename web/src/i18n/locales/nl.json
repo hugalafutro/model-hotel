@@ -2069,7 +2069,12 @@
 			"confirm": "Klik om te bevestigen",
 			"signedOut_one": "{{count}} andere sessie uitgelogd",
 			"signedOut_other": "{{count}} andere sessies uitgelogd",
-			"noneToSignOut": "Er waren geen andere sessies open"
+			"noneToSignOut": "Er waren geen andere sessies open",
+			"unknownDevice": "Onbekend apparaat",
+			"currentBadge": "Dit apparaat",
+			"signOutOne": "Afmelden",
+			"signedIn": "Aangemeld {{when}}",
+			"lastSeen": "Actief {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Sessietime-out",

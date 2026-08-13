@@ -2069,7 +2069,12 @@
 			"confirm": "Onaylamak için tıklayın",
 			"signedOut_one": "{{count}} diğer oturum kapatıldı",
 			"signedOut_other": "{{count}} diğer oturum kapatıldı",
-			"noneToSignOut": "Başka açık oturum yoktu"
+			"noneToSignOut": "Başka açık oturum yoktu",
+			"unknownDevice": "Bilinmeyen cihaz",
+			"currentBadge": "Bu cihaz",
+			"signOutOne": "Oturumu kapat",
+			"signedIn": "{{when}} oturum açıldı",
+			"lastSeen": "Son etkinlik: {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Oturum zaman aşımı",

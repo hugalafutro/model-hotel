@@ -2069,7 +2069,12 @@
 			"confirm": "Klikk for å bekrefte",
 			"signedOut_one": "{{count}} annen økt logget ut",
 			"signedOut_other": "{{count}} andre økter logget ut",
-			"noneToSignOut": "Ingen andre økter var åpne"
+			"noneToSignOut": "Ingen andre økter var åpne",
+			"unknownDevice": "Ukjent enhet",
+			"currentBadge": "Denne enheten",
+			"signOutOne": "Logg ut",
+			"signedIn": "Logget inn {{when}}",
+			"lastSeen": "Aktiv {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Tidsavbrudd for økt",

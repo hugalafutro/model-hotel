@@ -2069,7 +2069,12 @@
 			"confirm": "点击确认",
 			"signedOut_one": "已登出 {{count}} 个其他会话",
 			"signedOut_other": "已登出 {{count}} 个其他会话",
-			"noneToSignOut": "没有其他已打开的会话"
+			"noneToSignOut": "没有其他已打开的会话",
+			"unknownDevice": "未知设备",
+			"currentBadge": "本设备",
+			"signOutOne": "退出登录",
+			"signedIn": "{{when}}登录",
+			"lastSeen": "{{when}}活跃"
 		},
 		"sessionTimeout": {
 			"title": "会话超时",

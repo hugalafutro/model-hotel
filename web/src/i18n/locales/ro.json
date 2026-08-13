@@ -2121,7 +2121,12 @@
 			"signedOut_one": "A fost deconectată {{count}} altă sesiune",
 			"signedOut_few": "Au fost deconectate {{count}} alte sesiuni",
 			"signedOut_other": "Au fost deconectate {{count}} de alte sesiuni",
-			"noneToSignOut": "Nu existau alte sesiuni deschise"
+			"noneToSignOut": "Nu existau alte sesiuni deschise",
+			"unknownDevice": "Dispozitiv necunoscut",
+			"currentBadge": "Acest dispozitiv",
+			"signOutOne": "Deconectează",
+			"signedIn": "Autentificat {{when}}",
+			"lastSeen": "Activă {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Expirarea sesiunii",

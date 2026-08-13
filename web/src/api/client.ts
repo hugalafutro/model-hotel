@@ -3,6 +3,7 @@ import type {
 	AlertStatus,
 	AppLogsCursorResponse,
 	AuditListResponse,
+	AuthSession,
 	AuthStatus,
 	BackupClassification,
 	BackupEntry,
@@ -1456,6 +1457,21 @@ export const api = {
 				{ method: "POST", headers: getAuthHeaders() },
 				"Could not sign out other sessions",
 			),
+		// The caller's own live sessions, for the Settings active-sessions list.
+		listSessions: async (): Promise<{ sessions: AuthSession[] }> =>
+			fetchJSON<{ sessions: AuthSession[] }>(
+				`${API_BASE}/api/auth/sessions`,
+				{ headers: getAuthHeaders() },
+				"Could not load sessions",
+			),
+		// Signs one of the caller's other sessions out by row id.
+		revokeSession: async (id: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/auth/sessions/${id}`,
+				{ method: "DELETE", headers: getAuthHeaders() },
+				"Could not sign out the session",
+			);
+		},
 	},
 	// Self-service per-user TOTP (users-row identities manage their own 2FA;
 	// the env-token admin uses api.totp instead).

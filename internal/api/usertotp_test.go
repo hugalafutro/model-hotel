@@ -45,7 +45,7 @@ func setupUserTotpTest(t *testing.T) (chi.Router, *webauthn.SessionManager) {
 func userSession(t *testing.T, r chi.Router, sm *webauthn.SessionManager, username string) (string, string) {
 	t.Helper()
 	id := createUserViaAPI(t, r, username, "password123", "user", []string{"chat"})
-	token, err := sm.CreateAuthToken(context.Background(), []byte(id), nil)
+	token, err := sm.CreateAuthToken(context.Background(), []byte(id), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

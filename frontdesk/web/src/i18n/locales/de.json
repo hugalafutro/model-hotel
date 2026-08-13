@@ -510,6 +510,25 @@
 			"paired": "Gerät gekoppelt",
 			"revokeTitle": "Gerät widerrufen?",
 			"revokeBody": "„{{label}}“ verliert sofort den Zugriff. Zum Wiederherstellen erneut koppeln."
+		},
+		"sessions": {
+			"title": "Aktive Sitzungen",
+			"description": "Die Anmeldung beendet keine anderswo geöffneten Sitzungen. Melden Sie sie ab, wenn ein Gerät verloren ging oder Sie einen Sitzungsdiebstahl vermuten.",
+			"unknownDevice": "Unbekanntes Gerät",
+			"currentBadge": "Dieser Browser",
+			"signOut": "Abmelden",
+			"signOutOthers": "Andere abmelden",
+			"confirmSignOutTitle": "Diese Sitzung abmelden?",
+			"confirmSignOut": "Gerät abmelden",
+			"confirmSignOutBody": "{{device}} wird abgemeldet und muss sich erneut anmelden.",
+			"confirmSignOutOthersTitle": "Andere Sitzungen abmelden?",
+			"confirmSignOutOthers": "Andere Sitzungen abmelden",
+			"confirmSignOutOthersBody": "Alle Sitzungen außer diesem Browser werden abgemeldet.",
+			"signedOut_one": "{{count}} weitere Sitzung abgemeldet",
+			"signedOut_other": "{{count}} weitere Sitzungen abgemeldet",
+			"noneToSignOut": "Keine weiteren Sitzungen waren geöffnet",
+			"signedIn": "Angemeldet {{when}}",
+			"lastSeen": "Aktiv {{when}}"
 		}
 	},
 	"quota": {

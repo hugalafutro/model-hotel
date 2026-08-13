@@ -2121,7 +2121,12 @@
 			"signedOut_one": "S'ha tancat {{count}} altra sessió",
 			"signedOut_many": "S'han tancat {{count}} altres sessions",
 			"signedOut_other": "S'han tancat {{count}} altres sessions",
-			"noneToSignOut": "No hi havia cap altra sessió oberta"
+			"noneToSignOut": "No hi havia cap altra sessió oberta",
+			"unknownDevice": "Dispositiu desconegut",
+			"currentBadge": "Aquest dispositiu",
+			"signOutOne": "Tanca la sessió",
+			"signedIn": "Sessió iniciada {{when}}",
+			"lastSeen": "Activa {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Temps d'espera de la sessió",

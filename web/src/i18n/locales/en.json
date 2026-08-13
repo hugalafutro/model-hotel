@@ -2065,7 +2065,12 @@
 			"confirm": "Click to confirm",
 			"signedOut_one": "Signed out {{count}} other session",
 			"signedOut_other": "Signed out {{count}} other sessions",
-			"noneToSignOut": "No other sessions were open"
+			"noneToSignOut": "No other sessions were open",
+			"unknownDevice": "Unknown device",
+			"currentBadge": "This device",
+			"signOutOne": "Sign out",
+			"signedIn": "Signed in {{when}}",
+			"lastSeen": "Active {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Session timeout",

@@ -169,7 +169,7 @@ func setupChatUserCtxTest(t *testing.T) *chatUserCtxEnv {
 		ProviderID: providerID,
 		Model:      providerName + "/" + modelName,
 		LoginAs: func(userID string) string {
-			token, err := sessionMgr.CreateAuthToken(context.Background(), []byte(userID), nil)
+			token, err := sessionMgr.CreateAuthToken(context.Background(), []byte(userID), nil, webauthn.SessionMeta{})
 			if err != nil {
 				t.Fatalf("CreateAuthToken: %v", err)
 			}

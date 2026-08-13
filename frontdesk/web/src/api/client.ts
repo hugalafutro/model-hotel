@@ -5,6 +5,7 @@ import type {
 import type {
 	AlertEventDef,
 	AlertStatus,
+	AuthSession,
 	AutoSyncConfig,
 	BackupPruneResult,
 	DeviceRole,
@@ -226,6 +227,19 @@ export const api = {
 	revokeDevice: (id: string) =>
 		request<{ success: boolean }>(`/api/devices/${encodeURIComponent(id)}`, {
 			method: "DELETE",
+		}),
+
+	// Browser-session hygiene (Settings → Active sessions): the admin
+	// identity's live sessions, a per-row sign-out, and the bulk revoke that
+	// keeps only the calling session.
+	getSessions: () => request<{ sessions: AuthSession[] }>("/api/auth/sessions"),
+	revokeSession: (id: string) =>
+		request<void>(`/api/auth/sessions/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
+	revokeOtherSessions: () =>
+		request<{ revoked: number }>("/api/auth/sessions/revoke-others", {
+			method: "POST",
 		}),
 
 	// One probe powers the whole sync wizard: per-member reachability, MASTER_KEY

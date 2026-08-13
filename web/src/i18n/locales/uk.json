@@ -2173,7 +2173,12 @@
 			"signedOut_few": "Завершено {{count}} інші сеанси",
 			"signedOut_many": "Завершено {{count}} інших сеансів",
 			"signedOut_other": "Завершено {{count}} інших сеансів",
-			"noneToSignOut": "Інших відкритих сеансів не було"
+			"noneToSignOut": "Інших відкритих сеансів не було",
+			"unknownDevice": "Невідомий пристрій",
+			"currentBadge": "Цей пристрій",
+			"signOutOne": "Завершити сеанс",
+			"signedIn": "Вхід виконано {{when}}",
+			"lastSeen": "Активний {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Час очікування сеансу",

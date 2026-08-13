@@ -195,7 +195,7 @@ func TestUsersAPI_GrantCatalog(t *testing.T) {
 // endpoint lives in adminauth and has its own tests).
 func mintUserToken(t *testing.T, sm *webauthn.SessionManager, id string) string {
 	t.Helper()
-	token, err := sm.CreateAuthToken(context.Background(), []byte(id), nil)
+	token, err := sm.CreateAuthToken(context.Background(), []byte(id), nil, webauthn.SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

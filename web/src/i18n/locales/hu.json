@@ -2069,7 +2069,12 @@
 			"confirm": "Kattintson a megerősítéshez",
 			"signedOut_one": "{{count}} másik munkamenet kijelentkeztetve",
 			"signedOut_other": "{{count}} másik munkamenet kijelentkeztetve",
-			"noneToSignOut": "Nem volt más nyitott munkamenet"
+			"noneToSignOut": "Nem volt más nyitott munkamenet",
+			"unknownDevice": "Ismeretlen eszköz",
+			"currentBadge": "Ez az eszköz",
+			"signOutOne": "Kijelentkeztetés",
+			"signedIn": "Bejelentkezve: {{when}}",
+			"lastSeen": "Aktív: {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Munkamenet időkorlátja",

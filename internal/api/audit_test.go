@@ -49,7 +49,7 @@ func setupAuditTest(t *testing.T) (r chi.Router, loginAs func(id string) string,
 	h.Register(r)
 
 	loginAs = func(id string) string {
-		token, err := sessionMgr.CreateAuthToken(context.Background(), []byte(id), nil)
+		token, err := sessionMgr.CreateAuthToken(context.Background(), []byte(id), nil, webauthn.SessionMeta{})
 		if err != nil {
 			t.Fatalf("CreateAuthToken: %v", err)
 		}

@@ -32,7 +32,7 @@ func TestCreateAuthToken_StampsExpiryFromTTL(t *testing.T) {
 	mgr := NewSessionManager(repo)
 
 	before := time.Now()
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, SessionMeta{})
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

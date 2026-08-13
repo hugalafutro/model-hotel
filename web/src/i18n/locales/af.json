@@ -2069,7 +2069,12 @@
 			"confirm": "Klik om te bevestig",
 			"signedOut_one": "{{count}} ander sessie afgemeld",
 			"signedOut_other": "{{count}} ander sessies afgemeld",
-			"noneToSignOut": "Geen ander sessies was oop nie"
+			"noneToSignOut": "Geen ander sessies was oop nie",
+			"unknownDevice": "Onbekende toestel",
+			"currentBadge": "Hierdie toestel",
+			"signOutOne": "Meld af",
+			"signedIn": "Aangemeld {{when}}",
+			"lastSeen": "Aktief {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Sessie-tydverstryking",

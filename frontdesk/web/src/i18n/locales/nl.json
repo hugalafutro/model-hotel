@@ -510,6 +510,25 @@
 			"paired": "Apparaat gekoppeld",
 			"revokeTitle": "Apparaat intrekken?",
 			"revokeBody": "“{{label}}” verliest onmiddellijk de toegang. Koppel het opnieuw om het te herstellen."
+		},
+		"sessions": {
+			"title": "Actieve sessies",
+			"description": "Aanmelden beëindigt geen sessies die elders al open staan. Meld ze af als een apparaat verloren is of u vermoedt dat een sessie is gestolen.",
+			"unknownDevice": "Onbekend apparaat",
+			"currentBadge": "Deze browser",
+			"signOut": "Afmelden",
+			"signOutOthers": "Andere afmelden",
+			"confirmSignOutTitle": "Deze sessie afmelden?",
+			"confirmSignOut": "Apparaat afmelden",
+			"confirmSignOutBody": "{{device}} wordt afgemeld en moet opnieuw aanmelden.",
+			"confirmSignOutOthersTitle": "Andere sessies afmelden?",
+			"confirmSignOutOthers": "Andere sessies afmelden",
+			"confirmSignOutOthersBody": "Alle sessies behalve deze browser worden afgemeld.",
+			"signedOut_one": "{{count}} andere sessie afgemeld",
+			"signedOut_other": "{{count}} andere sessies afgemeld",
+			"noneToSignOut": "Er waren geen andere sessies open",
+			"signedIn": "Aangemeld {{when}}",
+			"lastSeen": "Actief {{when}}"
 		}
 	},
 	"quota": {

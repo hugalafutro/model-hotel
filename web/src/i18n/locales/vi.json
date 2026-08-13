@@ -2069,7 +2069,12 @@
 			"confirm": "Nhấp để xác nhận",
 			"signedOut_one": "Đã đăng xuất {{count}} phiên khác",
 			"signedOut_other": "Đã đăng xuất {{count}} phiên khác",
-			"noneToSignOut": "Không có phiên nào khác đang mở"
+			"noneToSignOut": "Không có phiên nào khác đang mở",
+			"unknownDevice": "Thiết bị không xác định",
+			"currentBadge": "Thiết bị này",
+			"signOutOne": "Đăng xuất",
+			"signedIn": "Đăng nhập {{when}}",
+			"lastSeen": "Hoạt động {{when}}"
 		},
 		"sessionTimeout": {
 			"title": "Thời gian chờ phiên",

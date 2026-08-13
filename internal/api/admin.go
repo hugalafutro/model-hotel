@@ -34,6 +34,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // TotpStatus reports whether TOTP 2FA is active, used by AuthMiddleware gating.
@@ -107,8 +108,18 @@ type WebAuthnSessionManager interface {
 	RevokeOtherSessions(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
 	// CreateAuthToken mints a new session token for the given user handle. The
 	// admin-token exchange trades a valid admin token for a session cookie via
-	// this method (userID is []byte("admin") for the legacy admin login).
-	CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error)
+	// this method (userID is []byte("admin") for the legacy admin login). meta
+	// carries the login request's device metadata onto the stored session.
+	CreateAuthToken(ctx context.Context, userID, credentialID []byte, meta webauthn.SessionMeta) (string, error)
+	// ListAuthSessions returns identity's live sessions for the active-sessions
+	// list, marking as current the one whose token the request carried. The
+	// same identity/candidate contract as RevokeOtherSessions applies.
+	ListAuthSessions(ctx context.Context, identity []byte, candidateTokens ...string) ([]webauthn.AuthSessionInfo, error)
+	// RevokeSessionByID deletes one of identity's sessions. It returns
+	// webauthn.ErrNotFound for a session that is missing or not identity's, and
+	// webauthn.ErrCurrentSession when the target is the session the request
+	// itself rides on.
+	RevokeSessionByID(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error
 }
 
 // PwnedChecker reports whether a password appears in a known breach corpus.
@@ -132,6 +143,7 @@ type Handler struct {
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
+	clientIPs              webauthn.ClientIPSource                            // trusted-proxy-aware client IP for session device metadata; nil falls back to the peer address
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
 	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
 	userTotp               UserTotpFactory                                    // nil until SetUserTotp (per-user 2FA endpoints)
@@ -208,6 +220,13 @@ func (h *Handler) SetPwnedChecker(c PwnedChecker) {
 // token-based authentication fallback in AuthMiddleware.
 func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
 	h.webauthnSessionMgr = mgr
+}
+
+// SetClientIPSource wires the trusted-proxy-aware client-IP resolver (the IP
+// limiter) used for session device metadata at the admin-token exchange. Left
+// nil, forwarded headers are never trusted and the peer address is stored.
+func (h *Handler) SetClientIPSource(ips webauthn.ClientIPSource) {
+	h.clientIPs = ips
 }
 
 // SetUserAuth wires the multi-user store and session revoker into the auth
@@ -333,6 +352,12 @@ func (h *Handler) Register(r chi.Router) {
 	// reach their own sessions. That property is what makes it safe to leave
 	// open, and auth_sessions_route_test.go pins it.
 	r.Post("/auth/sessions/revoke-others", h.RevokeOtherSessions)
+
+	// The active-sessions list and its per-row revoke. Same open-but-scoped
+	// contract: both handlers resolve the identity from this middleware, so a
+	// caller only ever sees or ends their own sessions.
+	r.Get("/auth/sessions", h.ListAuthSessions)
+	r.Delete("/auth/sessions/{id}", h.RevokeAuthSessionByID)
 
 	// System health stats feed the sidebar widget every role sees: routing
 	// metadata and process gauges only, so any authenticated caller may read it.
