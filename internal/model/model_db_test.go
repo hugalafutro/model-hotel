@@ -82,6 +82,39 @@ func countEnabledModels(ctx context.Context, t *testing.T, providerID uuid.UUID)
 	return count
 }
 
+// readPin returns the model's manually_enabled_at stamp, which no struct field
+// carries, so tests read it straight from the row.
+func readPin(ctx context.Context, t *testing.T, id uuid.UUID) *time.Time {
+	t.Helper()
+
+	var pinnedAt *time.Time
+	if err := testPool.QueryRow(ctx, `SELECT manually_enabled_at FROM models WHERE id = $1`, id).Scan(&pinnedAt); err != nil {
+		t.Fatalf("read manually_enabled_at: %v", err)
+	}
+	return pinnedAt
+}
+
+// pinModel stamps the operator's manual-enable pin directly, seeding the state
+// a hand enable leaves behind.
+func pinModel(ctx context.Context, t *testing.T, id uuid.UUID) {
+	t.Helper()
+
+	if _, err := testPool.Exec(ctx, `UPDATE models SET manually_enabled_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatalf("seed pin: %v", err)
+	}
+}
+
+// readMissingScans returns the model's consecutive-miss streak.
+func readMissingScans(ctx context.Context, t *testing.T, id uuid.UUID) int {
+	t.Helper()
+
+	var streak int
+	if err := testPool.QueryRow(ctx, `SELECT missing_scans FROM models WHERE id = $1`, id).Scan(&streak); err != nil {
+		t.Fatalf("read missing_scans: %v", err)
+	}
+	return streak
+}
+
 // cleanupProvider deletes models and provider for a test provider ID.
 func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 	t.Helper()
@@ -349,6 +382,81 @@ func TestRecordMissingModels_DisabledModelNotReturnedAgain(t *testing.T) {
 	}
 }
 
+// TestRecordMissingModels_PinnedModelNeverDisabled covers the case the pin
+// exists for: the operator enabled a model the listing keeps omitting. Misses
+// still accrue, but the row is never disabled and never surfaces as a claim.
+func TestRecordMissingModels_PinnedModelNeverDisabled(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-record-missing-pinned")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
+	insertTestModel(ctx, t, providerID, "stable-model")
+	pinModel(ctx, t, pinnedID)
+
+	existing := []string{"stable-model"}
+	// Two scans, one past MissingScanThreshold, with pinned-model absent.
+	for scan, wantStreak := range []int{1, 2} {
+		disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
+		if err != nil {
+			t.Fatalf("scan %d: %v", scan+1, err)
+		}
+		if len(disabled) != 0 || len(pending) != 0 {
+			t.Errorf("scan %d: pinned model must appear in neither slice, got disabled=%v pending=%v", scan+1, disabled, pending)
+		}
+		if got := readMissingScans(ctx, t, pinnedID); got != wantStreak {
+			t.Errorf("scan %d: missing_scans = %d, want %d: a pinned model keeps counting misses", scan+1, got, wantStreak)
+		}
+	}
+
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 2 {
+		t.Errorf("expected both models still enabled, got %d", enabled)
+	}
+	if readPin(ctx, t, pinnedID) == nil {
+		t.Error("manually_enabled_at = nil, want set: a miss does not clear the pin")
+	}
+}
+
+// TestRecordMissingModels_UnpinnedRowStillDisables is the control for the pin
+// exemption: a pinned and an unpinned model missing in the SAME statement must
+// get different verdicts, so the exemption is decided per row rather than
+// switching auto-disable off wholesale.
+func TestRecordMissingModels_UnpinnedRowStillDisables(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-record-missing-unpinned-control")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
+	unpinnedID := insertTestModel(ctx, t, providerID, "unpinned-model")
+	insertTestModel(ctx, t, providerID, "stable-model")
+	pinModel(ctx, t, pinnedID)
+
+	existing := []string{"stable-model"}
+	if _, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing); err != nil {
+		t.Fatalf("first scan: %v", err)
+	}
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
+	if err != nil {
+		t.Fatalf("second scan: %v", err)
+	}
+	if len(disabled) != 1 || disabled[0].ModelID != "unpinned-model" {
+		t.Fatalf("expected only unpinned-model disabled on the second miss, got %v", disabled)
+	}
+	if len(pending) != 0 {
+		t.Errorf("expected 0 pending refs, got %v", pending)
+	}
+	if streak := readMissingScans(ctx, t, unpinnedID); streak != 0 {
+		t.Errorf("unpinned missing_scans = %d, want 0 after disable", streak)
+	}
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 2 {
+		t.Errorf("expected 2 enabled models (pinned + stable), got %d", enabled)
+	}
+}
+
 func TestRecordMissingModels_NonExistentProvider(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
@@ -398,6 +506,69 @@ func TestRecordMissingModels_InvalidatesCache(t *testing.T) {
 	_, ok = GetCachedByUUID(m.ID)
 	if ok {
 		t.Error("expected cache to be invalidated after RecordMissingModels")
+	}
+}
+
+// TestSetEnabled_EnableStampsPin verifies the operator path arms and disarms
+// the pin: enabling by hand records that the operator vouched for the model,
+// disabling withdraws it.
+func TestSetEnabled_EnableStampsPin(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-setenabled-pin")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+	modelID := insertTestModel(ctx, t, providerID, "hand-enabled")
+
+	if _, err := repo.SetEnabled(ctx, modelID, true); err != nil {
+		t.Fatalf("SetEnabled(true): %v", err)
+	}
+	if readPin(ctx, t, modelID) == nil {
+		t.Error("manually_enabled_at = nil after SetEnabled(true), want a stamp")
+	}
+
+	if _, err := repo.SetEnabled(ctx, modelID, false); err != nil {
+		t.Fatalf("SetEnabled(false): %v", err)
+	}
+	if pinnedAt := readPin(ctx, t, modelID); pinnedAt != nil {
+		t.Errorf("manually_enabled_at = %v after SetEnabled(false), want nil", *pinnedAt)
+	}
+}
+
+// TestUpdate_EnableStampsPin verifies the partial-update path matches
+// SetEnabled, and that an update which does not touch enabled leaves an
+// existing pin alone — renaming a model is not a statement about the listing.
+func TestUpdate_EnableStampsPin(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-update-pin")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+	modelID := insertTestModel(ctx, t, providerID, "hand-updated")
+
+	enabled := true
+	if _, err := repo.Update(ctx, modelID, UpdateModelRequest{Enabled: &enabled}); err != nil {
+		t.Fatalf("Update(enabled=true): %v", err)
+	}
+	pinnedAt := readPin(ctx, t, modelID)
+	if pinnedAt == nil {
+		t.Fatal("manually_enabled_at = nil after Update(enabled=true), want a stamp")
+	}
+
+	displayName := "Hand Updated"
+	if _, err := repo.Update(ctx, modelID, UpdateModelRequest{DisplayName: &displayName}); err != nil {
+		t.Fatalf("Update(display_name): %v", err)
+	}
+	if got := readPin(ctx, t, modelID); got == nil || !got.Equal(*pinnedAt) {
+		t.Errorf("manually_enabled_at = %v after an update that does not touch enabled, want %v unchanged", got, *pinnedAt)
+	}
+
+	disabled := false
+	if _, err := repo.Update(ctx, modelID, UpdateModelRequest{Enabled: &disabled}); err != nil {
+		t.Fatalf("Update(enabled=false): %v", err)
+	}
+	if got := readPin(ctx, t, modelID); got != nil {
+		t.Errorf("manually_enabled_at = %v after Update(enabled=false), want nil", *got)
 	}
 }
 

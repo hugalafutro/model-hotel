@@ -151,6 +151,11 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			-- RecordMissingModels, so a model that reappears (even via a manual
 			-- re-test between scheduled scans) starts over from zero misses.
 			missing_scans = 0,
+			-- A sighting also disarms the operator's manual-enable pin: the pin
+			-- exists only to overrule a listing that omits a model the operator
+			-- verified working, so the listing naming it again ends the disagreement
+			-- and hands the model back to automatic management.
+			manually_enabled_at = NULL,
 			-- A sighting also retires any operator dismissal, so a model that is
 			-- dismissed, comes back, and vanishes again counts as a new claim
 			-- instead of staying suppressed by a stale stamp.
@@ -386,6 +391,16 @@ const MissingScanThreshold = 2
 // pending ones (streak below threshold). An empty presentModelIDs list is a
 // no-op guard: an empty listing is far more likely a broken scan than a
 // provider that removed every model.
+//
+// A model the operator pinned by enabling it manually (manually_enabled_at, see
+// migration 070) is exempt: its streak keeps growing, but it is never disabled
+// and appears in NEITHER return slice. The operator tested that model against
+// the provider after the listing stopped naming it, so their evidence is newer
+// and more direct than the listing's silence — and returning it as pending
+// would raise a claim asking them to decide something they already decided.
+// The exemption only covers this listing-based path; a refusal on real traffic
+// still retires the model (AutoRetireIfConfirmed), and the next sighting hands
+// it back to automatic management by clearing the pin.
 func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, presentModelIDs []string) (disabled, pending []DisabledModelRef, err error) {
 	if len(presentModelIDs) == 0 {
 		return nil, nil, nil
@@ -397,33 +412,41 @@ func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UU
 	// main UPDATE records one confirmed miss for every enabled model the scan
 	// did not list. Rows that reach the threshold are disabled with their
 	// streak reset (a later reappearance must not sit one flaky scan away
-	// from another disable); the rest keep counting into the next scan.
+	// from another disable); the rest keep counting into the next scan. A pinned
+	// row takes neither branch: its streak accrues untouched, so the count is
+	// there to read the moment a sighting clears the pin.
 	rows, err := r.pool.Query(ctx, `
 		WITH reset AS (
 			UPDATE models SET missing_scans = 0
 			WHERE provider_id = $1 AND model_id = ANY($2) AND missing_scans > 0
 		)
 		UPDATE models
-		SET missing_scans = CASE WHEN missing_scans + 1 >= $3 THEN 0 ELSE missing_scans + 1 END,
-		    enabled = CASE WHEN missing_scans + 1 >= $3 THEN false ELSE enabled END
+		SET missing_scans = CASE WHEN missing_scans + 1 >= $3 AND manually_enabled_at IS NULL THEN 0 ELSE missing_scans + 1 END,
+		    enabled = CASE WHEN missing_scans + 1 >= $3 AND manually_enabled_at IS NULL THEN false ELSE enabled END
 		WHERE provider_id = $1 AND model_id != ALL($2) AND enabled = true
-		RETURNING id, model_id, NOT enabled
+		RETURNING id, model_id, NOT enabled, manually_enabled_at IS NOT NULL
 	`, providerID, presentModelIDs, MissingScanThreshold)
 	if err != nil {
 		debuglog.Error("model: record missing failed", "provider", providerName, "provider_id", providerID, "error", err)
 		return nil, nil, err
 	}
 	defer rows.Close()
+	// Pinned rows are collected separately so they leave both return slices
+	// empty-handed: neither a disable to announce nor a claim to raise.
+	var pinnedRefs []DisabledModelRef
 	for rows.Next() {
 		var ref DisabledModelRef
-		var wasDisabled bool
-		if err := rows.Scan(&ref.ID, &ref.ModelID, &wasDisabled); err != nil {
+		var wasDisabled, pinned bool
+		if err := rows.Scan(&ref.ID, &ref.ModelID, &wasDisabled, &pinned); err != nil {
 			debuglog.Error("model: record missing scan failed", "provider", providerName, "provider_id", providerID, "error", err)
 			return nil, nil, err
 		}
-		if wasDisabled {
+		switch {
+		case pinned:
+			pinnedRefs = append(pinnedRefs, ref)
+		case wasDisabled:
 			disabled = append(disabled, ref)
-		} else {
+		default:
 			pending = append(pending, ref)
 		}
 	}
@@ -432,6 +455,9 @@ func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UU
 		return nil, nil, err
 	}
 
+	if len(pinnedRefs) > 0 {
+		debuglog.Info("model: pinned models still missing from listing", "provider", providerName, "count", len(pinnedRefs))
+	}
 	if len(disabled) > 0 || len(pending) > 0 {
 		debuglog.Info("model: recorded missing models",
 			"provider", providerName, "provider_id", providerID,
@@ -455,9 +481,15 @@ func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UU
 // clear again. It would sit disabled and absent from the claim list for good.
 // Doing it in the same statement as the enable makes the recovery atomic instead
 // of dependent on scan timing.
+//
+// An enable also arms manually_enabled_at, the pin that keeps discovery from
+// disabling the model again for being absent from the provider's listing
+// (migration 070). A disable withdraws it: the operator is no longer vouching
+// for a model they just switched off.
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
 	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1,
-	                            auto_retired_at = NULL, discovery_dismissed_at = NULL
+	                            auto_retired_at = NULL, discovery_dismissed_at = NULL,
+	                            manually_enabled_at = CASE WHEN $1 THEN now() ELSE NULL END
 	           WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
 	if err != nil {
@@ -677,6 +709,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		// in this statement rather than on the next sighting: a model retired
 		// again before that scan would keep a dismissal nothing could clear.
 		setClauses = append(setClauses, "auto_retired_at = NULL", "discovery_dismissed_at = NULL")
+		// And the manual-enable pin follows the operator's verdict, same as in
+		// SetEnabled: an enable arms it, a disable withdraws it. Only a write
+		// that touches enabled says anything about the pin, so editing a display
+		// name or a price leaves it exactly where it was.
+		if *req.Enabled {
+			setClauses = append(setClauses, "manually_enabled_at = now()")
+		} else {
+			setClauses = append(setClauses, "manually_enabled_at = NULL")
+		}
 	}
 
 	if len(setClauses) == 0 {
