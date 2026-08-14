@@ -417,6 +417,21 @@ func TestSetModelsUnpinned(t *testing.T) {
 	}
 }
 
+// TestSetModelsUnpinned_ClosedPool drives the query error path: a pool that
+// cannot run the UPDATE at all must surface the error rather than reporting an
+// empty (and misleadingly successful-looking) unpinned list. Uses the same
+// closedAPIPool helper as the dismiss/unpin handler failure tests, since
+// setModelsUnpinned takes the pool directly rather than going through a
+// handler.
+func TestSetModelsUnpinned_ClosedPool(t *testing.T) {
+	dead := closedAPIPool(t)
+
+	_, err := setModelsUnpinned(context.Background(), dead.Pool(), uuid.New(), []string{"some-model"})
+	if err == nil {
+		t.Error("expected error with a closed pool, got nil")
+	}
+}
+
 func ptrTime(t time.Time) *time.Time { return &t }
 
 // seedClaimProvider inserts a minimal provider row. The brief's original

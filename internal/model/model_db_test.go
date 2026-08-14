@@ -608,3 +608,66 @@ func TestUpsertClearsDiscoveryDismissal(t *testing.T) {
 		t.Errorf("discovery_dismissed_at = %v, want nil: a sighting must clear the stamp so a later disappearance is a fresh claim", *dismissedAt)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestPinnedModelIDs
+// ---------------------------------------------------------------------------
+
+// TestPinnedModelIDs verifies the set returned scopes to one provider and
+// includes only rows that actually carry the manual-enable pin.
+func TestPinnedModelIDs(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-pinned-ids")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+	otherProviderID := insertTestProvider(ctx, t, "test-pinned-ids-other")
+	t.Cleanup(func() { cleanupProvider(ctx, t, otherProviderID) })
+
+	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
+	insertTestModel(ctx, t, providerID, "unpinned-model")
+	otherPinnedID := insertTestModel(ctx, t, otherProviderID, "other-provider-pinned")
+	pinModel(ctx, t, pinnedID)
+	pinModel(ctx, t, otherPinnedID)
+
+	pinned, err := repo.PinnedModelIDs(ctx, providerID)
+	if err != nil {
+		t.Fatalf("PinnedModelIDs: %v", err)
+	}
+	// Keyed by model_id (the provider-facing string), not the row UUID: that is
+	// what the caller compares against a listed model's model_id.
+	if len(pinned) != 1 || !pinned["pinned-model"] {
+		t.Fatalf("PinnedModelIDs = %v, want exactly {pinned-model: true}", pinned)
+	}
+
+	// A provider with no pinned rows must still get a non-nil, empty map: the
+	// caller does a bare map lookup with no nil guard.
+	unpinnedProviderID := insertTestProvider(ctx, t, "test-pinned-ids-none")
+	t.Cleanup(func() { cleanupProvider(ctx, t, unpinnedProviderID) })
+	insertTestModel(ctx, t, unpinnedProviderID, "never-pinned")
+
+	none, err := repo.PinnedModelIDs(ctx, unpinnedProviderID)
+	if err != nil {
+		t.Fatalf("PinnedModelIDs (no pins): %v", err)
+	}
+	if none == nil {
+		t.Fatal("PinnedModelIDs = nil, want a non-nil empty map")
+	}
+	if len(none) != 0 {
+		t.Errorf("PinnedModelIDs (no pins) = %v, want empty", none)
+	}
+}
+
+// TestPinnedModelIDs_CancelledContext mirrors
+// TestRecordMissingModels_CancelledContext: a cancelled context must surface
+// as an error rather than a silently empty result.
+func TestPinnedModelIDs_CancelledContext(t *testing.T) {
+	repo := NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := repo.PinnedModelIDs(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error with cancelled context, got nil")
+	}
+}
