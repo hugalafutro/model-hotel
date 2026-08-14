@@ -113,9 +113,9 @@ To be explicit about the boundaries:
 | Audio input | ❌ Never | Passed through to provider unchanged |
 | API keys (provider or virtual) | ❌ Never | Decrypted in memory only, never written to logs or DB |
 | Request body content | ❌ Never | JSON bodies are parsed only for `model` and `stream`; multipart forms only for `model` |
-| IP addresses | ❌ Never | Used only for in-memory rate limiting, not stored in request logs |
-| User-agent strings | ❌ Never | Not captured |
-| X-Forwarded-For headers | ❌ Never | Used only for IP rate limiting when behind trusted proxies |
+| IP addresses | ⚠️ Metadata | Recorded in app-log lines (access/auth), the audit trail, and the active-sessions list, each retention-bound; never in `request_logs` |
+| User-agent strings | ⚠️ Sessions only | Up to 256 bytes stored per dashboard login for the active-sessions list; deleted with the session |
+| X-Forwarded-For headers | ⚠️ Resolved | Honored only from `TRUSTED_PROXIES`; the resolved client IP is what gets recorded, never the raw header |
 
 ## Cryptographic Security
 
@@ -271,7 +271,7 @@ See [Configuration](Configuration) for details.
 | Virtual key storage | SHA-256 hash (one-way) |
 | Provider key storage | AES-256-GCM + Argon2id (per-provider random salt, 8MB) |
 | Request content | Never logged, never stored |
-| IP addresses | In-memory only, 10-minute cleanup |
+| IP addresses | Rate-limit buckets in-memory (10-minute cleanup); logged addresses follow app-log and audit retention |
 | Error messages | Provider diagnostics only (200-char SSE, 2000-char failover, full in DB) |
 | Request identifiers | Random 8-byte hex (not content-based) |
 | Data retention | Configurable (1h to 30d, or forever) |
@@ -281,7 +281,7 @@ See [Configuration](Configuration) for details.
 
 Model Hotel's architecture supports compliance with data protection regulations:
 
-- **GDPR**: No personal data (prompts, responses) is stored. Request logs contain only metadata.
+- **GDPR**: Prompts and responses are never stored. Operational metadata does include client IP addresses (personal data under the GDPR) in app logs, the audit trail, and the active-sessions list, all with bounded retention.
 - **Data minimization**: Only essential operational data is collected.
 - **Purpose limitation**: Logged data is used only for routing, metering, and diagnostics.
 - **Storage limitation**: Automatic retention policies ensure logs are purged after configurable periods.
