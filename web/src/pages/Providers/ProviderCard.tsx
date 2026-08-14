@@ -110,11 +110,11 @@ export function ProviderCard({
 							</span>
 						</span>
 					)}
-					{provider.enabled && modelCount > 0 && (
+					{modelCount > 0 && (
 						<button
 							type="button"
 							onClick={() => onSetModelsProvider(provider)}
-							className="px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
+							className={`px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan ${dim}`}
 						>
 							<span className="badge-text">
 								{t("providers.card_models", { count: modelCount })}

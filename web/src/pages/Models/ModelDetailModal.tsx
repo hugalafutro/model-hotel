@@ -721,13 +721,7 @@ export function ModelDetailModal({
 							type="button"
 							disabled={testing}
 							onClick={handleTest}
-							className={`ui-btn ${
-								testError
-									? "ui-btn-danger bg-red-900/50 text-red-300"
-									: testing
-										? "ui-btn-secondary bg-amber-900/30 text-amber-300/70"
-										: "ui-btn-secondary"
-							}`}
+							className={`ui-btn ${testError ? "ui-btn-danger" : "ui-btn-secondary"}`}
 						>
 							{testing && <Spinner />}
 							{testing ? t("models.detail.testing") : t("models.detail.test")}
@@ -784,11 +778,7 @@ export function ModelDetailModal({
 									type="button"
 									disabled={cooldown > 0 || discovering}
 									onClick={handleDiscover}
-									className={`ui-btn ${
-										cooldown > 0 || discovering
-											? "bg-(--accent-lighter) text-(--accent)/50"
-											: "bg-(--accent-light) text-(--accent) hover:brightness-125"
-									}`}
+									className="ui-btn bg-(--accent-light) text-(--accent) hover:brightness-125"
 								>
 									{discovering ? (
 										<>

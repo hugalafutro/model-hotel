@@ -84,8 +84,8 @@ describe("SubModeToggle", () => {
 		const listButton = screen.getByText("List").closest("button");
 		const gridButton = screen.getByText("Grid").closest("button");
 
-		expect(listButton).toHaveClass("ui-btn-static");
-		expect(gridButton).toHaveClass("ui-btn-static");
+		expect(listButton).toBeDisabled();
+		expect(gridButton).toBeDisabled();
 		expect(gridButton).toHaveClass("text-(--text-tertiary)");
 	});
 

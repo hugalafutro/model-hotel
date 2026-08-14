@@ -28,13 +28,14 @@ export function SubModeToggle<T extends string>({
 					<button
 						key={opt.value}
 						type="button"
+						disabled={disabled}
 						onClick={() => onChange(opt.value)}
 						aria-label={opt.label}
 						className={`ui-btn ${
 							isActive
 								? "ui-btn-primary ui-btn-static"
 								: disabled
-									? "text-(--text-tertiary) ui-btn-static"
+									? "text-(--text-tertiary)"
 									: "ui-btn-secondary"
 						}`}
 					>

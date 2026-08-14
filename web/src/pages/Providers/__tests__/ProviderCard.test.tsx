@@ -233,7 +233,7 @@ describe("ProviderCard", () => {
 			expect(deleteButton).not.toHaveClass("grayscale");
 		});
 
-		it("hides the model count and quota badges when disabled", () => {
+		it("dims the model count and hides quota badges when disabled", () => {
 			mockQuotaData.showNanoBadge = true;
 			mockQuotaData.nanogptUsage = {
 				weeklyInputTokens: { used: 1000 },
@@ -241,24 +241,37 @@ describe("ProviderCard", () => {
 			mockQuotaData.nanoWeeklyUsed = 1000;
 			mockQuotaData.nanoWeeklyLimit = 10000;
 
-			render(
-				<ProviderCard
-					{...defaultProps}
-					provider={{
-						...mockProvider,
-						enabled: false,
-						base_url: "https://api.nano-gpt.com/v1",
-					}}
-				/>,
-				{ wrapper: AllProviders },
-			);
+			try {
+				render(
+					<ProviderCard
+						{...defaultProps}
+						provider={{
+							...mockProvider,
+							enabled: false,
+							base_url: "https://api.nano-gpt.com/v1",
+						}}
+					/>,
+					{ wrapper: AllProviders },
+				);
 
-			expect(screen.queryByText(/5 model/)).not.toBeInTheDocument();
-			expect(
-				screen.queryByTitle(
-					"NanoGPT weekly tokens remaining - click for details",
-				),
-			).not.toBeInTheDocument();
+				// Model count is live data (and the only route into the provider's
+				// model list), so it stays visible but dimmed.
+				const modelsButton = screen.getByText(/5 model/).closest("button");
+				expect(modelsButton).toHaveClass("grayscale", "opacity-50");
+				// Quota data would only show the stale pre-disable value.
+				expect(
+					screen.queryByTitle(
+						"NanoGPT weekly tokens remaining - click for details",
+					),
+				).not.toBeInTheDocument();
+			} finally {
+				// mockQuotaData is module-level shared state; undo the mutation so
+				// later tests in this file see the defaults.
+				mockQuotaData.showNanoBadge = false;
+				mockQuotaData.nanogptUsage = undefined;
+				mockQuotaData.nanoWeeklyUsed = null;
+				mockQuotaData.nanoWeeklyLimit = null;
+			}
 		});
 
 		it("does not grayscale content when enabled", () => {

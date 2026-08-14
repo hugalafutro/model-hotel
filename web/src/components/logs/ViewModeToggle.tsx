@@ -15,7 +15,7 @@ export function ViewModeToggle({ viewMode, onChange }: ViewModeToggleProps) {
 			className={`ui-btn ${
 				viewMode === "scroll"
 					? "ui-btn-primary"
-					: "text-gray-400 hover:text-white"
+					: "text-gray-400 hover:text-white hover:border-gray-500"
 			}`}
 			title={
 				viewMode === "paginate"

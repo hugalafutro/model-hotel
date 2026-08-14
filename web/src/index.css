@@ -1824,6 +1824,21 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	color: #f87171;
 }
 
+[data-ui-style].light .ui-btn-danger-muted {
+	background-color: rgba(220, 38, 38, 0.08);
+	color: rgba(220, 38, 38, 0.7);
+	border-color: rgba(220, 38, 38, 0.25);
+}
+
+[data-ui-style].light .ui-btn-danger-muted:hover:not(:disabled) {
+	background-color: rgba(220, 38, 38, 0.16);
+	color: #dc2626;
+}
+
+/* ui-btn-ghost has no rules on purpose: base ui-btn is already transparent
+   with a transparent border, which is the ghost look. The class only marks
+   intent at the call sites. */
+
 /* Upload-a-file affordance: drop-zone-style dashed border that warms to the
    accent on hover. */
 [data-ui-style] .ui-btn.ui-btn-dashed {
@@ -1834,9 +1849,10 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	border-color: var(--accent);
 }
 
-/* Toggle-tab options whose click is a no-op (the already-active choice, or a
-   disabled toggle): base ui-btn pins cursor: pointer, so opt out here. */
-[data-ui-style] .ui-btn.ui-btn-static {
+/* Toggle-tab options whose click is a no-op (the already-active choice):
+   base ui-btn pins cursor: pointer, so opt out here. Guarded so a truly
+   disabled button keeps the not-allowed cursor from .ui-btn:disabled. */
+[data-ui-style] .ui-btn.ui-btn-static:not(:disabled) {
 	cursor: default;
 }
 
