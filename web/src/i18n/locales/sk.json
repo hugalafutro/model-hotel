@@ -112,7 +112,8 @@
 			"discoveryNewsBadge_one": "{{count}} neskontrolovaná zmena zo zisťovania na pozadí. Len informatívne, nevyžaduje pozornosť - kliknutím zobrazíte.",
 			"discoveryNewsBadge_few": "{{count}} neskontrolované zmeny zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
 			"discoveryNewsBadge_many": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
-			"discoveryNewsBadge_other": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte."
+			"discoveryNewsBadge_other": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
+			"discoveryPinnedBadge": "Modely, ktoré ste zapli ručne, v ponuke poskytovateľa stále chýbajú. Len informatívne, nevyžaduje pozornosť - kliknutím zobrazíte."
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -993,7 +994,8 @@
 			"unpinFailed": "Nepodarilo sa odopnúť: {{message}}",
 			"unpinTooltip": "Vráti tento model automatickej správe. Ak bude v ponuke poskytovateľa naďalej chýbať, po dvoch kontrolách sa znova zakáže.",
 			"unpinned": "Model {{model}} odopnutý",
-			"updated": "Aktualizované metadáta"
+			"updated": "Aktualizované metadáta",
+			"unpinManagedTooltip": "Pripnutia spravuje primárna inštancia flotily a pri ďalšej synchronizácii konfigurácie sa nahradia. Zrušte pripnutie tohto modelu na primárnej inštancii."
 		},
 		"toast_quota_detected_minimax": "Zistená kvóta MiniMax",
 		"type_minimax": "MiniMax",

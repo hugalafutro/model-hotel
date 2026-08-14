@@ -87,6 +87,11 @@ export interface ModelDiscrepancyModalProps {
 	 * for the width of a request. */
 	loading?: boolean;
 	readOnly: boolean;
+	/** True when this instance is a managed fleet member. Pins are synced config
+	 * (the EnabledModels section), so the primary's list is re-applied on the next
+	 * sync pass and a local unpin would silently come back. Only the pin controls
+	 * take this: everything else in here is per-member listing evidence. */
+	managed?: boolean;
 }
 
 export function ModelDiscrepancyModal({
@@ -109,6 +114,7 @@ export function ModelDiscrepancyModal({
 	loadError,
 	loading = false,
 	readOnly,
+	managed = false,
 }: ModelDiscrepancyModalProps) {
 	const { t } = useTranslation();
 
@@ -306,6 +312,26 @@ export function ModelDiscrepancyModal({
 	const readOnlyNoteId = `${regionIdBase}-readonly`;
 	const describedByReadOnly = readOnly ? readOnlyNoteId : undefined;
 
+	// The managed reason gets the same treatment, and its own node: it blocks one
+	// control (Unpin) rather than the whole modal, and the two states can hold at
+	// once, so a single shared sentence could not name either accurately.
+	const managedNoteId = `${regionIdBase}-managed`;
+	// Unpin writes to a synced entity, so it is blocked by demo read-only mode and
+	// by managed membership alike; the two differ only in what they say about why.
+	const unpinBlocked = readOnly || managed;
+	// Read-only wins when both hold: it blocks the write outright, so sending the
+	// operator to the primary would send them somewhere just as refusing.
+	const unpinNoteId = readOnly
+		? readOnlyNoteId
+		: managed
+			? managedNoteId
+			: undefined;
+	const unpinTitle = () => {
+		if (readOnly) return t("providers.discrepancies.readOnlyTooltip");
+		if (managed) return t("providers.discrepancies.unpinManagedTooltip");
+		return t("providers.discrepancies.unpinTooltip");
+	};
+
 	const flapChip = (c: MergedClaim) => {
 		// Primary number is "since your last visit"; the 30-day total is shown
 		// in the tooltip as extra context beyond that count.
@@ -452,13 +478,9 @@ export function ModelDiscrepancyModal({
 					<button
 						type="button"
 						onClick={() => onUnpin(p.provider_id, c.model_id)}
-						disabled={readOnly}
-						title={
-							readOnly
-								? t("providers.discrepancies.readOnlyTooltip")
-								: t("providers.discrepancies.unpinTooltip")
-						}
-						aria-describedby={describedByReadOnly}
+						disabled={unpinBlocked}
+						title={unpinTitle()}
+						aria-describedby={unpinNoteId}
 						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
 						data-testid="discrepancy-unpin"
 					>
@@ -1039,6 +1061,15 @@ export function ModelDiscrepancyModal({
 							data-testid="discrepancy-readonly-note"
 						>
 							{t("providers.discrepancies.readOnlyTooltip")}
+						</span>
+					) : null}
+					{!readOnly && managed ? (
+						<span
+							id={managedNoteId}
+							className="sr-only"
+							data-testid="discrepancy-managed-note"
+						>
+							{t("providers.discrepancies.unpinManagedTooltip")}
 						</span>
 					) : null}
 					{/* A failed load banners at the top and, crucially, suppresses the

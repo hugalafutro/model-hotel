@@ -104,7 +104,8 @@
 			"users": "Användare",
 			"audit": "Granskning",
 			"discoveryNewsBadge_one": "{{count}} oläst ändring från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa.",
-			"discoveryNewsBadge_other": "{{count}} olästa ändringar från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa."
+			"discoveryNewsBadge_other": "{{count}} olästa ändringar från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa.",
+			"discoveryPinnedBadge": "Modeller du själv har aktiverat saknas fortfarande i leverantörens lista. Endast information, inget som kräver åtgärd - klicka för att läsa."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Kunde inte lossa: {{message}}",
 			"unpinTooltip": "Lämnar tillbaka den här modellen till automatisk hantering. Om den fortsätter saknas i leverantörens lista inaktiveras den igen efter två skanningar.",
 			"unpinned": "{{model}} lossad",
-			"updated": "Metadata uppdaterad"
+			"updated": "Metadata uppdaterad",
+			"unpinManagedTooltip": "Fästningar hanteras av flottans primära instans och ersätts vid nästa konfigurationssynkronisering. Lossa den här modellen på den primära instansen."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvot upptäckt",
 		"type_minimax": "MiniMax",

@@ -108,7 +108,8 @@
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} modifica non esaminata dal rilevamento in background. Solo informativa, non richiede attenzione - fai clic per esaminare.",
 			"discoveryNewsBadge_many": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare.",
-			"discoveryNewsBadge_other": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare."
+			"discoveryNewsBadge_other": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare.",
+			"discoveryPinnedBadge": "I modelli che hai attivato a mano restano assenti dall'elenco del provider. Solo informativo, non richiede attenzione - fai clic per esaminare."
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -966,7 +967,8 @@
 			"unpinFailed": "Impossibile rimuovere il fissaggio: {{message}}",
 			"unpinTooltip": "Restituisce questo modello alla gestione automatica. Se resta assente dall'elenco del provider, verrà disattivato di nuovo dopo due scansioni.",
 			"unpinned": "Fissaggio di {{model}} rimosso",
-			"updated": "Metadati aggiornati"
+			"updated": "Metadati aggiornati",
+			"unpinManagedTooltip": "I fissaggi sono gestiti dall'istanza primaria della flotta e vengono sostituiti alla successiva sincronizzazione della configurazione. Rimuovi il fissaggio di questo modello sull'istanza primaria."
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",
 		"type_minimax": "MiniMax",

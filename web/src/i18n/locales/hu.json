@@ -104,7 +104,8 @@
 			"users": "Felhasználók",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
-			"discoveryNewsBadge_other": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz."
+			"discoveryNewsBadge_other": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
+			"discoveryPinnedBadge": "A kézzel engedélyezett modellek továbbra is hiányoznak a szolgáltató listájából. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz."
 		},
 		"status": {
 			"apiStatus": "API-állapot",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Nem sikerült feloldani a rögzítést: {{message}}",
 			"unpinTooltip": "Visszaadja ezt a modellt az automatikus kezelésnek. Ha továbbra is hiányzik a szolgáltató listájából, két vizsgálat után ismét letiltásra kerül.",
 			"unpinned": "A(z) {{model}} rögzítése feloldva",
-			"updated": "Frissített metaadatok"
+			"updated": "Frissített metaadatok",
+			"unpinManagedTooltip": "A rögzítéseket a flotta elsődleges példánya kezeli, és a következő konfigurációs szinkronizáláskor lecserélődnek. Az elsődleges példányon oldja fel ennek a modellnek a rögzítését."
 		},
 		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",
 		"type_minimax": "MiniMax",

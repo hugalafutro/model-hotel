@@ -104,7 +104,8 @@
 			"users": "Kullanıcılar",
 			"audit": "Denetim",
 			"discoveryNewsBadge_one": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
-			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
+			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
+			"discoveryPinnedBadge": "Elle etkinleştirdiğiniz modeller sağlayıcının listesinde hâlâ görünmüyor. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Sabitleme kaldırılamadı: {{message}}",
 			"unpinTooltip": "Bu modeli otomatik yönetime geri verir. Sağlayıcının listesinde görünmemeye devam ederse iki taramadan sonra yeniden devre dışı bırakılır.",
 			"unpinned": "{{model}} sabitlemesi kaldırıldı",
-			"updated": "Metadata güncellendi"
+			"updated": "Metadata güncellendi",
+			"unpinManagedTooltip": "Sabitlemeler filo birincil örneği tarafından yönetilir ve sonraki yapılandırma eşitlemesinde değiştirilir. Bu modelin sabitlemesini birincil örnekte kaldırın."
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",
 		"type_minimax": "MiniMax",

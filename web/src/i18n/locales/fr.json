@@ -108,7 +108,8 @@
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} changement non consulté issu de la découverte en arrière-plan. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
 			"discoveryNewsBadge_many": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
-			"discoveryNewsBadge_other": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter."
+			"discoveryNewsBadge_other": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
+			"discoveryPinnedBadge": "Des modèles que vous avez activés à la main restent absents de la liste du fournisseur. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter."
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -966,7 +967,8 @@
 			"unpinFailed": "Impossible de désépingler : {{message}}",
 			"unpinTooltip": "Rend ce modèle à la gestion automatique. S'il reste absent de la liste du fournisseur, il sera de nouveau désactivé après deux analyses.",
 			"unpinned": "{{model}} désépinglé",
-			"updated": "Métadonnées mises à jour"
+			"updated": "Métadonnées mises à jour",
+			"unpinManagedTooltip": "Les épinglages sont gérés par l'instance principale de la flotte et sont remplacés à la prochaine synchronisation de configuration. Désépinglez ce modèle sur l'instance principale."
 		},
 		"toast_quota_detected_minimax": "Quota MiniMax détecté",
 		"type_minimax": "MiniMax",

@@ -112,7 +112,8 @@
 			"discoveryNewsBadge_one": "{{count}} nieprzejrzana zmiana z wykrywania w tle. Tylko informacyjnie, nie wymaga uwagi - kliknij, aby przejrzeć.",
 			"discoveryNewsBadge_few": "{{count}} nieprzejrzane zmiany z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
 			"discoveryNewsBadge_many": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
-			"discoveryNewsBadge_other": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć."
+			"discoveryNewsBadge_other": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
+			"discoveryPinnedBadge": "Modele włączone przez Ciebie ręcznie nadal nie występują na liście dostawcy. Tylko informacyjnie, nie wymaga uwagi - kliknij, aby przejrzeć."
 		},
 		"status": {
 			"apiStatus": "Status API",
@@ -993,7 +994,8 @@
 			"unpinFailed": "Nie udało się odpiąć: {{message}}",
 			"unpinTooltip": "Zwraca ten model automatycznemu zarządzaniu. Jeśli nadal będzie go brakować na liście dostawcy, po dwóch skanach zostanie ponownie wyłączony.",
 			"unpinned": "Odpięto {{model}}",
-			"updated": "Zaktualizowane metadane"
+			"updated": "Zaktualizowane metadane",
+			"unpinManagedTooltip": "Przypięciami zarządza instancja podstawowa floty i są zastępowane przy następnej synchronizacji konfiguracji. Odepnij ten model w instancji podstawowej."
 		},
 		"toast_quota_detected_minimax": "Wykryto limit MiniMax",
 		"type_minimax": "MiniMax",

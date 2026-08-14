@@ -108,7 +108,8 @@
 			"audit": "Auditoria",
 			"discoveryNewsBadge_one": "{{count}} alteração não revista da deteção em segundo plano. Apenas informativa, não requer atenção - clique para rever.",
 			"discoveryNewsBadge_many": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever.",
-			"discoveryNewsBadge_other": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever."
+			"discoveryNewsBadge_other": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever.",
+			"discoveryPinnedBadge": "Os modelos que ativou manualmente continuam ausentes da lista do fornecedor. Apenas informativo, não requer atenção - clique para rever."
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -966,7 +967,8 @@
 			"unpinFailed": "Não foi possível desafixar: {{message}}",
 			"unpinTooltip": "Devolve este modelo à gestão automática. Se continuar ausente da lista do fornecedor, será desativado novamente após duas verificações.",
 			"unpinned": "{{model}} desafixado",
-			"updated": "Metadados atualizados"
+			"updated": "Metadados atualizados",
+			"unpinManagedTooltip": "As fixações são geridas pela instância primária da frota e são substituídas na próxima sincronização de configuração. Remova a fixação deste modelo na instância primária."
 		},
 		"toast_quota_detected_minimax": "Cota MiniMax detectada",
 		"type_minimax": "MiniMax",

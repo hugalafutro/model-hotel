@@ -104,7 +104,8 @@
 			"users": "Brukere",
 			"audit": "Revisjon",
 			"discoveryNewsBadge_one": "{{count}} ulest endring fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
-			"discoveryNewsBadge_other": "{{count}} uleste endringer fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese."
+			"discoveryNewsBadge_other": "{{count}} uleste endringer fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
+			"discoveryPinnedBadge": "Modeller du selv har aktivert, mangler fortsatt i leverandørens liste. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Kunne ikke løsne: {{message}}",
 			"unpinTooltip": "Gir denne modellen tilbake til automatisk styring. Hvis den fortsatt mangler i leverandørens liste, blir den deaktivert igjen etter to skanninger.",
 			"unpinned": "{{model}} løsnet",
-			"updated": "Metadata oppdatert"
+			"updated": "Metadata oppdatert",
+			"unpinManagedTooltip": "Festinger styres av flåtens primære instans og erstattes ved neste konfigurasjonssynkronisering. Løsne denne modellen på den primære instansen."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvote oppdaget",
 		"type_minimax": "MiniMax",

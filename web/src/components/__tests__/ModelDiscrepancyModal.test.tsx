@@ -1346,6 +1346,50 @@ describe("ModelDiscrepancyModal", () => {
 			expect(screen.getByTestId("discrepancy-unpin")).toBeDisabled();
 		});
 
+		it("disables unpin on a managed fleet member and says why", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+					managed
+				/>,
+			);
+			await openBucket(user, "pinned");
+			// A pin is synced config: the primary's list is re-applied on the next
+			// sync pass, so a local unpin would look like it worked and come back.
+			const button = screen.getByTestId("discrepancy-unpin");
+			expect(button).toBeDisabled();
+			// A disabled button is not focusable, so its title never reaches a keyboard
+			// or screen-reader user. The description carries the reason instead.
+			const note = screen.getByTestId("discrepancy-managed-note");
+			expect(button).toHaveAttribute("aria-describedby", note.id);
+			expect(note.textContent).not.toMatch(/^providers\.discrepancies\./);
+			expect(screen.queryByTestId("discrepancy-readonly-note")).toBeNull();
+		});
+
+		it("keeps the read-only reason when both read-only and managed hold", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+					readOnly
+					managed
+				/>,
+			);
+			await openBucket(user, "pinned");
+			// Demo read-only blocks every write in the modal, so it is the reason that
+			// applies; naming the fleet instead would send the operator to a primary
+			// that would refuse them just the same.
+			expect(screen.getByTestId("discrepancy-unpin")).toBeDisabled();
+			expect(screen.getByTestId("discrepancy-unpin")).toHaveAttribute(
+				"aria-describedby",
+				screen.getByTestId("discrepancy-readonly-note").id,
+			);
+			expect(screen.queryByTestId("discrepancy-managed-note")).toBeNull();
+		});
+
 		it("keeps pinned rows out of the counted chips", () => {
 			render(
 				<ModelDiscrepancyModal

@@ -39,6 +39,7 @@ import {
 } from "../hooks/useDiscrepancies";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { useIdleLogout } from "../hooks/useIdleLogout";
+import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
@@ -741,6 +742,30 @@ export function Layout({ children }: LayoutProps) {
 	});
 	const claimCount = discoveryStatus?.claim_count ?? 0;
 	const informationalUnseen = discoveryStatus?.informational_unseen ?? 0;
+	// A pinned model moves neither counter: it is never counted (it is a decision,
+	// not a problem) and it is not informational news. The badge is the only way
+	// into the modal, so without this a status whose sole content is a pin renders
+	// no badge at all and the pinned bucket, with its Unpin control, cannot be
+	// reached. `?? []` because a server that predates the pin omits the bucket.
+	const hasPinned =
+		discoveryStatus?.claims.some((p) => (p.pinned ?? []).length > 0) ?? false;
+	// One string for the badge's accessible name AND its tooltip, deliberately.
+	// The dot carries no visible text, so this IS its accessible name; splitting
+	// them would mean a sighted user reads one sentence and a screen-reader user
+	// hears another. The counted branches name the count the badge is triggered by
+	// (for the news dot the UNSEEN count, not the zone's total, which is what makes
+	// it legible next to the modal's "Recent changes" header). Counted keys, so the
+	// number agrees in every language.
+	//
+	// The pin branch is last and carries no count: it is what a dot lit by a pin
+	// alone says, and borrowing the news key there would announce "0 unreviewed
+	// changes" for a badge that is not about news at all.
+	const discoveryBadgeLabel =
+		claimCount > 0
+			? t("layout.nav.discoveryClaimsBadge", { count: claimCount })
+			: informationalUnseen > 0
+				? t("layout.nav.discoveryNewsBadge", { count: informationalUnseen })
+				: t("layout.nav.discoveryPinnedBadge");
 	const [showDiscrepancies, setShowDiscrepancies] = useState(false);
 	// Called unconditionally at Layout's top level, and Layout never unmounts
 	// while the dashboard is up. That is load-bearing, not incidental: the hook
@@ -764,6 +789,10 @@ export function Layout({ children }: LayoutProps) {
 	>(undefined);
 	const { toast } = useToast();
 	const readOnly = useReadOnly();
+	// The pin is synced config, so on a managed member the modal's Unpin control
+	// is the primary's to use: this member's next sync pass re-applies the
+	// primary's list either way.
+	const managed = useManaged();
 
 	// Requirement 5 keeps the ?review=1 stamp off the 60s timer; the `exact: true`
 	// inside this hook is what keeps it off a click. See useRefreshDiscoveryBadge.
@@ -1066,7 +1095,6 @@ export function Layout({ children }: LayoutProps) {
 			try {
 				const res = await api.discovery.unpin(providerId, [modelId]);
 				dismissClaim(providerId, new Set(res.unpinned));
-				await refresh();
 				toast(
 					t("providers.discrepancies.unpinned", { model: modelId }),
 					"success",
@@ -1079,9 +1107,16 @@ export function Layout({ children }: LayoutProps) {
 					}),
 					"error",
 				);
+			} finally {
+				// See onDismiss: a rejected request can still have landed, so both
+				// reads happen on either path. The badge is the half unique to a pin:
+				// a pinned row is what keeps it lit when nothing is counted, so the
+				// last unpin has to be able to put it out.
+				await refresh();
+				refreshBadge();
 			}
 		},
-		[dismissClaim, refresh, toast, t],
+		[dismissClaim, refresh, refreshBadge, toast, t],
 	);
 
 	// Expanding the journal is what marks it read; the destructive ack-on-open is
@@ -1417,7 +1452,9 @@ export function Layout({ children }: LayoutProps) {
 												</span>
 											</span>
 										) : item.href === "/models" &&
-											(claimCount > 0 || informationalUnseen > 0) &&
+											(claimCount > 0 ||
+												informationalUnseen > 0 ||
+												hasPinned) &&
 											!showDiscrepancies ? (
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
@@ -1453,34 +1490,10 @@ export function Layout({ children }: LayoutProps) {
 																// clicks on it target its originating element).
 																"relative inline-block size-2 shrink-0 translate-y-[1px] rounded-full bg-(--accent) cursor-pointer before:absolute before:-inset-2 before:content-['']"
 													}
-													// One string for both, deliberately. The dot carries no
-													// visible text, so this IS its accessible name as well as
-													// its tooltip; splitting them would mean a sighted user
-													// reads one sentence and a screen-reader user hears
-													// another, which is the contradiction to avoid. It names
-													// the UNSEEN count, which is what the dot is triggered by
-													// and what makes it legible next to the "Recent changes"
-													// header inside the modal: that header counts every entry
-													// in the zone, this counts the ones you have not read.
-													// Counted key, so the number agrees in every language.
-													aria-label={
-														claimCount > 0
-															? t("layout.nav.discoveryClaimsBadge", {
-																	count: claimCount,
-																})
-															: t("layout.nav.discoveryNewsBadge", {
-																	count: informationalUnseen,
-																})
-													}
-													title={
-														claimCount > 0
-															? t("layout.nav.discoveryClaimsBadge", {
-																	count: claimCount,
-																})
-															: t("layout.nav.discoveryNewsBadge", {
-																	count: informationalUnseen,
-																})
-													}
+													// Same string on both, by construction: see
+													// discoveryBadgeLabel.
+													aria-label={discoveryBadgeLabel}
+													title={discoveryBadgeLabel}
 												>
 													{claimCount > 0 ? (
 														<>
@@ -1649,6 +1662,7 @@ export function Layout({ children }: LayoutProps) {
 					loadError={discrepancyLoadError}
 					loading={discrepanciesLoading}
 					readOnly={readOnly}
+					managed={managed}
 				/>
 			)}
 		</div>

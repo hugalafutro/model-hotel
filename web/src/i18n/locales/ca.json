@@ -108,7 +108,8 @@
 			"audit": "Auditoria",
 			"discoveryNewsBadge_one": "{{count}} canvi sense revisar del descobriment en segon pla. Només informatiu, no és res que requereixi atenció - fes clic per revisar.",
 			"discoveryNewsBadge_many": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar.",
-			"discoveryNewsBadge_other": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar."
+			"discoveryNewsBadge_other": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar.",
+			"discoveryPinnedBadge": "Els models que has activat manualment continuen absents del llistat del proveïdor. Només informatiu, no és res que requereixi atenció - fes clic per revisar."
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -966,7 +967,8 @@
 			"unpinFailed": "No s'ha pogut desfixar: {{message}}",
 			"unpinTooltip": "Torna aquest model a la gestió automàtica. Si continua absent del llistat del proveïdor, es tornarà a desactivar després de dos escanejos.",
 			"unpinned": "S'ha desfixat {{model}}",
-			"updated": "Metadades actualitzades"
+			"updated": "Metadades actualitzades",
+			"unpinManagedTooltip": "Les fixacions les gestiona la instància primària de la flota i se substitueixen en la propera sincronització de configuració. Desfixa aquest model a la instància primària."
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",
 		"type_minimax": "MiniMax",

@@ -104,7 +104,8 @@
 			"users": "Gebruikers",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} ongelezen wijziging uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
-			"discoveryNewsBadge_other": "{{count}} ongelezen wijzigingen uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen."
+			"discoveryNewsBadge_other": "{{count}} ongelezen wijzigingen uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
+			"discoveryPinnedBadge": "Modellen die je zelf hebt ingeschakeld ontbreken nog steeds in de lijst van de provider. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Losmaken mislukt: {{message}}",
 			"unpinTooltip": "Geeft dit model terug aan automatisch beheer. Als het uit de lijst van de provider blijft, wordt het na twee scans opnieuw uitgeschakeld.",
 			"unpinned": "{{model}} losgemaakt",
-			"updated": "Metadata bijgewerkt"
+			"updated": "Metadata bijgewerkt",
+			"unpinManagedTooltip": "Vastzettingen worden beheerd door de primaire instantie van de vloot en worden bij de volgende configuratiesynchronisatie vervangen. Maak dit model los op de primaire instantie."
 		},
 		"toast_quota_detected_minimax": "MiniMax quotum gedetecteerd",
 		"type_minimax": "MiniMax",

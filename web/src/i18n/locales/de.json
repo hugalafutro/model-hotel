@@ -104,7 +104,8 @@
 			"users": "Benutzer",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} ungeprüfte Änderung aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
-			"discoveryNewsBadge_other": "{{count}} ungeprüfte Änderungen aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken."
+			"discoveryNewsBadge_other": "{{count}} ungeprüfte Änderungen aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
+			"discoveryPinnedBadge": "Von Hand aktivierte Modelle fehlen weiterhin in der Liste des Anbieters. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken."
 		},
 		"status": {
 			"apiStatus": "API-Status",
@@ -939,7 +940,8 @@
 			"unpinFailed": "Anheftung konnte nicht aufgehoben werden: {{message}}",
 			"unpinTooltip": "Gibt dieses Modell an die automatische Verwaltung zurück. Fehlt es weiterhin in der Liste des Anbieters, wird es nach zwei Scans wieder deaktiviert.",
 			"unpinned": "Anheftung von {{model}} aufgehoben",
-			"updated": "Metadaten aktualisiert"
+			"updated": "Metadaten aktualisiert",
+			"unpinManagedTooltip": "Anheftungen verwaltet die Flotten-Primärinstanz; sie werden bei der nächsten Konfigurationssynchronisierung ersetzt. Lösen Sie dieses Modell auf der Primärinstanz."
 		},
 		"toast_quota_detected_minimax": "MiniMax Kontingent erkannt",
 		"type_minimax": "MiniMax",

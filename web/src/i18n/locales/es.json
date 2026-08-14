@@ -108,7 +108,8 @@
 			"audit": "Auditoría",
 			"discoveryNewsBadge_one": "{{count}} cambio sin revisar del descubrimiento en segundo plano. Solo informativo, no requiere atención - haz clic para revisar.",
 			"discoveryNewsBadge_many": "{{count}} cambios sin revisar del descubrimiento en segundo plano. Solo informativos, no requieren atención - haz clic para revisar.",
-			"discoveryNewsBadge_other": "{{count}} cambios sin revisar del descubrimiento en segundo plano. Solo informativos, no requieren atención - haz clic para revisar."
+			"discoveryNewsBadge_other": "{{count}} cambios sin revisar del descubrimiento en segundo plano. Solo informativos, no requieren atención - haz clic para revisar.",
+			"discoveryPinnedBadge": "Los modelos que activaste a mano siguen ausentes del listado del proveedor. Solo informativo, no requiere atención - haz clic para revisar."
 		},
 		"status": {
 			"apiStatus": "Estado de la API",
@@ -966,7 +967,8 @@
 			"unpinFailed": "No se pudo desfijar: {{message}}",
 			"unpinTooltip": "Devuelve este modelo a la gestión automática. Si sigue ausente del listado del proveedor, se desactivará de nuevo tras dos escaneos.",
 			"unpinned": "{{model}} desfijado",
-			"updated": "Metadatos actualizados"
+			"updated": "Metadatos actualizados",
+			"unpinManagedTooltip": "Las fijaciones las gestiona la instancia primaria de la flota y se reemplazan en la próxima sincronización de configuración. Quita la fijación de este modelo en la instancia primaria."
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",
 		"type_minimax": "MiniMax",
