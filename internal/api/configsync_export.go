@@ -57,7 +57,7 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 	// Marshal only the Config payload. Every list is ordered by a column a unique
 	// index makes total, so no two rows tie and fall back to physical row order:
 	// providers by name, failover groups by display_model, users by username,
-	// virtual keys by key_hash, disabled models by (provider, model_id).
+	// virtual keys by key_hash, disabled and pinned models by (provider, model_id).
 	// encoding/json key-sorts the settings map. Every ordering column also rides in
 	// the payload itself, never an instance-local one like created_at, so the bytes
 	// are deterministic for an unchanged config and two members holding the same
@@ -76,6 +76,7 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 		"failover_groups": env.Config.FailoverGroups,
 		"users":           env.Config.Users,
 		"disabled_models": env.Config.DisabledModels,
+		"enabled_models":  env.Config.EnabledModels,
 	} {
 		b, err := json.Marshal(part)
 		if err != nil {
@@ -130,13 +131,17 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
+	pinned, err := exportEnabledModels(ctx, pool)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
 	return ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		AppVersion:    h.appVersion,
 		ExportedAt:    time.Now().UTC(),
 		Config: ConfigPayload{
 			Providers: providers, VirtualKeys: vks, Settings: set, FailoverGroups: groups,
-			Users: users, DisabledModels: disabled,
+			Users: users, DisabledModels: disabled, EnabledModels: pinned,
 		},
 	}, nil
 }
@@ -160,21 +165,55 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 //
 // It carries two things: the disables this member has applied to its own model
 // rows, and the ones it acknowledged but has no model for
-// (keyFleetUnappliedModelDisables). Both are the same operator intent, and
-// exporting only the first would leave a member that lacks one of the primary's
-// models unable to ever reproduce the primary's list, so the two would hash
-// differently on every pass forever. The union converges instead, and costs
-// nothing in routing: a member cannot serve a model it does not have.
-//
-// Ordered by (provider name, model_id), which is unique per member, so the list is
-// total and two members holding the same disables hash identically. Deduplicated,
-// because a model discovered since the acknowledgement appears in both halves
-// until the next import clears it from the second.
+// (keyFleetUnappliedModelDisables), unioned by exportModelRefs.
 func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, error) {
-	rows, err := q.Query(ctx, `
+	return exportModelRefs(ctx, q, `
 		SELECT p.name, m.model_id
 		FROM models m JOIN providers p ON m.provider_id = p.id
-		WHERE m.disabled_manually = true AND m.enabled = false`)
+		WHERE m.disabled_manually = true AND m.enabled = false`,
+		keyFleetUnappliedModelDisables)
+}
+
+// exportEnabledModels lists the models the operator pinned enabled by hand, by
+// stable (provider, model_id) ref.
+//
+// A pin (models.manually_enabled_at, migration 070) is the operator saying they
+// tested a model the provider's listing no longer names and it serves. That is a
+// statement about the provider, so it belongs to every member: without it, each
+// member's own discovery disables the model two scans after its listing drops it,
+// and the fleet loses a model the operator knows works.
+//
+// A row counts as pinned only when it is both stamped and actually on, the same
+// effective-state rule exportDisabledModels follows: a stamp on a switched-off row
+// describes nothing this instance does, and carrying it would advertise a pin the
+// member is not acting on.
+//
+// The acknowledged-unapplied half is keyFleetUnappliedModelEnables; see
+// exportModelRefs for why the union is what makes a member converge.
+func exportEnabledModels(ctx context.Context, q querier) ([]ExportModelRef, error) {
+	return exportModelRefs(ctx, q, `
+		SELECT p.name, m.model_id
+		FROM models m JOIN providers p ON m.provider_id = p.id
+		WHERE m.manually_enabled_at IS NOT NULL AND m.enabled = true`,
+		keyFleetUnappliedModelEnables)
+}
+
+// exportModelRefs builds one per-model intent list: the rows baseQuery selects on
+// this member, unioned with the intent this member acknowledged but has no model
+// for (the ackKey marker).
+//
+// Exporting only the first half would leave a member that lacks one of the
+// primary's models unable to ever reproduce the primary's list, so the two would
+// hash differently on every pass forever. The union converges instead, and costs
+// nothing in routing: a member cannot serve, or fail to serve, a model it does not
+// have.
+//
+// Ordered by (provider name, model_id), which is unique per member, so the list is
+// total and two members holding the same intent hash identically. Deduplicated,
+// because a model discovered since the acknowledgement appears in both halves
+// until the next import clears it from the second.
+func exportModelRefs(ctx context.Context, q querier, baseQuery, ackKey string) ([]ExportModelRef, error) {
+	rows, err := q.Query(ctx, baseQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +233,18 @@ func exportDisabledModels(ctx context.Context, q querier) ([]ExportModelRef, err
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	acked, err := readUnappliedModelDisables(ctx, q)
+	acked, err := readUnappliedModelRefs(ctx, q, ackKey)
 	if err != nil {
 		return nil, err
 	}
 	// The primary never unions its acknowledgements in, because it never imports,
 	// and the import is the only thing that rewrites them. Both ways an
 	// acknowledgement is meant to end (the model appearing, or the operator
-	// re-enabling it) run from an import, so a member promoted to primary while
-	// holding one would export that disable to the whole fleet forever, with no
+	// reversing the intent) run from an import, so a member promoted to primary
+	// while holding one would export that intent to the whole fleet forever, with no
 	// lever to revoke it: the model is not on this instance, so it is not in its UI
-	// to re-enable. A primary's export is what its own rows say. Demotion restores
-	// the union, and the import that comes with it rewrites the marker anyway.
+	// to change. A primary's export is what its own rows say. Demotion restores the
+	// union, and the import that comes with it rewrites the marker anyway.
 	if len(acked) > 0 && !isFleetPrimary(ctx, q) {
 		missing, err := filterModelsAbsentHere(ctx, q, acked)
 		if err != nil {
@@ -252,8 +291,8 @@ func isFleetPrimary(ctx context.Context, q querier) bool {
 
 // filterModelsAbsentHere returns the refs that resolve to no model on this member.
 // A ref that does resolve is dropped: whatever its state, the row is what the
-// export must describe, either through the disabled_manually list or by differing
-// until a sync sets it.
+// export must describe, either through the list built from this member's own rows
+// or by differing until a sync sets it.
 func filterModelsAbsentHere(ctx context.Context, q querier, refs []ExportModelRef) ([]ExportModelRef, error) {
 	providers := make([]string, len(refs))
 	modelIDs := make([]string, len(refs))
@@ -291,13 +330,13 @@ func filterModelsAbsentHere(ctx context.Context, q querier, refs []ExportModelRe
 	return out, nil
 }
 
-// readUnappliedModelDisables reads the disable intent this member acknowledged but
-// could not apply. A missing key is the normal state (nothing outstanding); an
-// unparseable one is treated the same way rather than failing the export, since a
-// corrupt instance-local marker must not take this member's config sync down. The
-// next import rewrites it.
-func readUnappliedModelDisables(ctx context.Context, q querier) ([]ExportModelRef, error) {
-	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetUnappliedModelDisables)
+// readUnappliedModelRefs reads the per-model intent this member acknowledged but
+// could not apply, from the marker named by key (disables or pins). A missing key
+// is the normal state (nothing outstanding); an unparseable one is treated the
+// same way rather than failing the export, since a corrupt instance-local marker
+// must not take this member's config sync down. The next import rewrites it.
+func readUnappliedModelRefs(ctx context.Context, q querier, key string) ([]ExportModelRef, error) {
+	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, key)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +353,7 @@ func readUnappliedModelDisables(ctx context.Context, q querier) ([]ExportModelRe
 	}
 	var refs []ExportModelRef
 	if err := json.Unmarshal([]byte(raw), &refs); err != nil {
-		debuglog.Warn("configsync: unparseable unapplied model-disable marker; ignoring", "error", err)
+		debuglog.Warn("configsync: unparseable unapplied per-model marker; ignoring", "key", key, "error", err)
 		return nil, nil
 	}
 	return refs, nil

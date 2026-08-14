@@ -72,6 +72,13 @@ const (
 	// appears the next import applies it for real and it drops off this list, and
 	// when the operator re-enables the model the list no longer carries it.
 	keyFleetUnappliedModelDisables = "_fleet_unapplied_model_disables"
+	// keyFleetUnappliedModelEnables is the same acknowledgement for the operator's
+	// manual-enable pins: the pinned models the primary sent that this member has
+	// no model row to pin, as a JSON array of {provider_name, model_id}. It exists
+	// for the identical reason as the disables marker above, and clears the same
+	// two ways: the model appearing (the next import pins it for real) or the
+	// operator unpinning it on the primary (the list no longer carries it).
+	keyFleetUnappliedModelEnables = "_fleet_unapplied_model_enables"
 	// keyFleetActiveMembers is the fleet-wide count of StateActive members,
 	// delivered by Front Desk's announce heartbeat. The rate limiters read it as a
 	// fair-share divisor. Instance-local like the other _fleet_* keys: written via
