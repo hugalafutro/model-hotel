@@ -1448,18 +1448,24 @@ describe("ModelDiscrepancyModal", () => {
 			).not.toBeNull();
 		});
 
-		it("renders a payload from a backend that has no pinned bucket", async () => {
-			const user = userEvent.setup();
-			// A server predating the pin omits the key entirely, which during a
-			// rolling deploy reaches a dashboard that expects it.
-			const legacy = {
+		/**
+		 * A server predating the pin omits the key entirely, which during a rolling
+		 * deploy reaches a dashboard that expects it. Built by hand rather than
+		 * through `prov()`, which always supplies the bucket.
+		 */
+		const legacyProv = (gone: ReturnType<typeof claimOf>[]) =>
+			({
 				provider_id: "p1",
 				provider_name: "NanoGPT",
-				gone: [claimOf("a", "pending")],
+				gone,
 				stale: [],
 				suspect: [],
 				retired: [],
-			} as unknown as MergedProvider;
+			}) as unknown as MergedProvider;
+
+		it("renders a payload from a backend that has no pinned bucket", async () => {
+			const user = userEvent.setup();
+			const legacy = legacyProv([claimOf("a", "pending")]);
 			render(<ModelDiscrepancyModal {...baseProps} providers={[legacy]} />);
 			await openBucket(user, "gone");
 			expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
@@ -1467,6 +1473,24 @@ describe("ModelDiscrepancyModal", () => {
 				"a",
 			);
 			expect(screen.queryByTestId("discrepancy-group-pinned")).toBeNull();
+		});
+
+		it("reads every bucket of a legacy payload, not just up to the first pending row", () => {
+			// The case above proves nothing on its own: `providerHasNoPending` walks
+			// the buckets with `every`, which short-circuits on the first pending row
+			// and so never reaches the absent one. A provider whose rows are ALL
+			// cleared forces the walk to the end, which is where an unguarded
+			// `p.pinned.every(...)` throws.
+			//
+			// Clean is the observable proof: it replaces Retest all and Dismiss all
+			// exactly when that predicate comes back true.
+			const legacy = legacyProv([
+				claimOf("done", "dismissed"),
+				claimOf("back", "resolved"),
+			]);
+			render(<ModelDiscrepancyModal {...baseProps} providers={[legacy]} />);
+			expect(screen.getByTestId("discrepancy-clean")).toBeInTheDocument();
+			expect(screen.queryByTestId("discrepancy-retest")).toBeNull();
 		});
 	});
 

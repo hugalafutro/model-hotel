@@ -44,6 +44,20 @@ const GROUPS: GroupName[] = ["gone", "stale", "suspect", "retired", "pinned"];
  */
 const bucketOf = (p: ProviderClaims, g: GroupName): ModelClaim[] => p[g] ?? [];
 
+/**
+ * The same guard on the snapshot side, and NOT redundant with `bucketOf`.
+ *
+ * A snapshot outlives the payload it was seeded from: it is held across
+ * refreshes, and the modal takes `providers` from whoever renders it. So a
+ * missing bucket reaches these helpers too, and it reaches them at their worst
+ * moment. Every reader below short-circuits (`every`, `filter` over a bucket
+ * that is usually non-empty first), which means an unguarded read does not fail
+ * on the common path at all: it waits for the provider whose earlier buckets
+ * are ALL cleared, and only then throws, taking the whole modal with it.
+ */
+const snapshotBucketOf = (p: MergedProvider, g: GroupName): MergedClaim[] =>
+	p[g] ?? [];
+
 type Buckets = Record<GroupName, MergedClaim[]>;
 
 const emptyBuckets = (): Buckets => ({
@@ -122,7 +136,7 @@ function mergeProviderBuckets(prev: MergedProvider, fresh: ProviderClaims) {
 	const reconciled = new Set<string>();
 
 	for (const g of GROUPS) {
-		for (const before of prev[g]) {
+		for (const before of snapshotBucketOf(prev, g)) {
 			const now = freshByID.get(before.model_id);
 			if (!now) {
 				kept[g].push(clearedRow(before));
@@ -199,7 +213,9 @@ function mapClaims(
 		if (p.provider_id !== providerID) return p;
 		const next: MergedProvider = { ...p };
 		for (const g of GROUPS) {
-			next[g] = p[g].map((c) => (modelIDs.has(c.model_id) ? fn(c) : c));
+			next[g] = snapshotBucketOf(p, g).map((c) =>
+				modelIDs.has(c.model_id) ? fn(c) : c,
+			);
 		}
 		return next;
 	});
@@ -247,7 +263,9 @@ export function markDismissed(
  */
 export function providerHasNoPending(p: MergedProvider): boolean {
 	return GROUPS.every((g) =>
-		p[g].every((c) => c.status === "resolved" || c.status === "dismissed"),
+		snapshotBucketOf(p, g).every(
+			(c) => c.status === "resolved" || c.status === "dismissed",
+		),
 	);
 }
 
@@ -269,7 +287,9 @@ export function providerHasNoPending(p: MergedProvider): boolean {
  */
 export function retestProvesNothing(p: MergedProvider): boolean {
 	const pending = (g: GroupName) =>
-		p[g].filter((c) => c.status === "pending" || c.status === "new").length;
+		snapshotBucketOf(p, g).filter(
+			(c) => c.status === "pending" || c.status === "new",
+		).length;
 	return (
 		!providerHasNoPending(p) &&
 		pending("retired") > 0 &&

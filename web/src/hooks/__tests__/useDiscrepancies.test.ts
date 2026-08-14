@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ModelClaim, ProviderClaims } from "../../api/types";
 import {
+	type MergedProvider,
 	markDismissed,
 	mergeClaims,
 	providerHasNoPending,
@@ -329,6 +330,23 @@ describe("bulk dismiss", () => {
 		]);
 
 		expect(providerHasNoPending(p)).toBe(false);
+	});
+
+	it("walks a snapshot whose pinned bucket never arrived", () => {
+		// A snapshot seeded before the dashboard learned about the pin, or one
+		// built from an older server's payload by hand. `every` short-circuits on
+		// the first pending row, so ONLY an all-cleared provider reaches the last
+		// bucket, which is where an unguarded read throws instead of answering.
+		const legacy = {
+			provider_id: "p1",
+			provider_name: "NanoGPT",
+			gone: [{ ...claim("a"), status: "resolved" as const }],
+			stale: [],
+			suspect: [],
+			retired: [],
+		} as unknown as MergedProvider;
+
+		expect(providerHasNoPending(legacy)).toBe(true);
 	});
 
 	it("is true when rows are a mix of dismissed and resolved", () => {
