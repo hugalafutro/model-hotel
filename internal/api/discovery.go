@@ -72,6 +72,7 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 	})
 	r.Get("/discovery/status", h.GetDiscoveryStatus)
 	r.Post("/discovery/dismiss", h.DismissDiscoveryClaims)
+	r.Post("/discovery/unpin", h.UnpinDiscoveryClaims)
 }
 
 // settingKeyDiscoveryLastReviewed marks when the operator last opened the
@@ -79,8 +80,9 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
 
 // DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
-// counts Gone and Retired models: Stale and Suspect are shown but never inflate
-// the badge, so a non-zero badge always means something might actually be wrong.
+// counts Gone and Retired models: Stale, Suspect and Pinned are shown but never
+// inflate the badge, so a non-zero badge always means something might actually
+// be wrong.
 // Retired counts because it is the same kind of fact as Gone — a model that was
 // working and now is not — even though it came from the proxy refusing traffic
 // rather than from the provider dropping it from its listing.
@@ -819,4 +821,65 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 	// informative: the caller marks exactly those and leaves the rest alone.
 	// `updated` is kept for compatibility and is simply its length.
 	writeJSON(w, map[string]any{"dismissed": dismissed, "updated": len(dismissed)})
+}
+
+// UnpinDiscoveryClaimsRequest carries the models to unpin on one provider. It is
+// shaped exactly like DismissDiscoveryClaimsRequest because it is the same kind
+// of operation from the modal's side: a bulk verdict on a provider's rows.
+//
+// Unpin-only, like dismiss, and for a matching reason: the pin direction is not
+// an endpoint. A pin is armed by the operator enabling the model
+// (models.SetEnabled and models.Update stamp manually_enabled_at), and cleared
+// automatically by the next sighting, since a listed model needs no exemption
+// from the listing. This endpoint covers the one case neither of those reaches:
+// the operator changing their mind about a model the provider still does not
+// list, where there is nothing to enable and no sighting coming.
+type UnpinDiscoveryClaimsRequest struct {
+	ProviderID string   `json:"provider_id"`
+	ModelIDs   []string `json:"model_ids"`
+}
+
+// UnpinDiscoveryClaims drops the operator pin from models on one provider,
+// returning them to discovery's listing-based auto-disable with a clean
+// miss-streak. setModelsUnpinned only touches rows that actually carry a pin, so
+// an already-unpinned model affects zero rows and falls through the 404 path
+// below like any other unmatched model ID.
+//
+// No model cache invalidation: the pin and the miss-streak live only in the
+// database. model.Model carries neither, so no cached entry can go stale on this
+// write, and the dismiss endpoint beside it invalidates nothing for the same
+// reason. What does change on the next scan — the model being disabled — flows
+// through the same path any auto-disable does.
+//
+// Deliberately NOT added to isReadOnlyExemptPost: it hands a model back to
+// automatic management, which is a genuine state change.
+func (h *Handler) UnpinDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
+	var req UnpinDiscoveryClaimsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	providerID, err := uuid.Parse(req.ProviderID)
+	if err != nil {
+		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+	if len(req.ModelIDs) == 0 {
+		http.Error(w, "model_ids must not be empty", http.StatusBadRequest)
+		return
+	}
+
+	unpinned, err := setModelsUnpinned(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
+	if err != nil {
+		respondError(w, "failed to unpin discovery claims", err, http.StatusInternalServerError)
+		return
+	}
+	if len(unpinned) == 0 {
+		http.Error(w, "no matching models", http.StatusNotFound)
+		return
+	}
+
+	// `unpinned` names the rows actually cleared, so a partial result is fully
+	// informative: the caller updates exactly those and leaves the rest alone.
+	writeJSON(w, map[string]any{"unpinned": unpinned})
 }

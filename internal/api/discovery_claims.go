@@ -44,6 +44,11 @@ const (
 	// a retest finds it present and proves nothing — what happened is that
 	// requests for it failed.
 	ClaimStateRetired ClaimState = "retired"
+	// ClaimStatePinned means the operator enabled the model by hand while the
+	// provider's listing still omits it. The pin blocks listing-based
+	// auto-disable, so the row is informational: shown so a forgotten pin stays
+	// visible, never counted, because the operator has already adjudicated it.
+	ClaimStatePinned ClaimState = "pinned"
 )
 
 // ModelClaim is one model's current standing.
@@ -63,6 +68,11 @@ type ModelClaim struct {
 	// it keeps being refreshed and would read as "last seen a minute ago" beside
 	// a row saying the model is unavailable.
 	RetiredAt *time.Time `json:"retired_at,omitempty"`
+	// PinnedAt is when the operator enabled the model by hand, set only on a
+	// pinned claim. It dates the decision the pin records, which LastSeenAt
+	// cannot: that is when the provider last listed the model, i.e. the fact the
+	// operator overrode.
+	PinnedAt *time.Time `json:"pinned_at,omitempty"`
 }
 
 // ProviderClaims groups one provider's claims by state.
@@ -73,6 +83,7 @@ type ProviderClaims struct {
 	Stale        []ModelClaim `json:"stale"`
 	Suspect      []ModelClaim `json:"suspect"`
 	Retired      []ModelClaim `json:"retired"`
+	Pinned       []ModelClaim `json:"pinned"`
 }
 
 // GroupClaim is one failover group that discovery disabled, i.e. one model name
@@ -154,6 +165,10 @@ type claimRow struct {
 	// RetiredAt is set when the proxy retired the model from traffic rather than
 	// discovery disabling it for vanishing. Nil for every other row.
 	RetiredAt *time.Time
+	// PinnedAt is set when the operator enabled the model by hand
+	// (models.manually_enabled_at, migration 070), which exempts it from
+	// listing-based auto-disable. Nil for every other row.
+	PinnedAt *time.Time
 }
 
 // flapKey identifies one model under one provider for flap counting.
@@ -166,11 +181,15 @@ type flapKey struct {
 // dismissed, or still enabled but mid-miss-streak. Dismissed rows are excluded
 // outright, and so are manually disabled models and models on a disabled
 // provider: neither is discovery's opinion.
+//
+// A pinned model arrives through the mid-miss-streak branch and needs no clause
+// of its own: the pin stops the streak from disabling the row, so it stays
+// enabled with missing_scans climbing, which is exactly that branch.
 func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT m.provider_id::text, p.name, m.model_id,
 		       COALESCE(m.last_seen_at, m.created_at), m.enabled, m.missing_scans,
-		       m.auto_retired_at
+		       m.auto_retired_at, m.manually_enabled_at
 		  FROM models m
 		  JOIN providers p ON p.id = m.provider_id
 		 WHERE p.enabled = true
@@ -187,7 +206,7 @@ func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) 
 	var out []claimRow
 	for rows.Next() {
 		var r claimRow
-		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans, &r.RetiredAt); err != nil {
+		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans, &r.RetiredAt, &r.PinnedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -253,7 +272,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 
 		g := byProvider[r.ProviderID]
 		if g == nil {
-			// All three buckets start as [] rather than nil so the JSON
+			// Every bucket starts as [] rather than nil so the JSON
 			// response always serializes them as [], never null: Claims and
 			// Informational already do this (buildProviderClaims below,
 			// discovery_changes.go), and the frontend types promise
@@ -265,11 +284,22 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 				Stale:        []ModelClaim{},
 				Suspect:      []ModelClaim{},
 				Retired:      []ModelClaim{},
+				Pinned:       []ModelClaim{},
 			}
 			byProvider[r.ProviderID] = g
 		}
 
 		switch {
+		// Ahead of the suspect case because both describe the same shape of row
+		// (still enabled, mid-miss-streak) and only the pin tells them apart. A
+		// suspect row is a warning that discovery is about to disable the model;
+		// a pinned row is a decision the operator already made that discovery
+		// will not overrule, so warning about it would nag them about their own
+		// configuration.
+		case r.Enabled && r.PinnedAt != nil:
+			c.PinnedAt = r.PinnedAt
+			c.State = ClaimStatePinned
+			g.Pinned = append(g.Pinned, c)
 		case r.Enabled:
 			c.State = ClaimStateSuspect
 			g.Suspect = append(g.Suspect, c)
@@ -298,6 +328,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		sortClaims(g.Stale)
 		sortClaims(g.Suspect)
 		sortClaims(g.Retired)
+		sortClaims(g.Pinned)
 		out = append(out, *g)
 	}
 	// Most counted claims first, then most suspect, then by name, then by ID.
@@ -327,8 +358,9 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 }
 
 // countedClaims is how many of a provider's claims count towards the badge, and
-// therefore towards the alert. Gone and Retired both do; Stale and Suspect never
-// have.
+// therefore towards the alert. Gone and Retired both do; Stale, Suspect and
+// Pinned never have. Pinned is the clearest of the three: the operator enabled
+// the model themselves, so counting it would ask them to decide again.
 //
 // One function rather than the count repeated at each site: the badge total, the
 // provider ordering and the alert's per-provider figures all have to agree, and
@@ -376,6 +408,50 @@ func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid
 	defer rows.Close()
 
 	// Never nil: the JSON response promises dismissed: string[] with no null guard
+	// on the client.
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// setModelsUnpinned drops the operator pin from the given models, handing them
+// back to discovery's listing-based auto-disable. Returns which rows it cleared,
+// so the handler can report a model that carried no pin instead of silently
+// succeeding.
+//
+// missing_scans is reset in the same statement. Unpinning restarts automatic
+// management from fresh evidence, and the streak is part of that evidence: a pin
+// holds while the streak keeps climbing, so by the time anyone unpins it is
+// usually well past MissingScanThreshold. Clearing only the stamp would disable
+// the model on the very next scan, which contradicts what the operator is told
+// ("disabled again after two scans") and is not the decision they made.
+//
+// The `manually_enabled_at IS NOT NULL` guard is what makes the RETURNING list
+// meaningful: without it every named row would come back, including ones that
+// were never pinned, and the caller could no longer tell an unpin from a no-op.
+func setModelsUnpinned(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string) ([]string, error) {
+	// RETURNING, not a row count, for the same reason as setModelsDismissed: a
+	// count says HOW MANY of the requested models were unpinned but not WHICH,
+	// and the caller cannot derive the difference — a sighting may have cleared
+	// the pin, or the model may have been deleted, since the list was read.
+	rows, err := pool.Query(ctx,
+		`UPDATE models SET manually_enabled_at = NULL, missing_scans = 0
+		  WHERE provider_id = $1 AND model_id = ANY($2)
+		    AND manually_enabled_at IS NOT NULL
+		RETURNING model_id`,
+		providerID, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Never nil: the JSON response promises unpinned: string[] with no null guard
 	// on the client.
 	out := []string{}
 	for rows.Next() {
