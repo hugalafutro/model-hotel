@@ -655,7 +655,7 @@ export function FailoverGroups() {
 								<button
 									type="button"
 									onClick={() => setShowProviderModal(true)}
-									className="ui-btn ui-btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
+									className="ui-btn ui-btn-secondary"
 								>
 									<ShieldOff className="h-4 w-4" />
 									{t("failover.btn_manage_providers")}
@@ -756,21 +756,21 @@ export function FailoverGroups() {
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(true)}
-							className="ui-btn ui-btn-secondary text-xs"
+							className="ui-btn ui-btn-secondary"
 						>
 							{t("failover.btn_enable_all")}
 						</button>
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(false)}
-							className="ui-btn ui-btn-secondary text-xs"
+							className="ui-btn ui-btn-secondary"
 						>
 							{t("failover.btn_disable_all")}
 						</button>
 						<button
 							type="button"
 							onClick={() => setBulkDeleteIds(new Set(selectedGroupIds))}
-							className="ui-btn ui-btn-danger text-xs"
+							className="ui-btn ui-btn-danger"
 						>
 							{t("failover.btn_delete_all")}
 						</button>
@@ -799,14 +799,14 @@ export function FailoverGroups() {
 						<button
 							type="button"
 							onClick={() => handleBulkProviderToggle(true)}
-							className="ui-btn ui-btn-secondary text-xs"
+							className="ui-btn ui-btn-secondary"
 						>
 							{t("failover.bulk_provider_enable", { provider: providerFilter })}
 						</button>
 						<button
 							type="button"
 							onClick={() => handleBulkProviderToggle(false)}
-							className="ui-btn ui-btn-secondary text-xs"
+							className="ui-btn ui-btn-secondary"
 						>
 							{t("failover.bulk_provider_disable", {
 								provider: providerFilter,

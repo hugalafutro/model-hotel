@@ -524,7 +524,7 @@ export function UserModal({
 							type="button"
 							onClick={handleSave}
 							disabled={saveMutation.isPending}
-							className="ui-btn ui-btn-primary flex-1 disabled:opacity-50"
+							className="ui-btn ui-btn-primary flex-1"
 							data-testid="user-modal-save"
 						>
 							{isEdit ? t("users.modal.save") : t("users.modal.create")}
@@ -571,7 +571,7 @@ export function UserModal({
 										resetMutation.mutate();
 									}}
 									disabled={resetMutation.isPending}
-									className="ui-btn disabled:opacity-50"
+									className="ui-btn"
 								>
 									{t("users.modal.resetButton")}
 								</button>
@@ -587,7 +587,7 @@ export function UserModal({
 									type="button"
 									onClick={() => setConfirmTotpReset(true)}
 									disabled={totpResetMutation.isPending}
-									className="ui-btn w-full disabled:opacity-50"
+									className="ui-btn w-full"
 									data-testid="user-modal-totp-reset"
 								>
 									{t("users.modal.totpResetButton")}

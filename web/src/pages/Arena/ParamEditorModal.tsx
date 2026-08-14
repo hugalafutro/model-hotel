@@ -160,7 +160,7 @@ export function ParamEditorModal({
 					<button
 						type="button"
 						onClick={onClose}
-						className="ui-btn ui-btn-primary text-xs px-3 py-1"
+						className="ui-btn ui-btn-primary"
 					>
 						{t("arena.params.done")}
 					</button>

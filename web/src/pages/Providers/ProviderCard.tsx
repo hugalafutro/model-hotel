@@ -52,13 +52,21 @@ export function ProviderCard({
 }: ProviderCardProps) {
 	const { t } = useTranslation();
 
+	// Disabled cards render their informational content grayscale and dimmed,
+	// while the controls that keep working (Edit/Delete) and the Disabled
+	// badge stay at full color. CSS filters apply to the whole subtree with
+	// no child opt-out, so the split is per-element rather than one class on
+	// the card. The models-count and quota badges are hidden entirely: they
+	// would only show stale pre-disable values.
+	const dim = provider.enabled ? "" : "grayscale opacity-50";
+
 	return (
 		<div
-			className={`ui-card px-6 pt-5 pb-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
+			className={`ui-card px-6 pt-5 pb-6 flex flex-col ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
 		>
 			<div className="mb-2">
 				<div className="flex items-center justify-between">
-					<span className="inline-flex items-center gap-2 min-w-0">
+					<span className={`inline-flex items-center gap-2 min-w-0 ${dim}`}>
 						{provider.enabled && provider.scheduled_disable_on && (
 							<span
 								data-testid="scheduled-disable-icon"
@@ -80,7 +88,7 @@ export function ProviderCard({
 				</div>
 				<div className="flex flex-wrap items-center gap-2 mt-1">
 					{!provider.enabled && (
-						<span className="px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
+						<span className="px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-warning">
 							<span className="badge-text">{t("providers.card_disabled")}</span>
 						</span>
 					)}
@@ -92,7 +100,9 @@ export function ProviderCard({
 						</span>
 					)}
 					{provider.total_tokens > 0 && (
-						<span className="px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple">
+						<span
+							className={`px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple ${dim}`}
+						>
 							<span className="badge-text">
 								{t("providers.card_tokens", {
 									tokens: formatTokens(provider.total_tokens),
@@ -104,51 +114,54 @@ export function ProviderCard({
 						<button
 							type="button"
 							onClick={() => onSetModelsProvider(provider)}
-							className="px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
+							className={`px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan ${dim}`}
 						>
 							<span className="badge-text">
 								{t("providers.card_models", { count: modelCount })}
 							</span>
 						</button>
 					)}
-					<span className="ml-auto inline-flex items-center gap-2">
-						<QuotaBadges
-							quotaData={quotaData}
-							variant="card"
-							providerBaseUrl={provider.base_url}
-							onNanoClick={() => onSetModalNano()}
-							onZaiCodingClick={() => onSetModalZaiCoding()}
-							onKimiCodeClick={() => onSetModalKimiCode()}
-							onMiniMaxClick={() => onSetModalMiniMax()}
-							onDeepseekClick={async () => {
-								try {
-									await quotaData.refetchDeepseek();
-									toast(t("providers.toast_quota_refreshed"), "success");
-								} catch {
-									toast(t("providers.toast_quota_refresh_failed"), "error");
-								}
-							}}
-							onOpenRouterClick={() => onSetModalOpenRouter()}
-							onOllamaCloudClick={async () => {
-								try {
-									await quotaData.refetchOllamaCloud();
-									toast(t("providers.toast_account_refreshed"), "success");
-								} catch {
-									toast(t("providers.toast_account_refresh_failed"), "error");
-								}
-							}}
-							onNeuralwattClick={() => onSetModalNeuralwatt()}
-						/>
-					</span>
+					{provider.enabled && (
+						<span className="ml-auto inline-flex items-center gap-2">
+							<QuotaBadges
+								quotaData={quotaData}
+								variant="card"
+								providerBaseUrl={provider.base_url}
+								onNanoClick={() => onSetModalNano()}
+								onZaiCodingClick={() => onSetModalZaiCoding()}
+								onKimiCodeClick={() => onSetModalKimiCode()}
+								onMiniMaxClick={() => onSetModalMiniMax()}
+								onDeepseekClick={async () => {
+									try {
+										await quotaData.refetchDeepseek();
+										toast(t("providers.toast_quota_refreshed"), "success");
+									} catch {
+										toast(t("providers.toast_quota_refresh_failed"), "error");
+									}
+								}}
+								onOpenRouterClick={() => onSetModalOpenRouter()}
+								onOllamaCloudClick={async () => {
+									try {
+										await quotaData.refetchOllamaCloud();
+										toast(t("providers.toast_account_refreshed"), "success");
+									} catch {
+										toast(t("providers.toast_account_refresh_failed"), "error");
+									}
+								}}
+								onNeuralwattClick={() => onSetModalNeuralwatt()}
+							/>
+						</span>
+					)}
 				</div>
 				<CopyablePill
 					text={provider.base_url}
+					className={dim}
 					textClassName="text-sm text-gray-400 font-mono"
 					tooltip={t("providers.card_copy_url")}
 				/>
 			</div>
 
-			<div className="space-y-2 text-sm">
+			<div className={`space-y-2 text-sm ${dim}`}>
 				<div className="flex justify-between">
 					<span className="text-gray-500">{t("providers.card_created")}</span>
 					<span className="text-gray-300">
@@ -196,19 +209,11 @@ export function ProviderCard({
 						disabled={
 							discoveringId !== null ||
 							discoverAllIsPending ||
+							discoverAllCurrentId === provider.id ||
 							!provider.enabled ||
 							!provider.autodiscovery_enabled
 						}
-						className={`px-3 py-1.5 text-xs border transition-all ui-btn ui-btn-primary ${
-							discoveringId === provider.id ||
-							discoverAllCurrentId === provider.id
-								? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-								: discoveringId !== null || discoverAllIsPending
-									? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-									: !provider.enabled || !provider.autodiscovery_enabled
-										? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
-						}`}
+						className="ui-btn ui-btn-primary"
 					>
 						{discoveringId === provider.id ||
 						discoverAllCurrentId === provider.id ? (

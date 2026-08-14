@@ -274,7 +274,7 @@ export function ModelTable({
 						<button
 							type="button"
 							onClick={() => setConfirmDeleteDisabled(true)}
-							className="ui-btn ui-btn-danger flex items-center gap-1 px-2 py-1 text-xs"
+							className="ui-btn ui-btn-danger"
 							aria-label={t("components.modelTable.deleteDisabledAria", {
 								count: disabledCount,
 							})}

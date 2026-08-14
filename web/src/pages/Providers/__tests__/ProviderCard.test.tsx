@@ -201,7 +201,7 @@ describe("ProviderCard", () => {
 			expect(screen.getByText("Disabled")).toBeInTheDocument();
 		});
 
-		it("applies opacity when disabled", () => {
+		it("grayscales inert content but not working controls when disabled", () => {
 			const disabledProvider: Provider = {
 				...mockProvider,
 				enabled: false,
@@ -211,8 +211,75 @@ describe("ProviderCard", () => {
 				wrapper: AllProviders,
 			});
 
+			// The card container is no longer uniformly faded.
 			const card = screen.getByText("Test Provider").closest(".ui-card");
-			expect(card).toHaveClass("opacity-50");
+			expect(card).not.toHaveClass("opacity-50");
+
+			// Informational content is grayscale + dimmed.
+			const stats = screen.getByText("API Key").closest(".space-y-2");
+			expect(stats).toHaveClass("grayscale", "opacity-50");
+			const tokensBadge = screen.getByText(/tokens/).closest(".ui-badge");
+			expect(tokensBadge).toHaveClass("grayscale", "opacity-50");
+
+			// The status badge pops as a warning instead of blending in.
+			const disabledBadge = screen.getByText("Disabled").closest(".ui-badge");
+			expect(disabledBadge).toHaveClass("ui-badge-warning");
+			expect(disabledBadge).not.toHaveClass("grayscale");
+
+			// Controls that still work keep full color.
+			const editButton = screen.getByText("Edit").closest("button");
+			expect(editButton).not.toHaveClass("grayscale");
+			const deleteButton = screen.getByText("Delete").closest("button");
+			expect(deleteButton).not.toHaveClass("grayscale");
+		});
+
+		it("dims the model count and hides quota badges when disabled", () => {
+			mockQuotaData.showNanoBadge = true;
+			mockQuotaData.nanogptUsage = {
+				weeklyInputTokens: { used: 1000 },
+			} as NanoGPTUsage;
+			mockQuotaData.nanoWeeklyUsed = 1000;
+			mockQuotaData.nanoWeeklyLimit = 10000;
+
+			try {
+				render(
+					<ProviderCard
+						{...defaultProps}
+						provider={{
+							...mockProvider,
+							enabled: false,
+							base_url: "https://api.nano-gpt.com/v1",
+						}}
+					/>,
+					{ wrapper: AllProviders },
+				);
+
+				// Model count is live data (and the only route into the provider's
+				// model list), so it stays visible but dimmed.
+				const modelsButton = screen.getByText(/5 model/).closest("button");
+				expect(modelsButton).toHaveClass("grayscale", "opacity-50");
+				// Quota data would only show the stale pre-disable value.
+				expect(
+					screen.queryByTitle(
+						"NanoGPT weekly tokens remaining - click for details",
+					),
+				).not.toBeInTheDocument();
+			} finally {
+				// mockQuotaData is module-level shared state; undo the mutation so
+				// later tests in this file see the defaults.
+				mockQuotaData.showNanoBadge = false;
+				mockQuotaData.nanogptUsage = undefined;
+				mockQuotaData.nanoWeeklyUsed = null;
+				mockQuotaData.nanoWeeklyLimit = null;
+			}
+		});
+
+		it("does not grayscale content when enabled", () => {
+			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+
+			const stats = screen.getByText("API Key").closest(".space-y-2");
+			expect(stats).not.toHaveClass("grayscale");
+			expect(stats).not.toHaveClass("opacity-50");
 		});
 
 		it("applies red tint when enabled but autodiscovery disabled", () => {

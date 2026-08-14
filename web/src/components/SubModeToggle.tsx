@@ -28,13 +28,14 @@ export function SubModeToggle<T extends string>({
 					<button
 						key={opt.value}
 						type="button"
+						disabled={disabled}
 						onClick={() => onChange(opt.value)}
 						aria-label={opt.label}
-						className={`px-3 py-1 ui-btn text-xs font-medium transition-all ${
+						className={`ui-btn ${
 							isActive
-								? "ui-btn-primary cursor-default"
+								? "ui-btn-primary ui-btn-static"
 								: disabled
-									? "text-(--text-tertiary) border border-transparent cursor-default"
+									? "text-(--text-tertiary)"
 									: "ui-btn-secondary"
 						}`}
 					>

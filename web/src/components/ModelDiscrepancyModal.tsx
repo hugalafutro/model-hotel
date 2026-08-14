@@ -481,7 +481,7 @@ export function ModelDiscrepancyModal({
 						disabled={unpinBlocked}
 						title={unpinTitle()}
 						aria-describedby={unpinNoteId}
-						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 						data-testid="discrepancy-unpin"
 					>
 						{t("providers.discrepancies.unpin")}
@@ -494,7 +494,7 @@ export function ModelDiscrepancyModal({
 						disabled={readOnly}
 						title={dismissTitle(group)}
 						aria-describedby={describedByReadOnly}
-						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 						data-testid="discrepancy-dismiss"
 					>
 						{t("providers.discrepancies.dismiss")}
@@ -1002,7 +1002,7 @@ export function ModelDiscrepancyModal({
 								type="button"
 								onClick={onCancelRetestAll}
 								title={t("providers.discrepancies.cancelRetestAllTooltip")}
-								className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center gap-1.5"
+								className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 								data-testid="discrepancy-retest-all-cancel"
 							>
 								{t("providers.discrepancies.cancelRetestAll")}
@@ -1018,7 +1018,7 @@ export function ModelDiscrepancyModal({
 										: t("providers.discrepancies.retestAllTooltip")
 								}
 								aria-describedby={describedByReadOnly}
-								className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+								className="ui-btn ui-btn-secondary ui-btn-compact shrink-0"
 								data-testid="discrepancy-retest-all"
 							>
 								<RefreshCw
@@ -1044,7 +1044,7 @@ export function ModelDiscrepancyModal({
 										: t("providers.discrepancies.dismissEverythingTooltip")
 								}
 								aria-describedby={describedByReadOnly}
-								className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+								className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 								data-testid="discrepancy-dismiss-everything"
 							>
 								{t("providers.discrepancies.dismissEverything")}
@@ -1215,7 +1215,7 @@ export function ModelDiscrepancyModal({
 										behavior: "smooth",
 									});
 								}}
-								className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 shadow-lg"
+								className="ui-btn ui-btn-secondary ui-btn-compact shrink-0 shadow-lg"
 								title={t("providers.discrepancies.returnToTop")}
 								aria-label={t("providers.discrepancies.returnToTop")}
 								data-testid="discrepancy-return-to-top"

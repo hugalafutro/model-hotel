@@ -451,7 +451,7 @@ export function CreateKeyModal({
 						<button
 							type="submit"
 							disabled={createMutation.isPending}
-							className="ui-btn ui-btn-primary disabled:opacity-50"
+							className="ui-btn ui-btn-primary"
 						>
 							{createMutation.isPending
 								? t("common.creating")

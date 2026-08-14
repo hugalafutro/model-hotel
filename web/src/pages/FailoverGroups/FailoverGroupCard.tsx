@@ -250,7 +250,7 @@ export function FailoverGroupCard({
 						<button
 							type="button"
 							onClick={onEdit}
-							className="ui-btn ui-btn-compact text-(--text-muted) hover:text-amber-400 hover:bg-white/5 transition-all"
+							className="ui-btn ui-btn-compact text-(--text-muted) hover:text-amber-400 hover:bg-white/5"
 						>
 							{t("common.edit")}
 						</button>
@@ -259,7 +259,7 @@ export function FailoverGroupCard({
 						<button
 							type="button"
 							onClick={() => onDelete()}
-							className="ui-btn ui-btn-compact text-(--text-muted) hover:text-red-400 hover:bg-white/5 transition-all"
+							className="ui-btn ui-btn-compact text-(--text-muted) hover:text-red-400 hover:bg-white/5"
 						>
 							{t("common.delete")}
 						</button>

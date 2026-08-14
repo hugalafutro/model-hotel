@@ -308,7 +308,7 @@ function LoginScreen() {
 							type="button"
 							onClick={handlePasskeyLogin}
 							disabled={passkeyLoading}
-							className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+							className="ui-btn ui-btn-primary ui-btn-lg w-full"
 							aria-label={
 								passkeyLoading
 									? t("layout.auth.signingIn")
@@ -396,7 +396,7 @@ function LoginScreen() {
 								type="button"
 								onClick={() => handleUserLogin()}
 								disabled={userLoading}
-								className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+								className="ui-btn ui-btn-primary ui-btn-lg w-full"
 								data-testid="user-login-button"
 							>
 								{userLoading ? (
@@ -484,7 +484,7 @@ function LoginScreen() {
 						type="button"
 						onClick={() => handleLogin()}
 						disabled={loading}
-						className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+						className="ui-btn ui-btn-primary ui-btn-lg w-full"
 					>
 						{loading ? (
 							<>

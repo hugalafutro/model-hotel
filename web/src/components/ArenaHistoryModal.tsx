@@ -356,7 +356,7 @@ export function ArenaHistoryModal({
 						<button
 							type="button"
 							onClick={() => handleRestore(entry)}
-							className="ui-btn ui-btn-secondary text-xs px-2 py-1"
+							className="ui-btn ui-btn-secondary"
 						>
 							{t("components.arenaHistoryModal.restoreSetup")}
 						</button>
@@ -364,7 +364,7 @@ export function ArenaHistoryModal({
 					<button
 						type="button"
 						onClick={() => handleDelete(entry.id)}
-						className="ui-btn ui-btn-danger text-xs px-2 py-1 ml-auto flex items-center gap-1"
+						className="ui-btn ui-btn-danger ml-auto"
 					>
 						<Trash2 size={12} />
 						{t("common.delete")}
@@ -576,7 +576,7 @@ export function ArenaHistoryModal({
 					type="button"
 					onClick={handleClearAll}
 					onBlur={() => setConfirmClear(false)}
-					className={`ui-btn ui-btn-danger text-xs flex items-center gap-1 ${
+					className={`ui-btn ui-btn-danger ${
 						confirmClear ? "ring-2 ring-red-400/50" : ""
 					}`}
 				>

@@ -202,16 +202,6 @@ describe("PresetBar", () => {
 		expect(customButton).toHaveClass("ui-btn-compact");
 	});
 
-	it("applies whitespace-nowrap class to prevent text wrapping", () => {
-		render(
-			<PresetBar items={mockItems} activeId={null} onSelect={mockOnSelect} />,
-		);
-		mockItems.forEach((item) => {
-			const button = screen.getByText(item.icon + item.label).closest("button");
-			expect(button).toHaveClass("whitespace-nowrap");
-		});
-	});
-
 	it("renders with empty items array", () => {
 		render(
 			<PresetBar

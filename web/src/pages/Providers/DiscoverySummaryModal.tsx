@@ -99,7 +99,7 @@ export function DiscoverySummaryModal({
 				onClick={() => onRetest(r)}
 				disabled={isAnyRetesting || isRetesting}
 				title={t("providers.discoverySummary.retestTooltip")}
-				className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+				className="ui-btn ui-btn-secondary ui-btn-compact shrink-0"
 				data-testid="discovery-summary-retest"
 			>
 				<RefreshCw size={13} className={isRetesting ? "animate-spin" : ""} />

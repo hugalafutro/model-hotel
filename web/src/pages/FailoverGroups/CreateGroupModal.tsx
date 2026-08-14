@@ -469,7 +469,7 @@ export function CreateGroupModal({
 									type="button"
 									onClick={handleDeleteNa}
 									disabled={isPending}
-									className="ui-btn ui-btn-secondary text-(--text-muted) hover:text-red-400"
+									className="ui-btn ui-btn-secondary ui-btn-hover-danger"
 									title={t("failoverGroups.entry.deleteNaHelp")}
 								>
 									{t("failoverGroups.entry.deleteNa")}

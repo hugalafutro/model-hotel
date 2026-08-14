@@ -103,7 +103,7 @@ export function ActiveSessionsPanel() {
 				<button
 					type="button"
 					data-testid="revoke-other-sessions"
-					className={`ui-btn ui-btn-danger shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+					className={`ui-btn ui-btn-danger shrink-0 ${
 						armedAll ? "ring-2 ring-red-400/50" : ""
 					}`}
 					disabled={revokeAllMutation.isPending}
@@ -226,7 +226,7 @@ function SessionRow({
 				<button
 					type="button"
 					data-testid="revoke-session"
-					className={`ui-btn ui-btn-danger shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+					className={`ui-btn ui-btn-danger shrink-0 ${
 						armed ? "ring-2 ring-red-400/50" : ""
 					}`}
 					disabled={pending}

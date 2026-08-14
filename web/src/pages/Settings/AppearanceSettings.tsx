@@ -332,7 +332,7 @@ export function AppearanceSettings({
 							<button
 								type="button"
 								onClick={() => setTheme("dark")}
-								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
+								className={`ui-btn ${
 									themePreference === "dark"
 										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
@@ -345,7 +345,7 @@ export function AppearanceSettings({
 								onClick={() => setTheme("system")}
 								aria-label={t("settings.appearance.followSystem")}
 								title={t("settings.appearance.followSystem")}
-								className={`ui-btn px-3 py-2 text-sm font-medium transition-colors ${
+								className={`ui-btn ${
 									themePreference === "system"
 										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
@@ -356,7 +356,7 @@ export function AppearanceSettings({
 							<button
 								type="button"
 								onClick={() => setTheme("light")}
-								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
+								className={`ui-btn ${
 									themePreference === "light"
 										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
