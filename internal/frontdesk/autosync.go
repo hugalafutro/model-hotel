@@ -294,6 +294,7 @@ var configSections = []struct{ key, label string }{
 	{"failover_groups", "failover groups"},
 	{"users", "users"},
 	{"disabled_models", "disabled models"},
+	{"enabled_models", "pinned models"},
 }
 
 // differingSections names the payload sections whose hashes disagree, in payload

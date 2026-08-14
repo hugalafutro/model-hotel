@@ -104,7 +104,8 @@
 			"users": "Gebruikers",
 			"audit": "Oudit",
 			"discoveryNewsBadge_one": "{{count}} ongelese verandering vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
-			"discoveryNewsBadge_other": "{{count}} ongelese veranderinge vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees."
+			"discoveryNewsBadge_other": "{{count}} ongelese veranderinge vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
+			"discoveryPinnedBadge": "Modelle wat jy self geaktiveer het, ontbreek steeds uit die verskaffer se lys. Slegs inligting, nie iets wat aandag verg nie - klik om te lees."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "Laas gesien {{when}}",
 			"loading": "Kontroleer tans vir modelafwykings…",
 			"new": "Nuut",
+			"pinnedGroup": "Deur jou vasgespeld",
+			"pinnedMeta": "deur jou geaktiveer {{when}}; die verskaffer se lys laat dit steeds uit",
 			"readOnlyTooltip": "Leesalleen-modus: hierdie aksie is gedeaktiveer.",
 			"recentChanges": "Onlangse veranderinge",
 			"reenabled": "Hergeaktiveer",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "{{count}} skandering gemis",
 			"suspectMeta_other": "{{count}} skanderings gemis",
 			"title": "Modelafwykings",
-			"updated": "Metagegewens bygewerk"
+			"unpin": "Ontspeld",
+			"unpinFailed": "Kon nie ontspeld nie: {{message}}",
+			"unpinTooltip": "Gee hierdie model terug aan outomatiese bestuur. As dit uit die verskaffer se lys bly, word dit ná twee skanderings weer gedeaktiveer.",
+			"unpinned": "{{model}} ontspeld",
+			"updated": "Metagegewens bygewerk",
+			"unpinManagedTooltip": "Vaspennings word deur die vloot se primêre instansie bestuur en word met die volgende konfigurasiesinkronisasie vervang. Ontspeld hierdie model op die primêre instansie."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kwota opgespoor",
 		"type_minimax": "MiniMax",

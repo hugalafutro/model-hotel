@@ -145,15 +145,19 @@ type DiscoveryDiff struct {
 	FailoverDisabledGroups []failover.DisabledGroupInfo `json:"failover_disabled_groups,omitempty"`
 }
 
-// ModelSnapshot captures a model's pre-scan state — whether it was routable,
-// plus the pricing/context fields compared to detect metadata changes. Why it
-// carries no disabled_manually or auto_retired_at: what the scan did about
-// either is read off the row Upsert returned, not re-derived here. The type is
-// exported so the scheduled discovery loop (package main) can hold the snapshot
-// returned by SnapshotProviderModels and pass it to BuildDiscoveryDiff; its
-// fields stay package-private.
+// ModelSnapshot captures a model's pre-scan state — whether it was routable and
+// whether the operator pinned it, plus the pricing/context fields compared to
+// detect metadata changes. Why it carries no disabled_manually or
+// auto_retired_at: what the scan did about either is read off the row Upsert
+// returned, not re-derived here. The type is exported so the scheduled discovery
+// loop (package main) can hold the snapshot returned by SnapshotProviderModels
+// and pass it to BuildDiscoveryDiff; its fields stay package-private.
 type ModelSnapshot struct {
-	enabled         bool
+	enabled bool
+	// pinned mirrors models.manually_enabled_at IS NOT NULL: the operator enabled
+	// this model by hand, so the listing no longer governs it. Read by
+	// ConfirmMissingModels, which keeps such rows out of its mass-vanish guard.
+	pinned          bool
 	inputPrice      *float64
 	inputPriceCache *float64
 	outputPrice     *float64
@@ -161,8 +165,13 @@ type ModelSnapshot struct {
 }
 
 // SnapshotProviderModels maps model_id to its pre-scan state for one provider.
+// The pins come from their own query because Model carries no field for them.
 func SnapshotProviderModels(ctx context.Context, repo *model.Repository, providerID uuid.UUID) (map[string]ModelSnapshot, error) {
 	existing, err := repo.List(ctx, &providerID)
+	if err != nil {
+		return nil, err
+	}
+	pinned, err := repo.PinnedModelIDs(ctx, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +179,7 @@ func SnapshotProviderModels(ctx context.Context, repo *model.Repository, provide
 	for _, m := range existing {
 		snap[m.ModelID] = ModelSnapshot{
 			enabled:         m.Enabled,
+			pinned:          pinned[m.ModelID],
 			inputPrice:      m.InputPricePerMillion,
 			inputPriceCache: m.InputPricePerMillionCacheHit,
 			outputPrice:     m.OutputPricePerMillion,

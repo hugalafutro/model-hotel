@@ -104,7 +104,8 @@
 			"users": "Käyttäjät",
 			"audit": "Auditointi",
 			"discoveryNewsBadge_one": "{{count}} lukematon muutos taustatunnistuksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi.",
-			"discoveryNewsBadge_other": "{{count}} lukematonta muutosta taustatunnistuksesta. Vain tiedoksi, eivät vaadi toimenpiteitä - napsauta lukeaksesi."
+			"discoveryNewsBadge_other": "{{count}} lukematonta muutosta taustatunnistuksesta. Vain tiedoksi, eivät vaadi toimenpiteitä - napsauta lukeaksesi.",
+			"discoveryPinnedBadge": "Itse käyttöön ottamasi mallit puuttuvat yhä tarjoajan listauksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi."
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "Nähty viimeksi {{when}}",
 			"loading": "Tarkistetaan mallien poikkeamia…",
 			"new": "Uusi",
+			"pinnedGroup": "Sinun kiinnittämäsi",
+			"pinnedMeta": "otit sen käyttöön {{when}}; tarjoajan listaus ei yhä sisällä sitä",
 			"readOnlyTooltip": "Vain luku -tila: tämä toiminto on poissa käytöstä.",
 			"recentChanges": "Viimeaikaiset muutokset",
 			"reenabled": "Otettu uudelleen käyttöön",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "{{count}} tarkistus väliin",
 			"suspectMeta_other": "{{count}} tarkistusta väliin",
 			"title": "Mallien poikkeamat",
-			"updated": "Metatiedot päivitetty"
+			"unpin": "Irrota",
+			"unpinFailed": "Irrottaminen epäonnistui: {{message}}",
+			"unpinTooltip": "Palauttaa tämän mallin automaattiseen hallintaan. Jos se puuttuu edelleen tarjoajan listauksesta, se poistetaan käytöstä uudelleen kahden tarkistuksen jälkeen.",
+			"unpinned": "{{model}} irrotettu",
+			"updated": "Metatiedot päivitetty",
+			"unpinManagedTooltip": "Kiinnityksiä hallinnoi laivaston ensisijainen ilmentymä, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Poista tämän mallin kiinnitys ensisijaisessa ilmentymässä."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kiintiö havaittu",
 		"type_minimax": "MiniMax",

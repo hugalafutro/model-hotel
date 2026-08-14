@@ -13,13 +13,14 @@ const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
 	stale: [],
 	suspect: [],
 	retired: [],
+	pinned: [],
 	...over,
 });
 
 const claimOf = (
 	model_id: string,
 	status: "pending" | "resolved" | "new" | "dismissed",
-	state: "gone" | "stale" | "suspect" | "retired" = "gone",
+	state: "gone" | "stale" | "suspect" | "retired" | "pinned" = "gone",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
 	model_id,
@@ -49,6 +50,7 @@ const baseProps = {
 	onDismiss: vi.fn(),
 	onDismissAll: vi.fn(),
 	onDismissEverything: vi.fn(),
+	onUnpin: vi.fn(),
 	isRetesting: false,
 	errors: {},
 	onExpandInformational: vi.fn(),
@@ -65,7 +67,7 @@ const baseProps = {
  */
 async function openBucket(
 	user: ReturnType<typeof userEvent.setup>,
-	bucket: "gone" | "stale" | "suspect" | "retired" = "gone",
+	bucket: "gone" | "stale" | "suspect" | "retired" | "pinned" = "gone",
 	nth = 0,
 ) {
 	const section = screen.getAllByTestId("discrepancy-provider")[nth];
@@ -1254,6 +1256,285 @@ describe("ModelDiscrepancyModal", () => {
 					{ providerID: "p2", modelIDs: ["g2"] },
 				]),
 			);
+		});
+	});
+
+	// A pinned model is one the operator enabled by hand while the provider's
+	// listing stopped naming it. Discovery keeps counting the misses but never
+	// disables it, so the row exists to stop a forgotten pin rotting silently. It
+	// is informational: it is never counted, never dismissible, and its only
+	// control hands the model back to automatic management.
+	describe("pinned bucket", () => {
+		const pinnedClaim = (
+			model_id: string,
+			status: "pending" | "resolved" | "new" | "dismissed" = "pending",
+			pinned_at = "2026-07-15T00:00:00Z",
+		) => ({ ...claimOf(model_id, status, "pinned"), pinned_at });
+
+		it("gives a pinned claim its own bucket, with unpin and no dismiss", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+				/>,
+			);
+			await openBucket(user, "pinned");
+			const row = screen.getByTestId("discrepancy-claim");
+			expect(row).toHaveAttribute("data-state", "pinned");
+			expect(within(row).getByTestId("discrepancy-unpin")).toBeInTheDocument();
+			// Dismiss would be a lie here: the model is still enabled, and the server
+			// only writes dismissals for disabled rows.
+			expect(
+				row.querySelector("[data-testid='discrepancy-dismiss']"),
+			).toBeNull();
+		});
+
+		it("hands the provider id and model id to the unpin callback", async () => {
+			const user = userEvent.setup();
+			const onUnpin = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onUnpin={onUnpin}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+				/>,
+			);
+			await openBucket(user, "pinned");
+			await user.click(screen.getByTestId("discrepancy-unpin"));
+			expect(onUnpin).toHaveBeenCalledWith("p1", "kept-alive");
+		});
+
+		it("dates a pinned row by the pin, not by the listing", async () => {
+			const user = userEvent.setup();
+			// Far enough apart that the two can never format to the same string,
+			// whatever day the suite runs, and compared through the same formatter so
+			// the assertion holds in any locale.
+			const pinnedAt = new Date(Date.now() - 2 * 3600_000).toISOString();
+			const lastSeenAt = new Date(Date.now() - 40 * 86400_000).toISOString();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							pinned: [
+								{
+									...pinnedClaim("kept-alive", "pending", pinnedAt),
+									last_seen_at: lastSeenAt,
+								},
+							],
+						}),
+					]}
+				/>,
+			);
+			await openBucket(user, "pinned");
+			const row = screen.getByTestId("discrepancy-claim");
+			expect(row.textContent).toContain(formatRelativeTime(pinnedAt));
+			expect(row.textContent).not.toContain(formatRelativeTime(lastSeenAt));
+		});
+
+		it("disables unpin in read-only mode instead of hiding it", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+					readOnly
+				/>,
+			);
+			await openBucket(user, "pinned");
+			expect(screen.getByTestId("discrepancy-unpin")).toBeDisabled();
+		});
+
+		it("disables unpin on a managed fleet member and says why", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+					managed
+				/>,
+			);
+			await openBucket(user, "pinned");
+			// A pin is synced config: the primary's list is re-applied on the next
+			// sync pass, so a local unpin would look like it worked and come back.
+			const button = screen.getByTestId("discrepancy-unpin");
+			expect(button).toBeDisabled();
+			// A disabled button is not focusable, so its title never reaches a keyboard
+			// or screen-reader user. The description carries the reason instead.
+			const note = screen.getByTestId("discrepancy-managed-note");
+			expect(button).toHaveAttribute("aria-describedby", note.id);
+			expect(note.textContent).not.toMatch(/^providers\.discrepancies\./);
+			expect(screen.queryByTestId("discrepancy-readonly-note")).toBeNull();
+		});
+
+		it("keeps the read-only reason when both read-only and managed hold", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+					readOnly
+					managed
+				/>,
+			);
+			await openBucket(user, "pinned");
+			// Demo read-only blocks every write in the modal, so it is the reason that
+			// applies; naming the fleet instead would send the operator to a primary
+			// that would refuse them just the same.
+			expect(screen.getByTestId("discrepancy-unpin")).toBeDisabled();
+			expect(screen.getByTestId("discrepancy-unpin")).toHaveAttribute(
+				"aria-describedby",
+				screen.getByTestId("discrepancy-readonly-note").id,
+			);
+			expect(screen.queryByTestId("discrepancy-managed-note")).toBeNull();
+		});
+
+		it("keeps pinned rows out of the counted chips", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("g", "pending")],
+							pinned: [pinnedClaim("k1"), pinnedClaim("k2")],
+						}),
+					]}
+				/>,
+			);
+			// The pill's chips are what the modal reports as this provider's
+			// problem count, and a pinned model is a deliberate operator decision
+			// rather than a problem. Two pinned rows must move neither number.
+			expect(screen.queryByTestId("discrepancy-chip-pinned")).toBeNull();
+			expect(screen.getByTestId("discrepancy-chip-gone").textContent).toContain(
+				"1",
+			);
+		});
+
+		it("keeps pinned ids out of both dismiss batches", async () => {
+			const user = userEvent.setup();
+			const onDismissAll = vi.fn();
+			const onDismissEverything = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissAll={onDismissAll}
+					onDismissEverything={onDismissEverything}
+					providers={[
+						prov({
+							gone: [claimOf("g", "pending")],
+							pinned: [pinnedClaim("k1")],
+						}),
+					]}
+				/>,
+			);
+			// The server refuses a still-enabled model, and a pinned model is enabled
+			// by definition, so sending its id would undercount the batch.
+			await user.click(screen.getByTestId("discrepancy-dismiss-all"));
+			await user.click(screen.getByTestId("discrepancy-dismiss-all-confirm"));
+			// ConfirmDialog fires onConfirm from Modal's onClose, i.e. after the fade
+			// finishes, so this is asynchronous however synchronous the click looks.
+			await waitFor(() => expect(onDismissAll).toHaveBeenCalledTimes(1));
+			expect(onDismissAll).toHaveBeenCalledWith("p1", ["g"]);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-everything"));
+			await user.click(
+				screen.getByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+			await waitFor(() =>
+				expect(onDismissEverything).toHaveBeenCalledWith([
+					{ providerID: "p1", modelIDs: ["g"] },
+				]),
+			);
+		});
+
+		it("counts as content, so a pinned-only provider is not the empty state", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ pinned: [pinnedClaim("kept-alive")] })]}
+				/>,
+			);
+			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
+			expect(screen.getByTestId("discrepancy-provider")).toBeInTheDocument();
+		});
+
+		it("keeps an unpinned row struck through in place and takes its control away", async () => {
+			const user = userEvent.setup();
+			// After a confirmed unpin the model leaves the claims payload entirely,
+			// and the row is marked cleared client-side so it does not vanish from
+			// under the cursor mid-session.
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							pinned: [
+								pinnedClaim("let-go", "dismissed"),
+								pinnedClaim("still-pinned"),
+							],
+						}),
+					]}
+				/>,
+			);
+			await openBucket(user, "pinned");
+			const rows = screen.getAllByTestId("discrepancy-claim");
+			expect(rows.map((r) => r.getAttribute("data-model-id"))).toStrictEqual([
+				"let-go",
+				"still-pinned",
+			]);
+			expect(rows[0]).toHaveAttribute("data-status", "dismissed");
+			expect(
+				rows[0].querySelector("[data-testid='discrepancy-unpin']"),
+			).toBeNull();
+			expect(
+				rows[1].querySelector("[data-testid='discrepancy-unpin']"),
+			).not.toBeNull();
+		});
+
+		/**
+		 * A server predating the pin omits the key entirely, which during a rolling
+		 * deploy reaches a dashboard that expects it. Built by hand rather than
+		 * through `prov()`, which always supplies the bucket.
+		 */
+		const legacyProv = (gone: ReturnType<typeof claimOf>[]) =>
+			({
+				provider_id: "p1",
+				provider_name: "NanoGPT",
+				gone,
+				stale: [],
+				suspect: [],
+				retired: [],
+			}) as unknown as MergedProvider;
+
+		it("renders a payload from a backend that has no pinned bucket", async () => {
+			const user = userEvent.setup();
+			const legacy = legacyProv([claimOf("a", "pending")]);
+			render(<ModelDiscrepancyModal {...baseProps} providers={[legacy]} />);
+			await openBucket(user, "gone");
+			expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"a",
+			);
+			expect(screen.queryByTestId("discrepancy-group-pinned")).toBeNull();
+		});
+
+		it("reads every bucket of a legacy payload, not just up to the first pending row", () => {
+			// The case above proves nothing on its own: `providerHasNoPending` walks
+			// the buckets with `every`, which short-circuits on the first pending row
+			// and so never reaches the absent one. A provider whose rows are ALL
+			// cleared forces the walk to the end, which is where an unguarded
+			// `p.pinned.every(...)` throws.
+			//
+			// Clean is the observable proof: it replaces Retest all and Dismiss all
+			// exactly when that predicate comes back true.
+			const legacy = legacyProv([
+				claimOf("done", "dismissed"),
+				claimOf("back", "resolved"),
+			]);
+			render(<ModelDiscrepancyModal {...baseProps} providers={[legacy]} />);
+			expect(screen.getByTestId("discrepancy-clean")).toBeInTheDocument();
+			expect(screen.queryByTestId("discrepancy-retest")).toBeNull();
 		});
 	});
 

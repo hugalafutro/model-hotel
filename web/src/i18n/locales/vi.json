@@ -104,7 +104,8 @@
 			"users": "Người dùng",
 			"audit": "Kiểm tra",
 			"discoveryNewsBadge_other": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
-			"discoveryNewsBadge_one": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem."
+			"discoveryNewsBadge_one": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
+			"discoveryPinnedBadge": "Các mô hình bạn tự bật vẫn vắng mặt trong danh sách của nhà cung cấp. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem."
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "Thấy lần cuối {{when}}",
 			"loading": "Đang kiểm tra sai lệch mô hình…",
 			"new": "Mới",
+			"pinnedGroup": "Bạn đã ghim",
+			"pinnedMeta": "bạn đã bật {{when}}; danh sách của nhà cung cấp vẫn bỏ sót nó",
 			"readOnlyTooltip": "Chế độ chỉ đọc: thao tác này đã bị tắt.",
 			"recentChanges": "Thay đổi gần đây",
 			"reenabled": "Đã kích hoạt lại",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "Bỏ lỡ {{count}} lần quét",
 			"suspectMeta_other": "Bỏ lỡ {{count}} lần quét",
 			"title": "Sai lệch mô hình",
-			"updated": "Siêu dữ liệu được cập nhật"
+			"unpin": "Bỏ ghim",
+			"unpinFailed": "Không thể bỏ ghim: {{message}}",
+			"unpinTooltip": "Trả mô hình này về chế độ quản lý tự động. Nếu nó vẫn vắng mặt trong danh sách của nhà cung cấp, nó sẽ bị tắt lại sau hai lần quét.",
+			"unpinned": "Đã bỏ ghim {{model}}",
+			"updated": "Siêu dữ liệu được cập nhật",
+			"unpinManagedTooltip": "Ghim do phiên bản chính của hạm đội quản lý và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy bỏ ghim mô hình này trên phiên bản chính."
 		},
 		"toast_quota_detected_minimax": "Đã phát hiện hạn ngạch MiniMax",
 		"type_minimax": "MiniMax",

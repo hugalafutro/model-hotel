@@ -556,8 +556,14 @@ export interface DiscoveryChangesResponse {
  *  it and refused every request for it. The distinction matters to the operator,
  *  because a retired model is still listed and was seen moments ago, so the
  *  "last seen" wording and the Retest button that fit the other states would
- *  both mislead. */
-export type ClaimState = "gone" | "stale" | "suspect" | "retired";
+ *  both mislead.
+ *
+ *  `pinned` is the other odd one out, in the opposite direction: the operator
+ *  enabled the model by hand while the provider's listing stopped naming it, so
+ *  discovery keeps counting the misses but never disables it. It is shown so a
+ *  forgotten pin cannot rot silently, and never counted: it is a decision, not
+ *  a problem. */
+export type ClaimState = "gone" | "stale" | "suspect" | "retired" | "pinned";
 
 export interface ModelClaim {
 	model_id: string;
@@ -572,6 +578,9 @@ export interface ModelClaim {
 	/** When the proxy retired it from traffic. Present only on a `retired` claim;
 	 *  `last_seen_at` keeps being refreshed for those, so it cannot date them. */
 	retired_at?: string;
+	/** When the operator last enabled it by hand. Present only on a `pinned`
+	 *  claim; `last_seen_at` dates the listing, not the decision. */
+	pinned_at?: string;
 }
 
 export interface ProviderClaims {
@@ -581,6 +590,10 @@ export interface ProviderClaims {
 	stale: ModelClaim[];
 	suspect: ModelClaim[];
 	retired: ModelClaim[];
+	/** Always sent (empty rather than null) by servers that know about the
+	 *  operator pin, and absent entirely from ones that do not, which a rolling
+	 *  deploy puts behind this dashboard. Read it through `?? []`. */
+	pinned: ModelClaim[];
 }
 
 /** One failover group discovery disabled: `hotel/<display_model>` routing for it

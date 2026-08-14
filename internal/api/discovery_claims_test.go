@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // TestBuildProviderClaims_Classification pins the four outcomes that decide the
@@ -358,6 +360,78 @@ func TestSetModelsDismissed(t *testing.T) {
 	}
 }
 
+// TestSetModelsUnpinned exercises the one write the unpin endpoint makes: it
+// clears manually_enabled_at for the named rows that actually carry a pin, names
+// which, and hands the model back to automatic management with a clean streak.
+//
+// The missing_scans reset is the part worth guarding. A pin survives any number
+// of missed scans, so by the time an operator unpins, the streak is usually well
+// past MissingScanThreshold; clearing only the stamp would disable the model on
+// the very next scan, which is neither what the operator asked for nor what the
+// UI told them would happen.
+func TestSetModelsUnpinned(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+
+	prov := seedClaimProvider(t, pool, "claims-unpin", true)
+	// A mature streak: what a pin held past the disable threshold really looks
+	// like by the time anyone unpins it.
+	seedClaimModel(t, pool, prov, "to-unpin", true, false, model.MissingScanThreshold+3, nil)
+	pinClaimModel(t, pool, prov, "to-unpin")
+	seedClaimModel(t, pool, prov, "never-pinned", true, false, 1, nil)
+
+	got, err := setModelsUnpinned(ctx, pool, prov, []string{"to-unpin", "never-pinned", "does-not-exist"})
+	if err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	// Names what it cleared: an unpinned model and an unknown ID are absent, so
+	// the caller can tell a partial result apart from a total one.
+	if len(got) != 1 || got[0] != "to-unpin" {
+		t.Fatalf("unpinned = %v, want [to-unpin]", got)
+	}
+
+	var pinnedAt *time.Time
+	var missing int
+	if err := pool.QueryRow(ctx,
+		`SELECT manually_enabled_at, missing_scans FROM models WHERE provider_id = $1 AND model_id = $2`,
+		prov, "to-unpin").Scan(&pinnedAt, &missing); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if pinnedAt != nil {
+		t.Errorf("manually_enabled_at = %v after unpin, want nil", *pinnedAt)
+	}
+	if missing != 0 {
+		t.Errorf("missing_scans = %d after unpin, want 0: the model must not be one scan from being disabled", missing)
+	}
+
+	// The unpinned row is untouched, proving the reset rides on the same WHERE
+	// clause as the stamp clear rather than being a blanket update.
+	if err := pool.QueryRow(ctx,
+		`SELECT missing_scans FROM models WHERE provider_id = $1 AND model_id = $2`,
+		prov, "never-pinned").Scan(&missing); err != nil {
+		t.Fatalf("query never-pinned: %v", err)
+	}
+	if missing != 1 {
+		t.Errorf("never-pinned missing_scans = %d, want 1 untouched", missing)
+	}
+}
+
+// TestSetModelsUnpinned_ClosedPool drives the query error path: a pool that
+// cannot run the UPDATE at all must surface the error rather than reporting an
+// empty (and misleadingly successful-looking) unpinned list. Uses the same
+// closedAPIPool helper as the dismiss/unpin handler failure tests, since
+// setModelsUnpinned takes the pool directly rather than going through a
+// handler.
+func TestSetModelsUnpinned_ClosedPool(t *testing.T) {
+	dead := closedAPIPool(t)
+
+	_, err := setModelsUnpinned(context.Background(), dead.Pool(), uuid.New(), []string{"some-model"})
+	if err == nil {
+		t.Error("expected error with a closed pool, got nil")
+	}
+}
+
 func ptrTime(t time.Time) *time.Time { return &t }
 
 // seedClaimProvider inserts a minimal provider row. The brief's original
@@ -389,6 +463,143 @@ func seedClaimModel(t *testing.T, pool *pgxpool.Pool, providerID uuid.UUID, mode
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
 		uuid.New(), providerID, modelID, enabled, manual, missing, dismissed); err != nil {
 		t.Fatalf("seed model %s: %v", modelID, err)
+	}
+}
+
+// pinClaimModel arms the operator pin on an already-seeded model.
+// seedClaimModel does not take it as a parameter because every claims test but
+// the pin ones has no opinion about it and would have to pass nil.
+func pinClaimModel(t *testing.T, pool *pgxpool.Pool, providerID uuid.UUID, modelID string) {
+	t.Helper()
+	tag, err := pool.Exec(context.Background(),
+		`UPDATE models SET manually_enabled_at = now() WHERE provider_id = $1 AND model_id = $2`,
+		providerID, modelID)
+	if err != nil {
+		t.Fatalf("pin model %s: %v", modelID, err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("pin model %s affected %d rows, want 1", modelID, tag.RowsAffected())
+	}
+}
+
+// TestBuildProviderClaims_PinnedRow pins the informational state: the operator
+// enabled the model by hand while the provider's listing still omits it, so the
+// row keeps missing scans but is not evidence of anything the operator has yet
+// to decide. It is shown so a forgotten pin stays visible and never counted.
+//
+// The identical unpinned row proves the pin is what moves it: without that pair,
+// a classifier that filed every mid-streak model as pinned would stay green.
+func TestBuildProviderClaims_PinnedRow(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	pinnedAt := now.Add(-6 * time.Hour)
+	rows := []claimRow{
+		{ProviderID: "p1", ProviderName: "NanoGPT", ModelID: "pinned",
+			LastSeenAt: now.Add(-3 * 24 * time.Hour), Enabled: true, MissingScans: 3, PinnedAt: &pinnedAt},
+		{ProviderID: "p1", ProviderName: "NanoGPT", ModelID: "wobbling",
+			LastSeenAt: now.Add(-3 * 24 * time.Hour), Enabled: true, MissingScans: 3},
+		// Anchor: one genuinely counted claim, so the "count is unchanged by the
+		// pinned row" assertion cannot pass on a count that is zero throughout.
+		{ProviderID: "p1", ProviderName: "NanoGPT", ModelID: "vanished", LastSeenAt: now.Add(-3 * 24 * time.Hour)},
+	}
+
+	claims, count := buildProviderClaims(rows, map[flapKey]int{}, map[flapKey]int{}, now)
+	if len(claims) != 1 {
+		t.Fatalf("expected 1 provider group, got %d", len(claims))
+	}
+	g := claims[0]
+
+	if len(g.Pinned) != 1 || g.Pinned[0].ModelID != "pinned" {
+		t.Fatalf("pinned bucket = %+v, want just pinned", g.Pinned)
+	}
+	if g.Pinned[0].State != ClaimStatePinned {
+		t.Errorf("state = %q, want %q", g.Pinned[0].State, ClaimStatePinned)
+	}
+	if g.Pinned[0].PinnedAt == nil || !g.Pinned[0].PinnedAt.Equal(pinnedAt) {
+		t.Errorf("pinned claim must carry when it was pinned, got %v", g.Pinned[0].PinnedAt)
+	}
+	if g.Pinned[0].MissingScans != 3 {
+		t.Errorf("pinned MissingScans = %d, want 3: the streak keeps accruing under a pin", g.Pinned[0].MissingScans)
+	}
+	if len(g.Suspect) != 1 || g.Suspect[0].ModelID != "wobbling" {
+		t.Errorf("suspect bucket = %+v, want just wobbling: only the pin moves a mid-streak row", g.Suspect)
+	}
+	if g.Suspect[0].PinnedAt != nil {
+		t.Error("an unpinned suspect claim must not carry a pin timestamp")
+	}
+	if count != 1 {
+		t.Errorf("claim count = %d, want 1 (only vanished): a pinned row is never counted", count)
+	}
+
+	out, err := json.Marshal(g)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"state":"pinned"`) {
+		t.Errorf("pinned state must serialize as \"pinned\", got %s", out)
+	}
+}
+
+// TestBuildProviderClaims_PinnedBucketSerializesAsEmptyArray extends the wire
+// contract the other buckets already hold to the new one: the frontend types
+// promise ModelClaim[] with no null guard, and a provider with no pinned model
+// is the common case, not the edge case.
+func TestBuildProviderClaims_PinnedBucketSerializesAsEmptyArray(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	rows := []claimRow{
+		{ProviderID: "p1", ProviderName: "NanoGPT", ModelID: "only-gone", LastSeenAt: now.Add(-3 * 24 * time.Hour)},
+	}
+
+	claims, _ := buildProviderClaims(rows, map[flapKey]int{}, map[flapKey]int{}, now)
+	out, err := json.Marshal(claims[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"pinned":[]`) {
+		t.Errorf("pinned bucket must serialize as [], got %s", out)
+	}
+	// pinned_at is omitempty, so a claim that was never pinned must not carry
+	// the key at all rather than a null the frontend would have to guard.
+	if strings.Contains(string(out), "pinned_at") {
+		t.Errorf("an unpinned claim must not emit pinned_at, got %s", out)
+	}
+}
+
+// TestListClaimRows_CarriesPin proves the derivation query reads the pin. The
+// WHERE clause already matches a pinned row through its
+// `enabled = true AND missing_scans > 0` branch, so the only thing that can be
+// missing is the column itself — and without it every pinned model would file as
+// suspect and nag the operator about a decision they already made.
+func TestListClaimRows_CarriesPin(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+
+	prov := seedClaimProvider(t, pool, "claims-pin", true)
+	seedClaimModel(t, pool, prov, "pinned-model", true, false, 3, nil)
+	pinClaimModel(t, pool, prov, "pinned-model")
+	seedClaimModel(t, pool, prov, "unpinned-model", true, false, 3, nil)
+
+	rows, err := listClaimRows(ctx, pool)
+	if err != nil {
+		t.Fatalf("listClaimRows: %v", err)
+	}
+	got := map[string]*claimRow{}
+	for i := range rows {
+		got[rows[i].ModelID] = &rows[i]
+	}
+	pinned := got["pinned-model"]
+	if pinned == nil {
+		t.Fatal("a pinned mid-streak model must still surface as a claim row")
+	}
+	if pinned.PinnedAt == nil {
+		t.Error("pinned-model must carry PinnedAt: without it the row files as suspect")
+	}
+	unpinned := got["unpinned-model"]
+	if unpinned == nil {
+		t.Fatal("unpinned-model must surface as a claim row")
+	}
+	if unpinned.PinnedAt != nil {
+		t.Errorf("unpinned-model PinnedAt = %v, want nil", unpinned.PinnedAt)
 	}
 }
 

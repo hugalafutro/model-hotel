@@ -210,6 +210,41 @@ func TestDismissDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 	}
 }
 
+// TestUnpinDiscoveryClaims_RejectsMalformedRequests mirrors
+// TestDismissDiscoveryClaims_RejectsMalformedRequests for the unpin endpoint's
+// twin validation: an undecodable body and a non-UUID provider_id are both 400,
+// and neither reaches the database, for the same 400-vs-404 reason as dismiss.
+func TestUnpinDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	providerID := seedClaimProvider(t, pool, "unpin-malformed", true)
+	seedClaimModel(t, pool, providerID, "held-model", true, false, 1, nil)
+	pinClaimModel(t, pool, providerID, "held-model")
+
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := post(`{"provider_id": not json at all`); code != http.StatusBadRequest {
+		t.Errorf("undecodable body = %d, want 400", code)
+	}
+	if code := post(`{"provider_id":"nanogpt","model_ids":["held-model"]}`); code != http.StatusBadRequest {
+		t.Errorf("non-UUID provider_id = %d, want 400 (not 404: the request was never understood)", code)
+	}
+
+	// Anchor: an otherwise identical, well-formed request succeeds against the
+	// same fixture, so the 400s above are the validation firing rather than the
+	// endpoint rejecting everything.
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["held-model"]}`, providerID)); code != http.StatusOK {
+		t.Fatalf("well-formed unpin = %d, want 200", code)
+	}
+}
+
 // TestDismissDiscoveryClaims_DatabaseFailureIs500 pins that a dismissal which
 // did not land is reported as a failure.
 //

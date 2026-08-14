@@ -23,7 +23,19 @@ import (
 // dynamic (the managed state is computed per request, not a startup flag), and it
 // is mounted only on the synced-entity write routes rather than the whole admin
 // surface, so models/discovery, failover sync, config import, fleet announce,
-// backups, and auth stay usable on a managed member.
+// backups, and auth stay reachable on a managed member.
+//
+// Models sit on the boundary and are deliberately left unguarded. Model rows are
+// per-member (each member discovers its own from the synced providers), and so is
+// every piece of listing evidence about them: discovery runs, retests, and
+// dismissals stay local and must keep working here. What DOES sync is the
+// operator's verdict on a model - the manual disable (disabled_manually) and the
+// manual-enable pin (manually_enabled_at) - so a member-local disable or
+// enable/unpin of a model the primary has an opinion about is reverted on the
+// next config sync. The dashboard states that boundary where the operator can act
+// on it (the discrepancy modal's Unpin control goes read-only on a managed
+// member); the API stays open because refusing the whole models surface would
+// take discovery with it.
 
 // managedWriteMsg is the 403 body returned when a synced-entity write is refused
 // because this instance is a managed fleet member.

@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockSystemStats } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import * as webauthnUtils from "../../utils/webauthn";
@@ -16,7 +17,7 @@ import { Layout } from "../Layout";
  */
 async function openFirstBucket(
 	user: ReturnType<typeof userEvent.setup>,
-	bucket: "gone" | "stale" | "suspect" = "gone",
+	bucket: "gone" | "stale" | "suspect" | "retired" | "pinned" = "gone",
 	nth = 0,
 ) {
 	await user.click(
@@ -1240,6 +1241,186 @@ describe("Layout", () => {
 			expect(bodies).toHaveLength(1);
 			expect(bodies[0].model_ids).toEqual(["a"]);
 			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
+
+		it("unpins one model per request and keeps the row in place", async () => {
+			// An unpinned model leaves /api/discovery/status entirely: unpin clears
+			// the pin AND resets the miss streak, so there is no claim left to
+			// report. The mock has to do the same, or the assertion below would be
+			// testing the mock rather than the merge.
+			const bodies: { provider_id: string; model_ids: string[] }[] = [];
+			const unpinned = new Set<string>();
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const pinned = ["k"]
+						.filter((m) => !unpinned.has(m))
+						.map((m) => ({
+							...claim(m),
+							state: "pinned",
+							pinned_at: "2026-07-15T00:00:00Z",
+						}));
+					return HttpResponse.json(
+						status({
+							// Pinned rows are deliberately not counted, so the badge is
+							// carried by the journal dot instead: the modal still has
+							// something to show while the number stays at zero.
+							claim_count: 0,
+							informational: [infoEntry],
+							informational_unseen: 1,
+							claims: [{ ...providerClaims("p1", "One", []), pinned }],
+						}),
+					);
+				}),
+				http.post("/api/discovery/unpin", async ({ request }) => {
+					const body = (await request.json()) as {
+						provider_id: string;
+						model_ids: string[];
+					};
+					bodies.push(body);
+					for (const m of body.model_ids) unpinned.add(m);
+					// No `updated` key: the endpoint names the rows it cleared.
+					return HttpResponse.json({ unpinned: body.model_ids });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user, "pinned");
+			const rowK = () =>
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "k");
+			await waitFor(() => expect(rowK()).toBeTruthy());
+			await user.click(
+				rowK()?.querySelector(
+					'[data-testid="discrepancy-unpin"]',
+				) as HTMLElement,
+			);
+
+			await waitFor(() => expect(bodies).toHaveLength(1));
+			expect(bodies[0]).toEqual({ provider_id: "p1", model_ids: ["k"] });
+			// Struck through where it sat rather than vanishing: the row is absent
+			// from the refetch because the operator cleared it, which is the same
+			// shape as a dismissal and must never read as "listed again".
+			await waitFor(() =>
+				expect(rowK()).toHaveAttribute("data-status", "dismissed"),
+			);
+		});
+
+		// One pinned model and nothing else: neither counter moves, because a pin
+		// is never counted and is not informational news either.
+		const pinOnlyStatus = () =>
+			status({
+				claim_count: 0,
+				informational_unseen: 0,
+				claims: [
+					{
+						...providerClaims("p1", "One", []),
+						pinned: [
+							{
+								...claim("k"),
+								state: "pinned",
+								pinned_at: "2026-07-15T00:00:00Z",
+							},
+						],
+					},
+				],
+			});
+
+		it("opens the modal when a pin is the only thing to report", async () => {
+			// The badge is the ONLY way into the modal, so keying it on the two
+			// counters alone strands the pinned bucket and its Unpin control behind a
+			// badge that never renders: a forgotten pin could then neither be found nor
+			// undone from the dashboard.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(pinOnlyStatus()),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-status-badge");
+			// A pin is a decision, not a problem, so it must never produce a count.
+			expect(badge).toHaveAttribute("data-variant", "dot");
+			expect(badge.textContent).toBe("");
+			const label = badge.getAttribute("aria-label") ?? "";
+			// Key prefix, not copy: this has to hold in all 29 locales.
+			expect(label).not.toMatch(/^layout\.nav\./);
+			// The news label is counted, so borrowing it here would announce the dot as
+			// "0 unreviewed changes" to a screen-reader user.
+			expect(label).not.toContain("0");
+			expect(badge.getAttribute("title")).toBe(label);
+
+			await user.click(badge);
+			await openFirstBucket(user, "pinned");
+			const row = await screen.findByTestId("discrepancy-claim");
+			expect(row).toHaveAttribute("data-state", "pinned");
+			expect(row).toHaveAttribute("data-model-id", "k");
+		});
+
+		it("takes Unpin away on a managed fleet member", async () => {
+			// A pin is synced config. On a managed member the primary's list is
+			// re-applied on the next sync pass, so a local unpin would look like it
+			// worked and silently come back.
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						...mockSystemStats,
+						fleet: { state: "member", is_primary: false },
+					}),
+				),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(pinOnlyStatus()),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user, "pinned");
+			// Disabled rather than hidden, so it does not read as a missing feature.
+			await waitFor(() =>
+				expect(screen.getByTestId("discrepancy-unpin")).toBeDisabled(),
+			);
+		});
+
+		it("re-reads the rows and the badge after an unpin that reports failure", async () => {
+			// A rejected request does not prove the write did not land: the server can
+			// commit and the response be lost. The badge is the half that matters most
+			// here, because a pinned row is what keeps it lit when nothing is counted,
+			// so a landed unpin has to be able to put it out.
+			let cleared = false;
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(cleared ? status() : pinOnlyStatus()),
+				),
+				http.post("/api/discovery/unpin", () => {
+					cleared = true;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user, "pinned");
+			await user.click(await screen.findByTestId("discrepancy-unpin"));
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+
+			// Nothing is marked before the response, so the re-read is what takes the
+			// row's control away once the pin has left the payload.
+			await waitFor(() =>
+				expect(
+					screen
+						.getByTestId("discrepancy-claim")
+						.querySelector("[data-testid='discrepancy-unpin']"),
+				).toBeNull(),
+			);
+			await expectBadgeAfterClose(null);
 		});
 
 		it("dismisses a whole provider in one request", async () => {

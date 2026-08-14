@@ -104,7 +104,8 @@
 			"users": "Brugere",
 			"audit": "Revision",
 			"discoveryNewsBadge_one": "{{count}} ulæst ændring fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
-			"discoveryNewsBadge_other": "{{count}} ulæste ændringer fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse."
+			"discoveryNewsBadge_other": "{{count}} ulæste ændringer fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
+			"discoveryPinnedBadge": "Modeller, du selv har aktiveret, mangler stadig på udbyderens liste. Kun til orientering, ikke noget der kræver handling - klik for at læse."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "Sidst set {{when}}",
 			"loading": "Kontrollerer for modeluoverensstemmelser…",
 			"new": "Ny",
+			"pinnedGroup": "Fastgjort af dig",
+			"pinnedMeta": "aktiveret af dig {{when}}; udbyderens liste mangler den stadig",
 			"readOnlyTooltip": "Skrivebeskyttet tilstand: denne handling er deaktiveret.",
 			"recentChanges": "Seneste ændringer",
 			"reenabled": "Genaktiveret",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "Sprang {{count}} scanning over",
 			"suspectMeta_other": "Sprang {{count}} scanninger over",
 			"title": "Modeluoverensstemmelser",
-			"updated": "Metadata opdateret"
+			"unpin": "Frigør",
+			"unpinFailed": "Kunne ikke frigøre: {{message}}",
+			"unpinTooltip": "Giver denne model tilbage til automatisk styring. Hvis den fortsat mangler på udbyderens liste, bliver den deaktiveret igen efter to scanninger.",
+			"unpinned": "{{model}} frigjort",
+			"updated": "Metadata opdateret",
+			"unpinManagedTooltip": "Fastgørelser styres af flådens primære instans og erstattes ved næste konfigurationssynkronisering. Frigør denne model på den primære instans."
 		},
 		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",
 		"type_minimax": "MiniMax",

@@ -42,7 +42,7 @@ func TestConfigSync_VersionCarriesSectionHashes(t *testing.T) {
 	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
 	_, sections := doVersionSections(t, r)
 
-	want := []string{"providers", "virtual_keys", "settings", "failover_groups", "users", "disabled_models"}
+	want := []string{"providers", "virtual_keys", "settings", "failover_groups", "users", "disabled_models", "enabled_models"}
 	// Tied to the struct, not to a hardcoded count: a field added to
 	// ConfigPayload starts riding in the overall hash immediately, and without
 	// this guard the sections map would quietly stop explaining divergences in
@@ -89,7 +89,7 @@ func TestConfigSync_SectionHashMovesAloneWithItsSection(t *testing.T) {
 	if afterProvider["providers"] == before["providers"] {
 		t.Error("providers section hash unchanged after adding a provider")
 	}
-	for _, k := range []string{"virtual_keys", "settings", "failover_groups", "users", "disabled_models"} {
+	for _, k := range []string{"virtual_keys", "settings", "failover_groups", "users", "disabled_models", "enabled_models"} {
 		if afterProvider[k] != before[k] {
 			t.Errorf("section %q hash moved on a provider-only change: %q -> %q", k, before[k], afterProvider[k])
 		}
@@ -105,7 +105,7 @@ func TestConfigSync_SectionHashMovesAloneWithItsSection(t *testing.T) {
 	if afterVK["virtual_keys"] == afterProvider["virtual_keys"] {
 		t.Error("virtual_keys section hash unchanged after adding a key")
 	}
-	for _, k := range []string{"providers", "settings", "failover_groups", "users", "disabled_models"} {
+	for _, k := range []string{"providers", "settings", "failover_groups", "users", "disabled_models", "enabled_models"} {
 		if afterVK[k] != afterProvider[k] {
 			t.Errorf("section %q hash moved on a key-only change: %q -> %q", k, afterProvider[k], afterVK[k])
 		}

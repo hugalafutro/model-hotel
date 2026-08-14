@@ -428,6 +428,107 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 	}
 }
 
+// TestUnpinDiscoveryClaims_ClearsPin walks the whole loop the modal drives: a
+// pinned model sits in the informational pinned bucket, the endpoint names the
+// row it cleared, and the model returns to automatic management as a suspect.
+//
+// Asserted through /discovery/status rather than by re-reading the column, which
+// TestSetModelsUnpinned already covers at the SQL layer. What is only observable
+// here is that the claim is DERIVED: the bucket a model sits in changes with no
+// write to any claim state.
+func TestUnpinDiscoveryClaims_ClearsPin(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+
+	providerID := seedClaimProvider(t, pool, "unpin-prov", true)
+	seedClaimModel(t, pool, providerID, "held", true, false, 3, nil)
+	pinClaimModel(t, pool, providerID, "held")
+
+	// Anchor: the model must read as pinned first, so the "gone from the modal
+	// afterwards" assertion cannot pass on a model that was never a claim.
+	if claim := findClaim(t, getStatus(t, r, "/discovery/status"), "held"); claim.State != ClaimStatePinned {
+		t.Fatalf("held state = %q, want %q before the unpin", claim.State, ClaimStatePinned)
+	}
+
+	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["held"]}`, providerID)
+	req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unpin = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	// The response names the rows actually cleared; the dashboard marks exactly
+	// those and leaves the rest alone.
+	var resp struct {
+		Unpinned []string `json:"unpinned"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Unpinned) != 1 || resp.Unpinned[0] != "held" {
+		t.Fatalf("unpinned = %v, want [held]", resp.Unpinned)
+	}
+
+	// The unpinned model leaves the modal entirely rather than reappearing as a
+	// suspect. Unpin resets the miss-streak with the stamp, so the row is
+	// indistinguishable from a healthy enabled model until a scan misses it
+	// again — which is the point: there is no discrepancy left to show, and the
+	// next two missed scans raise it as suspect and then disable it, exactly as
+	// they would for any unpinned model.
+	if claim, ok := findClaimOK(getStatus(t, r, "/discovery/status"), "held"); ok {
+		t.Errorf("held still claims %q after unpin, want no claim at all", claim.State)
+	}
+
+	// Absence in the modal must mean "nothing to report", not "discovery
+	// disabled it on the way out": both read as no claim once the row is also
+	// dismissed, and only the enabled flag tells them apart.
+	var enabled bool
+	if err := pool.QueryRow(context.Background(),
+		`SELECT enabled FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "held").Scan(&enabled); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !enabled {
+		t.Error("unpin must not disable the model; it only hands it back to automatic management")
+	}
+}
+
+// TestUnpinDiscoveryClaims_UnknownModel fails loudly instead of reporting a
+// silent success, mirroring the dismiss endpoint's contract. A model that exists
+// but carries no pin is the same non-event as one that does not exist at all:
+// nothing to clear, so nothing to report as cleared.
+func TestUnpinDiscoveryClaims_UnknownModel(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	providerID := seedClaimProvider(t, pool, "unpin-unknown", true)
+	seedClaimModel(t, pool, providerID, "never-pinned", true, false, 1, nil)
+
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	// Anchor: an empty model_ids list is a 400 from the handler's own
+	// validation, which only runs once the request reaches UnpinDiscoveryClaims.
+	// An unmounted route would 404 before that, so this proves the 404s below
+	// mean "no matching model" rather than "no matching route".
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
+		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
+	}
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"]}`, providerID)); code != http.StatusNotFound {
+		t.Errorf("unknown model = %d, want 404", code)
+	}
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["never-pinned"]}`, providerID)); code != http.StatusNotFound {
+		t.Errorf("unpinned model = %d, want 404", code)
+	}
+}
+
 func claimIDs(t *testing.T, r http.Handler) []string {
 	t.Helper()
 	var ids []string
@@ -441,15 +542,25 @@ func claimIDs(t *testing.T, r http.Handler) []string {
 
 func findClaim(t *testing.T, resp DiscoveryStatusResponse, modelID string) ModelClaim {
 	t.Helper()
+	c, ok := findClaimOK(resp, modelID)
+	if !ok {
+		t.Fatalf("claim %q not found in %+v", modelID, resp.Claims)
+	}
+	return c
+}
+
+// findClaimOK is the searching half of findClaim, split out for the tests that
+// assert a model has NO claim: findClaim's t.Fatalf on a miss is exactly the
+// outcome those want to see succeed.
+func findClaimOK(resp DiscoveryStatusResponse, modelID string) (ModelClaim, bool) {
 	for _, p := range resp.Claims {
-		for _, group := range [][]ModelClaim{p.Gone, p.Stale, p.Suspect} {
+		for _, group := range [][]ModelClaim{p.Gone, p.Stale, p.Suspect, p.Retired, p.Pinned} {
 			for _, c := range group {
 				if c.ModelID == modelID {
-					return c
+					return c, true
 				}
 			}
 		}
 	}
-	t.Fatalf("claim %q not found in %+v", modelID, resp.Claims)
-	return ModelClaim{}
+	return ModelClaim{}, false
 }

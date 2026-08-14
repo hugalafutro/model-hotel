@@ -523,7 +523,7 @@ func TestConfigSync_AcknowledgedDisableIsAppliedOnceTheModelArrives(t *testing.T
 	if rec := doImport(t, member, env, ""); rec.Code != http.StatusOK {
 		t.Fatalf("first import: %d %s", rec.Code, rec.Body.String())
 	}
-	if got := unappliedMarker(t); len(got) != 1 {
+	if got := unappliedMarker(t, keyFleetUnappliedModelDisables); len(got) != 1 {
 		t.Fatalf("acknowledged refs = %v, want exactly the one it could not apply", got)
 	}
 
@@ -536,7 +536,7 @@ func TestConfigSync_AcknowledgedDisableIsAppliedOnceTheModelArrives(t *testing.T
 	if enabled, manual, _ := modelState(t, id); enabled || !manual {
 		t.Errorf("model state = enabled %v, manual %v; the held intent must be applied once the model exists", enabled, manual)
 	}
-	if got := unappliedMarker(t); len(got) != 0 {
+	if got := unappliedMarker(t, keyFleetUnappliedModelDisables); len(got) != 0 {
 		t.Errorf("acknowledged refs = %v, want none: the disable is applied for real now", got)
 	}
 }
@@ -559,7 +559,7 @@ func TestConfigSync_AcknowledgedDisableIsDroppedWhenThePrimaryReEnables(t *testi
 	if rec := doImport(t, member, disabledEnv, ""); rec.Code != http.StatusOK {
 		t.Fatalf("first import: %d %s", rec.Code, rec.Body.String())
 	}
-	if got := unappliedMarker(t); len(got) != 1 {
+	if got := unappliedMarker(t, keyFleetUnappliedModelDisables); len(got) != 1 {
 		t.Fatalf("acknowledged refs = %v, want one", got)
 	}
 
@@ -570,7 +570,7 @@ func TestConfigSync_AcknowledgedDisableIsDroppedWhenThePrimaryReEnables(t *testi
 		t.Fatalf("second import: %d %s", rec.Code, rec.Body.String())
 	}
 
-	if got := unappliedMarker(t); len(got) != 0 {
+	if got := unappliedMarker(t, keyFleetUnappliedModelDisables); len(got) != 0 {
 		t.Errorf("acknowledged refs = %v, want none once the primary re-enabled the model", got)
 	}
 	env := doExport(t, member)
@@ -579,12 +579,13 @@ func TestConfigSync_AcknowledgedDisableIsDroppedWhenThePrimaryReEnables(t *testi
 	}
 }
 
-// unappliedMarker reads the acknowledged-intent marker this member holds.
-func unappliedMarker(t *testing.T) []ExportModelRef {
+// unappliedMarker reads one of the acknowledged-intent markers this member
+// holds, named by its settings key (disables or pins).
+func unappliedMarker(t *testing.T, key string) []ExportModelRef {
 	t.Helper()
 	var raw string
 	err := apiTestDB.Pool().QueryRow(context.Background(),
-		`SELECT value FROM settings WHERE key = $1`, keyFleetUnappliedModelDisables).Scan(&raw)
+		`SELECT value FROM settings WHERE key = $1`, key).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // no marker written yet
 	}
@@ -769,5 +770,283 @@ func TestConfigSync_ExportDescribesEffectiveStateNotJustTheFlag(t *testing.T) {
 	}
 	if enabled, manual, _ := modelState(t, id); enabled || !manual {
 		t.Errorf("model state = enabled %v, manual %v; want the row repaired to genuinely off", enabled, manual)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Manual-enable pins (models.manually_enabled_at), the disables' mirror image
+// ---------------------------------------------------------------------------
+
+// seedPinnedModel inserts an enabled model carrying the operator's manual-enable
+// pin, and returns its UUID. missingScans is the streak the pin holds open: a
+// pinned model keeps counting the scans that miss it, it just never acts on them.
+func seedPinnedModel(t *testing.T, providerID, modelID string, missingScans int) string {
+	t.Helper()
+	var id string
+	err := apiTestDB.Pool().QueryRow(context.Background(),
+		`INSERT INTO models (provider_id, model_id, enabled, manually_enabled_at, missing_scans)
+		 VALUES ($1, $2, true, now(), $3) RETURNING id`,
+		providerID, modelID, missingScans).Scan(&id)
+	if err != nil {
+		t.Fatalf("seed pinned model %s: %v", modelID, err)
+	}
+	return id
+}
+
+// pinState reads the operator pin and the miss streak that rides with it: every
+// write to one touches the other, so a test that reads them apart could pass on
+// a row the next scan would immediately disable.
+func pinState(t *testing.T, modelUUID string) (pinned *time.Time, missingScans int) {
+	t.Helper()
+	err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT manually_enabled_at, missing_scans FROM models WHERE id = $1`,
+		modelUUID).Scan(&pinned, &missingScans)
+	if err != nil {
+		t.Fatalf("read pin state: %v", err)
+	}
+	return pinned, missingScans
+}
+
+// enabledModelsEnvelope wraps a pinned-model list in an otherwise minimal
+// envelope, the way disabledModelsEnvelope does for its own section.
+func enabledModelsEnvelope(refs []ExportModelRef) ConfigEnvelope {
+	return ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config: ConfigPayload{
+			VirtualKeys:   []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+			EnabledModels: refs,
+		},
+	}
+}
+
+// TestConfigSync_ExportCarriesEnabledModels: a pin is operator intent about a
+// model the provider stopped listing, so it syncs. An ordinary enabled model
+// carries no intent to carry, and a pinned row that is nevertheless switched off
+// is describing what it does, not what a stale stamp says (the same effective-state
+// rule the disables export follows).
+func TestConfigSync_ExportCarriesEnabledModels(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedPinnedModel(t, provID, "gpt-4o", 2) // syncs
+	seedModel(t, provID, "gpt-5")           // enabled, unpinned: nothing to carry
+	stale := seedPinnedModel(t, provID, "gpt-3.5", 0)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE models SET enabled = false WHERE id = $1`, stale); err != nil {
+		t.Fatalf("switch the pinned row off: %v", err)
+	}
+
+	env := doExport(t, r)
+
+	if len(env.Config.EnabledModels) != 1 {
+		t.Fatalf("enabled models = %+v, want only the pinned-and-serving one", env.Config.EnabledModels)
+	}
+	if got := env.Config.EnabledModels[0]; got.ProviderName != "openai" || got.ModelID != "gpt-4o" {
+		t.Errorf("enabled model = %+v, want openai/gpt-4o", got)
+	}
+}
+
+// The list is ordered by (provider, model_id), which is unique per member, so two
+// members holding the same pins serialise identically and hash the same.
+func TestConfigSync_ExportOrdersEnabledModels(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	zeta := seedProvider(t, "zeta", "sk-z", configSyncMasterKey)
+	alpha := seedProvider(t, "alpha", "sk-a", configSyncMasterKey)
+	seedPinnedModel(t, zeta, "m-b", 0)
+	seedPinnedModel(t, alpha, "m-b", 0)
+	seedPinnedModel(t, alpha, "m-a", 0)
+
+	env := doExport(t, r)
+
+	want := []ExportModelRef{
+		{ProviderName: "alpha", ModelID: "m-a"},
+		{ProviderName: "alpha", ModelID: "m-b"},
+		{ProviderName: "zeta", ModelID: "m-b"},
+	}
+	if len(env.Config.EnabledModels) != len(want) {
+		t.Fatalf("enabled models = %+v, want %+v", env.Config.EnabledModels, want)
+	}
+	for i, ref := range want {
+		if env.Config.EnabledModels[i] != ref {
+			t.Errorf("enabled model[%d] = %+v, want %+v", i, env.Config.EnabledModels[i], ref)
+		}
+	}
+}
+
+// TestConfigSync_ImportAppliesEnabledModels: the operator tested this model and
+// it serves, which outranks every automatic conclusion this member reached about
+// it. The import therefore force-enables the row and clears the listing and
+// traffic evidence alongside, then stamps the pin so the member's own discovery
+// stops re-disabling it.
+func TestConfigSync_ImportAppliesEnabledModels(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedDisabledModel(t, provID, "gpt-4o", disableByTraffic)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE models SET discovery_dismissed_at = now(), missing_scans = 3 WHERE id = $1`, id); err != nil {
+		t.Fatalf("seed member evidence: %v", err)
+	}
+
+	env := enabledModelsEnvelope([]ExportModelRef{{ProviderName: "openai", ModelID: "gpt-4o"}})
+	env.Config.Providers = doExport(t, r).Config.Providers
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	enabled, manual, retired := modelState(t, id)
+	if !enabled || manual {
+		t.Errorf("model state = enabled %v, disabled_manually %v; want the pin's force-enable", enabled, manual)
+	}
+	if retired != nil {
+		t.Error("auto_retired_at survived a pin; the operator's verification outranks the retirement, which re-arms on the next refusal")
+	}
+	var dismissed *time.Time
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT discovery_dismissed_at FROM models WHERE id = $1`, id).Scan(&dismissed); err != nil {
+		t.Fatalf("read dismissal: %v", err)
+	}
+	if dismissed != nil {
+		t.Error("discovery_dismissed_at survived a pin, so the model is serving with a dismissal still standing against it")
+	}
+	pinned, missing := pinState(t, id)
+	if pinned == nil {
+		t.Error("manually_enabled_at is unset; without the pin this member's next scan disables the model again")
+	}
+	if missing != 0 {
+		t.Errorf("missing_scans = %d, want 0: the streak that led to the disable must not survive the operator overruling it", missing)
+	}
+}
+
+// An envelope from a primary that predates this field carries no enabled_models
+// key, which decodes to nil. That must leave this member's pins alone: reading it
+// as "the primary has none" would strip every pin on the first sync of a rolling
+// upgrade, and the models they hold open would disable themselves two scans later.
+func TestConfigSync_ImportNilEnabledModelsLeavesStateAlone(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedPinnedModel(t, provID, "gpt-4o", 2)
+
+	env := enabledModelsEnvelope(nil) // field absent, not empty
+	env.Config.Providers = doExport(t, r).Config.Providers
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	pinned, missing := pinState(t, id)
+	if pinned == nil {
+		t.Error("an older primary's envelope cleared this member's pin")
+	}
+	if missing != 2 {
+		t.Errorf("missing_scans = %d, want the seeded 2 untouched", missing)
+	}
+}
+
+// TestConfigSync_ImportEmptyEnabledModelsClearsPins: [] is a current primary
+// saying it holds no pins, which must reconcile. Only the pin goes: the model
+// stays enabled and this member's own listing-based machinery takes it from
+// there, with a fresh miss streak so it gets the same two-scan grace any
+// unpinned model does.
+func TestConfigSync_ImportEmptyEnabledModelsClearsPins(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedPinnedModel(t, provID, "gpt-4o", 4)
+
+	env := enabledModelsEnvelope([]ExportModelRef{}) // primary has none
+	env.Config.Providers = doExport(t, r).Config.Providers
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	pinned, missing := pinState(t, id)
+	if pinned != nil {
+		t.Error("the pin survived an import from a primary that holds none")
+	}
+	if missing != 0 {
+		t.Errorf("missing_scans = %d, want 0: a mature streak left behind disables the model on the very next scan", missing)
+	}
+	if enabled, manual, _ := modelState(t, id); !enabled || manual {
+		t.Errorf("model state = enabled %v, disabled_manually %v; clearing a pin must never switch the model off", enabled, manual)
+	}
+}
+
+// TestConfigSync_ImportKeepsAnExistingPinsStamp: the stamp records when THIS
+// member first honoured the pin, and Front Desk re-pushes the same list on every
+// drift. Re-stamping it would rewrite the row on every pass and reset a
+// "pinned since" the operator reads to spot a pin they have forgotten about.
+func TestConfigSync_ImportKeepsAnExistingPinsStamp(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	id := seedPinnedModel(t, provID, "gpt-4o", 0)
+
+	env := enabledModelsEnvelope([]ExportModelRef{{ProviderName: "openai", ModelID: "gpt-4o"}})
+	env.Config.Providers = doExport(t, r).Config.Providers
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("first import: %d %s", rec.Code, rec.Body.String())
+	}
+	first, _ := pinState(t, id)
+	if first == nil {
+		t.Fatal("the pin is unset after an import that names the model")
+	}
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("second import: %d %s", rec.Code, rec.Body.String())
+	}
+	if again, _ := pinState(t, id); again == nil || !again.Equal(*first) {
+		t.Errorf("pin stamp = %v, want the original %v: a re-push must not re-stamp an existing pin", again, first)
+	}
+}
+
+// TestConfigSync_ImportAcknowledgesUnappliedEnables: a pin naming a model this
+// member does not have cannot be applied, and a list derived from its own rows
+// could never equal the primary's, so the two would hash differently forever.
+// The member records the intent instead and exports it alongside what it applied,
+// exactly as it does for a disable it cannot apply.
+func TestConfigSync_ImportAcknowledgesUnappliedEnables(t *testing.T) {
+	cleanConfigTables(t)
+	primary := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, provID, "gpt-5")
+	seedPinnedModel(t, provID, "gpt-4o", 3) // the member will not have this one
+	primaryHash := doVersion(t, primary)
+	env := doExport(t, primary)
+
+	// The member holds only gpt-5.
+	cleanConfigTables(t)
+	mProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, mProvID, "gpt-5")
+	member := newConfigSyncRouter(t, configSyncMasterKey)
+
+	rec := doImport(t, member, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var got importResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got.UnappliedModels) != 1 || got.UnappliedModels[0] != "openai/gpt-4o" {
+		t.Fatalf("UnappliedModels = %v, want [openai/gpt-4o]", got.UnappliedModels)
+	}
+	if marker := unappliedMarker(t, keyFleetUnappliedModelEnables); len(marker) != 1 ||
+		marker[0] != (ExportModelRef{ProviderName: "openai", ModelID: "gpt-4o"}) {
+		t.Fatalf("acknowledged pins = %+v, want exactly the one it could not apply", marker)
+	}
+	if exported := doExport(t, member).Config.EnabledModels; len(exported) != 1 ||
+		exported[0].ModelID != "gpt-4o" {
+		t.Errorf("member's exported pins = %+v, want the acknowledged one to ride along", exported)
+	}
+	if h := doVersion(t, member); h != primaryHash {
+		t.Errorf("member hash = %s, primary = %s; a member that cannot hold one of the primary's pinned models must still converge",
+			h[:12], primaryHash[:12])
 	}
 }

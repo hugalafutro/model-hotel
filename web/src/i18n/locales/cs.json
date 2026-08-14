@@ -112,7 +112,8 @@
 			"discoveryNewsBadge_one": "{{count}} nezkontrolovaná změna ze zjišťování na pozadí. Pouze informativní, nevyžaduje pozornost - kliknutím zobrazíte.",
 			"discoveryNewsBadge_few": "{{count}} nezkontrolované změny ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
 			"discoveryNewsBadge_many": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
-			"discoveryNewsBadge_other": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte."
+			"discoveryNewsBadge_other": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
+			"discoveryPinnedBadge": "Modely, které jste zapnuli ručně, v nabídce poskytovatele stále chybí. Pouze informativní, nevyžaduje pozornost - kliknutím zobrazíte."
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -951,6 +952,8 @@
 			"lastSeenMeta": "Naposledy viděno {{when}}",
 			"loading": "Kontrolují se nesrovnalosti modelů…",
 			"new": "Nové",
+			"pinnedGroup": "Připnuto tebou",
+			"pinnedMeta": "povoleno tebou {{when}}; nabídka poskytovatele jej stále neuvádí",
 			"readOnlyTooltip": "Režim jen pro čtení: tato akce je zakázána.",
 			"recentChanges": "Nedávné změny",
 			"reenabled": "Znovu povoleno",
@@ -987,7 +990,12 @@
 			"suspectMeta_one": "Vynecháno {{count}} skenování",
 			"suspectMeta_other": "Vynecháno {{count}} skenování",
 			"title": "Nesrovnalosti modelů",
-			"updated": "Aktualizovaná metadata"
+			"unpin": "Odepnout",
+			"unpinFailed": "Nepodařilo se odepnout: {{message}}",
+			"unpinTooltip": "Vrátí tento model automatické správě. Pokud bude v nabídce poskytovatele dál chybět, po dvou kontrolách se znovu zakáže.",
+			"unpinned": "Model {{model}} odepnut",
+			"updated": "Aktualizovaná metadata",
+			"unpinManagedTooltip": "Připnutí spravuje primární instance flotily a při příští synchronizaci konfigurace se nahradí. Zrušte připnutí tohoto modelu na primární instanci."
 		},
 		"toast_quota_detected_minimax": "Zjištěna kvóta MiniMax",
 		"type_minimax": "MiniMax",

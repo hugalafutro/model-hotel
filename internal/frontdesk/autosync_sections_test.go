@@ -16,6 +16,7 @@ func sectionsLike(overrides map[string]string) map[string]string {
 		"failover_groups": "sec-g",
 		"users":           "sec-u",
 		"disabled_models": "sec-d",
+		"enabled_models":  "sec-e",
 	}
 	maps.Copy(out, overrides)
 	return out
@@ -157,8 +158,9 @@ func TestDescribeSectionDetails_MultiMember(t *testing.T) {
 		{id: "2", name: "hotel-3", sections: nil},
 		{id: "3", name: "hotel-4", sections: []string{"disabled_models"}},
 		{id: "4", name: "hotel-5", sections: []string{"not-a-section"}},
+		{id: "5", name: "hotel-6", sections: []string{"enabled_models"}},
 	})
-	const want = "hotel-2: providers, virtual keys; hotel-4: disabled models"
+	const want = "hotel-2: providers, virtual keys; hotel-4: disabled models; hotel-6: pinned models"
 	if got != want {
 		t.Errorf("describeSectionDetails = %q, want %q", got, want)
 	}

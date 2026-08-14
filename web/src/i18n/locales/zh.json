@@ -104,7 +104,8 @@
 			"users": "用户",
 			"audit": "审计",
 			"discoveryNewsBadge_other": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
-			"discoveryNewsBadge_one": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。"
+			"discoveryNewsBadge_one": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
+			"discoveryPinnedBadge": "你手动启用的模型仍未出现在提供方的列表中。仅供参考，并非需要处理的问题 - 点击查看。"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "最后一次出现于 {{when}}",
 			"loading": "正在检查模型差异…",
 			"new": "新增",
+			"pinnedGroup": "你固定的",
+			"pinnedMeta": "你于 {{when}} 启用；提供方的列表仍未列出它",
 			"readOnlyTooltip": "只读模式：此操作已禁用。",
 			"recentChanges": "最近的变更",
 			"reenabled": "已重新启用",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "错过了 {{count}} 次扫描",
 			"suspectMeta_other": "错过了 {{count}} 次扫描",
 			"title": "模型差异",
-			"updated": "元数据已更新"
+			"unpin": "取消固定",
+			"unpinFailed": "无法取消固定：{{message}}",
+			"unpinTooltip": "把这个模型交回自动管理。如果它仍未出现在提供方的列表中，两次扫描后会再次被停用。",
+			"unpinned": "已取消固定 {{model}}",
+			"updated": "元数据已更新",
+			"unpinManagedTooltip": "固定由机群主节点管理，将在下次配置同步时被替换。请在主节点上取消固定此模型。"
 		},
 		"toast_quota_detected_minimax": "检测到 MiniMax 配额",
 		"type_minimax": "MiniMax",

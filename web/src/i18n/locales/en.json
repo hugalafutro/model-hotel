@@ -104,7 +104,8 @@
 			"users": "Users",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} unreviewed change from background discovery. Informational, not something needing attention - click to review.",
-			"discoveryNewsBadge_other": "{{count}} unreviewed changes from background discovery. Informational, not something needing attention - click to review."
+			"discoveryNewsBadge_other": "{{count}} unreviewed changes from background discovery. Informational, not something needing attention - click to review.",
+			"discoveryPinnedBadge": "Models you enabled by hand are still missing from the provider's listing. Informational, not something needing attention - click to review."
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -909,6 +910,8 @@
 			"lastSeenMeta": "Last seen {{when}}",
 			"loading": "Checking for model discrepancies…",
 			"new": "New",
+			"pinnedGroup": "Pinned by you",
+			"pinnedMeta": "enabled by you {{when}}; the provider's listing still omits it",
 			"readOnlyTooltip": "Read-only mode: this action is disabled.",
 			"recentChanges": "Recent changes",
 			"reenabled": "Re-enabled",
@@ -935,7 +938,12 @@
 			"suspectMeta_one": "Missed {{count}} scan",
 			"suspectMeta_other": "Missed {{count}} scans",
 			"title": "Model discrepancies",
-			"updated": "Metadata updated"
+			"unpin": "Unpin",
+			"unpinFailed": "Could not unpin: {{message}}",
+			"unpinTooltip": "Hand this model back to automatic management. If it stays missing from the provider's listing it will be disabled again after two scans.",
+			"unpinned": "Unpinned {{model}}",
+			"updated": "Metadata updated",
+			"unpinManagedTooltip": "Pins are managed by the fleet primary and are replaced on the next config sync. Unpin this model on the primary."
 		},
 		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",
 		"toast_refresh_success_other": "Refreshed {{count}} quotas/balances",

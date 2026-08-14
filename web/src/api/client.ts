@@ -449,6 +449,30 @@ export const api = {
 				"Failed to dismiss discovery claims",
 			);
 		},
+		// Hand pinned models back to automatic management. Unpin only, for the same
+		// reason dismiss is one-way: the pin direction is an operator enable on the
+		// model itself, not something the discrepancy modal invents.
+		//
+		// The response names the rows actually cleared and carries no `updated`
+		// count: the server 404s when nothing matched, so a 200 that names fewer
+		// models than were asked for is the only partial result there is.
+		unpin: async (
+			providerId: string,
+			modelIds: string[],
+		): Promise<{ unpinned: string[] }> => {
+			return fetchJSON<{ unpinned: string[] }>(
+				`${API_BASE}/api/discovery/unpin`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({
+						provider_id: providerId,
+						model_ids: modelIds,
+					}),
+				},
+				"Failed to unpin discovery claims",
+			);
+		},
 		ackChanges: async (): Promise<DiscoveryChangesResponse> => {
 			return fetchJSON<DiscoveryChangesResponse>(
 				`${API_BASE}/api/discovery/changes/ack`,

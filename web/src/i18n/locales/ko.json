@@ -104,7 +104,8 @@
 			"users": "사용자",
 			"audit": "감사",
 			"discoveryNewsBadge_other": "백그라운드 검색에서 확인하지 않은 변경 사항 {{count}}건. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요.",
-			"discoveryNewsBadge_one": "백그라운드 검색에서 확인하지 않은 변경 사항 {{count}}건. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요."
+			"discoveryNewsBadge_one": "백그라운드 검색에서 확인하지 않은 변경 사항 {{count}}건. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요.",
+			"discoveryPinnedBadge": "직접 활성화한 모델이 공급자 목록에서 여전히 빠져 있습니다. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요."
 		},
 		"status": {
 			"apiStatus": "API 상태",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "마지막 확인 {{when}}",
 			"loading": "모델 불일치를 확인하는 중…",
 			"new": "신규",
+			"pinnedGroup": "직접 고정함",
+			"pinnedMeta": "{{when}}에 직접 활성화했습니다. 공급자 목록에는 여전히 없습니다",
 			"readOnlyTooltip": "읽기 전용 모드: 이 작업은 비활성화되어 있습니다.",
 			"recentChanges": "최근 변경 사항",
 			"reenabled": "재활성화됨",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "스캔 {{count}}회 누락",
 			"suspectMeta_other": "스캔 {{count}}회 누락",
 			"title": "모델 불일치",
-			"updated": "메타데이터 업데이트됨"
+			"unpin": "고정 해제",
+			"unpinFailed": "고정을 해제할 수 없습니다: {{message}}",
+			"unpinTooltip": "이 모델을 자동 관리로 되돌립니다. 공급자 목록에서 계속 빠져 있으면 두 번의 검사 후 다시 비활성화됩니다.",
+			"unpinned": "{{model}} 고정을 해제했습니다",
+			"updated": "메타데이터 업데이트됨",
+			"unpinManagedTooltip": "고정은 플릿 기본 인스턴스가 관리하며 다음 구성 동기화 시 대체됩니다. 이 모델의 고정은 기본 인스턴스에서 해제하세요."
 		},
 		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",
 		"type_minimax": "MiniMax",

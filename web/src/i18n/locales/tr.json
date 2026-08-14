@@ -104,7 +104,8 @@
 			"users": "Kullanıcılar",
 			"audit": "Denetim",
 			"discoveryNewsBadge_one": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
-			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
+			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
+			"discoveryPinnedBadge": "Elle etkinleştirdiğiniz modeller sağlayıcının listesinde hâlâ görünmüyor. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -907,6 +908,8 @@
 			"lastSeenMeta": "Son görülme {{when}}",
 			"loading": "Model tutarsızlıkları kontrol ediliyor…",
 			"new": "Yeni",
+			"pinnedGroup": "Senin sabitlediklerin",
+			"pinnedMeta": "{{when}} sen etkinleştirdin; sağlayıcının listesi onu hâlâ içermiyor",
 			"readOnlyTooltip": "Salt okunur mod: bu işlem devre dışı.",
 			"recentChanges": "Son değişiklikler",
 			"reenabled": "Yeniden etkinleştirildi",
@@ -933,7 +936,12 @@
 			"suspectMeta_one": "{{count}} tarama kaçırıldı",
 			"suspectMeta_other": "{{count}} tarama kaçırıldı",
 			"title": "Model tutarsızlıkları",
-			"updated": "Metadata güncellendi"
+			"unpin": "Sabitlemeyi kaldır",
+			"unpinFailed": "Sabitleme kaldırılamadı: {{message}}",
+			"unpinTooltip": "Bu modeli otomatik yönetime geri verir. Sağlayıcının listesinde görünmemeye devam ederse iki taramadan sonra yeniden devre dışı bırakılır.",
+			"unpinned": "{{model}} sabitlemesi kaldırıldı",
+			"updated": "Metadata güncellendi",
+			"unpinManagedTooltip": "Sabitlemeler filo birincil örneği tarafından yönetilir ve sonraki yapılandırma eşitlemesinde değiştirilir. Bu modelin sabitlemesini birincil örnekte kaldırın."
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",
 		"type_minimax": "MiniMax",

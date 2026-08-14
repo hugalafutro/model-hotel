@@ -25,8 +25,8 @@ const confirmProbeJitter = 5 * time.Second
 
 // suspectMissingFloor and suspectMissingRatio form the mass-vanish guard: a
 // scan whose confirmed-missing set exceeds the floor AND the ratio of the
-// provider's enabled models is treated as a broken listing, not a real
-// removal, and records no misses. False-disabling dozens of models (which HA
+// provider's enabled, unpinned models is treated as a broken listing, not a
+// real removal, and records no misses. False-disabling dozens of models (which HA
 // then propagates fleet-wide) is far worse than keeping a stale model enabled
 // until an operator looks at the warning event.
 const (
@@ -191,10 +191,32 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 		}
 	}
 
-	enabledCount := 0
-	for _, snap := range snapshot {
-		if snap.enabled {
-			enabledCount++
+	// Two populations, because the guard and the blackout branch ask different
+	// questions. enabledCount is every routable row, which is what "this provider
+	// still has models" means. The unpinned pair is what the mass-vanish ratio is
+	// measured on: a pinned model IS permanently absent from the listing, by the
+	// operator's own decision, so it is not evidence that the listing is broken.
+	// Counted, more than suspectMissingFloor pins covering half a provider's
+	// enabled models would mark EVERY scan suspect, which skips RecordMissingModels
+	// entirely and freezes listing-based auto-disable for the whole provider while
+	// re-raising the suspect-scan alert on every sweep. Pins leave the denominator
+	// too: left in, they pad the population the listing is judged against and a
+	// real mass vanish drops under the ratio.
+	//
+	// Pinned rows still take part in countMissing above, so they are still probed:
+	// a pin the provider starts listing again resolves on the very next scan.
+	enabledCount, unpinnedEnabled, unpinnedMissing := 0, 0, 0
+	for id, snap := range snapshot {
+		if !snap.enabled {
+			continue
+		}
+		enabledCount++
+		if snap.pinned {
+			continue
+		}
+		unpinnedEnabled++
+		if !present[id] {
+			unpinnedMissing++
 		}
 	}
 	// A total blackout - the initial listing and every confirmation probe
@@ -208,10 +230,11 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 	// empty-listing guards), so we still disable nothing here; the suspect event
 	// and its escalation surface the condition for an operator instead.
 	blackout := len(confirmedPresent) == 0 && enabledCount > 0
-	massVanish := missing > suspectMissingFloor && float64(missing) > suspectMissingRatio*float64(enabledCount)
+	massVanish := unpinnedMissing > suspectMissingFloor && float64(unpinnedMissing) > suspectMissingRatio*float64(unpinnedEnabled)
 	if blackout || massVanish {
 		debuglog.Warn("discovery: mass-vanish guard tripped, treating scan as suspect",
-			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabledCount, "blackout", blackout)
+			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabledCount,
+			"unpinned_missing", unpinnedMissing, "unpinned_enabled", unpinnedEnabled, "blackout", blackout)
 		events.Publish(events.Event{
 			Type:     "discovery.suspect_scan",
 			Severity: "warning",

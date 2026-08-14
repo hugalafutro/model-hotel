@@ -44,6 +44,12 @@ import (
 // traffic retirement are per-member evidence about what a provider served that
 // member, so replicating them would turn one member's provider trouble into a
 // fleet-wide outage. Migration 063 is what keeps the three kinds apart.
+//
+// The operator's manual-enable PINS (models.manually_enabled_at, migration 070)
+// travel the same way and for the same reason: a pin says the operator tested a
+// model the provider stopped listing and it serves, which is a statement about
+// the provider, not about one member, so every member should honour it instead
+// of disabling the model two scans after its own listing drops it.
 
 const (
 	// configSchemaVersion is the envelope version a member understands. An import
@@ -253,6 +259,13 @@ type ConfigPayload struct {
 	// yours", absent means an older primary whose per-model state must be left
 	// alone.
 	DisabledModels []ExportModelRef `json:"disabled_models"`
+	// EnabledModels are the models the operator pinned enabled by hand while the
+	// provider's listing omits them (models.manually_enabled_at), by stable ref.
+	// Same nil-vs-empty contract as DisabledModels: [] means "the primary has no
+	// pins, clear yours", absent means an older primary whose pins must be left
+	// alone. Import force-enables and pins; reconcile only clears pins, never
+	// disables, so a member's own listing-based disable machinery resumes.
+	EnabledModels []ExportModelRef `json:"enabled_models"`
 }
 
 // ExportModelRef is a model's stable cross-member identity: the provider's name
@@ -415,16 +428,18 @@ type importResponse struct {
 	// models. Reported alongside Incomplete, never as part of it: the member
 	// applied everything it was asked to.
 	Partial []string `json:"partial,omitempty"`
-	// UnappliedModels names per-model disables this member could not apply, as
-	// provider/model_id, because it holds no such model. Reported alongside
-	// Incomplete for the same reason as Partial, and it is what explains a config
-	// hash that will keep differing until this member discovers those models.
+	// UnappliedModels names the per-model intent this member could not apply, as
+	// provider/model_id, because it holds no such model: the primary's disables and
+	// its manual-enable pins alike. Reported alongside Incomplete for the same
+	// reason as Partial, and it is what explains a config hash that will keep
+	// differing until this member discovers those models.
 	UnappliedModels []string `json:"unapplied_models,omitempty"`
-	// ModelStateFailed is true when the per-model disable reconcile failed outright,
-	// so this member is still routing to models the primary switched off. It is one
-	// of the two things Incomplete can mean, and without it the reader cannot tell
-	// which: an unbuilt failover group names itself in Unapplied, but a failed
-	// reconcile has no names to give, and was reported as a group failure.
+	// ModelStateFailed is true when a per-model reconcile (disables or pins) failed
+	// outright, so this member is still routing to models the primary switched off,
+	// or still auto-disabling ones it pinned. It is one of the two things Incomplete
+	// can mean, and without it the reader cannot tell which: an unbuilt failover
+	// group names itself in Unapplied, but a failed reconcile has no names to give,
+	// and was reported as a group failure.
 	ModelStateFailed bool `json:"model_state_failed,omitempty"`
 }
 

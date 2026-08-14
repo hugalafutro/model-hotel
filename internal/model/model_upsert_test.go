@@ -90,6 +90,50 @@ func TestUpsert_PreservesMetadataOnNullRescan(t *testing.T) {
 	assertFloatPtr(t, "output_price", got.OutputPricePerMillion, 4.4)
 }
 
+// TestUpsert_SightingClearsPin covers the end of the disagreement the pin
+// records: once the listing names the model again there is nothing left to
+// overrule, so the row goes back to automatic management. A model the proxy
+// retired from traffic still stays disabled through that sighting, because the
+// pin never spoke to the enabled CASE.
+func TestUpsert_SightingClearsPin(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-pin-clear")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
+	pinModel(ctx, t, pinnedID)
+
+	if err := repo.Upsert(ctx, newBareModel(providerID, "pinned-model")); err != nil {
+		t.Fatalf("upsert pinned model: %v", err)
+	}
+	if pinnedAt := readPin(ctx, t, pinnedID); pinnedAt != nil {
+		t.Errorf("manually_enabled_at = %v after a sighting, want nil", *pinnedAt)
+	}
+
+	// A pinned model the proxy retired from traffic: the sighting clears the
+	// pin but must not revive the model.
+	retiredID := insertTestModel(ctx, t, providerID, "retired-model")
+	if _, err := testPool.Exec(ctx,
+		`UPDATE models SET enabled = false, auto_retired_at = now(), manually_enabled_at = now() WHERE id = $1`,
+		retiredID); err != nil {
+		t.Fatalf("seed retired pinned model: %v", err)
+	}
+
+	retired := newBareModel(providerID, "retired-model")
+	retired.Enabled = true
+	if err := repo.Upsert(ctx, retired); err != nil {
+		t.Fatalf("upsert retired model: %v", err)
+	}
+	if retired.Enabled {
+		t.Error("enabled = true after a sighting of a traffic-retired model, want false")
+	}
+	if pinnedAt := readPin(ctx, t, retiredID); pinnedAt != nil {
+		t.Errorf("manually_enabled_at = %v after a sighting of a retired model, want nil", *pinnedAt)
+	}
+}
+
 func assertIntPtr(t *testing.T, field string, got *int, want int) {
 	t.Helper()
 	if got == nil {
