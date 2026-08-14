@@ -859,3 +859,30 @@ func TestDiscoverSweep_SuspectScanSkipsDisable(t *testing.T) {
 		t.Errorf("expected sus-model-b untouched by suspect scan, got enabled=%v missing_scans=%d", enabled, streak)
 	}
 }
+
+// The snapshot is where the pin reaches the scan: ConfirmMissingModels keeps
+// pinned rows out of its mass-vanish guard, and it can only do that if the
+// builder reads models.manually_enabled_at at all. Model carries no field for
+// the pin, so this is a second query and a silent miss would leave the guard
+// counting pins as evidence again.
+func TestSnapshotProviderModels_CarriesThePin(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+
+	prov := seedClaimProvider(t, pool, "snapshot-pin", true)
+	seedClaimModel(t, pool, prov, "pinned-model", true, false, 3, nil)
+	pinClaimModel(t, pool, prov, "pinned-model")
+	seedClaimModel(t, pool, prov, "plain-model", true, false, 0, nil)
+
+	snap, err := SnapshotProviderModels(ctx, model.NewRepository(pool), prov)
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if !snap["pinned-model"].pinned {
+		t.Error("pinned-model: pinned = false, want true")
+	}
+	if snap["plain-model"].pinned {
+		t.Error("plain-model: pinned = true, want false")
+	}
+}

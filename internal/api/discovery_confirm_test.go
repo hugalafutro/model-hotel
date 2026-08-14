@@ -274,6 +274,61 @@ func TestSleepWithContext(t *testing.T) {
 	}
 }
 
+func TestConfirmMissingModels_PinnedModelsExcludedFromMassVanishGuard(t *testing.T) {
+	// 10 enabled models; the listing returns 2. The other 8 are operator pins:
+	// permanently absent by design, because a pin IS the answer to "the listing
+	// stopped naming this model". Counted as evidence, they mark every scan of
+	// this provider suspect, which freezes listing-based auto-disable for the
+	// whole provider and repeats the suspect-scan alert on every sweep.
+	enabled := make([]string, 10)
+	for i := range enabled {
+		enabled[i] = fmt.Sprintf("m%d", i)
+	}
+	present := []string{"m0", "m1"}
+
+	pinnedSnapshot := confirmTestSnapshot(enabled...)
+	for i := 2; i < 10; i++ {
+		pinnedSnapshot[fmt.Sprintf("m%d", i)] = ModelSnapshot{enabled: true, pinned: true}
+	}
+	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs(present...)}, nil)
+	if _, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present, pinnedSnapshot, nil); suspect {
+		t.Fatal("8 pinned models absent from the listing must not trip the mass-vanish guard")
+	}
+
+	// Control: the very same shape without the pins is exactly the broken listing
+	// the guard exists for, so the exclusion must not have disarmed it.
+	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs(present...)}, nil)
+	if _, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present, confirmTestSnapshot(enabled...), nil); !suspect {
+		t.Fatal("8 unpinned models absent from the listing must still trip the guard")
+	}
+}
+
+func TestConfirmMissingModels_PinnedModelsDoNotDiluteTheRatio(t *testing.T) {
+	// The exclusion is two-sided: pins leave the denominator as well as the
+	// numerator. Left in the denominator they pad the population the listing is
+	// judged against, so a real mass vanish sits under the ratio and the guard
+	// never fires. 100 unpinned models with 51 missing is over the half mark
+	// (51 > 50) and must trip; 8 pins on top would put it under (51 > 54 is
+	// false) if the denominator counted them.
+	present := make([]string, 0, 49)
+	snapshot := map[string]ModelSnapshot{}
+	for i := range 100 {
+		id := fmt.Sprintf("m%d", i)
+		snapshot[id] = ModelSnapshot{enabled: true}
+		if i >= 51 {
+			present = append(present, id)
+		}
+	}
+	for i := range 8 {
+		snapshot[fmt.Sprintf("pin%d", i)] = ModelSnapshot{enabled: true, pinned: true}
+	}
+	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs(present...)}, nil)
+
+	if _, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present, snapshot, nil); !suspect {
+		t.Fatal("51 of 100 unpinned models missing is a mass vanish; the pins must not pad the denominator")
+	}
+}
+
 func TestConfirmMissingModels_SmallMissBelowFloorNotSuspect(t *testing.T) {
 	// 4 of 6 missing is >50% but at/below the absolute floor of 5, so it is a
 	// legitimate (confirmable) miss, not a suspect scan.

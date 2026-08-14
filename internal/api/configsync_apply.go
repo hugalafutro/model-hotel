@@ -621,6 +621,13 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 // streak behind, and clearing the stamp alone would disable the model on its very
 // next scan instead of giving it the same grace an unpinned model gets (the same
 // rule POST /discovery/unpin follows).
+//
+// Both directions re-zero missing_scans on every import, which is why a member's
+// own discrepancy modal rarely lists its pinned rows: listClaimRows reports a pin
+// only once its miss streak is above zero, and each sync pass wipes the streak the
+// member has accumulated since the last one. Pin visibility is a primary-side
+// surface by design; a member shows the pin only if it misses a scan between two
+// syncs.
 func (h *ConfigSyncHandler) applyEnabledModels(ctx context.Context, refs []ExportModelRef) ([]string, error) {
 	return h.applyModelIntent(ctx, refs, keyFleetUnappliedModelEnables,
 		func(ctx context.Context, tx pgx.Tx, wanted string, providers, modelIDs []string) error {

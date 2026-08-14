@@ -241,6 +241,29 @@ func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model,
 	return scanModels(rows)
 }
 
+// PinnedModelIDs returns the model_ids of one provider's manual-enable pins
+// (manually_enabled_at, migration 070) as a set. The pin has no field on Model:
+// it governs what discovery may do to a row, not what the row is, so it is read
+// where that decision is made rather than carried through every model scan.
+func (r *Repository) PinnedModelIDs(ctx context.Context, providerID uuid.UUID) (map[string]bool, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT model_id FROM models WHERE provider_id = $1 AND manually_enabled_at IS NOT NULL`, providerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pinned := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		pinned[id] = true
+	}
+	return pinned, rows.Err()
+}
+
 // ListEnabled returns all enabled models from enabled providers.
 func (r *Repository) ListEnabled(ctx context.Context) ([]*Model, error) {
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.enabled = true AND p.enabled = true ORDER BY m.model_id ASC`
