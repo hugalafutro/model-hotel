@@ -49,8 +49,9 @@ describe("Providers", () => {
 					name: /Discovering/i,
 				});
 				expect(discoveringButton).toBeInTheDocument();
-				// Button should have disabled styling (cursor-not-allowed class)
-				expect(discoveringButton).toHaveClass("cursor-not-allowed");
+				// Disabled styling comes from the global .ui-btn:disabled rule,
+				// so the disabled attribute is the observable state.
+				expect(discoveringButton).toBeDisabled();
 			});
 		});
 	});
