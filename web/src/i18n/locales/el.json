@@ -1015,7 +1015,9 @@
 			"testSuccess": "Επιτυχία | Απάντηση: {{content}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
 			"testFailed": "Η δοκιμή απέτυχε: {{error}}",
 			"testSuccessNoResponse": "Επιτυχία{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
-			"copyRawValue": "Αντιγραφή ακατέργαστης τιμής"
+			"copyRawValue": "Αντιγραφή ακατέργαστης τιμής",
+			"pricePinned": "Οι τιμές έχουν καρφιτσωθεί από τον χειριστή",
+			"resetPricesToSource": "Επαναφορά στην πηγή"
 		},
 		"table": {
 			"sortByModelName": "Ταξινόμηση κατά όνομα μοντέλου",

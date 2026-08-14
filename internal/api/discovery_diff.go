@@ -53,11 +53,12 @@ const priceRelTolerance = 0.07
 
 // DampenOpenRouterPriceJitter neutralizes sub-tolerance price wiggles from
 // OpenRouter's volatile per-upstream pricing. For OpenRouter providers only, it
-// clears the live-meta flag on any price field whose freshly discovered value sits
-// within priceRelTolerance of the stored (pre-scan) value, demoting that field to
-// fill-only: Upsert then keeps the stored price and diffModelFields reports no
-// change. Large, genuine price moves exceed the band and stay live. No-op for
-// every other provider type, for models with no snapshot, and for nil endpoints.
+// REPLACES any freshly discovered price sitting within priceRelTolerance of the
+// stored (pre-scan) value with that stored value, so Upsert persists the same
+// number (prices follow the incoming value on unpinned rows) and
+// diffModelFields sees no change. Large, genuine price moves exceed the band
+// and pass through untouched. No-op for every other provider type, for models
+// with no snapshot, and for nil endpoints.
 //
 // Call it after snapshotting and before upserting, at every discovery path.
 func DampenOpenRouterPriceJitter(baseURL string, snapshot map[string]ModelSnapshot, models []*model.Model) {
@@ -69,17 +70,17 @@ func DampenOpenRouterPriceJitter(baseURL string, snapshot map[string]ModelSnapsh
 		if !ok {
 			continue
 		}
-		if m.LiveMeta.InputPrice && withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
-			m.LiveMeta.InputPrice = false
+		if withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
 			logPriceDamped(m.ModelID, "input_price", prev.inputPrice, m.InputPricePerMillion)
+			m.InputPricePerMillion = prev.inputPrice
 		}
-		if m.LiveMeta.OutputPrice && withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
-			m.LiveMeta.OutputPrice = false
+		if withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
 			logPriceDamped(m.ModelID, "output_price", prev.outputPrice, m.OutputPricePerMillion)
+			m.OutputPricePerMillion = prev.outputPrice
 		}
-		if m.LiveMeta.InputPriceCache && withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
-			m.LiveMeta.InputPriceCache = false
+		if withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
 			logPriceDamped(m.ModelID, "input_price_cache", prev.inputPriceCache, m.InputPricePerMillionCacheHit)
+			m.InputPricePerMillionCacheHit = prev.inputPriceCache
 		}
 	}
 }
@@ -157,7 +158,11 @@ type ModelSnapshot struct {
 	// pinned mirrors models.manually_enabled_at IS NOT NULL: the operator enabled
 	// this model by hand, so the listing no longer governs it. Read by
 	// ConfirmMissingModels, which keeps such rows out of its mass-vanish guard.
-	pinned          bool
+	pinned bool
+	// priceCustomized mirrors models.price_customized: the operator pinned the
+	// prices, so Upsert keeps the stored values and a value→value price move
+	// must not be reported (it did not persist).
+	priceCustomized bool
 	inputPrice      *float64
 	inputPriceCache *float64
 	outputPrice     *float64
@@ -180,6 +185,7 @@ func SnapshotProviderModels(ctx context.Context, repo *model.Repository, provide
 		snap[m.ModelID] = ModelSnapshot{
 			enabled:         m.Enabled,
 			pinned:          pinned[m.ModelID],
+			priceCustomized: m.PriceCustomized,
 			inputPrice:      m.InputPricePerMillion,
 			inputPriceCache: m.InputPricePerMillionCacheHit,
 			outputPrice:     m.OutputPricePerMillion,
@@ -234,22 +240,22 @@ func BuildDiscoveryDiff(snapshot map[string]ModelSnapshot, upserted []*model.Mod
 // diffModelFields compares the pricing/context fields of an existing model's
 // pre-scan snapshot against its freshly discovered (post-enrichment) values.
 //
-// A field's live-provenance (m.LiveMeta) gates whether a value→value change is
-// reported, so the diff stays faithful to what Upsert actually persists: only a
-// provider-reported (live) field overwrites a stored value, so only a live
-// field can report a value→value change. A non-live field is fill-only at
-// upsert — its stored value is kept — so its only reportable transition is
-// filling a previously-unset (nil) value. This is what stops a flaky probe or a
-// models.dev re-fetch from raising phantom "price changed" rows every restart.
+// Prices persist by follow-the-source on unpinned rows, so any value→value
+// price move the scan carries is real and gets reported — whichever source
+// (live API, catalog, models.dev) supplied it. On a price-pinned row Upsert
+// keeps the stored values, so value→value moves are suppressed as phantom.
+// Context length still gates on live-provenance (m.LiveMeta): a non-live
+// context value is fill-only at upsert, so only a live one can genuinely
+// change the stored value.
 func diffModelFields(prev ModelSnapshot, m *model.Model) []FieldChange {
 	var changes []FieldChange
-	if c, ok := diffFloatPtr(changeFieldInputPrice, prev.inputPrice, m.InputPricePerMillion, m.LiveMeta.InputPrice); ok {
+	if c, ok := diffFloatPtr(changeFieldInputPrice, prev.inputPrice, m.InputPricePerMillion, prev.priceCustomized); ok {
 		changes = append(changes, c)
 	}
-	if c, ok := diffFloatPtr(changeFieldOutputPrice, prev.outputPrice, m.OutputPricePerMillion, m.LiveMeta.OutputPrice); ok {
+	if c, ok := diffFloatPtr(changeFieldOutputPrice, prev.outputPrice, m.OutputPricePerMillion, prev.priceCustomized); ok {
 		changes = append(changes, c)
 	}
-	if c, ok := diffFloatPtr(changeFieldInputPriceCache, prev.inputPriceCache, m.InputPricePerMillionCacheHit, m.LiveMeta.InputPriceCache); ok {
+	if c, ok := diffFloatPtr(changeFieldInputPriceCache, prev.inputPriceCache, m.InputPricePerMillionCacheHit, prev.priceCustomized); ok {
 		changes = append(changes, c)
 	}
 	if c, ok := diffContextLength(changeFieldContextLength, prev.contextLength, m.ContextLength, m.LiveMeta.ContextLength); ok {
@@ -261,19 +267,20 @@ func diffModelFields(prev ModelSnapshot, m *model.Model) []FieldChange {
 // diffFloatPtr reports a price FieldChange when a scan changes a value. A nil
 // new value is never a change: Upsert preserves the stored value when a scan
 // omits a field, so reporting "value → unset" would be a phantom diff. Filling
-// a previously-unset value (old nil → new set) is always a change. For two
-// non-nil values the change is reported only when the field is live-sourced,
-// because a non-live field is fill-only at upsert and its stored value is kept
-// (reporting it would be a phantom diff). Comparison is at float32 precision
-// because prices are stored in a REAL column — comparing a fresh float64
-// against the float32-rounded stored value would otherwise jitter in the 7th
-// decimal. Real price changes are far larger than float32 epsilon.
-func diffFloatPtr(field string, oldVal, newVal *float64, live bool) (FieldChange, bool) {
+// a previously-unset value (old nil → new set) is always a change (Upsert
+// fills gaps even on pinned rows). For two non-nil values the change is
+// reported unless the row's prices are operator-pinned — a pinned row's stored
+// value survives the upsert, so the move never persisted. Comparison is at
+// float32 precision because prices are stored in a REAL column — comparing a
+// fresh float64 against the float32-rounded stored value would otherwise
+// jitter in the 7th decimal. Real price changes are far larger than float32
+// epsilon.
+func diffFloatPtr(field string, oldVal, newVal *float64, pricePinned bool) (FieldChange, bool) {
 	if newVal == nil {
 		return FieldChange{}, false
 	}
 	if oldVal != nil {
-		if !live || float32(*oldVal) == float32(*newVal) {
+		if pricePinned || float32(*oldVal) == float32(*newVal) {
 			return FieldChange{}, false
 		}
 	}

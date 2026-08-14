@@ -162,7 +162,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 
 	// Enrich models with data from models.dev.
 	if cache := provider.GetModelsDevCache(); cache != nil {
-		if enriched := cache.EnrichModels(models); enriched > 0 {
+		if enriched := cache.EnrichModels(models, provider.DetectProviderType(p.BaseURL)); enriched > 0 {
 			debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
 		}
 	}

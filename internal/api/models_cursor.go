@@ -176,7 +176,7 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 
 // modelSelectColumns is the cursor data query's column projection (models joined
 // to providers for p.name). Its order matches scanModelRow exactly.
-const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
 
 // modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
 // count queries.
@@ -190,7 +190,7 @@ func scanModelRow(rows pgx.Rows) (model.Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
 		&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
 	)
 	return m, err
 }

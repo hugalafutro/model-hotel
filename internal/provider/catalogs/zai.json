@@ -1,5 +1,14 @@
 [
   {
+    "model_id": "glm-5.3",
+    "context_length": 1000000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
     "model_id": "glm-5.2",
     "context_length": 1000000,
     "max_output_tokens": 131072,
@@ -96,7 +105,10 @@
     "modality": "text",
     "reasoning": true,
     "tool_calling": true,
-    "structured_output": true
+    "structured_output": true,
+    "input_price_per_million": 2.2,
+    "input_price_per_million_cache_hit": 0.45,
+    "output_price_per_million": 8.9
   },
   {
     "model_id": "glm-4.5-airx",
@@ -105,7 +117,10 @@
     "modality": "text",
     "reasoning": true,
     "tool_calling": true,
-    "structured_output": true
+    "structured_output": true,
+    "input_price_per_million": 1.1,
+    "input_price_per_million_cache_hit": 0.22,
+    "output_price_per_million": 4.5
   },
   {
     "model_id": "glm-4.5-flash",

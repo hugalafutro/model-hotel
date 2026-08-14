@@ -69,26 +69,24 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 				? null
 				: Number(editData.max_output_tokens);
 		if (mot !== model.max_output_tokens) fields.push("max_output_tokens");
-		const ipm =
-			editData.input_price_per_million === ""
-				? null
-				: Number(editData.input_price_per_million);
+		// An emptied price field is treated as "unchanged", not "clear to null":
+		// the API reads a null price as absent (no way to null one price alone),
+		// and sending the rest of the edit would pin the stale stored value.
+		// Clearing prices is the pin banner's "Reset to source" action instead.
 		if (
-			ipm !==
-			(model.input_price_per_million != null
-				? Math.round(model.input_price_per_million * 10000) / 10000
-				: null)
+			editData.input_price_per_million !== "" &&
+			Number(editData.input_price_per_million) !==
+				(model.input_price_per_million != null
+					? Math.round(model.input_price_per_million * 10000) / 10000
+					: null)
 		)
 			fields.push("input_price_per_million");
-		const opm =
-			editData.output_price_per_million === ""
-				? null
-				: Number(editData.output_price_per_million);
 		if (
-			opm !==
-			(model.output_price_per_million != null
-				? Math.round(model.output_price_per_million * 10000) / 10000
-				: null)
+			editData.output_price_per_million !== "" &&
+			Number(editData.output_price_per_million) !==
+				(model.output_price_per_million != null
+					? Math.round(model.output_price_per_million * 10000) / 10000
+					: null)
 		)
 			fields.push("output_price_per_million");
 		return fields;
@@ -120,16 +118,16 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 				editData.max_output_tokens === ""
 					? null
 					: Number(editData.max_output_tokens);
+		// Prices are only ever sent as numbers: an emptied field never makes the
+		// changed list (see getChangedFields), so no null price reaches the API.
 		if (changed.includes("input_price_per_million"))
-			updates.input_price_per_million =
-				editData.input_price_per_million === ""
-					? null
-					: Number(editData.input_price_per_million);
+			updates.input_price_per_million = Number(
+				editData.input_price_per_million,
+			);
 		if (changed.includes("output_price_per_million"))
-			updates.output_price_per_million =
-				editData.output_price_per_million === ""
-					? null
-					: Number(editData.output_price_per_million);
+			updates.output_price_per_million = Number(
+				editData.output_price_per_million,
+			);
 		if (Object.keys(updates).length > 0) {
 			onUpdate(model.id, updates as Partial<Model>);
 		}

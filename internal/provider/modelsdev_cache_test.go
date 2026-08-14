@@ -317,7 +317,7 @@ func TestModelsDevCacheEnrichModel_NilCache(t *testing.T) {
 		DisplayName: "Test Model",
 	}
 
-	enriched := cache.EnrichModel(m)
+	enriched := cache.EnrichModel(m, "")
 	if enriched {
 		t.Error("expected no enrichment with nil cache")
 	}
@@ -356,7 +356,7 @@ func TestModelsDevCacheEnrichModel_EmptyModel(t *testing.T) {
 		Capabilities: "{}",
 	}
 
-	enriched := cache.EnrichModel(m)
+	enriched := cache.EnrichModel(m, "")
 	if !enriched {
 		t.Error("expected enrichment to occur")
 	}
@@ -787,7 +787,7 @@ func TestModelsDevCacheEnrichModel_NotFound(t *testing.T) {
 		DisplayName: "",
 	}
 
-	enriched := cache.EnrichModel(m)
+	enriched := cache.EnrichModel(m, "")
 	if enriched {
 		t.Error("expected no enrichment for unknown model")
 	}
@@ -824,7 +824,7 @@ func TestModelsDevCacheEnrichModel_ExistingDataNotOverwritten(t *testing.T) {
 		Capabilities:  "{}",
 	}
 
-	_ = cache.EnrichModel(m)
+	_ = cache.EnrichModel(m, "")
 	// Should still enrich other fields but not name or context
 	if m.DisplayName != existingName {
 		t.Errorf("expected display name to remain '%s', got '%s'", existingName, m.DisplayName)
@@ -869,7 +869,7 @@ func TestModelsDevCacheEnrichModel_CacheReadPrice(t *testing.T) {
 		Modality:     "text",
 	}
 
-	cache.EnrichModel(m)
+	cache.EnrichModel(m, "")
 
 	if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != cacheReadPrice {
 		t.Errorf("expected cache read price %f, got %v", cacheReadPrice, m.InputPricePerMillionCacheHit)
@@ -908,7 +908,7 @@ func TestModelsDevCacheEnrichModel_Capabilities(t *testing.T) {
 		Modality:     "text",
 	}
 
-	cache.EnrichModel(m)
+	cache.EnrichModel(m, "")
 
 	var caps model.Capability
 	json.Unmarshal([]byte(m.Capabilities), &caps)
@@ -934,7 +934,7 @@ func TestModelsDevCacheEnrichModels_NilCache(t *testing.T) {
 		{ModelID: "model-1"},
 	}
 
-	count := cache.EnrichModels(models)
+	count := cache.EnrichModels(models, "")
 	if count != 0 {
 		t.Errorf("expected 0 enriched models from nil cache, got %d", count)
 	}
@@ -977,7 +977,7 @@ func TestModelsDevCacheEnrichModel_InvalidCapabilitiesJSON(t *testing.T) {
 	}
 
 	// Should not panic, should handle gracefully
-	enriched := cache.EnrichModel(m)
+	enriched := cache.EnrichModel(m, "")
 	if !enriched {
 		t.Error("expected enrichment to occur despite invalid capabilities JSON")
 	}
@@ -1012,7 +1012,7 @@ func TestModelsDevCacheEnrichModel_ModalityEnrichment(t *testing.T) {
 		OutputModalities: "",
 	}
 
-	cache.EnrichModel(m)
+	cache.EnrichModel(m, "")
 
 	// Enrichment fills the arrays only; the modality class is derived later
 	// by NormalizeModelClassification.
@@ -1057,7 +1057,7 @@ func TestModelsDevCacheEnrichModels_MultipleModels(t *testing.T) {
 		{ModelID: "model-1", DisplayName: "", Capabilities: "{}"},
 	}
 
-	enrichedCount := cache.EnrichModels(models)
+	enrichedCount := cache.EnrichModels(models, "")
 	if enrichedCount != 2 {
 		t.Errorf("expected 2 enriched models, got %d", enrichedCount)
 	}
@@ -1085,7 +1085,7 @@ func TestModelsDevCacheEnrichModels(t *testing.T) {
 		{ModelID: "model-2", DisplayName: "Model 2", Capabilities: "{}"},
 	}
 
-	enrichedCount := cache.EnrichModels(models)
+	enrichedCount := cache.EnrichModels(models, "")
 	if enrichedCount != 1 {
 		t.Errorf("expected 1 enriched model, got %d", enrichedCount)
 	}

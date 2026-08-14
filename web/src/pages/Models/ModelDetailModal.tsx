@@ -8,6 +8,7 @@ import {
 	DollarSign,
 	Hash,
 	Layers,
+	Pin,
 	RefreshCw,
 	Server,
 	Sparkles,
@@ -589,6 +590,36 @@ export function ModelDetailModal({
 					value={outputMods.join(", ") || t("models.detail.modality.text")}
 				/>
 			</div>
+
+			{/* Editing a price pins it server-side; while pinned, discovery stops
+			    refreshing this model's prices from live/catalog/models.dev.
+			    Unpinning nulls the prices so the next scan re-derives them. */}
+			{model.price_customized && (
+				<div
+					data-testid="price-pin-banner"
+					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
+				>
+					<Pin className="h-3.5 w-3.5 shrink-0" />
+					<span>{t("models.detail.pricePinned")}</span>
+					{manageable && !editing && (
+						<button
+							type="button"
+							className="ui-link-accent"
+							data-testid="price-pin-reset"
+							onClick={() =>
+								onUpdate?.(model.id, {
+									price_customized: false,
+									input_price_per_million: null,
+									input_price_per_million_cache_hit: null,
+									output_price_per_million: null,
+								} as Partial<Model>)
+							}
+						>
+							{t("models.detail.resetPricesToSource")}
+						</button>
+					)}
+				</div>
+			)}
 
 			{caps && (
 				<div className="mb-4">

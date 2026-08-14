@@ -1015,7 +1015,9 @@
 			"testSuccess": "Suksess | Respons: {{content}}{{ttftPart}} | Varighet: {{duration}}s",
 			"testFailed": "Test feilet: {{error}}",
 			"testSuccessNoResponse": "Suksess{{ttftPart}} | Varighet: {{duration}}s",
-			"copyRawValue": "Kopier råverdi"
+			"copyRawValue": "Kopier råverdi",
+			"pricePinned": "Priser festet av operatøren",
+			"resetPricesToSource": "Tilbakestill til kilden"
 		},
 		"table": {
 			"sortByModelName": "Sorter etter modellnavn",

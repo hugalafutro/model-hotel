@@ -1077,7 +1077,9 @@
 			"testSuccess": "Успех | Ответ: {{content}}{{ttftPart}} | Продолжительность: {{duration}}с",
 			"testFailed": "Тест не пройден: {{error}}",
 			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с",
-			"copyRawValue": "Копировать необработанное значение"
+			"copyRawValue": "Копировать необработанное значение",
+			"pricePinned": "Цены закреплены оператором",
+			"resetPricesToSource": "Сбросить к источнику"
 		},
 		"table": {
 			"sortByModelName": "Сортировать по названию модели",

@@ -86,7 +86,7 @@ Two manual discovery endpoints are available:
 
 Both endpoints upsert discovered models and re-sync failover groups for what they saw. They do **not** disable missing models: disabling requires two consecutive confirmed-missing scans, so a single on-demand click can never reach that threshold, and running the in-scan confirmation probes (up to ~70s of backoff) on a request would overrun the route's 60s HTTP timeout - which also made the HA config-sync import look like it failed. Miss-recording and disabling are therefore owned exclusively by the scheduled/startup background sweep - see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). When the background sweep does disable a model, its failover group is re-synced in the same scan so the model is pruned instead of lingering as a stale entry.
 
-Both endpoints also return a `diff` describing what the scan changed - models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`) plus any failover groups updated as a result. (The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.) It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
+Both endpoints also return a `diff` describing what the scan changed - models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`) plus any failover groups updated as a result. (The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.) It also reports `updated` models whose pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). The diff reports what actually persisted: price moves are reported from any source (live API, catalog, models.dev - prices follow their source on unpinned rows) but suppressed on operator-pinned rows, where the upsert keeps the stored values; context-length moves are reported only when the provider's own live API supplied the value (tracked via transient per-field live provenance), since a non-live context value is fill-only. OpenRouter's sub-tolerance price jitter is damped to the stored value before the upsert, so it neither persists nor reports. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
 
 Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a badge on the **Models** sidebar item; clicking the badge opens the [Model Discrepancy Modal](#the-model-discrepancy-modal). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
 
@@ -419,7 +419,7 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 
 **Source files:** `discovery_zai.go`, `zai_catalog.go`, `catalog_merge.go`
 
-**Method:** Fetches the live OpenAI-compatible model list from `GET /models` on the coding-plan base URL, then merges it with the built-in `zaiCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The live listing supplies the authoritative model set and `owned_by`; the catalog backfills context length, max output, capability flags, and modality, and unions in catalog models the listing omits (a freshly released GLM, or the vision/turbo variants the coding plan serves but does not advertise). If the `/models` fetch fails, discovery falls back to the pure catalog.
+**Method:** Fetches the live OpenAI-compatible model list from `GET /models` on the coding-plan base URL, then merges it with the built-in `zaiCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The live listing supplies the authoritative model set and `owned_by`; the catalog backfills context length, max output, capability flags, and modality, and unions in catalog models the listing omits (a freshly released GLM, or the vision/turbo variants the coding plan serves but does not advertise). If the `/models` fetch fails, the scan **aborts** rather than falling back to the pure catalog: the catalog is a subset of the live listing, so a catalog-only result would let `RecordMissingModels` disable every live-only model on a transient outage.
 
 **Live API provides:**
 
@@ -438,6 +438,9 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Tool calling | Catalog |
 | Structured output | Catalog |
 | Modality | Catalog |
+| Pricing | Catalog **overrides only** (see below); otherwise models.dev (canonical `zai` entry) |
+
+**Pricing:** most Z.AI prices come from models.dev enrichment via its canonical `zai` provider entry, which tracks the [official pricing page](https://docs.z.ai/guides/overview/pricing). The catalog carries per-model price *overrides* only for models that entry lacks - currently `glm-4.5-x` and `glm-4.5-airx` (official prices restated from the pricing page). Do not duplicate a models.dev-covered price into the catalog, and do not guess a price for a model whose official price is not yet published (`glm-5.3` at its release): the catalog wins over models.dev, so a duplicate or a guess keeps enforcing itself after the real price lands. An unpriced model meters at zero and is named in the discovery warning log until models.dev lists it, at which point [price-follows-source](#stored-metadata-on-re-scan-context-is-stable-prices-follow-source) propagates the real price to existing rows on the next scan.
 
 **Derived from catalog modality:**
 
@@ -728,21 +731,28 @@ In addition to provider-specific discovery and built-in catalogs, Model Hotel ca
 ### How It Works
 
 1. On server startup, a blocking call in `main.go` fetches `https://models.dev/api.json` with the default HTTP client (no explicit timeout).
-2. The response is parsed into an in-memory index keyed by model ID.
-3. During **every** discovery run (after the provider-specific discovery function returns its model list), each model is passed through the enrichment layer.
+2. The response is parsed into two in-memory indexes: a per-provider index (models.dev provider ID → model ID → spec) and a cross-provider index keyed by bare model ID.
+3. During **every** discovery run (after the provider-specific discovery function returns its model list), each model is passed through the enrichment layer along with the provider's detected type.
 4. `EnrichModel` fills **only empty or zero-value fields** - it never overwrites data already populated by the provider API or built-in catalog.
 5. If the models.dev fetch fails (network error, timeout, invalid JSON), enrichment is silently disabled. Existing catalogue data is never at risk.
 
+### Canonical Provider Preference
+
+The same bare model ID appears under dozens of models.dev providers - the official vendor plus resellers, each publishing its own prices (`glm-5.2` is listed by 26 providers). Enrichment therefore resolves specs in two steps:
+
+1. **Canonical provider first.** `modelsDevProviderForType` maps each Model Hotel provider type to the models.dev provider entry that carries the vendor's own official metadata (`zai-coding` → `zai`, `minimax` → `minimax`, `kimi-code` → `moonshotai`, ...). That entry's models are consulted first, so a reseller's price can never shadow the official one. Coding-plan types deliberately map to the pay-per-token vendor entry, not the `-coding-plan` entry (which prices everything at $0): Model Hotel meters the shadow cost a request would have had at list price.
+2. **Cross-provider fallback.** On a miss (or for unmapped/custom provider types) the lookup falls back to the cross-provider index. That index is built deterministically - canonical vendor entries are ranked ahead of all other providers, each group sorted by provider ID - so a colliding bare ID always resolves to the same spec across restarts. (Previously the winner was whichever provider a Go map iteration happened to visit first, which let random reseller prices land on official models.)
+
 ### Matching Logic
 
-Models are matched by their `model_id` using progressive fallback:
+Within each index, models are matched by their `model_id` using progressive fallback:
 
 1. **Exact match** - `gpt-4o` → `gpt-4o`
 2. **Strip date suffix** - `gpt-4o-2024-08-06` → `gpt-4o`
 3. **Strip version suffix** - `claude-sonnet-4-5-20250514` → `claude-sonnet-4-5`
 4. **Longest prefix match** - finds the models.dev entry with the longest matching prefix
 
-The `LookupFuzzy` function implements this logic, handling date patterns like `YYYY-MM-DD`, `YYYYMMDD`, and version suffixes.
+The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cross-provider passes run it against their respective maps), handling date patterns like `YYYY-MM-DD`, `YYYYMMDD`, and version suffixes.
 
 ### Fields Enriched
 
@@ -946,6 +956,14 @@ When discovery upserts a model, it uses an `ON CONFLICT` strategy:
 ```sql
 enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END
 ```
+
+### Stored metadata on re-scan: context is stable, prices follow source
+
+The same `ON CONFLICT` update merges pricing/context per field rather than blindly overwriting:
+
+- **Context length / max output tokens** are *fill-only* unless the value came from the provider's own live API this scan (tracked via transient per-field live provenance): a live value overwrites, a catalog/models.dev value only fills a gap. This keeps stored metadata stable when sources disagree or a probe is flaky.
+- **Prices follow their source** (`price_customized = false`, the default): the scan's price - live API, embedded catalog, or models.dev enrichment, already merged in that precedence - **overwrites** the stored one; only a scan that carries no price at all keeps the stored value. Vendor price changes and corrected enrichment data therefore propagate to existing rows on the next scan. Installs that upgraded past the random-reseller-price bug (see [Canonical Provider Preference](#canonical-provider-preference)) heal automatically on their first scan, with no migration or manual reset.
+- **Operator-pinned prices** (`price_customized = true`) are untouchable: no source, live included, overwrites them. Editing any price via `PATCH /api/models/{id}` sets the pin implicitly; sending `"price_customized": false` clears it AND nulls the price columns so the next scan re-derives them (the dashboard's model detail modal surfaces this as "Reset to source" on the pin banner).
 
 ### Missing models: three layers of proof before a disable
 

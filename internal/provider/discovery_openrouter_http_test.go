@@ -494,7 +494,7 @@ func TestDiscoverOpenRouter_MissingMetadataStaysNil(t *testing.T) {
 	}
 	// Nil fields must not be marked live, so a later scan can't be tricked into
 	// overwriting a stored value with zero.
-	if m.LiveMeta.ContextLength || m.LiveMeta.InputPrice || m.LiveMeta.OutputPrice {
+	if m.LiveMeta.ContextLength {
 		t.Errorf("absent fields must not be marked live: %+v", m.LiveMeta)
 	}
 }

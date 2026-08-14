@@ -281,7 +281,7 @@ func TestModelsDevInterleaved_UnmarshalJSON_Object(t *testing.T) {
 func TestEnrichModel_NilCache(t *testing.T) {
 	var cache *ModelsDevCache
 	m := &model.Model{ModelID: "test-model"}
-	result := cache.EnrichModel(m)
+	result := cache.EnrichModel(m, "")
 	if result {
 		t.Error("expected false for nil cache")
 	}
@@ -299,7 +299,7 @@ func TestEnrichModel_ModelNotFound(t *testing.T) {
 	}
 
 	m := &model.Model{ModelID: "nonexistent-model"}
-	result := cache.EnrichModel(m)
+	result := cache.EnrichModel(m, "")
 	if result {
 		t.Error("expected false when model not found in cache")
 	}
@@ -324,7 +324,7 @@ func TestEnrichModel_FallsBackToNameForAliasedDeployments(t *testing.T) {
 	}
 
 	m := &model.Model{ModelID: "my-fast-gpt", Name: "gpt-4.1-mini"}
-	if !cache.EnrichModel(m) {
+	if !cache.EnrichModel(m, "") {
 		t.Fatal("expected enrichment via Name fallback")
 	}
 	if m.ContextLength == nil || *m.ContextLength != 1047576 {
@@ -343,7 +343,7 @@ func TestEnrichModel_FallsBackToNameForAliasedDeployments(t *testing.T) {
 func TestEnrichModels_NilCache(t *testing.T) {
 	var cache *ModelsDevCache
 	models := []*model.Model{{ModelID: "test"}}
-	count := cache.EnrichModels(models)
+	count := cache.EnrichModels(models, "")
 	if count != 0 {
 		t.Errorf("expected 0 for nil cache, got %d", count)
 	}
@@ -359,7 +359,7 @@ func TestEnrichModels_EmptyList(t *testing.T) {
 	}
 
 	models := []*model.Model{}
-	count := cache.EnrichModels(models)
+	count := cache.EnrichModels(models, "")
 	if count != 0 {
 		t.Errorf("expected 0 for empty model list, got %d", count)
 	}
@@ -525,6 +525,158 @@ func TestLookupFuzzy_VersionSuffixSixDigits(t *testing.T) {
 		t.Error("expected to find claude-sonnet-4 by stripping -20250514 version suffix")
 	} else if result.Name != "Claude Sonnet 4" {
 		t.Errorf("expected name 'Claude Sonnet 4', got %q", result.Name)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Provider-aware enrichment
+// ---------------------------------------------------------------------------
+
+// loadCacheFromJSON loads the models.dev cache through the real load() path
+// from an inline api.json payload, so the per-provider and cross-provider
+// indexes are built exactly as production builds them.
+func loadCacheFromJSON(t *testing.T, payload string) *ModelsDevCache {
+	t.Helper()
+	t.Cleanup(func() { ResetModelsDevCache() })
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload))
+	}))
+	t.Cleanup(mockServer.Close)
+
+	baseTransport := mockServer.Client().Transport
+	client := mockServer.Client()
+	client.Transport = &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+		req.URL.Scheme = "http"
+		req.URL.Host = mockServer.Listener.Addr().String()
+		return baseTransport.RoundTrip(req)
+	}}
+
+	if err := LoadModelsDevWithClient(context.Background(), client); err != nil {
+		t.Fatalf("failed to load models.dev cache: %v", err)
+	}
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+	}
+	return cache
+}
+
+// resellerVsCanonicalJSON lists the same bare model ID under a reseller
+// ("302ai") and the canonical Z.ai entry ("zai") with different prices. The
+// reseller sorts alphabetically BEFORE "zai", so any test that sees the zai
+// price win proves canonical ranking, not accidental alphabetical order.
+const resellerVsCanonicalJSON = `{
+	"302ai": {"id":"302ai","name":"302.AI","api":"","models":{
+		"glm-t":{"id":"glm-t","name":"GLM-T via reseller","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":0.286,"output":1.142},"limit":{"context":131072,"output":98304}},
+		"reseller-only":{"id":"reseller-only","name":"Reseller Only","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":0.5,"output":1.5},"limit":{"context":1000,"output":100}}
+	}},
+	"zai": {"id":"zai","name":"Z.AI","api":"","models":{
+		"glm-t":{"id":"glm-t","name":"GLM-T","attachment":false,"reasoning":true,"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":1.4,"output":4.4,"cache_read":0.26},"limit":{"context":1000000,"output":131072}}
+	}}
+}`
+
+func TestEnrichModel_PrefersCanonicalProviderEntry(t *testing.T) {
+	// "minimax" is ALSO canonical and sorts before "zai", so the cross-provider
+	// index carries minimax's spec for the colliding ID. Only the per-provider
+	// lookup can surface zai's own entry — this test fails if EnrichModel falls
+	// back to the flat index.
+	cache := loadCacheFromJSON(t, `{
+		"minimax": {"id":"minimax","name":"MiniMax","api":"","models":{
+			"glm-t":{"id":"glm-t","name":"GLM-T via MiniMax","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":9.9,"output":9.9},"limit":{"context":1000,"output":100}}
+		}},
+		"zai": {"id":"zai","name":"Z.AI","api":"","models":{
+			"glm-t":{"id":"glm-t","name":"GLM-T","attachment":false,"reasoning":true,"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":1.4,"output":4.4,"cache_read":0.26},"limit":{"context":1000000,"output":131072}}
+		}}
+	}`)
+
+	m := &model.Model{ModelID: "glm-t"}
+	if !cache.EnrichModel(m, "zai-coding") {
+		t.Fatal("expected enrichment")
+	}
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 1.4 {
+		t.Errorf("InputPricePerMillion = %v, want 1.4 (canonical zai entry)", m.InputPricePerMillion)
+	}
+	if m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != 4.4 {
+		t.Errorf("OutputPricePerMillion = %v, want 4.4 (canonical zai entry)", m.OutputPricePerMillion)
+	}
+	if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != 0.26 {
+		t.Errorf("InputPricePerMillionCacheHit = %v, want 0.26 (canonical zai entry)", m.InputPricePerMillionCacheHit)
+	}
+}
+
+func TestEnrichModel_ExclusiveTypeNeverFallsBack(t *testing.T) {
+	cache := loadCacheFromJSON(t, resellerVsCanonicalJSON)
+
+	// "reseller-only" is absent from the canonical zai entry, and zai-coding is
+	// a single-vendor (exclusive) type: another models.dev provider's data for
+	// the same bare ID is secondhand, so the lookup must NOT fall through to
+	// the cross-provider index — the model stays unenriched (and unpriced)
+	// until the canonical entry lists it.
+	m := &model.Model{ModelID: "reseller-only"}
+	if cache.EnrichModel(m, "zai-coding") {
+		t.Fatal("exclusive provider type must not enrich from the cross-provider index")
+	}
+	if m.InputPricePerMillion != nil {
+		t.Errorf("InputPricePerMillion = %v, want nil", m.InputPricePerMillion)
+	}
+}
+
+func TestEnrichModel_NonExclusiveTypeFallsBackToCrossProviderIndex(t *testing.T) {
+	cache := loadCacheFromJSON(t, resellerVsCanonicalJSON)
+
+	// "openrouter" is mapped but non-exclusive (aggregator): a miss in its
+	// canonical entry falls through to the cross-provider index and still
+	// enriches.
+	m := &model.Model{ModelID: "reseller-only"}
+	if !cache.EnrichModel(m, "openrouter") {
+		t.Fatal("expected enrichment via cross-provider fallback")
+	}
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 0.5 {
+		t.Errorf("InputPricePerMillion = %v, want 0.5 (reseller entry)", m.InputPricePerMillion)
+	}
+}
+
+func TestLoad_CrossProviderIndexRanksCanonicalFirst(t *testing.T) {
+	cache := loadCacheFromJSON(t, resellerVsCanonicalJSON)
+
+	// Even with no provider type (unknown/custom hosts), the flat index must
+	// deterministically carry the canonical provider's spec for a colliding
+	// bare ID — never a random reseller's.
+	spec := cache.Lookup("glm-t")
+	if spec == nil {
+		t.Fatal("expected glm-t in cross-provider index")
+	}
+	if spec.Cost.Input != 1.4 {
+		t.Errorf("cross-provider index Cost.Input = %v, want 1.4 (canonical zai entry)", spec.Cost.Input)
+	}
+}
+
+func TestEnrichModel_UnmappedProviderTypeUsesCrossProviderIndex(t *testing.T) {
+	cache := loadCacheFromJSON(t, resellerVsCanonicalJSON)
+
+	m := &model.Model{ModelID: "glm-t"}
+	if !cache.EnrichModel(m, "") {
+		t.Fatal("expected enrichment")
+	}
+	// Canonical-first flat ordering means the zai spec also wins here.
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 1.4 {
+		t.Errorf("InputPricePerMillion = %v, want 1.4", m.InputPricePerMillion)
+	}
+}
+
+func TestEnrichModel_CanonicalFuzzyMatchWithinProvider(t *testing.T) {
+	cache := loadCacheFromJSON(t, resellerVsCanonicalJSON)
+
+	// A dated variant must fuzzy-resolve inside the canonical provider's own
+	// models, not just via the cross-provider index.
+	m := &model.Model{ModelID: "glm-t-20260814"}
+	if !cache.EnrichModel(m, "zai-coding") {
+		t.Fatal("expected fuzzy enrichment within canonical provider")
+	}
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 1.4 {
+		t.Errorf("InputPricePerMillion = %v, want 1.4 (canonical zai entry)", m.InputPricePerMillion)
 	}
 }
 

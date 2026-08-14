@@ -1077,7 +1077,9 @@
 			"testSuccess": "Sukces | Odpowiedź: {{content}}{{ttftPart}} | Czas trwania: {{duration}}s",
 			"testFailed": "Test nie powiódł się: {{error}}",
 			"testSuccessNoResponse": "Sukces{{ttftPart}} | Czas trwania: {{duration}}s",
-			"copyRawValue": "Kopiuj surową wartość"
+			"copyRawValue": "Kopiuj surową wartość",
+			"pricePinned": "Ceny przypięte przez operatora",
+			"resetPricesToSource": "Przywróć ze źródła"
 		},
 		"table": {
 			"sortByModelName": "Sortuj według nazwy modelu",

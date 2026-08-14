@@ -1015,7 +1015,9 @@
 			"testSuccess": "Başarı | Yanıt: {{content}}{{ttftPart}} | Süre: {{duration}}saniye",
 			"testFailed": "Test başarısız: {{error}}",
 			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye",
-			"copyRawValue": "Ham değeri kopyala"
+			"copyRawValue": "Ham değeri kopyala",
+			"pricePinned": "Fiyatlar operatör tarafından sabitlendi",
+			"resetPricesToSource": "Kaynağa sıfırla"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",

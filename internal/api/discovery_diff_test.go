@@ -156,27 +156,49 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 		wantChanges []FieldChange
 	}{
 		{
-			// A live (provider-reported) price change overwrites on upsert, so it
-			// is reported.
+			// A provider-reported price change persists on upsert, so it is
+			// reported.
 			name: "live input price changed",
 			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
 			model: &model.Model{
 				ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2)),
-				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: []FieldChange{
 				{Field: changeFieldInputPrice, Old: new(float64(1)), New: new(float64(2))},
 			},
 		},
 		{
-			// THE noise killer: a non-live (catalog/models.dev) value change is
-			// fill-only at upsert — the stored value is kept — so it must not be
-			// reported. This is the cross-restart source oscillation that used to
-			// flood the modal with phantom price flips.
-			name:        "non-live value change is not reported",
-			prev:        ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
-			model:       &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2))},
+			// An enrichment/catalog price change ALSO persists (prices follow
+			// their source on unpinned rows), so it is reported the same way —
+			// this is how the canonical-provider corrections surface once.
+			name:  "enrichment price change is reported",
+			prev:  ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
+			model: &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2))},
+			wantChanges: []FieldChange{
+				{Field: changeFieldInputPrice, Old: new(float64(1)), New: new(float64(2))},
+			},
+		},
+		{
+			// On a price-pinned row Upsert keeps the stored values, so a
+			// value→value move never persisted and must not be reported.
+			name: "pinned row suppresses a price move",
+			prev: ModelSnapshot{enabled: true, priceCustomized: true, inputPrice: new(float64(1))},
+			model: &model.Model{
+				ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2)),
+			},
 			wantChanges: nil,
+		},
+		{
+			// A pinned row's GAP still fills on upsert, so old-nil → set is
+			// reported even when pinned.
+			name: "pinned row still reports a gap fill",
+			prev: ModelSnapshot{enabled: true, priceCustomized: true},
+			model: &model.Model{
+				ModelID: "m", Enabled: true, OutputPricePerMillion: new(float64(3)),
+			},
+			wantChanges: []FieldChange{
+				{Field: changeFieldOutputPrice, Old: nil, New: new(float64(3))},
+			},
 		},
 		{
 			// Filling a previously-unset value is reported even when non-live:
@@ -216,7 +238,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 				Enabled:                      true,
 				InputPricePerMillionCacheHit: new(0.25),
 				ContextLength:                new(262144),
-				LiveMeta:                     model.LiveMetaFields{InputPriceCache: true, ContextLength: true},
+				LiveMeta:                     model.LiveMetaFields{ContextLength: true},
 			},
 			wantChanges: []FieldChange{
 				{Field: changeFieldInputPriceCache, Old: new(0.5), New: new(0.25)},
@@ -254,17 +276,16 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 		},
 		{
 			// Float32 storage jitter on a live price must not register.
-			name: "price float32 jitter is ignored",
-			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(float32(0.28)))},
-			model: &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(0.28),
-				LiveMeta: model.LiveMetaFields{InputPrice: true}},
+			name:        "price float32 jitter is ignored",
+			prev:        ModelSnapshot{enabled: true, inputPrice: new(float64(float32(0.28)))},
+			model:       &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(0.28)},
 			wantChanges: nil,
 		},
 		{
 			name: "unchanged live values produce no update",
 			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1)), contextLength: new(8192)},
 			model: &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(1)), ContextLength: new(8192),
-				LiveMeta: model.LiveMetaFields{InputPrice: true, ContextLength: true}},
+				LiveMeta: model.LiveMetaFields{ContextLength: true}},
 			wantChanges: nil,
 		},
 		{
@@ -280,7 +301,6 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			prev: ModelSnapshot{enabled: false, inputPrice: new(float64(1))},
 			model: &model.Model{
 				ModelID: "m", Enabled: false, InputPricePerMillion: new(float64(2)),
-				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: nil,
 		},

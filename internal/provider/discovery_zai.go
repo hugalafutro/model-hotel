@@ -116,7 +116,7 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 	}
 	capJSON, _ := json.Marshal(caps)
 
-	return &model.Model{
+	m := &model.Model{
 		ID:               uuid.New(),
 		ProviderID:       providerID,
 		ModelID:          spec.ModelID,
@@ -132,6 +132,20 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 		OwnedBy:          "zhipu",
 		Enabled:          true,
 	}
+	// Copy the values rather than aliasing the shared embedded-catalog spec.
+	if spec.InputPricePerMillion != nil {
+		v := *spec.InputPricePerMillion
+		m.InputPricePerMillion = &v
+	}
+	if spec.InputPricePerMillionCacheHit != nil {
+		v := *spec.InputPricePerMillionCacheHit
+		m.InputPricePerMillionCacheHit = &v
+	}
+	if spec.OutputPricePerMillion != nil {
+		v := *spec.OutputPricePerMillion
+		m.OutputPricePerMillion = &v
+	}
+	return m
 }
 
 // GetZAICodingQuota retrieves quota information for a ZAI Coding provider.

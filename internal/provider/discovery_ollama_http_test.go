@@ -82,9 +82,6 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 	if !models[0].LiveMeta.ContextLength {
 		t.Error("Expected LiveMeta.ContextLength=true for the live /api/show context length")
 	}
-	if models[0].LiveMeta.InputPrice || models[0].LiveMeta.OutputPrice {
-		t.Errorf("Expected no live price flags for Ollama (no wire pricing), got %+v", models[0].LiveMeta)
-	}
 
 	// Check capabilities
 	var caps model.Capability

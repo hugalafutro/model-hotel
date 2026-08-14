@@ -1046,7 +1046,9 @@
 			"testSuccess": "Èxit | Resposta: {{content}}{{ttftPart}} | Durada: {{duration}}s",
 			"testFailed": "La prova ha fallat: {{error}}",
 			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s",
-			"copyRawValue": "Copia el valor sense format"
+			"copyRawValue": "Copia el valor sense format",
+			"pricePinned": "Preus fixats per l'operador",
+			"resetPricesToSource": "Restableix a l'origen"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",

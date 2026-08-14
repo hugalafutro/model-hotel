@@ -331,10 +331,11 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 	if models[0].OutputPricePerMillion == nil || *models[0].OutputPricePerMillion != 10.0 {
 		t.Errorf("Expected OutputPricePerMillion 10.0, got %v", models[0].OutputPricePerMillion)
 	}
-	// NanoGPT reports pricing/context over the wire, so these must be marked
+	// NanoGPT reports context limits over the wire, so these must be marked
 	// live (a genuine provider change overwrites on upsert and is reported).
-	if !models[0].LiveMeta.InputPrice || !models[0].LiveMeta.OutputPrice ||
-		!models[0].LiveMeta.ContextLength || !models[0].LiveMeta.MaxOutputTokens {
+	// Prices carry no live flag: on an unpinned row the upsert follows the
+	// incoming value regardless of source.
+	if !models[0].LiveMeta.ContextLength || !models[0].LiveMeta.MaxOutputTokens {
 		t.Errorf("Expected wire-sourced fields to be live, got %+v", models[0].LiveMeta)
 	}
 }
@@ -399,19 +400,13 @@ func TestDiscoverNanoGPT_OmittedPricingStaysNil(t *testing.T) {
 		t.Errorf("omitted pricing must be nil, got in=%v out=%v",
 			noPricing.InputPricePerMillion, noPricing.OutputPricePerMillion)
 	}
-	if noPricing.LiveMeta.InputPrice || noPricing.LiveMeta.OutputPrice {
-		t.Errorf("omitted pricing must not be marked live, got %+v", noPricing.LiveMeta)
-	}
 
-	// Explicit 0 -> kept as a real value and marked live.
+	// Explicit 0 -> kept as a real value.
 	free := models[1]
 	if free.InputPricePerMillion == nil || *free.InputPricePerMillion != 0 ||
 		free.OutputPricePerMillion == nil || *free.OutputPricePerMillion != 0 {
 		t.Errorf("explicit free pricing must be &0, got in=%v out=%v",
 			free.InputPricePerMillion, free.OutputPricePerMillion)
-	}
-	if !free.LiveMeta.InputPrice || !free.LiveMeta.OutputPrice {
-		t.Errorf("explicit free pricing must be marked live, got %+v", free.LiveMeta)
 	}
 }
 

@@ -70,6 +70,7 @@ export interface Model {
 	owned_by: string;
 	enabled: boolean;
 	disabled_manually: boolean;
+	price_customized: boolean;
 	created_at: string;
 	last_seen_at: string;
 }

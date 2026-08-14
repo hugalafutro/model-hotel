@@ -201,59 +201,53 @@ func TestCollapseRoundTrips_DoesNotMutateInput(t *testing.T) {
 func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	const orURL = "https://openrouter.ai/api/v1"
 
-	liveModel := func(id string, cache *float64) *model.Model {
-		m := &model.Model{ModelID: id, InputPricePerMillionCacheHit: cache}
-		m.LiveMeta.InputPriceCache = cache != nil
-		return m
+	wantPrice := func(t *testing.T, field string, got *float64, want float64) {
+		t.Helper()
+		if got == nil || *got != want {
+			t.Fatalf("%s = %v, want %v", field, got, want)
+		}
 	}
 
-	t.Run("within tolerance demotes the field to fill-only", func(t *testing.T) {
+	t.Run("within tolerance restores the stored value", func(t *testing.T) {
+		// Prices persist by follow-the-source on unpinned rows, so damping must
+		// replace a sub-tolerance wiggle with the stored value — the value the
+		// upsert then writes — not merely mark it.
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
-		m := liveModel("m", new(0.48)) // 4% drift, under 7%
+		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)} // 4% drift, under 7%
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
-		if m.LiveMeta.InputPriceCache {
-			t.Fatal("sub-tolerance wiggle should have cleared the live flag")
-		}
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.50)
 	})
 
-	t.Run("beyond tolerance stays live", func(t *testing.T) {
+	t.Run("beyond tolerance passes through", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.49)}}
-		m := liveModel("m", new(0.182)) // 63% drop, real upstream switch
+		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.182)} // 63% drop, real upstream switch
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
-		if !m.LiveMeta.InputPriceCache {
-			t.Fatal("a large genuine price move must remain live")
-		}
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.182)
 	})
 
 	t.Run("non-openrouter provider is a no-op", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
-		m := liveModel("m", new(0.48))
+		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
 		DampenOpenRouterPriceJitter("https://api.deepseek.com", snap, []*model.Model{m})
-		if !m.LiveMeta.InputPriceCache {
-			t.Fatal("damping must only apply to openrouter providers")
-		}
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
 	t.Run("model absent from snapshot is untouched", func(t *testing.T) {
-		m := liveModel("m", new(0.48))
+		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
 		DampenOpenRouterPriceJitter(orURL, map[string]ModelSnapshot{}, []*model.Model{m})
-		if !m.LiveMeta.InputPriceCache {
-			t.Fatal("first-seen model has no prior value to compare; flag must stay")
-		}
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
 	t.Run("filling a previously-unset price is kept", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: nil}}
-		m := liveModel("m", new(0.48))
+		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
-		if !m.LiveMeta.InputPriceCache {
-			t.Fatal("filling an unset field is a genuine change, not jitter")
-		}
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
 	t.Run("input and output price jitter are damped independently", func(t *testing.T) {
 		// A model whose input price wiggled under tolerance but whose output price
-		// genuinely jumped: only the input flag should be demoted.
+		// genuinely jumped: only the input price should be restored.
 		snap := map[string]ModelSnapshot{"m": {
 			inputPrice:  new(2.00),
 			outputPrice: new(6.00),
@@ -263,17 +257,11 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 			InputPricePerMillion:  new(1.96), // 2% drift -> jitter
 			OutputPricePerMillion: new(3.00), // 50% drop -> real move
 		}
-		m.LiveMeta.InputPrice = true
-		m.LiveMeta.OutputPrice = true
 
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
 
-		if m.LiveMeta.InputPrice {
-			t.Error("sub-tolerance input price wiggle should be demoted to fill-only")
-		}
-		if !m.LiveMeta.OutputPrice {
-			t.Error("a real output price move must stay live")
-		}
+		wantPrice(t, "input_price", m.InputPricePerMillion, 2.00)
+		wantPrice(t, "output_price", m.OutputPricePerMillion, 3.00)
 	})
 
 	t.Run("both input and output sub-tolerance wiggles are damped", func(t *testing.T) {
@@ -286,15 +274,11 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 			InputPricePerMillion:  new(2.02),
 			OutputPricePerMillion: new(5.90),
 		}
-		m.LiveMeta.InputPrice = true
-		m.LiveMeta.OutputPrice = true
 
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
 
-		if m.LiveMeta.InputPrice || m.LiveMeta.OutputPrice {
-			t.Errorf("both jittered prices should be demoted, got input=%v output=%v",
-				m.LiveMeta.InputPrice, m.LiveMeta.OutputPrice)
-		}
+		wantPrice(t, "input_price", m.InputPricePerMillion, 2.00)
+		wantPrice(t, "output_price", m.OutputPricePerMillion, 6.00)
 	})
 }
 

@@ -51,6 +51,7 @@ type ModelResponse struct {
 	OwnedBy                      string   `json:"owned_by"`
 	Enabled                      bool     `json:"enabled"`
 	DisabledManually             bool     `json:"disabled_manually"`
+	PriceCustomized              bool     `json:"price_customized"`
 	CreatedAt                    string   `json:"created_at"`
 	LastSeenAt                   string   `json:"last_seen_at"`
 }
@@ -77,6 +78,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		OwnedBy:                      m.OwnedBy,
 		Enabled:                      m.Enabled,
 		DisabledManually:             m.DisabledManually,
+		PriceCustomized:              m.PriceCustomized,
 		CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -191,7 +193,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 
-	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.OutputPricePerMillion != nil || req.Enabled != nil
+	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.PriceCustomized != nil || req.Enabled != nil
 	if !hasChanges {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return
@@ -217,6 +219,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	if err := validateFloatPtrRange("input_price_per_million", req.InputPricePerMillion, 0, 1000); err != nil {
 		respondBadRequest(w, "invalid input price", err)
+		return
+	}
+
+	if err := validateFloatPtrRange("input_price_per_million_cache_hit", req.InputPricePerMillionCacheHit, 0, 1000); err != nil {
+		respondBadRequest(w, "invalid cached input price", err)
 		return
 	}
 

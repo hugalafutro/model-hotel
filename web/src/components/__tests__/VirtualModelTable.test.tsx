@@ -63,6 +63,7 @@ function createModel(overrides: Partial<Model> = {}): Model {
 		owned_by: "test-provider",
 		enabled: true,
 		disabled_manually: false,
+		price_customized: false,
 		created_at: "2026-01-15T10:00:00Z",
 		last_seen_at: "2026-05-11T08:30:00Z",
 		...overrides,
@@ -518,6 +519,7 @@ describe("VirtualModelTable", () => {
 				createModel({
 					enabled: false,
 					disabled_manually: false,
+					price_customized: false,
 					last_seen_at: "2026-05-11T08:30:00Z",
 				}),
 			];

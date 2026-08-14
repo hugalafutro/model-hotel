@@ -1127,7 +1127,9 @@
 			"testSuccess": "النجاح | الاستجابة: {{content}}{{ttftPart}} | المدة: {{duration}}s",
 			"testFailed": "فشل الاختبار: {{error}}",
 			"testSuccessNoResponse": "النجاح{{ttftPart}} | المدة: {{duration}}s",
-			"copyRawValue": "نسخ القيمة الخام"
+			"copyRawValue": "نسخ القيمة الخام",
+			"pricePinned": "الأسعار مثبتة بواسطة المشغّل",
+			"resetPricesToSource": "إعادة التعيين إلى المصدر"
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",

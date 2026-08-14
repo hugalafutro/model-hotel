@@ -22,6 +22,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// roundTripperFunc adapts a function to http.RoundTripper.
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
 // ---------------------------------------------------------------------------
 // Integration test database setup
 // ---------------------------------------------------------------------------
@@ -345,6 +350,27 @@ func TestRunDiscoveryHappyPath(t *testing.T) {
 		t.Fatalf("failed to disable provider: %v", err)
 	}
 
+	// Load a models.dev cache carrying pricing for one of the mock models, so
+	// the scan's enrichment step runs for real and its result is observable on
+	// the upserted row.
+	mdSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"testcorp":{"id":"testcorp","name":"TestCorp","api":"","models":{
+			"test-model-a":{"id":"test-model-a","name":"Test Model A","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":1.5,"output":6},"limit":{"context":32000,"output":8000}}
+		}}}`))
+	}))
+	defer mdSrv.Close()
+	mdBase := mdSrv.Client().Transport
+	mdClient := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		req.URL.Scheme = "http"
+		req.URL.Host = mdSrv.Listener.Addr().String()
+		return mdBase.RoundTrip(req)
+	})}
+	if err := provider.LoadModelsDevWithClient(ctx, mdClient); err != nil {
+		t.Fatalf("failed to load models.dev cache: %v", err)
+	}
+	t.Cleanup(provider.ResetModelsDevCache)
+
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)
 
@@ -366,6 +392,20 @@ func TestRunDiscoveryHappyPath(t *testing.T) {
 	}
 	if len(models) != 2 {
 		t.Errorf("expected 2 models upserted for the first provider, got %d", len(models))
+	}
+	// models.dev enrichment ran during the scan: the covered model carries the
+	// cache's pricing, the uncovered one stays unpriced.
+	for _, m := range models {
+		switch m.ModelID {
+		case "test-model-a":
+			if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 1.5 {
+				t.Errorf("test-model-a InputPricePerMillion = %v, want 1.5 (models.dev enrichment)", m.InputPricePerMillion)
+			}
+		case "test-model-b":
+			if m.InputPricePerMillion != nil {
+				t.Errorf("test-model-b InputPricePerMillion = %v, want nil (not in models.dev)", m.InputPricePerMillion)
+			}
+		}
 	}
 
 	// Both providers expose the same model IDs, so auto failover groups formed.
