@@ -1015,7 +1015,9 @@
 			"testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
 			"testSuccessNoResponse": "Success{{ttftPart}} | Duration: {{duration}}s",
 			"testFailed": "Test failed: {{error}}",
-			"copyRawValue": "Copy raw value"
+			"copyRawValue": "Copy raw value",
+			"pricePinned": "Prices pinned by operator",
+			"resetPricesToSource": "Reset to source"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",

@@ -1046,7 +1046,9 @@
 			"testSuccess": "Успех | Одговор: {{content}}{{ttftPart}} | Трајање: {{duration}}",
 			"testFailed": "Тест је пропао: {{error}}",
 			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}",
-			"copyRawValue": "Копирај сирову вредност"
+			"copyRawValue": "Копирај сирову вредност",
+			"pricePinned": "Цене је закачио оператер",
+			"resetPricesToSource": "Врати на извор"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",

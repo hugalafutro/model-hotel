@@ -96,6 +96,45 @@ describe("ModelDetailModal", () => {
 		expect(screen.getByText("$1.5/1M")).toBeInTheDocument();
 	});
 
+	describe("price pin", () => {
+		it("hides the pin banner when prices are not customized", () => {
+			renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+			expect(screen.queryByTestId("price-pin-banner")).not.toBeInTheDocument();
+		});
+
+		it("shows the banner and resets prices to source", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal
+					{...defaultProps}
+					model={{ ...mockModel, price_customized: true }}
+				/>,
+			);
+
+			expect(screen.getByTestId("price-pin-banner")).toBeInTheDocument();
+			await user.click(screen.getByTestId("price-pin-reset"));
+			expect(onUpdate).toHaveBeenCalledWith(mockModel.id, {
+				price_customized: false,
+				input_price_per_million: null,
+				input_price_per_million_cache_hit: null,
+				output_price_per_million: null,
+			});
+		});
+
+		it("shows the banner without the reset action in read-only mode", () => {
+			renderWithProviders(
+				<ModelDetailModal
+					model={{ ...mockModel, price_customized: true }}
+					onClose={onClose}
+				/>,
+			);
+
+			expect(screen.getByTestId("price-pin-banner")).toBeInTheDocument();
+			expect(screen.queryByTestId("price-pin-reset")).not.toBeInTheDocument();
+		});
+	});
+
 	it("displays capabilities section", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

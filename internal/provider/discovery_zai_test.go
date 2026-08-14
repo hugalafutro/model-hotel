@@ -76,6 +76,90 @@ func TestDiscoverZAICoding_ReturnsModels(t *testing.T) {
 	}
 }
 
+func TestZAICodingSpecToModel_PriceOverrides(t *testing.T) {
+	in, cacheHit, out := 2.2, 0.45, 8.9
+	spec := ZAICodingModelSpec{
+		ModelID:                      "glm-test",
+		ContextLength:                128000,
+		MaxOutputTokens:              98304,
+		Modality:                     "text",
+		InputPricePerMillion:         &in,
+		InputPricePerMillionCacheHit: &cacheHit,
+		OutputPricePerMillion:        &out,
+	}
+	m := zaiCodingSpecToModel(spec, uuid.New())
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 2.2 {
+		t.Errorf("InputPricePerMillion = %v, want 2.2", m.InputPricePerMillion)
+	}
+	if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != 0.45 {
+		t.Errorf("InputPricePerMillionCacheHit = %v, want 0.45", m.InputPricePerMillionCacheHit)
+	}
+	if m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != 8.9 {
+		t.Errorf("OutputPricePerMillion = %v, want 8.9", m.OutputPricePerMillion)
+	}
+	// The model must not alias the spec's pointers: the embedded catalog is
+	// package-global shared state.
+	if m.InputPricePerMillion == spec.InputPricePerMillion {
+		t.Error("InputPricePerMillion aliases the catalog spec pointer")
+	}
+}
+
+func TestZAICodingSpecToModel_NoPriceOverridesLeavesNil(t *testing.T) {
+	spec := ZAICodingModelSpec{ModelID: "glm-test", ContextLength: 1, MaxOutputTokens: 1, Modality: "text"}
+	m := zaiCodingSpecToModel(spec, uuid.New())
+	if m.InputPricePerMillion != nil || m.OutputPricePerMillion != nil || m.InputPricePerMillionCacheHit != nil {
+		t.Errorf("expected nil price fields, got in=%v cache=%v out=%v",
+			m.InputPricePerMillion, m.InputPricePerMillionCacheHit, m.OutputPricePerMillion)
+	}
+}
+
+// TestZAICatalog_PriceOverridesPresent pins the embedded catalog's price
+// overrides: only models the canonical models.dev "zai" entry does not carry
+// (glm-4.5-x, glm-4.5-airx). Models covered by models.dev must NOT duplicate
+// prices here (a stale duplicate would win over fresh models.dev data), so
+// glm-5.2 doubles as the no-override control. glm-5.3 deliberately carries no
+// price either: its official price is unpublished, and an empty field lets
+// models.dev fill it — and price-follows-source propagate it — the moment the
+// real price is listed, instead of a catalog guess enforcing itself forever.
+func TestZAICatalog_PriceOverridesPresent(t *testing.T) {
+	specs := GetZAICodingModels()
+	byID := make(map[string]ZAICodingModelSpec, len(specs))
+	for _, s := range specs {
+		byID[s.ModelID] = s
+	}
+
+	wantPriced := map[string][3]float64{
+		"glm-4.5-x":    {2.2, 0.45, 8.9},
+		"glm-4.5-airx": {1.1, 0.22, 4.5},
+	}
+	for id, want := range wantPriced {
+		s, ok := byID[id]
+		if !ok {
+			t.Errorf("catalog is missing %s", id)
+			continue
+		}
+		if s.InputPricePerMillion == nil || *s.InputPricePerMillion != want[0] {
+			t.Errorf("%s InputPricePerMillion = %v, want %v", id, s.InputPricePerMillion, want[0])
+		}
+		if s.InputPricePerMillionCacheHit == nil || *s.InputPricePerMillionCacheHit != want[1] {
+			t.Errorf("%s InputPricePerMillionCacheHit = %v, want %v", id, s.InputPricePerMillionCacheHit, want[1])
+		}
+		if s.OutputPricePerMillion == nil || *s.OutputPricePerMillion != want[2] {
+			t.Errorf("%s OutputPricePerMillion = %v, want %v", id, s.OutputPricePerMillion, want[2])
+		}
+	}
+
+	for _, id := range []string{"glm-5.2", "glm-5.3"} {
+		control, ok := byID[id]
+		if !ok {
+			t.Fatalf("catalog is missing %s", id)
+		}
+		if control.InputPricePerMillion != nil || control.OutputPricePerMillion != nil {
+			t.Errorf("%s must not carry a catalog price: models.dev's canonical zai entry is its price source", id)
+		}
+	}
+}
+
 func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
 	server := zaiMockServer(t)
 	defer server.Close()

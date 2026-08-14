@@ -1015,7 +1015,9 @@
 			"testSuccess": "Onnistui | Vastaus: {{content}}{{ttftPart}} | Kesto: {{duration}}s",
 			"testFailed": "Testi epäonnistui: {{error}}",
 			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s",
-			"copyRawValue": "Kopioi raaka-arvo"
+			"copyRawValue": "Kopioi raaka-arvo",
+			"pricePinned": "Hinnat operaattorin kiinnittämiä",
+			"resetPricesToSource": "Palauta lähteestä"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",

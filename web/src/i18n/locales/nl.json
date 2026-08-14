@@ -1015,7 +1015,9 @@
 			"testSuccess": "Succes | Reactie: {{content}}{{ttftPart}} | Duur: {{duration}}s",
 			"testFailed": "Test mislukt: {{error}}",
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Duur: {{duration}}s",
-			"copyRawValue": "Onbewerkte waarde kopiëren"
+			"copyRawValue": "Onbewerkte waarde kopiëren",
+			"pricePinned": "Prijzen vastgezet door operator",
+			"resetPricesToSource": "Terugzetten naar bron"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",

@@ -1046,7 +1046,9 @@
 			"testSuccess": "הצלחה | תגובה: {{content}}{{ttftPart}} | משך: {{duration}}שניות",
 			"testFailed": "הבדיקה נכשלה: {{error}}",
 			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות",
-			"copyRawValue": "העתק ערך גולמי"
+			"copyRawValue": "העתק ערך גולמי",
+			"pricePinned": "המחירים ננעצו על ידי המפעיל",
+			"resetPricesToSource": "איפוס למקור"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",

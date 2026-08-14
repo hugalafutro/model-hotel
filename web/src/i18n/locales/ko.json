@@ -1015,7 +1015,9 @@
 			"testSuccess": "성공 | 응답: {{content}}{{ttftPart}} | 소요 시간: {{duration}}초",
 			"testFailed": "테스트 실패: {{error}}",
 			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초",
-			"copyRawValue": "원시 값 복사"
+			"copyRawValue": "원시 값 복사",
+			"pricePinned": "운영자가 가격을 고정했습니다",
+			"resetPricesToSource": "소스로 재설정"
 		},
 		"table": {
 			"sortByModelName": "모델명 순으로 정렬",

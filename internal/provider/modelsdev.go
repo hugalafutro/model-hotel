@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,10 +20,66 @@ const modelsDevAPIURL = "https://models.dev/api.json"
 // ModelsDevCache holds an in-memory index of the models.dev catalogue.
 // It is safe for concurrent read access after initial Load().
 type ModelsDevCache struct {
-	mu       sync.RWMutex
-	byID     map[string]*ModelsDevModelSpec // exact model ID → spec
-	loaded   bool
-	loadTime time.Time
+	mu         sync.RWMutex
+	byID       map[string]*ModelsDevModelSpec            // exact model ID → spec (cross-provider, canonical-first)
+	byProvider map[string]map[string]*ModelsDevModelSpec // models.dev provider ID → model ID → spec
+	loaded     bool
+	loadTime   time.Time
+}
+
+// modelsDevCanonical names the models.dev provider entry that carries a Model
+// Hotel provider type's own official metadata and pricing, and whether that
+// entry is the ONLY models.dev source the type may use.
+type modelsDevCanonical struct {
+	ID string
+	// Exclusive stops the lookup from falling back to the cross-provider index
+	// when the canonical entry misses. Set for single-vendor provider types:
+	// their API serves only their own models, so another models.dev provider's
+	// data for the same bare ID is by definition secondhand (e.g. OpenCode Go
+	// lists "glm-5.3" with a guessed price before Z.ai publishes one — that
+	// guess must not become the metered price on a Z.ai provider). Aggregator
+	// and catch-all types stay non-exclusive: their listings genuinely span
+	// many vendors, so the cross-provider index is legitimate gap coverage.
+	Exclusive bool
+}
+
+// modelsDevProviderForType maps Model Hotel provider types (as returned by
+// DetectProviderType) to their canonical models.dev entry. Enrichment consults
+// that entry's models first, so a reseller's price for the same bare model ID
+// (models.dev lists "glm-5.2" under 26 different providers) can never shadow
+// the official one.
+//
+// Coding-plan provider types map to the pay-per-token provider (zai-coding →
+// "zai", kimi-code → "moonshotai"), not to the "-coding-plan" models.dev
+// entries: those price every model at $0 (subscription), while Model Hotel
+// meters the shadow cost a request would have had at list price.
+//
+// "ollama-cloud" is deliberately absent: models.dev's ollama-cloud entry
+// carries no cost data at all (subscription shape), so mapping it would return
+// canonical specs whose empty prices block the cross-provider index that is
+// Ollama Cloud's only pricing source.
+var modelsDevProviderForType = map[string]modelsDevCanonical{
+	// Single-vendor types: canonical entry or nothing.
+	"anthropic":      {ID: "anthropic", Exclusive: true},
+	"deepseek":       {ID: "deepseek", Exclusive: true},
+	"xai":            {ID: "xai", Exclusive: true},
+	"google":         {ID: "google", Exclusive: true},
+	"vertex-express": {ID: "google-vertex", Exclusive: true},
+	"cohere":         {ID: "cohere", Exclusive: true},
+	"minimax":        {ID: "minimax", Exclusive: true},
+	"kimi-code":      {ID: "moonshotai", Exclusive: true},
+	"zai-coding":     {ID: "zai", Exclusive: true},
+	// Aggregators and the unknown-host catch-all ("openai"): canonical first,
+	// cross-provider index as gap coverage (Bedrock/Azure host many vendors'
+	// models, custom OpenAI-compatible hosts serve arbitrary ones).
+	"openai":       {ID: "openai"},
+	"nanogpt":      {ID: "nano-gpt"},
+	"openrouter":   {ID: "openrouter"},
+	"opencode-go":  {ID: "opencode-go"},
+	"opencode-zen": {ID: "opencode"},
+	"bedrock":      {ID: "amazon-bedrock"},
+	"azure":        {ID: "azure"},
+	"neuralwatt":   {ID: "neuralwatt"},
 }
 
 // ModelsDevProviderSpec represents a provider entry in the models.dev API.
@@ -141,6 +198,7 @@ func ResetModelsDevCache() {
 	modelsDevCache.mu.Lock()
 	modelsDevCache.loaded = false
 	modelsDevCache.byID = nil
+	modelsDevCache.byProvider = nil
 	modelsDevCache.mu.Unlock()
 }
 
@@ -170,32 +228,65 @@ func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 		return fmt.Errorf("models.dev: failed to parse JSON: %w", err)
 	}
 
-	// Build flat index: model ID → spec (across all providers).
-	index := make(map[string]*ModelsDevModelSpec)
-	for _, p := range providers {
-		if p == nil || p.Models == nil {
+	// Per-provider index: models.dev provider ID → model ID → spec. This is the
+	// authoritative lookup path for providers listed in modelsDevProviderForType.
+	perProvider := make(map[string]map[string]*ModelsDevModelSpec, len(providers))
+	for pid, p := range providers {
+		if p == nil || len(p.Models) == 0 {
 			continue
 		}
+		pm := make(map[string]*ModelsDevModelSpec, len(p.Models))
 		for modelID, spec := range p.Models {
 			if spec == nil {
 				continue
 			}
-			// Use the model ID from the map key (matches spec.ID).
 			key := modelID
 			if key == "" {
 				key = spec.ID
 			}
 			if key != "" {
-				// First provider wins — avoids overwriting with less detailed entries.
-				if _, exists := index[key]; !exists {
-					index[key] = spec
-				}
+				pm[key] = spec
+			}
+		}
+		perProvider[pid] = pm
+	}
+
+	// Cross-provider index: model ID → spec, first provider wins. The same bare
+	// model ID appears under dozens of models.dev providers (official vendor
+	// plus resellers, each with its own prices), so the iteration order decides
+	// which spec a fallback lookup sees. Rank canonical providers (the values of
+	// modelsDevProviderForType — official vendor entries) ahead of everything
+	// else, sorted within each group so the winner is deterministic across
+	// loads. Ranging over the providers map directly would pick a random winner
+	// per process start.
+	canonical := make(map[string]bool, len(modelsDevProviderForType))
+	for _, c := range modelsDevProviderForType {
+		canonical[c.ID] = true
+	}
+	providerIDs := make([]string, 0, len(perProvider))
+	for pid := range perProvider {
+		providerIDs = append(providerIDs, pid)
+	}
+	sort.Slice(providerIDs, func(i, j int) bool {
+		ci, cj := canonical[providerIDs[i]], canonical[providerIDs[j]]
+		if ci != cj {
+			return ci
+		}
+		return providerIDs[i] < providerIDs[j]
+	})
+
+	index := make(map[string]*ModelsDevModelSpec)
+	for _, pid := range providerIDs {
+		for key, spec := range perProvider[pid] {
+			if _, exists := index[key]; !exists {
+				index[key] = spec
 			}
 		}
 	}
 
 	c.mu.Lock()
 	c.byID = index
+	c.byProvider = perProvider
 	c.loaded = true
 	c.loadTime = time.Now()
 	c.mu.Unlock()
@@ -221,14 +312,45 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 	if c == nil {
 		return nil
 	}
-
-	// 1. Exact match.
-	if spec := c.Lookup(modelID); spec != nil {
-		return spec
-	}
-
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return lookupFuzzyIn(c.byID, modelID)
+}
+
+// lookupForProvider resolves a spec for a model discovered on a Model Hotel
+// provider of the given type. The canonical models.dev provider entry for that
+// type (see modelsDevProviderForType) is consulted first — it carries the
+// vendor's own official metadata and pricing — and only on a miss does the
+// lookup fall back to the cross-provider index. An empty or unmapped
+// providerType goes straight to the cross-provider index.
+func (c *ModelsDevCache) lookupForProvider(providerType, modelID string) *ModelsDevModelSpec {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if canonical, ok := modelsDevProviderForType[providerType]; ok {
+		if spec := lookupFuzzyIn(c.byProvider[canonical.ID], modelID); spec != nil {
+			return spec
+		}
+		if canonical.Exclusive {
+			return nil
+		}
+	}
+	return lookupFuzzyIn(c.byID, modelID)
+}
+
+// lookupFuzzyIn runs the exact-then-fuzzy match against one index map. Pure
+// helper — the caller holds whatever lock protects the map.
+func lookupFuzzyIn(index map[string]*ModelsDevModelSpec, modelID string) *ModelsDevModelSpec {
+	if len(index) == 0 {
+		return nil
+	}
+
+	// 1. Exact match.
+	if spec, ok := index[modelID]; ok {
+		return spec
+	}
 
 	// 2. Vendor/dot-prefixed IDs (Bedrock: "openai.gpt-oss-120b", inference
 	//    profiles: "us.anthropic.claude-x"): strip dot segments left-to-right,
@@ -242,7 +364,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 			break
 		}
 		rest = rest[i+1:]
-		if spec, ok := c.byID[rest]; ok {
+		if spec, ok := index[rest]; ok {
 			return spec
 		}
 	}
@@ -255,7 +377,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 		if len(last) == 4 && isNumeric(last) {
 			// Try without the date suffix "-YYYY"
 			candidate := strings.Join(parts[:len(parts)-1], "-")
-			if spec, ok := c.byID[candidate]; ok {
+			if spec, ok := index[candidate]; ok {
 				return spec
 			}
 		}
@@ -264,7 +386,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 			last3 := strings.Join(parts[len(parts)-3:], "-")
 			if looksLikeDate(last3) {
 				candidate := strings.Join(parts[:len(parts)-3], "-")
-				if spec, ok := c.byID[candidate]; ok {
+				if spec, ok := index[candidate]; ok {
 					return spec
 				}
 			}
@@ -278,7 +400,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 		if isNumeric(last) && len(last) >= 6 {
 			// Strip the trailing numeric date/version segment.
 			candidate := strings.Join(parts[:len(parts)-1], "-")
-			if spec, ok := c.byID[candidate]; ok {
+			if spec, ok := index[candidate]; ok {
 				return spec
 			}
 		}
@@ -291,7 +413,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 	//    e.g. "gpt-5-search-api" → "gpt-5" ✗ (remainder is not a date/version)
 	var bestMatch *ModelsDevModelSpec
 	bestLen := 0
-	for key, spec := range c.byID {
+	for key, spec := range index {
 		if strings.HasPrefix(modelID, key) && len(key) > bestLen {
 			// Check that the remainder after the prefix is just a date/version suffix.
 			// The key must either match exactly or be followed by a "-" then a
@@ -362,18 +484,20 @@ func fillModalities(dst *string, mods []string) bool {
 
 // EnrichModel fills gaps in a model.Model using models.dev data.
 // It only overwrites fields that are empty/zero (never replaces existing data).
-// Returns true if at least one field was enriched.
-func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
+// providerType (a DetectProviderType string) selects the canonical models.dev
+// provider entry to consult first; pass "" to use only the cross-provider
+// index. Returns true if at least one field was enriched.
+func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	if c == nil {
 		return false
 	}
 
-	spec := c.LookupFuzzy(m.ModelID)
+	spec := c.lookupForProvider(providerType, m.ModelID)
 	if spec == nil && m.Name != "" && m.Name != m.ModelID {
 		// Deployment-based providers (Azure) invoke by user-chosen alias but
 		// record the underlying base-model name in Name — match on that when
 		// the alias misses the catalog.
-		spec = c.LookupFuzzy(m.Name)
+		spec = c.lookupForProvider(providerType, m.Name)
 	}
 	if spec == nil {
 		return false
@@ -428,16 +552,18 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	return enriched
 }
 
-// EnrichModels enriches a batch of models using models.dev data.
-// Returns the number of models that were enriched (had at least one field filled).
-func (c *ModelsDevCache) EnrichModels(models []*model.Model) int {
+// EnrichModels enriches a batch of models using models.dev data. providerType
+// is the DetectProviderType string of the provider the models were discovered
+// on (see EnrichModel). Returns the number of models that were enriched (had
+// at least one field filled).
+func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string) int {
 	if c == nil {
 		reportUnpricedModels(models)
 		return 0
 	}
 	count := 0
 	for _, m := range models {
-		if c.EnrichModel(m) {
+		if c.EnrichModel(m, providerType) {
 			count++
 		}
 	}

@@ -108,7 +108,7 @@ func backfillLiveFromCatalog(live, catalog []*model.Model) []*model.Model {
 	return live
 }
 
-// markLiveMeta flags each model's currently-set pricing/context fields as
+// markLiveMeta flags each model's currently-set context-limit fields as
 // live-sourced, recording that the provider's own API reported them this scan.
 //
 // Call it on the provider-built live slice at the boundary between fetching the
@@ -118,10 +118,9 @@ func backfillLiveFromCatalog(live, catalog []*model.Model) []*model.Model {
 // stay non-live so a degraded scan can't overwrite a stored live value.
 //
 // Marked fields overwrite on upsert (a genuine provider change propagates);
-// everything else is fill-only and stays stable. Discoverers whose pricing is a
-// hardcoded table rather than wire data (anthropic/google/cohere) deliberately
-// leave their values unmarked — fill-only freezes them to the constant table
-// value, which is what we want.
+// a non-live value is fill-only and stays stable. Prices are not flagged at
+// all: on an unpinned row the upsert follows the incoming value regardless of
+// which source supplied it (see the price CASEs in model.Upsert).
 func markLiveMeta(models []*model.Model) {
 	for _, m := range models {
 		if m != nil {

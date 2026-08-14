@@ -285,7 +285,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	// Enrich models with data from models.dev (fills gaps for models not
 	// covered by hardcoded catalogs).
 	if cache := provider.GetModelsDevCache(); cache != nil {
-		enriched := cache.EnrichModels(models)
+		enriched := cache.EnrichModels(models, provider.DetectProviderType(prov.BaseURL))
 		if enriched > 0 {
 			events.Publish(events.Event{
 				Type:     "discovery.enriched",
@@ -589,7 +589,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 
 		// Enrich models with data from models.dev.
 		if cache := provider.GetModelsDevCache(); cache != nil {
-			enriched := cache.EnrichModels(models)
+			enriched := cache.EnrichModels(models, provider.DetectProviderType(prov.BaseURL))
 			if enriched > 0 {
 				events.Publish(events.Event{
 					Type:     "discovery.enriched",

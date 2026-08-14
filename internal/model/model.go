@@ -36,42 +36,39 @@ type Model struct {
 	Enabled                      bool      `json:"enabled"`
 	DisabledManually             bool      `json:"disabled_manually"`
 	DisplayNameCustomized        bool      `json:"display_name_customized"`
+	PriceCustomized              bool      `json:"price_customized"`
 	CreatedAt                    time.Time `json:"created_at"`
 	LastSeenAt                   time.Time `json:"last_seen_at"`
 	ProviderName                 string    `json:"provider_name"`
 	ProviderEnabled              bool      `json:"provider_enabled"`
 
-	// LiveMeta marks which pricing/context fields on THIS in-memory model were
+	// LiveMeta marks which context-limit fields on THIS in-memory model were
 	// populated directly from the provider's live API during the current scan
 	// (as opposed to the hardcoded catalog or models.dev enrichment). It is
 	// transient: never read from or written to the database, and excluded from
 	// JSON (clients never see it). Upsert uses it to merge per field — live
-	// fields overwrite the stored value, so a genuine provider price/context
-	// change propagates, while everything else is fill-only and stays stable so
-	// a flaky probe or a models.dev re-fetch can't flip a stored value. The zero
+	// fields overwrite the stored value, so a genuine provider context change
+	// propagates, while a non-live value is fill-only and stays stable so a
+	// flaky probe or a models.dev re-fetch can't flip a stored value. The zero
 	// value (all false) is the safe default for stub-, catalog- and
-	// models.dev-sourced models.
+	// models.dev-sourced models. Price columns don't ride here: they follow the
+	// incoming value unless the operator pinned them (price_customized), judged
+	// inside the upsert query.
 	LiveMeta LiveMetaFields `json:"-"`
 }
 
-// LiveMetaFields records, per pricing/context field, whether the value came
+// LiveMetaFields records, per context-limit field, whether the value came
 // from the provider's own live API this scan. See Model.LiveMeta.
 type LiveMetaFields struct {
-	InputPrice      bool
-	InputPriceCache bool
-	OutputPrice     bool
 	ContextLength   bool
 	MaxOutputTokens bool
 }
 
-// MarkLiveMetaFromCurrent flags every pricing/context field that is currently
+// MarkLiveMetaFromCurrent flags every context-limit field that is currently
 // set (non-nil) as live-sourced. Discoverers call this on a model right after
 // populating it from the provider's live payload and before any catalog or
 // models.dev fill runs, so only provider-reported fields are flagged.
 func (m *Model) MarkLiveMetaFromCurrent() {
-	m.LiveMeta.InputPrice = m.InputPricePerMillion != nil
-	m.LiveMeta.InputPriceCache = m.InputPricePerMillionCacheHit != nil
-	m.LiveMeta.OutputPrice = m.OutputPricePerMillion != nil
 	m.LiveMeta.ContextLength = m.ContextLength != nil
 	m.LiveMeta.MaxOutputTokens = m.MaxOutputTokens != nil
 }
@@ -99,9 +96,9 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
@@ -118,22 +115,31 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			modality = EXCLUDED.modality,
 			input_modalities = EXCLUDED.input_modalities,
 			output_modalities = EXCLUDED.output_modalities,
-			-- Pricing/context come from variable sources (the provider's live API,
-			-- our hardcoded catalog, models.dev) that disagree and flip across
-			-- restarts (a flaky probe drops out, a fresh models.dev snapshot
-			-- differs). To keep stored metadata stable AND still honour a genuine
-			-- provider change, each field is merged by source: when the value came
-			-- from the provider's live API this scan (the $live_* flag, derived
-			-- from m.LiveMeta) it WINS and overwrites; otherwise it is fill-only —
-			-- the stored value is kept and the incoming value only fills a gap.
-			-- This makes the provider the source of truth while a catalog/models.dev
-			-- value can never flip a stored live value, so discovery is idempotent
-			-- across restarts and the served /v1/models prices stop drifting.
+			-- Context/output-limit fields come from variable sources (the
+			-- provider's live API, our hardcoded catalog, models.dev) that disagree
+			-- and can flip across restarts. To keep stored metadata stable AND
+			-- still honour a genuine provider change, each is merged by source:
+			-- when the value came from the provider's live API this scan (the
+			-- $live_* flag, derived from m.LiveMeta) it WINS and overwrites;
+			-- otherwise it is fill-only — the stored value is kept and the
+			-- incoming value only fills a gap.
 			context_length = CASE WHEN $19 THEN COALESCE(EXCLUDED.context_length, models.context_length) ELSE COALESCE(models.context_length, EXCLUDED.context_length) END,
 			max_output_tokens = CASE WHEN $20 THEN COALESCE(EXCLUDED.max_output_tokens, models.max_output_tokens) ELSE COALESCE(models.max_output_tokens, EXCLUDED.max_output_tokens) END,
-			input_price_per_million = CASE WHEN $21 THEN COALESCE(EXCLUDED.input_price_per_million, models.input_price_per_million) ELSE COALESCE(models.input_price_per_million, EXCLUDED.input_price_per_million) END,
-			input_price_per_million_cache_hit = CASE WHEN $22 THEN COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) ELSE COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) END,
-			output_price_per_million = CASE WHEN $23 THEN COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) ELSE COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) END,
+			-- Prices FOLLOW their source instead: unless the operator pinned them
+			-- (price_customized, set by any price edit), the scan's value — live
+			-- API, embedded catalog, or models.dev enrichment, already merged in
+			-- that precedence before this upsert — overwrites the stored one, and
+			-- only a scan with no price at all keeps the stored value. This is
+			-- what lets a vendor price change (or corrected enrichment data, e.g.
+			-- the canonical-provider fix for the random-reseller-price bug)
+			-- propagate to existing rows; the old fill-only behavior froze
+			-- whatever value landed first, forever. A pinned row's STORED values
+			-- are the operator's — no source, live included, replaces them until
+			-- they unpin — but a NULL price on a pinned row still fills from the
+			-- scan (the pin protects values, it does not veto gap-fill).
+			input_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million, EXCLUDED.input_price_per_million) ELSE COALESCE(EXCLUDED.input_price_per_million, models.input_price_per_million) END,
+			input_price_per_million_cache_hit = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) ELSE COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) END,
+			output_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) ELSE COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) END,
 			owned_by = EXCLUDED.owned_by,
 			-- A sighting re-enables a model that discovery disabled for going
 			-- missing, because reappearing in the listing is genuine new
@@ -179,15 +185,17 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		m.ID, m.ProviderID, m.ModelID, m.Name, m.Description, m.DisplayName, m.Capabilities, m.Params,
 		m.Modality, m.InputModalities, m.OutputModalities,
 		m.ContextLength, m.MaxOutputTokens, m.InputPricePerMillion, m.InputPricePerMillionCacheHit, m.OutputPricePerMillion, m.OwnedBy, m.Enabled,
-		// $19-$23: per-field "this value came from the provider's live API" flags
-		// (same column order as the CASE clauses above) that pick overwrite vs
-		// fill-only. Zero value (all false) => fully fill-only, the safe default.
-		m.LiveMeta.ContextLength, m.LiveMeta.MaxOutputTokens, m.LiveMeta.InputPrice, m.LiveMeta.InputPriceCache, m.LiveMeta.OutputPrice,
+		// $19/$20: "this value came from the provider's live API" flags for the
+		// context/output-limit CASE clauses above (overwrite vs fill-only). Zero
+		// value (false) => fill-only, the safe default. The price columns don't
+		// take flags: they follow the incoming value unless price_customized,
+		// judged entirely inside the query.
+		m.LiveMeta.ContextLength, m.LiveMeta.MaxOutputTokens,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	if err != nil {
@@ -205,7 +213,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -290,7 +298,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -380,7 +388,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 
 	if err != nil {
@@ -673,13 +681,22 @@ func (r *Repository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) (int64, e
 }
 
 // UpdateModelRequest contains optional fields for updating a model.
+//
+// Editing any price implicitly sets the price_customized pin, so discovery
+// stops refreshing that model's prices from live/catalog/models.dev.
+// PriceCustomized set to false explicitly clears the pin AND nulls all three
+// price columns, so the next scan re-derives them from source; set to true it
+// pins the currently stored prices without editing them. An explicit
+// PriceCustomized wins over the implicit pin when both appear in one request.
 type UpdateModelRequest struct {
-	DisplayName           *string  `json:"display_name"`
-	ContextLength         *int     `json:"context_length"`
-	MaxOutputTokens       *int     `json:"max_output_tokens"`
-	InputPricePerMillion  *float64 `json:"input_price_per_million"`
-	OutputPricePerMillion *float64 `json:"output_price_per_million"`
-	Enabled               *bool    `json:"enabled"`
+	DisplayName                  *string  `json:"display_name"`
+	ContextLength                *int     `json:"context_length"`
+	MaxOutputTokens              *int     `json:"max_output_tokens"`
+	InputPricePerMillion         *float64 `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit *float64 `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
+	PriceCustomized              *bool    `json:"price_customized"`
+	Enabled                      *bool    `json:"enabled"`
 }
 
 // Update applies partial updates to a model.
@@ -711,15 +728,40 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		args = append(args, *req.MaxOutputTokens)
 		argIdx++
 	}
-	if req.InputPricePerMillion != nil {
-		setClauses = append(setClauses, fmt.Sprintf("input_price_per_million = $%d", argIdx))
-		args = append(args, *req.InputPricePerMillion)
-		argIdx++
+	// The pin follows the operator's action: editing a price pins it (their
+	// number must survive the next scan), an explicit PriceCustomized overrides
+	// that, and unpinning also nulls the price columns so the next scan
+	// re-derives them from source instead of keeping the operator's leftovers.
+	// An unpin therefore suppresses price edits in the same request — the two
+	// are contradictory, and the explicit unpin wins (also avoids assigning the
+	// same column twice in one UPDATE).
+	unpin := req.PriceCustomized != nil && !*req.PriceCustomized
+	priceEdited := false
+	if !unpin {
+		if req.InputPricePerMillion != nil {
+			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million = $%d", argIdx))
+			args = append(args, *req.InputPricePerMillion)
+			argIdx++
+			priceEdited = true
+		}
+		if req.InputPricePerMillionCacheHit != nil {
+			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million_cache_hit = $%d", argIdx))
+			args = append(args, *req.InputPricePerMillionCacheHit)
+			argIdx++
+			priceEdited = true
+		}
+		if req.OutputPricePerMillion != nil {
+			setClauses = append(setClauses, fmt.Sprintf("output_price_per_million = $%d", argIdx))
+			args = append(args, *req.OutputPricePerMillion)
+			argIdx++
+			priceEdited = true
+		}
 	}
-	if req.OutputPricePerMillion != nil {
-		setClauses = append(setClauses, fmt.Sprintf("output_price_per_million = $%d", argIdx))
-		args = append(args, *req.OutputPricePerMillion)
-		argIdx++
+	if unpin {
+		setClauses = append(setClauses, "price_customized = false",
+			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL")
+	} else if req.PriceCustomized != nil || priceEdited {
+		setClauses = append(setClauses, "price_customized = true")
 	}
 	if req.Enabled != nil {
 		setClauses = append(setClauses, fmt.Sprintf("enabled = $%d", argIdx))

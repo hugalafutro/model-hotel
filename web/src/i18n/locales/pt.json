@@ -1046,7 +1046,9 @@
 			"testSuccess": "Sucesso | Resposta: {{content}}{{ttftPart}} | Duração: {{duration}}s",
 			"testFailed": "Teste falhou: {{error}}",
 			"testSuccessNoResponse": "Sucesso{{ttftPart}} | Duração: {{duration}}s",
-			"copyRawValue": "Copiar valor bruto"
+			"copyRawValue": "Copiar valor bruto",
+			"pricePinned": "Preços fixados pelo operador",
+			"resetPricesToSource": "Redefinir para a origem"
 		},
 		"table": {
 			"sortByModelName": "Classificar por nome do modelo",

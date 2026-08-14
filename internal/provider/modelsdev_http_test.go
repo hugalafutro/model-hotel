@@ -219,7 +219,7 @@ func TestModelsDevCacheEnrichModel(t *testing.T) {
 		Enabled:          true,
 	}
 
-	enriched := cache.EnrichModel(m)
+	enriched := cache.EnrichModel(m, "")
 	if !enriched {
 		t.Error("expected EnrichModel to return true")
 	}
@@ -280,7 +280,7 @@ func TestModelsDevCacheEnrichModel(t *testing.T) {
 		},
 	}
 
-	enrichedCount := cache.EnrichModels(models)
+	enrichedCount := cache.EnrichModels(models, "")
 	if enrichedCount != 1 {
 		t.Errorf("expected EnrichModels to enrich 1 model, got %d", enrichedCount)
 	}

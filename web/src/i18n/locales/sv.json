@@ -1015,7 +1015,9 @@
 			"testSuccess": "Lyckad | Svar: {{content}}{{ttftPart}} | Varaktighet: {{duration}}s",
 			"testFailed": "Test misslyckades: {{error}}",
 			"testSuccessNoResponse": "Lyckad{{ttftPart}} | Varaktighet: {{duration}}s",
-			"copyRawValue": "Kopiera råvärde"
+			"copyRawValue": "Kopiera råvärde",
+			"pricePinned": "Priser fästa av operatören",
+			"resetPricesToSource": "Återställ till källan"
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",

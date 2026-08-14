@@ -1046,7 +1046,9 @@
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
 			"testFailed": "Test eșuat: {{error}}",
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s",
-			"copyRawValue": "Copiază valoarea brută"
+			"copyRawValue": "Copiază valoarea brută",
+			"pricePinned": "Prețuri fixate de operator",
+			"resetPricesToSource": "Resetare la sursă"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",

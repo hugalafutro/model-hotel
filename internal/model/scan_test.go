@@ -129,7 +129,7 @@ func assignToDest(dest, val any) {
 }
 
 // ---------------------------------------------------------------------------
-// buildRow builds a single row of 24 values in scan order from a Model
+// buildRow builds a single row of 25 values in scan order from a Model
 // ---------------------------------------------------------------------------
 
 func buildRow(t *testing.T, m *Model) []any {
@@ -155,10 +155,11 @@ func buildRow(t *testing.T, m *Model) []any {
 		m.Enabled,                      // 17 - Enabled
 		m.DisabledManually,             // 18 - DisabledManually
 		m.DisplayNameCustomized,        // 19 - DisplayNameCustomized
-		m.CreatedAt,                    // 20 - CreatedAt
-		m.LastSeenAt,                   // 21 - LastSeenAt
-		m.ProviderName,                 // 22 - ProviderName
-		m.ProviderEnabled,              // 23 - ProviderEnabled
+		m.PriceCustomized,              // 20 - PriceCustomized
+		m.CreatedAt,                    // 21 - CreatedAt
+		m.LastSeenAt,                   // 22 - LastSeenAt
+		m.ProviderName,                 // 23 - ProviderName
+		m.ProviderEnabled,              // 24 - ProviderEnabled
 	}
 }
 

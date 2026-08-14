@@ -24,6 +24,7 @@ const mockModel: Model = {
 	owned_by: "test-provider",
 	enabled: true,
 	disabled_manually: false,
+	price_customized: false,
 	created_at: "2026-01-15T10:00:00Z",
 	last_seen_at: "2026-05-11T08:30:00Z",
 };
@@ -278,6 +279,27 @@ describe("useModelEditor", () => {
 			});
 
 			expect(result.current.getChangedFields()).toContain("context_length");
+		});
+
+		it("clearing a priced field is not a change (reset goes through the pin banner)", () => {
+			// mockModel has input_price_per_million: 0.5; emptying the field must
+			// NOT count as a change: a null price is unrepresentable in the update
+			// API, and sending the rest of the edit would pin the stale value.
+			const { result } = renderHook(() =>
+				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
+			);
+
+			act(() => {
+				result.current.setEditData((prev) => ({
+					...prev,
+					input_price_per_million: "",
+					output_price_per_million: "",
+				}));
+			});
+
+			const changed = result.current.getChangedFields();
+			expect(changed).not.toContain("input_price_per_million");
+			expect(changed).not.toContain("output_price_per_million");
 		});
 
 		it("treats empty string as equal to null for input_price_per_million", () => {
@@ -545,7 +567,10 @@ describe("useModelEditor", () => {
 			});
 		});
 
-		it("handles empty string as null for input_price_per_million", () => {
+		it("saving with emptied price fields sends nothing (no null prices on the wire)", () => {
+			// A null price is unrepresentable in the update API (absent ≠ clear),
+			// and sending the rest of the edit would pin the stale stored value.
+			// Clearing prices is the pin banner's "Reset to source" action instead.
 			const { result } = renderHook(() =>
 				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
 			);
@@ -554,26 +579,6 @@ describe("useModelEditor", () => {
 				result.current.setEditData((prev) => ({
 					...prev,
 					input_price_per_million: "",
-				}));
-			});
-
-			act(() => {
-				result.current.handleSave();
-			});
-
-			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
-				input_price_per_million: null,
-			});
-		});
-
-		it("handles empty string as null for output_price_per_million", () => {
-			const { result } = renderHook(() =>
-				useModelEditor({ model: mockModel, onUpdate: mockOnUpdate }),
-			);
-
-			act(() => {
-				result.current.setEditData((prev) => ({
-					...prev,
 					output_price_per_million: "",
 				}));
 			});
@@ -582,9 +587,7 @@ describe("useModelEditor", () => {
 				result.current.handleSave();
 			});
 
-			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
-				output_price_per_million: null,
-			});
+			expect(mockOnUpdate).not.toHaveBeenCalled();
 		});
 
 		it("trims display_name before saving", () => {

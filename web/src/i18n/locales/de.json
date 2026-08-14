@@ -1015,7 +1015,9 @@
 			"testSuccess": "Erfolg | Antwort: {{content}}{{ttftPart}} | Dauer: {{duration}}s",
 			"testFailed": "Test fehlgeschlagen: {{error}}",
 			"testSuccessNoResponse": "Erfolg{{ttftPart}} | Dauer: {{duration}}s",
-			"copyRawValue": "Rohwert kopieren"
+			"copyRawValue": "Rohwert kopieren",
+			"pricePinned": "Preise vom Operator angeheftet",
+			"resetPricesToSource": "Auf Quelle zurücksetzen"
 		},
 		"table": {
 			"sortByModelName": "Nach Modellnamen sortieren",

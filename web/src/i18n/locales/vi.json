@@ -1015,7 +1015,9 @@
 			"testSuccess": "Thành công | Phản hồi: {{content}}{{ttftPart}} | Thời lượng: {{duration}}giây",
 			"testFailed": "Thử nghiệm không thành công: {{error}}",
 			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây",
-			"copyRawValue": "Sao chép giá trị thô"
+			"copyRawValue": "Sao chép giá trị thô",
+			"pricePinned": "Giá đã được người vận hành ghim",
+			"resetPricesToSource": "Đặt lại theo nguồn"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mô hình",

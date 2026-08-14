@@ -152,25 +152,25 @@ func TestMergeLiveAndCatalog_CaseInsensitiveMatch(t *testing.T) {
 func TestMergeLiveAndCatalog_LiveMetaProvenance(t *testing.T) {
 	pid := uuid.New()
 	live := []*model.Model{{
-		ProviderID:           pid,
-		ModelID:              "glm-5.1",
-		Name:                 "glm-5.1",
-		Capabilities:         "{}",
-		InputModalities:      "[]",
-		InputPricePerMillion: new(1.5), // provider-reported -> live
-		ContextLength:        nil,      // catalog will backfill -> NOT live
+		ProviderID:      pid,
+		ModelID:         "glm-5.1",
+		Name:            "glm-5.1",
+		Capabilities:    "{}",
+		InputModalities: "[]",
+		MaxOutputTokens: new(131072), // provider-reported -> live
+		ContextLength:   nil,         // catalog will backfill -> NOT live
 	}}
 	catalog := []*model.Model{{
-		ProviderID:           pid,
-		ModelID:              "glm-5.1",
-		ContextLength:        new(200000),
-		InputPricePerMillion: new(float64(99)),
+		ProviderID:      pid,
+		ModelID:         "glm-5.1",
+		ContextLength:   new(200000),
+		MaxOutputTokens: new(99),
 	}}
 
 	out := mergeLiveAndCatalog(live, catalog)
 	m := out[0]
-	if !m.LiveMeta.InputPrice {
-		t.Error("InputPrice came from the provider payload; want LiveMeta.InputPrice=true")
+	if !m.LiveMeta.MaxOutputTokens {
+		t.Error("MaxOutputTokens came from the provider payload; want LiveMeta.MaxOutputTokens=true")
 	}
 	if m.LiveMeta.ContextLength {
 		t.Error("ContextLength was catalog-backfilled; want LiveMeta.ContextLength=false")
@@ -191,7 +191,7 @@ func TestMergeLiveAndCatalog_CatalogOnlyIsNotLive(t *testing.T) {
 
 	out := mergeLiveAndCatalog(live, catalog)
 	for _, m := range out {
-		if m.ModelID == "glm-5.2" && (m.LiveMeta.ContextLength || m.LiveMeta.InputPrice) {
+		if m.ModelID == "glm-5.2" && (m.LiveMeta.ContextLength || m.LiveMeta.MaxOutputTokens) {
 			t.Errorf("catalog-only model must stay non-live, got %+v", m.LiveMeta)
 		}
 	}
@@ -256,16 +256,16 @@ func TestBackfillFromCatalog_FillsEmptyTextFields(t *testing.T) {
 // meta still flagged), with no nil-map dereference.
 func TestBackfillLiveFromCatalog_EmptyCatalogReturnsLive(t *testing.T) {
 	pid := uuid.New()
-	live := []*model.Model{{ProviderID: pid, ModelID: "m1", InputPricePerMillion: new(float64(3))}}
+	live := []*model.Model{{ProviderID: pid, ModelID: "m1", ContextLength: new(8192)}}
 
 	got := backfillLiveFromCatalog(live, nil)
 
 	if len(got) != 1 || got[0].ModelID != "m1" {
 		t.Fatalf("empty catalog should return live unchanged, got %+v", got)
 	}
-	// markLiveMeta ran before the early return, so the provider-set price is live.
-	if !got[0].LiveMeta.InputPrice {
-		t.Error("live-set price should be flagged live even with an empty catalog")
+	// markLiveMeta ran before the early return, so the provider-set context is live.
+	if !got[0].LiveMeta.ContextLength {
+		t.Error("live-set context length should be flagged live even with an empty catalog")
 	}
 }
 

@@ -532,7 +532,11 @@ export const api = {
 				context_length?: number | null;
 				max_output_tokens?: number | null;
 				input_price_per_million?: number | null;
+				input_price_per_million_cache_hit?: number | null;
 				output_price_per_million?: number | null;
+				/** false clears the operator price pin and nulls the prices so the
+				 *  next discovery scan re-derives them from source. */
+				price_customized?: boolean;
 				enabled?: boolean;
 			},
 		): Promise<Model> => {

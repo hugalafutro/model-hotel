@@ -1077,7 +1077,9 @@
 			"testSuccess": "Úspech | Odpoveď: {{content}}{{ttftPart}} | Trvanie: {{duration}}s",
 			"testFailed": "Test sa nepodaril: {{error}}",
 			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s",
-			"copyRawValue": "Kopírovať nespracovanú hodnotu"
+			"copyRawValue": "Kopírovať nespracovanú hodnotu",
+			"pricePinned": "Ceny pripnuté operátorom",
+			"resetPricesToSource": "Obnoviť zo zdroja"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
