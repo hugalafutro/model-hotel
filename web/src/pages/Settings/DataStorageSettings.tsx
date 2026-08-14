@@ -241,7 +241,7 @@ export function DataStorageSettings({
 												const olderThan = getDeleteOlderThan(deleteSelection);
 												if (olderThan) purgeMutation.mutate(olderThan);
 											}}
-											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+											className="ui-btn ui-btn-danger"
 										>
 											{t("settings.logging.deleteRequests.confirm")}
 										</button>
@@ -304,7 +304,7 @@ export function DataStorageSettings({
 												);
 												if (olderThan) purgeAppLogsMutation.mutate(olderThan);
 											}}
-											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+											className="ui-btn ui-btn-danger"
 										>
 											{purgeAppLogsMutation.isPending
 												? t("settings.logging.deleteAppLogs.deleting")
@@ -348,7 +348,7 @@ export function DataStorageSettings({
 											);
 										}
 									}}
-									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									className="ui-btn ui-btn-danger"
 									disabled={getProviderCacheCount() === 0}
 									title={t("settings.dataStorage.clearCache.tooltip")}
 								>
@@ -377,7 +377,7 @@ export function DataStorageSettings({
 											"info",
 										);
 									}}
-									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									className="ui-btn ui-btn-danger"
 									title={t("settings.dataStorage.reset.tooltip")}
 								>
 									{t("settings.dataStorage.reset")}
@@ -620,7 +620,7 @@ export function DataStorageSettings({
 											);
 										}
 									}}
-									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									className="ui-btn ui-btn-danger"
 									disabled={getArenaHistoryCount() === 0}
 									title={t("settings.dataStorage.clearHistoryAll.tooltip")}
 								>

@@ -117,7 +117,7 @@ export function PasskeyPanel() {
 				type="button"
 				onClick={handleRegister}
 				disabled={registering}
-				className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+				className="ui-btn ui-btn-primary"
 				aria-label={t("settings.passkeys.registerAriaLabel")}
 			>
 				<Plus size={16} />

@@ -275,7 +275,7 @@ export function TotpPanel() {
 						type="button"
 						onClick={handleVerify}
 						disabled={enrollVerifyMutation.isPending || !verifyCode.trim()}
-						className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+						className="ui-btn ui-btn-primary"
 						aria-label={t("settings.totp.verifyAriaLabel")}
 					>
 						{enrollVerifyMutation.isPending
@@ -361,7 +361,7 @@ export function TotpPanel() {
 							type="button"
 							onClick={handleDisable}
 							disabled={disableMutation.isPending || !disableCode.trim()}
-							className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+							className="ui-btn ui-btn-danger"
 							aria-label={t("settings.totp.confirmDisableAriaLabel")}
 						>
 							{disableMutation.isPending
@@ -384,7 +384,7 @@ export function TotpPanel() {
 				type="button"
 				onClick={() => enrollStartMutation.mutate()}
 				disabled={enrollStartMutation.isPending}
-				className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+				className="ui-btn ui-btn-primary"
 				aria-label={t("settings.totp.enableAriaLabel")}
 			>
 				{t("settings.totp.enable")}

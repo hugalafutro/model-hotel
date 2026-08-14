@@ -79,12 +79,12 @@ describe("ViewModeToggle", () => {
 		expect(button).toHaveAttribute("title", "Switch to pagination mode");
 	});
 
-	it("has border styling in paginate mode", () => {
+	it("has muted styling in paginate mode", () => {
 		renderWithProviders(
 			<ViewModeToggle viewMode="paginate" onChange={vi.fn()} />,
 		);
 		const button = screen.getByRole("button");
-		expect(button).toHaveClass("border-gray-700");
+		expect(button).not.toHaveClass("ui-btn-primary");
 		expect(button).toHaveClass("text-gray-400");
 	});
 

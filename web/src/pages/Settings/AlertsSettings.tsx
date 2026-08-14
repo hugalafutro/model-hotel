@@ -384,7 +384,7 @@ export function AlertsSettings({
 						<div className="flex items-center gap-3">
 							<button
 								type="button"
-								className="ui-btn ui-btn-secondary text-sm shrink-0 disabled:opacity-50"
+								className="ui-btn ui-btn-secondary shrink-0"
 								disabled={!canTest || testMutation.isPending}
 								onClick={() => testMutation.mutate()}
 								data-testid="alert-test-button"

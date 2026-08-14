@@ -414,9 +414,9 @@ export function Arena() {
 							disabled={
 								!arena.buttonLabel || (arena.phase === "setup" && !arena.canRun)
 							}
-							className={`ui-btn flex items-center gap-2 shrink-0 min-h-8 ${
+							className={`ui-btn shrink-0 min-h-8 ${
 								arena.isRunning ? "ui-btn-danger" : "ui-btn-primary"
-							} disabled:opacity-40 ${!arena.buttonLabel ? "invisible pointer-events-none" : ""}`}
+							} ${!arena.buttonLabel ? "invisible pointer-events-none" : ""}`}
 							tabIndex={!arena.buttonLabel ? -1 : undefined}
 						>
 							{arena.isRunning ? (

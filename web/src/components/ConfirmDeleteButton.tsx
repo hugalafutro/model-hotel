@@ -45,7 +45,7 @@ export function ConfirmDeleteButton({
 				type="button"
 				onClick={onConfirm}
 				disabled={loading}
-				className="ui-btn ui-btn-danger disabled:opacity-50"
+				className="ui-btn ui-btn-danger"
 			>
 				{loading
 					? t("common.deleting")

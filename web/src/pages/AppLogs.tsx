@@ -287,9 +287,9 @@ export function AppLogs() {
 									setLogsSubMode("request");
 									setSourceFilter("all");
 								}}
-								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
+								className={`ui-btn ${
 									logsSubMode === "request"
-										? "ui-btn-primary cursor-default"
+										? "ui-btn-primary ui-btn-static"
 										: "ui-btn-secondary"
 								}`}
 							>
@@ -302,9 +302,9 @@ export function AppLogs() {
 									setLogsSubMode("app");
 									setSourceFilter("all");
 								}}
-								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
+								className={`ui-btn ${
 									logsSubMode === "app"
-										? "ui-btn-primary cursor-default"
+										? "ui-btn-primary ui-btn-static"
 										: "ui-btn-secondary"
 								}`}
 							>

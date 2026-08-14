@@ -604,7 +604,7 @@ function LanguageSelector() {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
+				className="sidebar-footer-link text-gray-400 hover:text-white ui-btn hover:bg-white/5"
 				title={t("layout.language.label")}
 				aria-label={t("layout.language.label")}
 				data-testid="language-trigger"
@@ -1525,7 +1525,7 @@ export function Layout({ children }: LayoutProps) {
 							href="https://github.com/hugalafutro/model-hotel/wiki"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
+							className="sidebar-footer-link text-gray-400 hover:text-white ui-btn hover:bg-white/5"
 						>
 							<BookOpen size={14} strokeWidth={2} />
 							{/* "Wiki" is a fixed brand/proper-noun label for the link to
@@ -1537,7 +1537,7 @@ export function Layout({ children }: LayoutProps) {
 						<button
 							type="button"
 							onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
+							className="sidebar-footer-link text-gray-400 hover:text-white ui-btn hover:bg-white/5"
 							title={
 								theme === "dark"
 									? t("layout.theme.switchToLight")
@@ -1576,7 +1576,7 @@ export function Layout({ children }: LayoutProps) {
 								// The backend already returns a normalized short SHA.
 								return commit ? `${base} · ${commit}` : base;
 							})()}
-							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5`}
+							className={`sidebar-footer-link text-gray-400 hover:text-white ui-btn hover:bg-white/5`}
 						>
 							<span
 								className={

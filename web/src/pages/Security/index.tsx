@@ -325,7 +325,7 @@ export function Security() {
 						type="button"
 						onClick={handleVerify}
 						disabled={enrollVerifyMutation.isPending || !verifyCode.trim()}
-						className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+						className="ui-btn ui-btn-primary"
 						aria-label={t("settings.totp.verifyAriaLabel")}
 						data-testid="security-verify-button"
 					>
@@ -404,7 +404,7 @@ export function Security() {
 							type="button"
 							onClick={handleDisable}
 							disabled={disableMutation.isPending || !disableCode.trim()}
-							className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+							className="ui-btn ui-btn-danger"
 							aria-label={t("settings.totp.confirmDisableAriaLabel")}
 							data-testid="security-disable-confirm"
 						>
@@ -426,7 +426,7 @@ export function Security() {
 					type="button"
 					onClick={() => enrollStartMutation.mutate()}
 					disabled={enrollStartMutation.isPending}
-					className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+					className="ui-btn ui-btn-primary"
 					aria-label={t("settings.totp.enableAriaLabel")}
 					data-testid="security-enable-button"
 				>
@@ -532,7 +532,7 @@ export function Security() {
 					<button
 						type="submit"
 						disabled={passwordMutation.isPending || !passwordFormValid}
-						className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+						className="ui-btn ui-btn-primary"
 						data-testid="security-password-submit"
 					>
 						{t("security.password.submit")}

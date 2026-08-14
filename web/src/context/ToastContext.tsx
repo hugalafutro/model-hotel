@@ -370,7 +370,7 @@ function ToastItem({
 						toast.action?.onClick();
 						onDone();
 					}}
-					className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center underline"
+					className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 underline"
 				>
 					{toast.action.label}
 				</button>

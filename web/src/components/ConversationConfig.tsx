@@ -269,7 +269,7 @@ export function ConversationConfig({
 											type="button"
 											onClick={onStart}
 											disabled={!canStart}
-											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+											className="ui-btn ui-btn-primary shrink-0"
 										>
 											<Play size={16} />
 											{isContinue
@@ -282,7 +282,7 @@ export function ConversationConfig({
 									<button
 										type="button"
 										onClick={onContinue}
-										className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+										className="ui-btn ui-btn-primary shrink-0"
 									>
 										<FastForward size={16} />
 										{t("components.conversationConfig.continue")}
@@ -317,7 +317,7 @@ export function ConversationConfig({
 												type="button"
 												onClick={onRetry}
 												disabled={!input.trim()}
-												className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+												className="ui-btn ui-btn-primary shrink-0"
 											>
 												<RotateCcw size={16} />
 												{t("components.conversationConfig.retry")}
@@ -328,7 +328,7 @@ export function ConversationConfig({
 										<button
 											type="button"
 											onClick={onRetry}
-											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
+											className="ui-btn ui-btn-primary shrink-0"
 										>
 											<RotateCcw size={16} />
 											{t("components.conversationConfig.retryFromTurn", {
@@ -343,7 +343,7 @@ export function ConversationConfig({
 							<button
 								type="button"
 								onClick={onStop}
-								className="ui-btn ui-btn-danger flex items-center gap-2 shrink-0"
+								className="ui-btn ui-btn-danger shrink-0"
 							>
 								<Square size={16} />
 								{t("components.conversationConfig.stop")}

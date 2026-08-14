@@ -723,9 +723,9 @@ export function ModelDetailModal({
 							onClick={handleTest}
 							className={`ui-btn ${
 								testError
-									? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
+									? "ui-btn-danger bg-red-900/50 text-red-300"
 									: testing
-										? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
+										? "ui-btn-secondary bg-amber-900/30 text-amber-300/70"
 										: "ui-btn-secondary"
 							}`}
 						>
@@ -736,7 +736,7 @@ export function ModelDetailModal({
 							<button
 								type="button"
 								onClick={() => setConfirmDelete(true)}
-								className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 hover:bg-red-900/40 hover:text-red-400"
+								className="ui-btn ui-btn-danger-muted"
 							>
 								{t("common.delete")}
 							</button>
@@ -786,8 +786,8 @@ export function ModelDetailModal({
 									onClick={handleDiscover}
 									className={`ui-btn ${
 										cooldown > 0 || discovering
-											? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-											: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
+											? "bg-(--accent-lighter) text-(--accent)/50"
+											: "bg-(--accent-light) text-(--accent) hover:brightness-125"
 									}`}
 								>
 									{discovering ? (

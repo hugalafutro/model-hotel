@@ -207,7 +207,7 @@ export function DiscoverySettings({
 								type="button"
 								onClick={() => discoverAllMutation.mutate()}
 								disabled={isUpdating}
-								className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+								className="ui-btn ui-btn-primary"
 							>
 								{discoverAllMutation.isPending ? (
 									<Spinner />

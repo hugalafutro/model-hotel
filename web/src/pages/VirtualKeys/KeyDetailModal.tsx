@@ -735,7 +735,7 @@ export function KeyDetailModal({
 								type="button"
 								onClick={handleSave}
 								disabled={!hasChanges || updateMutation.isPending}
-								className="ui-btn ui-btn-primary disabled:opacity-50"
+								className="ui-btn ui-btn-primary"
 							>
 								{updateMutation.isPending
 									? t("common.saving")

@@ -37,7 +37,7 @@ describe("SubModeToggle", () => {
 		const gridButton = screen.getByText("Grid").closest("button");
 
 		expect(listButton).toHaveClass("ui-btn-primary");
-		expect(listButton).toHaveClass("cursor-default");
+		expect(listButton).toHaveClass("ui-btn-static");
 
 		expect(gridButton).not.toHaveClass("ui-btn-primary");
 	});
@@ -84,8 +84,8 @@ describe("SubModeToggle", () => {
 		const listButton = screen.getByText("List").closest("button");
 		const gridButton = screen.getByText("Grid").closest("button");
 
-		expect(listButton).toHaveClass("cursor-default");
-		expect(gridButton).toHaveClass("cursor-default");
+		expect(listButton).toHaveClass("ui-btn-static");
+		expect(gridButton).toHaveClass("ui-btn-static");
 		expect(gridButton).toHaveClass("text-(--text-tertiary)");
 	});
 
@@ -99,14 +99,14 @@ describe("SubModeToggle", () => {
 		expect(icons).toHaveLength(2);
 	});
 
-	it("active option has cursor-default", () => {
+	it("active option opts out of the pointer cursor", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SubModeToggle options={options} value="list" onChange={onChange} />,
 		);
 
 		const listButton = screen.getByText("List").closest("button");
-		expect(listButton).toHaveClass("cursor-default");
+		expect(listButton).toHaveClass("ui-btn-static");
 	});
 
 	it("inactive option gets the pointer cursor when not disabled", () => {
@@ -116,9 +116,9 @@ describe("SubModeToggle", () => {
 		);
 
 		// Pointer comes from the global base rule for enabled buttons; the
-		// component only opts OUT via cursor-default on the active option.
+		// component only opts OUT via ui-btn-static on the active option.
 		const gridButton = screen.getByText("Grid").closest("button");
-		expect(gridButton).not.toHaveClass("cursor-default");
+		expect(gridButton).not.toHaveClass("ui-btn-static");
 		expect(gridButton).not.toBeDisabled();
 	});
 });

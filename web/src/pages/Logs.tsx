@@ -447,9 +447,9 @@ function RequestLogs() {
 							<button
 								type="button"
 								onClick={() => setLogsSubMode("request")}
-								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
+								className={`ui-btn ${
 									logsSubMode === "request"
-										? "ui-btn-primary cursor-default"
+										? "ui-btn-primary ui-btn-static"
 										: "ui-btn-secondary"
 								}`}
 							>
@@ -459,9 +459,9 @@ function RequestLogs() {
 							<button
 								type="button"
 								onClick={() => setLogsSubMode("app")}
-								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
+								className={`ui-btn ${
 									logsSubMode === "app"
-										? "ui-btn-primary cursor-default"
+										? "ui-btn-primary ui-btn-static"
 										: "ui-btn-secondary"
 								}`}
 							>

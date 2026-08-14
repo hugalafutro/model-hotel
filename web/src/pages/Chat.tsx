@@ -572,7 +572,7 @@ export function Chat() {
 											? ""
 											: t("chat.controls.sendMessage")
 								}
-								className={`ui-btn flex items-center gap-2 shrink-0 ${
+								className={`ui-btn shrink-0 ${
 									chat.isStreaming ? "ui-btn-danger" : "ui-btn-primary"
 								}`}
 							>

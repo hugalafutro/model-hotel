@@ -34,7 +34,7 @@ export function ActionIconButton({
 			<button
 				type="button"
 				onClick={onClick}
-				className={`ui-btn flex items-center gap-2 ${iconClasses}`}
+				className={`ui-btn ${iconClasses}`}
 			>
 				<Icon size={size} />
 				{label}

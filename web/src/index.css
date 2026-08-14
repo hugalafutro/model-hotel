@@ -1756,6 +1756,17 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	outline-offset: 2px;
 }
 
+/* Disabled semantic buttons. The variant colors (accent primary, red danger)
+   are unlayered and beat any per-button Tailwind gray utilities, so without
+   this a non-actionable button keeps its fully active look. Muting via
+   opacity + grayscale works on top of whatever background each theme variant
+   sets, so one rule covers all four UI styles. */
+[data-ui-style] .ui-btn:disabled {
+	opacity: 0.5;
+	filter: grayscale(1);
+	cursor: not-allowed;
+}
+
 [data-ui-style] .ui-btn-primary {
 	background-color: var(--accent-light);
 	color: var(--accent);
@@ -1798,6 +1809,45 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 
 [data-ui-style] .ui-btn-danger:hover:not(:disabled) {
 	filter: brightness(1.25);
+}
+
+/* Stage-one (pre-confirm) delete: a quieter ui-btn-danger. The confirm
+   button that replaces it uses the full danger variant. */
+[data-ui-style] .ui-btn-danger-muted {
+	background-color: rgba(127, 29, 29, 0.2);
+	color: rgba(239, 68, 68, 0.6);
+	border-color: rgba(185, 28, 28, 0.3);
+}
+
+[data-ui-style] .ui-btn-danger-muted:hover:not(:disabled) {
+	background-color: rgba(127, 29, 29, 0.4);
+	color: #f87171;
+}
+
+/* Upload-a-file affordance: drop-zone-style dashed border that warms to the
+   accent on hover. */
+[data-ui-style] .ui-btn.ui-btn-dashed {
+	border: 1px dashed var(--border-default);
+}
+
+[data-ui-style] .ui-btn.ui-btn-dashed:hover:not(:disabled) {
+	border-color: var(--accent);
+}
+
+/* Toggle-tab options whose click is a no-op (the already-active choice, or a
+   disabled toggle): base ui-btn pins cursor: pointer, so opt out here. */
+[data-ui-style] .ui-btn.ui-btn-static {
+	cursor: default;
+}
+
+/* Destructive-but-second-tier actions: muted at rest, the label warms to
+   danger red on hover instead of the full danger variant. */
+[data-ui-style] .ui-btn.ui-btn-hover-danger {
+	color: var(--text-muted);
+}
+
+[data-ui-style] .ui-btn.ui-btn-hover-danger:hover:not(:disabled) {
+	color: #f87171;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-btn {

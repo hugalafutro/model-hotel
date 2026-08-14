@@ -389,7 +389,7 @@ export function DatabaseBackupSettings({
 										setShowEnableConfirm(false);
 										setPrunePreview(null);
 									}}
-									className="ui-btn ui-btn-secondary text-sm px-4 py-2"
+									className="ui-btn ui-btn-secondary"
 								>
 									{t("common.cancel")}
 								</button>
@@ -419,7 +419,7 @@ export function DatabaseBackupSettings({
 											});
 										}
 									}}
-									className="ui-btn ui-btn-primary text-sm px-4 py-2"
+									className="ui-btn ui-btn-primary"
 								>
 									{t("settings.backup.confirm")}
 								</button>
@@ -519,7 +519,7 @@ export function DatabaseBackupSettings({
 							type="button"
 							onClick={() => createMutation.mutate()}
 							disabled={createMutation.isPending}
-							className="ui-btn ui-btn-primary flex items-center gap-2"
+							className="ui-btn ui-btn-primary"
 						>
 							{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
 							{createMutation.isPending
@@ -546,7 +546,7 @@ export function DatabaseBackupSettings({
 								type="button"
 								onClick={() => fileInputRef.current?.click()}
 								disabled={isRestoring}
-								className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
+								className="ui-btn ui-btn-dashed text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--surface-elevated)"
 							>
 								<Upload size={14} />
 								{isRestoring
@@ -606,14 +606,14 @@ export function DatabaseBackupSettings({
 													type="button"
 													onClick={() => deleteMutation.mutate(backup.filename)}
 													disabled={deleteMutation.isPending}
-													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+													className="ui-btn ui-btn-danger"
 												>
 													{t("settings.backup.confirm")}
 												</button>
 												<button
 													type="button"
 													onClick={() => setConfirmDelete(null)}
-													className="ui-btn ui-btn-secondary text-xs px-2 py-1"
+													className="ui-btn ui-btn-secondary"
 												>
 													{t("settings.backup.cancel")}
 												</button>
@@ -623,7 +623,7 @@ export function DatabaseBackupSettings({
 												<button
 													type="button"
 													onClick={() => downloadBackup(backup.filename)}
-													className="ui-btn ui-btn-secondary text-xs px-2 py-1 flex items-center gap-1"
+													className="ui-btn ui-btn-secondary"
 												>
 													<Download size={12} />
 													{t("settings.backup.download")}
@@ -631,7 +631,7 @@ export function DatabaseBackupSettings({
 												<button
 													type="button"
 													onClick={() => setConfirmDelete(backup.filename)}
-													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+													className="ui-btn ui-btn-danger"
 													title={t("settings.backup.delete")}
 													aria-label={t("settings.backup.delete")}
 												>

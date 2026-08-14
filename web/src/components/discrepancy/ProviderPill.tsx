@@ -175,7 +175,7 @@ export function ProviderPill({
 					onClick={onClean}
 					title={t("providers.discrepancies.cleanTooltip")}
 					aria-label={t("providers.discrepancies.clean")}
-					className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center"
+					className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 					data-testid="discrepancy-clean"
 				>
 					<Broom size={14} />
@@ -194,7 +194,7 @@ export function ProviderPill({
 									: t("providers.discrepancies.retestTooltip")
 						}
 						aria-describedby={describedByReadOnly}
-						className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+						className="ui-btn ui-btn-secondary ui-btn-compact shrink-0"
 						data-testid="discrepancy-retest"
 					>
 						<RefreshCw size={13} className={retesting ? "animate-spin" : ""} />
@@ -217,7 +217,7 @@ export function ProviderPill({
 									: t("providers.discrepancies.dismissAllSuspectOnlyTooltip")
 						}
 						aria-describedby={describedByReadOnly}
-						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
 						data-testid="discrepancy-dismiss-all"
 					>
 						{t("providers.discrepancies.dismissAll")}

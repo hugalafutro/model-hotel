@@ -280,7 +280,7 @@ export function EditProviderModal({
 									setPendingDate(formData.scheduled_disable_on);
 									setPickerOpen((o) => !o);
 								}}
-								className="ui-icon-btn p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+								className="ui-icon-btn p-1 disabled:cursor-not-allowed"
 								title={t("providers.schedule_disable_tooltip")}
 								aria-label={t("providers.schedule_disable_tooltip")}
 							>
@@ -368,11 +368,7 @@ export function EditProviderModal({
 						<button
 							type="submit"
 							disabled={updateMutation.isPending}
-							className={`px-3 py-1.5 text-xs border transition-all ui-btn ui-btn-primary ${
-								updateMutation.isPending
-									? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
-							}`}
+							className="ui-btn ui-btn-primary"
 						>
 							{updateMutation.isPending
 								? t("common.saving")

@@ -59,7 +59,7 @@ export function ColorPickerModal({
 					<button
 						type="button"
 						onClick={onApply}
-						className="flex-1 px-3 py-2 rounded-lg text-sm font-medium ui-btn ui-btn-primary"
+						className="flex-1 ui-btn ui-btn-primary"
 					>
 						{t("settings.colorPicker.apply")}
 					</button>
