@@ -23,6 +23,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -515,11 +516,11 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			// repeated admin-auth failures are visible for abuse detection
 			// without polluting the operator-actionable Error stream.
 			if _, hasBearer := util.ParseBearerToken(r); !hasBearer {
-				debuglog.Warn("auth: admin request missing bearer token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+				debuglog.Warn("auth: admin request missing bearer token", "remote_addr", clientip.From(r), "path", r.URL.Path)
 				http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 				return
 			}
-			debuglog.Warn("auth: admin request with invalid token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+			debuglog.Warn("auth: admin request with invalid token", "remote_addr", clientip.From(r), "path", r.URL.Path)
 			http.Error(w, "Invalid admin token", http.StatusUnauthorized)
 			return
 		}
@@ -528,7 +529,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		// header. Bearer callers are exempt: an explicit header is not a
 		// credential the browser attaches on its own.
 		if cookieAuth && !authcookie.IsSafeMethod(r.Method) && !authcookie.ValidCSRF(r) {
-			debuglog.Warn("auth: CSRF check failed", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+			debuglog.Warn("auth: CSRF check failed", "remote_addr", clientip.From(r), "path", r.URL.Path)
 			http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 			return
 		}

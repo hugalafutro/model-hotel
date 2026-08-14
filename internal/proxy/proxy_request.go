@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -103,7 +104,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		return nil, false
 	}
 
-	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "client_ip", r.RemoteAddr)
+	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "client_ip", clientip.From(r))
 	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "vk_id", logData.virtualKeyID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
 	return &requestState{

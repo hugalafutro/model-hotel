@@ -176,23 +176,14 @@ The Argon2id parameters (t=1, m=8MB, p=4) are intentionally below the RFC 9106 m
 
 ## IP Address Handling
 
-IP addresses are used **only for in-memory rate limiting** and are **never stored**:
+The client address is resolved once per request with trusted-proxy awareness: `X-Forwarded-For` / `X-Real-IP` are honored only when the TCP peer is inside the `TRUSTED_PROXIES` CIDRs, so a direct client can never spoof its own address. The resolved IP is operational metadata, used in a few bounded places:
 
-```go
-// internal/ratelimit/ip_limiter.go
-type ipEntry struct {
-    limiter  *rate.Limiter
-    rps      float64
-    burst    int
-    lastUsed time.Time  // Only for cleanup, not logged
-}
-```
+- **In-memory rate limiting**: per-IP token buckets (`map[string]*ipEntry`), cleaned up after **10 minutes of inactivity**, never persisted. Can be disabled via the `rate_limit_ip_enabled` setting.
+- **Application logs**: access lines and auth warnings (failed logins, invalid keys) record the client IP alongside routing metadata, subject to the same retention as other app logs. Never request or prompt content.
+- **Audit trail**: each recorded admin action stores the caller address, pruned per the `audit_retention_days` setting.
+- **Active sessions**: each dashboard login stores the IP it was minted from, shown in Settings so the operator can spot a session that isn't theirs; it is deleted with the session.
 
-- IP limiters are stored in memory (`map[string]*ipEntry`)
-- Entries are cleaned up after **10 minutes of inactivity**
-- IP addresses are **not written to `request_logs`** or any persistent storage
-- When behind a trusted proxy (configured via `TRUSTED_PROXIES` CIDRs), `X-Forwarded-For` and `X-Real-IP` headers are honored
-- IP rate limiting can be disabled via the `rate_limit_ip_enabled` setting
+`request_logs` (the per-proxied-call metering table) does **not** store client IPs.
 
 ## Data Retention
 

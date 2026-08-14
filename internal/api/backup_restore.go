@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -286,7 +287,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	//nolint:errcheck // cleanup: temp file removed after processing
 	defer os.Remove(tmpPath)
 
-	if !h.verifyUploadedDump(w, r.RemoteAddr, upload) {
+	if !h.verifyUploadedDump(w, clientip.From(r), upload) {
 		return
 	}
 
@@ -356,7 +357,7 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	// gate so the form-field guard cannot be used to bypass 2FA.
 	adminToken := r.FormValue("admin_token")
 	if adminToken == "" {
-		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", clientip.From(r))
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
 		return uploadedDump{}, false
 	}
@@ -370,7 +371,7 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	if !authed {
 		// respondError stays silent for a 401 with no err, so log the failed
 		// restore attempt here (remote address only, never the token).
-		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", clientip.From(r))
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
 		return uploadedDump{}, false
 	}

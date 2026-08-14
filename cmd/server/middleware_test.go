@@ -5,12 +5,14 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
@@ -586,5 +588,78 @@ func TestSilentLogger_LogsNonGETNoisyEndpointAtInfo(t *testing.T) {
 	}
 	if records[0].Level != slog.LevelInfo {
 		t.Errorf("POST /api/models: expected Info level (not noisy for POST), got %v", records[0].Level)
+	}
+}
+
+// logAttr returns the string value of the named attribute on a captured record.
+func logAttr(r slog.Record, key string) string {
+	var v string
+	r.Attrs(func(a slog.Attr) bool {
+		if a.Key == key {
+			v = a.Value.String()
+			return false
+		}
+		return true
+	})
+	return v
+}
+
+func TestSilentLogger_RemoteIsResolvedClientIP(t *testing.T) {
+	// The "remote" field must be the trusted-proxy-resolved client IP from
+	// clientip.Middleware, not the raw socket peer: behind docker's NAT the
+	// peer is always the bridge gateway, which made every access line useless.
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+	slog.SetDefault(slog.New(&recordHandler{mu: &mu, records: &records}))
+
+	_, cidr, _ := net.ParseCIDR("172.16.0.0/12")
+	chain := clientip.Middleware([]*net.IPNet{cidr})(silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	req.Host = "test"
+	req.RemoteAddr = "172.27.0.1:50506"
+	req.Header.Set("X-Forwarded-For", "203.0.113.9")
+	chain.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+	if got := logAttr(records[0], "remote"); got != "203.0.113.9" {
+		t.Errorf("expected remote=203.0.113.9 (resolved via XFF), got %q", got)
+	}
+}
+
+func TestSilentLogger_RemoteFallsBackToPeerIP(t *testing.T) {
+	// Without clientip.Middleware the logged remote is the bare peer address,
+	// port stripped, and forwarded headers are never honored.
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+	slog.SetDefault(slog.New(&recordHandler{mu: &mu, records: &records}))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	req.Host = "test"
+	req.RemoteAddr = "192.168.1.50:4321"
+	req.Header.Set("X-Forwarded-For", "203.0.113.9")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+	if got := logAttr(records[0], "remote"); got != "192.168.1.50" {
+		t.Errorf("expected remote=192.168.1.50 (peer, port stripped, XFF ignored), got %q", got)
 	}
 }

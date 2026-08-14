@@ -22,6 +22,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -276,7 +277,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("oidc: callback throttled", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("oidc: callback throttled", "remote_addr", clientip.From(r))
 		h.redirectError(w, r, "throttled")
 		return
 	}
@@ -454,9 +455,9 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) fail(w http.ResponseWriter, r *http.Request, throttleKey, reason string, err error) {
 	h.loginThrottle.RecordFailure(throttleKey)
 	if err != nil {
-		debuglog.Warn("oidc: callback failed", "reason", reason, "error", err, "remote_addr", r.RemoteAddr)
+		debuglog.Warn("oidc: callback failed", "reason", reason, "error", err, "remote_addr", clientip.From(r))
 	} else {
-		debuglog.Warn("oidc: callback failed", "reason", reason, "remote_addr", r.RemoteAddr)
+		debuglog.Warn("oidc: callback failed", "reason", reason, "remote_addr", clientip.From(r))
 	}
 	h.redirectError(w, r, "failed")
 }

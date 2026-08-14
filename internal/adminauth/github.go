@@ -20,6 +20,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -271,7 +272,7 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("github: callback throttled", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("github: callback throttled", "remote_addr", clientip.From(r))
 		h.redirectError(w, r, "throttled")
 		return
 	}
@@ -553,9 +554,9 @@ func (h *GitHubHandler) build(enabled bool, clientID, clientSecretEnc, baseURL, 
 func (h *GitHubHandler) fail(w http.ResponseWriter, r *http.Request, throttleKey, reason string, err error) {
 	h.loginThrottle.RecordFailure(throttleKey)
 	if err != nil {
-		debuglog.Warn("github: callback failed", "reason", reason, "error", err, "remote_addr", r.RemoteAddr)
+		debuglog.Warn("github: callback failed", "reason", reason, "error", err, "remote_addr", clientip.From(r))
 	} else {
-		debuglog.Warn("github: callback failed", "reason", reason, "remote_addr", r.RemoteAddr)
+		debuglog.Warn("github: callback failed", "reason", reason, "remote_addr", clientip.From(r))
 	}
 	h.redirectError(w, r, "failed")
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -277,7 +278,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		if !ok {
 			// Client error, not a server fault — Warn keeps the Error stream
 			// reserved for things the operator must act on.
-			debuglog.Warn("auth: missing authorization header", "remote_addr", r.RemoteAddr)
+			debuglog.Warn("auth: missing authorization header", "remote_addr", clientip.From(r))
 			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"", http.StatusUnauthorized)
 			return
 		}
@@ -286,7 +287,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
-				debuglog.Warn("auth: key not found", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))
 				writeOpenAIError(w, "invalid virtual key", http.StatusUnauthorized)
 			} else {
 				debuglog.Error("auth: db lookup failed", "error", err)
@@ -299,7 +300,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			// user must cut their proxy traffic, not just their dashboard
 			// login. The key itself stays intact for when the account
 			// returns.
-			debuglog.Warn("auth: key owner disabled", "key", vk.Name, "remote_addr", r.RemoteAddr)
+			debuglog.Warn("auth: key owner disabled", "key", vk.Name, "remote_addr", clientip.From(r))
 			writeOpenAIError(w, "virtual key disabled: owner account is disabled", http.StatusUnauthorized)
 			return
 		}
