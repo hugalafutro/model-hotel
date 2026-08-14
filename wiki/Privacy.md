@@ -113,9 +113,9 @@ To be explicit about the boundaries:
 | Audio input | ❌ Never | Passed through to provider unchanged |
 | API keys (provider or virtual) | ❌ Never | Decrypted in memory only, never written to logs or DB |
 | Request body content | ❌ Never | JSON bodies are parsed only for `model` and `stream`; multipart forms only for `model` |
-| IP addresses | ❌ Never | Used only for in-memory rate limiting, not stored in request logs |
-| User-agent strings | ❌ Never | Not captured |
-| X-Forwarded-For headers | ❌ Never | Used only for IP rate limiting when behind trusted proxies |
+| IP addresses | ⚠️ Metadata | Recorded in app-log lines (access/auth), the audit trail, and the active-sessions list, each retention-bound; never in `request_logs` |
+| User-agent strings | ⚠️ Sessions only | Up to 256 bytes stored per dashboard login for the active-sessions list; deleted with the session |
+| X-Forwarded-For headers | ⚠️ Resolved | Honored only from `TRUSTED_PROXIES`; the resolved client IP is what gets recorded, never the raw header |
 
 ## Cryptographic Security
 
@@ -176,23 +176,14 @@ The Argon2id parameters (t=1, m=8MB, p=4) are intentionally below the RFC 9106 m
 
 ## IP Address Handling
 
-IP addresses are used **only for in-memory rate limiting** and are **never stored**:
+The client address is resolved once per request with trusted-proxy awareness: `X-Forwarded-For` / `X-Real-IP` are honored only when the TCP peer is inside the `TRUSTED_PROXIES` CIDRs, so a direct client can never spoof its own address. The resolved IP is operational metadata, used in a few bounded places:
 
-```go
-// internal/ratelimit/ip_limiter.go
-type ipEntry struct {
-    limiter  *rate.Limiter
-    rps      float64
-    burst    int
-    lastUsed time.Time  // Only for cleanup, not logged
-}
-```
+- **In-memory rate limiting**: per-IP token buckets (`map[string]*ipEntry`), cleaned up after **10 minutes of inactivity**, never persisted. Can be disabled via the `rate_limit_ip_enabled` setting.
+- **Application logs**: access lines and auth warnings (failed logins, invalid keys) record the client IP alongside routing metadata, subject to the same retention as other app logs. Never request or prompt content.
+- **Audit trail**: each recorded admin action stores the caller address, pruned per the `audit_retention_days` setting.
+- **Active sessions**: each dashboard login stores the IP it was minted from, shown in Settings so the operator can spot a session that isn't theirs; it is deleted with the session.
 
-- IP limiters are stored in memory (`map[string]*ipEntry`)
-- Entries are cleaned up after **10 minutes of inactivity**
-- IP addresses are **not written to `request_logs`** or any persistent storage
-- When behind a trusted proxy (configured via `TRUSTED_PROXIES` CIDRs), `X-Forwarded-For` and `X-Real-IP` headers are honored
-- IP rate limiting can be disabled via the `rate_limit_ip_enabled` setting
+`request_logs` (the per-proxied-call metering table) does **not** store client IPs.
 
 ## Data Retention
 
@@ -280,7 +271,7 @@ See [Configuration](Configuration) for details.
 | Virtual key storage | SHA-256 hash (one-way) |
 | Provider key storage | AES-256-GCM + Argon2id (per-provider random salt, 8MB) |
 | Request content | Never logged, never stored |
-| IP addresses | In-memory only, 10-minute cleanup |
+| IP addresses | Rate-limit buckets in-memory (10-minute cleanup); logged addresses follow app-log and audit retention |
 | Error messages | Provider diagnostics only (200-char SSE, 2000-char failover, full in DB) |
 | Request identifiers | Random 8-byte hex (not content-based) |
 | Data retention | Configurable (1h to 30d, or forever) |
@@ -290,7 +281,7 @@ See [Configuration](Configuration) for details.
 
 Model Hotel's architecture supports compliance with data protection regulations:
 
-- **GDPR**: No personal data (prompts, responses) is stored. Request logs contain only metadata.
+- **GDPR**: Prompts and responses are never stored. Operational metadata does include client IP addresses (personal data under the GDPR) in app logs, the audit trail, and the active-sessions list, all with bounded retention.
 - **Data minimization**: Only essential operational data is collected.
 - **Purpose limitation**: Logged data is used only for routing, metering, and diagnostics.
 - **Storage limitation**: Automatic retention policies ensure logs are purged after configurable periods.

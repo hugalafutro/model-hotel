@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -110,7 +111,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.throttle.Allowed(throttleKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("userlogin: throttled", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("userlogin: throttled", "remote_addr", clientip.From(r))
 		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -136,7 +137,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	userKey := "user:" + req.Username
 	if ok, retry := h.userThrottle.Allowed(userKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("userlogin: account throttled", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("userlogin: account throttled", "remote_addr", clientip.From(r))
 		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -161,7 +162,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if u == nil || !ok || !u.Enabled {
 		h.throttle.RecordFailure(throttleKey)
 		h.userThrottle.RecordFailure(userKey)
-		debuglog.Warn("userlogin: login failed", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("userlogin: login failed", "remote_addr", clientip.From(r))
 		http.Error(w, "invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -172,7 +173,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte(u.ID.String()), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
-		debuglog.Error("userlogin: session creation failed", "error", err, "remote_addr", r.RemoteAddr)
+		debuglog.Error("userlogin: session creation failed", "error", err, "remote_addr", clientip.From(r))
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
@@ -233,7 +234,7 @@ func (h *UserLoginHandler) checkSecondFactor(w http.ResponseWriter, r *http.Requ
 	}
 	h.throttle.RecordFailure(throttleKey)
 	h.userThrottle.RecordFailure(userKey)
-	debuglog.Warn("userlogin: invalid TOTP code", "remote_addr", r.RemoteAddr)
+	debuglog.Warn("userlogin: invalid TOTP code", "remote_addr", clientip.From(r))
 	http.Error(w, "invalid TOTP code", http.StatusUnauthorized)
 	return false
 }

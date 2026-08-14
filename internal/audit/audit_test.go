@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -140,6 +142,32 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 	if n := countRows(t, `path = '/silent' AND status_code = 200`); n != 1 {
 		t.Errorf("silent-200 row missing")
+	}
+}
+
+// TestMiddlewareRecordsResolvedClientIP pins remote_addr to the trusted-proxy
+// resolved client address from clientip.Middleware. The raw socket peer would
+// be the docker bridge gateway behind the compose NAT, which cannot answer
+// "who did this" — the whole point of the column.
+func TestMiddlewareRecordsResolvedClientIP(t *testing.T) {
+	rec := newRecorder(t, nil)
+	_, cidr, _ := net.ParseCIDR("172.16.0.0/12")
+	r := chi.NewRouter()
+	r.Use(clientip.Middleware([]*net.IPNet{cidr}))
+	r.Use(rec.Middleware)
+	r.Post("/things", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/things", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), &user.Identity{Role: user.RoleAdmin}))
+	req.RemoteAddr = "172.27.0.1:50506"
+	req.Header.Set("X-Forwarded-For", "203.0.113.9")
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	eventually(t, func() bool { return countRows(t, "1=1") == 1 })
+	if n := countRows(t, `remote_addr = '203.0.113.9'`); n != 1 {
+		t.Errorf("audit row must store the resolved client IP, not the socket peer")
 	}
 }
 
@@ -275,12 +303,12 @@ func TestListFiltersCursorAndLimits(t *testing.T) {
 	for range 5 {
 		rec.record(Entry{
 			Actor: "alice", ActorRole: "user", Method: http.MethodPost,
-			Route: "/x", Path: "/x", StatusCode: 201, RemoteAddr: "10.0.0.1:1",
+			Route: "/x", Path: "/x", StatusCode: 201, RemoteAddr: "10.0.0.1",
 		})
 	}
 	rec.record(Entry{
 		Actor: "bob", ActorRole: "user", Method: http.MethodDelete,
-		Route: "/y", Path: "/y", EntityID: uuid.NewString(), StatusCode: 204, RemoteAddr: "10.0.0.2:1",
+		Route: "/y", Path: "/y", EntityID: uuid.NewString(), StatusCode: 204, RemoteAddr: "10.0.0.2",
 	})
 	ctx := context.Background()
 

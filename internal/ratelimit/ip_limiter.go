@@ -5,15 +5,13 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 
-	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -99,10 +97,10 @@ func (l *IPLimiter) Stop() {
 }
 
 // ClientIP returns the request's client IP using the same trusted-proxy aware
-// extraction as the rate limiter, so failure-backoff keys line up with
-// rate-limit keys (real client IP behind a trusted proxy, RemoteAddr otherwise).
+// resolution as everything else (internal/clientip owns it), so failure-backoff
+// keys line up with rate-limit keys and with every logged address.
 func (l *IPLimiter) ClientIP(r *http.Request) string {
-	return extractClientIP(r, l.trustedProxies)
+	return clientip.Resolve(r, l.trustedProxies)
 }
 
 // Middleware returns an HTTP middleware that rate-limits requests per
@@ -118,7 +116,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
-		ip := extractClientIP(r, l.trustedProxies)
+		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
 		reservation := entry.limiter.Reserve()
@@ -230,83 +228,4 @@ func (l *IPLimiter) cleanup() {
 			delete(l.limiters, ip)
 		}
 	}
-}
-
-// extractClientIP determines the client IP from the request.
-// When trustedProxies is non-empty and contains the RemoteAddr, the XFF chain
-// is walked right-to-left, skipping IPs that belong to trusted proxy CIDRs.
-// The rightmost non-trusted IP is the real client. This prevents spoofing
-// by clients behind a trusted proxy. X-Real-IP is used as a fallback when
-// XFF is absent.
-func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
-	if len(trustedProxies) > 0 {
-		if config.IsTrustedProxy(r.RemoteAddr, trustedProxies) {
-			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				if ip := rightmostUntrustedIP(xff, trustedProxies); ip != "" {
-					return ip
-				}
-			}
-			if xri := r.Header.Get("X-Real-IP"); xri != "" {
-				candidate := strings.TrimSpace(xri)
-				if net.ParseIP(candidate) != nil {
-					return candidate
-				}
-			}
-		}
-	}
-	// RemoteAddr includes port for TCP connections — strip it.
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return ip
-}
-
-// rightmostUntrustedIP parses the X-Forwarded-For header and returns the
-// rightmost IP that is NOT in any trusted proxy CIDR. This correctly handles
-// multi-hop proxy chains (e.g. CDN → load balancer → app) by walking the
-// chain from the proxy-adjacent end toward the client.
-func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
-	parts := strings.Split(xff, ",")
-	for _, part := range slices.Backward(parts) {
-		ip := strings.TrimSpace(part)
-		if ip == "" {
-			continue
-		}
-		// Skip unparseable entries (e.g. "unknown" from older proxies)
-		// so they don't become rate-limiter bucket keys.
-		if net.ParseIP(ip) == nil {
-			continue
-		}
-		if !isIPInTrustedNets(ip, trustedProxies) {
-			return ip
-		}
-	}
-	// All entries are trusted (unusual); fall back to the leftmost entry,
-	// but only if it parses as a valid IP to avoid non-IP strings (e.g.
-	// "unknown" from older proxies) becoming rate-limiter bucket keys.
-	if len(parts) > 0 {
-		candidate := strings.TrimSpace(parts[0])
-		if net.ParseIP(candidate) != nil {
-			return candidate
-		}
-	}
-	return ""
-}
-
-// isIPInTrustedNets checks whether a bare IP address string belongs to any
-// trusted proxy CIDR. Uses net.ParseIP directly to avoid the host:port
-// format required by IsTrustedProxy, which would break IPv6 addresses
-// that use :: zero-compression (e.g. "2001:db8::1" → "2001:db8::1:0").
-func isIPInTrustedNets(ipStr string, trustedNets []*net.IPNet) bool {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return false
-	}
-	for _, n := range trustedNets {
-		if n.Contains(ip) {
-			return true
-		}
-	}
-	return false
 }

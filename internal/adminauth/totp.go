@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -338,7 +339,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("totp: login throttled", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("totp: login throttled", "remote_addr", clientip.From(r))
 		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -363,7 +364,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 			codeValid = true
 		} else {
 			if err != nil {
-				debuglog.Error("totp: login verify failed", "error", err, "remote_addr", r.RemoteAddr)
+				debuglog.Error("totp: login verify failed", "error", err, "remote_addr", clientip.From(r))
 			}
 			if ok, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); ok {
 				codeValid = true
@@ -372,7 +373,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !tokenValid || !codeValid {
 		h.loginThrottle.RecordFailure(throttleKey)
-		debuglog.Warn("totp: login failed", "remote_addr", r.RemoteAddr)
+		debuglog.Warn("totp: login failed", "remote_addr", clientip.From(r))
 		http.Error(w, "invalid admin token or TOTP code", http.StatusUnauthorized)
 		return
 	}
@@ -385,7 +386,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionToken, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
-		debuglog.Error("totp: login session creation failed", "error", err, "remote_addr", r.RemoteAddr)
+		debuglog.Error("totp: login session creation failed", "error", err, "remote_addr", clientip.From(r))
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}

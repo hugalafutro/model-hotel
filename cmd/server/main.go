@@ -30,6 +30,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -170,6 +171,10 @@ func main() {
 
 	// Global middleware
 	r.Use(middleware.RequestID)
+	// Resolve the client IP (trusted-proxy aware) once, before anything that
+	// logs an address — the access logger below, auth warnings, and the audit
+	// trail all read the resolved value via clientip.From.
+	r.Use(clientip.Middleware(cfg.TrustedProxies))
 	r.Use(silentLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
@@ -696,7 +701,7 @@ func silentLogger(next http.Handler) http.Handler {
 				"method", r.Method,
 				"host", r.Host,
 				"path", r.URL.Path,
-				"remote", r.RemoteAddr,
+				"remote", clientip.From(r),
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -705,7 +710,7 @@ func silentLogger(next http.Handler) http.Handler {
 				"method", r.Method,
 				"host", r.Host,
 				"path", r.URL.Path,
-				"remote", r.RemoteAddr,
+				"remote", clientip.From(r),
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -714,7 +719,7 @@ func silentLogger(next http.Handler) http.Handler {
 				"method", r.Method,
 				"host", r.Host,
 				"path", r.URL.Path,
-				"remote", r.RemoteAddr,
+				"remote", clientip.From(r),
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -723,7 +728,7 @@ func silentLogger(next http.Handler) http.Handler {
 				"method", r.Method,
 				"host", r.Host,
 				"path", r.URL.Path,
-				"remote", r.RemoteAddr,
+				"remote", clientip.From(r),
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)

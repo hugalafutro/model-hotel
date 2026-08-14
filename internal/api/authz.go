@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -102,7 +103,7 @@ func forbid(w http.ResponseWriter, r *http.Request, id *user.Identity) {
 	if id != nil {
 		username = id.Username
 	}
-	debuglog.Warn("auth: insufficient permissions", "username", username, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+	debuglog.Warn("auth: insufficient permissions", "username", username, "path", r.URL.Path, "remote_addr", clientip.From(r))
 	http.Error(w, "insufficient permissions", http.StatusForbidden)
 }
 

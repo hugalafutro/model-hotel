@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -184,7 +185,9 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			Path:       r.URL.Path,
 			EntityID:   entityID,
 			StatusCode: status,
-			RemoteAddr: r.RemoteAddr,
+			// Trusted-proxy-aware client address (no ephemeral port): behind
+			// the reverse proxy this is the operator's real IP, not the proxy.
+			RemoteAddr: clientip.From(r),
 		}
 		//nolint:gosec // G118: record deliberately uses a background context so a
 		// client disconnect can never drop the audit row; the request context is

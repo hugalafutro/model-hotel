@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -162,7 +163,7 @@ func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request, heartbeat
 				failures++
 				if failures >= sseReauthFailuresBeforeClose {
 					debuglog.Info("events: stream closed, credentials no longer valid",
-						"remote_addr", r.RemoteAddr, "consecutive_failures", failures)
+						"remote_addr", clientip.From(r), "consecutive_failures", failures)
 					return
 				}
 			} else {

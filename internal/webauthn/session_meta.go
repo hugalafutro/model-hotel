@@ -14,8 +14,9 @@ const metaUserAgentMax = 256
 
 // ClientIPSource resolves a request's client address with trusted-proxy
 // awareness: forwarded headers are honored only when the peer is a configured
-// trusted proxy. Satisfied by *ratelimit.IPLimiter, which owns that logic for
-// the whole codebase — session metadata must not grow a second, weaker copy.
+// trusted proxy. Satisfied by *ratelimit.IPLimiter, which delegates to
+// internal/clientip — the single owner of that logic — so session metadata
+// must not grow a second, weaker copy.
 type ClientIPSource interface {
 	ClientIP(r *http.Request) string
 }

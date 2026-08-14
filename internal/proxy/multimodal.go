@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -327,7 +328,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 		return nil, nil, false
 	}
 
-	debuglog.Info("proxy: multipart request start", "endpoint", endpointType, "model", reqModel, "key", logData.virtualKeyName, "parts", len(parts), "client_ip", r.RemoteAddr)
+	debuglog.Info("proxy: multipart request start", "endpoint", endpointType, "model", reqModel, "key", logData.virtualKeyName, "parts", len(parts), "client_ip", clientip.From(r))
 
 	// bodyBytes stays nil: the parsed parts are the upstream-body source for
 	// multipart requests (via makeUpstreamBody), so retaining the raw body

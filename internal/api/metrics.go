@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -61,9 +62,9 @@ func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 				return
 			}
 			if !ok || tok == "" {
-				debuglog.Warn("auth: metrics scrape missing bearer token", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("auth: metrics scrape missing bearer token", "remote_addr", clientip.From(r))
 			} else {
-				debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", clientip.From(r))
 			}
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return

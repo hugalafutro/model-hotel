@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"crypto/subtle"
 	"io/fs"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -53,30 +55,34 @@ type ServerConfig struct {
 	// CookieSecure controls the Secure attribute on Front Desk auth cookies:
 	// "always" (default), "auto", or "never" for plain-http LAN.
 	CookieSecure string
+	// TrustedProxies (TRUSTED_PROXIES CIDRs) gates X-Forwarded-For trust for
+	// the client addresses that reach logs and session metadata.
+	TrustedProxies []*net.IPNet
 }
 
 // Server is the Front Desk HTTP server.
 type Server struct {
-	store        *Store
-	poller       *Poller
-	bus          *events.Bus
-	adminMgr     *admin.Manager
-	sessionMgr   *webauthn.SessionManager
-	totpRepo     *totp.Repository
-	totpStatus   *totpEnabledCache
-	probe        *http.Client // guarded client for proxying member admin APIs
-	readClient   *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
-	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
-	backupClient *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
-	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
-	version      string       // running build, surfaced read-only over GET /api/version
-	masterKey    string       // encrypts the Apprise target secret at rest
-	metricsToken string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
-	cookieSecure string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
-	alertDisp    *alert.Dispatcher
-	pairing      *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
-	ipLimiter    adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
-	settingsMu   sync.Mutex                    // serializes the settings-row read-merge-write
+	store          *Store
+	poller         *Poller
+	bus            *events.Bus
+	adminMgr       *admin.Manager
+	sessionMgr     *webauthn.SessionManager
+	totpRepo       *totp.Repository
+	totpStatus     *totpEnabledCache
+	probe          *http.Client // guarded client for proxying member admin APIs
+	readClient     *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	syncClient     *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
+	backupClient   *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
+	lbPort         string       // host port of the data-plane load balancer, surfaced to the wizard
+	version        string       // running build, surfaced read-only over GET /api/version
+	masterKey      string       // encrypts the Apprise target secret at rest
+	metricsToken   string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
+	cookieSecure   string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
+	alertDisp      *alert.Dispatcher
+	pairing        *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
+	ipLimiter      adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
+	trustedProxies []*net.IPNet                  // gates XFF trust for logged/stored client addresses
+	settingsMu     sync.Mutex                    // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
 	// replaced) whenever a rearm/repoint bumps the auto-sync generation, so an
 	// in-flight convergence pass cancels synchronously instead of waiting on a poll.
@@ -196,6 +202,7 @@ func NewServer(cfg ServerConfig) *Server {
 		cookieSecure:    cookieSecure,
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
+		trustedProxies:  cfg.TrustedProxies,
 		rearmCh:         make(chan struct{}),
 		syncHeld:        make(map[string]bool),
 		holdLogChecked:  make(map[string]bool),
@@ -257,6 +264,10 @@ func (s *Server) SessionManager() *webauthn.SessionManager { return s.sessionMgr
 
 func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHandler, oidc *adminauth.OIDCHandler, ui fs.FS) http.Handler {
 	r := chi.NewRouter()
+
+	// Resolve the client IP (trusted-proxy aware) once, before anything that
+	// logs an address, so every warn/error line reports the real client.
+	r.Use(clientip.Middleware(s.trustedProxies))
 
 	// Security headers. The Front Desk admin UI manages the whole HA fleet
 	// (member admin tokens, device pairing, config sync, OIDC/alert settings),
@@ -412,9 +423,9 @@ func (s *Server) metricsAuth(next http.Handler) http.Handler {
 				return
 			}
 			if !ok || tok == "" {
-				debuglog.Warn("frontdesk: metrics scrape missing bearer token", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("frontdesk: metrics scrape missing bearer token", "remote_addr", clientip.From(r))
 			} else {
-				debuglog.Warn("frontdesk: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("frontdesk: metrics scrape with invalid token", "remote_addr", clientip.From(r))
 			}
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return

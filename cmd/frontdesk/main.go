@@ -122,17 +122,21 @@ func main() {
 		debuglog.Fatal("frontdesk: could not resolve Front Desk identity", "error", err)
 	}
 	poller.SetFrontdeskID(fdID)
-	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, config.LoadTrustedProxies(), nil)
+	// One TRUSTED_PROXIES parse feeds both consumers: the login rate limiter
+	// and the server's client-IP resolution for logs and session metadata.
+	trustedProxies := config.LoadTrustedProxies()
+	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, trustedProxies, nil)
 
 	srv := frontdesk.NewServer(frontdesk.ServerConfig{
-		Store:        store,
-		Poller:       poller,
-		Bus:          bus,
-		AdminMgr:     adminMgr,
-		MasterKey:    masterKey,
-		RelyingParty: rp,
-		IPLimiter:    ipLimiter,
-		UI:           frontdesk.EmbeddedUI(),
+		Store:          store,
+		Poller:         poller,
+		Bus:            bus,
+		AdminMgr:       adminMgr,
+		MasterKey:      masterKey,
+		RelyingParty:   rp,
+		IPLimiter:      ipLimiter,
+		TrustedProxies: trustedProxies,
+		UI:             frontdesk.EmbeddedUI(),
 		// Dedicated Prometheus scrape bearer; when unset, /metrics falls back to
 		// the admin-or-session gate (never unauthenticated).
 		MetricsToken: os.Getenv("FRONTDESK_METRICS_TOKEN"),
