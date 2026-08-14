@@ -209,6 +209,7 @@ export function ProviderCard({
 						disabled={
 							discoveringId !== null ||
 							discoverAllIsPending ||
+							discoverAllCurrentId === provider.id ||
 							!provider.enabled ||
 							!provider.autodiscovery_enabled
 						}
