@@ -7,7 +7,7 @@ import { ModelDiscrepancyModal } from "../ModelDiscrepancyModal";
 const claim = (
 	model_id: string,
 	status: "pending" | "resolved" | "new",
-	state: "gone" | "stale" | "suspect" | "retired",
+	state: "gone" | "stale" | "suspect" | "retired" | "pinned",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
 	model_id,
@@ -43,6 +43,14 @@ describe("ModelDiscrepancyModal i18n", () => {
 						retired_at: "2026-07-28T00:00:00Z",
 					},
 				],
+				// The operator-pinned bucket renders its own label, meta line and
+				// action, none of which any other branch exercises.
+				pinned: [
+					{
+						...claim("h", "pending", "pinned"),
+						pinned_at: "2026-07-29T00:00:00Z",
+					},
+				],
 			},
 			{
 				provider_id: "p2",
@@ -51,6 +59,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				stale: [],
 				suspect: [],
 				retired: [],
+				pinned: [],
 			},
 			{
 				provider_id: "p3",
@@ -59,6 +68,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				stale: [],
 				suspect: [],
 				retired: [],
+				pinned: [],
 			},
 		];
 		const groupClaims: GroupClaim[] = [
@@ -106,6 +116,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				onDismiss={vi.fn()}
 				onDismissAll={vi.fn()}
 				onDismissEverything={vi.fn()}
+				onUnpin={vi.fn()}
 				isRetesting={false}
 				retestAllProgress={{ done: 1, total: 3 }}
 				errors={{ p1: "boom" }}

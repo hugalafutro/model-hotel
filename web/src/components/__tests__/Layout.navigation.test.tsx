@@ -16,7 +16,7 @@ import { Layout } from "../Layout";
  */
 async function openFirstBucket(
 	user: ReturnType<typeof userEvent.setup>,
-	bucket: "gone" | "stale" | "suspect" = "gone",
+	bucket: "gone" | "stale" | "suspect" | "retired" | "pinned" = "gone",
 	nth = 0,
 ) {
 	await user.click(
@@ -1240,6 +1240,70 @@ describe("Layout", () => {
 			expect(bodies).toHaveLength(1);
 			expect(bodies[0].model_ids).toEqual(["a"]);
 			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
+
+		it("unpins one model per request and keeps the row in place", async () => {
+			// An unpinned model leaves /api/discovery/status entirely: unpin clears
+			// the pin AND resets the miss streak, so there is no claim left to
+			// report. The mock has to do the same, or the assertion below would be
+			// testing the mock rather than the merge.
+			const bodies: { provider_id: string; model_ids: string[] }[] = [];
+			const unpinned = new Set<string>();
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const pinned = ["k"]
+						.filter((m) => !unpinned.has(m))
+						.map((m) => ({
+							...claim(m),
+							state: "pinned",
+							pinned_at: "2026-07-15T00:00:00Z",
+						}));
+					return HttpResponse.json(
+						status({
+							// Pinned rows are deliberately not counted, so the badge is
+							// carried by the journal dot instead: the modal still has
+							// something to show while the number stays at zero.
+							claim_count: 0,
+							informational: [infoEntry],
+							informational_unseen: 1,
+							claims: [{ ...providerClaims("p1", "One", []), pinned }],
+						}),
+					);
+				}),
+				http.post("/api/discovery/unpin", async ({ request }) => {
+					const body = (await request.json()) as {
+						provider_id: string;
+						model_ids: string[];
+					};
+					bodies.push(body);
+					for (const m of body.model_ids) unpinned.add(m);
+					// No `updated` key: the endpoint names the rows it cleared.
+					return HttpResponse.json({ unpinned: body.model_ids });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user, "pinned");
+			const rowK = () =>
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "k");
+			await waitFor(() => expect(rowK()).toBeTruthy());
+			await user.click(
+				rowK()?.querySelector(
+					'[data-testid="discrepancy-unpin"]',
+				) as HTMLElement,
+			);
+
+			await waitFor(() => expect(bodies).toHaveLength(1));
+			expect(bodies[0]).toEqual({ provider_id: "p1", model_ids: ["k"] });
+			// Struck through where it sat rather than vanishing: the row is absent
+			// from the refetch because the operator cleared it, which is the same
+			// shape as a dismissal and must never read as "listed again".
+			await waitFor(() =>
+				expect(rowK()).toHaveAttribute("data-status", "dismissed"),
+			);
 		});
 
 		it("dismisses a whole provider in one request", async () => {

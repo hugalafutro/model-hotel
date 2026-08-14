@@ -27,8 +27,15 @@ const provider = (over: Partial<ProviderClaims> = {}): ProviderClaims => ({
 	stale: [],
 	suspect: [],
 	retired: [],
+	pinned: [],
 	...over,
 });
+
+/** What a server predating the operator pin serves: no `pinned` key at all. */
+const legacyProvider = (over: Partial<ProviderClaims> = {}): ProviderClaims => {
+	const { pinned: _pinned, ...rest } = provider(over);
+	return rest as ProviderClaims;
+};
 
 describe("toSnapshot", () => {
 	it("seeds every claim as pending, regardless of group", () => {
@@ -42,6 +49,27 @@ describe("toSnapshot", () => {
 		expect(snapshot[0].gone[0].status).toBe("pending");
 		expect(snapshot[0].stale[0].status).toBe("pending");
 		expect(snapshot[0].suspect[0].status).toBe("pending");
+	});
+
+	it("seeds the pinned bucket like any other", () => {
+		const snapshot = toSnapshot([
+			provider({
+				pinned: [
+					claim("k", { state: "pinned", pinned_at: "2026-07-15T00:00:00Z" }),
+				],
+			}),
+		]);
+		expect(snapshot[0].pinned.map((c) => [c.model_id, c.status])).toEqual([
+			["k", "pending"],
+		]);
+	});
+
+	it("treats a missing pinned bucket as empty", () => {
+		// A rolling deploy puts an older server behind a newer dashboard, and that
+		// server omits the key rather than sending [].
+		const snapshot = toSnapshot([legacyProvider({ gone: [claim("a")] })]);
+		expect(snapshot[0].pinned).toEqual([]);
+		expect(snapshot[0].gone[0].status).toBe("pending");
 	});
 });
 
@@ -194,6 +222,37 @@ describe("mergeClaims", () => {
 		]);
 		expect(merged).toHaveLength(2);
 		expect(merged[1].suspect[0].status).toBe("new");
+	});
+
+	it("merges a refetch that carries no pinned bucket", () => {
+		const snapshot = toSnapshot([provider({ gone: [claim("a")] })]);
+		const merged = mergeClaims(snapshot, [
+			legacyProvider({ gone: [claim("a")] }),
+		]);
+		expect(merged[0].pinned).toEqual([]);
+		expect(merged[0].gone[0].status).toBe("pending");
+	});
+
+	it("keeps an unpinned row cleared once the refetch stops reporting it", () => {
+		// An unpinned model leaves the claims payload entirely: the pin is gone and
+		// the miss streak is reset, so nothing is left to claim. Reading that
+		// absence as "the provider is listing it again" would be false, which is
+		// why the unpin path marks the row the same way a dismissal does.
+		const snapshot = markDismissed(
+			toSnapshot([
+				provider({
+					pinned: [
+						claim("k", { state: "pinned", pinned_at: "2026-07-15T00:00:00Z" }),
+					],
+				}),
+			]),
+			"p1",
+			new Set(["k"]),
+		);
+		const merged = mergeClaims(snapshot, [provider()]);
+		expect(merged[0].pinned.map((c) => [c.model_id, c.status])).toEqual([
+			["k", "dismissed"],
+		]);
 	});
 });
 

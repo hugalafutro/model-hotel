@@ -1047,6 +1047,43 @@ export function Layout({ children }: LayoutProps) {
 		[dismissClaim, refresh, refreshBadge, toast, t],
 	);
 
+	// Hands one pinned model back to automatic management.
+	//
+	// One model per request, like onDismiss and for the same reason: the response
+	// names the ids it cleared, and asking about one makes a short answer
+	// unambiguous. There is no `updated` count to read here; the server 404s (and
+	// fetchJSON throws) when nothing matched.
+	//
+	// The row is marked with `dismissClaim` rather than being removed, once the
+	// server confirms. An unpinned model leaves /api/discovery/status outright -
+	// the pin is gone and the miss streak is reset, so there is no claim left to
+	// report - and that absence is caused by the operator, exactly like a
+	// dismissal. Left unmarked, the next refresh would read it as `resolved` and
+	// the cleared summary would announce "is listed again" for a model whose
+	// listing has not changed at all.
+	const onUnpin = useCallback(
+		async (providerId: string, modelId: string) => {
+			try {
+				const res = await api.discovery.unpin(providerId, [modelId]);
+				dismissClaim(providerId, new Set(res.unpinned));
+				await refresh();
+				toast(
+					t("providers.discrepancies.unpinned", { model: modelId }),
+					"success",
+				);
+			} catch (err) {
+				// No rollback: nothing was claimed before the response.
+				toast(
+					t("providers.discrepancies.unpinFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[dismissClaim, refresh, toast, t],
+	);
+
 	// Expanding the journal is what marks it read; the destructive ack-on-open is
 	// gone, so nothing clears the dot until the operator actually looks.
 	const onExpandInformational = useCallback(() => {
@@ -1600,6 +1637,9 @@ export function Layout({ children }: LayoutProps) {
 					}}
 					onDismissEverything={(batches) => {
 						void onDismissEverything(batches);
+					}}
+					onUnpin={(providerId, modelId) => {
+						void onUnpin(providerId, modelId);
 					}}
 					retestingProviderId={retestingKey}
 					isRetesting={isAnyRetesting}

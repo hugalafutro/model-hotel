@@ -30,22 +30,19 @@ export interface MergedProvider {
 	stale: MergedClaim[];
 	suspect: MergedClaim[];
 	retired: MergedClaim[];
+	pinned: MergedClaim[];
 }
 
-type GroupName = "gone" | "stale" | "suspect" | "retired";
-const GROUPS: GroupName[] = ["gone", "stale", "suspect", "retired"];
+type GroupName = "gone" | "stale" | "suspect" | "retired" | "pinned";
+const GROUPS: GroupName[] = ["gone", "stale", "suspect", "retired", "pinned"];
 
-/** Seeds a fresh snapshot; everything the server reports is pending. */
-export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
-	return claims.map((p) => ({
-		provider_id: p.provider_id,
-		provider_name: p.provider_name,
-		gone: p.gone.map((c) => ({ ...c, status: "pending" as const })),
-		stale: p.stale.map((c) => ({ ...c, status: "pending" as const })),
-		suspect: p.suspect.map((c) => ({ ...c, status: "pending" as const })),
-		retired: p.retired.map((c) => ({ ...c, status: "pending" as const })),
-	}));
-}
+/**
+ * One bucket off a payload, tolerating a server that predates it.
+ *
+ * `pinned` is absent rather than empty on older servers, which a rolling deploy
+ * puts behind this dashboard, and every loop below indexes the buckets by name.
+ */
+const bucketOf = (p: ProviderClaims, g: GroupName): ModelClaim[] => p[g] ?? [];
 
 type Buckets = Record<GroupName, MergedClaim[]>;
 
@@ -54,7 +51,25 @@ const emptyBuckets = (): Buckets => ({
 	stale: [],
 	suspect: [],
 	retired: [],
+	pinned: [],
 });
+
+/** Every bucket of one payload, stamped with the same status. */
+function seedBuckets(p: ProviderClaims, status: ClaimStatus): Buckets {
+	const out = emptyBuckets();
+	for (const g of GROUPS)
+		out[g] = bucketOf(p, g).map((c) => ({ ...c, status }));
+	return out;
+}
+
+/** Seeds a fresh snapshot; everything the server reports is pending. */
+export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
+	return claims.map((p) => ({
+		provider_id: p.provider_id,
+		provider_name: p.provider_name,
+		...seedBuckets(p, "pending"),
+	}));
+}
 
 /**
  * A row the refetch no longer reports: cleared, kept in place.
@@ -72,11 +87,11 @@ function clearedRow(before: MergedClaim): MergedClaim {
 }
 
 /**
- * Reconciles ONE provider's three buckets against a refetch, keyed on
+ * Reconciles ONE provider's buckets against a refetch, keyed on
  * `model_id` ACROSS the buckets rather than within each of them.
  *
- * Per-bucket reconciliation is wrong because the buckets are three states of the
- * same claim, not three independent lists. A model that degrades suspect -> gone
+ * Per-bucket reconciliation is wrong because the buckets are states of the same
+ * claim, not independent lists. A model that degrades suspect -> gone
  * (or ages gone -> stale) leaves one bucket and enters another, so bucket-local
  * merging reads one fact as two: `resolved` in the bucket it left and `new` in
  * the bucket it entered. The operator then sees the same model twice, once
@@ -98,7 +113,8 @@ function clearedRow(before: MergedClaim): MergedClaim {
 function mergeProviderBuckets(prev: MergedProvider, fresh: ProviderClaims) {
 	const freshByID = new Map<string, { claim: ModelClaim; group: GroupName }>();
 	for (const g of GROUPS) {
-		for (const c of fresh[g]) freshByID.set(c.model_id, { claim: c, group: g });
+		for (const c of bucketOf(fresh, g))
+			freshByID.set(c.model_id, { claim: c, group: g });
 	}
 
 	const kept = emptyBuckets();
@@ -150,6 +166,7 @@ export function mergeClaims(
 			stale: [],
 			suspect: [],
 			retired: [],
+			pinned: [],
 		};
 		return { ...prev, ...mergeProviderBuckets(prev, now ?? empty) };
 	});
@@ -157,10 +174,7 @@ export function mergeClaims(
 		out.push({
 			provider_id: added.provider_id,
 			provider_name: added.provider_name,
-			gone: added.gone.map((c) => ({ ...c, status: "new" as const })),
-			stale: added.stale.map((c) => ({ ...c, status: "new" as const })),
-			suspect: added.suspect.map((c) => ({ ...c, status: "new" as const })),
-			retired: added.retired.map((c) => ({ ...c, status: "new" as const })),
+			...seedBuckets(added, "new"),
 		});
 	}
 	return out;
@@ -169,10 +183,10 @@ export function mergeClaims(
 /**
  * Rewrites the named claims in place, leaving every other row untouched.
  *
- * All three buckets are scanned even though only `gone` rows offer a per-row
- * Dismiss control: `model_id` is unique within a provider, the per-provider
- * Dismiss all also covers stale, and a refresh landing during the request can
- * legitimately have moved a row to another bucket. Identity is therefore
+ * Every bucket is scanned even though only some of them offer a per-row control:
+ * `model_id` is unique within a provider, the per-provider Dismiss all also
+ * covers stale, and a refresh landing during the request can legitimately have
+ * moved a row to another bucket. Identity is therefore
  * `(provider_id, model_id)`, never a bucket position.
  */
 function mapClaims(
@@ -371,7 +385,14 @@ export function useDiscrepancies(open: boolean) {
 		}
 	}, []);
 
-	/** Marks confirmed dismissals; see `markDismissed`. */
+	/**
+	 * Marks confirmed dismissals; see `markDismissed`.
+	 *
+	 * The unpin path shares it. An unpinned model leaves the claims payload
+	 * outright (the pin is gone and the miss streak is reset, so nothing is left
+	 * to claim), which is the same absence a dismissal produces: caused by the
+	 * operator, and therefore never "the provider is listing it again".
+	 */
 	const dismissClaim = useCallback(
 		(providerID: string, modelIDs: Set<string>) => {
 			setSnapshot((prev) => markDismissed(prev, providerID, modelIDs));

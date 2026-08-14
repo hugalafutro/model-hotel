@@ -33,9 +33,9 @@ import { Modal } from "./Modal";
  * how the row is styled. Threading the group through as an argument makes it
  * impossible for a row to be rendered under one heading and act like another.
  */
-type Group = "gone" | "stale" | "suspect" | "retired";
+type Group = "gone" | "stale" | "suspect" | "retired" | "pinned";
 
-const ALL_GROUPS: Group[] = ["gone", "stale", "suspect", "retired"];
+const ALL_GROUPS: Group[] = ["gone", "stale", "suspect", "retired", "pinned"];
 
 /** Which provider is unrolled, and which of its bucket lines. */
 type OpenPath = { providerID: string; bucket: Group | null };
@@ -65,6 +65,10 @@ export interface ModelDiscrepancyModalProps {
 	onDismissEverything: (
 		batches: { providerID: string; modelIDs: string[] }[],
 	) => void;
+	/** Hands one pinned model back to automatic management. One model per call,
+	 * like onDismiss: the endpoint reports which ids it cleared, and asking about
+	 * one makes a short answer unambiguous. */
+	onUnpin: (providerId: string, modelId: string) => void;
 	/** Provider whose retest is in flight; only that section spins. */
 	retestingProviderId?: string;
 	/** True while ANY retest is in flight: every retest control goes disabled,
@@ -96,6 +100,7 @@ export function ModelDiscrepancyModal({
 	onDismiss,
 	onDismissAll,
 	onDismissEverything,
+	onUnpin,
 	retestingProviderId,
 	isRetesting,
 	retestAllProgress,
@@ -144,7 +149,9 @@ export function ModelDiscrepancyModal({
 	// empty state away again.
 	const hasContent =
 		groupClaims.length > 0 ||
-		visibleProviders.some((p) => ALL_GROUPS.some((g) => p[g].length > 0));
+		visibleProviders.some((p) =>
+			ALL_GROUPS.some((g) => (p[g] ?? []).length > 0),
+		);
 
 	// The informational zone starts expanded only when the discrepancy zone has
 	// nothing to show, since it is then the only content worth reading. Seeded
@@ -377,6 +384,17 @@ export function ModelDiscrepancyModal({
 					})
 				: "";
 		}
+		// A pinned model IS missing from the listing, so "last seen" is true but
+		// says nothing about why the row exists. Date it by the operator's decision
+		// instead, and stay silent rather than fall through to the wrong wording if
+		// a claim ever arrives without the stamp.
+		if (group === "pinned") {
+			return c.pinned_at
+				? t("providers.discrepancies.pinnedMeta", {
+						when: formatRelativeTime(c.pinned_at),
+					})
+				: "";
+		}
 		return t("providers.discrepancies.lastSeenMeta", {
 			when: formatRelativeTime(c.last_seen_at),
 		});
@@ -430,6 +448,23 @@ export function ModelDiscrepancyModal({
 					{claimMeta(c, group)}
 				</span>
 				{flapChip(c)}
+				{group === "pinned" && !isCleared ? (
+					<button
+						type="button"
+						onClick={() => onUnpin(p.provider_id, c.model_id)}
+						disabled={readOnly}
+						title={
+							readOnly
+								? t("providers.discrepancies.readOnlyTooltip")
+								: t("providers.discrepancies.unpinTooltip")
+						}
+						aria-describedby={describedByReadOnly}
+						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+						data-testid="discrepancy-unpin"
+					>
+						{t("providers.discrepancies.unpin")}
+					</button>
+				) : null}
 				{(group === "gone" || group === "retired") && !isCleared ? (
 					<button
 						type="button"
@@ -452,12 +487,17 @@ export function ModelDiscrepancyModal({
 		suspect: "?",
 		retired: "!",
 		stale: "·",
+		// "+" as in "you put these back", the same sign the journal uses for models
+		// that appeared. Deliberately not one of the alarm signs: a pin is a
+		// decision the operator made, not something that went wrong.
+		pinned: "+",
 	};
 	const BUCKET_VARIANT: Record<Group, string> = {
 		gone: "ui-badge-error",
 		suspect: "ui-badge-warning",
 		retired: "ui-badge-error",
 		stale: "ui-badge-neutral",
+		pinned: "ui-badge-info",
 	};
 
 	/**
@@ -487,7 +527,9 @@ export function ModelDiscrepancyModal({
 	 * resolves to a real element.
 	 */
 	const renderBucket = (p: MergedProvider, group: Group) => {
-		const claims = p[group];
+		// `?? []`: a server predating the operator pin omits the bucket entirely,
+		// which a rolling deploy puts behind this dashboard.
+		const claims = p[group] ?? [];
 		if (claims.length === 0) return null;
 		const open =
 			openPath?.providerID === p.provider_id && openPath.bucket === group;
@@ -513,7 +555,13 @@ export function ModelDiscrepancyModal({
 						{BUCKET_SIGN[group]} {claims.length}
 					</span>
 					<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
-						{t(`providers.discrepancies.group.${group}`)}
+						{/* Literal key for the pinned bucket rather than another entry under
+						    `group`: the i18n source-key check only follows literal
+						    arguments, and the label is the operator's own decision read
+						    back to them, not a discovery verdict like its neighbours. */}
+						{group === "pinned"
+							? t("providers.discrepancies.pinnedGroup")
+							: t(`providers.discrepancies.group.${group}`)}
 					</span>
 					<span className="h-px flex-1 bg-white/30" />
 				</button>
@@ -541,7 +589,7 @@ export function ModelDiscrepancyModal({
 	 * "is listed again" says something the count cannot.
 	 */
 	const renderClearedSummary = (p: MergedProvider) => {
-		const all = ALL_GROUPS.flatMap((g) => p[g]);
+		const all = ALL_GROUPS.flatMap((g) => p[g] ?? []);
 		const dismissed = all.filter((c) => c.status === "dismissed");
 		const relisted = all.filter((c) => c.status === "resolved");
 		return (
@@ -600,7 +648,9 @@ export function ModelDiscrepancyModal({
 
 	/** Rows that still need the operator: `pending` or `new`, never cleared. */
 	const actionableIn = (p: MergedProvider, group: Group) =>
-		p[group].filter((c) => c.status === "pending" || c.status === "new");
+		(p[group] ?? []).filter(
+			(c) => c.status === "pending" || c.status === "new",
+		);
 
 	const renderProvider = (p: MergedProvider) => {
 		const expanded = openPath?.providerID === p.provider_id;
@@ -619,7 +669,7 @@ export function ModelDiscrepancyModal({
 		// one would undercount `updated` and report an unknown model.
 		const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
 		const pointlessRetest = retestProvesNothing(p);
-		const all = ALL_GROUPS.flatMap((g) => p[g]);
+		const all = ALL_GROUPS.flatMap((g) => p[g] ?? []);
 		const regionId = `${regionIdBase}-provider-${p.provider_id}`;
 		return (
 			<section
@@ -637,6 +687,10 @@ export function ModelDiscrepancyModal({
 						providerName={p.provider_name}
 						expanded={expanded}
 						onToggle={() => toggleProvider(p.provider_id)}
+						// Pinned rows are deliberately absent: the chips are this
+						// provider's problem count, and a pin is a decision the operator
+						// made. Counting it would put a number on the pill (and, one level
+						// up, on the badge) for something nobody needs to act on.
 						counts={{
 							gone: gone.length,
 							stale: stale.length,
@@ -697,6 +751,8 @@ export function ModelDiscrepancyModal({
 							{renderBucket(p, "gone")}
 							{renderBucket(p, "suspect")}
 							{renderBucket(p, "stale")}
+							{/* Last: the only bucket that is not a problem. */}
+							{renderBucket(p, "pinned")}
 						</div>
 					) : null}
 				</div>
