@@ -258,3 +258,78 @@ type extendFailingStore struct {
 func (s *extendFailingStore) ExtendSession(context.Context, uuid.UUID, time.Time) error {
 	return errors.New("simulated extend failure")
 }
+
+// Verify is the pure lookup the SSE heartbeats use: it admits a live session
+// but neither stamps last-seen nor slides the expiry, however stale both are.
+func TestVerify_WritesNothing(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token := mintSession(t, repo, mgr, "admin-verify")
+	ageSession(t, repo, token, 48*time.Hour, AuthTokenTTL-time.Hour, time.Hour)
+	before := sessionByToken(t, repo, token)
+
+	res, ok := mgr.Verify(ctx, token)
+	if !ok || string(res.UserID) != "admin-verify" {
+		t.Fatalf("Verify = (%+v, %v), want the live session", res, ok)
+	}
+	if res.Extended {
+		t.Error("Verify reported an extension")
+	}
+	after := sessionByToken(t, repo, token)
+	if !after.ExpiresAt.Equal(before.ExpiresAt) {
+		t.Errorf("Verify slid expires_at from %v to %v", before.ExpiresAt, after.ExpiresAt)
+	}
+	if after.LastSeenAt == nil || before.LastSeenAt == nil || !after.LastSeenAt.Equal(*before.LastSeenAt) {
+		t.Errorf("Verify stamped last_seen_at (%v -> %v)", before.LastSeenAt, after.LastSeenAt)
+	}
+	// And a dead session is still refused.
+	ageSession(t, repo, token, AuthTokenMaxLifetime+time.Hour, 24*time.Hour, time.Hour)
+	if _, ok := mgr.Verify(ctx, token); ok {
+		t.Error("Verify admitted a session past the max lifetime")
+	}
+}
+
+// The mint path leaves created_at to the store (Postgres default now()), and the
+// cap reads it back: a scan or column regression there would silently uncap
+// sliding, so pin that a freshly minted row carries a real creation time.
+func TestCreateAuthToken_StoresCreatedAt(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	token := mintSession(t, repo, mgr, "admin-created")
+	s := sessionByToken(t, repo, token)
+	if s.CreatedAt.IsZero() {
+		t.Fatal("CreatedAt is zero on a freshly minted session")
+	}
+	if d := time.Since(s.CreatedAt); d < 0 || d > time.Minute {
+		t.Errorf("CreatedAt = %v, want roughly now", s.CreatedAt)
+	}
+}
+
+// A slid session is still the operator's live session: the active-sessions
+// list keeps showing it, with the moved expiry.
+func TestListAuthSessions_IncludesSlidSession(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token := mintSession(t, repo, mgr, "admin-listslid")
+	ageSession(t, repo, token, 48*time.Hour, AuthTokenTTL-time.Hour, time.Hour)
+	res, ok := mgr.Authenticate(ctx, token)
+	if !ok || !res.Extended {
+		t.Fatalf("Authenticate = (%+v, %v), want a slid session", res, ok)
+	}
+
+	rows, err := repo.ListAuthSessionsForUser(ctx, []byte("admin-listslid"))
+	if err != nil {
+		t.Fatalf("ListAuthSessionsForUser: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("listed %d sessions, want the one slid session", len(rows))
+	}
+	if !within(rows[0].ExpiresAt, res.ExpiresAt, time.Millisecond) {
+		t.Errorf("listed expiry %v, want the slid %v", rows[0].ExpiresAt, res.ExpiresAt)
+	}
+}

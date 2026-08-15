@@ -218,14 +218,22 @@ func TestPackageFuncsDelegateToDashboardJar(t *testing.T) {
 // RefreshSession re-issues both cookies with the new lifetime, keeping the
 // session token and the CSRF value the browser already holds: a client that
 // read the CSRF cookie at login must not find it swapped underneath it, and the
-// two cookies must never expire on different schedules.
+// two cookies must never expire on different schedules. The response is marked
+// no-store so a shared cache never keeps a body that arrived with a cookie.
 func TestRefreshSession_KeepsValuesMovesMaxAge(t *testing.T) {
+	existing, err := randomToken()
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
 	req.AddCookie(&http.Cookie{Name: FrontDesk.SessionCookie, Value: "sess-1"})
-	req.AddCookie(&http.Cookie{Name: FrontDesk.CSRFCookie, Value: "csrf-existing"})
+	req.AddCookie(&http.Cookie{Name: FrontDesk.CSRFCookie, Value: existing})
 	rec := httptest.NewRecorder()
 	if err := FrontDesk.RefreshSession(rec, req, "sess-1", true, 2*time.Hour); err != nil {
 		t.Fatalf("RefreshSession: %v", err)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
 	var sess, csrf *http.Cookie
 	for _, c := range rec.Result().Cookies() {
@@ -239,7 +247,7 @@ func TestRefreshSession_KeepsValuesMovesMaxAge(t *testing.T) {
 	if sess == nil || csrf == nil {
 		t.Fatalf("expected both cookies re-issued, got %+v", rec.Result().Cookies())
 	}
-	if sess.Value != "sess-1" || csrf.Value != "csrf-existing" {
+	if sess.Value != "sess-1" || csrf.Value != existing {
 		t.Errorf("values changed: session=%q csrf=%q", sess.Value, csrf.Value)
 	}
 	if sess.MaxAge != 7200 || csrf.MaxAge != 7200 {
@@ -251,22 +259,70 @@ func TestRefreshSession_KeepsValuesMovesMaxAge(t *testing.T) {
 	}
 }
 
-// A request that somehow carries the session cookie but no CSRF cookie gets a
-// fresh CSRF value rather than an empty one, so double-submit keeps working.
-func TestRefreshSession_MintsCSRFWhenMissing(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
-	req.AddCookie(&http.Cookie{Name: SessionCookie, Value: "sess-2"})
-	rec := httptest.NewRecorder()
-	if err := Dashboard.RefreshSession(rec, req, "sess-2", false, time.Hour); err != nil {
-		t.Fatalf("RefreshSession: %v", err)
-	}
-	for _, c := range rec.Result().Cookies() {
-		if c.Name == CSRFCookie {
-			if c.Value == "" {
-				t.Error("csrf cookie re-issued empty")
+// The request's CSRF cookie is untrusted input: only a value shaped like one
+// this package minted is echoed back. A missing cookie and a planted value of
+// the wrong shape (an attacker's sibling-subdomain toss, say) both get a fresh
+// token instead, so RefreshSession never promotes an arbitrary value into the
+// canonical host-wide cookie.
+func TestRefreshSession_MintsCSRFWhenMissingOrForeign(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string // "" = no CSRF cookie on the request
+	}{
+		{"missing", ""},
+		{"wrong length", "planted"},
+		{"right length wrong charset", "planted!value+with/bad=chars.......padded"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
+			req.AddCookie(&http.Cookie{Name: SessionCookie, Value: "sess-2"})
+			if tc.value != "" {
+				req.AddCookie(&http.Cookie{Name: CSRFCookie, Value: tc.value})
 			}
-			return
+			rec := httptest.NewRecorder()
+			if err := Dashboard.RefreshSession(rec, req, "sess-2", false, time.Hour); err != nil {
+				t.Fatalf("RefreshSession: %v", err)
+			}
+			for _, c := range rec.Result().Cookies() {
+				if c.Name == CSRFCookie {
+					if !isMintedToken(c.Value) || c.Value == tc.value {
+						t.Errorf("csrf re-issued as %q, want a fresh minted token", c.Value)
+					}
+					return
+				}
+			}
+			t.Error("no csrf cookie re-issued")
+		})
+	}
+}
+
+// A non-positive lifetime is not a refresh: MaxAge 0 would demote the pair to
+// session cookies and a negative value would delete them, so nothing is written.
+func TestRefreshSession_IgnoresNonPositiveMaxAge(t *testing.T) {
+	for _, d := range []time.Duration{0, 500 * time.Millisecond, -time.Hour} {
+		req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
+		req.AddCookie(&http.Cookie{Name: SessionCookie, Value: "sess-3"})
+		rec := httptest.NewRecorder()
+		if err := Dashboard.RefreshSession(rec, req, "sess-3", false, d); err != nil {
+			t.Fatalf("RefreshSession(%v): %v", d, err)
+		}
+		if got := rec.Result().Cookies(); len(got) != 0 {
+			t.Errorf("maxAge %v wrote cookies: %+v", d, got)
 		}
 	}
-	t.Error("no csrf cookie re-issued")
+}
+
+func TestIsMintedToken(t *testing.T) {
+	tok, err := randomToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isMintedToken(tok) {
+		t.Errorf("a freshly minted token %q is not recognised", tok)
+	}
+	for _, bad := range []string{"", "short", tok + "x", tok[:42] + "=", tok[:42] + "/"} {
+		if isMintedToken(bad) {
+			t.Errorf("isMintedToken(%q) = true", bad)
+		}
+	}
 }

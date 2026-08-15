@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,6 +24,10 @@ type mockWebAuthnSessionMgr struct {
 	listFn         func(ctx context.Context, identity []byte, candidateTokens ...string) ([]webauthn.AuthSessionInfo, error)
 	revokeByIDFn   func(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error
 	authFn         func(ctx context.Context, token string) (webauthn.AuthResult, bool)
+	// Verify invocations, so a test can prove a re-check did not slide. Atomic:
+	// the SSE reauth goroutine keeps ticking until its context ends, which can
+	// be after the stream handler returned and the test reads the count.
+	verifyCalls atomic.Int32
 }
 
 // RevokeOtherSessions defers to revokeOthersFn when set, so a test can assert
@@ -84,6 +89,17 @@ func (m *mockWebAuthnSessionMgr) Authenticate(ctx context.Context, token string)
 	if m.authFn != nil {
 		return m.authFn(ctx, token)
 	}
+	uid, ok := m.TokenUser(ctx, token)
+	if !ok {
+		return webauthn.AuthResult{}, false
+	}
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
+}
+
+// Verify never slides: it answers like TokenUser with a plain expiry and counts
+// the call.
+func (m *mockWebAuthnSessionMgr) Verify(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	m.verifyCalls.Add(1)
 	uid, ok := m.TokenUser(ctx, token)
 	if !ok {
 		return webauthn.AuthResult{}, false

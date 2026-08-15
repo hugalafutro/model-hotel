@@ -44,15 +44,7 @@ func (j Jar) SetSession(w http.ResponseWriter, token string, secure bool, maxAge
 	if err != nil {
 		return err
 	}
-	age := int(maxAge.Seconds())
-	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure/HttpOnly/SameSite are all set below via caller-controlled args, not omitted
-		Name: j.SessionCookie, Value: token, Path: "/",
-		HttpOnly: true, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
-	})
-	http.SetCookie(w, &http.Cookie{ //nolint:gosec // CSRF cookie is intentionally readable (HttpOnly: false) for double-submit; Secure/SameSite still set
-		Name: j.CSRFCookie, Value: csrf, Path: "/",
-		HttpOnly: false, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
-	})
+	j.writePair(w, token, csrf, secure, int(maxAge.Seconds()))
 	return nil
 }
 
@@ -62,10 +54,26 @@ func (j Jar) SetSession(w http.ResponseWriter, token string, secure bool, maxAge
 // on the original schedule however alive the session is. The CSRF cookie keeps
 // its value (a client may have read it already) and moves with the session
 // cookie so an unsafe request never finds the session alive but the CSRF
-// double-submit gone; a request carrying no CSRF cookie gets a fresh one.
+// double-submit gone. Only a value shaped like one this package minted is kept:
+// the request's cookie is untrusted input, and echoing an arbitrary value into
+// a host-wide Set-Cookie would let anyone able to plant a cookie (a sibling
+// subdomain, a path-scoped toss) promote it into the canonical one. Anything
+// else, including a missing cookie, gets a fresh token.
+//
+// A non-positive maxAge writes nothing: MaxAge 0 would turn the pair into
+// session cookies and a negative value would delete them, and neither is a
+// refresh. Callers only refresh sessions with time left, so this is a guard
+// against a future caller, not a branch in use.
+//
+// The response is marked Cache-Control: no-store, since a shared cache in
+// front of the API must never store a response that carries a session cookie.
 func (j Jar) RefreshSession(w http.ResponseWriter, r *http.Request, token string, secure bool, maxAge time.Duration) error {
+	age := int(maxAge.Seconds())
+	if age <= 0 {
+		return nil
+	}
 	csrf := ""
-	if c, err := r.Cookie(j.CSRFCookie); err == nil && c.Value != "" {
+	if c, err := r.Cookie(j.CSRFCookie); err == nil && isMintedToken(c.Value) {
 		csrf = c.Value
 	} else {
 		fresh, err := randomToken()
@@ -74,7 +82,15 @@ func (j Jar) RefreshSession(w http.ResponseWriter, r *http.Request, token string
 		}
 		csrf = fresh
 	}
-	age := int(maxAge.Seconds())
+	w.Header().Set("Cache-Control", "no-store")
+	j.writePair(w, token, csrf, secure, age)
+	return nil
+}
+
+// writePair sets the session cookie (HttpOnly) and the CSRF cookie (readable),
+// both Path=/, SameSite=Strict, with the given Secure attribute and MaxAge:
+// the one place the pair's hardening attributes are spelled out.
+func (j Jar) writePair(w http.ResponseWriter, token, csrf string, secure bool, age int) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure/HttpOnly/SameSite are all set below via caller-controlled args, not omitted
 		Name: j.SessionCookie, Value: token, Path: "/",
 		HttpOnly: true, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
@@ -83,7 +99,6 @@ func (j Jar) RefreshSession(w http.ResponseWriter, r *http.Request, token string
 		Name: j.CSRFCookie, Value: csrf, Path: "/",
 		HttpOnly: false, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
 	})
-	return nil
 }
 
 // ClearSession expires both cookies.
@@ -165,6 +180,28 @@ func Secure(r *http.Request, mode string) bool {
 		}
 		return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 	}
+}
+
+// mintedTokenLen is the length of a randomToken: 32 bytes as unpadded
+// base64url.
+const mintedTokenLen = 43
+
+// isMintedToken reports whether v has the exact shape randomToken produces
+// (43 base64url characters), which is all RefreshSession needs to tell a value
+// this package issued from an arbitrary planted one.
+func isMintedToken(v string) bool {
+	if len(v) != mintedTokenLen {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func randomToken() (string, error) {

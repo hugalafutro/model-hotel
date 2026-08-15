@@ -115,7 +115,24 @@ type AuthResult struct {
 // to created_at+AuthTokenMaxLifetime and never moved backwards. Both writes are
 // best-effort: a failed stamp or extension must not fail an otherwise valid
 // authentication, it only leaves Extended false.
+//
+// Call it for requests a person made. A server-driven re-check (an SSE
+// heartbeat re-validating a stream's credentials) must use Verify instead, or
+// the server would count its own heartbeat as use, keep every open tab's
+// session alive by itself, and hog the throttle window a real request needs
+// to have its cookie re-issued.
 func (m *SessionManager) Authenticate(ctx context.Context, token string) (AuthResult, bool) {
+	return m.authenticate(ctx, token, true)
+}
+
+// Verify validates the token exactly like Authenticate but writes nothing: no
+// last-seen stamp, no expiry slide, Extended always false. For server-driven
+// re-checks that are not use (see Authenticate).
+func (m *SessionManager) Verify(ctx context.Context, token string) (AuthResult, bool) {
+	return m.authenticate(ctx, token, false)
+}
+
+func (m *SessionManager) authenticate(ctx context.Context, token string, slide bool) (AuthResult, bool) {
 	if token == "" {
 		return AuthResult{}, false
 	}
@@ -137,9 +154,17 @@ func (m *SessionManager) Authenticate(ctx context.Context, token string) (AuthRe
 	}
 	// The absolute cap holds on validation too, not only when extending: a row
 	// whose stored expiry outruns created_at+max (minted under an older, longer
-	// TTL, say) is dead once the cap has passed.
+	// TTL, say) is dead once the cap has passed. Every mint stamps expires_at at
+	// most AuthTokenTTL out and every slide clamps to this bound, so in practice
+	// expires_at never exceeds created_at+max and the listing and cleanup
+	// queries, which filter on expires_at alone, honour the cap by construction.
+	// Both stores declare created_at NOT NULL and scan it; a zero value can only
+	// come from a store that forgot the column, which would leave sliding
+	// uncapped, so it is logged rather than silently tolerated.
 	lifetimeEnd := session.CreatedAt.Add(AuthTokenMaxLifetime)
-	if !session.CreatedAt.IsZero() && lifetimeEnd.Before(now) {
+	if session.CreatedAt.IsZero() {
+		debuglog.Warn("webauthn: session has no created_at; the max-lifetime cap cannot apply", "session_id", session.ID)
+	} else if lifetimeEnd.Before(now) {
 		return AuthResult{}, false
 	}
 
@@ -155,6 +180,9 @@ func (m *SessionManager) Authenticate(ctx context.Context, token string) (AuthRe
 	}
 
 	res := AuthResult{UserID: session.UserID, ExpiresAt: session.ExpiresAt}
+	if !slide {
+		return res, true
+	}
 
 	// Stamp last-seen so the active-sessions list can show which devices are
 	// still in use, and slide the expiry on the same beat, both throttled so

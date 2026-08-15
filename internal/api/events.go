@@ -99,7 +99,7 @@ func (h *Handler) reauthLoop(r *http.Request, every time.Duration, out chan<- *u
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			id, _, ok, _ := h.resolveCredentials(r)
+			id, _, ok, _ := h.resolveCredentials(r, false)
 			if !ok {
 				id = nil
 			}

@@ -42,7 +42,7 @@ func RequireAdminOrSession(
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if tok, res, ok := adminCookieSession(r, sessionMgr, jar); ok {
+		if tok, res, ok := adminCookieSession(r, sessionMgr, jar, true); ok {
 			if !authcookie.IsSafeMethod(r.Method) && !jar.ValidCSRF(r) {
 				http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 				return
@@ -64,7 +64,7 @@ func RequireAdminOrSession(
 			return
 		}
 
-		if validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled) {
+		if validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled, true) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -80,7 +80,10 @@ func RequireAdminOrSession(
 //
 // It exists for long-lived connections that outlive the middleware: an SSE stream
 // is gated once at connect, so the handler re-asks this question on its heartbeat
-// to bound how long a revoked credential keeps a stream alive.
+// to bound how long a revoked credential keeps a stream alive. That heartbeat is
+// the server's, not the person's, so it verifies without stamping last-seen or
+// sliding the session's expiry (webauthn.SessionManager.Verify): otherwise every
+// open tab would keep its own session alive with nobody at it.
 func ValidAdminOrSession(
 	r *http.Request,
 	adminMgr AdminAuthenticator,
@@ -88,14 +91,14 @@ func ValidAdminOrSession(
 	totpEnabled func() bool,
 	jar authcookie.Jar,
 ) bool {
-	if _, _, ok := adminCookieSession(r, sessionMgr, jar); ok {
+	if _, _, ok := adminCookieSession(r, sessionMgr, jar, false); ok {
 		return true
 	}
 	token, ok := util.ParseBearerToken(r)
 	if !ok {
 		return false
 	}
-	return validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled)
+	return validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled, false)
 }
 
 // RefreshSessionCookies re-issues the jar's cookie pair for a session whose
@@ -111,22 +114,33 @@ func RefreshSessionCookies(w http.ResponseWriter, r *http.Request, jar authcooki
 // adminCookieSession resolves the admin session riding the jar's session
 // cookie: the token, the authentication result (which says whether the expiry
 // just slid, so the caller can re-issue the cookie), and whether it is admitted.
+// use says whether the request counts as the person using the session (stamp
+// last-seen, slide) or is a server-driven re-check (pure lookup).
 // The session token rides an HttpOnly cookie instead of an Authorization
 // header, named by the caller's jar so the dashboard and Front Desk never read
 // each other's cookie when they share a hostname. Only the admin session
 // (UserID == "admin") qualifies: a valid but non-admin (UUID) session cookie, or
 // an absent/expired cookie, reports false so callers fall through to the header
 // path and header (admin-token / bearer) callers stay unaffected.
-func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, jar authcookie.Jar) (string, webauthn.AuthResult, bool) {
+func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, jar authcookie.Jar, use bool) (string, webauthn.AuthResult, bool) {
 	tok, ok := jar.SessionToken(r)
 	if !ok || sessionMgr == nil {
 		return "", webauthn.AuthResult{}, false
 	}
-	res, ok := sessionMgr.Authenticate(r.Context(), tok)
+	res, ok := sessionAuth(r, sessionMgr, tok, use)
 	if !ok || string(res.UserID) != "admin" {
 		return "", webauthn.AuthResult{}, false
 	}
 	return tok, res, true
+}
+
+// sessionAuth validates a session token, sliding it when the request is the
+// person's own use and merely verifying it for a server-driven re-check.
+func sessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
+	if use {
+		return sessionMgr.Authenticate(r.Context(), token)
+	}
+	return sessionMgr.Verify(r.Context(), token)
 }
 
 // validAdminBearer reports whether the bearer token parsed from r is admissible:
@@ -142,6 +156,7 @@ func validAdminBearer(
 	adminMgr AdminAuthenticator,
 	sessionMgr *webauthn.SessionManager,
 	totpEnabled func() bool,
+	use bool,
 ) bool {
 	if (totpEnabled == nil || !totpEnabled()) && adminMgr.Validate(token) {
 		return true
@@ -149,6 +164,6 @@ func validAdminBearer(
 	if sessionMgr == nil {
 		return false
 	}
-	userID, ok := sessionMgr.TokenUser(r.Context(), token)
-	return ok && string(userID) == "admin"
+	res, ok := sessionAuth(r, sessionMgr, token, use)
+	return ok && string(res.UserID) == "admin"
 }

@@ -53,6 +53,9 @@ func (s *memSessionStore) CreateSession(_ context.Context, rec *webauthn.Session
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cp := *rec
+	if cp.CreatedAt.IsZero() {
+		cp.CreatedAt = time.Now() // the real stores stamp created_at at insert
+	}
 	s.byID[rec.ID] = &cp
 	if rec.TokenHash != nil {
 		s.byHash[*rec.TokenHash] = &cp
