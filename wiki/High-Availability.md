@@ -500,7 +500,8 @@ it out to Telegram, Discord, email, ntfy, and dozens more. Only routing metadata
 is sent, never request or prompt content.
 
 Run an `apprise` service reachable from Front Desk (a commented-out example ships
-in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings -> Alerts**: set
+in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings -> Alerts**:
+switch on **Send outbound alert notifications** (the card unrolls its fields), set
 the Apprise API URL (e.g. `http://apprise:8000`), paste your notification
 target(s), and pick which events to be notified about. The picker defaults to the
 high-signal HA events (a member going down or recovering, a config sync failing, a
