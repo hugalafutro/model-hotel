@@ -2204,7 +2204,9 @@
 		"passwordPolicy": {
 			"title": "Política de contrasenyes",
 			"breachCheckLabel": "Rebutja les contrasenyes filtrades",
-			"breachCheckDescription": "Comprova les contrasenyes dels comptes nous amb una base de dades pública de contrasenyes filtrades conegudes i rebutja qualsevol coincidència. Només s'envia un prefix curt del resum (hash), mai la contrasenya."
+			"breachCheckDescription": "Comprova les contrasenyes dels comptes nous amb una base de dades pública de contrasenyes filtrades conegudes i rebutja qualsevol coincidència. Només s'envia un prefix curt del resum (hash), mai la contrasenya.",
+			"breachCheckInfo": "Mentre això és actiu, una contrasenya que s'estableix o es canvia es converteix en un hash SHA-1 i només els cinc primers caràcters d'aquest hash s'envien a l'API de rangs de Have I Been Pwned; l'API retorna tots els sufixos filtrats darrere d'aquest prefix (amb farciment, de manera que la mida de la resposta no revela res) i la comparació es fa aquí, per tant ni la contrasenya ni el seu hash complet surten mai d'aquesta instància. És l'únic punt on un rastre de la contrasenya d'un usuari arriba a un servei extern: desactiva la comprovació per mantenir els canvis de compte completament fora de línia, o apunta PWNED_PASSWORD_API_URL a un mirall autoallotjat; PWNED_PASSWORD_CHECK_ENABLED=false la desactiva del tot i aquest interruptor deixa de tenir efecte. Si no es pot contactar amb l'API o retorna un error, el canvi es permet igualment.",
+			"breachCheckInfoLink": "Com funciona la cerca per rangs (haveibeenpwned.com)"
 		}
 	},
 	"components": {

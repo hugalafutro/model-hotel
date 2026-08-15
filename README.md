@@ -48,7 +48,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
 <p align="center">
-  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above two healthy fleet members"></a>
+  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above four healthy fleet members"></a>
   <br>
   <sub>Front Desk (HA control app) Dashboard</sub>
 </p>

@@ -2152,7 +2152,9 @@
 		"passwordPolicy": {
 			"title": "Jelszóházirend",
 			"breachCheckLabel": "Kiszivárgott jelszavak elutasítása",
-			"breachCheckDescription": "Az új fiókjelszavak ellenőrzése egy ismert kiszivárgott jelszavakat tartalmazó nyilvános adatbázissal, és minden egyezés elutasítása. Csak egy rövid kivonat-előtag kerül elküldésre, soha nem maga a jelszó."
+			"breachCheckDescription": "Az új fiókjelszavak ellenőrzése egy ismert kiszivárgott jelszavakat tartalmazó nyilvános adatbázissal, és minden egyezés elutasítása. Csak egy rövid kivonat-előtag kerül elküldésre, soha nem maga a jelszó.",
+			"breachCheckInfo": "Amíg ez be van kapcsolva, a beállított vagy módosított jelszóból SHA-1 kivonat készül, és a kivonatnak csak az első öt karaktere megy el a Have I Been Pwned range API-jához; az API visszaadja az adott előtag mögötti összes kiszivárgott utótagot (kitöltéssel, hogy a válasz mérete semmit ne áruljon el), az egyeztetés pedig itt történik, így sem a jelszó, sem a teljes kivonat soha nem hagyja el ezt a példányt. Ez az egyetlen hely, ahol egy felhasználói jelszó nyoma külső szolgáltatáshoz jut: kapcsold ki az ellenőrzést, hogy a fiókmódosítások teljesen offline maradjanak, vagy irányítsd a PWNED_PASSWORD_API_URL-t egy saját tükörre; a PWNED_PASSWORD_CHECK_ENABLED=false teljesen letiltja, és ennek a kapcsolónak akkor nincs hatása. Ha az API nem érhető el vagy hibát ad vissza, a módosítás így is engedélyezett.",
+			"breachCheckInfoLink": "Így működik a tartománykeresés (haveibeenpwned.com)"
 		}
 	},
 	"components": {

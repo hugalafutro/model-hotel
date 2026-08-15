@@ -2256,7 +2256,9 @@
 		"passwordPolicy": {
 			"title": "Zásady hesel",
 			"breachCheckLabel": "Odmítat uniklá hesla",
-			"breachCheckDescription": "Porovnat nová hesla účtů s veřejnou databází známých uniklých hesel a odmítnout jakoukoli shodu. Odesílá se pouze krátká předpona otisku, nikdy samotné heslo."
+			"breachCheckDescription": "Porovnat nová hesla účtů s veřejnou databází známých uniklých hesel a odmítnout jakoukoli shodu. Odesílá se pouze krátká předpona otisku, nikdy samotné heslo.",
+			"breachCheckInfo": "Dokud je toto zapnuté, nastavované nebo měněné heslo se zahashuje pomocí SHA-1 a do range API služby Have I Been Pwned se odešle jen prvních pět znaků tohoto hashe; API vrátí všechny uniklé sufixy za tímto prefixem (doplněné výplní, aby velikost odpovědi nic neprozradila) a porovnání proběhne zde, takže heslo ani jeho úplný hash tuto instanci nikdy neopustí. Je to jediné místo, kde stopa uživatelského hesla dosáhne externí služby: kontrolu vypněte, aby změny účtů zůstaly zcela offline, nebo nasměrujte PWNED_PASSWORD_API_URL na vlastní zrcadlo; PWNED_PASSWORD_CHECK_ENABLED=false ji vypne úplně a tento přepínač pak nemá žádný účinek. Pokud je API nedostupné nebo vrátí chybu, změna se přesto povolí.",
+			"breachCheckInfoLink": "Jak funguje vyhledávání podle rozsahu (haveibeenpwned.com)"
 		}
 	},
 	"components": {

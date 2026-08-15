@@ -2152,7 +2152,9 @@
 		"passwordPolicy": {
 			"title": "Salasanakäytäntö",
 			"breachCheckLabel": "Hylkää vuotaneet salasanat",
-			"breachCheckDescription": "Tarkista uudet tilien salasanat julkista tunnettujen vuotaneiden salasanojen tietokantaa vasten ja hylkää kaikki osumat. Vain lyhyt tiivisteen etuliite lähetetään, ei koskaan itse salasanaa."
+			"breachCheckDescription": "Tarkista uudet tilien salasanat julkista tunnettujen vuotaneiden salasanojen tietokantaa vasten ja hylkää kaikki osumat. Vain lyhyt tiivisteen etuliite lähetetään, ei koskaan itse salasanaa.",
+			"breachCheckInfo": "Kun tämä on käytössä, asetettavasta tai vaihdettavasta salasanasta lasketaan SHA-1-tiiviste ja vain tiivisteen viisi ensimmäistä merkkiä lähetetään Have I Been Pwned -palvelun range-rajapintaan; rajapinta palauttaa kaikki vuotaneet loppuosat kyseisen alkuosan takaa (täytettynä, jotta vastauksen koko ei paljasta mitään) ja vertailu tehdään täällä, joten salasana tai sen koko tiiviste ei koskaan poistu tästä instanssista. Tämä on ainoa kohta, jossa jälki käyttäjän salasanasta päätyy ulkopuoliseen palveluun: poista tarkistus käytöstä pitääksesi tilimuutokset täysin offline-tilassa tai osoita PWNED_PASSWORD_API_URL itse ylläpidettyyn peilipalvelimeen; PWNED_PASSWORD_CHECK_ENABLED=false poistaa sen kokonaan käytöstä, jolloin tällä kytkimellä ei ole vaikutusta. Jos rajapintaa ei tavoiteta tai se palauttaa virheen, muutos sallitaan joka tapauksessa.",
+			"breachCheckInfoLink": "Näin range-haku toimii (haveibeenpwned.com)"
 		}
 	},
 	"components": {

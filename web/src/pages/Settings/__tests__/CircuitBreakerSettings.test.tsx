@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -565,6 +565,20 @@ describe("CircuitBreakerSettings", () => {
 			expect(
 				await screen.findByText(/Hedging fires a second/i),
 			).toBeInTheDocument();
+			// The notice is a semantic warning callout stacked under the Hedging
+			// group, in the Hedging column.
+			const notice = screen.getByTestId("hedging-notice");
+			expect(notice).toHaveClass("ui-callout", "ui-callout-warning");
+			const column = screen.getByTestId("hedging-column");
+			expect(column).toContainElement(notice);
+			expect(
+				within(column).getByRole("switch", { name: /hedge slow streams/i }),
+			).toBeInTheDocument();
+			expect(
+				within(column).queryByRole("switch", {
+					name: /enable circuit breaker/i,
+				}),
+			).not.toBeInTheDocument();
 		});
 
 		it("toggles hedging on and calls mutation", async () => {
@@ -936,6 +950,36 @@ describe("CircuitBreakerSettings", () => {
 				expect(resetSpy).toHaveBeenCalledOnce();
 			});
 
+			resetSpy.mockRestore();
+		});
+
+		it("resets exactly the hedging keys from the Hedging column's inline reset buttons", async () => {
+			const resetSpy = vi.spyOn(api.settings, "reset");
+			resetSpy.mockResolvedValue({});
+			server.use(
+				...mockSettings({
+					body: { hedging_enabled: "true", hedge_delay: "4s" },
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+			);
+			const column = await screen.findByTestId("hedging-column");
+			// Two reset buttons live in the column, one per control, in DOM
+			// order: the Hedge Slow Streams toggle, then the Hedge Delay slider.
+			const resets = within(column).getAllByRole("button", {
+				name: /reset this setting to default/i,
+			});
+			expect(resets).toHaveLength(2);
+			await user.click(resets[0]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
+			);
+			await user.click(resets[1]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["hedge_delay"]),
+			);
 			resetSpy.mockRestore();
 		});
 	});
