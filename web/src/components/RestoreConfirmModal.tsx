@@ -42,11 +42,10 @@ export function RestoreConfirmModal({
 	const sig = signature.trim();
 	const signatureMalformed = sig !== "" && !SIGNATURE_PATTERN.test(sig);
 
+	// Only reachable from an enabled button, which the render below already
+	// gates on a non-empty token and a well-formed (or empty) signature.
 	const handleConfirm = () => {
 		const token = adminToken.trim();
-		if (!token || signatureMalformed) {
-			return;
-		}
 		if (sig) {
 			onConfirm(token, sig);
 			return;

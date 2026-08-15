@@ -424,6 +424,51 @@ func TestBackupSignature_MissingDumpIs404(t *testing.T) {
 	}
 }
 
+// A sidecar that exists but cannot be read leaves the dump's integrity
+// unprovable; that is an error, not "unsigned", so it must not turn into a 404
+// the operator would read as "restore it on trust".
+func TestBackupSignature_UnreadableSidecarIs500(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A directory where the sidecar file should be: os.ReadFile fails with
+	// something other than not-exist.
+	if err := os.Mkdir(filepath.Join(dir, "backup_test.dump"+backupSignatureExt), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for an unreadable sidecar (%s)", w.Code, w.Body.String())
+	}
+}
+
+// A stat failure that is not "does not exist" (here: a path component that is a
+// regular file, so ENOTDIR) is reported as an error, not as a missing backup.
+func TestBackupSignature_StatErrorIs500(t *testing.T) {
+	parent := t.TempDir()
+	notADir := filepath.Join(parent, "backups")
+	if err := os.WriteFile(notADir, []byte("a file where the backup dir should be"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", notADir, &mockAdminAuth{}, nil)
+	h.SetSigningKey("master")
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for a stat error that is not not-exist (%s)", w.Code, w.Body.String())
+	}
+}
+
 func TestBackupSignature_InvalidFilenameIs400(t *testing.T) {
 	r, _ := setupSignedBackupRouter(t, "master")
 
