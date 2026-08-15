@@ -2,8 +2,10 @@ package adminauth
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -24,6 +26,11 @@ import (
 // sessionMgr.Validate would let any authenticated regular user reach these
 // admin-only routes and mint an admin session (CWE-863 privilege escalation).
 //
+// A cookie-authenticated request whose session just slid forward (see
+// webauthn.SessionManager.Authenticate) gets its cookie pair re-issued with the
+// new lifetime before next runs, since the browser enforces MaxAge on its own.
+// cookieSecure is the authcookie.Secure mode the re-issued cookies use.
+//
 // Moved from internal/api/auth_middleware.go so the WebAuthn and TOTP handlers
 // carry their gate with them into the shared package.
 func RequireAdminOrSession(
@@ -31,13 +38,17 @@ func RequireAdminOrSession(
 	sessionMgr *webauthn.SessionManager,
 	totpEnabled func() bool,
 	jar authcookie.Jar,
+	cookieSecure string,
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if validAdminCookie(r, sessionMgr, jar) {
+		if tok, res, ok := adminCookieSession(r, sessionMgr, jar); ok {
 			if !authcookie.IsSafeMethod(r.Method) && !jar.ValidCSRF(r) {
 				http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 				return
+			}
+			if res.Extended {
+				RefreshSessionCookies(w, r, jar, tok, res, cookieSecure)
 			}
 			next.ServeHTTP(w, r)
 			return
@@ -77,7 +88,7 @@ func ValidAdminOrSession(
 	totpEnabled func() bool,
 	jar authcookie.Jar,
 ) bool {
-	if validAdminCookie(r, sessionMgr, jar) {
+	if _, _, ok := adminCookieSession(r, sessionMgr, jar); ok {
 		return true
 	}
 	token, ok := util.ParseBearerToken(r)
@@ -87,21 +98,35 @@ func ValidAdminOrSession(
 	return validAdminBearer(r, token, adminMgr, sessionMgr, totpEnabled)
 }
 
-// validAdminCookie reports whether r carries an admin session on the jar's
-// session cookie. The session token rides an HttpOnly cookie instead of an
-// Authorization header, named by the caller's jar so the dashboard and Front
-// Desk never read each other's cookie when they share a hostname. Only the
-// admin session (UserID == "admin") qualifies: a valid but non-admin (UUID)
-// session cookie, or an absent/expired cookie, reports false so callers fall
-// through to the header path and header (admin-token / bearer) callers stay
-// unaffected.
-func validAdminCookie(r *http.Request, sessionMgr *webauthn.SessionManager, jar authcookie.Jar) bool {
+// RefreshSessionCookies re-issues the jar's cookie pair for a session whose
+// expiry just slid to res.ExpiresAt. Best-effort: a failure to write the
+// cookies is logged and the request still proceeds, since the authentication
+// itself already passed and the browser merely keeps the older lifetime.
+func RefreshSessionCookies(w http.ResponseWriter, r *http.Request, jar authcookie.Jar, token string, res webauthn.AuthResult, cookieSecure string) {
+	if err := jar.RefreshSession(w, r, token, authcookie.Secure(r, cookieSecure), time.Until(res.ExpiresAt)); err != nil {
+		debuglog.Error("auth: failed to re-issue session cookie", "error", err)
+	}
+}
+
+// adminCookieSession resolves the admin session riding the jar's session
+// cookie: the token, the authentication result (which says whether the expiry
+// just slid, so the caller can re-issue the cookie), and whether it is admitted.
+// The session token rides an HttpOnly cookie instead of an Authorization
+// header, named by the caller's jar so the dashboard and Front Desk never read
+// each other's cookie when they share a hostname. Only the admin session
+// (UserID == "admin") qualifies: a valid but non-admin (UUID) session cookie, or
+// an absent/expired cookie, reports false so callers fall through to the header
+// path and header (admin-token / bearer) callers stay unaffected.
+func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, jar authcookie.Jar) (string, webauthn.AuthResult, bool) {
 	tok, ok := jar.SessionToken(r)
 	if !ok || sessionMgr == nil {
-		return false
+		return "", webauthn.AuthResult{}, false
 	}
-	userID, ok := sessionMgr.TokenUser(r.Context(), tok)
-	return ok && string(userID) == "admin"
+	res, ok := sessionMgr.Authenticate(r.Context(), tok)
+	if !ok || string(res.UserID) != "admin" {
+		return "", webauthn.AuthResult{}, false
+	}
+	return tok, res, true
 }
 
 // validAdminBearer reports whether the bearer token parsed from r is admissible:

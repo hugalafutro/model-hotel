@@ -56,6 +56,36 @@ func (j Jar) SetSession(w http.ResponseWriter, token string, secure bool, maxAge
 	return nil
 }
 
+// RefreshSession re-issues the session cookie pair with a new MaxAge and the
+// same values, for a session whose server-side expiry just slid forward: the
+// browser enforces MaxAge on its own, so without this it would drop the cookie
+// on the original schedule however alive the session is. The CSRF cookie keeps
+// its value (a client may have read it already) and moves with the session
+// cookie so an unsafe request never finds the session alive but the CSRF
+// double-submit gone; a request carrying no CSRF cookie gets a fresh one.
+func (j Jar) RefreshSession(w http.ResponseWriter, r *http.Request, token string, secure bool, maxAge time.Duration) error {
+	csrf := ""
+	if c, err := r.Cookie(j.CSRFCookie); err == nil && c.Value != "" {
+		csrf = c.Value
+	} else {
+		fresh, err := randomToken()
+		if err != nil {
+			return err
+		}
+		csrf = fresh
+	}
+	age := int(maxAge.Seconds())
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure/HttpOnly/SameSite are all set below via caller-controlled args, not omitted
+		Name: j.SessionCookie, Value: token, Path: "/",
+		HttpOnly: true, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
+	})
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // CSRF cookie is intentionally readable (HttpOnly: false) for double-submit; Secure/SameSite still set
+		Name: j.CSRFCookie, Value: csrf, Path: "/",
+		HttpOnly: false, Secure: secure, SameSite: http.SameSiteStrictMode, MaxAge: age,
+	})
+	return nil
+}
+
 // ClearSession expires both cookies.
 func (j Jar) ClearSession(w http.ResponseWriter, secure bool) {
 	for _, name := range []string{j.SessionCookie, j.CSRFCookie} {

@@ -549,3 +549,83 @@ func TestDeleteOtherSessionsForUser_ClosedDBIsAnError(t *testing.T) {
 		t.Error("a failed revoke must report an error rather than claim success")
 	}
 }
+
+// TestSQLiteExtendSession: the sliding-expiry write moves expires_at and
+// nothing else, a missing row is not an error, and a session slid this way
+// still authenticates through the shared manager (the SQLite store honours the
+// same contract as Postgres, so Front Desk sessions slide too).
+func TestSQLiteExtendSession(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	mgr := webauthn.NewSessionManager(store)
+	ctx := context.Background()
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := sessionIDByHash(t, s, token)
+	before, err := store.GetSession(ctx, id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+
+	later := before.ExpiresAt.Add(36 * time.Hour).Truncate(time.Microsecond)
+	if err := store.ExtendSession(ctx, id, later); err != nil {
+		t.Fatalf("ExtendSession: %v", err)
+	}
+	after, err := store.GetSession(ctx, id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if !after.ExpiresAt.Equal(later) {
+		t.Errorf("expires_at = %v, want %v", after.ExpiresAt, later)
+	}
+	if !after.CreatedAt.Equal(before.CreatedAt) || after.LastSeenAt != nil && before.LastSeenAt == nil {
+		t.Error("ExtendSession touched columns other than expires_at")
+	}
+	if _, ok := mgr.TokenUser(ctx, token); !ok {
+		t.Error("an extended session no longer validates")
+	}
+
+	if err := store.ExtendSession(ctx, uuid.New(), later); err != nil {
+		t.Errorf("extending a missing row must stay quiet, got %v", err)
+	}
+}
+
+// TestSQLiteSlidingExpiryEndToEnd drives the manager over the SQLite store:
+// an aged Front Desk session slides on use, exactly as the Postgres-backed
+// dashboard session does.
+func TestSQLiteSlidingExpiryEndToEnd(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	mgr := webauthn.NewSessionManager(store)
+	ctx := context.Background()
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := sessionIDByHash(t, s, token)
+	// Two days in, last used an hour ago, expiry as that use left it.
+	seen := time.Now().Add(-time.Hour)
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE webauthn_sessions SET created_at = ?, last_seen_at = ?, expires_at = ? WHERE id = ?`,
+		time.Now().Add(-48*time.Hour).UTC().UnixNano(), seen.UTC().UnixNano(),
+		seen.Add(webauthn.AuthTokenTTL).UTC().UnixNano(), id.String()); err != nil {
+		t.Fatalf("age session: %v", err)
+	}
+
+	res, ok := mgr.Authenticate(ctx, token)
+	if !ok || !res.Extended {
+		t.Fatalf("Authenticate = (%+v, %v), want a slid session", res, ok)
+	}
+	got, err := store.GetSession(ctx, id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	want := time.Now().Add(webauthn.AuthTokenTTL)
+	if d := got.ExpiresAt.Sub(want); d < -time.Minute || d > time.Minute {
+		t.Errorf("expires_at = %v, want about now+TTL (%v)", got.ExpiresAt, want)
+	}
+}

@@ -65,6 +65,15 @@ func (m *revocableSessionMgr) TokenUser(ctx context.Context, token string) ([]by
 	return nil, false
 }
 
+// Authenticate mirrors TokenUser with a plain (never sliding) expiry.
+func (m *revocableSessionMgr) Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	uid, ok := m.TokenUser(ctx, token)
+	if !ok {
+		return webauthn.AuthResult{}, false
+	}
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
+}
+
 func (m *revocableSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
 
 // streamRequest builds a cookie-authenticated SSE request carrying an admin
@@ -163,6 +172,10 @@ func (m *uuidSessionMgr) RevokeSessionByID(context.Context, []byte, uuid.UUID, .
 func (m *uuidSessionMgr) Validate(_ context.Context, _ string) bool { return true }
 func (m *uuidSessionMgr) TokenUser(_ context.Context, _ string) ([]byte, bool) {
 	return []byte(m.id.String()), true
+}
+func (m *uuidSessionMgr) Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	uid, _ := m.TokenUser(ctx, token)
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
 }
 func (m *uuidSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
 

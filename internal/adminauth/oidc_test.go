@@ -117,6 +117,16 @@ func (s *memSessionStore) TouchSessionLastSeen(_ context.Context, id uuid.UUID, 
 	return nil
 }
 
+// ExtendSession moves the stored record's expiry, mirroring the real stores.
+func (s *memSessionStore) ExtendSession(_ context.Context, id uuid.UUID, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rec, ok := s.byID[id]; ok {
+		rec.ExpiresAt = at
+	}
+	return nil
+}
+
 // DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
 // never sign other sessions out.
 func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {

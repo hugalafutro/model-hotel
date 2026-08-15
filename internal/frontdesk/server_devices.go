@@ -183,7 +183,7 @@ func actorFromContext(ctx context.Context) string {
 // by requireOperator/requireAdmin), the raw FRONTDESK_TOKEN, or a
 // passkey/TOTP/SSO session token. Device hits stamp last_seen_at best-effort.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
-	adminGate := adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, next)
+	adminGate := adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, s.cookieSecure, next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if token, ok := util.ParseBearerToken(r); ok {
 			dev, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))

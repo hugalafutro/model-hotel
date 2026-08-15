@@ -100,6 +100,10 @@ type WebAuthnSessionManager interface {
 	// ([]byte("admin") for legacy admin logins, a user UUID string for
 	// multi-user password logins).
 	TokenUser(ctx context.Context, token string) ([]byte, bool)
+	// Authenticate validates like TokenUser and additionally reports the
+	// session's expiry and whether this call slid it forward, so a cookie
+	// caller can re-issue the cookie pair with the new lifetime.
+	Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool)
 	RevokeAuthToken(ctx context.Context, token string) bool
 	// RevokeOtherSessions signs out every session belonging to identity except
 	// the one the request was made from. identity must come from the
@@ -461,16 +465,21 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 //
 // Shared by AuthMiddleware and by the long-lived SSE stream, which re-runs it
 // mid-connection so a revoked session or changed grants take effect without
-// waiting for the client to disconnect. Purely a lookup: it writes nothing and
-// has no side effects, so it is safe to call repeatedly.
-func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookieAuth, ok bool) {
+// waiting for the client to disconnect. It writes nothing to the response:
+// when the cookie session's expiry just slid forward, refresh carries what the
+// middleware needs to re-issue the cookie pair (token + new expiry), and the
+// SSE re-check, whose headers are long gone, simply ignores it.
+func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookieAuth, ok bool, refresh *cookieRefresh) {
 	// Cookie path (browser). The session token rides an HttpOnly cookie. This
 	// branch is additive: an invalid/expired cookie falls through to the header
 	// logic below, and header (admin-token / bearer) callers are unaffected.
 	if tok, found := authcookie.SessionToken(r); found && h.webauthnSessionMgr != nil {
-		if sessionUserID, valid := h.webauthnSessionMgr.TokenUser(r.Context(), tok); valid {
-			if id, resolved := h.resolveIdentity(r.Context(), sessionUserID); resolved {
-				return id, true, true
+		if res, valid := h.webauthnSessionMgr.Authenticate(r.Context(), tok); valid {
+			if id, resolved := h.resolveIdentity(r.Context(), res.UserID); resolved {
+				if res.Extended {
+					refresh = &cookieRefresh{token: tok, result: res}
+				}
+				return id, true, true, refresh
 			}
 		}
 		// Invalid/expired cookie: fall through to header logic.
@@ -478,7 +487,7 @@ func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookie
 
 	token, found := util.ParseBearerToken(r)
 	if !found {
-		return nil, false, false
+		return nil, false, false, nil
 	}
 
 	// Fast path: admin token (in-memory hash comparison) -- only when TOTP
@@ -487,7 +496,7 @@ func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookie
 	// /api/totp/login; a bare admin token bearer is rejected so the second
 	// factor cannot be bypassed.
 	if !h.TotpEnabled() && h.adminMgr.Validate(token) {
-		return user.AdminIdentity(), false, true
+		return user.AdminIdentity(), false, true, nil
 	}
 
 	// Fallback: session token (DB-backed SHA-256 hash lookup). The session's
@@ -497,12 +506,20 @@ func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookie
 	if h.webauthnSessionMgr != nil {
 		if sessionUserID, valid := h.webauthnSessionMgr.TokenUser(r.Context(), token); valid {
 			if id, resolved := h.resolveIdentity(r.Context(), sessionUserID); resolved {
-				return id, false, true
+				return id, false, true, nil
 			}
 		}
 	}
 
-	return nil, false, false
+	return nil, false, false, nil
+}
+
+// cookieRefresh is what AuthMiddleware needs to re-issue the session cookie
+// pair after the session's expiry slid: the token the cookie carries and the
+// authentication result holding the new expiry.
+type cookieRefresh struct {
+	token  string
+	result webauthn.AuthResult
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.
@@ -510,7 +527,7 @@ func (h *Handler) resolveCredentials(r *http.Request) (id *user.Identity, cookie
 // If the admin token is invalid, the session-based token is tried as a fallback.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, cookieAuth, ok := h.resolveCredentials(r)
+		id, cookieAuth, ok, refresh := h.resolveCredentials(r)
 		if !ok {
 			// Warn (not Error) with the remote address — never the token — so
 			// repeated admin-auth failures are visible for abuse detection
@@ -532,6 +549,17 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			debuglog.Warn("auth: CSRF check failed", "remote_addr", clientip.From(r), "path", r.URL.Path)
 			http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 			return
+		}
+
+		// The session slid forward on this request: hand the browser the new
+		// lifetime, or it drops the cookie on the original schedule.
+		if refresh != nil {
+			if err := authcookie.Dashboard.RefreshSession(w, r, refresh.token,
+				authcookie.Secure(r, h.cfg.CookieSecure), time.Until(refresh.result.ExpiresAt)); err != nil {
+				// Best-effort: the authentication passed; the browser merely keeps
+				// the older lifetime until the next successful refresh.
+				debuglog.Error("auth: failed to re-issue session cookie", "error", err)
+			}
 		}
 
 		next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))

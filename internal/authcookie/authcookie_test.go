@@ -214,3 +214,59 @@ func TestPackageFuncsDelegateToDashboardJar(t *testing.T) {
 		t.Fatal("package-level SetSession must keep writing mh_session")
 	}
 }
+
+// RefreshSession re-issues both cookies with the new lifetime, keeping the
+// session token and the CSRF value the browser already holds: a client that
+// read the CSRF cookie at login must not find it swapped underneath it, and the
+// two cookies must never expire on different schedules.
+func TestRefreshSession_KeepsValuesMovesMaxAge(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: FrontDesk.SessionCookie, Value: "sess-1"})
+	req.AddCookie(&http.Cookie{Name: FrontDesk.CSRFCookie, Value: "csrf-existing"})
+	rec := httptest.NewRecorder()
+	if err := FrontDesk.RefreshSession(rec, req, "sess-1", true, 2*time.Hour); err != nil {
+		t.Fatalf("RefreshSession: %v", err)
+	}
+	var sess, csrf *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		switch c.Name {
+		case FrontDesk.SessionCookie:
+			sess = c
+		case FrontDesk.CSRFCookie:
+			csrf = c
+		}
+	}
+	if sess == nil || csrf == nil {
+		t.Fatalf("expected both cookies re-issued, got %+v", rec.Result().Cookies())
+	}
+	if sess.Value != "sess-1" || csrf.Value != "csrf-existing" {
+		t.Errorf("values changed: session=%q csrf=%q", sess.Value, csrf.Value)
+	}
+	if sess.MaxAge != 7200 || csrf.MaxAge != 7200 {
+		t.Errorf("MaxAge = %d/%d, want 7200 on both", sess.MaxAge, csrf.MaxAge)
+	}
+	if !sess.HttpOnly || csrf.HttpOnly || !sess.Secure || !csrf.Secure ||
+		sess.SameSite != http.SameSiteStrictMode || csrf.SameSite != http.SameSiteStrictMode {
+		t.Error("refreshed cookies lost their hardening attributes")
+	}
+}
+
+// A request that somehow carries the session cookie but no CSRF cookie gets a
+// fresh CSRF value rather than an empty one, so double-submit keeps working.
+func TestRefreshSession_MintsCSRFWhenMissing(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/x", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: SessionCookie, Value: "sess-2"})
+	rec := httptest.NewRecorder()
+	if err := Dashboard.RefreshSession(rec, req, "sess-2", false, time.Hour); err != nil {
+		t.Fatalf("RefreshSession: %v", err)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == CSRFCookie {
+			if c.Value == "" {
+				t.Error("csrf cookie re-issued empty")
+			}
+			return
+		}
+	}
+	t.Error("no csrf cookie re-issued")
+}

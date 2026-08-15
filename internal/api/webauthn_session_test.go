@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,6 +22,7 @@ type mockWebAuthnSessionMgr struct {
 	revokeOthersFn func(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
 	listFn         func(ctx context.Context, identity []byte, candidateTokens ...string) ([]webauthn.AuthSessionInfo, error)
 	revokeByIDFn   func(ctx context.Context, identity []byte, id uuid.UUID, candidateTokens ...string) error
+	authFn         func(ctx context.Context, token string) (webauthn.AuthResult, bool)
 }
 
 // RevokeOtherSessions defers to revokeOthersFn when set, so a test can assert
@@ -73,6 +75,20 @@ func (m *mockWebAuthnSessionMgr) TokenUser(ctx context.Context, token string) ([
 		return []byte("admin"), true
 	}
 	return nil, false
+}
+
+// Authenticate mirrors TokenUser; authFn, when set, decides the expiry and
+// whether the call counts as having slid it (so middleware tests can drive the
+// cookie re-issue branch without a real store).
+func (m *mockWebAuthnSessionMgr) Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	if m.authFn != nil {
+		return m.authFn(ctx, token)
+	}
+	uid, ok := m.TokenUser(ctx, token)
+	if !ok {
+		return webauthn.AuthResult{}, false
+	}
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
 }
 
 func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token string) bool {

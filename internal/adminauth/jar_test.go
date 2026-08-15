@@ -3,11 +3,14 @@ package adminauth
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
@@ -34,7 +37,7 @@ func TestRequireAdminOrSession_HonorsJarNames(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	// mockAdminAuth with no validateFn rejects every raw admin token, so only the
 	// cookie/session branch can admit.
-	gate := RequireAdminOrSession(&mockAdminAuth{}, sessionMgr, nil, authcookie.FrontDesk, next)
+	gate := RequireAdminOrSession(&mockAdminAuth{}, sessionMgr, nil, authcookie.FrontDesk, "auto", next)
 
 	// fd_session admits.
 	r := httptest.NewRequest(http.MethodGet, "/x", http.NoBody)
@@ -61,7 +64,7 @@ func TestRequireAdminOrSession_JarCSRF(t *testing.T) {
 	sessionMgr, adminTok := newTestSessionWithAdminToken(t)
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	gate := RequireAdminOrSession(&mockAdminAuth{}, sessionMgr, nil, authcookie.FrontDesk, next)
+	gate := RequireAdminOrSession(&mockAdminAuth{}, sessionMgr, nil, authcookie.FrontDesk, "auto", next)
 
 	// A matching fd_csrf cookie + header admits.
 	r := httptest.NewRequest(http.MethodPost, "/x", http.NoBody)
@@ -291,5 +294,71 @@ func TestWebAuthnLoginSuccess_HonorsHandlerJar(t *testing.T) {
 	assertFrontDeskJarCookies(t, w, "passkey login")
 	if c := cookieNamed(w, "fd_session"); c != nil && c.Value != "session-token-123" {
 		t.Errorf("fd_session value = %q, want %q", c.Value, "session-token-123")
+	}
+}
+
+// TestRequireAdminOrSession_ReissuesCookiesWhenSlid: a cookie session whose
+// expiry slid on this request gets the jar's cookie pair re-issued (same
+// values, MaxAge to the new expiry) before the handler runs, and a request
+// that did not slide writes no cookies at all.
+func TestRequireAdminOrSession_ReissuesCookiesWhenSlid(t *testing.T) {
+	store := newMemStore()
+	sessionMgr := webauthn.NewSessionManager(store)
+	adminTok, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	// Age the record so the throttled touch fires with room to grow: last used
+	// an hour ago, expiry as that use left it.
+	sum := sha256.Sum256([]byte(adminTok))
+	rec := store.byHash[hex.EncodeToString(sum[:])]
+	seen := time.Now().Add(-time.Hour)
+	rec.LastSeenAt = &seen
+	rec.ExpiresAt = seen.Add(webauthn.AuthTokenTTL)
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	gate := RequireAdminOrSession(&mockAdminAuth{}, sessionMgr, nil, authcookie.FrontDesk, "never", next)
+
+	r := httptest.NewRequest(http.MethodGet, "/x", http.NoBody)
+	r.AddCookie(&http.Cookie{Name: "fd_session", Value: adminTok})
+	r.AddCookie(&http.Cookie{Name: "fd_csrf", Value: "csrf-kept"})
+	w := httptest.NewRecorder()
+	gate.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("slid session: got %d, want 200", w.Code)
+	}
+	var sess, csrf *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		switch c.Name {
+		case "fd_session":
+			sess = c
+		case "fd_csrf":
+			csrf = c
+		}
+	}
+	if sess == nil || csrf == nil {
+		t.Fatalf("cookie pair not re-issued after a slid session: %+v", w.Result().Cookies())
+	}
+	if sess.Value != adminTok || csrf.Value != "csrf-kept" {
+		t.Errorf("re-issued values changed: session ok=%v csrf=%q", sess.Value == adminTok, csrf.Value)
+	}
+	want := int(webauthn.AuthTokenTTL.Seconds())
+	if sess.MaxAge < want-5 || sess.MaxAge > want {
+		t.Errorf("session MaxAge = %d, want about %d", sess.MaxAge, want)
+	}
+	if sess.Secure {
+		t.Error("cookieSecure=never must re-issue without the Secure attribute")
+	}
+
+	// The follow-up request lands inside the throttle window: no slide, no cookies.
+	r2 := httptest.NewRequest(http.MethodGet, "/x", http.NoBody)
+	r2.AddCookie(&http.Cookie{Name: "fd_session", Value: adminTok})
+	w2 := httptest.NewRecorder()
+	gate.ServeHTTP(w2, r2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second request: got %d, want 200", w2.Code)
+	}
+	if got := w2.Result().Cookies(); len(got) != 0 {
+		t.Errorf("cookies re-issued although the session did not slide: %+v", got)
 	}
 }

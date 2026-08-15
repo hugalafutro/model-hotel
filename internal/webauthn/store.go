@@ -48,6 +48,9 @@ type SessionStore interface {
 	// TouchSessionLastSeen stamps a session's last_seen_at. A missing row
 	// (revoked between validation and stamp) is not an error.
 	TouchSessionLastSeen(ctx context.Context, id uuid.UUID, at time.Time) error
+	// ExtendSession moves a session's expires_at to expiresAt (sliding expiry).
+	// A missing row (revoked between validation and extension) is not an error.
+	ExtendSession(ctx context.Context, id uuid.UUID, expiresAt time.Time) error
 }
 
 // Store is the full WebAuthn persistence contract: credentials plus sessions.

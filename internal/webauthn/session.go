@@ -16,27 +16,43 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// AuthTokenTTL is the lifetime of a minted auth-token session, shared by the
-// server-side session expiry and the session cookie MaxAge so the two cannot
-// drift apart. All login front-ends that mint sessions use this single value.
+// AuthTokenTTL is the idle lifetime of an auth-token session: how long it
+// survives without being used. A minted session expires this far out, and every
+// use (throttled, see lastSeenThrottle) slides the expiry out to now+TTL again,
+// so a session in regular use stays alive and one left alone lapses. It is
+// shared by the server-side expiry and the session cookie MaxAge so the two
+// cannot drift apart; all login front-ends that mint sessions use this value.
 //
-// Nothing revokes a session when its owner logs in again, so this TTL is the
-// only bound on how long a stolen token stays usable. Keep it short enough that
-// the exposure window is survivable; session_ttl_test.go enforces the ceiling.
-//
-// User-facing copy quotes this value as "3 days": settings.sessionTimeout.hint
-// in web/src/i18n/locales/ (29 locales) and settings.sessionTimeoutHint in
-// frontdesk/web/src/i18n/locales/ (11 locales), plus README.md and
-// wiki/Security.md and wiki/Configuration.md. Changing the constant without
-// sweeping those reintroduces the label-lies-to-the-operator bug the copy was
-// written to fix.
+// User-facing copy quotes this value as "3 days" and AuthTokenMaxLifetime as
+// "30 days": settings.sessionTimeout.hint in web/src/i18n/locales/ (29
+// locales) and settings.sessionTimeoutHint in frontdesk/web/src/i18n/locales/
+// (11 locales), plus README.md and wiki/Security.md and wiki/Configuration.md.
+// Changing either constant without sweeping those reintroduces the
+// label-lies-to-the-operator bug the copy was written to fix.
 const AuthTokenTTL = 72 * time.Hour
 
-// lastSeenThrottle bounds how often a session's last_seen_at is rewritten.
+// AuthTokenMaxLifetime is the absolute cap on a session, measured from login:
+// no amount of use extends a session past created_at + this, and a session
+// older than this is rejected on validation whatever its stored expiry says.
+// Nothing revokes a session when its owner logs in again, so this cap is the
+// only bound on how long a stolen token in constant use stays usable; keep it
+// short enough that the exposure window is survivable. session_ttl_test.go
+// enforces the ceiling on both constants.
+const AuthTokenMaxLifetime = 30 * 24 * time.Hour
+
+// lastSeenThrottle bounds how often a session's last_seen_at is rewritten, and
+// with it how often the sliding expiry is extended and the cookie re-issued.
 // Validation runs on every admin request; without the throttle each one would
 // carry a DB write. "Active within the last few minutes" is all the
-// active-sessions list needs.
+// active-sessions list needs, and an expiry that trails activity by at most a
+// few minutes is indistinguishable from one that tracks it exactly.
 const lastSeenThrottle = 5 * time.Minute
+
+// minSlide is the smallest gain worth writing and re-issuing a cookie for.
+// The first request after login finds no last-seen stamp, so the touch fires
+// while the expiry is still within milliseconds of now+TTL; without this floor
+// every login would be followed by a no-op extension and a second Set-Cookie.
+const minSlide = time.Minute
 
 // errInvalidLoginState is returned by ConsumeLoginState when the record is
 // missing, of the wrong type, or expired. Kept unexported and opaque so callers
@@ -75,8 +91,33 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 // logins, a user UUID string for multi-user password logins. ok is false when
 // the token is invalid or expired.
 func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, bool) {
-	if token == "" {
+	res, ok := m.Authenticate(ctx, token)
+	if !ok {
 		return nil, false
+	}
+	return res.UserID, true
+}
+
+// AuthResult is what a successful Authenticate reports: whose session it is,
+// when it now expires, and whether this very call pushed that expiry out.
+// Extended tells a cookie-carrying caller to re-issue the session cookie with
+// the new lifetime; the browser enforces MaxAge on its own, so a server-side
+// extension the cookie never hears about would still log the operator out on
+// the original schedule.
+type AuthResult struct {
+	UserID    []byte
+	ExpiresAt time.Time
+	Extended  bool
+}
+
+// Authenticate validates the token and, on the same throttled cadence as the
+// last-seen stamp, slides the session's expiry out to now+AuthTokenTTL, clamped
+// to created_at+AuthTokenMaxLifetime and never moved backwards. Both writes are
+// best-effort: a failed stamp or extension must not fail an otherwise valid
+// authentication, it only leaves Extended false.
+func (m *SessionManager) Authenticate(ctx context.Context, token string) (AuthResult, bool) {
+	if token == "" {
+		return AuthResult{}, false
 	}
 
 	// Hash the token first — eliminates the timing oracle between UUID-parse
@@ -87,35 +128,59 @@ func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, b
 
 	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return nil, false
+		return AuthResult{}, false
 	}
 
-	if session.ExpiresAt.Before(time.Now()) {
-		return nil, false
+	now := time.Now()
+	if session.ExpiresAt.Before(now) {
+		return AuthResult{}, false
+	}
+	// The absolute cap holds on validation too, not only when extending: a row
+	// whose stored expiry outruns created_at+max (minted under an older, longer
+	// TTL, say) is dead once the cap has passed.
+	lifetimeEnd := session.CreatedAt.Add(AuthTokenMaxLifetime)
+	if !session.CreatedAt.IsZero() && lifetimeEnd.Before(now) {
+		return AuthResult{}, false
 	}
 
 	// Constant-time compare as defense in depth (the DB lookup is already by
 	// hash, but this prevents any theoretical timing leak from the comparison
 	// itself if the DB ever returns multiple rows).
 	if session.TokenHash == nil {
-		return nil, false
+		return AuthResult{}, false
 	}
 
 	if subtle.ConstantTimeCompare([]byte(tokenHash), []byte(*session.TokenHash)) != 1 {
-		return nil, false
+		return AuthResult{}, false
 	}
 
+	res := AuthResult{UserID: session.UserID, ExpiresAt: session.ExpiresAt}
+
 	// Stamp last-seen so the active-sessions list can show which devices are
-	// still in use, throttled so the hot path does not gain a write per
-	// request. Best-effort: a failed stamp must not fail an otherwise valid
-	// authentication.
-	if session.LastSeenAt == nil || time.Since(*session.LastSeenAt) >= lastSeenThrottle {
-		if err := m.store.TouchSessionLastSeen(ctx, session.ID, time.Now()); err != nil {
+	// still in use, and slide the expiry on the same beat, both throttled so
+	// the hot path does not gain a write per request. Best-effort: a failed
+	// stamp or extension must not fail an otherwise valid authentication.
+	if session.LastSeenAt == nil || now.Sub(*session.LastSeenAt) >= lastSeenThrottle {
+		if err := m.store.TouchSessionLastSeen(ctx, session.ID, now); err != nil {
 			debuglog.Error("webauthn: failed to stamp session last-seen", "error", err)
+		}
+		next := now.Add(AuthTokenTTL)
+		if !session.CreatedAt.IsZero() && next.After(lifetimeEnd) {
+			next = lifetimeEnd
+		}
+		// Only ever forward, and only by a gain worth the write: a row that
+		// already expires later (a legacy long TTL, or the cap reached) or
+		// within minSlide of next is left alone, and nothing is re-issued.
+		if next.After(session.ExpiresAt.Add(minSlide)) {
+			if err := m.store.ExtendSession(ctx, session.ID, next); err != nil {
+				debuglog.Error("webauthn: failed to extend session expiry", "error", err)
+			} else {
+				res.ExpiresAt, res.Extended = next, true
+			}
 		}
 	}
 
-	return session.UserID, true
+	return res, true
 }
 
 // SessionMeta is the device metadata captured when a session is minted: the

@@ -111,7 +111,7 @@ The admin token always works. The WebAuthn path is nil-safe: when `WEBAUTHN_RP_I
 **Session tokens:**
 - Generated using `crypto/rand` (32 bytes, hex-encoded)
 - SHA-256 hashed before database storage - the raw token is never persisted
-- 3-day TTL (`AuthTokenTTL` in `internal/webauthn/session.go`, shared by the server-side expiry and the cookie MaxAge). Nothing revokes an existing session when its owner logs in again, so this TTL bounds how long a stolen token stays usable; a test enforces the ceiling.
+- Sliding expiry: a session lives 3 days without use (`AuthTokenTTL` in `internal/webauthn/session.go`) and every use pushes that window forward, up to an absolute cap of 30 days from login (`AuthTokenMaxLifetime`); the extension rides the same 5-minute throttle as the last-seen stamp, and the cookie pair is re-issued with the new lifetime whenever the server extends. Both constants are shared by the server-side expiry and the cookie MaxAge. Nothing revokes an existing session when its owner logs in again, so the idle window bounds how long an unused stolen token stays usable and the cap bounds one in constant use; tests enforce a ceiling on both.
 - Constant-time comparison via `crypto/subtle.ConstantTimeCompare`
 - Tokens are revoked on credential deletion or explicit logout
 
