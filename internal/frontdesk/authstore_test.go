@@ -629,3 +629,52 @@ func TestSQLiteSlidingExpiryEndToEnd(t *testing.T) {
 		t.Errorf("expires_at = %v, want about now+TTL (%v)", got.ExpiresAt, want)
 	}
 }
+
+// TestSQLiteExtendSession_UpdateFailureSurfaces: a refused expiry write is
+// reported by the store, and the manager treats it like a failed last-seen
+// stamp: the session still authenticates, it just does not slide (and no
+// cookie re-issue is signalled), so a transient SQLite hiccup never logs the
+// operator out.
+func TestSQLiteExtendSession_UpdateFailureSurfaces(t *testing.T) {
+	s := newTestStore(t)
+	store := NewWebAuthnStore(s)
+	mgr := webauthn.NewSessionManager(store)
+	ctx := context.Background()
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := sessionIDByHash(t, s, token)
+	seen := time.Now().Add(-time.Hour)
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE webauthn_sessions SET created_at = ?, last_seen_at = ?, expires_at = ? WHERE id = ?`,
+		time.Now().Add(-48*time.Hour).UTC().UnixNano(), seen.UTC().UnixNano(),
+		seen.Add(webauthn.AuthTokenTTL).UTC().UnixNano(), id.String()); err != nil {
+		t.Fatalf("age session: %v", err)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`CREATE TRIGGER refuse_extend BEFORE UPDATE OF expires_at ON webauthn_sessions
+		 BEGIN SELECT RAISE(ABORT, 'simulated update failure'); END`,
+	); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	if err := store.ExtendSession(ctx, id, time.Now().Add(webauthn.AuthTokenTTL)); err == nil {
+		t.Error("ExtendSession swallowed the refused write")
+	}
+	res, ok := mgr.Authenticate(ctx, token)
+	if !ok {
+		t.Fatal("validation failed because the extension write failed")
+	}
+	if res.Extended {
+		t.Error("Extended = true although the write was refused")
+	}
+	got, err := store.GetSession(ctx, id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if d := got.ExpiresAt.Sub(seen.Add(webauthn.AuthTokenTTL)); d < -time.Second || d > time.Second {
+		t.Errorf("expires_at moved to %v despite the refused write", got.ExpiresAt)
+	}
+}
