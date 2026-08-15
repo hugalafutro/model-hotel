@@ -374,6 +374,13 @@ func (h *BackupHandler) BackupSignature(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "backup is not signed", http.StatusNotFound)
 		return
 	}
+	// A sidecar that is not a signature at all is a server-side problem
+	// (corruption, or something else wrote the file); handing it over would
+	// have the dashboard blame the operator's paste for it.
+	if _, ok := decodeSignature(string(contents)); !ok {
+		respondError(w, fmt.Sprintf("signature sidecar for %q is not a valid signature", filename), nil, http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, backupSignatureResponse{Signature: strings.TrimSpace(string(contents))})
 }
 

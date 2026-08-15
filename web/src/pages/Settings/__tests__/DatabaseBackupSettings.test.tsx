@@ -800,6 +800,71 @@ describe("DatabaseBackupSettings", () => {
 		expect(await navigator.clipboard.readText()).toBe(hex);
 	});
 
+	it("falls back to the legacy copy command when the Clipboard API is absent", async () => {
+		// Plain-HTTP dashboards have no navigator.clipboard at all. Drive the
+		// click without userEvent, which would install its own clipboard stub.
+		const hex = "fedcba98".repeat(8);
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([{ ...mockBackups[0], signed: true }]),
+			),
+			http.get("/api/backups/:filename/signature", () =>
+				HttpResponse.json({ signature: hex }),
+			),
+		);
+		let copiedValue: string | undefined;
+		const execCommand = vi.fn((command: string) => {
+			// Capture what the scratch textarea holds at the moment of the copy.
+			copiedValue = `${command}:${
+				document.querySelector<HTMLTextAreaElement>("textarea[readonly]")?.value
+			}`;
+			return true;
+		});
+		Object.defineProperty(document, "execCommand", {
+			value: execCommand,
+			configurable: true,
+		});
+		// renderWithProviders calls userEvent.setup(), which (re)installs a
+		// clipboard stub on the navigator; remove the API only after that, so
+		// the component genuinely sees a context without one.
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const savedClipboard = Object.getOwnPropertyDescriptor(
+			navigator,
+			"clipboard",
+		);
+		Object.defineProperty(navigator, "clipboard", {
+			value: undefined,
+			configurable: true,
+		});
+		try {
+			fireEvent.click(
+				await screen.findByRole("button", { name: "Copy signature" }),
+			);
+			expect(
+				await screen.findByText("Signature copied to clipboard"),
+			).toBeInTheDocument();
+			expect(execCommand).toHaveBeenCalledTimes(1);
+			expect(copiedValue).toBe(`copy:${hex}`);
+			// The scratch textarea does not outlive the copy.
+			expect(document.querySelector("textarea[readonly]")).toBeNull();
+
+			// A browser that refuses the legacy command gets the failure toast,
+			// not a silent success.
+			execCommand.mockReturnValueOnce(false);
+			fireEvent.click(screen.getByRole("button", { name: "Copy signature" }));
+			expect(
+				await screen.findByText("Could not copy signature: Failed to copy"),
+			).toBeInTheDocument();
+			expect(document.querySelector("textarea[readonly]")).toBeNull();
+		} finally {
+			if (savedClipboard) {
+				Object.defineProperty(navigator, "clipboard", savedClipboard);
+			}
+		}
+	});
+
 	it("reports a failed signature copy", async () => {
 		const user = userEvent.setup();
 		server.use(

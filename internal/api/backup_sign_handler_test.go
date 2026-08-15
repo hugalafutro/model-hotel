@@ -447,6 +447,27 @@ func TestBackupSignature_UnreadableSidecarIs500(t *testing.T) {
 	}
 }
 
+// A sidecar whose contents are not hex is corruption on the server, not
+// something the operator can fix by pasting more carefully; serving it as 200
+// would surface client-side as "check the paste".
+func TestBackupSignature_MalformedSidecarIs500(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"+backupSignatureExt), []byte("not hex at all"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for a sidecar that is not a signature (%s)", w.Code, w.Body.String())
+	}
+}
+
 // A stat failure that is not "does not exist" (here: a path component that is a
 // regular file, so ENOTDIR) is reported as an error, not as a missing backup.
 func TestBackupSignature_StatErrorIs500(t *testing.T) {

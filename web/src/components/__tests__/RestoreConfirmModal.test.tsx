@@ -197,6 +197,33 @@ describe("RestoreConfirmModal", () => {
 		expect(onConfirm).toHaveBeenCalledWith("test-token", "");
 	});
 
+	it("remounts and refocuses the dialog when switching to the unsigned confirm", async () => {
+		// The two stages are separate Modal instances (distinct keys), so the
+		// switch moves focus into the new dialog instead of leaving it on the
+		// button that just unmounted; a screen reader is told something changed.
+		const user = userEvent.setup();
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				isPending={false}
+			/>,
+		);
+		const formDialog = screen.getByRole("dialog");
+
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
+
+		const unsignedDialog = screen.getByRole("dialog");
+		expect(unsignedDialog).not.toBe(formDialog);
+		expect(unsignedDialog).toHaveAccessibleName("Restore an unsigned backup?");
+		expect(document.activeElement).toBe(unsignedDialog);
+	});
+
 	it("goes back from the unsigned confirm without restoring", async () => {
 		const user = userEvent.setup();
 		const onConfirm = vi.fn();

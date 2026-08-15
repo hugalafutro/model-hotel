@@ -1117,7 +1117,8 @@ Returns the backup's HMAC signature sidecar, the value the restore endpoint take
 
 **Error Responses:**
 - `400 Bad Request` - Invalid filename
-- `404 Not Found` - Backup does not exist, or has no signature (backups predating signing, or created without a `MASTER_KEY`)
+- `404 Not Found` - Backup does not exist, or has no signature (backups predating signing, dumps copied in from another instance, or a backup whose signing failed at creation; see the `backup.unsigned` event)
+- `500 Internal Server Error` - The sidecar exists but cannot be read, or is not a valid signature
 
 #### DELETE `/api/backups/{filename}`
 
