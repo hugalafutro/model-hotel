@@ -259,7 +259,7 @@
 		"healthFailThreshold": "Health-fail threshold",
 		"healthFailThresholdHint": "Consecutive failed health checks before a member is reported down and alerted. Higher tolerates longer rebuilds without flapping. Recovery is immediate.",
 		"sessionTimeout": "Tab timeout (minutes)",
-		"sessionTimeoutHint": "Signs out a forgotten open tab after this many minutes without activity. Closed tabs are not affected: every login expires on its own after 1 day. 0 leaves open tabs signed in.",
+		"sessionTimeoutHint": "Signs out a forgotten open tab after this many minutes without activity. Closed tabs are not affected: every login expires on its own after 3 days. 0 leaves open tabs signed in.",
 		"configSyncConfirmTitle_one": "Replace config on {{count}} member?",
 		"configSyncConfirmTitle_other": "Replace config on {{count}} members?",
 		"configSyncConfirmBody": "This makes each member below match the primary's providers, virtual keys, and settings. Items the primary does not have are removed from the member; its request logs and metering are untouched.",

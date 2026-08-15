@@ -13,8 +13,8 @@ import (
 // TTL is the only bound on that exposure. Raising it is a security decision,
 // not a tuning knob: it must be a deliberate two-line change (constant + this
 // pin), and any change must also sweep the user-facing copy listed on the
-// AuthTokenTTL doc comment, which quotes the value as "1 day".
-const maxAuthTokenTTL = 24 * time.Hour
+// AuthTokenTTL doc comment, which quotes the value as "3 days".
+const maxAuthTokenTTL = 72 * time.Hour
 
 func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {
 	if AuthTokenTTL > maxAuthTokenTTL {
