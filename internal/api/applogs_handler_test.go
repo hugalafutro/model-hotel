@@ -1026,8 +1026,8 @@ func TestAppSlogHandlerJSONOutput(t *testing.T) {
 	if got["provider"] != "groq" {
 		t.Errorf("provider field = %v, want groq", got["provider"])
 	}
-	if got["attempt"] != "2" {
-		t.Errorf("attempt field = %v, want \"2\"", got["attempt"])
+	if got["attempt"] != float64(2) {
+		t.Errorf("attempt field = %#v, want the JSON number 2", got["attempt"])
 	}
 }
 

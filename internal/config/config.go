@@ -131,10 +131,22 @@ func KnownProviderHosts() []string {
 	return append([]string{}, defaultKnownProviderHosts...)
 }
 
+// LoadEnvFile loads the optional .env file into the process environment
+// (existing variables win, so container `environment:` settings are never
+// overridden). Load calls it, but the server calls it first thing so the
+// logger can be initialised from .env-provided DEBUG_LOG / LOG_FORMAT before
+// Load runs and starts logging. A missing file is not an error.
+func LoadEnvFile() error {
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error loading .env file: %w", err)
+	}
+	return nil
+}
+
 // Load reads configuration from environment variables and applies defaults.
 func Load() (*Config, error) {
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("error loading .env file: %w", err)
+	if err := LoadEnvFile(); err != nil {
+		return nil, err
 	}
 
 	cfg := &Config{

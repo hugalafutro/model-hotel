@@ -699,6 +699,7 @@ func (s *Server) closeSyncHold(ctx context.Context, m *Member, message string) {
 		s.syncHeldMu.Unlock()
 		return
 	}
+	logEvent(stored)
 	s.bus.Publish(busEvent(stored))
 }
 
@@ -902,8 +903,6 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 	if already {
 		return
 	}
-	debuglog.Warn("frontdesk: member config hash unreadable past the threshold",
-		"member", m.Name, "since", st.unreadableSince, "error", st.lastReadErr)
 	s.emit(ctx, Event{
 		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
 		Message:  unmeasuredMessage(m.Name, st.lastReadErr),
@@ -914,6 +913,7 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 			"unapplied": st.lastUnapplied, "partial": st.lastPartial,
 			"unapplied_models": st.lastUnappliedModels,
 			"unreadable":       true, "error": st.lastReadErr,
+			"unreadable_since": st.unreadableSince,
 		},
 	})
 }

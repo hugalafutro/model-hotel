@@ -468,3 +468,26 @@ func TestTestSendHappyAndError(t *testing.T) {
 		t.Error("expected error when apprise-api returns 502")
 	}
 }
+
+// Closing the bus (the first step of graceful shutdown) must stop Run even
+// while its context is still live: otherwise the loop would spin on the
+// closed channel until the process exits.
+func TestRunStopsWhenBusClosed(t *testing.T) {
+	rs := newRecordingServer()
+	defer rs.Close()
+	bus := events.NewBus()
+	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://x", "health.down")}, rs.Client(), WithBus(bus))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d.Run(t.Context())
+	}()
+
+	bus.Close()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run kept going after the bus was closed")
+	}
+}

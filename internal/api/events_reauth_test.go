@@ -424,3 +424,40 @@ func TestStreamEvents_ReauthVerifiesWithoutSliding(t *testing.T) {
 		t.Error("no heartbeat re-check ran through Verify")
 	}
 }
+
+// Closing the event bus (the first step of graceful shutdown) must end an open
+// stream promptly, even though the credential is still valid: otherwise the
+// idle SSE connection holds http.Server.Shutdown until its deadline.
+func TestStreamEvents_ClosesWhenBusClosed(t *testing.T) {
+	mgr := &revocableSessionMgr{}
+	h := testHandler(nil, nil, nil, nil, nil)
+	h.SetWebAuthnSessionManager(mgr)
+	h.eventBus = events.NewBus()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		h.streamEvents(rec, streamRequest(ctx), time.Hour)
+		close(done)
+	}()
+
+	// The stream is idle (no heartbeat within the test) and its session valid,
+	// so nothing but the bus closing can end it.
+	time.Sleep(30 * time.Millisecond)
+	select {
+	case <-done:
+		t.Fatal("stream closed before the bus was closed")
+	default:
+	}
+
+	h.eventBus.Close()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("stream stayed open after the event bus was closed")
+	}
+}

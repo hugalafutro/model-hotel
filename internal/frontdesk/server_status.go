@@ -6,6 +6,7 @@ import (
 	"errors"
 	"maps"
 	"net/http"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -280,7 +281,43 @@ func (s *Server) emit(ctx context.Context, e Event) {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
+	logEvent(stored)
 	s.bus.Publish(busEvent(stored))
+}
+
+// logEvent mirrors a control-plane event into the process log at the level
+// its severity implies, so the stdout/OTLP log exports carry the fleet's
+// operational story (members going up/down, syncs, holds, alerts) and not
+// only failures of Front Desk itself: without this, a healthy Front Desk
+// emits almost nothing above DEBUG. Message and metadata are the same
+// operator-facing values the Events tab shows; the event id lets a log line
+// be matched to its row. Shared by Server.emit, Poller.recordEvent and
+// Server.closeSyncHold.
+func logEvent(e Event) {
+	attrs := make([]any, 0, 2*(len(e.Metadata)+3))
+	attrs = append(attrs, "event", e.Type)
+	// Empty ids (a failed insert leaves no event id; fleet-wide events have no
+	// member) are omitted rather than logged blank, so label-based collectors
+	// never see an empty value.
+	if e.ID != "" {
+		attrs = append(attrs, "event_id", e.ID)
+	}
+	if e.MemberID != "" {
+		attrs = append(attrs, "member_id", e.MemberID)
+	}
+	keys := slices.Sorted(maps.Keys(e.Metadata))
+	for _, k := range keys {
+		attrs = append(attrs, k, e.Metadata[k])
+	}
+	msg := "frontdesk: " + e.Message
+	switch e.Severity {
+	case "error", "critical":
+		debuglog.Error(msg, attrs...)
+	case "warning":
+		debuglog.Warn(msg, attrs...)
+	default: // info, success
+		debuglog.Info(msg, attrs...)
+	}
 }
 
 // busEvent maps a stored Front Desk Event to a bus event. When the event concerns

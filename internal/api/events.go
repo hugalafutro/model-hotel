@@ -132,8 +132,12 @@ func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request, heartbeat
 	_, _ = fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
-	ch := events.DefaultBus.Subscribe()
-	defer events.DefaultBus.Unsubscribe(ch)
+	bus := h.eventBus
+	if bus == nil {
+		bus = events.DefaultBus
+	}
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
 
 	// Buffered so a re-auth result never parks its goroutine while this loop is
 	// busy writing an event; the loop drains it on the next pass.
@@ -145,7 +149,12 @@ func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request, heartbeat
 		select {
 		case <-r.Context().Done():
 			return
-		case event := <-ch:
+		case event, ok := <-ch:
+			if !ok {
+				// The bus was closed (server shutting down): end the stream so
+				// http.Server.Shutdown does not wait out its deadline on us.
+				return
+			}
 			if !eventVisible(identity, event) {
 				continue
 			}

@@ -439,3 +439,20 @@ type nonFlushingWriter struct {
 func (w *nonFlushingWriter) Header() http.Header         { return w.hdr }
 func (w *nonFlushingWriter) WriteHeader(code int)        { w.status = code }
 func (w *nonFlushingWriter) Write(p []byte) (int, error) { return len(p), nil }
+
+// Closing the bus (the first step of graceful shutdown) must end an open
+// stream even though its credentials are still valid: otherwise the idle
+// connection holds http.Server.Shutdown until its deadline.
+func TestSSEClosesWhenBusClosed(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	req, _ := sseRequest(t)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+
+	rec, done := startStream(t, srv, req)
+	awaitWrite(t, rec, "keep-alive")
+	assertOpen(t, done, "before the bus was closed")
+
+	srv.bus.Close()
+	awaitClosed(t, done, "after the event bus was closed")
+}

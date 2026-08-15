@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -40,7 +39,7 @@ func parseLogLine(line string) (source, level, msg string) {
 		return s, l, m
 	}
 	stripped := stripLogTimestamp(line)
-	source, msg = extractSource(stripped)
+	source, msg = debuglog.SplitSource(stripped)
 	level = detectLevel(msg)
 	msg = stripLevelPrefix(msg)
 	return source, level, msg
@@ -79,45 +78,6 @@ func stripLogTimestamp(line string) string {
 		return line[20:]
 	}
 	return line
-}
-
-// extractSource parses a source tag from the beginning of a log message.
-// It supports two formats:
-//   - Bracketed: "[proxy] message" → source="proxy", msg="message"
-//   - Colon-separated: "proxy: message" → source="proxy", msg="message"
-//
-// If no source prefix is found, returns ("", line).
-func extractSource(line string) (string, string) {
-	// Bracketed format: [source] message
-	if line != "" && line[0] == '[' {
-		end := strings.Index(line, "]")
-		if end > 0 && end < len(line)-1 && line[end+1] == ' ' {
-			return line[1:end], line[end+2:]
-		}
-	}
-	// Colon-separated format: source: message
-	// Source must be at least 2 chars and match [a-zA-Z_][a-zA-Z0-9._-]*
-	if colon := strings.Index(line, ": "); colon >= 2 {
-		candidate := line[:colon]
-		valid := true
-		for i, ch := range candidate {
-			if i == 0 {
-				if !unicode.IsLetter(ch) && ch != '_' {
-					valid = false
-					break
-				}
-			} else {
-				if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) && ch != '_' && ch != '.' && ch != '-' {
-					valid = false
-					break
-				}
-			}
-		}
-		if valid {
-			return candidate, line[colon+2:]
-		}
-	}
-	return "", line
 }
 
 // detectLevel attempts to infer a log level from the content of the line.
