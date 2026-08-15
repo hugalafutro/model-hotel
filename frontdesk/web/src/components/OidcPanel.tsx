@@ -109,7 +109,7 @@ export function OidcPanel() {
 	return (
 		<div className="ui-card ui-card-pad fd-stack" data-testid="fd-oidc-panel">
 			<div className="fd-row" style={{ justifyContent: "space-between" }}>
-				<h2 style={{ fontSize: "1rem" }}>{t("settings.oidc.title")}</h2>
+				<h2 className="fd-card-title">{t("settings.oidc.title")}</h2>
 				<span
 					className={`ui-badge ${configured ? "ui-badge-ok" : "ui-badge-info"}`}
 					data-testid="fd-oidc-status"

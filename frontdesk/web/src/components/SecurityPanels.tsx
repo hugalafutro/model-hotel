@@ -28,10 +28,10 @@ import { Notice } from "./Notice";
 
 export function SecurityPanels() {
 	return (
-		<>
+		<div className="fd-settings-pair">
 			<PasskeyPanel />
 			<TotpPanel />
-		</>
+		</div>
 	);
 }
 
@@ -150,7 +150,7 @@ function PasskeyPanel() {
 
 	return (
 		<div className="ui-card ui-card-pad">
-			<h2 style={{ fontSize: "1rem" }}>{t("settings.passkeys.section")}</h2>
+			<h2 className="fd-card-title">{t("settings.passkeys.section")}</h2>
 			<p
 				className="fd-muted"
 				style={{ fontSize: "0.85rem", margin: "0.4rem 0 1rem" }}
@@ -441,7 +441,7 @@ function TotpPanel() {
 	};
 
 	const heading = (
-		<h2 style={{ fontSize: "1rem" }}>{t("settings.totp.section")}</h2>
+		<h2 className="fd-card-title">{t("settings.totp.section")}</h2>
 	);
 
 	// Recovery-codes reveal: shown once right after a successful verify.

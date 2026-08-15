@@ -271,6 +271,13 @@ h3 {
 .ui-card-pad {
 	padding: 1rem 1.1rem;
 }
+/* Card heading: the accent colour gives each Settings / Members card a
+   visible anchor now that cards sit two to a row, matching the accent
+   already used for links and the active tab. */
+.fd-card-title {
+	font-size: 1rem;
+	color: var(--accent-strong);
+}
 
 /* --- buttons --- */
 .ui-btn {
@@ -461,6 +468,16 @@ h3 {
 .fd-stack {
 	display: flex;
 	flex-direction: column;
+	gap: 1rem;
+}
+/* Two related settings cards side by side (Alerts | Observability,
+   Passkeys | Authenticator, Active sessions | Paired devices) instead of one
+   more full-width slab each. Auto-fit drops to a single column once each card
+   would fall under 26rem, and the min(100%, ...) keeps a narrow viewport from
+   overflowing. */
+.fd-settings-pair {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
 	gap: 1rem;
 }
 .fd-empty {

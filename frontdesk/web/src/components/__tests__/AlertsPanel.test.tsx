@@ -189,6 +189,38 @@ it("sends a test: persists then posts, and does not leak raw errors on failure",
 	expect(alert.textContent).not.toContain("503");
 });
 
+// Like the SSO card, a switched-off Alerts card is just its toggle: the
+// connection fields, the ntfy helper, the event picker and the test button only
+// appear once outbound alerts are enabled, so a fleet that never turned them on
+// is not looking at a tall form of blank inputs.
+it("rolls the configuration up while alerts are disabled and unrolls on enable", async () => {
+	baseHandlers({ settings: { ...settings, alert_enabled: false } });
+	renderPanel();
+
+	const toggle = await screen.findByRole("checkbox", {
+		name: /outbound alert notifications/i,
+	});
+	expect(toggle).not.toBeChecked();
+	expect(screen.queryByLabelText(/apprise api url/i)).toBeNull();
+	expect(
+		screen.queryByRole("checkbox", { name: "Member went down" }),
+	).toBeNull();
+	expect(screen.queryByRole("button", { name: /send test/i })).toBeNull();
+	// Save stays reachable so switching alerts off can be persisted.
+	expect(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	).toBeInTheDocument();
+
+	await userEvent.click(toggle);
+	expect(screen.getByLabelText(/apprise api url/i)).toBeInTheDocument();
+	expect(
+		screen.getByRole("checkbox", { name: "Member went down" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: /send test/i }),
+	).toBeInTheDocument();
+});
+
 it("renders without a picker when the catalog is empty", async () => {
 	baseHandlers({ catalog: [] });
 	renderPanel();

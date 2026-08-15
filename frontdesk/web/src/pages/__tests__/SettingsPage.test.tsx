@@ -63,6 +63,11 @@ beforeEach(() => {
 		http.get("/api/auth/oidc/status", () =>
 			HttpResponse.json({ enabled: false }),
 		),
+		// Fleet maintenance probes for leftover Front Desk backups on mount and
+		// stays hidden when there are none.
+		http.post("/api/fleet/backups/prune-frontdesk", () =>
+			HttpResponse.json({ deleted: 0, failed: 0, results: [] }),
+		),
 	);
 });
 

@@ -356,9 +356,7 @@ export function FleetSyncWizard({
 	if (view === "resting")
 		return (
 			<div className="ui-card ui-card-pad">
-				<h2 style={{ fontSize: "1rem" }}>
-					{t("settings.wizard.restingTitle")}
-				</h2>
+				<h2 className="fd-card-title">{t("settings.wizard.restingTitle")}</h2>
 				<StepResting
 					status={status}
 					members={members}
@@ -373,7 +371,7 @@ export function FleetSyncWizard({
 
 	return (
 		<div className="ui-card ui-card-pad">
-			<h2 style={{ fontSize: "1rem" }}>{t("settings.wizard.title")}</h2>
+			<h2 className="fd-card-title">{t("settings.wizard.title")}</h2>
 			<p
 				className="fd-muted"
 				style={{ fontSize: "0.85rem", margin: "0.4rem 0 1rem" }}

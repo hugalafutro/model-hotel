@@ -114,9 +114,7 @@ export function ObservabilityPanel() {
 	return (
 		<div className="ui-card ui-card-pad fd-stack">
 			<div>
-				<h2 style={{ fontSize: "1rem" }}>
-					{t("settings.observability.title")}
-				</h2>
+				<h2 className="fd-card-title">{t("settings.observability.title")}</h2>
 				<p
 					className="fd-faint"
 					style={{ fontSize: "0.82rem", margin: "0.3rem 0 0" }}
