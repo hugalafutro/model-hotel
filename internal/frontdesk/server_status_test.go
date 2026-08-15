@@ -37,6 +37,13 @@ func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 
+// snapshot copies the captured records for a failure message.
+func (h *recordingHandler) snapshot() []capturedRecord {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]capturedRecord(nil), h.records...)
+}
+
 // find returns the first captured record with the given message.
 func (h *recordingHandler) find(msg string) (capturedRecord, bool) {
 	h.mu.Lock()
@@ -82,7 +89,7 @@ func TestLogEvent_LevelFollowsSeverityAndCarriesMetadata(t *testing.T) {
 			})
 			rec, ok := h.find("frontdesk: Member mh2 is unreachable: connection refused")
 			if !ok {
-				t.Fatalf("event was not logged; records=%+v", h.records)
+				t.Fatalf("event was not logged; records=%+v", h.snapshot())
 			}
 			if rec.level != c.want {
 				t.Errorf("level = %v, want %v", rec.level, c.want)
@@ -126,7 +133,7 @@ func TestEmit_PersistsLogsAndPublishes(t *testing.T) {
 	})
 
 	if _, ok := h.find("frontdesk: Configuration synced to 3 members"); !ok {
-		t.Errorf("emit did not log the event; records=%+v", h.records)
+		t.Errorf("emit did not log the event; records=%+v", h.snapshot())
 	}
 	rows, _, err := store.ListEvents(context.Background(), EventFilter{Type: "config.sync_completed", Limit: 1})
 	if err != nil || len(rows) != 1 {

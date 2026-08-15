@@ -55,13 +55,12 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	msg.WriteString(r.Message)
 	baseMsg := msg.String() // message before attrs are appended (for the JSON field)
 
-	fields := make(map[string]string)
+	fields := make(map[string]any)
 	appendAttr := func(a slog.Attr) {
 		fmt.Fprintf(&msg, " %s=%v", a.Key, a.Value)
-		// String() gives a stable textual form for every slog.Kind (incl.
-		// errors/durations), which is what collectors index; no value is
-		// dropped the way json.Marshal would drop a bare error.
-		fields[a.Key] = a.Value.String()
+		// Same value rules as every other JSON emitter (debuglog.AddJSONField):
+		// typed where JSON has a type, textual otherwise, nothing dropped.
+		debuglog.AddJSONField(fields, "", a)
 	}
 	// Handler-level attrs first, then per-record attrs.
 	for _, a := range h.attrs {
@@ -75,7 +74,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	appLevel := debuglog.LevelName(r.Level)
 
 	// Extract source from "[source]" prefix in message, same as parseLogLine.
-	source, msgStr := extractSource(msg.String())
+	source, msgStr := debuglog.SplitSource(msg.String())
 	// For slog entries, the level is authoritative — do not let the text
 	// heuristic (detectLevel) override it.  Field values like "error_chunks=0"
 	// or "has_error=false" would falsely trigger detectLevel's "error" match.
@@ -101,7 +100,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	if h.jsonOutput {
 		// Use the attr-free message for the JSON "msg" field; attrs are emitted
 		// as their own fields (the ring-buffer Message still flattens them).
-		_, jsonMsg := extractSource(baseMsg)
+		_, jsonMsg := debuglog.SplitSource(baseMsg)
 		jsonMsg = stripLevelPrefix(jsonMsg)
 		_, _ = fmt.Fprintf(h.stderr, "%s\n", debuglog.JSONLine(r.Time, appLevel, source, jsonMsg, fields))
 	} else {

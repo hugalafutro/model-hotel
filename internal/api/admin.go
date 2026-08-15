@@ -151,7 +151,7 @@ type Handler struct {
 	appVersion             string
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
-	eventBus               *events.Bus                                        // feeds /api/events streams; DefaultBus in production, a private bus in tests
+	eventBus               *events.Bus                                        // /api/events subscribes here (DefaultBus in production); publishers still use events.Publish, so a private bus only isolates the stream side
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
 	clientIPs              webauthn.ClientIPSource                            // trusted-proxy-aware client IP for session device metadata; nil falls back to the peer address
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)

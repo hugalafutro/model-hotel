@@ -903,8 +903,6 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 	if already {
 		return
 	}
-	debuglog.Warn("frontdesk: member config hash unreadable past the threshold",
-		"member", m.Name, "since", st.unreadableSince, "error", st.lastReadErr)
 	s.emit(ctx, Event{
 		Type: "config.sync_incomplete", Severity: "warning", Source: "frontdesk",
 		Message:  unmeasuredMessage(m.Name, st.lastReadErr),

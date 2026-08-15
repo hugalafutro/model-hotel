@@ -39,7 +39,7 @@ func parseLogLine(line string) (source, level, msg string) {
 		return s, l, m
 	}
 	stripped := stripLogTimestamp(line)
-	source, msg = extractSource(stripped)
+	source, msg = debuglog.SplitSource(stripped)
 	level = detectLevel(msg)
 	msg = stripLevelPrefix(msg)
 	return source, level, msg
@@ -78,12 +78,6 @@ func stripLogTimestamp(line string) string {
 		return line[20:]
 	}
 	return line
-}
-
-// extractSource parses a source tag from the beginning of a log message
-// (debuglog.SplitSource: "[proxy] message" or "proxy: message" → "proxy").
-func extractSource(line string) (string, string) {
-	return debuglog.SplitSource(line)
 }
 
 // detectLevel attempts to infer a log level from the content of the line.

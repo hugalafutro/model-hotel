@@ -108,11 +108,14 @@ func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 }
 
 func main() {
-	// Initialise the structured logger before anything can log. Init reads
-	// DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the environment itself,
-	// so it needs nothing from the config; doing it first means the warnings
-	// config.Load emits (weak MASTER_KEY, ignored env values) come out in the
-	// configured format instead of slog's text default.
+	// Initialise the structured logger before anything can log, so the
+	// warnings config.Load emits (weak MASTER_KEY, ignored env values) come out
+	// in the configured format instead of slog's text default. Init reads
+	// DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the environment, so
+	// the .env file has to be in the environment first.
+	if err := config.LoadEnvFile(); err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 	debuglog.Init(false)
 
 	cfg, err := config.Load()

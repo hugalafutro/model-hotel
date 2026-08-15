@@ -295,7 +295,13 @@ func (s *Server) emit(ctx context.Context, e Event) {
 // Server.closeSyncHold.
 func logEvent(e Event) {
 	attrs := make([]any, 0, 2*(len(e.Metadata)+3))
-	attrs = append(attrs, "event", e.Type, "event_id", e.ID)
+	attrs = append(attrs, "event", e.Type)
+	// Empty ids (a failed insert leaves no event id; fleet-wide events have no
+	// member) are omitted rather than logged blank, so label-based collectors
+	// never see an empty value.
+	if e.ID != "" {
+		attrs = append(attrs, "event_id", e.ID)
+	}
 	if e.MemberID != "" {
 		attrs = append(attrs, "member_id", e.MemberID)
 	}

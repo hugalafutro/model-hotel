@@ -350,8 +350,6 @@ func (s *Server) markBackupStale(ctx context.Context, m *Member, newest time.Tim
 	if found {
 		at = newest.UTC().Format(time.RFC3339)
 	}
-	debuglog.Warn("frontdesk: member has no recent database backup",
-		"member", m.Name, "newest_backup_at", at)
 	s.emit(ctx, Event{
 		Type: "backup.stale", Severity: "warning", Source: "frontdesk",
 		Message:  fmt.Sprintf("%s has no database backup from the last 24 hours", m.Name),

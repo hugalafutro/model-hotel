@@ -325,8 +325,6 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 		})
 	case !hs.Healthy && fails == threshold:
 		// Crossed into confirmed-down: emit exactly once, not on every later poll.
-		debuglog.Warn("frontdesk: member health failing",
-			"member", m.Name, "consecutive_failures", fails, "error", hs.Error)
 		p.recordEvent(ctx, Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("%s is unreachable after %d %s", m.Name, fails, util.Plural(fails, "check", "checks")), MemberID: m.ID,
@@ -730,6 +728,8 @@ func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchEr
 	p.mu.Unlock()
 
 	if n == versionFetchFailThreshold {
+		// Logged separately from the event (which logEvent mirrors) because
+		// the error itself must stay out of the persisted payload.
 		debuglog.Warn("frontdesk: member version fetch failing",
 			"member", m.Name, "consecutive_failures", n, "error", fetchErr)
 		p.recordEvent(ctx, Event{
