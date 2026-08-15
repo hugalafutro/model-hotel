@@ -51,7 +51,7 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 A live **reachability indicator** next to the URL shows whether Model Hotel can reach the apprise-api container: green (reachable), amber (reachable but the container reports an issue), or red (unreachable, e.g. wrong URL or the container isn't running), so a misconfiguration is visible immediately rather than only when an event later fails to send. Use **Re-check** to re-probe.
 
 ![Settings Alerts](screenshots/settings_alerts.png)
-*Settings page - Alerts section. With alerting off, the "Events to notify on" column stays visible but disabled; enabling the toggle activates the target field, reachability indicator, and the event picker.*
+*Settings page - Alerts section with alerting on: the Apprise API URL with its reachability indicator, the notification target, the ntfy helper, and the "Events to notify on" picker unrolled. With alerting off the card rolls up to its toggle.*
 
 ## Choosing which events fire
 

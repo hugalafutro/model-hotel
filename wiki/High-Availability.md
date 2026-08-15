@@ -176,12 +176,18 @@ Front Desk. The data plane (`/v1` traffic) is unaffected; clients use virtual ke
 
 ## Front Desk Settings
 
-Everything below this point lives on Front Desk's **Settings** tab: polling and
-data-plane knobs, the fleet sync wizard, alerts, observability, the admin
-sign-in methods (passkeys, TOTP, active sessions), paired devices and single
-sign-on, paired two to a row. Each section that follows zooms into one card.
+Most of what follows is configured on Front Desk's **Settings** tab: the polling
+and data-plane intervals, the fleet sync wizard and fleet maintenance across the
+full width, then three side-by-side card pairs (Alerts and Observability,
+Passkeys and Authenticator app, Active sessions and Paired devices), with single
+sign-on at the bottom. The pairs collapse to one column on a narrow window. The
+Admin Authentication, Replicating Config, Alerting and Paired Devices sections
+below zoom into individual cards; TLS Proxy and the closing sections are about
+the stack around Front Desk, not this tab.
 
-<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: every card, paired two to a row"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: full-width polling, sync and maintenance cards above three side-by-side card pairs, single sign-on at the bottom"></a></p>
+
+---
 
 ## Admin Authentication (Passkeys & TOTP)
 

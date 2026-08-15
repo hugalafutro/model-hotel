@@ -249,7 +249,7 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen. Any standards-compliant OpenID Connect provider works (the names above are just examples): the login flow uses only standard discovery, PKCE, and ID-token verification, so the single requirement is that the provider releases the signing-in user's verified email (in the ID token, or from its UserInfo endpoint), because the allowlist is email-based and fails closed.
 
 <p align="center">
-  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" width="800" alt="Authentication settings: passkeys and TOTP"></a>
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" width="800" alt="Authentication settings: passkeys, active sessions, TOTP, tab timeout and password policy"></a>
 <br><br>
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" width="390" alt="Authentication settings: OIDC single sign-on"></a>
   &nbsp;&nbsp;

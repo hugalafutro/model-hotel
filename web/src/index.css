@@ -2682,10 +2682,15 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	border-color: rgba(8, 145, 178, 0.25);
 }
 
-/* Callouts: inline notice boxes inside settings cards and panels. A component
-   says WHAT the box is (`ui-callout ui-callout-warning` for a trade-off the
-   operator opted into, `ui-callout-info` for an explanation of what a control
-   does or sends where); the theme decides the look. Corners follow
+/* =============================================
+   CALLOUTS
+   ============================================= */
+
+/* Callouts: inline notice boxes inside cards and panels. A component says WHAT
+   the box is (`ui-callout ui-callout-warning` for something the operator must
+   not miss: a trade-off they opted into, one-time recovery codes;
+   `ui-callout-info` for an explanation of what a control does or sends where);
+   the theme decides the look. Corners follow
    --radius-box, so Terminal squares them like every other frame. Text is
    justified: a callout is a short paragraph block and a ragged edge on a
    tinted box reads untidy. Links inside inherit the box colour and are

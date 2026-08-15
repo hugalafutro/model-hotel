@@ -346,7 +346,27 @@ Key patterns:
 - **API client:** `api/client.ts` - fetch wrapper with error handling
 - **Type safety:** All API responses typed via `api/types.ts`
 - **State management:** React Context + `useReducer` for complex state
-- **Styling:** Tailwind CSS v4 with custom theme
+- **Styling:** Tailwind CSS v4 with custom theme, themed through semantic `ui-*` classes (below)
+
+### Semantic `ui-*` classes
+
+Themed UI styling goes through semantic classes defined in `web/src/index.css`, so a component
+declares *what* an element is and `index.css` decides how it looks per UI style (`clean-saas`,
+`cyber-terminal`, `glassmorphism-lite`) and per light/dark mode:
+
+| Class | Variants |
+|-------|----------|
+| `ui-btn` | `-primary`, `-secondary`, `-danger` |
+| `ui-badge` | `-neutral`, `-success`, `-error`, `-warning`, `-info`, `-accent`, `-orange`, `-purple`, `-cyan` |
+| `ui-callout` | `-warning` (something the operator must not miss), `-info` (what a control does or sends where); inline notice boxes inside cards |
+| `ui-card`, `ui-table`, `ui-tab`, `ui-toggle` | (single look each) |
+
+Rules of thumb: never write CSS that targets raw Tailwind utility classes to restyle one component
+(such selectors break silently when the component's classes change; add or extend a semantic
+variant instead), never put raw palette stacks on `ui-btn`/`ui-badge` elements, and have tests
+assert the semantic class (`toHaveClass("ui-badge-error")`), never a color utility. `index.css`
+rules are unlayered and beat Tailwind utilities regardless of specificity, so size and padding set
+on a `ui-*` class cannot be overridden with `px-*`/`text-*`.
 
 ## Docker Workflow
 
