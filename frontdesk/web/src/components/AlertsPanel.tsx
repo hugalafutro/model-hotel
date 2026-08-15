@@ -174,7 +174,7 @@ export function AlertsPanel() {
 	return (
 		<div className="ui-card ui-card-pad fd-stack">
 			<div className="fd-row" style={{ justifyContent: "space-between" }}>
-				<h2 style={{ fontSize: "1rem" }}>{t("settings.alerts.title")}</h2>
+				<h2 className="fd-card-title">{t("settings.alerts.title")}</h2>
 				<StatusPill status={status} t={t} />
 			</div>
 			<p
@@ -196,113 +196,121 @@ export function AlertsPanel() {
 				</span>
 			</label>
 
-			<div className="ui-field">
-				<label className="ui-label" htmlFor="alert-url">
-					{t("settings.alerts.apiUrlLabel")}
-				</label>
-				<input
-					id="alert-url"
-					className="ui-input"
-					type="url"
-					placeholder="http://apprise:8000"
-					value={url}
-					disabled={busy}
-					onChange={(e) => setUrl(e.target.value)}
-				/>
-				<div
-					className="fd-faint"
-					style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
-				>
-					{t("settings.alerts.apiUrlHint")}
-				</div>
-			</div>
-
-			<div className="ui-field">
-				<label className="ui-label" htmlFor="alert-target">
-					{t("settings.alerts.targetLabel")}
-				</label>
-				<input
-					id="alert-target"
-					className="ui-input"
-					type="password"
-					autoComplete="off"
-					placeholder="tgram://token/chat_id"
-					value={target}
-					disabled={busy}
-					onChange={(e) => setTarget(e.target.value)}
-				/>
-				<div
-					className="fd-faint"
-					style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
-				>
-					{target === MASK
-						? t("settings.alerts.targetStoredNote")
-						: t("settings.alerts.targetHint")}{" "}
-					<a
-						className="fd-link"
-						href={APPRISE_SERVICES_URL}
-						target="_blank"
-						rel="noreferrer"
-					>
-						{t("settings.alerts.browseServices")}
-						<ArrowSquareOutIcon
-							size={12}
-							style={{ marginLeft: 3, verticalAlign: "-1px" }}
+			{/* Like the SSO card, the configuration only unrolls once alerts are on;
+			    switched off, the card is just its toggle plus Save. */}
+			{enabled && (
+				<>
+					<div className="ui-field">
+						<label className="ui-label" htmlFor="alert-url">
+							{t("settings.alerts.apiUrlLabel")}
+						</label>
+						<input
+							id="alert-url"
+							className="ui-input"
+							type="url"
+							placeholder="http://apprise:8000"
+							value={url}
+							disabled={busy}
+							onChange={(e) => setUrl(e.target.value)}
 						/>
-					</a>
-				</div>
-			</div>
-
-			<NtfyHelper disabled={busy} onUse={(apprise) => setTarget(apprise)} />
-
-			<fieldset
-				style={{ border: "none", padding: 0, margin: 0 }}
-				disabled={busy}
-			>
-				<legend className="ui-label">{t("settings.alerts.eventsLabel")}</legend>
-				<div
-					className="fd-faint"
-					style={{ fontSize: "0.78rem", margin: "0 0 0.5rem" }}
-				>
-					{t("settings.alerts.eventsHint")}
-				</div>
-				{grouped.map(([category, defs]) => (
-					<div key={category} style={{ marginBottom: "0.6rem" }}>
-						<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
-							{category}
+						<div
+							className="fd-faint"
+							style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+						>
+							{t("settings.alerts.apiUrlHint")}
 						</div>
-						{defs.map((d) => {
-							const label = eventLabel(d.type);
-							return (
-								<label
-									key={d.type}
-									className="fd-row"
-									style={{ cursor: "pointer", marginTop: "0.2rem" }}
-								>
-									<input
-										type="checkbox"
-										aria-label={label}
-										checked={selected.has(d.type)}
-										onChange={(e) => toggleEvent(d.type, e.target.checked)}
-									/>
-									<span
-										aria-hidden="true"
-										style={{
-											display: "inline-block",
-											width: "0.5rem",
-											height: "0.5rem",
-											borderRadius: "50%",
-											background:
-												SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
-										}}
-									/>
-									<span style={{ fontSize: "0.85rem" }}>{label}</span>
-								</label>
-							);
-						})}
 					</div>
-				))}
-			</fieldset>
+
+					<div className="ui-field">
+						<label className="ui-label" htmlFor="alert-target">
+							{t("settings.alerts.targetLabel")}
+						</label>
+						<input
+							id="alert-target"
+							className="ui-input"
+							type="password"
+							autoComplete="off"
+							placeholder="tgram://token/chat_id"
+							value={target}
+							disabled={busy}
+							onChange={(e) => setTarget(e.target.value)}
+						/>
+						<div
+							className="fd-faint"
+							style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+						>
+							{target === MASK
+								? t("settings.alerts.targetStoredNote")
+								: t("settings.alerts.targetHint")}{" "}
+							<a
+								className="fd-link"
+								href={APPRISE_SERVICES_URL}
+								target="_blank"
+								rel="noreferrer"
+							>
+								{t("settings.alerts.browseServices")}
+								<ArrowSquareOutIcon
+									size={12}
+									style={{ marginLeft: 3, verticalAlign: "-1px" }}
+								/>
+							</a>
+						</div>
+					</div>
+
+					<NtfyHelper disabled={busy} onUse={(apprise) => setTarget(apprise)} />
+
+					<fieldset
+						style={{ border: "none", padding: 0, margin: 0 }}
+						disabled={busy}
+					>
+						<legend className="ui-label">
+							{t("settings.alerts.eventsLabel")}
+						</legend>
+						<div
+							className="fd-faint"
+							style={{ fontSize: "0.78rem", margin: "0 0 0.5rem" }}
+						>
+							{t("settings.alerts.eventsHint")}
+						</div>
+						{grouped.map(([category, defs]) => (
+							<div key={category} style={{ marginBottom: "0.6rem" }}>
+								<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
+									{category}
+								</div>
+								{defs.map((d) => {
+									const label = eventLabel(d.type);
+									return (
+										<label
+											key={d.type}
+											className="fd-row"
+											style={{ cursor: "pointer", marginTop: "0.2rem" }}
+										>
+											<input
+												type="checkbox"
+												aria-label={label}
+												checked={selected.has(d.type)}
+												onChange={(e) => toggleEvent(d.type, e.target.checked)}
+											/>
+											<span
+												aria-hidden="true"
+												style={{
+													display: "inline-block",
+													width: "0.5rem",
+													height: "0.5rem",
+													borderRadius: "50%",
+													background:
+														SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
+												}}
+											/>
+											<span style={{ fontSize: "0.85rem" }}>{label}</span>
+										</label>
+									);
+								})}
+							</div>
+						))}
+					</fieldset>
+				</>
+			)}
 
 			{saveError && (
 				<div className="fd-error-text" role="alert">
@@ -319,16 +327,18 @@ export function AlertsPanel() {
 				>
 					{saving ? t("common.saving") : t("settings.alerts.saveBtn")}
 				</button>
-				<button
-					type="button"
-					className="ui-btn"
-					disabled={busy}
-					onClick={sendTest}
-				>
-					{testing
-						? t("settings.alerts.testing")
-						: t("settings.alerts.testBtn")}
-				</button>
+				{enabled && (
+					<button
+						type="button"
+						className="ui-btn"
+						disabled={busy}
+						onClick={sendTest}
+					>
+						{testing
+							? t("settings.alerts.testing")
+							: t("settings.alerts.testBtn")}
+					</button>
+				)}
 			</div>
 		</div>
 	);

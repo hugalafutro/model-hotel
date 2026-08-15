@@ -90,6 +90,43 @@ func (s *Server) listMemberBackups(ctx context.Context, m *Member, token string)
 	return entries, nil
 }
 
+// countFrontDeskBackups returns how many entries carry the frontdesk origin.
+func countFrontDeskBackups(entries []memberBackupEntry) int {
+	n := 0
+	for _, e := range entries {
+		if e.Origin == memberBackupOriginFrontDesk {
+			n++
+		}
+	}
+	return n
+}
+
+// recordFrontDeskBackups remembers how many frontdesk-origin dumps a member's
+// listing held the last time anything read it. A member that could not be read
+// is left at its previous value rather than zeroed: an unanswered listing is not
+// evidence that its dumps are gone.
+func (s *Server) recordFrontDeskBackups(memberID string, n int) {
+	s.backupStaleMu.Lock()
+	s.frontDeskBackups[memberID] = n
+	s.backupStaleMu.Unlock()
+}
+
+// frontDeskBackupCount (GET /api/fleet/backups/frontdesk-count) reports the
+// fleet-wide number of frontdesk-origin dumps as of the last read of each
+// member's listing. It never calls a member itself: the answer comes from the
+// backup watchdog's periodic pass and from prune runs, so the Settings page can
+// decide whether to show Fleet maintenance for free. Zero until the first pass
+// after startup has read a listing.
+func (s *Server) frontDeskBackupCount(w http.ResponseWriter, _ *http.Request) {
+	total := 0
+	s.backupStaleMu.Lock()
+	for _, n := range s.frontDeskBackups {
+		total += n
+	}
+	s.backupStaleMu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"count": total})
+}
+
 // ---------------------------------------------------------------------------
 // Fleet prune of frontdesk-origin backups
 // ---------------------------------------------------------------------------
@@ -187,6 +224,9 @@ func (s *Server) pruneMemberFrontDeskBackups(ctx context.Context, m *Member, tok
 		}
 		return res
 	}
+	// Either kind of run has just read the listing, so both refresh the count
+	// Settings consults; a real run corrects it again below to what survived.
+	s.recordFrontDeskBackups(m.ID, countFrontDeskBackups(entries))
 	for _, e := range entries {
 		if e.Origin != memberBackupOriginFrontDesk {
 			continue
@@ -205,6 +245,10 @@ func (s *Server) pruneMemberFrontDeskBackups(ctx context.Context, m *Member, tok
 		default:
 			res.Failed++
 		}
+	}
+	if !dryRun {
+		// What the member refused to delete is what it still holds.
+		s.recordFrontDeskBackups(m.ID, res.Failed)
 	}
 	if res.Failed > 0 {
 		res.Error = fmt.Sprintf("%s could not be deleted", util.Count(res.Failed, "backup", "backups"))
@@ -256,6 +300,7 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 			debuglog.Debug("frontdesk: backup watch: read listing", "member", m.Name, "error", err)
 			continue
 		}
+		s.recordFrontDeskBackups(m.ID, countFrontDeskBackups(entries))
 		newest, found := newestScheduledBackup(entries)
 		if !found || time.Since(newest) > memberBackupStaleAfter {
 			s.markBackupStale(ctx, m, newest, found)

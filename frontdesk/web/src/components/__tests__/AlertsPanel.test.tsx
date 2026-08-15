@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "i18next";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 import type { AlertEventDef, AlertStatus, Settings } from "../../api/types";
@@ -139,6 +140,57 @@ it("save preserves the masked secret and writes the current selection", async ()
 	expect(putBody?.alert_events).toBe("health.down");
 });
 
+// Every editable field feeds the PUT: the URL and target inputs, the event
+// checkboxes, and the ntfy helper composing a target from server + topic.
+it("saves the edited URL, a composed ntfy target, and a toggled event", async () => {
+	let putBody: Settings | undefined;
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Settings;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await screen.findByRole("checkbox", { name: "Member went down" });
+
+	const url = screen.getByLabelText(/apprise api url/i);
+	await userEvent.clear(url);
+	await userEvent.type(url, "http://apprise:9000");
+
+	// Typing a raw target replaces the stored mask...
+	const target = screen.getByLabelText(/notification target/i);
+	await userEvent.clear(target);
+	await userEvent.type(target, "tgram://tok/chat");
+	// ...and the ntfy helper overwrites it with the composed Apprise URL.
+	await userEvent.clear(screen.getByLabelText(/ntfy server/i));
+	await userEvent.type(
+		screen.getByLabelText(/ntfy server/i),
+		"https://ntfy.example.com",
+	);
+	await userEvent.type(screen.getByLabelText(/ntfy topic/i), "fleet-alerts");
+	await userEvent.click(screen.getByRole("button", { name: /set as target/i }));
+	expect(target).toHaveValue("ntfys://ntfy.example.com/fleet-alerts");
+
+	await userEvent.click(
+		screen.getByRole("checkbox", { name: "Member recovered" }),
+	);
+	await userEvent.click(
+		screen.getByRole("checkbox", { name: "Member went down" }),
+	);
+
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+
+	await waitFor(() => expect(putBody).toBeDefined());
+	expect(putBody?.alert_apprise_api_url).toBe("http://apprise:9000");
+	expect(putBody?.alert_apprise_targets).toBe(
+		"ntfys://ntfy.example.com/fleet-alerts",
+	);
+	expect(putBody?.alert_events).toBe("health.up");
+});
+
 it("surfaces a 400 validation message but hides non-400 internals on save", async () => {
 	baseHandlers();
 	server.use(
@@ -187,6 +239,73 @@ it("sends a test: persists then posts, and does not leak raw errors on failure",
 	const alert = await screen.findByRole("alert");
 	expect(alert).toHaveTextContent(/something went wrong/i);
 	expect(alert.textContent).not.toContain("503");
+});
+
+it("confirms a delivered test with a success toast and no error", async () => {
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", () => new HttpResponse(null, { status: 204 })),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderPanel();
+	await screen.findByRole("checkbox", { name: "Member went down" });
+	await userEvent.click(screen.getByRole("button", { name: /send test/i }));
+
+	// Compared against the resolved translation so the assertion pins which
+	// toast fired without depending on the active locale.
+	await waitFor(() =>
+		expect(screen.getByRole("status")).toHaveTextContent(
+			i18n.t("settings.alerts.testSent"),
+		),
+	);
+	expect(screen.queryByRole("alert")).toBeNull();
+});
+
+// Like the SSO card, a switched-off Alerts card is just its toggle: the
+// connection fields, the ntfy helper, the event picker and the test button only
+// appear once outbound alerts are enabled, so a fleet that never turned them on
+// is not looking at a tall form of blank inputs.
+it("rolls the configuration up while alerts are disabled and unrolls on enable", async () => {
+	let putBody: Settings | undefined;
+	baseHandlers({ settings: { ...settings, alert_enabled: false } });
+	server.use(
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Settings;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+
+	const toggle = await screen.findByRole("checkbox", {
+		name: /outbound alert notifications/i,
+	});
+	expect(toggle).not.toBeChecked();
+	expect(screen.queryByLabelText(/apprise api url/i)).toBeNull();
+	expect(
+		screen.queryByRole("checkbox", { name: "Member went down" }),
+	).toBeNull();
+	expect(screen.queryByRole("button", { name: /send test/i })).toBeNull();
+	// Save stays reachable so switching alerts off can be persisted, and a save
+	// while rolled up still carries the stored URL, the masked secret and the
+	// event selection: hiding the fields must never blank what they held, or
+	// toggling alerts off would silently wipe the operator's Apprise setup.
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+	await waitFor(() => expect(putBody).toBeDefined());
+	expect(putBody?.alert_enabled).toBe(false);
+	expect(putBody?.alert_apprise_api_url).toBe(settings.alert_apprise_api_url);
+	expect(putBody?.alert_apprise_targets).toBe("********");
+	expect(putBody?.alert_events).toBe(settings.alert_events);
+
+	await userEvent.click(toggle);
+	expect(screen.getByLabelText(/apprise api url/i)).toBeInTheDocument();
+	expect(
+		screen.getByRole("checkbox", { name: "Member went down" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: /send test/i }),
+	).toBeInTheDocument();
 });
 
 it("renders without a picker when the catalog is empty", async () => {

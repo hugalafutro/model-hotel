@@ -27,6 +27,10 @@
 	--accent: #c2703d;
 	--accent-strong: #d98a52;
 	--accent-contrast: #1a1207;
+	/* Accent used AS TEXT (links, the active tab, card titles). --accent-strong
+	   reads at 6.4:1 on the dark surface but only 2.7:1 on white, so the light
+	   theme swaps in a deeper copper; backgrounds keep --accent-strong. */
+	--accent-text: #d98a52;
 
 	--ok: #46c483;
 	--warn: #d9a441;
@@ -57,6 +61,7 @@
 	--text-muted: #5b636f;
 	--text-faint: #8a93a1;
 	--accent-contrast: #fff8f1;
+	--accent-text: #9c5220;
 	--shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 8px 24px rgba(16, 24, 40, 0.08);
 }
 
@@ -81,7 +86,7 @@ body {
 }
 
 a {
-	color: var(--accent-strong);
+	color: var(--accent-text);
 	text-decoration: none;
 }
 a:hover {
@@ -161,7 +166,7 @@ h3 {
 }
 .fd-tab[aria-selected="true"] {
 	background: var(--surface-2);
-	color: var(--accent-strong);
+	color: var(--accent-text);
 }
 .fd-main {
 	flex: 1;
@@ -205,7 +210,7 @@ h3 {
 	text-decoration: none;
 }
 .fd-footer-link:hover {
-	color: var(--accent-strong);
+	color: var(--accent-text);
 }
 .fd-footer-sep {
 	color: var(--text-faint);
@@ -258,7 +263,7 @@ h3 {
 }
 .fd-lang-option[aria-selected="true"] {
 	background: var(--surface-2);
-	color: var(--accent-strong);
+	color: var(--accent-text);
 }
 
 /* --- card --- */
@@ -270,6 +275,13 @@ h3 {
 }
 .ui-card-pad {
 	padding: 1rem 1.1rem;
+}
+/* Card heading: the accent colour gives each Settings / Members card a
+   visible anchor now that cards sit two to a row, matching the accent
+   already used for links and the active tab. */
+.fd-card-title {
+	font-size: 1rem;
+	color: var(--accent-text);
 }
 
 /* --- buttons --- */
@@ -462,6 +474,23 @@ h3 {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
+}
+/* Two related settings cards side by side (Alerts | Observability,
+   Passkeys | Authenticator, Active sessions | Paired devices) instead of one
+   more full-width slab each. Two fixed tracks rather than auto-fit/auto-fill:
+   auto-fit would let a card that renders nothing until its data arrives hand
+   its partner the full width and then snap it back to half, and auto-fill
+   would open a third empty track on wide screens. Collapses to one column
+   where two 26rem cards no longer fit. */
+.fd-settings-pair {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1rem;
+}
+@media (max-width: 56rem) {
+	.fd-settings-pair {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 .fd-empty {
 	text-align: center;

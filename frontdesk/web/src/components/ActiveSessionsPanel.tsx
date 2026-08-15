@@ -81,7 +81,7 @@ export function ActiveSessionsPanel() {
 				style={{ justifyContent: "space-between", alignItems: "flex-start" }}
 			>
 				<div>
-					<h2 style={{ fontSize: "1rem" }}>{t("settings.sessions.title")}</h2>
+					<h2 className="fd-card-title">{t("settings.sessions.title")}</h2>
 					<p
 						className="fd-faint"
 						style={{ fontSize: "0.82rem", margin: "0.3rem 0 0" }}

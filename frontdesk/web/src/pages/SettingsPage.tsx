@@ -143,7 +143,7 @@ export function SettingsPage() {
 			<h1 className="fd-page-title">{t("settings.title")}</h1>
 
 			<form className="ui-card ui-card-pad" onSubmit={save}>
-				<h2 style={{ fontSize: "1rem" }}>{t("settings.pollSection")}</h2>
+				<h2 className="fd-card-title">{t("settings.pollSection")}</h2>
 				<p
 					className="fd-faint"
 					style={{ fontSize: "0.82rem", margin: "0.3rem 0 1rem" }}
@@ -253,17 +253,19 @@ export function SettingsPage() {
 
 			<FleetMaintenancePanel />
 
-			<AlertsPanel />
+			<div className="fd-settings-pair">
+				<AlertsPanel />
+				<ObservabilityPanel />
+			</div>
 
 			<SecurityPanels />
 
-			<ActiveSessionsPanel />
-
-			<PairedDevicesPanel />
+			<div className="fd-settings-pair">
+				<ActiveSessionsPanel />
+				<PairedDevicesPanel />
+			</div>
 
 			<OidcPanel />
-
-			<ObservabilityPanel />
 		</div>
 	);
 }

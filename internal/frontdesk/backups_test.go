@@ -611,3 +611,160 @@ func TestRunBackupWatchStopsOnContextCancel(t *testing.T) {
 		t.Fatal("RunBackupWatch did not return after context cancel")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Fleet-wide count of frontdesk-origin backups (feeds Settings visibility)
+// ---------------------------------------------------------------------------
+
+func frontDeskCount(t *testing.T, srv *Server) int {
+	t.Helper()
+	rec := do(t, srv, http.MethodGet, "/api/fleet/backups/frontdesk-count", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET frontdesk-count = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode count: %v (%s)", err, rec.Body.String())
+	}
+	return resp.Count
+}
+
+// TestFrontDeskBackupCountFollowsTheWatchdog: the count is zero until a pass has
+// read a listing, then reflects the frontdesk-origin entries across the fleet
+// (manual and scheduled dumps do not count), and the endpoint itself calls no
+// member.
+func TestFrontDeskBackupCountFollowsTheWatchdog(t *testing.T) {
+	srv, store := newTestServer(t)
+	a := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_020000_manual.dump", "manual", time.Hour),
+	)
+	b := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_3_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_010000_auto.dump", "scheduled", time.Hour),
+	)
+	for i, m := range []*stubBackupMember{a, b} {
+		if _, err := store.CreateMember(t.Context(), fmt.Sprintf("m%d", i), m.srv.URL, "tok"); err != nil {
+			t.Fatalf("CreateMember: %v", err)
+		}
+	}
+
+	if n := frontDeskCount(t, srv); n != 0 {
+		t.Errorf("count before any pass = %d, want 0", n)
+	}
+	srv.checkMemberBackups(t.Context())
+	if n := frontDeskCount(t, srv); n != 3 {
+		t.Errorf("count after watchdog pass = %d, want 3", n)
+	}
+}
+
+// TestFrontDeskBackupCountKeepsLastValueForUnreadableMember: a member that stops
+// answering keeps the count from its last successful read. An unanswered listing
+// is not evidence its dumps are gone, and zeroing it would hide the section
+// exactly while the operator can do nothing about it.
+func TestFrontDeskBackupCountKeepsLastValueForUnreadableMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+	)
+	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	srv.checkMemberBackups(t.Context())
+	if n := frontDeskCount(t, srv); n != 1 {
+		t.Fatalf("count after first pass = %d, want 1", n)
+	}
+
+	member.mu.Lock()
+	member.listStatus = http.StatusInternalServerError
+	member.mu.Unlock()
+	srv.checkMemberBackups(t.Context())
+	if n := frontDeskCount(t, srv); n != 1 {
+		t.Errorf("count after an unreadable pass = %d, want the last good value 1", n)
+	}
+}
+
+// TestFrontDeskBackupCountRefreshedByPruneRuns: a dry run has just read the
+// listing, so it corrects the count too (the Settings probe and the button's
+// preview agree); a real run leaves exactly what the member refused to delete.
+func TestFrontDeskBackupCountRefreshedByPruneRuns(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
+	)
+	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	// No watchdog pass yet: the dry run alone establishes the count.
+	doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
+	if n := frontDeskCount(t, srv); n != 2 {
+		t.Errorf("count after dry run = %d, want 2", n)
+	}
+
+	doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
+	if n := frontDeskCount(t, srv); n != 0 {
+		t.Errorf("count after a clean real run = %d, want 0", n)
+	}
+}
+
+// TestFrontDeskBackupCountKeepsRefusedDeletes: what a member refuses to delete
+// is what it still holds, so the count after a real run is the failed number,
+// and the section stays available for another go.
+func TestFrontDeskBackupCountKeepsRefusedDeletes(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
+		backupEntryAt("backup_20260101_020000_3_frontdesk.dump", "frontdesk", time.Hour),
+	)
+	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	member.mu.Lock()
+	member.delStatus = http.StatusForbidden
+	member.mu.Unlock()
+
+	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
+	if resp.Failed != 3 {
+		t.Fatalf("failed = %d, want 3", resp.Failed)
+	}
+	if n := frontDeskCount(t, srv); n != 3 {
+		t.Errorf("count after refused deletes = %d, want 3", n)
+	}
+}
+
+// TestFrontDeskBackupCountForgetsRemovedMember: a removed member's dumps stop
+// counting toward the fleet total.
+func TestFrontDeskBackupCountForgetsRemovedMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	srv.checkMemberBackups(t.Context())
+	if n := frontDeskCount(t, srv); n != 1 {
+		t.Fatalf("count = %d, want 1", n)
+	}
+
+	srv.forgetMemberState(m.ID)
+	if n := frontDeskCount(t, srv); n != 0 {
+		t.Errorf("count after member removal = %d, want 0", n)
+	}
+}
+
+// TestFrontDeskBackupCountNeedsAuth: the count is fleet metadata, so it is
+// gated like every other read.
+func TestFrontDeskBackupCountNeedsAuth(t *testing.T) {
+	srv, _ := newTestServer(t)
+	if rec := do(t, srv, http.MethodGet, "/api/fleet/backups/frontdesk-count", "", false); rec.Code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated count = %d, want 401", rec.Code)
+	}
+}

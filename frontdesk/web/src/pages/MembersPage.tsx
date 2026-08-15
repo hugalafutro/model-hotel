@@ -598,7 +598,7 @@ function AddMemberForm({
 
 	return (
 		<form className="ui-card ui-card-pad" onSubmit={submit}>
-			<h2 style={{ fontSize: "1rem", marginBottom: "0.8rem" }}>
+			<h2 className="fd-card-title" style={{ marginBottom: "0.8rem" }}>
 				{t("members.addTitle")}
 			</h2>
 			{firstMember && (

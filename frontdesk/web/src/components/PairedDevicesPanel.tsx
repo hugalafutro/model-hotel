@@ -179,7 +179,7 @@ export function PairedDevicesPanel() {
 
 	return (
 		<section className="ui-card ui-card-pad">
-			<h2 style={{ fontSize: "1rem" }}>{t("settings.devices.title")}</h2>
+			<h2 className="fd-card-title">{t("settings.devices.title")}</h2>
 			<p
 				className="fd-faint"
 				style={{ fontSize: "0.82rem", margin: "0.3rem 0 1rem" }}

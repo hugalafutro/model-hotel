@@ -63,6 +63,11 @@ beforeEach(() => {
 		http.get("/api/auth/oidc/status", () =>
 			HttpResponse.json({ enabled: false }),
 		),
+		// Fleet maintenance reads the leftover Front Desk backup count on mount
+		// and stays hidden when it is zero.
+		http.get("/api/fleet/backups/frontdesk-count", () =>
+			HttpResponse.json({ count: 0 }),
+		),
 	);
 });
 

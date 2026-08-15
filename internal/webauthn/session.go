@@ -24,13 +24,13 @@ import (
 // only bound on how long a stolen token stays usable. Keep it short enough that
 // the exposure window is survivable; session_ttl_test.go enforces the ceiling.
 //
-// User-facing copy quotes this value as "1 day": settings.sessionTimeout.hint
+// User-facing copy quotes this value as "3 days": settings.sessionTimeout.hint
 // in web/src/i18n/locales/ (29 locales) and settings.sessionTimeoutHint in
 // frontdesk/web/src/i18n/locales/ (11 locales), plus README.md and
 // wiki/Security.md and wiki/Configuration.md. Changing the constant without
 // sweeping those reintroduces the label-lies-to-the-operator bug the copy was
 // written to fix.
-const AuthTokenTTL = 24 * time.Hour
+const AuthTokenTTL = 72 * time.Hour
 
 // lastSeenThrottle bounds how often a session's last_seen_at is rewritten.
 // Validation runs on every admin request; without the throttle each one would
