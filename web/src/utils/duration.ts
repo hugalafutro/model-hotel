@@ -97,3 +97,22 @@ export function minutesToGoDuration(m: number): string {
 	if (result === "") result = "0";
 	return result;
 }
+
+// Legacy log_retention tokens written by the pre-slider dropdown; the sweep
+// still honours them ("1m" is the 30-day token, not one minute).
+const LEGACY_RETENTION_HOURS: Record<string, number> = {
+	"1d": 24,
+	"1w": 168,
+	"1m": 720,
+};
+
+/**
+ * Map a stored log_retention value onto the day slider. 0 is the slider's
+ * "never" position, so any enabled window shorter than half a day still shows
+ * as 1 rather than pretending retention is off.
+ */
+export function logRetentionToDays(stored: string): number {
+	const hours = LEGACY_RETENTION_HOURS[stored] ?? goDurationToHours(stored);
+	if (hours <= 0) return 0;
+	return Math.max(1, Math.round(hours / 24));
+}

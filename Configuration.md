@@ -55,7 +55,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `discovery_interval` | `6h` | Model auto-discovery interval (e.g. `30m`, `1h`, `6h`, `24h`). Set to `0` to disable periodic discovery entirely. |
 | `discovery_on_startup` | `true` | Whether to run model discovery automatically on server startup. If the last discovery was within 5 minutes, startup discovery is skipped to avoid duplicate work on rapid restarts. |
 | `discovery_on_provider_create` | `true` | Whether to trigger model discovery when a new provider is created via the API. |
-| `log_retention` | *(empty)* | How long to keep request logs. Accepts `1h`, `1d`/`24h`, `1w`/`168h`, `1m`/`720h`. Empty or unrecognised values = keep forever. Cleanup runs hourly. |
+| `log_retention` | *(empty)* | How long to keep request and app logs. Any Go duration (`48h`, `72h`, `168h0m0s`); the dashboard slider stores whole days as hours. Legacy `1d`/`1w`/`1m` are still accepted (`1m` is the 30-day token, not one minute). Empty, `0`, or a zero duration = keep forever; anything unreadable is skipped and logged as a warning. Cleanup runs hourly. |
 | `stale_request_timeout` | `30m` | Timeout for marking in-progress request logs as failed. Rows stuck in `pending` or `streaming` state for longer than this duration are automatically marked as `failed`. |
 | `failover_on_rate_limit` | `true` | Whether to failover to the next provider when an upstream returns HTTP 429 (rate limited). 5xx errors always trigger failover regardless of this setting. |
 | `rate_limit_enabled` | `true` | Runtime toggle for rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var: if the env var is `false`, this setting has no effect. |

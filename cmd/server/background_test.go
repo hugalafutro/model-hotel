@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -321,12 +324,134 @@ func TestLogRetentionPass(t *testing.T) {
 		}
 	})
 
+	t.Run("slider_value_deletes", func(t *testing.T) {
+		// The dashboard slider stores day counts as "<hours>h"; every stop
+		// must prune both tables.
+		if _, err := pool.Exec(ctx, `DELETE FROM request_logs`); err != nil {
+			t.Fatalf("cleanup failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `DELETE FROM app_logs`); err != nil {
+			t.Fatalf("cleanup failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES ('completed', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message, created_at) VALUES (now() - interval '3 days', 'info', 'test', 'old', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		setRetention("48h")
+		logRetentionPass(pool, settingsRepo)
+		for _, table := range []string{"request_logs", "app_logs"} {
+			var n int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil {
+				t.Fatalf("count failed: %v", err)
+			}
+			if n != 0 {
+				t.Errorf("expected 48h retention to delete the 3-day-old %s row, got %d rows", table, n)
+			}
+		}
+	})
+
+	t.Run("garbage_value_keeps_rows_and_warns_once", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `DELETE FROM request_logs`); err != nil {
+			t.Fatalf("cleanup failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES ('completed', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		var logs strings.Builder
+		debuglog.SetHandler(slog.NewTextHandler(&logs, nil))
+		defer debuglog.SetHandler(debuglog.StdoutHandler())
+		setRetention("soon")
+		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(pool, settingsRepo)
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if n != 1 {
+			t.Errorf("expected an unparseable retention to keep the row, got %d rows", n)
+		}
+		if got := strings.Count(logs.String(), "not understood"); got != 1 {
+			t.Errorf("expected exactly one warning for a repeated bad value, got %d in:\n%s", got, logs.String())
+		}
+	})
+
+	t.Run("zero_duration_disables_silently", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `DELETE FROM request_logs`); err != nil {
+			t.Fatalf("cleanup failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES ('completed', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		var logs strings.Builder
+		debuglog.SetHandler(slog.NewTextHandler(&logs, nil))
+		defer debuglog.SetHandler(debuglog.StdoutHandler())
+		setRetention("0s")
+		logRetentionPass(pool, settingsRepo)
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if n != 1 {
+			t.Errorf("expected \"0s\" to disable retention, got %d rows", n)
+		}
+		if strings.Contains(logs.String(), "not understood") {
+			t.Errorf("\"0s\" is the disabled form, not a bad value; got warning:\n%s", logs.String())
+		}
+	})
+
 	t.Run("other_retention_windows", func(t *testing.T) {
 		for _, v := range []string{"1h", "24h", "720h"} {
 			setRetention(v)
 			logRetentionPass(pool, settingsRepo)
 		}
 	})
+
+	t.Run("db_error_only_logs", func(t *testing.T) {
+		setRetention("24h")
+		logRetentionPass(closedTestPool(t).Pool(), settingsRepo)
+	})
+}
+
+func TestParseLogRetention(t *testing.T) {
+	cases := []struct {
+		raw     string
+		want    time.Duration
+		enabled bool
+		bad     bool
+	}{
+		{"", 0, false, false},
+		{"0", 0, false, false},
+		{"0s", 0, false, false},
+		{"0h", 0, false, false},
+		{"0h0m0s", 0, false, false},
+		{"-1h", 0, false, false},
+		{"soon", 0, false, true},
+		{"6", 0, false, true},
+		{"30", 0, false, true},
+		{"1h", time.Hour, true, false},
+		{"1h30m", 90 * time.Minute, true, false},
+		{"1d", 24 * time.Hour, true, false},
+		{"1w", 7 * 24 * time.Hour, true, false},
+		{"1m", 30 * 24 * time.Hour, true, false},
+		{"24h", 24 * time.Hour, true, false},
+		{"48h", 48 * time.Hour, true, false},
+		{"144h", 144 * time.Hour, true, false},
+		{"168h0m0s", 168 * time.Hour, true, false},
+		{"720h", 720 * time.Hour, true, false},
+		{"720h0m0s", 720 * time.Hour, true, false},
+	}
+	for _, c := range cases {
+		got, enabled, err := parseLogRetention(c.raw)
+		if (err != nil) != c.bad || enabled != c.enabled || got != c.want {
+			t.Errorf("parseLogRetention(%q) = (%v, %v, %v), want (%v, %v, bad=%v)", c.raw, got, enabled, err, c.want, c.enabled, c.bad)
+		}
+	}
 }
 
 func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
