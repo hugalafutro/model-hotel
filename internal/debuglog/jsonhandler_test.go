@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -88,6 +89,19 @@ type redacted struct{ secret string }
 
 func (redacted) LogValue() slog.Value { return slog.StringValue("[redacted]") }
 
+// masked mimics config.Config: a Stringer that hides fields reflection would dump.
+type masked struct{ Secret string }
+
+func (masked) String() string { return "***" }
+
+type customJSON struct{ Secret string }
+
+func (customJSON) MarshalJSON() ([]byte, error) { return []byte(`{"custom":true}`), nil }
+
+type nilableErr struct{}
+
+func (*nilableErr) Error() string { return "never called" }
+
 type marshalable struct {
 	A int    `json:"a"`
 	B string `json:"b"`
@@ -111,7 +125,13 @@ func TestAddJSONField_ValueRules(t *testing.T) {
 		slog.Any("nilv", nil),
 		slog.Any("lv", redacted{secret: "hunter2"}),
 		slog.Any("unmarshalable", make(chan int)),
-		{}, // zero Attr: ignored
+		slog.Any("stringer", masked{Secret: "hunter2"}),
+		slog.Any("marshaler", customJSON{Secret: "hunter2"}),
+		slog.Any("typed_nil_err", (*nilableErr)(nil)),
+		slog.Float64("nan", math.NaN()),
+		slog.Float64("inf", math.Inf(1)),
+		slog.String("", "keyless"), // empty key: dropped
+		{},                         // zero Attr: ignored
 		slog.Group("g", slog.Int("n", 1), slog.Group("inner", slog.Bool("ok", true))),
 		slog.Group("", slog.String("inlined", "yes")),
 		slog.Group("empty"),
@@ -131,6 +151,7 @@ func TestAddJSONField_ValueRules(t *testing.T) {
 		"d": "1.5s", "t": "2026-01-02T03:04:05Z", "err": "boom",
 		"nilv": nil, "lv": "[redacted]",
 		"g.n": float64(1), "g.inner.ok": true, "inlined": "yes",
+		"stringer": "***", "typed_nil_err": nil, "nan": "NaN", "inf": "+Inf",
 	}
 	for k, v := range want {
 		gv, present := got[k]
@@ -145,7 +166,10 @@ func TestAddJSONField_ValueRules(t *testing.T) {
 		t.Errorf("unmarshalable value must fall back to its textual form, got %#v", got["unmarshalable"])
 	}
 	if strings.Contains(string(line), "hunter2") {
-		t.Errorf("LogValuer was not resolved: %s", line)
+		t.Errorf("a masking Stringer/LogValuer/Marshaler must win over reflection: %s", line)
+	}
+	if cj, ok := got["marshaler"].(map[string]any); !ok || cj["custom"] != true {
+		t.Errorf("marshaler = %#v, want its own MarshalJSON form", got["marshaler"])
 	}
 	for _, absent := range []string{"", "empty", "g"} {
 		if _, present := got[absent]; present {

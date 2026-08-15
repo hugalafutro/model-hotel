@@ -913,6 +913,7 @@ func (s *Server) markMemberUnmeasured(ctx context.Context, m *Member) {
 			"unapplied": st.lastUnapplied, "partial": st.lastPartial,
 			"unapplied_models": st.lastUnappliedModels,
 			"unreadable":       true, "error": st.lastReadErr,
+			"unreadable_since": st.unreadableSince,
 		},
 	})
 }

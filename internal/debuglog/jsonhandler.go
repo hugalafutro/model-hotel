@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"math"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -74,8 +76,10 @@ func SplitSource(msg string) (string, string) {
 // JSON emitter (this package's handler, the dashboard's app-log handler)
 // renders through it so the two never drift apart.
 func JSONLine(t time.Time, level, source, msg string, fields map[string]any) []byte {
-	obj := make(map[string]any, len(fields)+4)
-	maps.Copy(obj, fields)
+	obj := maps.Clone(fields)
+	if obj == nil {
+		obj = make(map[string]any, 4)
+	}
 	if !t.IsZero() {
 		obj["time"] = t.UTC().Format(time.RFC3339Nano)
 	}
@@ -117,7 +121,9 @@ func AddJSONField(fields map[string]any, prefix string, a slog.Attr) {
 		}
 		return
 	}
-	if a.Key == "" && v.Any() == nil {
+	if a.Key == "" {
+		// The zero Attr per the slog contract; a keyless value has nowhere
+		// sensible to go either.
 		return
 	}
 	fields[joinKey(prefix, a.Key)] = jsonValue(v)
@@ -142,7 +148,11 @@ func jsonValue(v slog.Value) any {
 	case slog.KindUint64:
 		return v.Uint64()
 	case slog.KindFloat64:
-		return v.Float64()
+		f := v.Float64()
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return v.String() // JSON has no NaN/Inf; the text form keeps the line intact
+		}
+		return f
 	case slog.KindBool:
 		return v.Bool()
 	case slog.KindDuration:
@@ -151,16 +161,39 @@ func jsonValue(v slog.Value) any {
 		return v.Time().UTC().Format(time.RFC3339Nano)
 	default:
 		x := v.Any()
+		if x == nil || isTypedNil(x) {
+			return nil
+		}
+		// A type's own JSON form wins; otherwise its String()/Error() form
+		// beats reflection: a Stringer that masks fields (config.Config) must
+		// keep masking here, and reflection would dump the raw struct.
+		if m, ok := x.(json.Marshaler); ok {
+			if b, err := m.MarshalJSON(); err == nil {
+				return json.RawMessage(b)
+			}
+		}
 		if err, ok := x.(error); ok {
 			return err.Error()
 		}
-		if x == nil {
-			return nil
+		if str, ok := x.(fmt.Stringer); ok {
+			return str.String()
 		}
 		if b, err := json.Marshal(x); err == nil {
 			return json.RawMessage(b)
 		}
 		return v.String()
+	}
+}
+
+// isTypedNil reports whether x is a nil pointer/map/slice/etc. boxed in an
+// interface, so calling Error()/String() on it would dereference nil.
+func isTypedNil(x any) bool {
+	rv := reflect.ValueOf(x)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface:
+		return rv.IsNil()
+	default:
+		return false
 	}
 }
 
@@ -196,6 +229,8 @@ func (h *jsonHandler) Enabled(_ context.Context, level slog.Level) bool {
 
 func (h *jsonHandler) Handle(_ context.Context, r slog.Record) error {
 	fields := make(map[string]any, len(h.attrs)+r.NumAttrs())
+	// Handler-level attrs are resolved per record (not once in WithAttrs), so
+	// a LogValuer's value is the one current at emit time.
 	for _, b := range h.attrs {
 		AddJSONField(fields, b.prefix, b.attr)
 	}

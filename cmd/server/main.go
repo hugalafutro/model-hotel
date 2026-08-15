@@ -114,7 +114,7 @@ func main() {
 	// DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the environment, so
 	// the .env file has to be in the environment first.
 	if err := config.LoadEnvFile(); err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to load .env: %v", err)
 	}
 	debuglog.Init(false)
 
