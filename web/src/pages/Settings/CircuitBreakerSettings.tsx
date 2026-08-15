@@ -255,66 +255,73 @@ export function CircuitBreakerSettings({
 						/>
 					</SettingsGroup>
 
-					<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
-						<div className="flex items-center justify-between gap-3">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.circuitBreaker.hedging")}
+					{/* Right column: the Hedging group with its trade-off notice directly
+					    beneath it, so the warning sits next to the toggle it is about. */}
+					<div className="space-y-5" data-testid="hedging-column">
+						<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<div className="flex items-center gap-1">
+										<p className="text-sm font-medium text-gray-300">
+											{t("settings.circuitBreaker.hedging")}
+										</p>
+										<ResetButton
+											tooltip={t("settings.common.resetSetting")}
+											onClick={() =>
+												resetSettingMutation.mutate(["hedging_enabled"])
+											}
+											size={12}
+											disabled={isResetting}
+										/>
+									</div>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.circuitBreaker.hedgingDescription")}
 									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["hedging_enabled"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
 								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.circuitBreaker.hedgingDescription")}
-								</p>
+								<Toggle
+									checked={hedgingEnabled}
+									size="sm"
+									onChange={(v) =>
+										updateMutation.mutate({
+											hedging_enabled: v ? "true" : "false",
+										})
+									}
+									ariaLabel={t("settings.circuitBreaker.hedging")}
+								/>
 							</div>
-							<Toggle
-								checked={hedgingEnabled}
-								size="sm"
+
+							<SettingsSlider
+								id="hedge-delay"
+								disabled={!hedgingEnabled}
+								label={t("settings.circuitBreaker.hedgeDelay")}
+								value={goDurationToSeconds(hedgeDelay)}
+								min={1}
+								max={15}
+								step={1}
+								unit="s"
 								onChange={(v) =>
 									updateMutation.mutate({
-										hedging_enabled: v ? "true" : "false",
+										hedge_delay: secondsToGoDuration(v),
 									})
 								}
-								ariaLabel={t("settings.circuitBreaker.hedging")}
+								description={t(
+									"settings.circuitBreaker.hedgeDelay.description",
+								)}
+								onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
+								resetTooltip={t("settings.common.resetSetting")}
 							/>
-						</div>
+						</SettingsGroup>
 
-						<SettingsSlider
-							id="hedge-delay"
-							disabled={!hedgingEnabled}
-							label={t("settings.circuitBreaker.hedgeDelay")}
-							value={goDurationToSeconds(hedgeDelay)}
-							min={1}
-							max={15}
-							step={1}
-							unit="s"
-							onChange={(v) =>
-								updateMutation.mutate({
-									hedge_delay: secondsToGoDuration(v),
-								})
-							}
-							description={t("settings.circuitBreaker.hedgeDelay.description")}
-							onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
-					</SettingsGroup>
-				</div>
-
-				{hedgingEnabled && (
-					<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-(--radius-box)">
-						<p className="text-sm text-amber-300 text-justify">
-							{t("settings.circuitBreaker.hedgingNotice")}
-						</p>
+						{hedgingEnabled && (
+							<div
+								className="ui-callout ui-callout-warning"
+								data-testid="hedging-notice"
+							>
+								<p>{t("settings.circuitBreaker.hedgingNotice")}</p>
+							</div>
+						)}
 					</div>
-				)}
+				</div>
 			</div>
 		</SettingsSection>
 	);

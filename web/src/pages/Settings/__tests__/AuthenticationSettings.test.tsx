@@ -80,4 +80,32 @@ describe("AuthenticationSettings breached-password toggle", () => {
 			expect(capturedKeys).toEqual(["pwned_password_check_enabled"]),
 		);
 	});
+
+	it("explains the k-anonymity lookup next to the toggle and links out to HIBP in a new tab", async () => {
+		renderWithProviders(
+			<AuthenticationSettings collapsed={false} onToggle={() => {}} />,
+		);
+		const info = await screen.findByTestId("breach-check-info");
+		// Semantic callout classes: the theme decides the look, the component
+		// only says what the box is.
+		expect(info).toHaveClass("ui-callout", "ui-callout-info");
+		// The note sits inside the Password policy group, beside the toggle it
+		// explains.
+		const group = info.closest(".ui-settings-group");
+		expect(group).not.toBeNull();
+		expect(
+			within(group as HTMLElement).getByRole("switch", {
+				name: "Reject breached passwords",
+			}),
+		).toBeInTheDocument();
+		// External link opens safely in a new tab and points at the HIBP range
+		// API description, the mechanism the note describes.
+		const link = within(info).getByRole("link");
+		expect(link).toHaveAttribute(
+			"href",
+			"https://haveibeenpwned.com/API/v3#SearchingPwnedPasswordsByRange",
+		);
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
+	});
 });

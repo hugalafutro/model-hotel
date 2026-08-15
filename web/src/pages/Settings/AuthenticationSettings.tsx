@@ -22,19 +22,20 @@ interface AuthenticationSettingsProps {
 /**
  * Authentication groups the admin sign-in hardening methods side by side:
  * passkeys with the active-sessions list beneath them on the left, TOTP
- * two-factor with the session auto-logout control on the right. Each method
- * keeps its own panel/logic (PasskeyPanel, TotpPanel, ActiveSessionsPanel);
- * the session timeout is a stored setting (session_idle_timeout_minutes)
- * consumed by useIdleLogout to sign the admin out after inactivity (0 =
- * never).
+ * two-factor, the tab timeout and the password policy stacked on the right.
+ * Each method keeps its own panel/logic (PasskeyPanel, TotpPanel,
+ * ActiveSessionsPanel); the session timeout is a stored setting
+ * (session_idle_timeout_minutes) consumed by useIdleLogout to sign the admin
+ * out after inactivity (0 = never). The SSO panels follow below at full width.
  *
  * Like Alerts, this is a mixed section: passkeys, TOTP, sessions, the tab
  * timeout, and the SSO provider config (which IdPs this member offers) are
  * instance-local, while the password policy and the SSO email allowlists are
  * fleet-synced (a managed member 403s those writes). While managed, the
- * password policy sits in a disabled fieldset behind its own note and each
- * SSO panel disables just its allowlist input, instead of forwarding
- * `managed` to SettingsSection, which would disable the local parts too.
+ * password policy sits in a disabled fieldset with the managed note right
+ * under it, and each SSO panel disables just its allowlist input, instead of
+ * forwarding `managed` to SettingsSection, which would disable the local
+ * parts too.
  */
 export function AuthenticationSettings({
 	collapsed,
@@ -97,59 +98,75 @@ export function AuthenticationSettings({
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
 					</SettingsGroup>
-				</div>
-			</div>
-			{managed && (
-				<p
-					data-testid="managed-note"
-					className="mt-5 text-xs text-(--text-muted)"
-				>
-					{t("settings.managed.authNote")}
-				</p>
-			)}
-			{/* Only the password policy is fully fleet-synced; the SSO panels are
-			    per-member apart from their email allowlists, which each panel
-			    disables itself. A disabled fieldset natively disables every
-			    control it wraps, the same idiom SettingsSection uses. */}
-			<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
-				<div className="mt-5">
-					<SettingsGroup title={t("settings.passwordPolicy.title")}>
-						<div className="flex items-center justify-between">
-							<div>
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.passwordPolicy.breachCheckLabel")}
+					{/* Only the password policy is fully fleet-synced; the SSO panels
+					    are per-member apart from their email allowlists, which each
+					    panel disables itself. A disabled fieldset natively disables
+					    every control it wraps, the same idiom SettingsSection uses. */}
+					<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+						<SettingsGroup title={t("settings.passwordPolicy.title")}>
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<div className="flex items-center gap-1">
+										<p className="text-sm font-medium text-gray-300">
+											{t("settings.passwordPolicy.breachCheckLabel")}
+										</p>
+										<ResetButton
+											tooltip={t("settings.common.resetSetting")}
+											onClick={() =>
+												resetSettingMutation.mutate([
+													"pwned_password_check_enabled",
+												])
+											}
+											size={12}
+											disabled={isResetting || updateMutation.isPending}
+										/>
+									</div>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.passwordPolicy.breachCheckDescription")}
 									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate([
-												"pwned_password_check_enabled",
-											])
-										}
-										size={12}
-										disabled={isResetting || updateMutation.isPending}
-									/>
 								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.passwordPolicy.breachCheckDescription")}
+								<Toggle
+									checked={breachCheckEnabled}
+									size="sm"
+									onChange={(v) =>
+										updateMutation.mutate({
+											pwned_password_check_enabled: v ? "true" : "false",
+										})
+									}
+									disabled={updateMutation.isPending || isResetting}
+									ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
+								/>
+							</div>
+							{/* The one place a trace of a user's password leaves the
+							    instance, so the mechanism is spelled out next to the
+							    toggle rather than left to the wiki. */}
+							<div
+								className="ui-callout ui-callout-info"
+								data-testid="breach-check-info"
+							>
+								<p>
+									{t("settings.passwordPolicy.breachCheckInfo")}{" "}
+									<a
+										href="https://haveibeenpwned.com/API/v3#SearchingPwnedPasswordsByRange"
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										{t("settings.passwordPolicy.breachCheckInfoLink")}
+									</a>
 								</p>
 							</div>
-							<Toggle
-								checked={breachCheckEnabled}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										pwned_password_check_enabled: v ? "true" : "false",
-									})
-								}
-								disabled={updateMutation.isPending || isResetting}
-								ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
-							/>
-						</div>
-					</SettingsGroup>
+						</SettingsGroup>
+					</fieldset>
+					{managed && (
+						<p
+							data-testid="managed-note"
+							className="text-xs text-(--text-muted)"
+						>
+							{t("settings.managed.authNote")}
+						</p>
+					)}
 				</div>
-			</fieldset>
+			</div>
 			<div className="mt-5">
 				<SettingsGroup title={t("settings.oidc.title")}>
 					<OidcPanel managed={managed} />

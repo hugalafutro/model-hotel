@@ -2152,7 +2152,9 @@
 		"passwordPolicy": {
 			"title": "Adgangskodepolitik",
 			"breachCheckLabel": "Afvis lækkede adgangskoder",
-			"breachCheckDescription": "Kontrollér nye kontoadgangskoder mod en offentlig database over kendte lækkede adgangskoder, og afvis ethvert match. Kun et kort hash-præfiks sendes, aldrig selve adgangskoden."
+			"breachCheckDescription": "Kontrollér nye kontoadgangskoder mod en offentlig database over kendte lækkede adgangskoder, og afvis ethvert match. Kun et kort hash-præfiks sendes, aldrig selve adgangskoden.",
+			"breachCheckInfo": "Mens dette er slået til, hashes en adgangskode, der sættes eller ændres, med SHA-1, og kun de første fem tegn af hashen sendes til Have I Been Pwneds range-API; API'et returnerer alle lækkede suffikser bag det præfiks (med udfyldning, så svarets størrelse intet afslører), og sammenligningen sker her, så hverken adgangskoden eller dens fulde hash nogensinde forlader denne instans. Det er det eneste sted, hvor et spor af en brugers adgangskode når en ekstern tjeneste: slå kontrollen fra for at holde kontoændringer helt offline, eller peg PWNED_PASSWORD_API_URL på et selvhostet spejl; PWNED_PASSWORD_CHECK_ENABLED=false slår den helt fra, og denne kontakt har så ingen virkning. Kan API'et ikke nås, eller svarer det med en fejl, tillades ændringen alligevel.",
+			"breachCheckInfoLink": "Sådan fungerer range-opslaget (haveibeenpwned.com)"
 		}
 	},
 	"components": {

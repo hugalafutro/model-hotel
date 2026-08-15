@@ -8,7 +8,7 @@ control-plane app where you manage membership in a browser.
 Front Desk is **never in the request path**. If it stops, Traefik keeps serving
 with the last config it fetched; only membership changes pause until it returns.
 
-<p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with two healthy members"></a></p>
+<p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with four healthy members"></a></p>
 
 ## Table of Contents
 
@@ -18,14 +18,15 @@ with the last config it fetched; only membership changes pause until it returns.
 4. [Quick Start](#quick-start)
 5. [Drop-in Migration Runbook](#drop-in-migration-runbook)
 6. [Three Secrets, Three Jobs](#three-secrets-three-jobs)
-7. [Admin Authentication (Passkeys & TOTP)](#admin-authentication-passkeys--totp)
-8. [Replicating Config Across the Fleet](#replicating-config-across-the-fleet)
-9. [TLS Proxy](#tls-proxy)
-10. [Observability](#observability)
-11. [Alerting](#alerting)
-12. [Paired Devices (Bellhop)](#paired-devices-bellhop)
-13. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
-14. [Acceptance Checks](#acceptance-checks)
+7. [Front Desk Settings](#front-desk-settings)
+8. [Admin Authentication (Passkeys & TOTP)](#admin-authentication-passkeys--totp)
+9. [Replicating Config Across the Fleet](#replicating-config-across-the-fleet)
+10. [TLS Proxy](#tls-proxy)
+11. [Observability](#observability)
+12. [Alerting](#alerting)
+13. [Paired Devices (Bellhop)](#paired-devices-bellhop)
+14. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
+15. [Acceptance Checks](#acceptance-checks)
 
 ---
 
@@ -172,6 +173,15 @@ normal case). To rotate a member's token, delete its `DATA_DIR/admin-token` file
 Front Desk. The data plane (`/v1` traffic) is unaffected; clients use virtual keys.
 
 ---
+
+## Front Desk Settings
+
+Everything below this point lives on Front Desk's **Settings** tab: polling and
+data-plane knobs, the fleet sync wizard, alerts, observability, the admin
+sign-in methods (passkeys, TOTP, active sessions), paired devices and single
+sign-on, paired two to a row. Each section that follows zooms into one card.
+
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: every card, paired two to a row"></a></p>
 
 ## Admin Authentication (Passkeys & TOTP)
 
@@ -511,6 +521,8 @@ available but off by default. The target is encrypted at rest with
 `FRONTDESK_MASTER_KEY`, and a **Send test** button confirms delivery end to end.
 This is the same `apprise-api` the main gateway uses, so one container can serve
 both.
+
+<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the Apprise destination, the ntfy helper and the event picker"></a></p>
 
 ### Phone push via ntfy
 

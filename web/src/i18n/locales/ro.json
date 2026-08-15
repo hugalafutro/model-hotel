@@ -2204,7 +2204,9 @@
 		"passwordPolicy": {
 			"title": "Politica parolelor",
 			"breachCheckLabel": "Respinge parolele compromise",
-			"breachCheckDescription": "Verifică parolele conturilor noi față de o bază de date publică cu parole compromise cunoscute și respinge orice potrivire. Se trimite doar un prefix scurt al amprentei (hash), niciodată parola în sine."
+			"breachCheckDescription": "Verifică parolele conturilor noi față de o bază de date publică cu parole compromise cunoscute și respinge orice potrivire. Se trimite doar un prefix scurt al amprentei (hash), niciodată parola în sine.",
+			"breachCheckInfo": "Cât timp aceasta este activă, unei parole setate sau schimbate i se calculează hash-ul SHA-1 și doar primele cinci caractere ale acestuia sunt trimise către range API-ul Have I Been Pwned; API-ul returnează toate sufixele compromise din spatele acelui prefix (cu umplutură, astfel încât dimensiunea răspunsului să nu dezvăluie nimic), iar potrivirea se face aici, astfel încât nici parola, nici hash-ul ei complet nu părăsesc vreodată această instanță. Este singurul loc în care o urmă a parolei unui utilizator ajunge la un serviciu extern: dezactivează verificarea pentru a păstra modificările de cont complet offline sau îndreaptă PWNED_PASSWORD_API_URL către o oglindă găzduită local; PWNED_PASSWORD_CHECK_ENABLED=false o dezactivează complet, iar acest comutator nu mai are niciun efect. Dacă API-ul nu poate fi contactat sau returnează o eroare, modificarea este permisă oricum.",
+			"breachCheckInfoLink": "Cum funcționează căutarea pe interval (haveibeenpwned.com)"
 		}
 	},
 	"components": {

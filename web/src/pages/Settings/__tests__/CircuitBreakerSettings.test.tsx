@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -565,6 +565,20 @@ describe("CircuitBreakerSettings", () => {
 			expect(
 				await screen.findByText(/Hedging fires a second/i),
 			).toBeInTheDocument();
+			// The notice is a semantic warning callout stacked under the Hedging
+			// group, in the Hedging column.
+			const notice = screen.getByTestId("hedging-notice");
+			expect(notice).toHaveClass("ui-callout", "ui-callout-warning");
+			const column = screen.getByTestId("hedging-column");
+			expect(column).toContainElement(notice);
+			expect(
+				within(column).getByRole("switch", { name: /hedge slow streams/i }),
+			).toBeInTheDocument();
+			expect(
+				within(column).queryByRole("switch", {
+					name: /enable circuit breaker/i,
+				}),
+			).not.toBeInTheDocument();
 		});
 
 		it("toggles hedging on and calls mutation", async () => {

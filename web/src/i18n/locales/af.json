@@ -2152,7 +2152,9 @@
 		"passwordPolicy": {
 			"title": "Wagwoordbeleid",
 			"breachCheckLabel": "Verwerp gelekte wagwoorde",
-			"breachCheckDescription": "Kontroleer nuwe rekeningwagwoorde teen 'n openbare databasis van bekende gelekte wagwoorde en verwerp enige treffer. Slegs 'n kort hutswaarde-voorvoegsel word gestuur, nooit die wagwoord self nie."
+			"breachCheckDescription": "Kontroleer nuwe rekeningwagwoorde teen 'n openbare databasis van bekende gelekte wagwoorde en verwerp enige treffer. Slegs 'n kort hutswaarde-voorvoegsel word gestuur, nooit die wagwoord self nie.",
+			"breachCheckInfo": "Terwyl dit aan is, word 'n wagwoord wat gestel of verander word met SHA-1 gehash en slegs die eerste vyf karakters van daardie hash gaan na die Have I Been Pwned range-API; die API stuur elke gelekte agtervoegsel agter daardie voorvoegsel terug (opgevul, sodat die grootte van die antwoord niks verklap nie) en die vergelyking gebeur hier, sodat nóg die wagwoord nóg sy volle hash ooit hierdie instansie verlaat. Dit is die enigste plek waar 'n spoor van 'n gebruiker se wagwoord 'n eksterne diens bereik: skakel die kontrole af om rekeningveranderinge heeltemal vanlyn te hou, of wys PWNED_PASSWORD_API_URL na 'n selfgehuisveste spieël; PWNED_PASSWORD_CHECK_ENABLED=false skakel dit heeltemal af en hierdie skakelaar het dan geen uitwerking nie. As die API nie bereik kan word nie of 'n fout teruggee, word die verandering in elk geval toegelaat.",
+			"breachCheckInfoLink": "Hoe die range-soektog werk (haveibeenpwned.com)"
 		}
 	},
 	"components": {

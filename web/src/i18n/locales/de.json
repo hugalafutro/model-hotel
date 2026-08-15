@@ -2152,7 +2152,9 @@
 		"passwordPolicy": {
 			"title": "Passwortrichtlinie",
 			"breachCheckLabel": "Kompromittierte Passwörter ablehnen",
-			"breachCheckDescription": "Neue Kontopasswörter mit einer öffentlichen Datenbank bekannter kompromittierter Passwörter abgleichen und jeden Treffer ablehnen. Es wird nur ein kurzes Hash-Präfix gesendet, niemals das Passwort selbst."
+			"breachCheckDescription": "Neue Kontopasswörter mit einer öffentlichen Datenbank bekannter kompromittierter Passwörter abgleichen und jeden Treffer ablehnen. Es wird nur ein kurzes Hash-Präfix gesendet, niemals das Passwort selbst.",
+			"breachCheckInfo": "Solange dies aktiv ist, wird ein gesetztes oder geändertes Passwort mit SHA-1 gehasht, und nur die ersten fünf Zeichen dieses Hashes gehen an die Range-API von Have I Been Pwned; die API liefert alle geleakten Suffixe hinter diesem Präfix zurück (aufgefüllt, sodass die Antwortgröße nichts verrät) und der Abgleich findet hier statt, sodass weder das Passwort noch sein vollständiger Hash diese Instanz jemals verlassen. Es ist die einzige Stelle, an der eine Spur eines Nutzerpassworts einen externen Dienst erreicht: Schalte die Prüfung ab, um Kontoänderungen vollständig offline zu halten, oder richte PWNED_PASSWORD_API_URL auf einen selbst gehosteten Spiegel; PWNED_PASSWORD_CHECK_ENABLED=false schaltet sie ganz ab, dieser Schalter hat dann keine Wirkung. Ist die API nicht erreichbar oder liefert sie einen Fehler, wird die Änderung trotzdem zugelassen.",
+			"breachCheckInfoLink": "So funktioniert die Range-Abfrage (haveibeenpwned.com)"
 		}
 	},
 	"components": {

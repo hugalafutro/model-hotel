@@ -257,6 +257,8 @@ For sensitive workloads, consider:
 
 For maximum privacy, run Model Hotel locally with [Ollama](https://github.com/ollama/ollama) or another local provider. This keeps all data on your own infrastructure - nothing leaves your machine.
 
+One optional outbound call remains even then: with breached-password screening on (the default), setting or changing a dashboard password sends the first five characters of the password's SHA-1 hash to the Have I Been Pwned range API and matches the returned suffixes locally, so neither the password nor its full hash leaves the instance. Switch the check off in **Settings > Authentication > Password policy** (or set `PWNED_PASSWORD_CHECK_ENABLED=false`) to keep account changes fully offline, or point `PWNED_PASSWORD_API_URL` at a self-hosted mirror; see [Configuration](Configuration#breached-password-screening).
+
 To use Ollama as a provider:
 1. Set `ALLOW_HTTP_PROVIDERS=true` (Ollama typically runs on HTTP, not HTTPS)
 2. Add `localhost` to `ALLOWED_PROVIDER_HOSTS`

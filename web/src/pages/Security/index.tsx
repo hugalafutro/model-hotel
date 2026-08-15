@@ -204,8 +204,8 @@ export function Security() {
 	if (showRecovery && recoveryCodes.length > 0) {
 		body = (
 			<div className="space-y-4">
-				<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-(--radius-box)">
-					<p className="text-sm text-amber-300 font-medium">
+				<div className="ui-callout ui-callout-warning">
+					<p className="font-medium">
 						{t("settings.totp.recoveryCodesWarning")}
 					</p>
 				</div>
