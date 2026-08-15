@@ -321,12 +321,76 @@ func TestLogRetentionPass(t *testing.T) {
 		}
 	})
 
+	t.Run("slider_value_deletes", func(t *testing.T) {
+		// The dashboard slider stores day counts as "<hours>h"; every stop
+		// must prune, not just the ones that map onto the old 1d/1w/1m tokens.
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES ('completed', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		setRetention("48h")
+		logRetentionPass(pool, settingsRepo)
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if n != 0 {
+			t.Errorf("expected 48h retention to delete a 3-day-old row, got %d rows", n)
+		}
+	})
+
+	t.Run("garbage_value_keeps_rows", func(t *testing.T) {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES ('completed', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		setRetention("soon")
+		logRetentionPass(pool, settingsRepo)
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if n != 1 {
+			t.Errorf("expected an unparseable retention to keep the row, got %d rows", n)
+		}
+	})
+
 	t.Run("other_retention_windows", func(t *testing.T) {
 		for _, v := range []string{"1h", "24h", "720h"} {
 			setRetention(v)
 			logRetentionPass(pool, settingsRepo)
 		}
 	})
+}
+
+func TestParseLogRetention(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want time.Duration
+		ok   bool
+	}{
+		{"", 0, false},
+		{"0", 0, false},
+		{"0s", 0, false},
+		{"-1h", 0, false},
+		{"soon", 0, false},
+		{"6", 0, false},
+		{"1h", time.Hour, true},
+		{"1d", 24 * time.Hour, true},
+		{"1w", 7 * 24 * time.Hour, true},
+		{"1m", 30 * 24 * time.Hour, true},
+		{"24h", 24 * time.Hour, true},
+		{"48h", 48 * time.Hour, true},
+		{"144h", 144 * time.Hour, true},
+		{"168h0m0s", 168 * time.Hour, true},
+		{"720h", 720 * time.Hour, true},
+	}
+	for _, c := range cases {
+		got, ok := parseLogRetention(c.raw)
+		if ok != c.ok || got != c.want {
+			t.Errorf("parseLogRetention(%q) = (%v, %v), want (%v, %v)", c.raw, got, ok, c.want, c.ok)
+		}
+	}
 }
 
 func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {

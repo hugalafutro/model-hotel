@@ -314,8 +314,7 @@ func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, 
 }
 
 // logRetentionLoop hourly deletes request_logs and app_logs rows older than
-// the log_retention setting; an empty or unrecognised value (including "0"
-// for disabled) skips the cycle.
+// the log_retention setting; a disabled or unparseable value skips the cycle.
 func logRetentionLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	timer := time.NewTimer(1 * time.Hour)
 	defer timer.Stop()
@@ -330,26 +329,43 @@ func logRetentionLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *set
 	}
 }
 
-// logRetentionPass runs one retention sweep; an empty or unrecognised
-// log_retention value (including "0" for disabled) skips the cycle.
+// parseLogRetention turns the log_retention setting into a retention window.
+// The dashboard stores the slider as a Go duration ("48h", "168h0m0s"), and
+// older installs may still hold the pre-slider tokens (1d/1w/1m). It returns
+// ok=false for the disabled forms ("", "0", any non-positive duration) and for
+// values that parse as nothing at all.
+func parseLogRetention(raw string) (time.Duration, bool) {
+	switch raw {
+	case "", "0":
+		return 0, false
+	case "1d":
+		return 24 * time.Hour, true
+	case "1w":
+		return 7 * 24 * time.Hour, true
+	case "1m":
+		return 30 * 24 * time.Hour, true
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, false
+	}
+	return d, true
+}
+
+// logRetentionPass runs one retention sweep. A disabled value skips silently;
+// a value that cannot be parsed skips too, but says so, because a retention
+// setting that silently never fires is exactly the failure an operator cannot
+// see from the dashboard.
 func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
-	if retention == "" {
+	window, ok := parseLogRetention(retention)
+	if !ok {
+		if retention != "" && retention != "0" {
+			debuglog.Warn("retention: log_retention value not understood, skipping sweep", "retention", retention)
+		}
 		return
 	}
-	var cutoff time.Time
-	switch retention {
-	case "1h":
-		cutoff = time.Now().Add(-1 * time.Hour)
-	case "1d", "24h":
-		cutoff = time.Now().Add(-24 * time.Hour)
-	case "1w", "168h":
-		cutoff = time.Now().Add(-7 * 24 * time.Hour)
-	case "1m", "720h":
-		cutoff = time.Now().Add(-30 * 24 * time.Hour)
-	default:
-		return
-	}
+	cutoff := time.Now().Add(-window)
 	tag, err := pool.Exec(context.Background(),
 		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
 	if err == nil {

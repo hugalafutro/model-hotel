@@ -779,10 +779,10 @@ describe("Log Retention slider", () => {
 		server.resetHandlers();
 	});
 
-	it("renders log retention slider with settings from API", async () => {
+	it("renders log retention slider in days from the stored hours", async () => {
 		server.use(
 			http.get("/api/settings", () =>
-				HttpResponse.json({ log_retention: "720h0m0s" }),
+				HttpResponse.json({ log_retention: "168h0m0s" }),
 			),
 		);
 
@@ -791,9 +791,9 @@ describe("Log Retention slider", () => {
 		);
 
 		await waitFor(() => {
-			expect(
-				screen.getByRole("slider", { name: /log retention/i }),
-			).toBeInTheDocument();
+			const slider = screen.getByRole("slider", { name: /log retention/i });
+			expect(slider).toHaveValue("7");
+			expect(slider).toHaveAttribute("max", "30");
 		});
 	});
 
@@ -814,14 +814,16 @@ describe("Log Retention slider", () => {
 		});
 	});
 
-	it("triggers settings update when log retention slider changes", async () => {
+	it("stores a day selection as a Go duration in hours", async () => {
+		let sent: Record<string, string> | undefined;
 		server.use(
 			http.get("/api/settings", () =>
 				HttpResponse.json({ log_retention: "24h0m0s" }),
 			),
-			http.put("/api/settings", () =>
-				HttpResponse.json({ log_retention: "48h0m0s" }),
-			),
+			http.put("/api/settings", async ({ request }) => {
+				sent = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ log_retention: "48h" });
+			}),
 		);
 
 		const user = userEvent.setup();
@@ -830,21 +832,20 @@ describe("Log Retention slider", () => {
 		);
 
 		await waitFor(() => {
-			const slider = screen.getByRole("slider", {
-				name: /log retention/i,
-			});
-			expect(slider).toBeInTheDocument();
+			expect(
+				screen.getByRole("slider", { name: /log retention/i }),
+			).toBeInTheDocument();
 		});
 
 		const slider = screen.getByRole("slider", {
 			name: /log retention/i,
 		});
 		await user.click(slider);
-		fireEvent.input(slider, { target: { value: "48" } });
+		fireEvent.input(slider, { target: { value: "2" } });
 		fireEvent.pointerUp(slider);
 
 		await waitFor(() => {
-			expect(screen.getByText(/settings saved/i)).toBeInTheDocument();
+			expect(sent).toEqual({ log_retention: "48h" });
 		});
 	});
 });
