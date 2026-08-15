@@ -60,8 +60,13 @@
 	--text: #1b1f27;
 	--text-muted: #5b636f;
 	--text-faint: #8a93a1;
-	--accent-contrast: #fff8f1;
 	--accent-text: #9c5220;
+	/* Status colours double as text (badges, notices, error copy); the dark
+	   values sit near 2:1 on white, so light gets deeper ones. */
+	--ok: #157a4a;
+	--warn: #8a5300;
+	--danger: #b3271a;
+	--info: #2563a8;
 	--shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 8px 24px rgba(16, 24, 40, 0.08);
 }
 
@@ -192,6 +197,13 @@ h3 {
 }
 .fd-page-title-row .fd-page-title {
 	margin-bottom: 0;
+}
+
+/* --- header tools (theme toggle + language selector) --- */
+.fd-header-tools {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
 }
 
 /* --- footer (build version + wiki link), centered at the bottom of the shell --- */

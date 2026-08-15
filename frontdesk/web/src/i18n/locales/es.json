@@ -26,6 +26,10 @@
 	"layout": {
 		"language": {
 			"label": "Idioma"
+		},
+		"theme": {
+			"toLight": "Cambiar al tema claro",
+			"toDark": "Cambiar al tema oscuro"
 		}
 	},
 	"footer": {
