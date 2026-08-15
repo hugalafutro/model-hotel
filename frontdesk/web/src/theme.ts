@@ -21,6 +21,13 @@ export function readStoredTheme(): Theme {
 	}
 }
 
+// Browser chrome colour per theme (address bar, installed-app title bar);
+// the dark value matches --bg and index.html's static meta tag.
+const THEME_COLOR: Record<Theme, string> = {
+	dark: "#0b0c0f",
+	light: "#f6f7f9",
+};
+
 // applyTheme stamps the choice on <html>. Dark removes the attribute rather
 // than writing data-theme="dark", so the stylesheet's default block is the
 // dark theme and only light needs a selector.
@@ -30,6 +37,9 @@ export function applyTheme(theme: Theme): void {
 	} else {
 		document.documentElement.removeAttribute("data-theme");
 	}
+	document
+		.querySelector('meta[name="theme-color"]')
+		?.setAttribute("content", THEME_COLOR[theme]);
 }
 
 // setTheme applies and persists in one step. Storage can be unavailable
@@ -43,8 +53,8 @@ export function setTheme(theme: Theme): void {
 	}
 }
 
-// initTheme runs before the first render so the login screen and the shell
-// paint in the persisted theme with no dark flash.
+// initTheme runs before React renders, so the login screen and the shell
+// mount in the persisted theme rather than switching after first paint.
 export function initTheme(): void {
 	applyTheme(readStoredTheme());
 }

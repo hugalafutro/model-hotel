@@ -28,8 +28,8 @@
 			"label": "Jazyk"
 		},
 		"theme": {
-			"toLight": "Prepnúť na svetlý motív",
-			"toDark": "Prepnúť na tmavý motív"
+			"toLight": "Prepnúť na svetlú tému",
+			"toDark": "Prepnúť na tmavú tému"
 		}
 	},
 	"footer": {

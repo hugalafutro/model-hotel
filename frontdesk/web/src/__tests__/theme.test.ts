@@ -33,6 +33,21 @@ describe("theme", () => {
 		expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
 	});
 
+	it("keeps the browser chrome colour in step with the theme", () => {
+		const meta = document.createElement("meta");
+		meta.setAttribute("name", "theme-color");
+		meta.setAttribute("content", "#0b0c0f");
+		document.head.appendChild(meta);
+		try {
+			applyTheme("light");
+			expect(meta.getAttribute("content")).toBe("#f6f7f9");
+			applyTheme("dark");
+			expect(meta.getAttribute("content")).toBe("#0b0c0f");
+		} finally {
+			meta.remove();
+		}
+	});
+
 	it("setTheme applies and persists", () => {
 		setTheme("light");
 		expect(document.documentElement.getAttribute("data-theme")).toBe("light");
