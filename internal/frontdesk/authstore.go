@@ -253,6 +253,19 @@ func (s *WebAuthnStore) TouchSessionLastSeen(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
+// ExtendSession moves a session's expiry (sliding expiry). A missing row
+// (revoked between validation and extension) is not an error: there is
+// nothing left to extend and the caller's authentication already passed.
+func (s *WebAuthnStore) ExtendSession(ctx context.Context, id uuid.UUID, expiresAt time.Time) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE webauthn_sessions SET expires_at = ? WHERE id = ?`,
+		expiresAt.UTC().UnixNano(), id.String())
+	if err != nil {
+		return fmt.Errorf("frontdesk: extend session: %w", err)
+	}
+	return nil
+}
+
 // CleanupExpiredSessions removes sessions past their expiry.
 func (s *WebAuthnStore) CleanupExpiredSessions(ctx context.Context) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM webauthn_sessions WHERE expires_at < ?`, time.Now().UTC().UnixNano())

@@ -114,8 +114,10 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 
 // revalidate re-runs the connect-time admission of requireAuth: a device token
 // that still resolves to a non-revoked device, otherwise the admin-or-session
-// gate. last_seen_at is deliberately not re-stamped; it records requests the
-// device made, not a heartbeat this server drives.
+// gate. Neither branch counts as use: a device's last_seen_at is not
+// re-stamped and a session is verified without a last-seen stamp or an expiry
+// slide (adminauth.ValidAdminOrSession), because this is a heartbeat the server
+// drives, not a request the person made.
 //
 // A device-lookup failure falls through to the admin/session gate, exactly as
 // requireAuth does: that gate never reads paired_devices, so a broken or

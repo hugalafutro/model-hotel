@@ -2255,3 +2255,129 @@ func TestListProviders_ClosedDBPool(t *testing.T) {
 		t.Errorf("expected 200 or 500, got %d", w.Code)
 	}
 }
+
+// mintedCSRF has the exact shape authcookie mints (43 base64url chars), so a
+// refresh keeps it rather than replacing a foreign-looking value.
+const mintedCSRF = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+// TestAuthMiddleware_SessionCookie_ReissuedWhenSlid: when validation slid the
+// session's expiry, the middleware hands the browser the new lifetime by
+// re-issuing the cookie pair (same token, MaxAge to the new expiry). The
+// browser enforces MaxAge on its own, so a server-only extension would still
+// log the operator out on the original schedule.
+func TestAuthMiddleware_SessionCookie_ReissuedWhenSlid(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	newExpiry := time.Now().Add(webauthn.AuthTokenTTL)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		authFn: func(_ context.Context, token string) (webauthn.AuthResult, bool) {
+			if token != "valid-session" {
+				return webauthn.AuthResult{}, false
+			}
+			return webauthn.AuthResult{UserID: []byte("admin"), ExpiresAt: newExpiry, Extended: true}, true
+		},
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/system", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+	req.AddCookie(&http.Cookie{Name: authcookie.CSRFCookie, Value: mintedCSRF})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d, want 200", rec.Code)
+	}
+	var sess, csrf *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		switch c.Name {
+		case authcookie.SessionCookie:
+			sess = c
+		case authcookie.CSRFCookie:
+			csrf = c
+		}
+	}
+	if sess == nil || csrf == nil {
+		t.Fatalf("cookie pair not re-issued after a slid session: %+v", rec.Result().Cookies())
+	}
+	if sess.Value != "valid-session" || csrf.Value != mintedCSRF {
+		t.Errorf("re-issued values changed: session=%q csrf=%q", sess.Value, csrf.Value)
+	}
+	want := int(webauthn.AuthTokenTTL.Seconds())
+	if sess.MaxAge < want-5 || sess.MaxAge > want || csrf.MaxAge < want-5 || csrf.MaxAge > want {
+		t.Errorf("MaxAge = %d/%d, want about %d (the new expiry)", sess.MaxAge, csrf.MaxAge, want)
+	}
+}
+
+// TestAuthMiddleware_SessionCookie_NotReissuedWhenNotSlid: an ordinary
+// validated request writes no cookies, so the hot path stays free of
+// Set-Cookie headers.
+func TestAuthMiddleware_SessionCookie_NotReissuedWhenNotSlid(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "valid-session" },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/system", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d, want 200", rec.Code)
+	}
+	if got := rec.Result().Cookies(); len(got) != 0 {
+		t.Errorf("cookies re-issued although the session did not slide: %+v", got)
+	}
+}
+
+// TestResolveCredentials_ReauthDoesNotSlide: the SSE heartbeat re-check calls
+// resolveCredentials with use=false and must go through Verify (a pure lookup),
+// never Authenticate: it is the server's own tick, not the person using the
+// session, and its headers are long gone so it could not carry a re-issued
+// cookie anyway. A real request (use=true) goes through Authenticate and gets
+// the refresh hint.
+func TestResolveCredentials_ReauthDoesNotSlide(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	authCalls := 0
+	mgr := &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "valid-session" },
+		authFn: func(_ context.Context, token string) (webauthn.AuthResult, bool) {
+			authCalls++
+			if token != "valid-session" {
+				return webauthn.AuthResult{}, false
+			}
+			return webauthn.AuthResult{UserID: []byte("admin"), ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL), Extended: true}, true
+		},
+	}
+	h.webauthnSessionMgr = mgr
+
+	req := httptest.NewRequest(http.MethodGet, "/api/events", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+
+	id, cookieAuth, ok, refresh := h.resolveCredentials(req, false)
+	if !ok || !cookieAuth || id == nil {
+		t.Fatalf("re-check: ok=%v cookieAuth=%v id=%v, want an admitted cookie session", ok, cookieAuth, id)
+	}
+	if refresh != nil {
+		t.Error("re-check produced a cookie refresh hint")
+	}
+	if authCalls != 0 || mgr.verifyCalls.Load() != 1 {
+		t.Errorf("re-check used Authenticate %d times and Verify %d times, want 0 and 1", authCalls, mgr.verifyCalls.Load())
+	}
+
+	_, _, ok, refresh = h.resolveCredentials(req, true)
+	if !ok || refresh == nil {
+		t.Errorf("real request: ok=%v refresh=%v, want an admitted session with a refresh hint", ok, refresh)
+	}
+	if authCalls != 1 {
+		t.Errorf("real request used Authenticate %d times, want 1", authCalls)
+	}
+}

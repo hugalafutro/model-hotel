@@ -53,6 +53,9 @@ func (s *memSessionStore) CreateSession(_ context.Context, rec *webauthn.Session
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cp := *rec
+	if cp.CreatedAt.IsZero() {
+		cp.CreatedAt = time.Now() // the real stores stamp created_at at insert
+	}
 	s.byID[rec.ID] = &cp
 	if rec.TokenHash != nil {
 		s.byHash[*rec.TokenHash] = &cp
@@ -113,6 +116,16 @@ func (s *memSessionStore) TouchSessionLastSeen(_ context.Context, id uuid.UUID, 
 	defer s.mu.Unlock()
 	if rec, ok := s.byID[id]; ok {
 		rec.LastSeenAt = &at
+	}
+	return nil
+}
+
+// ExtendSession moves the stored record's expiry, mirroring the real stores.
+func (s *memSessionStore) ExtendSession(_ context.Context, id uuid.UUID, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rec, ok := s.byID[id]; ok {
+		rec.ExpiresAt = at
 	}
 	return nil
 }

@@ -424,6 +424,15 @@ func (r *Repository) TouchSessionLastSeen(ctx context.Context, id uuid.UUID, at 
 	return err
 }
 
+// ExtendSession moves a session's expiry (sliding expiry). A missing row
+// (revoked between validation and extension) is not an error: there is
+// nothing left to extend and the caller's authentication already passed.
+func (r *Repository) ExtendSession(ctx context.Context, id uuid.UUID, expiresAt time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE webauthn_sessions SET expires_at = $1 WHERE id = $2`, expiresAt, id)
+	return err
+}
+
 // DeleteSession removes a WebAuthn session by its ID.
 func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE id = $1`, id)

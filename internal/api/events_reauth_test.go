@@ -65,6 +65,19 @@ func (m *revocableSessionMgr) TokenUser(ctx context.Context, token string) ([]by
 	return nil, false
 }
 
+// Authenticate and Verify mirror TokenUser with a plain (never sliding) expiry.
+func (m *revocableSessionMgr) Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	uid, ok := m.TokenUser(ctx, token)
+	if !ok {
+		return webauthn.AuthResult{}, false
+	}
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
+}
+
+func (m *revocableSessionMgr) Verify(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	return m.Authenticate(ctx, token)
+}
+
 func (m *revocableSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
 
 // streamRequest builds a cookie-authenticated SSE request carrying an admin
@@ -163,6 +176,14 @@ func (m *uuidSessionMgr) RevokeSessionByID(context.Context, []byte, uuid.UUID, .
 func (m *uuidSessionMgr) Validate(_ context.Context, _ string) bool { return true }
 func (m *uuidSessionMgr) TokenUser(_ context.Context, _ string) ([]byte, bool) {
 	return []byte(m.id.String()), true
+}
+func (m *uuidSessionMgr) Authenticate(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	uid, _ := m.TokenUser(ctx, token)
+	return webauthn.AuthResult{UserID: uid, ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, true
+}
+
+func (m *uuidSessionMgr) Verify(ctx context.Context, token string) (webauthn.AuthResult, bool) {
+	return m.Authenticate(ctx, token)
 }
 func (m *uuidSessionMgr) RevokeAuthToken(_ context.Context, _ string) bool { return true }
 
@@ -361,4 +382,45 @@ func (m *revocableSessionMgr) RevokeOtherSessions(context.Context, []byte, ...st
 // RevokeOtherSessions satisfies WebAuthnSessionManager; these tests never call it.
 func (m *uuidSessionMgr) RevokeOtherSessions(context.Context, []byte, ...string) (int64, error) {
 	return 0, nil
+}
+
+// TestStreamEvents_ReauthVerifiesWithoutSliding pins the heartbeat's call
+// site: the mid-stream re-check goes through Verify (a pure lookup) and never
+// through Authenticate, so a tab that merely holds its event stream open does
+// not keep its own session alive with nobody at it.
+func TestStreamEvents_ReauthVerifiesWithoutSliding(t *testing.T) {
+	var mu sync.Mutex
+	authCalls := 0
+	mgr := &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "stream-token" },
+		authFn: func(_ context.Context, token string) (webauthn.AuthResult, bool) {
+			mu.Lock()
+			authCalls++
+			mu.Unlock()
+			return webauthn.AuthResult{UserID: []byte("admin"), ExpiresAt: time.Now().Add(webauthn.AuthTokenTTL)}, token == "stream-token"
+		},
+	}
+	h := testHandler(nil, nil, nil, nil, nil)
+	h.SetWebAuthnSessionManager(mgr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		h.streamEvents(rec, streamRequest(ctx), 10*time.Millisecond)
+		close(done)
+	}()
+	time.Sleep(80 * time.Millisecond)
+	cancel()
+	<-done
+
+	mu.Lock()
+	defer mu.Unlock()
+	if authCalls != 0 {
+		t.Errorf("heartbeat re-checks called Authenticate %d times, want 0 (they must Verify)", authCalls)
+	}
+	if mgr.verifyCalls.Load() == 0 {
+		t.Error("no heartbeat re-check ran through Verify")
+	}
 }

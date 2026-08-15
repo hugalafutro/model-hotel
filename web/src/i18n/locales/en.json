@@ -2085,7 +2085,7 @@
 		"sessionTimeout": {
 			"title": "Tab timeout",
 			"label": "Sign out an idle tab after",
-			"hint": "Signs out a forgotten open tab after this long without activity. Closed tabs are not affected: every login expires on its own after 3 days. Set to ∞ to leave open tabs signed in."
+			"hint": "Signs out a forgotten open tab after this long without activity. Closed tabs are not affected: every login expires on its own after 3 days without use, and after 30 days at most. Set to ∞ to leave open tabs signed in."
 		},
 		"passwordPolicy": {
 			"title": "Password policy",
