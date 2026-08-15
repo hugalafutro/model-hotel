@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Yönetici jetonunu girin",
 			"restoring": "Geri yükleniyor…",
 			"restoreDatabase": "Veritabanını Geri Yükle",
-			"cancel": "İptal et"
+			"cancel": "İptal et",
+			"signatureLabel": "Yedek imzası (isteğe bağlı)",
+			"signaturePlaceholder": "Yedeğin .sig dosyasının içeriğini yapıştırın",
+			"signatureHelp": "İmzası olmayan bir yedek için boş bırakın: imzalama özelliği yokken alınmış, başka bir örnek tarafından oluşturulmuş veya önceki bir MASTER_KEY ile imzalanmış olabilir.",
+			"unsignedTitle": "İmzasız yedek geri yüklensin mi?",
+			"unsignedHeadline": "Bu döküm imzasız ve içeriği doğrulanamıyor",
+			"unsignedWarning": "İmza sağlanmadığı için bu dökümün iddia ettiği şey olup olmadığını hiçbir şey kontrol etmiyor. Geri yükleme öncesi denetim dökümdeki nesne türlerine bakar, içerdikleri satırlara değil: yerleştirilmiş bir yönetici hesabı veya yönlendirilmiş bir sağlayıcı adresi içeren bir yedek bu denetimi geçer. Yalnızca kendiniz edindiğiniz ve kaynağını açıklayabildiğiniz bir dökümle devam edin.",
+			"back": "Geri",
+			"restoreAnyway": "Yine de geri yükle"
 		},
 		"modal": {
 			"closeDialog": "İletişim kutusunu kapat",

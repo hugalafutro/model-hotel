@@ -2233,7 +2233,15 @@
 			"enterAdminToken": "Inserisci il token amministratore",
 			"restoring": "Ripristino…",
 			"restoreDatabase": "Ripristina Database",
-			"cancel": "Annulla"
+			"cancel": "Annulla",
+			"signatureLabel": "Firma del backup (facoltativa)",
+			"signaturePlaceholder": "Incolla il contenuto del file .sig del backup",
+			"signatureHelp": "Lascia vuoto per un backup senza firma: creato prima che esistesse la firma, prodotto da un'altra istanza o firmato con una MASTER_KEY precedente.",
+			"unsignedTitle": "Ripristinare un backup non firmato?",
+			"unsignedHeadline": "Questo dump non è firmato e il suo contenuto non può essere verificato",
+			"unsignedWarning": "Non è stata fornita alcuna firma, quindi nulla verifica che questo dump sia ciò che dichiara di essere. Il controllo prima del ripristino guarda i tipi di oggetti nel dump, non le righe che contengono: un backup con un account amministratore inserito di nascosto o un indirizzo del provider reindirizzato lo supererebbe. Continua solo con un dump che hai ottenuto tu stesso e di cui puoi rispondere.",
+			"back": "Indietro",
+			"restoreAnyway": "Ripristina comunque"
 		},
 		"modal": {
 			"closeDialog": "Chiudi finestra",

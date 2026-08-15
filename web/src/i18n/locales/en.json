@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Enter admin token",
 			"restoring": "Restoring…",
 			"restoreDatabase": "Restore Database",
-			"cancel": "Cancel"
+			"cancel": "Cancel",
+			"signatureLabel": "Backup signature (optional)",
+			"signaturePlaceholder": "Paste the contents of the backup's .sig file",
+			"signatureHelp": "Leave empty for a backup that has no signature: one taken before signing existed, made by another instance, or signed under a previous MASTER_KEY.",
+			"unsignedTitle": "Restore an unsigned backup?",
+			"unsignedHeadline": "This dump is unsigned and its contents cannot be verified",
+			"unsignedWarning": "No signature was supplied, so nothing checks that this dump is the one it claims to be. The pre-restore inspection looks at the kinds of objects in the dump, not the rows they hold: a backup with a planted admin account or a repointed provider address would pass it. Only continue with a dump you obtained yourself and can account for.",
+			"back": "Back",
+			"restoreAnyway": "Restore anyway"
 		},
 		"modal": {
 			"closeDialog": "Close dialog",

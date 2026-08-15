@@ -1241,10 +1241,17 @@ export const api = {
 		restore: async (
 			file: File,
 			adminToken: string,
+			signature = "",
 		): Promise<{ migration_count: number; known_count: number }> => {
 			const formData = new FormData();
 			formData.append("dump", file);
 			formData.append("admin_token", adminToken);
+			// The dump's .sig sidecar contents, when the operator has them. The
+			// server rejects a mismatch outright and records a restore without one
+			// as unverified, so an empty value is left out rather than sent blank.
+			if (signature.trim()) {
+				formData.append("signature", signature.trim());
+			}
 
 			// Must not set Content-Type: the browser needs to auto-set
 			// multipart/form-data with the correct boundary for FormData. The

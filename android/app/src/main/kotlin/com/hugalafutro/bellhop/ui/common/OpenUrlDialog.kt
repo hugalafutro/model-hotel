@@ -43,10 +43,15 @@ fun ConfirmOpenUrlDialog(
                 onClick = {
                     // ACTION_VIEW lets Android resolve the URL (browser or a
                     // matching app), showing its own chooser when several match.
+                    // Only web URLs get that far: the address comes from the
+                    // paired Front Desk, and an intent:/javascript:/file: value
+                    // must not be able to launch anything else on the phone.
                     // runCatching: a device with nothing that can open it must
                     // not crash the app.
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    if (isBrowserUrl(url)) {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
                     }
                     onDismiss()
                 },
@@ -62,3 +67,12 @@ fun ConfirmOpenUrlDialog(
         },
     )
 }
+
+/**
+ * isBrowserUrl reports whether [url] is something a browser is meant to open:
+ * an `http` or `https` URL and nothing else. Checked as a plain prefix on the
+ * exact string that would be launched, rather than through `Uri.parse`, so what
+ * is allowed cannot depend on how a parser reads an odd address.
+ */
+internal fun isBrowserUrl(url: String): Boolean =
+    url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)

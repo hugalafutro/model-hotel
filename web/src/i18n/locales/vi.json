@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Nhập mã thông báo quản trị",
 			"restoring": "Đang khôi phục…",
 			"restoreDatabase": "Khôi phục cơ sở dữ liệu",
-			"cancel": "Hủy"
+			"cancel": "Hủy",
+			"signatureLabel": "Chữ ký bản sao lưu (tùy chọn)",
+			"signaturePlaceholder": "Dán nội dung tệp .sig của bản sao lưu",
+			"signatureHelp": "Để trống đối với bản sao lưu không có chữ ký: bản được tạo trước khi có tính năng ký, do một phiên bản khác tạo, hoặc được ký bằng MASTER_KEY trước đó.",
+			"unsignedTitle": "Khôi phục bản sao lưu chưa ký?",
+			"unsignedHeadline": "Tệp dump này chưa được ký và không thể xác minh nội dung",
+			"unsignedWarning": "Không có chữ ký nào được cung cấp, nên không có gì kiểm tra rằng tệp dump này đúng như nó tuyên bố. Bước kiểm tra trước khi khôi phục chỉ xem các loại đối tượng trong dump, không xem các hàng bên trong: một bản sao lưu có tài khoản quản trị bị cài cắm hoặc địa chỉ nhà cung cấp bị chuyển hướng vẫn sẽ vượt qua. Chỉ tiếp tục với tệp dump mà bạn tự lấy và có thể giải trình nguồn gốc.",
+			"back": "Quay lại",
+			"restoreAnyway": "Vẫn khôi phục"
 		},
 		"modal": {
 			"closeDialog": "Đóng hộp thoại",

@@ -2233,7 +2233,15 @@
 			"enterAdminToken": "Introducir token de admin",
 			"restoring": "Restaurando…",
 			"restoreDatabase": "Restaurar base de datos",
-			"cancel": "Cancelar"
+			"cancel": "Cancelar",
+			"signatureLabel": "Firma de la copia de seguridad (opcional)",
+			"signaturePlaceholder": "Pega el contenido del archivo .sig de la copia de seguridad",
+			"signatureHelp": "Déjalo vacío para una copia sin firma: hecha antes de que existiera la firma, creada por otra instancia o firmada con una MASTER_KEY anterior.",
+			"unsignedTitle": "¿Restaurar una copia de seguridad sin firmar?",
+			"unsignedHeadline": "Este volcado no está firmado y su contenido no se puede verificar",
+			"unsignedWarning": "No se proporcionó ninguna firma, así que nada comprueba que este volcado sea lo que dice ser. La inspección previa a la restauración mira los tipos de objetos del volcado, no las filas que contienen: una copia con una cuenta de administrador plantada o una dirección de proveedor redirigida la pasaría. Continúa solo con un volcado que hayas obtenido tú mismo y del que puedas responder.",
+			"back": "Atrás",
+			"restoreAnyway": "Restaurar de todos modos"
 		},
 		"modal": {
 			"closeDialog": "Cerrar diálogo",

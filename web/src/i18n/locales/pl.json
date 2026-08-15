@@ -2285,7 +2285,15 @@
 			"enterAdminToken": "Wprowadź token administratora",
 			"restoring": "Przywracanie…",
 			"restoreDatabase": "Przywróć bazę danych",
-			"cancel": "Anuluj"
+			"cancel": "Anuluj",
+			"signatureLabel": "Podpis kopii zapasowej (opcjonalnie)",
+			"signaturePlaceholder": "Wklej zawartość pliku .sig kopii zapasowej",
+			"signatureHelp": "Pozostaw puste dla kopii bez podpisu: wykonanej przed wprowadzeniem podpisywania, utworzonej przez inną instancję lub podpisanej poprzednim MASTER_KEY.",
+			"unsignedTitle": "Przywrócić niepodpisaną kopię zapasową?",
+			"unsignedHeadline": "Ten zrzut nie jest podpisany i jego zawartości nie da się zweryfikować",
+			"unsignedWarning": "Nie podano podpisu, więc nic nie sprawdza, czy ten zrzut jest tym, za co się podaje. Kontrola przed przywróceniem sprawdza typy obiektów w zrzucie, a nie zawarte w nich wiersze: kopia z podrzuconym kontem administratora lub przekierowanym adresem dostawcy przeszłaby ją. Kontynuuj tylko ze zrzutem, który uzyskałeś samodzielnie i za który możesz ręczyć.",
+			"back": "Wstecz",
+			"restoreAnyway": "Przywróć mimo to"
 		},
 		"modal": {
 			"closeDialog": "Zamknij okno dialogowe",

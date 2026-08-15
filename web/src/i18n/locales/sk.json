@@ -2285,7 +2285,15 @@
 			"enterAdminToken": "Zadajte administrátorský token",
 			"restoring": "Obnovuje sa…",
 			"restoreDatabase": "Obnoviť databázu",
-			"cancel": "Zrušiť"
+			"cancel": "Zrušiť",
+			"signatureLabel": "Podpis zálohy (voliteľné)",
+			"signaturePlaceholder": "Vložte obsah súboru .sig zálohy",
+			"signatureHelp": "Ponechajte prázdne pri zálohe bez podpisu: vytvorenej pred zavedením podpisovania, inou inštanciou alebo podpísanej predchádzajúcim MASTER_KEY.",
+			"unsignedTitle": "Obnoviť nepodpísanú zálohu?",
+			"unsignedHeadline": "Tento dump nie je podpísaný a jeho obsah nie je možné overiť",
+			"unsignedWarning": "Nebol dodaný žiadny podpis, takže nič nekontroluje, či je tento dump tým, za čo sa vydáva. Kontrola pred obnovou sa pozerá na typy objektov v dumpe, nie na riadky, ktoré obsahujú: záloha s podstrčeným účtom správcu alebo presmerovanou adresou poskytovateľa by ňou prešla. Pokračujte len s dumpom, ktorý ste získali sami a za ktorý viete ručiť.",
+			"back": "Späť",
+			"restoreAnyway": "Napriek tomu obnoviť"
 		},
 		"modal": {
 			"closeDialog": "Zatvoriť dialógové okno",

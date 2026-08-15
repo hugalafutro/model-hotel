@@ -582,6 +582,7 @@ func TestValidateBackupFilename_InvalidChars(t *testing.T) {
 		{"backslash", "foo\\bar.dump"},
 		{"carriage return", "foo\rbar.dump"},
 		{"newline", "foo\nbar.dump"},
+		{"nul byte", "foo\x00bar.dump"},
 		{"no extension", "backup"},
 		{"wrong extension", "backup.sql"},
 	}
@@ -875,6 +876,7 @@ func TestValidateBackupFilename_AbsPathPrefixEscape(t *testing.T) {
 		"foo\\bar.dump",         // backslash
 		"foo\rbar.dump",         // CR
 		"foo\nbar.dump",         // LF
+		"foo\x00bar.dump",       // NUL: os.Open would fail with an error, not a clean 400
 	}
 	for _, vec := range escapeVectors {
 		result := h.validateBackupFilename(vec)

@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "관리자 토큰을 입력하세요",
 			"restoring": "… 복원",
 			"restoreDatabase": "데이터베이스 복원",
-			"cancel": "취소"
+			"cancel": "취소",
+			"signatureLabel": "백업 서명(선택 사항)",
+			"signaturePlaceholder": "백업의 .sig 파일 내용을 붙여넣으세요",
+			"signatureHelp": "서명이 없는 백업이라면 비워 두세요: 서명 기능 도입 전에 만든 백업, 다른 인스턴스에서 만든 백업, 이전 MASTER_KEY로 서명한 백업이 해당됩니다.",
+			"unsignedTitle": "서명되지 않은 백업을 복원할까요?",
+			"unsignedHeadline": "이 덤프는 서명되지 않아 내용을 검증할 수 없습니다",
+			"unsignedWarning": "서명이 제공되지 않아 이 덤프가 주장하는 그대로인지 확인할 방법이 없습니다. 복원 전 검사는 덤프 안의 객체 종류만 확인하고 그 안의 행은 확인하지 않습니다: 관리자 계정이 심어졌거나 제공자 주소가 바뀐 백업도 통과합니다. 직접 확보했고 출처를 설명할 수 있는 덤프인 경우에만 계속하세요.",
+			"back": "뒤로",
+			"restoreAnyway": "그래도 복원"
 		},
 		"modal": {
 			"closeDialog": "대화상자 닫기",

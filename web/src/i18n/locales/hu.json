@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Adja meg az adminisztrátori tokent",
 			"restoring": "… visszaállítása",
 			"restoreDatabase": "Adatbázis visszaállítása",
-			"cancel": "Mégse"
+			"cancel": "Mégse",
+			"signatureLabel": "Biztonsági mentés aláírása (nem kötelező)",
+			"signaturePlaceholder": "Illessze be a biztonsági mentés .sig fájljának tartalmát",
+			"signatureHelp": "Hagyja üresen aláírás nélküli biztonsági mentés esetén: amely az aláírás bevezetése előtt készült, másik példány készítette, vagy korábbi MASTER_KEY-jel írták alá.",
+			"unsignedTitle": "Aláíratlan biztonsági mentés visszaállítása?",
+			"unsignedHeadline": "Ez a dump nincs aláírva, és a tartalma nem ellenőrizhető",
+			"unsignedWarning": "Nem adott meg aláírást, így semmi sem ellenőrzi, hogy ez a dump valóban az-e, aminek mondja magát. A visszaállítás előtti vizsgálat a dumpban lévő objektumok típusait nézi, nem a bennük lévő sorokat: egy becsempészett rendszergazdai fiókot vagy átirányított szolgáltatói címet tartalmazó mentés átmenne rajta. Csak olyan dumppal folytassa, amelyet saját maga szerzett be, és amelynek eredetéért felelősséget tud vállalni.",
+			"back": "Vissza",
+			"restoreAnyway": "Visszaállítás mindenképp"
 		},
 		"modal": {
 			"closeDialog": "Párbeszédablak bezárása",

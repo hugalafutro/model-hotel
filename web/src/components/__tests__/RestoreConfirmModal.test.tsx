@@ -80,7 +80,7 @@ describe("RestoreConfirmModal", () => {
 		expect(confirmButton).toBeEnabled();
 	});
 
-	it("calls onConfirm with admin token on confirm", async () => {
+	it("calls onConfirm with admin token and signature when one is pasted", async () => {
 		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		renderWithProviders(
@@ -92,15 +92,117 @@ describe("RestoreConfirmModal", () => {
 			/>,
 		);
 
-		const input = screen.getByLabelText("Confirm with admin token");
-		await user.type(input, "  test-token  ");
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"  test-token  ",
+		);
+		await user.type(
+			screen.getByLabelText("Backup signature (optional)"),
+			" deadbeef\n",
+		);
 
-		const confirmButton = screen.getByRole("button", {
-			name: "Restore Database",
-		});
-		await user.click(confirmButton);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
 
-		expect(onConfirm).toHaveBeenCalledWith("test-token");
+		// A signed restore needs no second step.
+		expect(onConfirm).toHaveBeenCalledWith("test-token", "deadbeef");
+		expect(
+			screen.queryByRole("heading", { name: "Restore an unsigned backup?" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("does not restore an unsigned dump until the second confirm", async () => {
+		const user = userEvent.setup();
+		const onConfirm = vi.fn();
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={onConfirm}
+				isPending={false}
+			/>,
+		);
+
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
+
+		// Empty signature: the click opens the speed bump instead of restoring.
+		expect(onConfirm).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("heading", { name: "Restore an unsigned backup?" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"This dump is unsigned and its contents cannot be verified",
+			),
+		).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Restore anyway" }));
+		expect(onConfirm).toHaveBeenCalledWith("test-token", "");
+	});
+
+	it("goes back from the unsigned confirm without restoring", async () => {
+		const user = userEvent.setup();
+		const onConfirm = vi.fn();
+		const onClose = vi.fn();
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={onClose}
+				onConfirm={onConfirm}
+				isPending={false}
+			/>,
+		);
+
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
+		await user.click(screen.getByRole("button", { name: "Back" }));
+
+		// Back returns to the form with the token still filled in, so the user
+		// can paste the signature they went to fetch.
+		expect(onConfirm).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByLabelText("Confirm with admin token")).toHaveValue(
+			"test-token",
+		);
+		expect(
+			screen.getByRole("button", { name: "Restore Database" }),
+		).toBeEnabled();
+	});
+
+	it("shows Restoring… on the unsigned confirm while pending", async () => {
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				isPending={false}
+			/>,
+		);
+
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
+
+		rerender(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				isPending={true}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "Restoring…" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
 	});
 
 	it("calls onClose on cancel", async () => {

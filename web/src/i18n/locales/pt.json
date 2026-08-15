@@ -2233,7 +2233,15 @@
 			"enterAdminToken": "Insira o token admin",
 			"restoring": "Restaurando…",
 			"restoreDatabase": "Restaurar base de dados",
-			"cancel": "cancelar"
+			"cancel": "cancelar",
+			"signatureLabel": "Assinatura do backup (opcional)",
+			"signaturePlaceholder": "Cole o conteúdo do arquivo .sig do backup",
+			"signatureHelp": "Deixe em branco para um backup sem assinatura: feito antes de a assinatura existir, criado por outra instância ou assinado com uma MASTER_KEY anterior.",
+			"unsignedTitle": "Restaurar um backup não assinado?",
+			"unsignedHeadline": "Este dump não está assinado e seu conteúdo não pode ser verificado",
+			"unsignedWarning": "Nenhuma assinatura foi fornecida, então nada verifica se este dump é o que afirma ser. A inspeção anterior à restauração examina os tipos de objetos no dump, não as linhas que eles contêm: um backup com uma conta de administrador plantada ou um endereço de provedor redirecionado passaria por ela. Continue apenas com um dump que você mesmo obteve e cuja origem pode explicar.",
+			"back": "Voltar",
+			"restoreAnyway": "Restaurar mesmo assim"
 		},
 		"modal": {
 			"closeDialog": "Fechar diálogo",

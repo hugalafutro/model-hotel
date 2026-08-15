@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Admin-Token eingeben",
 			"restoring": "Wiederherstellen…",
 			"restoreDatabase": "Datenbank wiederherstellen",
-			"cancel": "Abbrechen"
+			"cancel": "Abbrechen",
+			"signatureLabel": "Backup-Signatur (optional)",
+			"signaturePlaceholder": "Inhalt der .sig-Datei des Backups einfügen",
+			"signatureHelp": "Leer lassen für ein Backup ohne Signatur: eines von vor der Einführung der Signierung, von einer anderen Instanz oder mit einem früheren MASTER_KEY signiert.",
+			"unsignedTitle": "Unsigniertes Backup wiederherstellen?",
+			"unsignedHeadline": "Dieser Dump ist unsigniert und sein Inhalt kann nicht verifiziert werden",
+			"unsignedWarning": "Es wurde keine Signatur angegeben, also prüft nichts, ob dieser Dump das ist, was er zu sein vorgibt. Die Prüfung vor der Wiederherstellung betrachtet die Objekttypen im Dump, nicht die enthaltenen Zeilen: ein Backup mit einem eingeschleusten Administratorkonto oder einer umgebogenen Provider-Adresse würde sie bestehen. Fahre nur mit einem Dump fort, den du selbst beschafft hast und dessen Herkunft du erklären kannst.",
+			"back": "Zurück",
+			"restoreAnyway": "Trotzdem wiederherstellen"
 		},
 		"modal": {
 			"closeDialog": "Dialog schließen",

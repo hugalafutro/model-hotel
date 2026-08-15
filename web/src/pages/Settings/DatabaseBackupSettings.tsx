@@ -463,10 +463,10 @@ export function DatabaseBackupSettings({
 							setShowRestoreModal(false);
 							setRestoreFile(null);
 						}}
-						onConfirm={async (adminToken) => {
+						onConfirm={async (adminToken, signature) => {
 							setIsRestoring(true);
 							try {
-								await api.backups.restore(restoreFile, adminToken);
+								await api.backups.restore(restoreFile, adminToken, signature);
 								toast(t("settings.backup.restoreSuccess"), "success");
 								setShowRestoreModal(false);
 								setRestoreFile(null);

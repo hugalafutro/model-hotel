@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Voer admin-token in",
 			"restoring": "Herstel tans…",
 			"restoreDatabase": "Herstel databasis",
-			"cancel": "Kanselleer"
+			"cancel": "Kanselleer",
+			"signatureLabel": "Rugsteunhandtekening (opsioneel)",
+			"signaturePlaceholder": "Plak die inhoud van die rugsteun se .sig-lêer",
+			"signatureHelp": "Laat leeg vir 'n rugsteun sonder handtekening: een wat gemaak is voordat ondertekening bestaan het, deur 'n ander instansie, of onderteken met 'n vorige MASTER_KEY.",
+			"unsignedTitle": "Ongetekende rugsteun herstel?",
+			"unsignedHeadline": "Hierdie dump is nie onderteken nie en sy inhoud kan nie geverifieer word nie",
+			"unsignedWarning": "Geen handtekening is verskaf nie, dus kontroleer niks dat hierdie dump is wat dit voorgee om te wees nie. Die inspeksie voor herstel kyk na die soorte objekte in die dump, nie na die rye wat hulle bevat nie: 'n rugsteun met 'n geplante administrateurrekening of 'n verwysde verskafferadres sou dit slaag. Gaan slegs voort met 'n dump wat jy self verkry het en kan verantwoord.",
+			"back": "Terug",
+			"restoreAnyway": "Herstel in elk geval"
 		},
 		"modal": {
 			"closeDialog": "Sluit dialoog",

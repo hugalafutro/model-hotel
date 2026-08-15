@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Ange administratörs-token",
 			"restoring": "Återställer…",
 			"restoreDatabase": "Återställ databas",
-			"cancel": "Avbryt"
+			"cancel": "Avbryt",
+			"signatureLabel": "Signatur för säkerhetskopian (valfritt)",
+			"signaturePlaceholder": "Klistra in innehållet i säkerhetskopians .sig-fil",
+			"signatureHelp": "Lämna tomt för en säkerhetskopia utan signatur: en som togs innan signering fanns, skapades av en annan instans eller signerades med en tidigare MASTER_KEY.",
+			"unsignedTitle": "Återställa en osignerad säkerhetskopia?",
+			"unsignedHeadline": "Den här dumpen är osignerad och innehållet kan inte verifieras",
+			"unsignedWarning": "Ingen signatur angavs, så inget kontrollerar att den här dumpen är vad den utger sig för att vara. Kontrollen före återställning tittar på vilka typer av objekt dumpen innehåller, inte på raderna i dem: en säkerhetskopia med ett inplanterat administratörskonto eller en omdirigerad leverantörsadress skulle passera den. Fortsätt bara med en dump du själv har hämtat och kan gå i god för.",
+			"back": "Tillbaka",
+			"restoreAnyway": "Återställ ändå"
 		},
 		"modal": {
 			"closeDialog": "Stäng dialogrutan",

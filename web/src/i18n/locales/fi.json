@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Syötä ylläpitäjän tunnus",
 			"restoring": "Palautetaan…",
 			"restoreDatabase": "Palauta Tietokanta",
-			"cancel": "Peruuta"
+			"cancel": "Peruuta",
+			"signatureLabel": "Varmuuskopion allekirjoitus (valinnainen)",
+			"signaturePlaceholder": "Liitä varmuuskopion .sig-tiedoston sisältö",
+			"signatureHelp": "Jätä tyhjäksi, jos varmuuskopiolla ei ole allekirjoitusta: se on otettu ennen allekirjoituksen käyttöönottoa, tehty toisessa instanssissa tai allekirjoitettu aiemmalla MASTER_KEY-avaimella.",
+			"unsignedTitle": "Palautetaanko allekirjoittamaton varmuuskopio?",
+			"unsignedHeadline": "Tätä vedosta ei ole allekirjoitettu eikä sen sisältöä voi todentaa",
+			"unsignedWarning": "Allekirjoitusta ei annettu, joten mikään ei tarkista, että tämä vedos on se, mikä se väittää olevansa. Palautusta edeltävä tarkistus katsoo vedoksen objektityyppejä, ei niiden sisältämiä rivejä: varmuuskopio, johon on istutettu ylläpitäjätili tai jonka palveluntarjoajan osoite on vaihdettu, läpäisisi sen. Jatka vain vedoksella, jonka olet itse hankkinut ja jonka alkuperän voit selittää.",
+			"back": "Takaisin",
+			"restoreAnyway": "Palauta silti"
 		},
 		"modal": {
 			"closeDialog": "Sulje ikkuna",

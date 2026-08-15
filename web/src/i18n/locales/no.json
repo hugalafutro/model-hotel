@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Skriv inn admin token",
 			"restoring": "Gjenoppretter…",
 			"restoreDatabase": "Gjenopprett database",
-			"cancel": "Avbryt"
+			"cancel": "Avbryt",
+			"signatureLabel": "Signatur for sikkerhetskopi (valgfritt)",
+			"signaturePlaceholder": "Lim inn innholdet i sikkerhetskopiens .sig-fil",
+			"signatureHelp": "La feltet stå tomt for en sikkerhetskopi uten signatur: en tatt før signering fantes, laget av en annen instans eller signert med en tidligere MASTER_KEY.",
+			"unsignedTitle": "Gjenopprette en usignert sikkerhetskopi?",
+			"unsignedHeadline": "Denne dumpen er usignert og innholdet kan ikke verifiseres",
+			"unsignedWarning": "Ingen signatur ble oppgitt, så ingenting kontrollerer at denne dumpen er det den utgir seg for å være. Kontrollen før gjenoppretting ser på typene objekter i dumpen, ikke radene de inneholder: en sikkerhetskopi med en plantet administratorkonto eller en omdirigert leverandøradresse ville bestått den. Fortsett bare med en dump du selv har skaffet og kan gå god for.",
+			"back": "Tilbake",
+			"restoreAnyway": "Gjenopprett likevel"
 		},
 		"modal": {
 			"closeDialog": "Lukk dialog",

@@ -2233,7 +2233,15 @@
 			"enterAdminToken": "Introduceți token-ul de administrator",
 			"restoring": "Restaurare…",
 			"restoreDatabase": "Restabilire bază de date",
-			"cancel": "Anulează"
+			"cancel": "Anulează",
+			"signatureLabel": "Semnătura copiei de rezervă (opțional)",
+			"signaturePlaceholder": "Lipiți conținutul fișierului .sig al copiei de rezervă",
+			"signatureHelp": "Lăsați gol pentru o copie fără semnătură: făcută înainte să existe semnarea, creată de altă instanță sau semnată cu un MASTER_KEY anterior.",
+			"unsignedTitle": "Restaurați o copie de rezervă nesemnată?",
+			"unsignedHeadline": "Acest dump nu este semnat și conținutul lui nu poate fi verificat",
+			"unsignedWarning": "Nu a fost furnizată nicio semnătură, așa că nimic nu verifică dacă acest dump este ceea ce pretinde a fi. Verificarea dinaintea restaurării se uită la tipurile de obiecte din dump, nu la rândurile pe care le conțin: o copie cu un cont de administrator plantat sau o adresă de furnizor redirecționată ar trece-o. Continuați doar cu un dump pe care l-ați obținut singur și pentru care puteți răspunde.",
+			"back": "Înapoi",
+			"restoreAnyway": "Restaurați oricum"
 		},
 		"modal": {
 			"closeDialog": "Închide dialogul",

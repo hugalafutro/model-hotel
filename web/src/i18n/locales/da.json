@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "Indtast admin token",
 			"restoring": "Gendanner…",
 			"restoreDatabase": "Gendan Database",
-			"cancel": "Annuller"
+			"cancel": "Annuller",
+			"signatureLabel": "Backupsignatur (valgfri)",
+			"signaturePlaceholder": "Indsæt indholdet af backuppens .sig-fil",
+			"signatureHelp": "Lad feltet stå tomt for en backup uden signatur: en taget før signering fandtes, lavet af en anden instans eller signeret med en tidligere MASTER_KEY.",
+			"unsignedTitle": "Gendan en usigneret backup?",
+			"unsignedHeadline": "Dette dump er usigneret, og indholdet kan ikke verificeres",
+			"unsignedWarning": "Der blev ikke angivet nogen signatur, så intet kontrollerer, at dette dump er det, det udgiver sig for at være. Kontrollen før gendannelse ser på typerne af objekter i dumpet, ikke på rækkerne i dem: en backup med en indplantet administratorkonto eller en omdirigeret udbyderadresse ville bestå den. Fortsæt kun med et dump, du selv har skaffet og kan stå inde for.",
+			"back": "Tilbage",
+			"restoreAnyway": "Gendan alligevel"
 		},
 		"modal": {
 			"closeDialog": "Luk dialog",

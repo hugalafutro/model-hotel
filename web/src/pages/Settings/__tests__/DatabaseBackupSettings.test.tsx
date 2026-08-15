@@ -699,8 +699,10 @@ describe("DatabaseBackupSettings", () => {
 	it("restores backup and polls for server", async () => {
 		const user = userEvent.setup();
 
+		let receivedBody = "";
 		server.use(
-			http.post("/api/backups/restore", () => {
+			http.post("/api/backups/restore", async ({ request }) => {
+				receivedBody = await request.text();
 				return HttpResponse.json({ migration_count: 5, known_count: 10 });
 			}),
 		);
@@ -717,11 +719,25 @@ describe("DatabaseBackupSettings", () => {
 
 		const tokenInput = await screen.findByLabelText("Confirm with admin token");
 		await user.type(tokenInput, "test-admin-token");
+		// A signed restore: the pasted sidecar rides along and no unsigned
+		// speed bump appears.
+		await user.type(
+			screen.getByLabelText("Backup signature (optional)"),
+			"cafebabe",
+		);
 
 		const restoreButton = screen.getByRole("button", {
 			name: /restore database/i,
 		});
 		await user.click(restoreButton);
+		expect(
+			screen.queryByRole("button", { name: /restore anyway/i }),
+		).not.toBeInTheDocument();
+
+		await waitFor(() => {
+			// The multipart body carries the pasted sidecar as its own part.
+			expect(receivedBody).toMatch(/name="signature"\r\n\r\ncafebabe/);
+		});
 
 		// Should show restoring state and success toast
 		await waitFor(
@@ -771,6 +787,8 @@ describe("DatabaseBackupSettings", () => {
 			name: /restore database/i,
 		});
 		await user.click(restoreButton);
+		// No signature pasted: the request only goes out after "Restore anyway".
+		await user.click(screen.getByRole("button", { name: /restore anyway/i }));
 
 		await waitFor(
 			() => {
@@ -810,6 +828,7 @@ describe("DatabaseBackupSettings", () => {
 			name: /restore database/i,
 		});
 		await user.click(restoreButton);
+		await user.click(screen.getByRole("button", { name: /restore anyway/i }));
 
 		// Wait for the restore to complete
 		await waitFor(() => {
@@ -877,6 +896,7 @@ describe("DatabaseBackupSettings", () => {
 		const tokenInput = await screen.findByLabelText("Confirm with admin token");
 		await user.type(tokenInput, "test-admin-token");
 		await user.click(screen.getByRole("button", { name: /restore database/i }));
+		await user.click(screen.getByRole("button", { name: /restore anyway/i }));
 
 		// In flight: the upload button is disabled and relabeled "Restoring…".
 		await waitFor(() => {

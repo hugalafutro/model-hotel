@@ -2181,7 +2181,15 @@
 			"enterAdminToken": "输入管理令牌",
 			"restoring": "正在恢复…",
 			"restoreDatabase": "还原数据库",
-			"cancel": "取消"
+			"cancel": "取消",
+			"signatureLabel": "备份签名(可选)",
+			"signaturePlaceholder": "粘贴备份 .sig 文件的内容",
+			"signatureHelp": "对于没有签名的备份请留空:在签名功能出现之前创建的、由其他实例创建的,或使用先前的 MASTER_KEY 签名的备份。",
+			"unsignedTitle": "恢复未签名的备份?",
+			"unsignedHeadline": "此转储未签名,无法验证其内容",
+			"unsignedWarning": "未提供签名,因此无法核实此转储是否名副其实。恢复前的检查只查看转储中的对象类型,不查看其中的数据行:含有被植入的管理员账户或被篡改的提供商地址的备份也能通过。请仅在转储由你自己获取且能说明来源时继续。",
+			"back": "返回",
+			"restoreAnyway": "仍然恢复"
 		},
 		"modal": {
 			"closeDialog": "关闭对话框",

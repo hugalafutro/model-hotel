@@ -2233,7 +2233,15 @@
 			"enterAdminToken": "Entrer le jeton admin",
 			"restoring": "Restauration…",
 			"restoreDatabase": "Restaurer la base de données",
-			"cancel": "Abandonner"
+			"cancel": "Abandonner",
+			"signatureLabel": "Signature de la sauvegarde (facultatif)",
+			"signaturePlaceholder": "Collez le contenu du fichier .sig de la sauvegarde",
+			"signatureHelp": "Laissez vide pour une sauvegarde sans signature : réalisée avant l'existence de la signature, produite par une autre instance ou signée avec une MASTER_KEY précédente.",
+			"unsignedTitle": "Restaurer une sauvegarde non signée ?",
+			"unsignedHeadline": "Ce dump n'est pas signé et son contenu ne peut pas être vérifié",
+			"unsignedWarning": "Aucune signature n'a été fournie, donc rien ne vérifie que ce dump est bien ce qu'il prétend être. L'inspection préalable à la restauration examine les types d'objets du dump, pas les lignes qu'ils contiennent : une sauvegarde contenant un compte administrateur implanté ou une adresse de fournisseur détournée la passerait. Ne continuez qu'avec un dump que vous avez obtenu vous-même et dont vous pouvez répondre.",
+			"back": "Retour",
+			"restoreAnyway": "Restaurer quand même"
 		},
 		"modal": {
 			"closeDialog": "Fermer la boîte de dialogue",

@@ -248,7 +248,7 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 // validateBackupFilename sanitizes the filename and resolves it to an absolute path
 // within the backup directory. Returns empty string if validation fails.
 func (h *BackupHandler) validateBackupFilename(filename string) string {
-	if strings.ContainsAny(filename, "/\\\r\n") || !strings.HasSuffix(filename, ".dump") {
+	if strings.ContainsAny(filename, "/\\\r\n\x00") || !strings.HasSuffix(filename, ".dump") {
 		return ""
 	}
 	path := filepath.Join(h.backupDir, filename)
