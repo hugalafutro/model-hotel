@@ -1,13 +1,19 @@
-name: Prune Docker Hub Tags
+name: Prune Registry Tags
 
-# Keeps the Docker Hub repositories tidy after a release. Both the server image
-# (model-hotel) and the Front Desk control-plane image (model-hotel-frontdesk)
-# are released together under the same tag scheme, so both are pruned here with
-# identical retention. Retains the newest KEEP version tags (X.Y.Z) plus every
-# protected moving tag (latest, X.Y), and deletes older releases. Each release
-# pushes an X.Y.Z tag *and* a sha- tag at the same image digest, so a sha- tag
-# is pruned only when no retained tag still points at its digest — this drops a
-# release's sha- tag together with the release, without parsing commit SHAs.
+# Keeps both registries tidy after a release. The server image (model-hotel)
+# and the Front Desk control-plane image (model-hotel-frontdesk) are released
+# together under the same tag scheme to Docker Hub and GHCR, so all four
+# repositories are pruned here with identical retention. Retains the newest
+# KEEP version tags (X.Y.Z) plus every protected moving tag (latest, dev, X.Y),
+# and deletes older releases. Each release pushes an X.Y.Z tag *and* a sha- tag
+# at the same image digest, so a sha- tag is pruned only when no retained tag
+# still points at its digest — this drops a release's sha- tag together with
+# the release, without parsing commit SHAs.
+#
+# Docker Hub is pruned inline below (tag-level API). GHCR is pruned by
+# scripts/ci/prune-ghcr-versions.sh (version-level API, where a version is one
+# digest carrying all its tags, and untagged versions such as superseded :dev
+# digests are removed too, minus the children of retained multi-arch indexes).
 #
 # Runs automatically after "Publish Docker Image" succeeds. The manual
 # (workflow_dispatch) trigger defaults to dry_run=true: it lists what *would*
@@ -37,6 +43,9 @@ on:
 
 permissions:
   contents: read
+  # packages write: deleting GHCR versions with GITHUB_TOKEN. The packages were
+  # published by this repository's workflows, which grants it admin on them.
+  packages: write
 
 env:
   KEEP: ${{ github.event.inputs.keep || '20' }}
@@ -50,7 +59,28 @@ jobs:
     # On the automatic trigger, only run when the publish actually succeeded.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # One step per package, and the later steps run even if an earlier one
+      # failed: the registries and packages are independent, and a refusal on
+      # one must not leave the others unpruned. GHCR_PRUNE_TOKEN is an optional
+      # PAT (delete:packages) for the case where GITHUB_TOKEN turns out not to
+      # hold delete rights on a package; the script aborts on the first 403.
+      - name: Prune GHCR versions (model-hotel)
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_PRUNE_TOKEN || secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel "$KEEP" "$DRY_RUN"
+
+      - name: Prune GHCR versions (model-hotel-frontdesk)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_PRUNE_TOKEN || secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel-frontdesk "$KEEP" "$DRY_RUN"
+
       - name: Prune Docker Hub tags
+        if: ${{ !cancelled() }}
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -106,7 +136,7 @@ jobs:
             # Docker Hub release tags carry no v prefix (docker/metadata-action
             # type=semver strips it; only the git tag is vX.Y.Z), so accept both.
             def isVersion: test("^v?[0-9]+\\.[0-9]+\\.[0-9]+$");
-            def isProtected: (. == "latest") or test("^[0-9]+\\.[0-9]+$");
+            def isProtected: (. == "latest") or (. == "dev") or test("^[0-9]+\\.[0-9]+$");
             def isSha: startswith("sha-");
 
             # every digest a tag references (top-level + per-image), nulls dropped.

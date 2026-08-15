@@ -1,8 +1,8 @@
 # Weekly vulnerability scan of the published images (app + Front Desk).
 #
 # The CI gate only runs when a PR is open, but CVEs land in already-published
-# images (this is exactly how the OpenSSL 3.5.6 flags appeared on Docker Hub:
-# no code changed, the world did). A failed run here means a rebuild/release
+# images (this is exactly how the OpenSSL 3.5.6 flags appeared on the published
+# image: no code changed, the world did). A failed run here means a rebuild/release
 # would fix something — the docker-publish workflow's apk upgrade pulls current
 # Alpine patches — so it doubles as the signal to cut a patch release. It also
 # catches the publish workflow's GHA layer cache serving a stale apk upgrade
@@ -13,7 +13,11 @@
 # us the other image's report or gate: each step records its own outcome, and
 # the summary at the end fails the job while naming what actually broke. A red
 # run whose cause you have to go dig for is how this workflow already lost a
-# week of scan coverage to a transient Docker Hub timeout.
+# week of scan coverage to a transient registry timeout.
+#
+# The scan pulls from GHCR: every publish path (release, :dev, and the refresh
+# job below) pushes the same digest to GHCR and Docker Hub, so scanning one
+# registry covers both, and GHCR is the one our own stacks pull from.
 name: Scan Published Image
 
 on:
@@ -24,10 +28,13 @@ on:
 permissions:
   contents: read
   security-events: write
+  # packages read: the scan pulls from GHCR with GITHUB_TOKEN so it keeps
+  # working if a package is ever made private.
+  packages: read
 
 env:
-  APP_IMAGE: docker.io/hugalafutro/model-hotel:latest
-  FRONTDESK_IMAGE: docker.io/hugalafutro/model-hotel-frontdesk:latest
+  APP_IMAGE: ghcr.io/${{ github.repository }}:latest
+  FRONTDESK_IMAGE: ghcr.io/${{ github.repository }}-frontdesk:latest
 
 jobs:
   scan:
@@ -39,8 +46,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # We pull rather than letting Trivy fetch from the registry so a single
-      # Docker Hub blip (`dial tcp ...: i/o timeout`) gets retried instead of
+      # registry blip (`dial tcp ...: i/o timeout`) gets retried instead of
       # killing the run. Trivy resolves an image from the local docker daemon
       # before the registry, so each scan reuses the pull above it.
       - name: Pull published image (with retries)
@@ -174,6 +188,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # packages write: the republish to GHCR uses GITHUB_TOKEN.
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -259,6 +275,9 @@ jobs:
           IMAGE: ${{ matrix.image }}:rebuild-candidate
         run: scripts/ci/smoke-test-image.sh "$IMAGE"
 
+      # :latest must stay one digest across both registries (the scan job only
+      # looks at GHCR, and Docker Hub is what everyone else pulls), so the
+      # rebuilt image goes to both. GHCR first: it is what our own stacks run.
       - name: Publish the rebuilt image as :latest
         id: publish
         if: >-
@@ -266,15 +285,21 @@ jobs:
           && (matrix.smoke != true || steps.smoke.outcome == 'success')
         env:
           IMAGE: ${{ matrix.image }}
-          TARGET: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+          GHCR_TARGET: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          DOCKERHUB_TARGET: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+          GHCR_ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
           echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-          docker tag "$IMAGE:rebuild-candidate" "$TARGET"
-          docker push "$TARGET"
-          echo "Republished $TARGET"
+          for target in "$GHCR_TARGET" "$DOCKERHUB_TARGET"; do
+            docker tag "$IMAGE:rebuild-candidate" "$target"
+            docker push "$target"
+            echo "Republished $target"
+          done
 
       - name: Record what happened
         if: always()
