@@ -61,17 +61,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Prune GHCR versions
+      # One step per package, and the later steps run even if an earlier one
+      # failed: the registries and packages are independent, and a refusal on
+      # one must not leave the others unpruned. GHCR_PRUNE_TOKEN is an optional
+      # PAT (delete:packages) for the case where GITHUB_TOKEN turns out not to
+      # hold delete rights on a package; the script aborts on the first 403.
+      - name: Prune GHCR versions (model-hotel)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GHCR_PRUNE_TOKEN || secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
-          scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel "$KEEP" "$DRY_RUN"
-          scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel-frontdesk "$KEEP" "$DRY_RUN"
+        run: scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel "$KEEP" "$DRY_RUN"
 
-      # Runs even if the GHCR prune failed: the two registries are independent
-      # and a refusal on one must not leave the other unpruned.
+      - name: Prune GHCR versions (model-hotel-frontdesk)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_PRUNE_TOKEN || secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: scripts/ci/prune-ghcr-versions.sh "$OWNER" model-hotel-frontdesk "$KEEP" "$DRY_RUN"
+
       - name: Prune Docker Hub tags
         if: ${{ !cancelled() }}
         env:

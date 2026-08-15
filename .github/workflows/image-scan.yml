@@ -28,6 +28,9 @@ on:
 permissions:
   contents: read
   security-events: write
+  # packages read: the scan pulls from GHCR with GITHUB_TOKEN so it keeps
+  # working if a package is ever made private.
+  packages: read
 
 env:
   APP_IMAGE: ghcr.io/${{ github.repository }}:latest
@@ -42,6 +45,13 @@ jobs:
       frontdesk_gate: ${{ steps.gate_frontdesk.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # We pull rather than letting Trivy fetch from the registry so a single
       # registry blip (`dial tcp ...: i/o timeout`) gets retried instead of

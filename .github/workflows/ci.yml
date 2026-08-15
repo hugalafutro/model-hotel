@@ -672,8 +672,9 @@ jobs:
   # master HEAD has already moved past this commit, so a slow older run can't
   # overwrite :dev with a stale image after a newer commit already published it.
   # The image carries no VERSION build-arg, so it self-reports version "dev".
-  # :dev is a moving tag the prune workflow leaves untouched (it only prunes
-  # vX.Y.Z releases and orphaned sha- tags).
+  # `dev` is a protected moving tag in the prune workflow, so the live :dev
+  # image always survives a prune; superseded :dev digests become untagged
+  # GHCR versions and are reclaimed by it (Docker Hub drops them on overwrite).
   publish-dev:
     name: Publish :dev image
     runs-on: ubuntu-latest

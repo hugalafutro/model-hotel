@@ -30,7 +30,10 @@
 # Env:
 #   GH_TOKEN  token for the GitHub REST API and the GHCR registry. In Actions,
 #             GITHUB_TOKEN with `packages: write` works for packages this
-#             repository publishes (the publishing repo holds admin on them).
+#             repository publishes (the publishing repo holds admin on them);
+#             a PAT with delete:packages works anywhere. A 403 on the first
+#             delete aborts immediately with a message naming the token, so a
+#             permission problem costs one call, not one per version.
 set -euo pipefail
 
 OWNER="${1:?owner required}"
@@ -90,8 +93,8 @@ jq -cs --argjson keep "$KEEP" '
 # --- protect the children of retained multi-manifest versions ---------------
 # One anonymous-or-authenticated pull token for the registry; the package may
 # be private, and GITHUB_TOKEN is accepted as the password on ghcr.io.
-registry_token=$(curl -fsSL -u "${OWNER}:${GH_TOKEN}" \
-  "https://ghcr.io/token?scope=repository:${OWNER}/${PKG}:pull" | jq -r '.token')
+registry_token=$(curl -fsSL --max-time 30 -u "${OWNER}:${GH_TOKEN}" \
+  "https://ghcr.io/token?scope=repository:${OWNER}/${PKG}:pull" | jq -r '.token') || registry_token=""
 if [ -z "$registry_token" ] || [ "$registry_token" = "null" ]; then
   echo "::error::could not obtain a GHCR pull token for ${OWNER}/${PKG}"
   exit 1
@@ -101,12 +104,22 @@ accept='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribu
 : >"$work/children.txt"
 while IFS= read -r digest; do
   [ -n "$digest" ] || continue
-  if ! manifest=$(curl -fsSL -H "Authorization: Bearer ${registry_token}" -H "Accept: ${accept}" \
-      "https://ghcr.io/v2/${OWNER}/${PKG}/manifests/${digest}"); then
-    echo "::error::could not read retained manifest ${digest}; aborting so no child of it gets deleted"
-    exit 1
-  fi
-  jq -r '.manifests[]?.digest // empty' <<<"$manifest" >>"$work/children.txt"
+  # 200: parse it (an index lists children, a plain manifest lists none).
+  # 404: the version exists in the packages API but has no manifest in the
+  #      registry, so it has no children to protect; it is retained anyway, so
+  #      nothing is lost by moving on rather than blocking every future prune.
+  # Anything else (5xx, auth, network) means we do not know: abort.
+  code=$(curl -sS --max-time 30 -o "$work/manifest.json" -w '%{http_code}' \
+    -H "Authorization: Bearer ${registry_token}" -H "Accept: ${accept}" \
+    "https://ghcr.io/v2/${OWNER}/${PKG}/manifests/${digest}") || code=000
+  case "$code" in
+    200) jq -r '.manifests[]?.digest // empty' "$work/manifest.json" >>"$work/children.txt" ;;
+    404) echo "retained ${digest} has no manifest in the registry (HTTP 404); nothing to protect" ;;
+    *)
+      echo "::error::could not read retained manifest ${digest} (HTTP ${code}); aborting so no child of it gets deleted"
+      exit 1
+      ;;
+  esac
 done < <(jq -r '.[] | select(.retained) | .digest' "$work/classified.json")
 protected_children=$(sort -u "$work/children.txt" | jq -R . | jq -cs .)
 echo "Retained versions reference $(jq length <<<"$protected_children") child manifest(s)."
@@ -147,15 +160,29 @@ while IFS= read -r line; do
     continue
   fi
   echo "Deleting: ${label} (id ${id})"
-  # 404: already gone (a concurrent run or a manual delete); anything else is
-  # a real failure, reported per version so one refusal does not hide the rest.
-  code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+  # 204: deleted. 404: already gone (a concurrent run or a manual delete).
+  # 403: either the token cannot delete this package or the secondary rate
+  #      limit tripped; both mean every further call fails the same way, so
+  #      stop now instead of burning one request per remaining version.
+  # Anything else (including curl itself failing, reported as 000) is counted
+  # per version so one refusal does not hide the rest.
+  code=$(curl -sS --max-time 30 -o "$work/delete-response.json" -w '%{http_code}' -X DELETE \
     -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
-    "https://api.github.com${versions_api}/${id}")
-  if [ "$code" != "204" ] && [ "$code" != "404" ]; then
-    echo "::error::Failed to delete version ${id} (${label}): HTTP ${code}"
-    failed=$((failed + 1))
-  fi
+    "https://api.github.com${versions_api}/${id}") || code=000
+  case "$code" in
+    204|404) ;;
+    403)
+      echo "::error::HTTP 403 deleting version ${id} (${label}): $(jq -r '.message // "no message"' "$work/delete-response.json" 2>/dev/null). Either GH_TOKEN cannot delete this package (needs admin on it: GITHUB_TOKEN of the publishing repo, or a PAT with delete:packages) or the API secondary rate limit tripped; aborting."
+      exit 1
+      ;;
+    *)
+      echo "::error::Failed to delete version ${id} (${label}): HTTP ${code}"
+      failed=$((failed + 1))
+      ;;
+  esac
+  # Mutating REST calls are budgeted at roughly 180/minute by GitHub's
+  # secondary rate limit; a first-ever prune can have well over a hundred.
+  sleep 0.5
 done <"$work/delete.jsonl"
 
 if [ "$failed" -gt 0 ]; then
