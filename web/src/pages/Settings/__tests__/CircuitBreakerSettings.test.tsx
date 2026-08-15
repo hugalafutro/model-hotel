@@ -952,5 +952,35 @@ describe("CircuitBreakerSettings", () => {
 
 			resetSpy.mockRestore();
 		});
+
+		it("resets exactly the hedging keys from the Hedging column's inline reset buttons", async () => {
+			const resetSpy = vi.spyOn(api.settings, "reset");
+			resetSpy.mockResolvedValue({});
+			server.use(
+				...mockSettings({
+					body: { hedging_enabled: "true", hedge_delay: "4s" },
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+			);
+			const column = await screen.findByTestId("hedging-column");
+			// Two reset buttons live in the column, one per control, in DOM
+			// order: the Hedge Slow Streams toggle, then the Hedge Delay slider.
+			const resets = within(column).getAllByRole("button", {
+				name: /reset this setting to default/i,
+			});
+			expect(resets).toHaveLength(2);
+			await user.click(resets[0]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
+			);
+			await user.click(resets[1]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["hedge_delay"]),
+			);
+			resetSpy.mockRestore();
+		});
 	});
 });
