@@ -296,6 +296,11 @@ export interface BackupPruneResult {
 	results: BackupPruneMember[];
 }
 
+/** Fleet-wide count of frontdesk-origin backups from the server's last reads. */
+export interface FrontDeskBackupCount {
+	count: number;
+}
+
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---
 
 export interface WebAuthnCredential {

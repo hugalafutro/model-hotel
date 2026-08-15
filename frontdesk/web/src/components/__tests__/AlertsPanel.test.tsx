@@ -266,7 +266,14 @@ it("confirms a delivered test with a success toast and no error", async () => {
 // appear once outbound alerts are enabled, so a fleet that never turned them on
 // is not looking at a tall form of blank inputs.
 it("rolls the configuration up while alerts are disabled and unrolls on enable", async () => {
+	let putBody: Settings | undefined;
 	baseHandlers({ settings: { ...settings, alert_enabled: false } });
+	server.use(
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Settings;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
 	renderPanel();
 
 	const toggle = await screen.findByRole("checkbox", {
@@ -278,10 +285,18 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 		screen.queryByRole("checkbox", { name: "Member went down" }),
 	).toBeNull();
 	expect(screen.queryByRole("button", { name: /send test/i })).toBeNull();
-	// Save stays reachable so switching alerts off can be persisted.
-	expect(
+	// Save stays reachable so switching alerts off can be persisted, and a save
+	// while rolled up still carries the stored URL, the masked secret and the
+	// event selection: hiding the fields must never blank what they held, or
+	// toggling alerts off would silently wipe the operator's Apprise setup.
+	await userEvent.click(
 		screen.getByRole("button", { name: /save alert settings/i }),
-	).toBeInTheDocument();
+	);
+	await waitFor(() => expect(putBody).toBeDefined());
+	expect(putBody?.alert_enabled).toBe(false);
+	expect(putBody?.alert_apprise_api_url).toBe(settings.alert_apprise_api_url);
+	expect(putBody?.alert_apprise_targets).toBe("********");
+	expect(putBody?.alert_events).toBe(settings.alert_events);
 
 	await userEvent.click(toggle);
 	expect(screen.getByLabelText(/apprise api url/i)).toBeInTheDocument();

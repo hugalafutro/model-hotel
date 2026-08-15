@@ -17,12 +17,21 @@ function renderPanel() {
 	);
 }
 
-// prune registers the endpoint and records each call's dryRun flag, so a test
-// can prove the preview deleted nothing. The panel probes with a dry run on
-// mount to decide whether to show itself at all, so every recorded sequence
-// starts with that probe.
+const COUNT = "/api/fleet/backups/frontdesk-count";
+
+// count answers the mount-time read the panel uses to decide whether to show
+// itself. The server derives it from listings it already read; nothing here
+// touches a member.
+function count(n: number) {
+	server.use(http.get(COUNT, () => HttpResponse.json({ count: n })));
+}
+
+// prune registers the prune endpoint and records each call's dryRun flag, so a
+// test can prove the preview deleted nothing. It also answers the mount count
+// with previewCount, so the panel shows exactly when there is something to do.
 function prune(previewCount: number, realDeleted = previewCount, failed = 0) {
 	const calls: boolean[] = [];
+	count(previewCount);
 	server.use(
 		http.post(PRUNE, ({ request }) => {
 			const dry = new URL(request.url).searchParams.has("dryRun");
@@ -37,7 +46,7 @@ function prune(previewCount: number, realDeleted = previewCount, failed = 0) {
 	return calls;
 }
 
-// pruneButton waits for the mount-time probe to resolve and the panel to show.
+// pruneButton waits for the mount-time count to resolve and the panel to show.
 const pruneButton = () => screen.findByTestId("prune-frontdesk-backups");
 
 // The confirm dialog renders exactly two actions, cancel first and the
@@ -54,7 +63,7 @@ beforeEach(() => {
 	server.resetHandlers();
 });
 
-// expectHidden waits for the mount-time probe to be answered, then gives the
+// expectHidden waits for the mount-time count to be answered, then gives the
 // panel a moment to appear if it were going to, and asserts it did not.
 async function expectHidden(served: () => number) {
 	await waitFor(() => expect(served()).toBeGreaterThan(0));
@@ -65,32 +74,32 @@ async function expectHidden(served: () => number) {
 
 // The section exists to clean up dumps older Front Desk builds left behind, so a
 // fleet that holds none (every fleet set up after that build) never sees it.
-it("stays hidden while probing and when no Front Desk backups exist", async () => {
+it("stays hidden while the count is in flight and when it is zero", async () => {
 	let release: (() => void) | undefined;
 	const gate = new Promise<void>((r) => {
 		release = r;
 	});
 	let served = 0;
 	server.use(
-		http.post(PRUNE, async () => {
+		http.get(COUNT, async () => {
 			await gate;
 			served++;
-			return HttpResponse.json({ deleted: 0, failed: 0, results: [] });
+			return HttpResponse.json({ count: 0 });
 		}),
 	);
 	renderPanel();
 
-	// Nothing shows while the probe is in flight: no flash of a section that
+	// Nothing shows while the count is in flight: no flash of a section that
 	// then vanishes.
 	expect(screen.queryByTestId("prune-frontdesk-backups")).toBeNull();
 	release?.();
 	await expectHidden(() => served);
 });
 
-it("stays hidden when the probe itself fails", async () => {
+it("stays hidden when the count cannot be read", async () => {
 	let served = 0;
 	server.use(
-		http.post(PRUNE, () => {
+		http.get(COUNT, () => {
 			served++;
 			return new HttpResponse(null, { status: 500 });
 		}),
@@ -100,31 +109,22 @@ it("stays hidden when the probe itself fails", async () => {
 	await expectHidden(() => served);
 });
 
-// A member Front Desk could not read is not evidence of leftover dumps, so a
-// member being down does not summon the section on its own.
-it("stays hidden when the only finding is an unreadable member", async () => {
-	let served = 0;
+// The mount read is the count endpoint, never a prune call: showing the section
+// must not cost a fleet-wide listing read, and must never be one argument away
+// from a real prune.
+it("never calls the prune endpoint on mount", async () => {
+	let pruneCalls = 0;
 	server.use(
 		http.post(PRUNE, () => {
-			served++;
-			return HttpResponse.json({
-				deleted: 0,
-				failed: 0,
-				results: [
-					{
-						member_id: "b",
-						name: "b",
-						deleted: 0,
-						failed: 0,
-						error: "could not read this member's backup listing",
-					},
-				],
-			});
+			pruneCalls++;
+			return HttpResponse.json({ deleted: 0, failed: 0, results: [] });
 		}),
 	);
+	count(2);
 	renderPanel();
 
-	await expectHidden(() => served);
+	await pruneButton();
+	expect(pruneCalls).toBe(0);
 });
 
 it("previews before deleting and names the count in the confirmation", async () => {
@@ -136,9 +136,8 @@ it("previews before deleting and names the count in the confirmation", async () 
 	await waitFor(() =>
 		expect(screen.getByTestId("prune-preview-count")).toHaveTextContent("7"),
 	);
-	// Every call so far was a dry run (the mount probe, then the preview):
-	// nothing has been deleted.
-	expect(calls).toEqual([true, true]);
+	// The only prune call so far was the dry run: nothing has been deleted.
+	expect(calls).toEqual([true]);
 });
 
 it("deletes only after the confirmation is accepted", async () => {
@@ -148,7 +147,7 @@ it("deletes only after the confirmation is accepted", async () => {
 	await userEvent.click(await pruneButton());
 	await userEvent.click(confirmButton(await screen.findByRole("dialog")));
 
-	await waitFor(() => expect(calls).toEqual([true, true, false]));
+	await waitFor(() => expect(calls).toEqual([true, false]));
 	await waitFor(() =>
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 	);
@@ -174,6 +173,41 @@ it("stays visible when some backups could not be deleted", async () => {
 	expect(screen.getByTestId("prune-frontdesk-backups")).toBeInTheDocument();
 });
 
+// A member Front Desk could not read during the run was never counted, so its
+// dumps are unknown rather than gone: the section stays even though the run
+// itself refused nothing. (Stricter than the mount rule on purpose: showing the
+// section needs positive evidence, retiring it needs proof of nothing left.)
+it("stays visible when a member could not be read during the run", async () => {
+	count(2);
+	server.use(
+		http.post(PRUNE, () =>
+			HttpResponse.json({
+				deleted: 2,
+				failed: 0,
+				results: [
+					{ member_id: "a", name: "a", deleted: 2, failed: 0 },
+					{
+						member_id: "b",
+						name: "b",
+						deleted: 0,
+						failed: 0,
+						error: "could not read this member's backup listing",
+					},
+				],
+			}),
+		),
+	);
+	renderPanel();
+
+	await userEvent.click(await pruneButton());
+	await userEvent.click(confirmButton(await screen.findByRole("dialog")));
+
+	await waitFor(() =>
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+	);
+	expect(screen.getByTestId("prune-frontdesk-backups")).toBeInTheDocument();
+});
+
 it("cancelling the confirmation deletes nothing", async () => {
 	const calls = prune(3);
 	renderPanel();
@@ -184,23 +218,18 @@ it("cancelling the confirmation deletes nothing", async () => {
 	await waitFor(() =>
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 	);
-	expect(calls).toEqual([true, true]);
+	expect(calls).toEqual([true]);
 });
 
-// The dumps can disappear between the mount probe and the click (another
+// The dumps can disappear between the mount count and the click (another
 // operator, or the member's own cleanup), so the confirmation must still cope
 // with an empty preview.
 it("blocks the confirm button when there is nothing left to delete", async () => {
-	let probes = 0;
+	count(4);
 	server.use(
-		http.post(PRUNE, () => {
-			probes++;
-			return HttpResponse.json({
-				deleted: probes === 1 ? 4 : 0,
-				failed: 0,
-				results: [],
-			});
-		}),
+		http.post(PRUNE, () =>
+			HttpResponse.json({ deleted: 0, failed: 0, results: [] }),
+		),
 	);
 	renderPanel();
 
@@ -209,15 +238,8 @@ it("blocks the confirm button when there is nothing left to delete", async () =>
 });
 
 it("reports a failed preview instead of opening the confirmation", async () => {
-	let probes = 0;
-	server.use(
-		http.post(PRUNE, () => {
-			probes++;
-			return probes === 1
-				? HttpResponse.json({ deleted: 4, failed: 0, results: [] })
-				: new HttpResponse(null, { status: 500 });
-		}),
-	);
+	count(4);
+	server.use(http.post(PRUNE, () => new HttpResponse(null, { status: 500 })));
 	renderPanel();
 
 	const btn = await pruneButton();
@@ -231,6 +253,7 @@ it("reports a failed preview instead of opening the confirmation", async () => {
 // A member whose listing could not be read means the preview count is a floor,
 // so the confirmation says so instead of hiding it.
 it("notes members whose backups could not be counted", async () => {
+	count(1);
 	server.use(
 		http.post(PRUNE, () =>
 			HttpResponse.json({
@@ -262,6 +285,7 @@ it("notes members whose backups could not be counted", async () => {
 // actually lands rather than claiming a failure nobody observed, and the dialog
 // stays open because nothing here proves the run is over.
 it("points a lost prune response at the event log", async () => {
+	count(3);
 	server.use(
 		http.post(PRUNE, ({ request }) => {
 			const dry = new URL(request.url).searchParams.has("dryRun");

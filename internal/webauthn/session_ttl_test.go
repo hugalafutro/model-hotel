@@ -8,17 +8,28 @@ import (
 	"time"
 )
 
-// maxAuthTokenTTL pins the browser-session TTL. Logging in does not revoke an
-// existing session, so a stolen token stays usable until it expires and this
-// TTL is the only bound on that exposure. Raising it is a security decision,
-// not a tuning knob: it must be a deliberate two-line change (constant + this
-// pin), and any change must also sweep the user-facing copy listed on the
-// AuthTokenTTL doc comment, which quotes the value as "3 days".
-const maxAuthTokenTTL = 72 * time.Hour
+// maxAuthTokenTTL is the security ceiling on the browser-session TTL,
+// independent of the value in force. Logging in does not revoke an existing
+// session, so a stolen token stays usable until it expires and the TTL is the
+// only bound on that exposure. Raising the ceiling is a security decision, not a
+// tuning knob.
+const maxAuthTokenTTL = 7 * 24 * time.Hour
+
+// pinnedAuthTokenTTL is the value in force, pinned so any change is a deliberate
+// two-line edit (constant + this pin) and cannot slip through unnoticed: every
+// change must also sweep the user-facing copy listed on the AuthTokenTTL doc
+// comment, which quotes the value as "3 days".
+const pinnedAuthTokenTTL = 72 * time.Hour
 
 func TestAuthTokenTTL_WithinSecurityCeiling(t *testing.T) {
 	if AuthTokenTTL > maxAuthTokenTTL {
 		t.Errorf("AuthTokenTTL = %v, exceeds the %v ceiling: a stolen session survives that long unrevoked", AuthTokenTTL, maxAuthTokenTTL)
+	}
+}
+
+func TestAuthTokenTTL_IsPinned(t *testing.T) {
+	if AuthTokenTTL != pinnedAuthTokenTTL {
+		t.Errorf("AuthTokenTTL = %v, want %v: update the pin and sweep the copy that quotes the value", AuthTokenTTL, pinnedAuthTokenTTL)
 	}
 }
 

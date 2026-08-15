@@ -12,16 +12,18 @@ import { ConfirmModal } from "./ConfirmModal";
 // produces them any more and member-side rotation prunes only the member's own
 // scheduled files, so they stay until an operator clears them here. That makes
 // the section legacy cleanup: it renders only while such dumps are known to
-// exist (a dry-run probe on mount finds at least one) and retires itself once a
-// run has cleared them, so a fleet that never had any never sees it. Deleting
-// backups is destructive, so the run is two-step: a preview counts what would
-// go, and the confirmation names that number.
+// exist and retires itself once a run has cleared them, so a fleet that never
+// had any never sees it. "Known to exist" comes from the server's count of the
+// last listing it read per member (its backup watchdog, or a prune run), so
+// opening Settings costs no member calls. Deleting backups is destructive, so
+// the run is two-step: a preview counts what would go, and the confirmation
+// names that number.
 export function FleetMaintenancePanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	// Whether frontdesk-origin dumps are known to exist. Starts false so nothing
-	// flashes in and out while the probe is in flight; a failed probe or an
-	// unreadable member is not evidence of dumps, so both leave it false.
+	// flashes in and out while the count is in flight; a failed read is not
+	// evidence of dumps and leaves it false.
 	const [hasBackups, setHasBackups] = useState(false);
 	// The preview result, non-null exactly while the confirmation is open.
 	const [preview, setPreview] = useState<BackupPruneResult | null>(null);
@@ -31,9 +33,9 @@ export function FleetMaintenancePanel() {
 	useEffect(() => {
 		let cancelled = false;
 		api
-			.pruneFrontDeskBackups(true)
+			.frontDeskBackupCount()
 			.then((res) => {
-				if (!cancelled) setHasBackups(res.deleted > 0);
+				if (!cancelled) setHasBackups(res.count > 0);
 			})
 			.catch(() => {});
 		return () => {
@@ -44,7 +46,7 @@ export function FleetMaintenancePanel() {
 	const startPrune = async () => {
 		setPreviewing(true);
 		try {
-			setPreview(await api.pruneFrontDeskBackups(true));
+			setPreview(await api.previewFrontDeskBackupPrune());
 		} catch {
 			toast(t("settings.maintenance.pruneFailed"), "error");
 		} finally {
@@ -57,9 +59,13 @@ export function FleetMaintenancePanel() {
 		try {
 			const res = await api.pruneFrontDeskBackups();
 			setPreview(null);
-			// A refused delete means dumps remain, so the section stays for another
-			// go; otherwise everything it existed for is gone and it retires.
-			setHasBackups(res.failed > 0);
+			// The section stays for another go while anything may remain: a refused
+			// delete certainly does, and a member that could not be read (or had no
+			// stored token) was never counted, so its dumps are unknown rather than
+			// gone. Only a run that reached every member and was refused nothing
+			// retires it. Deliberately stricter than the mount rule, which needs
+			// positive evidence to show the section in the first place.
+			setHasBackups(res.failed > 0 || res.results.some((r) => r.error));
 			toast(
 				t("settings.maintenance.pruneDone", { count: res.deleted }),
 				res.failed > 0 ? "error" : "success",

@@ -14,6 +14,7 @@ import type {
 	FleetStatus,
 	FleetSyncState,
 	FleetVersionCheck,
+	FrontDeskBackupCount,
 	Member,
 	MemberState,
 	MemberTraffic,
@@ -272,15 +273,29 @@ export const api = {
 			jsonInit("POST", { primary_id: primaryId }),
 		),
 
+	// How many frontdesk-origin pg_dumps the fleet holds, as of the last time
+	// Front Desk read each member's listing (its backup watchdog or a prune run).
+	// Cheap: the server answers from memory and calls no member. Settings uses it
+	// to decide whether Fleet maintenance has anything to offer.
+	frontDeskBackupCount: () =>
+		request<FrontDeskBackupCount>("/api/fleet/backups/frontdesk-count"),
+
+	// Counts the frontdesk-origin pg_dumps a real prune would delete, deleting
+	// nothing, so the confirmation can name the number. Its own function rather
+	// than a flag on pruneFrontDeskBackups: the destructive call must never be one
+	// dropped argument away from a preview.
+	previewFrontDeskBackupPrune: () =>
+		request<BackupPruneResult>("/api/fleet/backups/prune-frontdesk?dryRun=1", {
+			method: "POST",
+		}),
+
 	// Deletes every frontdesk-origin pg_dump from every member Front Desk can
 	// authenticate to. Nothing produces those snapshots and member-side rotation
-	// spares them, so they stay until this clears them. dryRun counts what would go,
-	// so the confirmation can name the number.
-	pruneFrontDeskBackups: (dryRun = false) =>
-		request<BackupPruneResult>(
-			`/api/fleet/backups/prune-frontdesk${dryRun ? "?dryRun=1" : ""}`,
-			{ method: "POST" },
-		),
+	// spares them, so they stay until this clears them.
+	pruneFrontDeskBackups: () =>
+		request<BackupPruneResult>("/api/fleet/backups/prune-frontdesk", {
+			method: "POST",
+		}),
 
 	// Re-poll member versions and report the ones that differ from the
 	// primary's. Powers the wizard's version gate and its Refresh button.
