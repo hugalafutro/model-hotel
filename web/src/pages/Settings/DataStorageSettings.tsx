@@ -14,9 +14,9 @@ import {
 	getArenaHistoryCount,
 } from "../../utils/arenaHistory";
 import {
-	goDurationToHours,
 	goDurationToMinutes,
 	hoursToGoDuration,
+	logRetentionToDays,
 	minutesToGoDuration,
 } from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
@@ -131,9 +131,8 @@ export function DataStorageSettings({
 	const staleRequestTimeout = settings?.stale_request_timeout || "30m0s";
 	// Quota sidebar refresh interval is a server setting (minutes, 0 = off).
 	const quotaRefreshMin = Number(settings?.quota_refresh_interval_min ?? 5);
-	// The backend stores retention as a Go duration in hours; the slider
-	// speaks days so a week reads as 7, not 168.
-	const logRetentionDays = Math.round(goDurationToHours(logRetention) / 24);
+	// The slider is in days; the backend stores a Go duration in hours.
+	const logRetentionDays = logRetentionToDays(logRetention);
 	const staleTimeoutMinutes = goDurationToMinutes(staleRequestTimeout);
 
 	// The dropdown values (1d/1w/1m/all) are exactly the tokens the backend's
@@ -166,6 +165,7 @@ export function DataStorageSettings({
 								min={0}
 								max={30}
 								step={1}
+								clampStep={1}
 								infinityValue={0}
 								unit="d"
 								onChange={(v) =>

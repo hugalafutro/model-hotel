@@ -291,8 +291,8 @@ html[data-ui-style="glassmorphism-lite"].dark {
 
 	/* Text sits on translucent panes over a dark gradient, so the whole scale
 	   runs whiter than the opaque themes: mid-grey labels and values bleed into
-	   the glass and read as disabled. Disabled state still comes from opacity,
-	   so the hierarchy survives the lift. */
+	   the glass and read as disabled. Disabled state is opacity-based, so the
+	   hierarchy holds at these values. */
 	--text-primary: #f4f5fa;
 	--text-secondary: #d9dcea;
 	--text-tertiary: #9ea4c0;

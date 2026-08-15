@@ -7,7 +7,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -329,52 +331,84 @@ func logRetentionLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *set
 	}
 }
 
+// errRetentionUnparseable marks a log_retention value that is neither a
+// duration nor a legacy token; a disabled value is not an error.
+var errRetentionUnparseable = errors.New("log_retention: not a duration")
+
 // parseLogRetention turns the log_retention setting into a retention window.
-// The dashboard stores the slider as a Go duration ("48h", "168h0m0s"), and
-// older installs may still hold the pre-slider tokens (1d/1w/1m). It returns
-// ok=false for the disabled forms ("", "0", any non-positive duration) and for
-// values that parse as nothing at all.
-func parseLogRetention(raw string) (time.Duration, bool) {
+// The dashboard stores the day slider as a Go duration in hours ("48h",
+// "168h0m0s"); the pre-slider dropdown wrote 1d/1w/1m, and installs that never
+// touched the setting since may still hold one. Note that "1m" is that legacy
+// 30-day token, not one minute; a minute-scale window is "60m" or "1h".
+//
+// enabled=false means the sweep must not run: "", "0", or any duration that
+// parsed to zero or negative ("0s" is the usual disabled form for duration
+// settings). err is set only when the value cannot be read at all.
+func parseLogRetention(raw string) (window time.Duration, enabled bool, err error) {
 	switch raw {
 	case "", "0":
-		return 0, false
+		return 0, false, nil
 	case "1d":
-		return 24 * time.Hour, true
+		return 24 * time.Hour, true, nil
 	case "1w":
-		return 7 * 24 * time.Hour, true
+		return 7 * 24 * time.Hour, true, nil
 	case "1m":
-		return 30 * 24 * time.Hour, true
+		return 30 * 24 * time.Hour, true, nil
 	}
 	d, err := time.ParseDuration(raw)
-	if err != nil || d <= 0 {
-		return 0, false
+	if err != nil {
+		return 0, false, errRetentionUnparseable
 	}
-	return d, true
+	if d <= 0 {
+		return 0, false, nil
+	}
+	return d, true, nil
+}
+
+// retentionWarned remembers the last log_retention value the sweep warned
+// about, so a bad value costs one warning, not one per hour forever. That
+// matters because warnings land in app_logs and a bad value is exactly the
+// case where the sweep never prunes them. Guarded because tests drive the
+// pass directly, not only from the loop goroutine.
+var retentionWarned struct {
+	sync.Mutex
+	value string
 }
 
 // logRetentionPass runs one retention sweep. A disabled value skips silently;
-// a value that cannot be parsed skips too, but says so, because a retention
-// setting that silently never fires is exactly the failure an operator cannot
+// a value the sweep cannot read skips too, but says so once, because a
+// retention setting that silently never fires is a failure the operator cannot
 // see from the dashboard.
 func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
-	window, ok := parseLogRetention(retention)
-	if !ok {
-		if retention != "" && retention != "0" {
+	window, enabled, err := parseLogRetention(retention)
+	if err != nil {
+		retentionWarned.Lock()
+		unseen := retentionWarned.value != retention
+		retentionWarned.value = retention
+		retentionWarned.Unlock()
+		if unseen {
 			debuglog.Warn("retention: log_retention value not understood, skipping sweep", "retention", retention)
 		}
+		return
+	}
+	if !enabled {
 		return
 	}
 	cutoff := time.Now().Add(-window)
 	tag, err := pool.Exec(context.Background(),
 		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
-	if err == nil {
+	if err != nil {
+		debuglog.Error("retention: request log delete failed", "error", err)
+	} else {
 		debuglog.Info("retention: log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
 	}
 	// Clean app_logs with same retention
 	tag, err = pool.Exec(context.Background(),
 		`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
-	if err == nil {
+	if err != nil {
+		debuglog.Error("retention: app log delete failed", "error", err)
+	} else {
 		debuglog.Info("retention: app log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
 	}
 }

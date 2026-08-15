@@ -195,7 +195,7 @@ Request lifecycle events are published to the event bus:
 
 The `log_retention` setting controls how long request logs are kept. When set, a background goroutine purges logs older than the retention period every hour.
 
-**Accepted values:** `1h`, `1d` (or `24h`), `1w` (or `168h`), `1m` (or `720h`). Set to `0` or leave empty to disable automatic cleanup.
+**Accepted values:** any Go duration string (`24h`, `48h`, `168h0m0s`, ...); the dashboard slider stores whole days as hours. The legacy tokens `1d`, `1w`, and `1m` are still accepted, where `1m` means 30 days, not one minute. Set to `0` (or any zero duration) or leave empty to disable automatic cleanup. A value that cannot be read is skipped and logged as a warning.
 
 This setting can be changed at runtime via the Settings API (`PUT /api/settings`).
 

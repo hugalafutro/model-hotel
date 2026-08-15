@@ -1194,7 +1194,7 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `discovery_interval` | string | Duration (e.g. `"6h"`, `"0"` = disabled) |
 | `discovery_on_startup` | string | `"true"` or `"false"` |
 | `discovery_on_provider_create` | string | `"true"` or `"false"` |
-| `log_retention` | string | `"1h"`, `"1d"`/`"24h"`, `"1w"`/`"168h"`, `"1m"`/`"720h"`, `"0"` (disable), or empty (keep forever) |
+| `log_retention` | string | Any Go duration (`"24h"`, `"48h"`, `"168h0m0s"`); legacy `"1d"`/`"1w"`/`"1m"` (30 days) still accepted; `"0"` or empty = keep forever |
 | `stale_request_timeout` | string | Duration |
 | `key_cache_ttl` | string | Duration (e.g. `"10m0s"`) |
 | `ttft_timeout` | string | Duration; time-to-first-token probe timeout for streaming (`"0s"` disables) |

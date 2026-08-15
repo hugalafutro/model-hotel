@@ -4,6 +4,7 @@ import {
 	goDurationToMinutes,
 	goDurationToSeconds,
 	hoursToGoDuration,
+	logRetentionToDays,
 	minutesToGoDuration,
 	secondsToGoDuration,
 } from "../duration";
@@ -213,5 +214,30 @@ describe("minutesToGoDuration", () => {
 
 	it("converts negative to 0", () => {
 		expect(minutesToGoDuration(-1)).toBe("0");
+	});
+});
+
+describe("logRetentionToDays", () => {
+	it("maps disabled forms to the slider's never position", () => {
+		expect(logRetentionToDays("0")).toBe(0);
+		expect(logRetentionToDays("")).toBe(0);
+		expect(logRetentionToDays("0s")).toBe(0);
+	});
+
+	it("maps stored hours to whole days", () => {
+		expect(logRetentionToDays("168h0m0s")).toBe(7);
+		expect(logRetentionToDays("48h")).toBe(2);
+		expect(logRetentionToDays("720h")).toBe(30);
+	});
+
+	it("honours the legacy dropdown tokens, with 1m meaning 30 days", () => {
+		expect(logRetentionToDays("1d")).toBe(1);
+		expect(logRetentionToDays("1w")).toBe(7);
+		expect(logRetentionToDays("1m")).toBe(30);
+	});
+
+	it("shows an enabled sub-day window as 1, never as off", () => {
+		expect(logRetentionToDays("1h")).toBe(1);
+		expect(logRetentionToDays("6h")).toBe(1);
 	});
 });
