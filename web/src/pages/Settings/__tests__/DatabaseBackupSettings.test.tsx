@@ -721,10 +721,8 @@ describe("DatabaseBackupSettings", () => {
 		await user.type(tokenInput, "test-admin-token");
 		// A signed restore: the pasted sidecar rides along and no unsigned
 		// speed bump appears.
-		await user.type(
-			screen.getByLabelText("Backup signature (optional)"),
-			"cafebabe",
-		);
+		const hex = "cafebabe".repeat(8);
+		await user.type(screen.getByLabelText("Backup signature (optional)"), hex);
 
 		const restoreButton = screen.getByRole("button", {
 			name: /restore database/i,
@@ -736,14 +734,19 @@ describe("DatabaseBackupSettings", () => {
 
 		await waitFor(() => {
 			// The multipart body carries the pasted sidecar as its own part.
-			expect(receivedBody).toMatch(/name="signature"\r\n\r\ncafebabe/);
+			expect(receivedBody).toMatch(
+				new RegExp(`name="signature"\\r\\n\\r\\n${hex}`),
+			);
 		});
 
-		// Should show restoring state and success toast
+		// A 200 with a signature supplied means the server verified it (a
+		// mismatch is a 400), so the toast says so.
 		await waitFor(
 			() => {
 				expect(
-					screen.getByText("Database restored. The server is restarting…"),
+					screen.getByText(
+						"Database restored, signature verified. The server is restarting…",
+					),
 				).toBeInTheDocument();
 			},
 			{ timeout: 5000 },
@@ -756,6 +759,70 @@ describe("DatabaseBackupSettings", () => {
 			},
 			{ timeout: 5000 },
 		);
+	});
+
+	it("copies a signed backup's signature to the clipboard", async () => {
+		const user = userEvent.setup();
+		const hex = "0123456789abcdef".repeat(4);
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([
+					{ ...mockBackups[0], signed: true },
+					{ ...mockBackups[1], signed: false },
+				]),
+			),
+			http.get("/api/backups/:filename/signature", ({ params }) => {
+				if (params.filename !== mockBackups[0].filename) {
+					return new HttpResponse("backup is not signed", { status: 404 });
+				}
+				return HttpResponse.json({ signature: hex });
+			}),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Only the signed backup offers the button: an unsigned one has nothing
+		// to copy, which the listing already knows.
+		const copyButtons = await screen.findAllByRole("button", {
+			name: "Copy signature",
+		});
+		expect(copyButtons).toHaveLength(1);
+
+		await user.click(copyButtons[0]);
+
+		expect(
+			await screen.findByText("Signature copied to clipboard"),
+		).toBeInTheDocument();
+		// userEvent.setup() installs a working clipboard stub; read back what
+		// the component wrote to it.
+		expect(await navigator.clipboard.readText()).toBe(hex);
+	});
+
+	it("reports a failed signature copy", async () => {
+		const user = userEvent.setup();
+		server.use(
+			http.get("/api/backups", () =>
+				HttpResponse.json([{ ...mockBackups[0], signed: true }]),
+			),
+			http.get(
+				"/api/backups/:filename/signature",
+				() => new HttpResponse(null, { status: 500 }),
+			),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await user.click(
+			await screen.findByRole("button", { name: "Copy signature" }),
+		);
+
+		expect(
+			await screen.findByText(/could not copy signature:/i),
+		).toBeInTheDocument();
 	});
 
 	it("shows error toast when restore fails", async () => {

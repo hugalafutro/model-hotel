@@ -1858,7 +1858,11 @@
 			},
 			"availableBackupsTitle": "Backup-uri disponibile",
 			"manuallyCreated": "Manual",
-			"frontDeskCreated": "Creat de Front Desk înainte de o sincronizare a configurației HA"
+			"frontDeskCreated": "Creat de Front Desk înainte de o sincronizare a configurației HA",
+			"restoreSuccessVerified": "Baza de date a fost restaurată, semnătura verificată. Serverul repornește…",
+			"copySignature": "Copiază semnătura",
+			"signatureCopied": "Semnătura a fost copiată în clipboard",
+			"signatureCopyFailed": "Semnătura nu a putut fi copiată: {{message}}"
 		},
 		"appearance": {
 			"title": "Aspectul",
@@ -2236,12 +2240,13 @@
 			"cancel": "Anulează",
 			"signatureLabel": "Semnătura copiei de rezervă (opțional)",
 			"signaturePlaceholder": "Lipiți conținutul fișierului .sig al copiei de rezervă",
-			"signatureHelp": "Lăsați gol pentru o copie fără semnătură: făcută înainte să existe semnarea, creată de altă instanță sau semnată cu un MASTER_KEY anterior.",
+			"signatureHelp": "Folosiți „Copiază semnătura” pe rândul copiei de rezervă din listă, sau citiți DATA_DIR/backups/<name>.dump.sig pe server. Lăsați gol pentru o copie fără semnătură: făcută înainte să existe semnarea, creată de altă instanță sau semnată cu un MASTER_KEY anterior. Semnătura acoperă și numele fișierului, așa că o descărcare redenumită de browser nu se va verifica până nu își recapătă numele.",
 			"unsignedTitle": "Restaurați o copie de rezervă nesemnată?",
 			"unsignedHeadline": "Acest dump nu este semnat și conținutul lui nu poate fi verificat",
 			"unsignedWarning": "Nu a fost furnizată nicio semnătură, așa că nimic nu verifică dacă acest dump este ceea ce pretinde a fi. Verificarea dinaintea restaurării se uită la tipurile de obiecte din dump, nu la rândurile pe care le conțin: o copie cu un cont de administrator plantat sau o adresă de furnizor redirecționată ar trece-o. Continuați doar cu un dump pe care l-ați obținut singur și pentru care puteți răspunde.",
 			"back": "Înapoi",
-			"restoreAnyway": "Restaurați oricum"
+			"restoreAnyway": "Restaurați oricum",
+			"signatureInvalid": "O semnătură are 64 de caractere hexazecimale; verificați ce ați lipit."
 		},
 		"modal": {
 			"closeDialog": "Închide dialogul",

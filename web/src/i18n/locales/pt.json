@@ -1858,7 +1858,11 @@
 			},
 			"availableBackupsTitle": "Backups disponíveis",
 			"manuallyCreated": "Manual",
-			"frontDeskCreated": "Criado pelo Front Desk antes de uma sincronização de configuração de HA"
+			"frontDeskCreated": "Criado pelo Front Desk antes de uma sincronização de configuração de HA",
+			"restoreSuccessVerified": "Banco de dados restaurado, assinatura verificada. O servidor está reiniciando…",
+			"copySignature": "Copiar assinatura",
+			"signatureCopied": "Assinatura copiada para a área de transferência",
+			"signatureCopyFailed": "Não foi possível copiar a assinatura: {{message}}"
 		},
 		"appearance": {
 			"title": "Aparência",
@@ -2236,12 +2240,13 @@
 			"cancel": "cancelar",
 			"signatureLabel": "Assinatura do backup (opcional)",
 			"signaturePlaceholder": "Cole o conteúdo do arquivo .sig do backup",
-			"signatureHelp": "Deixe em branco para um backup sem assinatura: feito antes de a assinatura existir, criado por outra instância ou assinado com uma MASTER_KEY anterior.",
+			"signatureHelp": "Use \"Copiar assinatura\" na linha do backup na lista, ou leia DATA_DIR/backups/<name>.dump.sig no servidor. Deixe em branco para um backup sem assinatura: feito antes de a assinatura existir, criado por outra instância ou assinado com uma MASTER_KEY anterior. A assinatura também cobre o nome do arquivo, então um download renomeado pelo navegador não será verificado até recuperar o nome original.",
 			"unsignedTitle": "Restaurar um backup não assinado?",
 			"unsignedHeadline": "Este dump não está assinado e seu conteúdo não pode ser verificado",
 			"unsignedWarning": "Nenhuma assinatura foi fornecida, então nada verifica se este dump é o que afirma ser. A inspeção anterior à restauração examina os tipos de objetos no dump, não as linhas que eles contêm: um backup com uma conta de administrador plantada ou um endereço de provedor redirecionado passaria por ela. Continue apenas com um dump que você mesmo obteve e cuja origem pode explicar.",
 			"back": "Voltar",
-			"restoreAnyway": "Restaurar mesmo assim"
+			"restoreAnyway": "Restaurar mesmo assim",
+			"signatureInvalid": "Uma assinatura tem 64 caracteres hexadecimais; confira o que foi colado."
 		},
 		"modal": {
 			"closeDialog": "Fechar diálogo",

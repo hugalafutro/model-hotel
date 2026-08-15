@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
 			"manuallyCreated": "Manuaalinen",
-			"frontDeskCreated": "Front Deskin luoma ennen HA-määritysten synkronointia"
+			"frontDeskCreated": "Front Deskin luoma ennen HA-määritysten synkronointia",
+			"restoreSuccessVerified": "Tietokanta palautettu, allekirjoitus todennettu. Palvelin käynnistyy uudelleen…",
+			"copySignature": "Kopioi allekirjoitus",
+			"signatureCopied": "Allekirjoitus kopioitu leikepöydälle",
+			"signatureCopyFailed": "Allekirjoituksen kopiointi epäonnistui: {{message}}"
 		},
 		"appearance": {
 			"title": "Ulkoasu",
@@ -2184,12 +2188,13 @@
 			"cancel": "Peruuta",
 			"signatureLabel": "Varmuuskopion allekirjoitus (valinnainen)",
 			"signaturePlaceholder": "Liitä varmuuskopion .sig-tiedoston sisältö",
-			"signatureHelp": "Jätä tyhjäksi, jos varmuuskopiolla ei ole allekirjoitusta: se on otettu ennen allekirjoituksen käyttöönottoa, tehty toisessa instanssissa tai allekirjoitettu aiemmalla MASTER_KEY-avaimella.",
+			"signatureHelp": "Käytä \"Kopioi allekirjoitus\" -painiketta varmuuskopion rivillä luettelossa tai lue DATA_DIR/backups/<name>.dump.sig palvelimelta. Jätä tyhjäksi, jos varmuuskopiolla ei ole allekirjoitusta: otettu ennen allekirjoituksen käyttöönottoa, tehty toisessa instanssissa tai allekirjoitettu aiemmalla MASTER_KEY-avaimella. Allekirjoitus kattaa myös tiedostonimen, joten selaimen uudelleennimeämä lataus ei todennu, ennen kuin nimi on palautettu.",
 			"unsignedTitle": "Palautetaanko allekirjoittamaton varmuuskopio?",
 			"unsignedHeadline": "Tätä vedosta ei ole allekirjoitettu eikä sen sisältöä voi todentaa",
 			"unsignedWarning": "Allekirjoitusta ei annettu, joten mikään ei tarkista, että tämä vedos on se, mikä se väittää olevansa. Palautusta edeltävä tarkistus katsoo vedoksen objektityyppejä, ei niiden sisältämiä rivejä: varmuuskopio, johon on istutettu ylläpitäjätili tai jonka palveluntarjoajan osoite on vaihdettu, läpäisisi sen. Jatka vain vedoksella, jonka olet itse hankkinut ja jonka alkuperän voit selittää.",
 			"back": "Takaisin",
-			"restoreAnyway": "Palauta silti"
+			"restoreAnyway": "Palauta silti",
+			"signatureInvalid": "Allekirjoitus on 64 heksadesimaalimerkkiä; tarkista liitetty teksti."
 		},
 		"modal": {
 			"closeDialog": "Sulje ikkuna",

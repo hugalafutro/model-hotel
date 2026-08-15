@@ -59,6 +59,7 @@ class OpenUrlDialogTest {
         val started = nextStartedActivity()
         assertEquals(Intent.ACTION_VIEW, started?.action)
         assertEquals("https://mh.example.org/", started?.data?.toString())
+        assertTrue(started?.hasCategory(Intent.CATEGORY_BROWSABLE) == true)
         assertTrue(dismissed)
     }
 

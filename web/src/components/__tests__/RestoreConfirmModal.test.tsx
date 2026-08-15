@@ -96,18 +96,72 @@ describe("RestoreConfirmModal", () => {
 			screen.getByLabelText("Confirm with admin token"),
 			"  test-token  ",
 		);
+		const hex = "deadbeef".repeat(8);
 		await user.type(
 			screen.getByLabelText("Backup signature (optional)"),
-			" deadbeef\n",
+			` ${hex}\n`,
 		);
 
 		await user.click(screen.getByRole("button", { name: "Restore Database" }));
 
-		// A signed restore needs no second step.
-		expect(onConfirm).toHaveBeenCalledWith("test-token", "deadbeef");
+		// A signed restore needs no second step, and the paste travels trimmed.
+		expect(onConfirm).toHaveBeenCalledWith("test-token", hex);
 		expect(
 			screen.queryByRole("heading", { name: "Restore an unsigned backup?" }),
 		).not.toBeInTheDocument();
+	});
+
+	it("blocks a malformed signature before anything is uploaded", async () => {
+		const user = userEvent.setup();
+		const onConfirm = vi.fn();
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={onConfirm}
+				isPending={false}
+			/>,
+		);
+
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		const sigField = screen.getByLabelText("Backup signature (optional)");
+		await user.type(sigField, "not-a-signature");
+
+		// A sidecar is 64 hex chars; a bad paste is flagged inline and the
+		// restore button stays disabled, so no dump is uploaded to be refused.
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"A signature is 64 hexadecimal characters; check the paste.",
+		);
+		expect(sigField).toHaveAttribute("aria-invalid", "true");
+		const restoreButton = screen.getByRole("button", {
+			name: "Restore Database",
+		});
+		expect(restoreButton).toBeDisabled();
+		await user.click(restoreButton);
+		expect(onConfirm).not.toHaveBeenCalled();
+
+		// Fixing the paste clears the error and enables the button.
+		await user.clear(sigField);
+		await user.type(sigField, "0123456789abcdef".repeat(4));
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+		expect(restoreButton).toBeEnabled();
+	});
+
+	it("wires the help text to the signature field", () => {
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				isPending={false}
+			/>,
+		);
+		expect(
+			screen.getByLabelText("Backup signature (optional)"),
+		).toHaveAccessibleDescription(/Copy signature/);
 	});
 
 	it("does not restore an unsigned dump until the second confirm", async () => {

@@ -1062,6 +1062,7 @@ The purge is itself a mutating request and is recorded by the audit middleware, 
 | `/api/backups` | POST | Create a new backup |
 | `/api/backups/restore` | POST | Restore the database from an uploaded backup file |
 | `/api/backups/{filename}` | GET | Download a backup file |
+| `/api/backups/{filename}/signature` | GET | Fetch a backup's signature sidecar (for the restore form) |
 | `/api/backups/{filename}` | DELETE | Delete a backup |
 | `/api/backups/prune-preview` | POST | Preview which backups would be pruned (dry run) |
 | `/api/backups/prune` | POST | Execute backup rotation and prune old backups |
@@ -1104,6 +1105,19 @@ Creates a PostgreSQL backup using `pg_dump`.
 Downloads the backup file.
 
 **Response:** File download with `Content-Disposition: attachment`
+
+#### GET `/api/backups/{filename}/signature`
+
+Returns the backup's HMAC signature sidecar, the value the restore endpoint takes in its `signature` form field. The download serves the dump alone, so this is how an operator without shell access to the backup directory carries the signature to a restore. Not verified here: the restore checks it against the uploaded bytes.
+
+**Response:**
+```json
+{ "signature": "3f1a…64 hex characters…" }
+```
+
+**Error Responses:**
+- `400 Bad Request` - Invalid filename
+- `404 Not Found` - Backup does not exist, or has no signature (backups predating signing, or created without a `MASTER_KEY`)
 
 #### DELETE `/api/backups/{filename}`
 

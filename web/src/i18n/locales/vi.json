@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Các bản sao lưu hiện có",
 			"manuallyCreated": "Thủ công",
-			"frontDeskCreated": "Được Front Desk tạo trước khi đồng bộ cấu hình HA"
+			"frontDeskCreated": "Được Front Desk tạo trước khi đồng bộ cấu hình HA",
+			"restoreSuccessVerified": "Đã khôi phục cơ sở dữ liệu, chữ ký đã được xác minh. Máy chủ đang khởi động lại…",
+			"copySignature": "Sao chép chữ ký",
+			"signatureCopied": "Đã sao chép chữ ký vào bảng nhớ tạm",
+			"signatureCopyFailed": "Không thể sao chép chữ ký: {{message}}"
 		},
 		"appearance": {
 			"title": "Hình thức",
@@ -2184,12 +2188,13 @@
 			"cancel": "Hủy",
 			"signatureLabel": "Chữ ký bản sao lưu (tùy chọn)",
 			"signaturePlaceholder": "Dán nội dung tệp .sig của bản sao lưu",
-			"signatureHelp": "Để trống đối với bản sao lưu không có chữ ký: bản được tạo trước khi có tính năng ký, do một phiên bản khác tạo, hoặc được ký bằng MASTER_KEY trước đó.",
+			"signatureHelp": "Dùng \"Sao chép chữ ký\" trên hàng của bản sao lưu trong danh sách, hoặc đọc DATA_DIR/backups/<name>.dump.sig trên máy chủ. Để trống đối với bản sao lưu không có chữ ký: tạo trước khi có tính năng ký, do một phiên bản khác tạo, hoặc được ký bằng MASTER_KEY trước đó. Chữ ký cũng bao gồm tên tệp, nên bản tải xuống bị trình duyệt đổi tên sẽ không xác minh được cho đến khi được đổi lại tên gốc.",
 			"unsignedTitle": "Khôi phục bản sao lưu chưa ký?",
 			"unsignedHeadline": "Tệp dump này chưa được ký và không thể xác minh nội dung",
 			"unsignedWarning": "Không có chữ ký nào được cung cấp, nên không có gì kiểm tra rằng tệp dump này đúng như nó tuyên bố. Bước kiểm tra trước khi khôi phục chỉ xem các loại đối tượng trong dump, không xem các hàng bên trong: một bản sao lưu có tài khoản quản trị bị cài cắm hoặc địa chỉ nhà cung cấp bị chuyển hướng vẫn sẽ vượt qua. Chỉ tiếp tục với tệp dump mà bạn tự lấy và có thể giải trình nguồn gốc.",
 			"back": "Quay lại",
-			"restoreAnyway": "Vẫn khôi phục"
+			"restoreAnyway": "Vẫn khôi phục",
+			"signatureInvalid": "Chữ ký gồm 64 ký tự thập lục phân; hãy kiểm tra nội dung đã dán."
 		},
 		"modal": {
 			"closeDialog": "Đóng hộp thoại",

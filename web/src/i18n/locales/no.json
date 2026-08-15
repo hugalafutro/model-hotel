@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
 			"manuallyCreated": "Manuell",
-			"frontDeskCreated": "Opprettet av Front Desk før en HA-konfigurasjonssynkronisering"
+			"frontDeskCreated": "Opprettet av Front Desk før en HA-konfigurasjonssynkronisering",
+			"restoreSuccessVerified": "Database gjenopprettet, signatur verifisert. Serveren starter på nytt…",
+			"copySignature": "Kopier signatur",
+			"signatureCopied": "Signatur kopiert til utklippstavlen",
+			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}"
 		},
 		"appearance": {
 			"title": "Utseende",
@@ -2184,12 +2188,13 @@
 			"cancel": "Avbryt",
 			"signatureLabel": "Signatur for sikkerhetskopi (valgfritt)",
 			"signaturePlaceholder": "Lim inn innholdet i sikkerhetskopiens .sig-fil",
-			"signatureHelp": "La feltet stå tomt for en sikkerhetskopi uten signatur: en tatt før signering fantes, laget av en annen instans eller signert med en tidligere MASTER_KEY.",
+			"signatureHelp": "Bruk «Kopier signatur» på sikkerhetskopiens rad i listen, eller les DATA_DIR/backups/<name>.dump.sig på serveren. La feltet stå tomt for en sikkerhetskopi uten signatur: tatt før signering fantes, laget av en annen instans eller signert med en tidligere MASTER_KEY. Signaturen dekker også filnavnet, så en nedlasting nettleseren har gitt nytt navn verifiseres ikke før den får navnet tilbake.",
 			"unsignedTitle": "Gjenopprette en usignert sikkerhetskopi?",
 			"unsignedHeadline": "Denne dumpen er usignert og innholdet kan ikke verifiseres",
 			"unsignedWarning": "Ingen signatur ble oppgitt, så ingenting kontrollerer at denne dumpen er det den utgir seg for å være. Kontrollen før gjenoppretting ser på typene objekter i dumpen, ikke radene de inneholder: en sikkerhetskopi med en plantet administratorkonto eller en omdirigert leverandøradresse ville bestått den. Fortsett bare med en dump du selv har skaffet og kan gå god for.",
 			"back": "Tilbake",
-			"restoreAnyway": "Gjenopprett likevel"
+			"restoreAnyway": "Gjenopprett likevel",
+			"signatureInvalid": "En signatur er 64 heksadesimale tegn; sjekk det du limte inn."
 		},
 		"modal": {
 			"closeDialog": "Lukk dialog",

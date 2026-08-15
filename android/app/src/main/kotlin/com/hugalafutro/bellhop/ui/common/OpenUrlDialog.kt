@@ -50,7 +50,11 @@ fun ConfirmOpenUrlDialog(
                     // not crash the app.
                     if (isBrowserUrl(url)) {
                         runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            // BROWSABLE narrows the resolver to handlers that
+                            // accept links from outside their own app.
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            intent.addCategory(Intent.CATEGORY_BROWSABLE)
+                            context.startActivity(intent)
                         }
                     }
                     onDismiss()

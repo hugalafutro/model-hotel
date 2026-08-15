@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Tillgängliga säkerhetskopior",
 			"manuallyCreated": "Manuell",
-			"frontDeskCreated": "Skapad av Front Desk före en HA-konfigurationssynkronisering"
+			"frontDeskCreated": "Skapad av Front Desk före en HA-konfigurationssynkronisering",
+			"restoreSuccessVerified": "Databasen återställd, signaturen verifierad. Servern startar om…",
+			"copySignature": "Kopiera signatur",
+			"signatureCopied": "Signaturen kopierad till urklipp",
+			"signatureCopyFailed": "Kunde inte kopiera signaturen: {{message}}"
 		},
 		"appearance": {
 			"title": "Utseende",
@@ -2184,12 +2188,13 @@
 			"cancel": "Avbryt",
 			"signatureLabel": "Signatur för säkerhetskopian (valfritt)",
 			"signaturePlaceholder": "Klistra in innehållet i säkerhetskopians .sig-fil",
-			"signatureHelp": "Lämna tomt för en säkerhetskopia utan signatur: en som togs innan signering fanns, skapades av en annan instans eller signerades med en tidigare MASTER_KEY.",
+			"signatureHelp": "Använd \"Kopiera signatur\" på säkerhetskopians rad i listan, eller läs DATA_DIR/backups/<name>.dump.sig på servern. Lämna tomt för en säkerhetskopia utan signatur: tagen innan signering fanns, skapad av en annan instans eller signerad med en tidigare MASTER_KEY. Signaturen täcker även filnamnet, så en nedladdning som webbläsaren döpt om verifieras inte förrän den fått tillbaka sitt namn.",
 			"unsignedTitle": "Återställa en osignerad säkerhetskopia?",
 			"unsignedHeadline": "Den här dumpen är osignerad och innehållet kan inte verifieras",
 			"unsignedWarning": "Ingen signatur angavs, så inget kontrollerar att den här dumpen är vad den utger sig för att vara. Kontrollen före återställning tittar på vilka typer av objekt dumpen innehåller, inte på raderna i dem: en säkerhetskopia med ett inplanterat administratörskonto eller en omdirigerad leverantörsadress skulle passera den. Fortsätt bara med en dump du själv har hämtat och kan gå i god för.",
 			"back": "Tillbaka",
-			"restoreAnyway": "Återställ ändå"
+			"restoreAnyway": "Återställ ändå",
+			"signatureInvalid": "En signatur är 64 hexadecimala tecken; kontrollera det inklistrade."
 		},
 		"modal": {
 			"closeDialog": "Stäng dialogrutan",

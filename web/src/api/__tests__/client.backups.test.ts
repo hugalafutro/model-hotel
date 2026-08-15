@@ -130,6 +130,35 @@ describe("api.backups", () => {
 		});
 	});
 
+	describe("signature", () => {
+		it("fetches the sidecar contents for a backup", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({ signature: "ab".repeat(32) }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+
+			const result = await api.backups.signature("backup with spaces.dump");
+
+			expect(result).toEqual({ signature: "ab".repeat(32) });
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/backups/backup%20with%20spaces.dump/signature",
+				expect.anything(),
+			);
+		});
+
+		it("throws when the backup is unsigned (404)", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("backup is not signed", { status: 404 }),
+			);
+
+			await expect(api.backups.signature("legacy.dump")).rejects.toThrow(
+				"Failed to fetch backup signature",
+			);
+		});
+	});
+
 	describe("restore", () => {
 		beforeEach(() => {
 			localStorage.clear();

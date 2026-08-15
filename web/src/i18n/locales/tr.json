@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Mevcut Yedeklemeler",
 			"manuallyCreated": "Manuel",
-			"frontDeskCreated": "HA yapılandırma eşitlemesinden önce Front Desk tarafından oluşturuldu"
+			"frontDeskCreated": "HA yapılandırma eşitlemesinden önce Front Desk tarafından oluşturuldu",
+			"restoreSuccessVerified": "Veritabanı geri yüklendi, imza doğrulandı. Sunucu yeniden başlatılıyor…",
+			"copySignature": "İmzayı kopyala",
+			"signatureCopied": "İmza panoya kopyalandı",
+			"signatureCopyFailed": "İmza kopyalanamadı: {{message}}"
 		},
 		"appearance": {
 			"title": "Görünüm",
@@ -2184,12 +2188,13 @@
 			"cancel": "İptal et",
 			"signatureLabel": "Yedek imzası (isteğe bağlı)",
 			"signaturePlaceholder": "Yedeğin .sig dosyasının içeriğini yapıştırın",
-			"signatureHelp": "İmzası olmayan bir yedek için boş bırakın: imzalama özelliği yokken alınmış, başka bir örnek tarafından oluşturulmuş veya önceki bir MASTER_KEY ile imzalanmış olabilir.",
+			"signatureHelp": "Listedeki yedeğin satırında \"İmzayı kopyala\" seçeneğini kullanın veya sunucuda DATA_DIR/backups/<name>.dump.sig dosyasını okuyun. İmzası olmayan bir yedek için boş bırakın: imzalama özelliği yokken alınmış, başka bir örnek tarafından oluşturulmuş veya önceki bir MASTER_KEY ile imzalanmış olabilir. İmza dosya adını da kapsar; bu yüzden tarayıcının yeniden adlandırdığı bir indirme, adı geri düzeltilene kadar doğrulanmaz.",
 			"unsignedTitle": "İmzasız yedek geri yüklensin mi?",
 			"unsignedHeadline": "Bu döküm imzasız ve içeriği doğrulanamıyor",
 			"unsignedWarning": "İmza sağlanmadığı için bu dökümün iddia ettiği şey olup olmadığını hiçbir şey kontrol etmiyor. Geri yükleme öncesi denetim dökümdeki nesne türlerine bakar, içerdikleri satırlara değil: yerleştirilmiş bir yönetici hesabı veya yönlendirilmiş bir sağlayıcı adresi içeren bir yedek bu denetimi geçer. Yalnızca kendiniz edindiğiniz ve kaynağını açıklayabildiğiniz bir dökümle devam edin.",
 			"back": "Geri",
-			"restoreAnyway": "Yine de geri yükle"
+			"restoreAnyway": "Yine de geri yükle",
+			"signatureInvalid": "Bir imza 64 onaltılık karakterden oluşur; yapıştırdığınızı kontrol edin."
 		},
 		"modal": {
 			"closeDialog": "İletişim kutusunu kapat",

@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Beschikbare back-ups",
 			"manuallyCreated": "Handmatig",
-			"frontDeskCreated": "Gemaakt door Front Desk vóór een HA-configuratiesynchronisatie"
+			"frontDeskCreated": "Gemaakt door Front Desk vóór een HA-configuratiesynchronisatie",
+			"restoreSuccessVerified": "Database hersteld, handtekening geverifieerd. De server wordt opnieuw gestart…",
+			"copySignature": "Handtekening kopiëren",
+			"signatureCopied": "Handtekening naar klembord gekopieerd",
+			"signatureCopyFailed": "Kon de handtekening niet kopiëren: {{message}}"
 		},
 		"appearance": {
 			"title": "Uiterlijk",
@@ -2184,12 +2188,13 @@
 			"cancel": "annuleren",
 			"signatureLabel": "Back-uphandtekening (optioneel)",
 			"signaturePlaceholder": "Plak de inhoud van het .sig-bestand van de back-up",
-			"signatureHelp": "Laat leeg voor een back-up zonder handtekening: gemaakt voordat ondertekening bestond, door een andere instantie, of ondertekend met een eerdere MASTER_KEY.",
+			"signatureHelp": "Gebruik \"Handtekening kopiëren\" op de rij van de back-up in de lijst, of lees DATA_DIR/backups/<name>.dump.sig op de server. Laat leeg voor een back-up zonder handtekening: gemaakt voordat ondertekening bestond, door een andere instantie, of ondertekend met een eerdere MASTER_KEY. De handtekening dekt ook de bestandsnaam, dus een download die de browser heeft hernoemd verifieert pas nadat je de naam hebt teruggezet.",
 			"unsignedTitle": "Een niet-ondertekende back-up herstellen?",
 			"unsignedHeadline": "Deze dump is niet ondertekend en de inhoud kan niet worden geverifieerd",
 			"unsignedWarning": "Er is geen handtekening opgegeven, dus niets controleert of deze dump is wat hij beweert te zijn. De controle vóór het herstel kijkt naar de soorten objecten in de dump, niet naar de rijen die ze bevatten: een back-up met een geplaatst beheerdersaccount of een omgeleid provideradres zou erdoorheen komen. Ga alleen verder met een dump die je zelf hebt verkregen en waarvoor je kunt instaan.",
 			"back": "Terug",
-			"restoreAnyway": "Toch herstellen"
+			"restoreAnyway": "Toch herstellen",
+			"signatureInvalid": "Een handtekening bestaat uit 64 hexadecimale tekens; controleer wat je hebt geplakt."
 		},
 		"modal": {
 			"closeDialog": "Dialoogvenster sluiten",

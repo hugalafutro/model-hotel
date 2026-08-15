@@ -1906,7 +1906,11 @@
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
 			"manuallyCreated": "Ručně",
-			"frontDeskCreated": "Vytvořeno nástrojem Front Desk před synchronizací konfigurace HA"
+			"frontDeskCreated": "Vytvořeno nástrojem Front Desk před synchronizací konfigurace HA",
+			"restoreSuccessVerified": "Databáze obnovena, podpis ověřen. Server se restartuje…",
+			"copySignature": "Kopírovat podpis",
+			"signatureCopied": "Podpis zkopírován do schránky",
+			"signatureCopyFailed": "Podpis se nepodařilo zkopírovat: {{message}}"
 		},
 		"appearance": {
 			"title": "Vzhled",
@@ -2288,12 +2292,13 @@
 			"cancel": "Zrušit",
 			"signatureLabel": "Podpis zálohy (volitelné)",
 			"signaturePlaceholder": "Vložte obsah souboru .sig zálohy",
-			"signatureHelp": "Ponechte prázdné u zálohy bez podpisu: pořízené před zavedením podepisování, vytvořené jinou instancí nebo podepsané předchozím MASTER_KEY.",
+			"signatureHelp": "Použijte „Kopírovat podpis“ na řádku zálohy v seznamu, nebo si přečtěte DATA_DIR/backups/<name>.dump.sig na serveru. Ponechte prázdné u zálohy bez podpisu: pořízené před zavedením podepisování, vytvořené jinou instancí nebo podepsané předchozím MASTER_KEY. Podpis pokrývá i název souboru, takže stažený soubor, který prohlížeč přejmenoval, se neověří, dokud mu název nevrátíte.",
 			"unsignedTitle": "Obnovit nepodepsanou zálohu?",
 			"unsignedHeadline": "Tento dump není podepsán a jeho obsah nelze ověřit",
 			"unsignedWarning": "Nebyl dodán žádný podpis, takže nic nekontroluje, že tento dump je tím, za co se vydává. Kontrola před obnovou se dívá na typy objektů v dumpu, ne na řádky, které obsahují: záloha s podstrčeným účtem správce nebo přesměrovanou adresou poskytovatele by jí prošla. Pokračujte jen s dumpem, který jste získali sami a za který můžete ručit.",
 			"back": "Zpět",
-			"restoreAnyway": "Přesto obnovit"
+			"restoreAnyway": "Přesto obnovit",
+			"signatureInvalid": "Podpis má 64 hexadecimálních znaků; zkontrolujte vložený text."
 		},
 		"modal": {
 			"closeDialog": "Zavřít dialogové okno",

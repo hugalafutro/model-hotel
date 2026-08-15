@@ -1858,7 +1858,11 @@
 			},
 			"availableBackupsTitle": "Backup Disponibili",
 			"manuallyCreated": "Manuale",
-			"frontDeskCreated": "Creato da Front Desk prima di una sincronizzazione della configurazione HA"
+			"frontDeskCreated": "Creato da Front Desk prima di una sincronizzazione della configurazione HA",
+			"restoreSuccessVerified": "Database ripristinato, firma verificata. Il server si sta riavviando…",
+			"copySignature": "Copia firma",
+			"signatureCopied": "Firma copiata negli appunti",
+			"signatureCopyFailed": "Impossibile copiare la firma: {{message}}"
 		},
 		"appearance": {
 			"title": "Aspetto",
@@ -2236,12 +2240,13 @@
 			"cancel": "Annulla",
 			"signatureLabel": "Firma del backup (facoltativa)",
 			"signaturePlaceholder": "Incolla il contenuto del file .sig del backup",
-			"signatureHelp": "Lascia vuoto per un backup senza firma: creato prima che esistesse la firma, prodotto da un'altra istanza o firmato con una MASTER_KEY precedente.",
+			"signatureHelp": "Usa \"Copia firma\" sulla riga del backup nell'elenco, oppure leggi DATA_DIR/backups/<name>.dump.sig sul server. Lascia vuoto per un backup senza firma: creato prima che esistesse la firma, prodotto da un'altra istanza o firmato con una MASTER_KEY precedente. La firma copre anche il nome del file, quindi un download rinominato dal browser non verrà verificato finché non riavrà il suo nome.",
 			"unsignedTitle": "Ripristinare un backup non firmato?",
 			"unsignedHeadline": "Questo dump non è firmato e il suo contenuto non può essere verificato",
 			"unsignedWarning": "Non è stata fornita alcuna firma, quindi nulla verifica che questo dump sia ciò che dichiara di essere. Il controllo prima del ripristino guarda i tipi di oggetti nel dump, non le righe che contengono: un backup con un account amministratore inserito di nascosto o un indirizzo del provider reindirizzato lo supererebbe. Continua solo con un dump che hai ottenuto tu stesso e di cui puoi rispondere.",
 			"back": "Indietro",
-			"restoreAnyway": "Ripristina comunque"
+			"restoreAnyway": "Ripristina comunque",
+			"signatureInvalid": "Una firma è composta da 64 caratteri esadecimali; controlla ciò che hai incollato."
 		},
 		"modal": {
 			"closeDialog": "Chiudi finestra",
