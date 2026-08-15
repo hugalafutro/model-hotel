@@ -37,8 +37,8 @@ func TestStdoutHandler(t *testing.T) {
 
 	t.Run("json handler when LOG_FORMAT=json", func(t *testing.T) {
 		t.Setenv("LOG_FORMAT", "json")
-		if _, ok := StdoutHandler().(*slog.JSONHandler); !ok {
-			t.Errorf("StdoutHandler() = %T, want *slog.JSONHandler", StdoutHandler())
+		if _, ok := StdoutHandler().(*jsonHandler); !ok {
+			t.Errorf("StdoutHandler() = %T, want *jsonHandler", StdoutHandler())
 		}
 	})
 

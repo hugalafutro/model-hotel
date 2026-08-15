@@ -27,6 +27,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -150,6 +151,7 @@ type Handler struct {
 	appVersion             string
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
+	eventBus               *events.Bus                                        // feeds /api/events streams; DefaultBus in production, a private bus in tests
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
 	clientIPs              webauthn.ClientIPSource                            // trusted-proxy-aware client IP for session device metadata; nil falls back to the peer address
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
@@ -192,6 +194,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		adminMgr:               adminMgr,
 		virtualKeyRepo:         vkRepo,
 		settingsRepo:           settingsRepo,
+		eventBus:               events.DefaultBus,
 		appVersion:             appVersion,
 		ghReleasesURL:          githubReleasesURL,
 		ghTagsURL:              githubTagsURL,

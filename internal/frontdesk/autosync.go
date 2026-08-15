@@ -699,6 +699,7 @@ func (s *Server) closeSyncHold(ctx context.Context, m *Member, message string) {
 		s.syncHeldMu.Unlock()
 		return
 	}
+	logEvent(stored)
 	s.bus.Publish(busEvent(stored))
 }
 

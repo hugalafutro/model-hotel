@@ -170,6 +170,10 @@ func main() {
 
 	<-ctx.Done()
 	debuglog.Info("frontdesk: shutting down")
+	// End every open SSE stream first: each is an in-flight request that
+	// Shutdown would otherwise wait on until the deadline, so with a Front Desk
+	// tab open every restart burned the full 10s.
+	bus.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {

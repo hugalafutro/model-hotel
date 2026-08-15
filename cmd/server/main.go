@@ -108,14 +108,17 @@ func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 }
 
 func main() {
+	// Initialise the structured logger before anything can log. Init reads
+	// DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the environment itself,
+	// so it needs nothing from the config; doing it first means the warnings
+	// config.Load emits (weak MASTER_KEY, ignored env values) come out in the
+	// configured format instead of slog's text default.
+	debuglog.Init(false)
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-
-	// Initialise structured logger (reads DEBUG_LOG env var).
-	// Must happen after config load so the env is available.
-	debuglog.Init(cfg.DebugLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -489,15 +492,10 @@ func main() {
 	apiHandler.StopBackupScheduler()
 	util.CloseDockerClient()
 
-	// Flush and close the OTLP log exporter (if enabled) so batched records are
-	// not lost on shutdown.
-	if otelLogShutdown != nil {
-		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer flushCancel()
-		if err := otelLogShutdown(flushCtx); err != nil {
-			debuglog.Error("otel: OTLP log exporter shutdown failed", "error", err)
-		}
-	}
+	// End every open /api/events SSE stream. Each one is an in-flight request
+	// that server.Shutdown would otherwise wait on until the deadline, so with
+	// a dashboard tab open every restart burned the full 10s.
+	events.DefaultBus.Close()
 
 	// Flush pending app log DB writes before closing the database.
 	api.StopAppLogWriter()
@@ -515,6 +513,17 @@ func main() {
 	auditRecorder.Wait()
 
 	debuglog.Info("server: stopped")
+
+	// Flush and close the OTLP log exporter (if enabled) last, so the shutdown
+	// records above are exported too. Fresh context: the HTTP drain may have
+	// used up shutdownCtx.
+	if otelLogShutdown != nil {
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
+		if err := otelLogShutdown(flushCtx); err != nil {
+			debuglog.Error("otel: OTLP log exporter shutdown failed", "error", err)
+		}
+	}
 }
 
 // securityHeadersMiddleware sets the standard security headers on every

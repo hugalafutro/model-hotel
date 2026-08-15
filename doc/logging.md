@@ -145,6 +145,15 @@ The switch lives in `debuglog.JSONFormat()` (read by `debuglog.Init` and
 stderr filter's level gate and source suppression are JSON-aware
 (`parseJSONLogLine`), so behavior is identical in both formats.
 
+One shape, everywhere: every JSON line is rendered by `debuglog.JSONLine`
+(levels via `debuglog.LevelName`: `debug`/`info`/`warning`/`error`; source split
+out of the `scope: message` prefix by `debuglog.SplitSource`). The plain stdout
+handler (`debuglog.StdoutHandler`, used by the dashboard until it installs the
+app-log handler and by Front Desk throughout) and the dashboard's app-log
+handler both go through it, so a collector never sees two record shapes from
+one process. The dashboard calls `debuglog.Init` before `config.Load` for the
+same reason: config warnings come out in the configured format too.
+
 ## 5. OTLP log export (`OTEL_EXPORTER_OTLP_*`)
 
 In addition to the stdout surface (§4), the same structured records can be
@@ -179,6 +188,17 @@ metrics path.
   when the env vars are set.
 - Safe to export off-box for the same reason as §4: the no-content rule (§6)
   guarantees no prompt data in any record.
+
+### Front Desk
+
+Front Desk shares the pipeline (`debuglog.Init`, `LOG_FORMAT`, the OTLP bridge)
+and, on top of its own diagnostics, mirrors every persisted control-plane event
+(member up/down, syncs, holds, alerts, settings changes) into the log at the
+level its severity implies (`frontdesk.logEvent`): `info`/`success` → INFO,
+`warning` → WARN, `error` → ERROR, with the Events-tab message as `msg` and
+`event`, `event_id`, `member_id` plus the event metadata as fields. Without
+this a healthy Front Desk logs almost nothing above DEBUG, which made the
+export look dead.
 
 ## 6. No content, ever
 

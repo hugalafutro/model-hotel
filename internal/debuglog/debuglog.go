@@ -83,11 +83,10 @@ func Init(debug bool) {
 // the exact handler Init would have installed. Call after Init so the level is
 // set; before Init it uses the zero value (Info).
 func StdoutHandler() slog.Handler {
-	opts := &slog.HandlerOptions{Level: currentLevel}
 	if JSONFormat() {
-		return slog.NewJSONHandler(os.Stdout, opts)
+		return newJSONHandler(os.Stdout, currentLevel)
 	}
-	return slog.NewTextHandler(os.Stdout, opts)
+	return slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: currentLevel})
 }
 
 // maybeScopeFilter wraps h with per-scope Debug filtering, but only when

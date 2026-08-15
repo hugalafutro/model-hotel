@@ -136,7 +136,12 @@ func (d *Dispatcher) Run(ctx context.Context) {
 		case <-ctx.Done():
 			debuglog.Info("alert: dispatcher stopped")
 			return
-		case ev := <-ch:
+		case ev, ok := <-ch:
+			if !ok {
+				// Bus closed: the server is shutting down.
+				debuglog.Info("alert: dispatcher stopped")
+				return
+			}
 			d.handle(ctx, ev)
 		}
 	}

@@ -249,3 +249,59 @@ func TestSubscribeUnsubscribeConvenience(t *testing.T) {
 		// expected: nothing delivered
 	}
 }
+
+// Close must end every open subscription: a stream handler blocked on its
+// channel sees it closed and returns, which is what lets http.Server.Shutdown
+// finish promptly instead of waiting out its deadline on idle SSE streams.
+func TestClose_ClosesAllSubscribers(t *testing.T) {
+	b := NewBus()
+	ch1 := b.Subscribe()
+	ch2 := b.Subscribe()
+
+	b.Close()
+
+	for i, ch := range []chan Event{ch1, ch2} {
+		select {
+		case _, ok := <-ch:
+			if ok {
+				t.Fatalf("subscriber %d: expected closed channel, got an event", i)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("subscriber %d: channel still open after Close()", i)
+		}
+	}
+}
+
+// After Close, a late subscriber (a stream that connected in the last
+// instant before shutdown) must not park forever: it gets a closed channel.
+func TestSubscribeAfterClose_ReturnsClosedChannel(t *testing.T) {
+	b := NewBus()
+	b.Close()
+
+	ch := b.Subscribe()
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("expected closed channel from Subscribe() after Close()")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Subscribe() after Close() returned an open channel")
+	}
+}
+
+// The usual `defer bus.Unsubscribe(ch)` in a stream handler runs after Close
+// has already closed the channel; that must not double-close (panic), and
+// Close itself must be idempotent. Publish after Close is a silent no-op.
+func TestUnsubscribeAndPublishAfterClose_NoPanic(t *testing.T) {
+	b := NewBus()
+	ch := b.Subscribe()
+
+	b.Close()
+	b.Close()
+	b.Unsubscribe(ch)
+	b.Publish(Event{Type: "after-close"})
+
+	if _, ok := <-ch; ok {
+		t.Fatal("expected channel closed by Close()")
+	}
+}

@@ -25,6 +25,7 @@ type Event struct {
 type Bus struct {
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
+	closed      bool
 }
 
 // DefaultBus is the global default event bus.
@@ -66,26 +67,64 @@ func (b *Bus) Publish(event Event) {
 }
 
 // Subscribe registers a buffered channel and returns it. The caller must
-// call Unsubscribe with the same channel when done.
+// call Unsubscribe with the same channel when done. After Close the returned
+// channel is already closed, so a subscriber that arrives during shutdown
+// sees end-of-stream immediately instead of parking on a bus nobody
+// publishes to.
 func (b *Bus) Subscribe() chan Event {
 	ch := make(chan Event, 64)
 	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		close(ch)
+		return ch
+	}
 	b.subscribers[ch] = struct{}{}
-	b.mu.Unlock()
 	return ch
 }
 
 // Unsubscribe removes and closes a previously subscribed channel.
 // The channel is closed first, then drained in a goroutine so that
 // any Publish call currently sending to the channel completes safely
-// before the buffer is discarded.
+// before the buffer is discarded. A channel the bus no longer tracks
+// (already unsubscribed, or closed by Close) is left alone, so the usual
+// `defer bus.Unsubscribe(ch)` in a stream handler stays safe across shutdown.
 func (b *Bus) Unsubscribe(ch chan Event) {
 	b.mu.Lock()
+	_, tracked := b.subscribers[ch]
 	delete(b.subscribers, ch)
 	b.mu.Unlock()
+	if !tracked {
+		return
+	}
+	closeAndDrain(ch)
+}
+
+// Close ends every subscription: each subscriber channel is closed (and
+// drained) so stream handlers blocked on it return, and later Subscribe calls
+// get an already-closed channel. Publish becomes a no-op. Call it at the start
+// of graceful shutdown, before http.Server.Shutdown: an open SSE stream is an
+// in-flight request that Shutdown otherwise waits on until its deadline, so
+// without this every restart with a dashboard tab open burns the full timeout.
+// Idempotent.
+func (b *Bus) Close() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return
+	}
+	b.closed = true
+	for ch := range b.subscribers {
+		delete(b.subscribers, ch)
+		closeAndDrain(ch)
+	}
+}
+
+// closeAndDrain closes ch, then drains its buffer in the background so any
+// events still queued for the departed subscriber are discarded.
+func closeAndDrain(ch chan Event) {
 	close(ch)
 	go func() {
-		// Drain any remaining events from the channel before closing.
 		//nolint:revive,gosec // intentional: empty block for channel drain
 		for range ch {
 		}

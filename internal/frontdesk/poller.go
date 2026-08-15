@@ -873,6 +873,7 @@ func (p *Poller) recordEvent(ctx context.Context, e Event) {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
+	logEvent(stored)
 	p.bus.Publish(busEvent(stored))
 }
 
