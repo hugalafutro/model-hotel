@@ -3,13 +3,18 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "@/lib/icons";
 import { Modal } from "./Modal";
 
+/** Shape of a backup signature sidecar: HMAC-SHA256, hex-encoded. */
+const SIGNATURE_PATTERN = /^[0-9a-fA-F]{64}$/;
+
 interface RestoreConfirmModalProps {
 	/** Whether the modal is open */
 	open: boolean;
 	/** Called when user closes the modal */
 	onClose: () => void;
-	/** Called when user confirms restore with admin token */
-	onConfirm: (adminToken: string) => void;
+	/** Called when user confirms restore with admin token. `signature` is the
+	 *  pasted contents of the dump's .sig sidecar, or "" for an unsigned restore
+	 *  the user has explicitly accepted. */
+	onConfirm: (adminToken: string, signature: string) => void;
 	/** Whether the restore action is in progress */
 	isPending: boolean;
 }
@@ -22,16 +27,40 @@ export function RestoreConfirmModal({
 }: RestoreConfirmModalProps) {
 	const { t } = useTranslation();
 	const [adminToken, setAdminToken] = useState("");
+	const [signature, setSignature] = useState("");
+	// An unsigned dump cannot be integrity-checked (the pre-restore inspection
+	// sees object types, not rows), so restoring one is a second, separate
+	// decision rather than the default outcome of leaving a field blank.
+	const [confirmingUnsigned, setConfirmingUnsigned] = useState(false);
 	const inputId = useId();
+	const signatureId = useId();
+	const signatureHelpId = useId();
 
+	// A sidecar is one HMAC-SHA256 in hex, so anything else is a bad paste;
+	// catching it here spares the operator uploading a whole dump only to have
+	// the server refuse the signature after the fact.
+	const sig = signature.trim();
+	const signatureMalformed = sig !== "" && !SIGNATURE_PATTERN.test(sig);
+
+	// Only reachable from an enabled button, which the render below already
+	// gates on a non-empty token and a well-formed (or empty) signature.
 	const handleConfirm = () => {
-		if (adminToken.trim()) {
-			onConfirm(adminToken.trim());
+		const token = adminToken.trim();
+		if (sig) {
+			onConfirm(token, sig);
+			return;
 		}
+		if (confirmingUnsigned) {
+			onConfirm(token, "");
+			return;
+		}
+		setConfirmingUnsigned(true);
 	};
 
 	const handleCancel = () => {
 		setAdminToken("");
+		setSignature("");
+		setConfirmingUnsigned(false);
 		onClose();
 	};
 
@@ -39,8 +68,57 @@ export function RestoreConfirmModal({
 		return null;
 	}
 
+	// Distinct keys: the two stages must be different Modal instances so the
+	// switch remounts the dialog and moves focus into it, rather than leaving
+	// focus on a button that no longer exists.
+	if (confirmingUnsigned) {
+		return (
+			<Modal
+				key="unsigned"
+				title={t("components.restoreConfirmModal.unsignedTitle")}
+				onClose={handleCancel}
+				maxWidth="max-w-lg"
+				scrollable={true}
+			>
+				<div className="mb-4">
+					<div className="flex items-center gap-2 mb-3 text-amber-400">
+						<AlertTriangle size={24} />
+						<span className="text-lg font-bold">
+							{t("components.restoreConfirmModal.unsignedHeadline")}
+						</span>
+					</div>
+					<p className="text-sm text-gray-300">
+						{t("components.restoreConfirmModal.unsignedWarning")}
+					</p>
+				</div>
+
+				<div className="flex gap-3 justify-end">
+					<button
+						type="button"
+						onClick={() => setConfirmingUnsigned(false)}
+						disabled={isPending}
+						className="ui-btn ui-btn-secondary"
+					>
+						{t("components.restoreConfirmModal.back")}
+					</button>
+					<button
+						type="button"
+						onClick={handleConfirm}
+						disabled={isPending}
+						className="ui-btn ui-btn-danger"
+					>
+						{isPending
+							? t("components.restoreConfirmModal.restoring")
+							: t("components.restoreConfirmModal.restoreAnyway")}
+					</button>
+				</div>
+			</Modal>
+		);
+	}
+
 	return (
 		<Modal
+			key="form"
 			title={t("components.restoreConfirmModal.title")}
 			onClose={handleCancel}
 			maxWidth="max-w-lg"
@@ -95,6 +173,35 @@ export function RestoreConfirmModal({
 
 			<div className="mb-4">
 				<label
+					htmlFor={signatureId}
+					className="block text-sm font-medium text-gray-300 mb-1"
+				>
+					{t("components.restoreConfirmModal.signatureLabel")}
+				</label>
+				<textarea
+					id={signatureId}
+					value={signature}
+					onChange={(e) => setSignature(e.target.value)}
+					rows={2}
+					spellCheck={false}
+					aria-describedby={signatureHelpId}
+					aria-invalid={signatureMalformed || undefined}
+					className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-(--text-primary) placeholder-gray-400 focus:outline-none focus:border-amber-500 font-mono text-xs"
+					placeholder={t("components.restoreConfirmModal.signaturePlaceholder")}
+					disabled={isPending}
+				/>
+				{signatureMalformed && (
+					<p role="alert" className="text-xs text-red-400 mt-1">
+						{t("components.restoreConfirmModal.signatureInvalid")}
+					</p>
+				)}
+				<p id={signatureHelpId} className="text-xs text-gray-400 mt-1">
+					{t("components.restoreConfirmModal.signatureHelp")}
+				</p>
+			</div>
+
+			<div className="mb-4">
+				<label
 					htmlFor={inputId}
 					className="block text-sm font-medium text-gray-300 mb-1"
 				>
@@ -123,7 +230,7 @@ export function RestoreConfirmModal({
 				<button
 					type="button"
 					onClick={handleConfirm}
-					disabled={!adminToken.trim() || isPending}
+					disabled={!adminToken.trim() || signatureMalformed || isPending}
 					className="ui-btn ui-btn-danger"
 				>
 					{isPending

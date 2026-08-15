@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Tilgængelige sikkerhedskopier",
 			"manuallyCreated": "Manuel",
-			"frontDeskCreated": "Oprettet af Front Desk før en HA-konfigurationssynkronisering"
+			"frontDeskCreated": "Oprettet af Front Desk før en HA-konfigurationssynkronisering",
+			"restoreSuccessVerified": "Database gendannet, signatur verificeret. Serveren genstarter…",
+			"copySignature": "Kopiér signatur",
+			"signatureCopied": "Signatur kopieret til udklipsholderen",
+			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}"
 		},
 		"appearance": {
 			"title": "Udseende",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "Indtast admin token",
 			"restoring": "Gendanner…",
 			"restoreDatabase": "Gendan Database",
-			"cancel": "Annuller"
+			"cancel": "Annuller",
+			"signatureLabel": "Backupsignatur (valgfri)",
+			"signaturePlaceholder": "Indsæt indholdet af backuppens .sig-fil",
+			"signatureHelp": "Brug \"Kopiér signatur\" på backuppens række i listen, eller læs DATA_DIR/backups/<name>.dump.sig på serveren. Lad feltet stå tomt for en backup uden signatur: taget før signering fandtes, lavet af en anden instans eller signeret med en tidligere MASTER_KEY. Signaturen dækker også filnavnet, så en download, som browseren har omdøbt, verificeres ikke, før den får sit navn tilbage.",
+			"unsignedTitle": "Gendan en usigneret backup?",
+			"unsignedHeadline": "Dette dump er usigneret, og indholdet kan ikke verificeres",
+			"unsignedWarning": "Der blev ikke angivet nogen signatur, så intet kontrollerer, at dette dump er det, det udgiver sig for at være. Kontrollen før gendannelse ser på typerne af objekter i dumpet, ikke på rækkerne i dem: en backup med en indplantet administratorkonto eller en omdirigeret udbyderadresse ville bestå den. Fortsæt kun med et dump, du selv har skaffet og kan stå inde for.",
+			"back": "Tilbage",
+			"restoreAnyway": "Gendan alligevel",
+			"signatureInvalid": "En signatur er 64 hexadecimale tegn; tjek det indsatte."
 		},
 		"modal": {
 			"closeDialog": "Luk dialog",

@@ -1858,7 +1858,11 @@
 			},
 			"availableBackupsTitle": "Còpies de seguretat disponibles",
 			"manuallyCreated": "Manual",
-			"frontDeskCreated": "Creat per Front Desk abans d'una sincronització de configuració HA"
+			"frontDeskCreated": "Creat per Front Desk abans d'una sincronització de configuració HA",
+			"restoreSuccessVerified": "Base de dades restaurada, signatura verificada. El servidor s'està reiniciant…",
+			"copySignature": "Copia la signatura",
+			"signatureCopied": "Signatura copiada al porta-retalls",
+			"signatureCopyFailed": "No s'ha pogut copiar la signatura: {{message}}"
 		},
 		"appearance": {
 			"title": "Aparença",
@@ -2233,7 +2237,16 @@
 			"enterAdminToken": "Introduïu el token d'administrador",
 			"restoring": "Restaurant…",
 			"restoreDatabase": "Restablix la base de dades",
-			"cancel": "Cancel·la"
+			"cancel": "Cancel·la",
+			"signatureLabel": "Signatura de la còpia de seguretat (opcional)",
+			"signaturePlaceholder": "Enganxa el contingut del fitxer .sig de la còpia de seguretat",
+			"signatureHelp": "Fes servir \"Copia la signatura\" a la fila de la còpia a la llista, o llegeix DATA_DIR/backups/<name>.dump.sig al servidor. Deixa-ho buit per a una còpia sense signatura: feta abans que existís la signatura, creada per una altra instància o signada amb una MASTER_KEY anterior. La signatura també cobreix el nom del fitxer, així que una baixada que el navegador hagi reanomenat no es verificarà fins que recuperi el nom original.",
+			"unsignedTitle": "Vols restaurar una còpia sense signar?",
+			"unsignedHeadline": "Aquest bolcat no està signat i el seu contingut no es pot verificar",
+			"unsignedWarning": "No s'ha proporcionat cap signatura, així que res no comprova que aquest bolcat sigui el que diu ser. La inspecció prèvia a la restauració mira els tipus d'objectes del bolcat, no les files que contenen: una còpia amb un compte d'administrador plantat o una adreça de proveïdor redirigida la passaria. Continua només amb un bolcat que hagis obtingut tu mateix i del qual puguis respondre.",
+			"back": "Enrere",
+			"restoreAnyway": "Restaura igualment",
+			"signatureInvalid": "Una signatura són 64 caràcters hexadecimals; revisa el que has enganxat."
 		},
 		"modal": {
 			"closeDialog": "Tanca el diàleg",

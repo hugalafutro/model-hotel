@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Elérhető biztonsági másolatok",
 			"manuallyCreated": "Kézi",
-			"frontDeskCreated": "A Front Desk hozta létre egy HA-konfigurációszinkronizálás előtt"
+			"frontDeskCreated": "A Front Desk hozta létre egy HA-konfigurációszinkronizálás előtt",
+			"restoreSuccessVerified": "Adatbázis visszaállítva, aláírás ellenőrizve. A szerver újraindul…",
+			"copySignature": "Aláírás másolása",
+			"signatureCopied": "Aláírás a vágólapra másolva",
+			"signatureCopyFailed": "Az aláírás másolása nem sikerült: {{message}}"
 		},
 		"appearance": {
 			"title": "Megjelenés",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "Adja meg az adminisztrátori tokent",
 			"restoring": "… visszaállítása",
 			"restoreDatabase": "Adatbázis visszaállítása",
-			"cancel": "Mégse"
+			"cancel": "Mégse",
+			"signatureLabel": "Biztonsági mentés aláírása (nem kötelező)",
+			"signaturePlaceholder": "Illessze be a biztonsági mentés .sig fájljának tartalmát",
+			"signatureHelp": "Használja az „Aláírás másolása” gombot a mentés sorában a listában, vagy olvassa be a DATA_DIR/backups/<name>.dump.sig fájlt a szerveren. Hagyja üresen aláírás nélküli mentésnél: amely az aláírás bevezetése előtt készült, másik példány készítette, vagy korábbi MASTER_KEY-jel írták alá. Az aláírás a fájlnevet is lefedi, így a böngésző által átnevezett letöltés nem ellenőrizhető, amíg vissza nem nevezi.",
+			"unsignedTitle": "Aláíratlan biztonsági mentés visszaállítása?",
+			"unsignedHeadline": "Ez a dump nincs aláírva, és a tartalma nem ellenőrizhető",
+			"unsignedWarning": "Nem adott meg aláírást, így semmi sem ellenőrzi, hogy ez a dump valóban az-e, aminek mondja magát. A visszaállítás előtti vizsgálat a dumpban lévő objektumok típusait nézi, nem a bennük lévő sorokat: egy becsempészett rendszergazdai fiókot vagy átirányított szolgáltatói címet tartalmazó mentés átmenne rajta. Csak olyan dumppal folytassa, amelyet saját maga szerzett be, és amelynek eredetéért felelősséget tud vállalni.",
+			"back": "Vissza",
+			"restoreAnyway": "Visszaállítás mindenképp",
+			"signatureInvalid": "Az aláírás 64 hexadecimális karakter; ellenőrizze a beillesztett szöveget."
 		},
 		"modal": {
 			"closeDialog": "Párbeszédablak bezárása",

@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "可用备份",
 			"manuallyCreated": "手动",
-			"frontDeskCreated": "由 Front Desk 在 HA 配置同步前创建"
+			"frontDeskCreated": "由 Front Desk 在 HA 配置同步前创建",
+			"restoreSuccessVerified": "数据库已恢复,签名已验证。服务器正在重启…",
+			"copySignature": "复制签名",
+			"signatureCopied": "签名已复制到剪贴板",
+			"signatureCopyFailed": "无法复制签名:{{message}}"
 		},
 		"appearance": {
 			"title": "外观",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "输入管理令牌",
 			"restoring": "正在恢复…",
 			"restoreDatabase": "还原数据库",
-			"cancel": "取消"
+			"cancel": "取消",
+			"signatureLabel": "备份签名(可选)",
+			"signaturePlaceholder": "粘贴备份 .sig 文件的内容",
+			"signatureHelp": "使用列表中该备份所在行的“复制签名”,或读取服务器上的 DATA_DIR/backups/<name>.dump.sig。对于没有签名的备份请留空:在签名功能出现之前创建的、由其他实例创建的,或使用先前的 MASTER_KEY 签名的备份。签名同时覆盖文件名,因此被浏览器重命名的下载文件在改回原名之前无法通过验证。",
+			"unsignedTitle": "恢复未签名的备份?",
+			"unsignedHeadline": "此转储未签名,无法验证其内容",
+			"unsignedWarning": "未提供签名,因此无法核实此转储是否名副其实。恢复前的检查只查看转储中的对象类型,不查看其中的数据行:含有被植入的管理员账户或被篡改的提供商地址的备份也能通过。请仅在转储由你自己获取且能说明来源时继续。",
+			"back": "返回",
+			"restoreAnyway": "仍然恢复",
+			"signatureInvalid": "签名是 64 个十六进制字符;请检查粘贴的内容。"
 		},
 		"modal": {
 			"closeDialog": "关闭对话框",

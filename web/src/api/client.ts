@@ -1226,6 +1226,15 @@ export const api = {
 		downloadUrl: (filename: string): string => {
 			return `${API_BASE}/api/backups/${encodeURIComponent(filename)}`;
 		},
+		/** The backup's signature sidecar contents, for pasting into the restore
+		 *  form. 404 (thrown) for an unsigned backup. */
+		signature: async (filename: string): Promise<{ signature: string }> => {
+			return fetchJSON<{ signature: string }>(
+				`${API_BASE}/api/backups/${encodeURIComponent(filename)}/signature`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch backup signature",
+			);
+		},
 		delete: async (filename: string): Promise<void> => {
 			const response = await fetch(
 				`${API_BASE}/api/backups/${encodeURIComponent(filename)}`,
@@ -1241,10 +1250,18 @@ export const api = {
 		restore: async (
 			file: File,
 			adminToken: string,
+			signature = "",
 		): Promise<{ migration_count: number; known_count: number }> => {
 			const formData = new FormData();
 			formData.append("dump", file);
 			formData.append("admin_token", adminToken);
+			// The dump's .sig sidecar contents, when the operator has them. The
+			// server rejects a mismatch outright and records a restore without one
+			// as unverified. It treats a blank value as absent itself; omitting the
+			// field here just keeps the request honest about what was supplied.
+			if (signature.trim()) {
+				formData.append("signature", signature.trim());
+			}
 
 			// Must not set Content-Type: the browser needs to auto-set
 			// multipart/form-data with the correct boundary for FormData. The

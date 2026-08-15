@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -361,4 +363,222 @@ func TestListBackups_DirectorySidecarIsNotASignature(t *testing.T) {
 	if entries[0].Signed {
 		t.Error("a directory was reported as a signature")
 	}
+}
+
+// The dashboard's restore form takes the sidecar's contents, and an operator
+// without shell access to the backup directory has no other way to get them:
+// the download serves the dump alone. Verification is the restore's job; this
+// endpoint hands over what is on disk.
+func TestBackupSignature_ServesSidecar(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	path := writeSignedBackup(t, dir, "backup_test.dump", "contents", "master")
+	want, err := os.ReadFile(path + backupSignatureExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", w.Code, w.Body.String())
+	}
+	var got backupSignatureResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Signature != string(want) {
+		t.Errorf("signature = %q, want the sidecar contents %q", got.Signature, want)
+	}
+	// What is served must be exactly what the restore form accepts.
+	if status, err := verifyUploadedDumpSignature(path, "backup_test.dump", got.Signature, "master"); err != nil || status != backupSigValid {
+		t.Errorf("served signature does not verify the dump it belongs to: status=%v err=%v", status, err)
+	}
+}
+
+func TestBackupSignature_UnsignedIs404(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	if err := os.WriteFile(filepath.Join(dir, "backup_legacy.dump"), []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_legacy.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for an unsigned backup (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupSignature_MissingDumpIs404(t *testing.T) {
+	r, _ := setupSignedBackupRouter(t, "master")
+
+	req := httptest.NewRequest("GET", "/backups/backup_absent.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for a dump that does not exist (%s)", w.Code, w.Body.String())
+	}
+}
+
+// A sidecar that exists but cannot be read leaves the dump's integrity
+// unprovable; that is an error, not "unsigned", so it must not turn into a 404
+// the operator would read as "restore it on trust".
+func TestBackupSignature_UnreadableSidecarIs500(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A directory where the sidecar file should be: os.ReadFile fails with
+	// something other than not-exist.
+	if err := os.Mkdir(filepath.Join(dir, "backup_test.dump"+backupSignatureExt), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for an unreadable sidecar (%s)", w.Code, w.Body.String())
+	}
+}
+
+// A sidecar whose contents are not hex is corruption on the server, not
+// something the operator can fix by pasting more carefully; serving it as 200
+// would surface client-side as "check the paste".
+func TestBackupSignature_MalformedSidecarIs500(t *testing.T) {
+	r, dir := setupSignedBackupRouter(t, "master")
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("contents"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"+backupSignatureExt), []byte("not hex at all"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for a sidecar that is not a signature (%s)", w.Code, w.Body.String())
+	}
+}
+
+// A stat failure that is not "does not exist" (here: a path component that is a
+// regular file, so ENOTDIR) is reported as an error, not as a missing backup.
+func TestBackupSignature_StatErrorIs500(t *testing.T) {
+	parent := t.TempDir()
+	notADir := filepath.Join(parent, "backups")
+	if err := os.WriteFile(notADir, []byte("a file where the backup dir should be"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", notADir, &mockAdminAuth{}, nil)
+	h.SetSigningKey("master")
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 for a stat error that is not not-exist (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupSignature_InvalidFilenameIs400(t *testing.T) {
+	r, _ := setupSignedBackupRouter(t, "master")
+
+	// A name that is not a bare .dump basename never reaches the filesystem.
+	req := httptest.NewRequest("GET", "/backups/notadump.sql/signature", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (%s)", w.Code, w.Body.String())
+	}
+}
+
+// restoreRouterWithSigning is a restore-capable router (admin token accepted)
+// with a signing key, for exercising the "signature" multipart field end to
+// end through the handler rather than by calling the verifier directly.
+func restoreRouterWithSigning(t *testing.T, masterKey string) (chi.Router, string) {
+	t.Helper()
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	h.SetSigningKey(masterKey)
+	r := chi.NewRouter()
+	h.Register(r)
+	return r, dir
+}
+
+// postRestore uploads content as name with the given admin token and, when
+// non-empty, signature, mirroring what the dashboard sends.
+func postRestore(t *testing.T, r chi.Router, name, content, signature string) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if err := mw.WriteField("admin_token", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if signature != "" {
+		if err := mw.WriteField("signature", signature); err != nil {
+			t.Fatal(err)
+		}
+	}
+	part, err := mw.CreateFormFile("dump", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// The multipart field the dashboard sends is literally "signature"; a rename on
+// either side would ship green through the unit tests of each half while every
+// restore silently became unverified. This pins the wire contract: a mismatch
+// posted through the handler is refused, and a matching one gets past the
+// verifier (the request then fails later, at pg_restore, on this fake dump).
+func TestRestoreBackup_SignatureFieldIsVerified(t *testing.T) {
+	r, dir := restoreRouterWithSigning(t, "master")
+
+	path := writeSignedBackup(t, dir, "backup_signed.dump", "the signed bytes", "master")
+	sigBytes, err := os.ReadFile(path + backupSignatureExt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig := string(sigBytes)
+
+	t.Run("mismatch is rejected before anything runs", func(t *testing.T) {
+		w := postRestore(t, r, "backup_signed.dump", "not the signed bytes", sig)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400 (%s)", w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "does not match the signature") {
+			t.Fatalf("expected a signature-mismatch error, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("match passes the verifier", func(t *testing.T) {
+		w := postRestore(t, r, "backup_signed.dump", "the signed bytes", sig)
+		if w.Code == http.StatusBadRequest && strings.Contains(w.Body.String(), "signature") {
+			t.Fatalf("a matching signature was refused: %s", w.Body.String())
+		}
+		if strings.Contains(w.Body.String(), "signature") {
+			t.Fatalf("expected the request to get past signature verification, got: %s", w.Body.String())
+		}
+	})
 }

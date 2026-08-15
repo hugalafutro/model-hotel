@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "利用可能なバックアップ",
 			"manuallyCreated": "手動",
-			"frontDeskCreated": "HA 設定同期の前に Front Desk が作成"
+			"frontDeskCreated": "HA 設定同期の前に Front Desk が作成",
+			"restoreSuccessVerified": "データベースを復元し、署名を検証しました。サーバーを再起動しています…",
+			"copySignature": "署名をコピー",
+			"signatureCopied": "署名をクリップボードにコピーしました",
+			"signatureCopyFailed": "署名をコピーできませんでした: {{message}}"
 		},
 		"appearance": {
 			"title": "外観",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "管理者トークンを入力",
 			"restoring": "… の復元",
 			"restoreDatabase": "データベースを復元",
-			"cancel": "キャンセル"
+			"cancel": "キャンセル",
+			"signatureLabel": "バックアップの署名(任意)",
+			"signaturePlaceholder": "バックアップの .sig ファイルの内容を貼り付けてください",
+			"signatureHelp": "一覧のバックアップの行にある「署名をコピー」を使うか、サーバー上の DATA_DIR/backups/<name>.dump.sig を読み取ってください。署名のないバックアップの場合は空のままにしてください: 署名機能の導入前に取得したもの、別のインスタンスで作成したもの、以前の MASTER_KEY で署名したものが該当します。署名はファイル名も対象に含むため、ブラウザーが名前を変更したダウンロードは元の名前に戻すまで検証できません。",
+			"unsignedTitle": "署名のないバックアップを復元しますか?",
+			"unsignedHeadline": "このダンプは署名されておらず、内容を検証できません",
+			"unsignedWarning": "署名が指定されていないため、このダンプが本物かどうかを確認する手段がありません。復元前の検査ではダンプ内のオブジェクトの種類のみを確認し、含まれる行は確認しません: 管理者アカウントが仕込まれたり、プロバイダーのアドレスが書き換えられたバックアップでも通過します。自分で取得し、出所を説明できるダンプの場合のみ続行してください。",
+			"back": "戻る",
+			"restoreAnyway": "それでも復元する",
+			"signatureInvalid": "署名は 64 桁の 16 進文字です。貼り付けた内容を確認してください。"
 		},
 		"modal": {
 			"closeDialog": "ダイアログを閉じる",

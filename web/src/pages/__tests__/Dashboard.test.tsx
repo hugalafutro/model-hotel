@@ -187,7 +187,9 @@ describe("Dashboard", () => {
 
 			renderWithProviders(<Dashboard />);
 
-			// Wait for providers to load and animation to complete (1200ms default)
+			// Wait for providers to load and the 1200ms count-up animation to
+			// finish. The headroom is deliberate: under a full parallel suite run
+			// the animation's frames land late and 2000ms was not enough.
 			await waitFor(
 				() => {
 					const providerLabel = screen.getByText("Total Providers");
@@ -196,7 +198,7 @@ describe("Dashboard", () => {
 					const statValue = card?.querySelector('[data-testid="stat-value"]');
 					expect(statValue?.textContent).toContain("2");
 				},
-				{ timeout: 2000 },
+				{ timeout: 5000 },
 			);
 		});
 
@@ -213,7 +215,8 @@ describe("Dashboard", () => {
 
 			renderWithProviders(<Dashboard />);
 
-			// Wait for models to load and animation to complete
+			// Wait for models to load and the count-up animation to finish (same
+			// headroom as the providers case above).
 			await waitFor(
 				() => {
 					const modelLabel = screen.getByText("Total Models");
@@ -222,7 +225,7 @@ describe("Dashboard", () => {
 					const statValue = card?.querySelector('[data-testid="stat-value"]');
 					expect(statValue?.textContent).toContain("2");
 				},
-				{ timeout: 2000 },
+				{ timeout: 5000 },
 			);
 		});
 	});

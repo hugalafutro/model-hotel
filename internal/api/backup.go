@@ -96,6 +96,7 @@ func (h *BackupHandler) Register(r chi.Router) {
 		r.Post("/", h.CreateBackup)
 		r.Post("/restore", h.RestoreBackup)
 		r.Get("/{filename}", h.DownloadBackup)
+		r.Get("/{filename}/signature", h.BackupSignature)
 		r.Delete("/{filename}", h.DeleteBackup)
 		r.Post("/prune-preview", h.PrunePreview)
 		r.Post("/prune", h.ApplyPrune)
@@ -248,7 +249,7 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 // validateBackupFilename sanitizes the filename and resolves it to an absolute path
 // within the backup directory. Returns empty string if validation fails.
 func (h *BackupHandler) validateBackupFilename(filename string) string {
-	if strings.ContainsAny(filename, "/\\\r\n") || !strings.HasSuffix(filename, ".dump") {
+	if strings.ContainsAny(filename, "/\\\r\n\x00") || !strings.HasSuffix(filename, ".dump") {
 		return ""
 	}
 	path := filepath.Join(h.backupDir, filename)
@@ -332,6 +333,55 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeContent(w, r, filename, info.ModTime(), f)
+}
+
+// backupSignatureResponse is the body of GET /backups/{filename}/signature.
+type backupSignatureResponse struct {
+	// Signature is the dump's sidecar contents, verbatim: the value the restore
+	// endpoint expects in its "signature" form field.
+	Signature string `json:"signature"`
+}
+
+// BackupSignature serves a backup's signature sidecar so the operator can carry
+// it to a restore without shell access to the backup directory. The sidecar is
+// the only proof of the dump's integrity that survives the round trip through a
+// download and a re-upload, and the restore form has nowhere else to get it.
+// The signature is not verified here: this hands over what is on disk, and the
+// restore checks it against the uploaded bytes. Unsigned backups get a 404,
+// which is what the listing's "signed: false" already promises.
+func (h *BackupHandler) BackupSignature(w http.ResponseWriter, r *http.Request) {
+	filename := chi.URLParam(r, "filename")
+
+	absPath := h.validateBackupFilename(filename)
+	if absPath == "" {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		http.Error(w, "backup not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		respondError(w, fmt.Sprintf("failed to stat backup %q", filename), err, http.StatusInternalServerError)
+		return
+	}
+
+	contents, found, err := readSignatureSidecar(absPath)
+	if err != nil {
+		respondError(w, fmt.Sprintf("failed to read signature for %q", filename), err, http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		http.Error(w, "backup is not signed", http.StatusNotFound)
+		return
+	}
+	// A sidecar that is not a signature at all is a server-side problem
+	// (corruption, or something else wrote the file); handing it over would
+	// have the dashboard blame the operator's paste for it.
+	if _, ok := decodeSignature(string(contents)); !ok {
+		respondError(w, fmt.Sprintf("signature sidecar for %q is not a valid signature", filename), nil, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, backupSignatureResponse{Signature: strings.TrimSpace(string(contents))})
 }
 
 // buildDumpCommand creates a pg_dump command with the password stripped from

@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Beskikbare rugsteun",
 			"manuallyCreated": "Handmatig",
-			"frontDeskCreated": "Deur Front Desk geskep voor 'n HA-konfigurasiesinkronisasie"
+			"frontDeskCreated": "Deur Front Desk geskep voor 'n HA-konfigurasiesinkronisasie",
+			"restoreSuccessVerified": "Databasis herstel, handtekening geverifieer. Die bediener herbegin…",
+			"copySignature": "Kopieer handtekening",
+			"signatureCopied": "Handtekening na knipbord gekopieer",
+			"signatureCopyFailed": "Kon nie handtekening kopieer nie: {{message}}"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "Voer admin-token in",
 			"restoring": "Herstel tans…",
 			"restoreDatabase": "Herstel databasis",
-			"cancel": "Kanselleer"
+			"cancel": "Kanselleer",
+			"signatureLabel": "Rugsteunhandtekening (opsioneel)",
+			"signaturePlaceholder": "Plak die inhoud van die rugsteun se .sig-lêer",
+			"signatureHelp": "Gebruik \"Kopieer handtekening\" op die rugsteun se ry in die lys, of lees DATA_DIR/backups/<name>.dump.sig op die bediener. Laat leeg vir 'n rugsteun sonder handtekening: gemaak voordat ondertekening bestaan het, deur 'n ander instansie, of onderteken met 'n vorige MASTER_KEY. Die handtekening dek ook die lêernaam, dus 'n aflaai wat die blaaier hernoem het sal nie verifieer voordat dit teruggenoem is nie.",
+			"unsignedTitle": "Ongetekende rugsteun herstel?",
+			"unsignedHeadline": "Hierdie dump is nie onderteken nie en sy inhoud kan nie geverifieer word nie",
+			"unsignedWarning": "Geen handtekening is verskaf nie, dus kontroleer niks dat hierdie dump is wat dit voorgee om te wees nie. Die inspeksie voor herstel kyk na die soorte objekte in die dump, nie na die rye wat hulle bevat nie: 'n rugsteun met 'n geplante administrateurrekening of 'n verwysde verskafferadres sou dit slaag. Gaan slegs voort met 'n dump wat jy self verkry het en kan verantwoord.",
+			"back": "Terug",
+			"restoreAnyway": "Herstel in elk geval",
+			"signatureInvalid": "'n Handtekening is 64 heksadesimale karakters; kontroleer die plak."
 		},
 		"modal": {
 			"closeDialog": "Sluit dialoog",

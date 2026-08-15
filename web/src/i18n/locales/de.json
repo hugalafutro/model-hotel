@@ -1810,7 +1810,11 @@
 			},
 			"availableBackupsTitle": "Verfügbare Sicherungen",
 			"manuallyCreated": "Manuell",
-			"frontDeskCreated": "Von Front Desk vor einer HA-Konfigurationssynchronisierung erstellt"
+			"frontDeskCreated": "Von Front Desk vor einer HA-Konfigurationssynchronisierung erstellt",
+			"restoreSuccessVerified": "Datenbank wiederhergestellt, Signatur verifiziert. Der Server startet neu…",
+			"copySignature": "Signatur kopieren",
+			"signatureCopied": "Signatur in die Zwischenablage kopiert",
+			"signatureCopyFailed": "Signatur konnte nicht kopiert werden: {{message}}"
 		},
 		"appearance": {
 			"title": "Erscheinungsbild",
@@ -2181,7 +2185,16 @@
 			"enterAdminToken": "Admin-Token eingeben",
 			"restoring": "Wiederherstellen…",
 			"restoreDatabase": "Datenbank wiederherstellen",
-			"cancel": "Abbrechen"
+			"cancel": "Abbrechen",
+			"signatureLabel": "Backup-Signatur (optional)",
+			"signaturePlaceholder": "Inhalt der .sig-Datei des Backups einfügen",
+			"signatureHelp": "Verwende „Signatur kopieren“ in der Zeile des Backups in der Liste oder lies DATA_DIR/backups/<name>.dump.sig auf dem Server. Leer lassen für ein Backup ohne Signatur: von vor der Einführung der Signierung, von einer anderen Instanz oder mit einem früheren MASTER_KEY signiert. Die Signatur deckt auch den Dateinamen ab, daher verifiziert ein vom Browser umbenannter Download erst, wenn er zurückbenannt ist.",
+			"unsignedTitle": "Unsigniertes Backup wiederherstellen?",
+			"unsignedHeadline": "Dieser Dump ist unsigniert und sein Inhalt kann nicht verifiziert werden",
+			"unsignedWarning": "Es wurde keine Signatur angegeben, also prüft nichts, ob dieser Dump das ist, was er zu sein vorgibt. Die Prüfung vor der Wiederherstellung betrachtet die Objekttypen im Dump, nicht die enthaltenen Zeilen: ein Backup mit einem eingeschleusten Administratorkonto oder einer umgebogenen Provider-Adresse würde sie bestehen. Fahre nur mit einem Dump fort, den du selbst beschafft hast und dessen Herkunft du erklären kannst.",
+			"back": "Zurück",
+			"restoreAnyway": "Trotzdem wiederherstellen",
+			"signatureInvalid": "Eine Signatur besteht aus 64 Hexadezimalzeichen; prüfe das Eingefügte."
 		},
 		"modal": {
 			"closeDialog": "Dialog schließen",

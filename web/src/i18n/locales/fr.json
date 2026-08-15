@@ -1858,7 +1858,11 @@
 			},
 			"availableBackupsTitle": "Sauvegardes disponibles",
 			"manuallyCreated": "Manuel",
-			"frontDeskCreated": "Créé par Front Desk avant une synchronisation de configuration HA"
+			"frontDeskCreated": "Créé par Front Desk avant une synchronisation de configuration HA",
+			"restoreSuccessVerified": "Base de données restaurée, signature vérifiée. Le serveur redémarre…",
+			"copySignature": "Copier la signature",
+			"signatureCopied": "Signature copiée dans le presse-papiers",
+			"signatureCopyFailed": "Impossible de copier la signature : {{message}}"
 		},
 		"appearance": {
 			"title": "Apparence",
@@ -2233,7 +2237,16 @@
 			"enterAdminToken": "Entrer le jeton admin",
 			"restoring": "Restauration…",
 			"restoreDatabase": "Restaurer la base de données",
-			"cancel": "Abandonner"
+			"cancel": "Abandonner",
+			"signatureLabel": "Signature de la sauvegarde (facultatif)",
+			"signaturePlaceholder": "Collez le contenu du fichier .sig de la sauvegarde",
+			"signatureHelp": "Utilisez « Copier la signature » sur la ligne de la sauvegarde dans la liste, ou lisez DATA_DIR/backups/<name>.dump.sig sur le serveur. Laissez vide pour une sauvegarde sans signature : réalisée avant l'existence de la signature, produite par une autre instance ou signée avec une MASTER_KEY précédente. La signature couvre aussi le nom du fichier : un téléchargement renommé par le navigateur ne sera pas vérifié tant qu'il n'aura pas retrouvé son nom.",
+			"unsignedTitle": "Restaurer une sauvegarde non signée ?",
+			"unsignedHeadline": "Ce dump n'est pas signé et son contenu ne peut pas être vérifié",
+			"unsignedWarning": "Aucune signature n'a été fournie, donc rien ne vérifie que ce dump est bien ce qu'il prétend être. L'inspection préalable à la restauration examine les types d'objets du dump, pas les lignes qu'ils contiennent : une sauvegarde contenant un compte administrateur implanté ou une adresse de fournisseur détournée la passerait. Ne continuez qu'avec un dump que vous avez obtenu vous-même et dont vous pouvez répondre.",
+			"back": "Retour",
+			"restoreAnyway": "Restaurer quand même",
+			"signatureInvalid": "Une signature fait 64 caractères hexadécimaux ; vérifiez ce que vous avez collé."
 		},
 		"modal": {
 			"closeDialog": "Fermer la boîte de dialogue",

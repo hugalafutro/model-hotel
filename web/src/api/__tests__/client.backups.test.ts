@@ -130,6 +130,35 @@ describe("api.backups", () => {
 		});
 	});
 
+	describe("signature", () => {
+		it("fetches the sidecar contents for a backup", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({ signature: "ab".repeat(32) }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+
+			const result = await api.backups.signature("backup with spaces.dump");
+
+			expect(result).toEqual({ signature: "ab".repeat(32) });
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/backups/backup%20with%20spaces.dump/signature",
+				expect.anything(),
+			);
+		});
+
+		it("throws when the backup is unsigned (404)", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("backup is not signed", { status: 404 }),
+			);
+
+			await expect(api.backups.signature("legacy.dump")).rejects.toThrow(
+				"Failed to fetch backup signature",
+			);
+		});
+	});
+
 	describe("restore", () => {
 		beforeEach(() => {
 			localStorage.clear();
@@ -207,6 +236,30 @@ describe("api.backups", () => {
 			const options = fetchSpy.mock.calls[0][1] as RequestInit;
 			const formData = options.body as FormData;
 			expect(formData.get("admin_token")).toBe(paramToken);
+		});
+
+		it("sends the signature in the form body only when one is given", async () => {
+			const mockFile = new File(["content"], "test.dump");
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+				async () =>
+					new Response(JSON.stringify({ migration_count: 0, known_count: 0 }), {
+						status: 200,
+					}),
+			);
+
+			await api.backups.restore(mockFile, "token", "  abc123  ");
+			await api.backups.restore(mockFile, "token", "   ");
+			await api.backups.restore(mockFile, "token");
+
+			const bodies = fetchSpy.mock.calls.map(
+				(call) => (call[1] as RequestInit).body as FormData,
+			);
+			// Pasted sidecar contents travel trimmed; a blank or absent signature
+			// is omitted entirely so the server sees an unsigned restore, not an
+			// empty signature it would try to verify.
+			expect(bodies[0].get("signature")).toBe("abc123");
+			expect(bodies[1].has("signature")).toBe(false);
+			expect(bodies[2].has("signature")).toBe(false);
 		});
 
 		it("does not set Content-Type header", async () => {
