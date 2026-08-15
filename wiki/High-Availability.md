@@ -122,7 +122,7 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
 7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
    config sync after any provider/key/settings change on the primary.
 
-<p align="center"><a href="screenshots/frontdesk_addmember.png"><img src="screenshots/frontdesk_addmember.png" width="800" alt="Front Desk — add a member"></a></p>
+<p align="center"><a href="screenshots/frontdesk_addmember.png"><img src="screenshots/frontdesk_addmember.png" width="800" alt="Front Desk: add a member"></a></p>
 
 ---
 
@@ -177,7 +177,8 @@ Front Desk. The data plane (`/v1` traffic) is unaffected; clients use virtual ke
 
 Front Desk's own login supports a raw token (`FRONTDESK_TOKEN`), and optionally a
 **passkey** (WebAuthn) and **authenticator-app TOTP**, managed under Front Desk's
-**Settings → Security**. Passkeys require the stack to be reached over HTTPS,
+**Settings**, in the **Passkeys** and **Authenticator app (TOTP)** cards. Passkeys
+require the stack to be reached over HTTPS,
 which the external TLS proxy provides.
 
 A successful login (token, passkey, TOTP, or OIDC) mints an HttpOnly `fd_session`
@@ -210,26 +211,26 @@ Two things are worth understanding about authentication in an HA deployment:
 - **The passkey button only appears once a passkey exists.** A freshly
   provisioned instance shows token (and TOTP, if enabled) login but not a passkey
   button, because no credential is registered yet. Register one under Settings →
-  Security and the button appears on the next login.
+  Passkeys and the button appears on the next login.
 
-<p align="center"><a href="screenshots/frontdesk_settings_security.png"><img src="screenshots/frontdesk_settings_security.png" width="800" alt="Front Desk Settings — Security (passkeys + TOTP)"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_security.png"><img src="screenshots/frontdesk_settings_security.png" width="800" alt="Front Desk Settings: Passkeys and Authenticator app (TOTP) cards"></a></p>
 
 ### Single Sign-On (OIDC)
 
-Front Desk's admin login also accepts **OpenID Connect single sign-on** as a third path alongside the token, passkey, and TOTP — useful when you already operate an OIDC provider (Authentik, Authelia, Keycloak, Pocket ID, Okta, Google, …) for the rest of your infra. Configure it under **Settings → Single sign-on (OIDC)**: paste the issuer URL, client ID, and client secret from an app you register with your provider, point the provider's redirect URI at `<Front Desk public origin>/api/auth/oidc/callback`, and list the verified emails allowed to sign in. A **Sign in with SSO** button then appears on the Front Desk login screen.
+Front Desk's admin login also accepts **OpenID Connect single sign-on** as a fourth path alongside the token, passkey, and TOTP, useful when you already operate an OIDC provider (Authentik, Authelia, Keycloak, Pocket ID, Okta, Google, …) for the rest of your infra. Configure it under **Settings → Single sign-on (OIDC)**: paste the issuer URL, client ID, and client secret from an app you register with your provider, point the provider's redirect URI at `<Front Desk public origin>/api/auth/oidc/callback`, and list the verified emails allowed to sign in. A **Sign in with SSO** button then appears on the Front Desk login screen.
 
-This is Front Desk's *own* login — independent of each member's admin login and of the main gateway's SSO — and lives in Front Desk's SQLite, the client secret encrypted at rest with `FRONTDESK_MASTER_KEY`. Local login (token / passkey / TOTP) never goes away, so a misconfigured or unreachable provider cannot lock you out.
+This is Front Desk's *own* login, independent of each member's admin login and of the main gateway's SSO, and it lives in Front Desk's SQLite, the client secret encrypted at rest with `FRONTDESK_MASTER_KEY`. Local login (token / passkey / TOTP) never goes away, so a misconfigured or unreachable provider cannot lock you out.
 
 Front Desk runs the *same* OIDC implementation as the main dashboard, so everything in [Security → Single Sign-On](Security#single-sign-on-openid-connect) applies here unchanged: PKCE, a single-use state nonce, an allowlist that fails closed, the guarded outbound client, and the retry that absorbs a momentary DNS or dial failure to the provider rather than sending you back to the login screen to repeat the whole round trip.
 
-<p align="center"><a href="screenshots/frontdesk_settings_oidc.png"><img src="screenshots/frontdesk_settings_oidc.png" width="800" alt="Front Desk Settings — Single sign-on (OIDC)"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_oidc.png"><img src="screenshots/frontdesk_settings_oidc.png" width="800" alt="Front Desk Settings: Single sign-on (OIDC)"></a></p>
 
 
 ## Replicating Config Across the Fleet
 
 A fresh member starts empty: no providers, no virtual keys. Instead of
 re-entering everything on each instance, replicate one member's configuration to
-the rest from **Front Desk → Settings → Config sync**.
+the rest from **Front Desk → Settings → Fleet sync wizard**.
 
 You pick a **primary** (the config source of truth); Front Desk pulls its config
 and pushes it to every other member so the fleet converges. Because replacing
@@ -292,7 +293,7 @@ provider IDs.
 **Runbook:**
 
 1. Configure providers and virtual keys on the primary as usual.
-2. Front Desk → Settings → **Config sync** → choose the primary. The preview
+2. Front Desk → Settings → **Fleet sync wizard** → choose the primary. The preview
    shows, per member, what will be added, updated, or removed, and flags blocked
    members. Anything the primary lacks is **removed** from a replica that has it,
    so review before confirming.
@@ -301,13 +302,13 @@ provider IDs.
    want a rollback point. Each member is independent, and re-running retries any
    left behind. Request logs and metering are never touched.
 
-<p align="center"><a href="screenshots/frontdesk_settings_configsync.png"><img src="screenshots/frontdesk_settings_configsync.png" width="800" alt="Front Desk Settings — Fleet config sync (preview with diff)"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_configsync.png"><img src="screenshots/frontdesk_settings_configsync.png" width="800" alt="Front Desk Settings: Fleet sync wizard (preview with diff)"></a></p>
 
 ### Automatic config sync (set and forget)
 
-The runbook above is the manual path. For an unattended fleet, Front Desk →
-Settings → **Automatic config sync** lets you designate a primary and flip
-auto-sync on; from then on you only manage the primary. Flipping it on converges
+The runbook above is the manual path. For an unattended fleet, the **Fleet sync
+wizard** lets you designate a primary and, once the fleet has converged, switch
+**Auto-sync** on; from then on you only manage the primary. Flipping it on converges
 the fleet to the primary right away, then Front Desk keeps it there by itself,
 propagating any change to the replicated config across the
 fleet. The Members table's **Last Config Sync** column shows when each member last
@@ -356,7 +357,7 @@ The refusal is **symmetric**. It is not "old members are rejected": a new primar
 pushing to an old member and an old primary pushing to a new member both fail, so
 config sync stops fleet-wide the moment two builds disagree. What you see is:
 
-- In the **Config sync wizard**, affected members are flagged with
+- In the **Fleet sync wizard**, affected members are flagged with
   `this member's app version is too old to sync with the primary` (the wording
   names the member regardless of which side is actually behind).
 - With **automatic sync** on, those members stop converging and report
@@ -500,8 +501,8 @@ it out to Telegram, Discord, email, ntfy, and dozens more. Only routing metadata
 is sent, never request or prompt content.
 
 Run an `apprise` service reachable from Front Desk (a commented-out example ships
-in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings -> Alerts**:
-switch on **Send outbound alert notifications** (the card unrolls its fields), set
+in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings → Alerts**:
+switch on **Send outbound alert notifications** (the rest of the card appears), set
 the Apprise API URL (e.g. `http://apprise:8000`), paste your notification
 target(s), and pick which events to be notified about. The picker defaults to the
 high-signal HA events (a member going down or recovering, a config sync failing, a

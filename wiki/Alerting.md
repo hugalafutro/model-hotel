@@ -111,9 +111,9 @@ services:
 ```
 
 **2. Point Front Desk at it and at your ntfy topic.** In Front Desk → **Settings → Alerts**:
-   - Enable alerting and set **Apprise API URL** to `http://apprise:8000`.
+   - Switch on **Send outbound alert notifications** (the rest of the card appears) and set **Apprise API URL** to `http://apprise:8000`.
    - In the **Phone push via ntfy** helper, enter the ntfy server (`https://ntfy.sh`) and a **secret topic** name (treat it like a password: anyone who knows it can read your alerts), then **Set as target**. This composes the Apprise URL `ntfys://ntfy.sh/<topic>` for you.
-   - **Send test notification** to verify the whole chain.
+   - **Send test** to verify the whole chain.
 
 **3. Subscribe on the phone.** Install the [ntfy Android app](https://ntfy.sh) and subscribe to the same topic, or use [[Bellhop]]'s real-time push, which registers the topic for you (see the Bellhop page for the phone-side steps).
 
