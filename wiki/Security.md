@@ -521,6 +521,8 @@ App Logs view and its source filter.
 | `TRUSTED_PROXIES` | (empty) | CIDR list of trusted proxy IPs. Required for X-Forwarded-For header validation. Controls inbound trust only. |
 | `KNOWN_PROXIES` | (empty) | CIDR list of internal LLM server networks. Bypasses SafeDialer private-IP blocking for outbound connections. |
 | `WEBAUTHN_RP_ID` | (empty) | Relying Party ID for WebAuthn/FIDO2 passkey login. Empty = disabled. |
+| `PWNED_PASSWORD_CHECK_ENABLED` | `true` | Hard kill-switch for breached-password screening of new dashboard passwords (Have I Been Pwned range API, k-anonymity: only a five-character SHA-1 prefix leaves the box, fail-open). `false` disables it outright; the runtime toggle under Settings > Authentication > Password policy cannot re-enable it. See [Configuration](Configuration#breached-password-screening). |
+| `PWNED_PASSWORD_API_URL` | `https://api.pwnedpasswords.com` | Base URL of the range API; point at a self-hosted mirror for air-gapped deployments. |
 | `DATA_DIR` | `./data` | Directory for admin token storage. Must have restricted permissions. |
 
 ---

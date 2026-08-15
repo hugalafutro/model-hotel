@@ -412,7 +412,7 @@ The three UI styles applied to the dashboard (dark mode, each style's default ac
 *Settings page - Proxy section, showing TTFT Timeout and Stream Stall Timeout settings.*
 
 ![Settings Circuit Breaker](screenshots/settings_circuit_breaker.png)
-*Settings page - Circuit Breaker & Failover section, showing cooldown, failure threshold, and half-open request settings.*
+*Settings page - Circuit Breaker & Failover section: the failover column with cooldown, failure threshold and the quota-pin controls, and the Hedging column with its trade-off notice beneath the toggle.*
 
 ![Settings Backup](screenshots/settings_backup.png)
 *Settings page - Database Backup section, showing backup and restore controls.*

@@ -216,8 +216,8 @@ export function NanoGPTQuotaModal({
 				</div>
 
 				{usage.cancelAtPeriodEnd && (
-					<div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
-						<p className="text-sm text-yellow-300">
+					<div className="ui-callout ui-callout-warning">
+						<p>
 							{t("components.providerModals.cancelAtPeriodEnd", {
 								date: formatDate(usage.period.currentPeriodEnd),
 							})}
