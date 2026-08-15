@@ -658,9 +658,11 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
-  # Publish a rolling :dev image to Docker Hub on every master commit, so a
-  # second "staging" instance can track master by pointing its compose image:
-  # line at <DOCKERHUB_USERNAME>/model-hotel:dev (vs :latest for prod).
+  # Publish a rolling :dev image to GHCR and Docker Hub on every master commit,
+  # so a second "staging" instance can track master by pointing its compose
+  # image: line at ghcr.io/hugalafutro/model-hotel:dev (vs :latest for prod).
+  # Both registries get the same digest, same as the release publish, so either
+  # is a drop-in for the other.
   #
   # This is a dedicated job (not a step in docker-build) so it can `needs:` the
   # full required gate set: a master commit that fails Go tests, lint, vet,
@@ -711,7 +713,11 @@ jobs:
       # to the commit it just pushed, so the change-gate can diff future pushes
       # against what is actually live on :dev (self-healing a stranded change).
       contents: write
+      # packages write: the :dev push to GHCR uses GITHUB_TOKEN.
+      packages: write
     env:
+      GHCR_IMAGE: ghcr.io/${{ github.repository }}
+      GHCR_FRONTDESK_IMAGE: ghcr.io/${{ github.repository }}-frontdesk
       DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
       DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
     steps:
@@ -791,6 +797,14 @@ jobs:
             printf '%s\n' "$changed"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Log in to GHCR
+        if: steps.changes.outputs.skip == 'false'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
         if: steps.changes.outputs.skip == 'false'
@@ -882,10 +896,19 @@ jobs:
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          docker tag model-hotel:dev-candidate "${DOCKERHUB_IMAGE}:dev"
-          docker push "${DOCKERHUB_IMAGE}:dev"
-          docker tag model-hotel-frontdesk:dev-candidate "${DOCKERHUB_FRONTDESK_IMAGE}:dev"
-          docker push "${DOCKERHUB_FRONTDESK_IMAGE}:dev"
+          # Same local image tagged for both registries, so :dev has one digest
+          # everywhere. GHCR first: it is what the staging fleet pulls, so if
+          # Docker Hub is having a moment the tag that matters still moves.
+          for target in \
+            "${GHCR_IMAGE}:dev" "${DOCKERHUB_IMAGE}:dev"; do
+            docker tag model-hotel:dev-candidate "$target"
+            docker push "$target"
+          done
+          for target in \
+            "${GHCR_FRONTDESK_IMAGE}:dev" "${DOCKERHUB_FRONTDESK_IMAGE}:dev"; do
+            docker tag model-hotel-frontdesk:dev-candidate "$target"
+            docker push "$target"
+          done
           echo "pushed=true" >> "$GITHUB_OUTPUT"
 
       # Move the dev-published marker to the commit we just published so the next

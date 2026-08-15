@@ -4,7 +4,7 @@
 #
 # Used by .github/workflows/image-scan.yml, which scans already-published
 # images. Trivy's own registry fetch has no retry and a 5m default timeout, so
-# one Docker Hub blip (`dial tcp ...: i/o timeout`) fails the whole scheduled
+# one registry blip (`dial tcp ...: i/o timeout`) fails the whole scheduled
 # run: no SARIF is uploaded, and the Security tab shows Trivy red until the
 # next weekly run. Pulling here instead means a blip costs a retry, not a week
 # of scan coverage. Trivy resolves an image from the local docker daemon before
