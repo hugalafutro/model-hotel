@@ -26,6 +26,10 @@
 	"layout": {
 		"language": {
 			"label": "Jazyk"
+		},
+		"theme": {
+			"toLight": "Přepnout na světlý motiv",
+			"toDark": "Přepnout na tmavý motiv"
 		}
 	},
 	"footer": {

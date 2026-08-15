@@ -216,6 +216,13 @@ h3 {
 	color: var(--text-faint);
 }
 
+/* --- header tools (theme toggle + language selector) --- */
+.fd-header-tools {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
 /* --- language selector (header dropdown) --- */
 .fd-lang {
 	position: relative;

@@ -26,6 +26,10 @@
 	"layout": {
 		"language": {
 			"label": "Sprache"
+		},
+		"theme": {
+			"toLight": "Zum hellen Design wechseln",
+			"toDark": "Zum dunklen Design wechseln"
 		}
 	},
 	"footer": {

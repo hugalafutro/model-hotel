@@ -26,6 +26,10 @@
 	"layout": {
 		"language": {
 			"label": "言語"
+		},
+		"theme": {
+			"toLight": "ライトテーマに切り替える",
+			"toDark": "ダークテーマに切り替える"
 		}
 	},
 	"footer": {

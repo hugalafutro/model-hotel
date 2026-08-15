@@ -18,6 +18,7 @@ import { LanguageSelector } from "./components/LanguageSelector";
 import { Login } from "./components/Login";
 import { Logo } from "./components/Logo";
 import { QuotaStrip } from "./components/QuotaStrip";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
@@ -125,7 +126,10 @@ function Shell() {
 						<SignOutIcon size={16} />
 					</button>
 				</div>
-				<LanguageSelector />
+				<div className="fd-header-tools">
+					<ThemeToggle />
+					<LanguageSelector />
+				</div>
 			</header>
 			{/* The strip renders provider payloads fetched from the fleet primary,
 			    i.e. data this build does not control the shape of. A 200 carrying a
