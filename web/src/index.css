@@ -117,7 +117,7 @@ html[data-ui-style="cyber-terminal"] {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
-	--success-text: #059669;
+	--success-text: #047857;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -269,7 +269,7 @@ html[data-ui-style="cyber-terminal"].light {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
-	--success-text: #059669;
+	--success-text: #047857;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -352,7 +352,7 @@ html[data-ui-style="glassmorphism-lite"].light {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
-	--success-text: #059669;
+	--success-text: #047857;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -2687,6 +2687,10 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	color: #0e7490;
 	border-color: rgba(8, 145, 178, 0.25);
 }
+
+/* =============================================
+   TEXT TONES
+   ============================================= */
 
 /* Result lines: one sentence reporting how something the operator just asked
    for turned out (an apprise probe, a test notification). The wording carries

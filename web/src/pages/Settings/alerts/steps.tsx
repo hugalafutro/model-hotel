@@ -94,7 +94,7 @@ export function StepApprise({
 			{state.added.length > 0 && (
 				<p
 					data-testid="wiz-api-changed-drops"
-					className="ui-callout ui-callout-warning text-xs"
+					className="ui-callout ui-callout-warning"
 				>
 					{t(`${K}.apiChangedDrops`)}
 				</p>
@@ -118,15 +118,15 @@ export function StepApprise({
 // Model Hotel has no companion app of its own, so the phone tile is ntfy's.
 // (composers.ts still recognises a Bellhop topic when it describes a stored
 // destination that Front Desk set up.)
-const KINDS: DestinationKind[] = [
+const KINDS = [
 	"ntfy",
 	"telegram",
 	"discord",
 	"email",
 	"other",
-];
+] as const satisfies readonly DestinationKind[];
 
-const KIND_HINT: Record<string, string> = {
+const KIND_HINT: Record<(typeof KINDS)[number], string> = {
 	ntfy: "kindNtfyHint",
 	telegram: "kindTelegramHint",
 	discord: "kindDiscordHint",
@@ -138,7 +138,7 @@ const KIND_HINT: Record<string, string> = {
 // settings.alerts.kind.* labels. Two need more than the bare name to be picked
 // correctly: "ntfy" means nothing until it says it is the phone app, and
 // "Apprise URL" is the catch-all rather than a service.
-const KIND_TITLE: Record<string, string> = {
+const KIND_TITLE: Partial<Record<(typeof KINDS)[number], string>> = {
 	ntfy: "kindNtfyTitle",
 	other: "kindOtherTitle",
 };
@@ -160,7 +160,7 @@ export function StepKind({
 				<div>
 					<button
 						type="button"
-						className="ui-link-accent text-xs"
+						className="ui-link-accent text-xs text-(--accent)"
 						data-testid="wiz-back-to-list"
 						onClick={() => dispatch({ type: "go", step: 5 })}
 					>
@@ -298,7 +298,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 
 			{kind === "other" && (
 				<a
-					className="ui-link-accent text-xs"
+					className="ui-link-accent text-xs text-(--accent) underline"
 					href={APPRISE_SERVICES_URL}
 					target="_blank"
 					rel="noreferrer"

@@ -209,14 +209,15 @@ export function initialState(p: AlertsWizardProps): WizardState {
 	// "Add destination" only makes sense against a configured apprise-api; without
 	// one the run starts at step 1 whatever the caller asked for.
 	const start: Step = p.startAt === 2 && p.initialApiUrl !== "" ? 2 : 1;
-	// A missing alert_events row is "nothing has been decided yet", which a setup
-	// run answers with the recommended preset. A stored blank is the opposite: the
-	// operator turned every event off, and re-ticking the preset behind their back
-	// would silently undo that.
+	// A missing alert_events row is "nothing has been decided yet": Model Hotel
+	// runs on the recommended defaults until the setting is written, so the wizard
+	// shows the same set it is already behaving as. A stored blank is the
+	// opposite, and the only value that means it: the operator turned every event
+	// off, and re-ticking the preset behind their back would silently undo that.
 	const events =
-		p.startAt === 1 && p.savedEvents === null
+		p.savedEvents === null
 			? new Set(p.catalog.filter((e) => e.defaultOn).map((e) => e.type))
-			: parseCsv(p.savedEvents ?? "");
+			: parseCsv(p.savedEvents);
 	return {
 		step: start,
 		minStep: start,
@@ -580,6 +581,10 @@ export function AlertsWizard(props: AlertsWizardProps) {
 			// parent's copy of the settings is stale: every way out of the dialog
 			// tells it to reload.
 			onClose={state.done ? onFinished : onClose}
+			// Escape is Cancel by another name, so it is allowed wherever Cancel is:
+			// a probe or a test in flight changes nothing that is stored, and only
+			// the write itself is worth waiting for.
+			dismissible={!state.finishing}
 			closeOnBackdrop={false}
 			maxWidth="max-w-2xl"
 			scrollable

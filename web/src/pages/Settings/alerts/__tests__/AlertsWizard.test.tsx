@@ -586,9 +586,10 @@ describe("AlertsWizard", () => {
 		).toBe(false);
 	});
 
-	// Model Hotel writes no alert_events row until something is chosen, so an
-	// absent key is "nothing has been decided yet" and a stored blank is the
-	// operator having turned every event off.
+	// Model Hotel writes no alert_events row until something is chosen and runs on
+	// the recommended defaults until then, so an absent key seeds that same set
+	// whichever step the run starts on. A stored blank is the operator having
+	// turned every event off, and stays off.
 	it("seeds the recommended events only when the key has never been written", () => {
 		expect([...initialState(props({ savedEvents: null })).events]).toEqual([
 			"circuit_breaker_open",
@@ -598,11 +599,21 @@ describe("AlertsWizard", () => {
 		expect([
 			...initialState(props({ savedEvents: "fleet_conflict" })).events,
 		]).toEqual(["fleet_conflict"]);
-		// An "Add destination" run never seeds: it is not the run that decides.
+		// Which step the run starts on does not change what is stored, so an
+		// "Add destination" run reads the same absent key the same way.
 		expect([
 			...initialState(
 				props({
 					savedEvents: null,
+					startAt: 2,
+					initialApiUrl: "http://apprise:8000",
+				}),
+			).events,
+		]).toEqual(["circuit_breaker_open", "circuit_breaker_closed"]);
+		expect([
+			...initialState(
+				props({
+					savedEvents: "",
 					startAt: 2,
 					initialApiUrl: "http://apprise:8000",
 				}),

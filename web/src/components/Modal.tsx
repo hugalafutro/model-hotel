@@ -21,6 +21,10 @@ interface ModalProps {
 	title?: string;
 	header?: ReactNode;
 	closeOnBackdrop?: boolean;
+	// Whether the quiet exits (Escape, the header X) are offered. False while the
+	// dialog is doing work that walking out would strand, e.g. a write in flight:
+	// the caller keeps its own explicit buttons and decides when leaving is safe.
+	dismissible?: boolean;
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
@@ -45,6 +49,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		title,
 		header,
 		closeOnBackdrop = true,
+		dismissible = true,
 		onClose,
 		maxWidth = "max-w-md",
 		scrollable = false,
@@ -121,6 +126,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		closeRef.current = handleClose;
 	}, [handleClose]);
 
+	// Same reason as closeRef: the keydown listener registers once, so it reads
+	// the current value here rather than closing over the one it mounted with.
+	const dismissibleRef = useRef(dismissible);
+	useEffect(() => {
+		dismissibleRef.current = dismissible;
+	}, [dismissible]);
+
 	// Escape is handled on the DOCUMENT, not on the dialog node.
 	//
 	// A control that unmounts while focused — dismissing the row whose button
@@ -137,6 +149,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		openDialogs.push(el);
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.key !== "Escape") return;
+			if (!dismissibleRef.current) return;
 			if (openDialogs[openDialogs.length - 1] !== el) return;
 			closeRef.current();
 		};
@@ -185,6 +198,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				<button
 					type="button"
 					onClick={handleClose}
+					disabled={!dismissible}
 					className="ui-icon-btn absolute top-3 right-3 z-10 p-2"
 					aria-label={t("common.close")}
 				>
