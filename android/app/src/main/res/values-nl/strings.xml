@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
     <string name="alerts_event_backup_stale">Lid zonder recente back-up</string>
     <string name="alerts_event_backup_recovered">Lid wordt weer geback-upt</string>
-    <string name="alerts_event_backup_pruned">Front Desk-back-ups gewist</string>
     <string name="event_device_paired">Apparaat gekoppeld</string>
     <string name="event_device_revoked">Apparaatkoppeling ingetrokken</string>
     <string name="event_settings_changed">Instellingen gewijzigd</string>
@@ -218,7 +217,7 @@
     <string name="settings_push_no_distributor">Installeer een UnifiedPush-distributeur zoals ntfy om pushes te ontvangen. Zonder een blijft dit inactief tot je er een toevoegt.</string>
     <string name="settings_push_endpoint_label">Push-onderwerp voor Front Desk</string>
     <string name="settings_push_endpoint_waiting">Wachten tot de distributeur een push-onderwerp teruggeeft…</string>
-    <string name="settings_push_endpoint_note">Plak dit in Front Desk → Instellingen → Waarschuwingen als het telefoononderwerp, zodat zijn waarschuwingen Bellhop wekken.</string>
+    <string name="settings_push_endpoint_note">Start in Front Desk → Instellingen → Waarschuwingen Alerts instellen (of Bestemming toevoegen zodra alerts zijn geconfigureerd), kies de Bellhop-tegel en plak dit daar.</string>
     <string name="settings_push_copy">Push-onderwerp kopiëren</string>
     <string name="settings_push_copied">Push-onderwerp gekopieerd</string>
     <string name="settings_push_blocked">Meldingen staan uit voor Bellhop, dus pushes kunnen je niet bereiken. Zet ze aan in de systeeminstellingen.</string>
@@ -235,6 +234,8 @@
     <string name="notif_stale_body">Auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd. Tik om Bellhop te openen.</string>
     <string name="notif_stale_resumed_title">Auto-sync hervat</string>
     <string name="notif_stale_resumed_body">De vloot wordt weer synchroon gehouden.</string>
+    <string name="notif_push_test_title">Pushtest van %1$s ontvangen</string>
+    <string name="notif_push_test_body">Realtime push werkt. Bellhop waarschuwt alleen bij wijzigingen van leden en afwijkende auto-sync; tests maken geen meldingen.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Ontkoppelen</string>

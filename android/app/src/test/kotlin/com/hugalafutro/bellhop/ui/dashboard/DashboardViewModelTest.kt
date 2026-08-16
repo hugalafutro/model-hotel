@@ -804,7 +804,7 @@ class DashboardViewModelTest {
         assertTrue(DashboardViewModel.triggersRefresh("traefik.stale"))
         assertTrue(DashboardViewModel.triggersRefresh("settings.changed"))
         assertFalse(DashboardViewModel.triggersRefresh("device.paired"))
-        assertFalse(DashboardViewModel.triggersRefresh("backup.pruned"))
+        assertFalse(DashboardViewModel.triggersRefresh("backup.stale"))
     }
 
     @Test

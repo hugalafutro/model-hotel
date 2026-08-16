@@ -5,16 +5,15 @@ import type {
 import type {
 	AlertEventDef,
 	AlertStatus,
+	AlertTargets,
 	AuthSession,
 	AutoSyncConfig,
-	BackupPruneResult,
 	DeviceRole,
 	EventsPage,
 	FdEvent,
 	FleetStatus,
 	FleetSyncState,
 	FleetVersionCheck,
-	FrontDeskBackupCount,
 	Member,
 	MemberState,
 	MemberTraffic,
@@ -204,7 +203,21 @@ export const api = {
 	// Outbound Apprise alerting (Settings -> Alerts panel).
 	getAlertEvents: () => request<AlertEventDef[]>("/api/alert/events"),
 	getAlertStatus: () => request<AlertStatus>("/api/alert/status"),
-	testAlert: () => request<void>("/api/alert/test", { method: "POST" }),
+	probeAlert: (apiUrl: string) =>
+		request<AlertStatus>(
+			"/api/alert/probe",
+			jsonInit("POST", { api_url: apiUrl }),
+		),
+	// No body: test the saved configuration. {api_url, targets}: test one or more
+	// explicit destinations through an explicit URL before anything is saved.
+	// The no-body form sends no body and no Content-Type, which is how the
+	// server tells "use what is stored" from "use exactly this".
+	testAlert: (body?: { api_url?: string; targets?: string[] }) =>
+		request<void>(
+			"/api/alert/test",
+			body ? jsonInit("POST", body) : { method: "POST" },
+		),
+	getAlertTargets: () => request<AlertTargets>("/api/alert/targets"),
 
 	listEvents: (params: URLSearchParams) =>
 		request<EventsPage>(`/api/events?${params.toString()}`),
@@ -272,30 +285,6 @@ export const api = {
 			"/api/config/sync",
 			jsonInit("POST", { primary_id: primaryId }),
 		),
-
-	// How many frontdesk-origin pg_dumps the fleet holds, as of the last time
-	// Front Desk read each member's listing (its backup watchdog or a prune run).
-	// Cheap: the server answers from memory and calls no member. Settings uses it
-	// to decide whether Fleet maintenance has anything to offer.
-	frontDeskBackupCount: () =>
-		request<FrontDeskBackupCount>("/api/fleet/backups/frontdesk-count"),
-
-	// Counts the frontdesk-origin pg_dumps a real prune would delete, deleting
-	// nothing, so the confirmation can name the number. Its own function rather
-	// than a flag on pruneFrontDeskBackups: the destructive call must never be one
-	// dropped argument away from a preview.
-	previewFrontDeskBackupPrune: () =>
-		request<BackupPruneResult>("/api/fleet/backups/prune-frontdesk?dryRun=1", {
-			method: "POST",
-		}),
-
-	// Deletes every frontdesk-origin pg_dump from every member Front Desk can
-	// authenticate to. Nothing produces those snapshots and member-side rotation
-	// spares them, so they stay until this clears them.
-	pruneFrontDeskBackups: () =>
-		request<BackupPruneResult>("/api/fleet/backups/prune-frontdesk", {
-			method: "POST",
-		}),
 
 	// Re-poll member versions and report the ones that differ from the
 	// primary's. Powers the wizard's version gate and its Refresh button.

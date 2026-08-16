@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>
     <string name="alerts_event_backup_stale">Mitglied ohne aktuelles Backup</string>
     <string name="alerts_event_backup_recovered">Mitglied wird wieder gesichert</string>
-    <string name="alerts_event_backup_pruned">Front-Desk-Backups gelöscht</string>
     <string name="event_device_paired">Gerät gekoppelt</string>
     <string name="event_device_revoked">Gerätekopplung widerrufen</string>
     <string name="event_settings_changed">Einstellungen geändert</string>
@@ -218,7 +217,7 @@
     <string name="settings_push_no_distributor">Installiere einen UnifiedPush-Distributor wie ntfy, um Pushes zu empfangen. Ohne einen bleibt dies inaktiv, bis du einen hinzufügst.</string>
     <string name="settings_push_endpoint_label">Push-Thema für Front Desk</string>
     <string name="settings_push_endpoint_waiting">Warten, bis der Distributor ein Push-Thema zurückgibt…</string>
-    <string name="settings_push_endpoint_note">Füge dies in Front Desk → Einstellungen → Warnungen als Telefon-Thema ein, damit dessen Warnungen Bellhop wecken.</string>
+    <string name="settings_push_endpoint_note">Starte in Front Desk → Einstellungen → Warnungen Alerts einrichten (oder Ziel hinzufügen, sobald die Alerts konfiguriert sind), wähle die Bellhop-Kachel und füge dies dann dort ein.</string>
     <string name="settings_push_copy">Push-Thema kopieren</string>
     <string name="settings_push_copied">Push-Thema kopiert</string>
     <string name="settings_push_blocked">Benachrichtigungen für Bellhop sind aus, daher können Pushes dich nicht erreichen. Schalte sie in den Systemeinstellungen ein.</string>
@@ -235,6 +234,8 @@
     <string name="notif_stale_body">Auto-Sync ist aus und die Flotte hat sich seit über einem Tag nicht synchronisiert. Tippe, um Bellhop zu öffnen.</string>
     <string name="notif_stale_resumed_title">Auto-Sync fortgesetzt</string>
     <string name="notif_stale_resumed_body">Die Flotte wird wieder synchron gehalten.</string>
+    <string name="notif_push_test_title">Push-Test von %1$s empfangen</string>
+    <string name="notif_push_test_body">Echtzeit-Push funktioniert. Bellhop meldet nur Änderungen an Mitgliedern und Auto-Sync-Abweichungen; Tests erzeugen keine Meldungen.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Verknüpfung aufheben</string>

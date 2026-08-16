@@ -170,7 +170,6 @@
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
     <string name="alerts_event_backup_stale">Member has no recent backup</string>
     <string name="alerts_event_backup_recovered">Member backups healthy again</string>
-    <string name="alerts_event_backup_pruned">Front Desk backups cleared</string>
     <!-- Event-log-only types (not in the alert catalog), used by the shared event-title map. -->
     <string name="event_device_paired">Device paired</string>
     <string name="event_device_revoked">Device revoked</string>
@@ -235,7 +234,7 @@
     <string name="settings_push_no_distributor">Install a UnifiedPush distributor such as ntfy to receive pushes. Without one, this stays idle until you add it.</string>
     <string name="settings_push_endpoint_label">Push topic for Front Desk</string>
     <string name="settings_push_endpoint_waiting">Waiting for the distributor to hand back a push topic…</string>
-    <string name="settings_push_endpoint_note">Paste this into Front Desk → Settings → Alerts as the phone topic, so its alerts wake Bellhop.</string>
+    <string name="settings_push_endpoint_note">In Front Desk → Settings → Alerts, run Set up alerts (or Add destination once alerts are configured), pick the Bellhop tile, then paste it there.</string>
     <string name="settings_push_copy">Copy push topic</string>
     <string name="settings_push_copied">Push topic copied</string>
     <string name="settings_push_blocked">Notifications are off for Bellhop, so pushes can\'t reach you. Turn them on in system settings.</string>
@@ -252,6 +251,8 @@
     <string name="notif_stale_body">Auto-sync is off and the fleet hasn\'t synced in over a day. Tap to open Bellhop.</string>
     <string name="notif_stale_resumed_title">Auto-sync resumed</string>
     <string name="notif_stale_resumed_body">The fleet is being kept in sync again.</string>
+    <string name="notif_push_test_title">%1$s push test received</string>
+    <string name="notif_push_test_body">Real-time push works. Bellhop only alerts on member changes and auto-sync drift; tests do not create alerts.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Unlink</string>

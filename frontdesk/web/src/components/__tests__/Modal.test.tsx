@@ -43,6 +43,38 @@ describe("Modal", () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
+	it("gives Escape and the focus trap to the topmost dialog only", async () => {
+		// Mirrors the alerts wizard with a remove confirmation open inside it: one
+		// Escape must dismiss the confirmation and leave the wizard standing, and
+		// the wizard must not pull focus out of the confirmation.
+		const closeOuter = vi.fn();
+		const closeInner = vi.fn();
+		render(
+			<Modal
+				title="Outer"
+				onClose={closeOuter}
+				actions={<button type="button">Outer action</button>}
+			>
+				<Modal title="Inner" onClose={closeInner}>
+					<input aria-label="inner field" />
+				</Modal>
+			</Modal>,
+		);
+		// The inner field is the only focusable inside the inner dialog and also
+		// the first one inside the outer dialog, so a wrap handled by the outer
+		// dialog would land on its action button behind the inner one.
+		const field = screen.getByLabelText("inner field");
+		expect(field).toHaveFocus();
+		await userEvent.tab({ shift: true });
+		expect(field).toHaveFocus();
+		await userEvent.tab();
+		expect(field).toHaveFocus();
+
+		await userEvent.keyboard("{Escape}");
+		expect(closeInner).toHaveBeenCalledTimes(1);
+		expect(closeOuter).not.toHaveBeenCalled();
+	});
+
 	it("does not close on Escape or backdrop click when not dismissible", async () => {
 		const onClose = vi.fn();
 		render(
@@ -55,6 +87,24 @@ describe("Modal", () => {
 		const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
 		await userEvent.click(backdrop);
 		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it("ignores a backdrop click but still closes on Escape when closeOnBackdrop is false", async () => {
+		const onClose = vi.fn();
+		render(
+			<Modal
+				title="Wizard-like dialog"
+				onClose={onClose}
+				closeOnBackdrop={false}
+			>
+				<input aria-label="field" />
+			</Modal>,
+		);
+		const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
+		await userEvent.click(backdrop);
+		expect(onClose).not.toHaveBeenCalled();
+		await userEvent.keyboard("{Escape}");
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it("does not steal focus when the parent re-renders (new onClose identity)", async () => {

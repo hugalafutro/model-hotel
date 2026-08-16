@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Membre drainé ou activé</string>
     <string name="alerts_event_backup_stale">Membre sans sauvegarde récente</string>
     <string name="alerts_event_backup_recovered">Membre à nouveau sauvegardé</string>
-    <string name="alerts_event_backup_pruned">Sauvegardes Front Desk effacées</string>
     <string name="event_device_paired">Appareil appairé</string>
     <string name="event_device_revoked">Appareil révoqué</string>
     <string name="event_settings_changed">Paramètres modifiés</string>
@@ -218,7 +217,7 @@
     <string name="settings_push_no_distributor">Installez un distributeur UnifiedPush tel que ntfy pour recevoir les pushs. Sans lui, ceci reste inactif jusqu\'à ce que vous en ajoutiez un.</string>
     <string name="settings_push_endpoint_label">Sujet push pour Front Desk</string>
     <string name="settings_push_endpoint_waiting">En attente que le distributeur renvoie un sujet push…</string>
-    <string name="settings_push_endpoint_note">Collez ceci dans Front Desk → Paramètres → Alertes comme sujet du téléphone, pour que ses alertes réveillent Bellhop.</string>
+    <string name="settings_push_endpoint_note">Dans Front Desk → Paramètres → Alertes, lancez Configurer les alertes (ou Ajouter une destination une fois les alertes configurées), choisissez la tuile Bellhop, puis collez-le là.</string>
     <string name="settings_push_copy">Copier le sujet push</string>
     <string name="settings_push_copied">Sujet push copié</string>
     <string name="settings_push_blocked">Les notifications sont désactivées pour Bellhop, les pushs ne peuvent donc pas vous parvenir. Activez-les dans les paramètres système.</string>
@@ -235,6 +234,8 @@
     <string name="notif_stale_body">La synchro auto est désactivée et la flotte ne s\'est pas synchronisée depuis plus d\'un jour. Touchez pour ouvrir Bellhop.</string>
     <string name="notif_stale_resumed_title">Synchro auto reprise</string>
     <string name="notif_stale_resumed_body">La flotte est de nouveau maintenue synchronisée.</string>
+    <string name="notif_push_test_title">Test de push de %1$s reçu</string>
+    <string name="notif_push_test_body">Le push en temps réel fonctionne. Bellhop n\'alerte que sur les changements des membres et la dérive de la synchronisation automatique ; les tests ne créent pas d\'alertes.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Dissocier</string>

@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
     <string name="alerts_event_backup_stale">У участника нет свежей резервной копии</string>
     <string name="alerts_event_backup_recovered">Участник снова резервируется</string>
-    <string name="alerts_event_backup_pruned">Копии Front Desk удалены</string>
     <string name="event_device_paired">Устройство сопряжено</string>
     <string name="event_device_revoked">Сопряжение устройства отозвано</string>
     <string name="event_settings_changed">Настройки изменены</string>
@@ -224,7 +223,7 @@
     <string name="settings_push_no_distributor">Установите распространитель UnifiedPush, например ntfy, чтобы получать push-уведомления. Без него это остаётся неактивным, пока вы его не добавите.</string>
     <string name="settings_push_endpoint_label">Push-тема для Front Desk</string>
     <string name="settings_push_endpoint_waiting">Ожидание, пока распространитель вернёт push-тему…</string>
-    <string name="settings_push_endpoint_note">Вставьте это в Front Desk → Настройки → Оповещения как тему телефона, чтобы его оповещения будили Bellhop.</string>
+    <string name="settings_push_endpoint_note">В Front Desk → Настройки → Оповещения запустите Настроить оповещения (или Добавить получателя, если оповещения уже настроены), выберите плитку Bellhop, затем вставьте это туда.</string>
     <string name="settings_push_copy">Копировать push-тему</string>
     <string name="settings_push_copied">Push-тема скопирована</string>
     <string name="settings_push_blocked">Уведомления для Bellhop отключены, поэтому push-уведомления не могут до вас дойти. Включите их в системных настройках.</string>
@@ -241,6 +240,8 @@
     <string name="notif_stale_body">Автосинхронизация отключена, и флот не синхронизировался больше суток. Нажмите, чтобы открыть Bellhop.</string>
     <string name="notif_stale_resumed_title">Автосинхронизация возобновлена</string>
     <string name="notif_stale_resumed_body">Флот снова поддерживается в синхронизации.</string>
+    <string name="notif_push_test_title">Получен тестовый push из %1$s</string>
+    <string name="notif_push_test_body">Push в реальном времени работает. Bellhop уведомляет только об изменениях узлов и расхождении автосинхронизации; тесты уведомлений не создают.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Отвязать</string>

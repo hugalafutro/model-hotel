@@ -177,15 +177,15 @@ Front Desk. The data plane (`/v1` traffic) is unaffected; clients use virtual ke
 ## Front Desk Settings
 
 Most of what follows is configured on Front Desk's **Settings** tab: the polling
-and data-plane intervals, the fleet sync wizard and fleet maintenance across the
-full width, then three side-by-side card pairs (Alerts and Observability,
-Passkeys and Authenticator app, Active sessions and Paired devices), with single
-sign-on at the bottom. The pairs collapse to one column on a narrow window. The
+and data-plane intervals and the fleet sync wizard across the full width, then
+three side-by-side card pairs (Alerts and Observability, Passkeys and
+Authenticator app, Active sessions and Paired devices), with single sign-on at
+the bottom. The pairs collapse to one column on a narrow window. The
 Admin Authentication, Replicating Config, Alerting and Paired Devices sections
 below zoom into individual cards; TLS Proxy and the closing sections are about
 the stack around Front Desk, not this tab.
 
-<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: full-width polling, sync and maintenance cards above three side-by-side card pairs, single sign-on at the bottom"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: full-width polling and sync cards above three side-by-side card pairs, single sign-on at the bottom"></a></p>
 
 ---
 
@@ -517,18 +517,26 @@ it out to Telegram, Discord, email, ntfy, and dozens more. Only routing metadata
 is sent, never request or prompt content.
 
 Run an `apprise` service reachable from Front Desk (a commented-out example ships
-in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings → Alerts**:
-switch on **Send outbound alert notifications** (the rest of the card appears), set
-the Apprise API URL (e.g. `http://apprise:8000`), paste your notification
-target(s), and pick which events to be notified about. The picker defaults to the
-high-signal HA events (a member going down or recovering, a config sync failing, a
-member's version read failing repeatedly); membership and routing events are
-available but off by default. The target is encrypted at rest with
-`FRONTDESK_MASTER_KEY`, and a **Send test** button confirms delivery end to end.
-This is the same `apprise-api` the main gateway uses, so one container can serve
-both.
+in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings → Alerts** press
+**Set up alerts**. The wizard walks seven gated steps: the Apprise API URL with a
+live **Check**, the kind of destination (phone via the ntfy app, Bellhop,
+Telegram, Discord, email, or a raw Apprise URL), its details as plain fields, a
+test to that destination alone, the destination list, the events, and **Finish**.
+Nothing is written until **Finish**, so cancelling changes nothing. The event
+picker starts on the high-signal HA events (a member going down or recovering, a
+config sync failing, a member's version read failing repeatedly); membership and
+routing events are available but off by default.
 
-<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the Apprise destination, the ntfy helper and the event picker"></a></p>
+Saved destinations then sit on the card as a plaintext, admin-only
+**Destinations** list with per-row **Copy**, **Test** and **Remove**, and
+the card's guided button becomes **Add destination**, which appends another through the same wizard from step 2. The card carries only one of the two buttons at a time. The individual
+fields stay under **Manual configuration (advanced)** for anything the wizard
+does not cover. Targets are encrypted at rest with `FRONTDESK_MASTER_KEY`. This
+is the same `apprise-api` the main gateway uses, so one container can serve both;
+the main dashboard's own Alerts card keeps its manual fields until the same
+wizard reaches it.
+
+<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Add destination button a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
 
 ### Phone push via ntfy
 
@@ -538,13 +546,14 @@ container next to the stack, or use ntfy.sh with a hard-to-guess secret topic
 (the topic name is the only access control on the public server, so treat it
 like a password).
 
-The Alerts panel has a convenience block for exactly this: enter the ntfy
-server and topic, and it pre-formats the Apprise URL
-(`ntfys://your-server/your-topic`, or `ntfy://` for plain-http servers) and sets
-it as the target. Then subscribe to the same topic in the
-[ntfy app](https://ntfy.sh) on the phone (or, later, the Bellhop companion app,
-which reuses this channel as its opt-in real-time push layer). Every enabled
-fleet event then lands on the phone the moment it fires.
+The wizard's **Phone (ntfy app)** tile does exactly this: enter the ntfy server,
+press **Generate** for a random topic, and it composes the Apprise URL
+(`ntfys://your-server/your-topic`, or `ntfy://` for plain-http servers) and prints
+the subscribe steps for the phone. Then subscribe to the same server and topic in
+the [ntfy app](https://ntfy.sh). The **Bellhop** tile covers the companion app,
+which reuses this channel as its opt-in real-time push layer and generates its own
+topic, so that one is a single paste. Every enabled fleet event then lands on the
+phone the moment it fires.
 
 ---
 

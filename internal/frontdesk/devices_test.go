@@ -379,6 +379,8 @@ func TestDeviceRoleCeiling(t *testing.T) {
 		{http.MethodGet, "/api/settings", ""},
 		{http.MethodPost, "/api/pair/start", `{"role":"monitor"}`},
 		{http.MethodGet, "/api/devices", ""},
+		{http.MethodPost, "/api/alert/probe", `{"api_url":"https://x"}`},
+		{http.MethodGet, "/api/alert/targets", ""},
 	}
 	for _, c := range adminOnly {
 		rec := doDevice(t, srv, c.method, c.path, c.body, operator)

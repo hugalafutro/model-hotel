@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Člen odstaven nebo aktivován</string>
     <string name="alerts_event_backup_stale">Člen bez aktuální zálohy</string>
     <string name="alerts_event_backup_recovered">Člen se opět zálohuje</string>
-    <string name="alerts_event_backup_pruned">Zálohy od Front Desku smazány</string>
     <string name="event_device_paired">Zařízení spárováno</string>
     <string name="event_device_revoked">Spárování zařízení zrušeno</string>
     <string name="event_settings_changed">Nastavení změněno</string>
@@ -224,7 +223,7 @@
     <string name="settings_push_no_distributor">Nainstalujte distributora UnifiedPush, například ntfy, pro příjem pushů. Bez něj zůstane toto nečinné, dokud ho nepřidáte.</string>
     <string name="settings_push_endpoint_label">Push téma pro Front Desk</string>
     <string name="settings_push_endpoint_waiting">Čeká se, až distributor vrátí push téma…</string>
-    <string name="settings_push_endpoint_note">Vložte toto do Front Desku → Nastavení → Upozornění jako téma telefonu, aby jeho upozornění probouzela Bellhop.</string>
+    <string name="settings_push_endpoint_note">Ve Front Desku → Nastavení → Upozornění spusťte Nastavit upozornění (nebo Přidat cíl, když už jsou upozornění nastavená), zvolte dlaždici Bellhop a pak toto vložte tam.</string>
     <string name="settings_push_copy">Kopírovat push téma</string>
     <string name="settings_push_copied">Push téma zkopírováno</string>
     <string name="settings_push_blocked">Oznámení pro Bellhop jsou vypnutá, takže se k vám pushe nedostanou. Zapněte je v nastavení systému.</string>
@@ -241,6 +240,8 @@
     <string name="notif_stale_body">Automatická synchronizace je vypnutá a flotila se nesynchronizovala už přes den. Klepnutím otevřete Bellhop.</string>
     <string name="notif_stale_resumed_title">Automatická synchronizace obnovena</string>
     <string name="notif_stale_resumed_body">Flotila je opět udržována synchronizovaná.</string>
+    <string name="notif_push_test_title">Přijat testovací push z %1$s</string>
+    <string name="notif_push_test_body">Push v reálném čase funguje. Bellhop upozorňuje jen na změny členů a odchylky automatické synchronizace; testy žádná upozornění nevytvářejí.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Zrušit propojení</string>

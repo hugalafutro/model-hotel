@@ -27,6 +27,9 @@ import com.hugalafutro.bellhop.data.MemberTransition
  * down" is high importance (it may page), "member recovered" is low (a quiet
  * status update). Posting is a no-op when the POST_NOTIFICATIONS permission is
  * absent, so the worker never has to guard the call itself.
+ *
+ * [notifyPushTest] is the one row that does not come from fleet state: it answers
+ * Front Desk's test push, which a healthy fleet would otherwise leave invisible.
  */
 object FleetNotifier {
     const val CHANNEL_DOWN = "member_down"
@@ -42,6 +45,15 @@ object FleetNotifier {
     // tag: WentStale and Resumed share it, so the resume updates the stale row in
     // place instead of stacking a second notification.
     private const val AUTOSYNC_TAG = "autosync-stale"
+
+    // The push test is also fleet-wide and repeatable, so one fixed tag keeps a
+    // second test from stacking a second row.
+    private const val PUSH_TEST_TAG = "push_test"
+
+    // What the test title says when the payload carries no readable sender. It is
+    // a product name rather than a translated string, and it is the only thing a
+    // paired Bellhop can be receiving a test from.
+    private const val DEFAULT_TEST_SENDER = "Front Desk"
 
     /**
      * ensureChannels registers both notification channels. Safe to call
@@ -136,6 +148,49 @@ object FleetNotifier {
         // background worker over a lost notification.
         try {
             NotificationManagerCompat.from(context).notify(tag, NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+        }
+    }
+
+    /**
+     * notifyPushTest acknowledges Front Desk's "Send test" push. It rides the quiet
+     * recovered channel because a test is a status update, not a page, and it exists
+     * because the wake poll it accompanies finds a healthy fleet and so reports
+     * nothing: without this row the operator cannot tell a working push pipeline
+     * from a dead one. Real alerts never take this path.
+     *
+     * [sender] is the name the sending gateway gave itself, so a phone linked to
+     * one Front Desk while another operator tests a second one can see which
+     * pipeline just proved itself. Null when the payload carried no readable
+     * name, which falls back to [DEFAULT_TEST_SENDER].
+     */
+    fun notifyPushTest(
+        context: Context,
+        sender: String? = null,
+    ) {
+        if (!canPost(context)) return
+        ensureChannels(context)
+
+        val notification =
+            NotificationCompat
+                .Builder(context, CHANNEL_UP)
+                .setSmallIcon(R.drawable.ic_stat_bellhop)
+                .setContentTitle(
+                    context.getString(R.string.notif_push_test_title, sender ?: DEFAULT_TEST_SENDER),
+                )
+                .setContentText(context.getString(R.string.notif_push_test_body))
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_push_test_body)),
+                )
+                .setContentIntent(openAppIntent(context))
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .build()
+
+        // Same race as notify: the permission can be revoked between canPost and
+        // here, and a lost test notification must not crash the push callback.
+        try {
+            NotificationManagerCompat.from(context).notify(PUSH_TEST_TAG, NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {
         }
     }

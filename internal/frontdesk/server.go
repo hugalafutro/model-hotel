@@ -122,14 +122,8 @@ type Server struct {
 	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
 	// backup.recovered once on the way out. In-memory and bounded by fleet size,
 	// like syncHeld; a restart re-emits at most once per still-stale member.
-	// frontDeskBackups is the last count of frontdesk-origin dumps seen on each
-	// member's listing, kept by whichever pass read it most recently (the backup
-	// watchdog or a prune run) so Settings can ask whether the Fleet maintenance
-	// section has anything to do without a fleet-wide fan-out of its own. Both
-	// maps share backupStaleMu.
-	backupStaleMu    sync.Mutex
-	backupStale      map[string]bool
-	frontDeskBackups map[string]int
+	backupStaleMu sync.Mutex
+	backupStale   map[string]bool
 	// fleetStatePrev is the last state checkFleetState saw, guarding the
 	// edge-triggered fleet.state_changed emission. Empty until the first check,
 	// which seeds it from the newest persisted fleet.state_changed event
@@ -190,33 +184,32 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:            cfg.Store,
-		poller:           cfg.Poller,
-		bus:              cfg.Bus,
-		adminMgr:         cfg.AdminMgr,
-		sessionMgr:       sessionMgr,
-		totpRepo:         totpRepo,
-		totpStatus:       newTotpEnabledCache(totpRepo),
-		probe:            newProbeClient(httpProbeTimeout),
-		readClient:       newProbeClient(memberReadTimeout),
-		syncClient:       newProbeClient(memberSyncTimeout),
-		backupClient:     newProbeClient(memberBackupTimeout),
-		lbPort:           lbPort,
-		version:          version,
-		masterKey:        cfg.MasterKey,
-		metricsToken:     strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		cookieSecure:     cookieSecure,
-		pairing:          newPairingCodes(),
-		ipLimiter:        cfg.IPLimiter,
-		trustedProxies:   cfg.TrustedProxies,
-		rearmCh:          make(chan struct{}),
-		syncHeld:         make(map[string]bool),
-		holdLogChecked:   make(map[string]bool),
-		syncIncomplete:   make(map[string]incompleteState),
-		unconfirmedSync:  make(map[string]string),
-		backupStale:      make(map[string]bool),
-		frontDeskBackups: make(map[string]int),
-		startedAt:        time.Now(),
+		store:           cfg.Store,
+		poller:          cfg.Poller,
+		bus:             cfg.Bus,
+		adminMgr:        cfg.AdminMgr,
+		sessionMgr:      sessionMgr,
+		totpRepo:        totpRepo,
+		totpStatus:      newTotpEnabledCache(totpRepo),
+		probe:           newProbeClient(httpProbeTimeout),
+		readClient:      newProbeClient(memberReadTimeout),
+		syncClient:      newProbeClient(memberSyncTimeout),
+		backupClient:    newProbeClient(memberBackupTimeout),
+		lbPort:          lbPort,
+		version:         version,
+		masterKey:       cfg.MasterKey,
+		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		cookieSecure:    cookieSecure,
+		pairing:         newPairingCodes(),
+		ipLimiter:       cfg.IPLimiter,
+		trustedProxies:  cfg.TrustedProxies,
+		rearmCh:         make(chan struct{}),
+		syncHeld:        make(map[string]bool),
+		holdLogChecked:  make(map[string]bool),
+		syncIncomplete:  make(map[string]incompleteState),
+		unconfirmedSync: make(map[string]string),
+		backupStale:     make(map[string]bool),
+		startedAt:       time.Now(),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and
@@ -373,7 +366,6 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
 			r.Get("/fleet/autosync", s.getAutoSync)
-			r.Get("/fleet/backups/frontdesk-count", s.frontDeskBackupCount)
 			r.Get("/sse", s.sse)
 			r.Delete("/devices/self", s.revokeSelf)
 
@@ -383,7 +375,6 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
 				r.Post("/fleet/version-check", s.fleetVersionCheck)
-				r.Post("/fleet/backups/prune-frontdesk", s.pruneFrontDeskBackups)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 
@@ -395,6 +386,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Get("/settings", s.getSettings)
 				r.Put("/settings", s.putSettings)
 				r.Post("/alert/test", s.alertTest)
+				r.Post("/alert/probe", s.alertProbe)
+				r.Get("/alert/targets", s.alertTargets)
 				r.Post("/pair/start", s.pairStart)
 				r.Post("/pair/status", s.pairStatus)
 				r.Get("/devices", s.listDevices)

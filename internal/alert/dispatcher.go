@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -275,24 +276,65 @@ func appriseType(severity string) string {
 	}
 }
 
-// normalizeTargets converts the operator-facing ";"-separated target list into
-// the whitespace-separated form apprise-api parses. ";" is the documented
-// separator because — unlike commas — it does not collide with commas used
-// inside a single Apprise URL (e.g. a multi-recipient mailto://). But apprise-api
-// splits the `urls` field on whitespace/commas, not semicolons, so a raw
-// ";"-joined string would be treated as one malformed URL and only the first
-// destination (if any) would fire. Splitting on ";" and rejoining with spaces
-// preserves both single targets and intra-URL commas.
-func normalizeTargets(s string) string {
+// DeliveryError is a failed test/dispatch POST with a stable Reason the UI can
+// translate. HTTPStatus is apprise-api's answer (0 for transport failures).
+type DeliveryError struct {
+	Reason     string
+	HTTPStatus int
+	Err        error
+}
+
+func (e *DeliveryError) Error() string {
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("apprise-api returned status %d", e.HTTPStatus)
+}
+
+func (e *DeliveryError) Unwrap() error { return e.Err }
+
+// ReasonOf returns the reason code of a DeliveryError, or "" for nil / other
+// errors, so handlers can attach it to their JSON error body without type
+// assertions of their own.
+func ReasonOf(err error) string {
+	var de *DeliveryError
+	if errors.As(err, &de) {
+		return de.Reason
+	}
+	return ""
+}
+
+// SplitTargets splits the operator-facing ";"-joined target list into its
+// trimmed, non-empty Apprise URLs. ";" is the documented separator because,
+// unlike commas, it does not collide with commas inside one URL (a
+// multi-recipient mailto://).
+//
+// Repeats are dropped, first occurrence winning so the operator's ordering
+// survives: the same address listed twice only means apprise is asked to
+// deliver the same notification to one phone twice, and every caller of this
+// (delivery, the plaintext list the UI shows, the test endpoint) wants the set.
+func SplitTargets(s string) []string {
 	parts := strings.Split(s, ";")
 	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, p := range parts {
 		if p = strings.TrimSpace(p); p != "" {
+			if _, dup := seen[p]; dup {
+				continue
+			}
+			seen[p] = struct{}{}
 			out = append(out, p)
 		}
 	}
-	return strings.Join(out, " ")
+	return out
 }
+
+// JoinTargets is the inverse of SplitTargets: the stored/operator form.
+func JoinTargets(ts []string) string { return strings.Join(ts, "; ") }
+
+// normalizeTargets converts the ";"-joined list into the whitespace-separated
+// form apprise-api parses (it splits `urls` on whitespace/commas, never ";").
+func normalizeTargets(s string) string { return strings.Join(SplitTargets(s), " ") }
 
 // post sends a single notification to apprise-api's /notify endpoint.
 func (d *Dispatcher) post(ctx context.Context, cfg Config, p notifyPayload) error {
@@ -310,32 +352,52 @@ func (d *Dispatcher) post(ctx context.Context, cfg Config, p notifyPayload) erro
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("post to apprise-api: %w", err)
+		return &DeliveryError{Reason: ReasonUnreachable, Err: fmt.Errorf("post to apprise-api: %w", err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("apprise-api returned status %d", resp.StatusCode)
+	// The apprise response body is deliberately never read into the error: it
+	// can echo target URLs.
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return nil
+	case resp.StatusCode == http.StatusBadRequest:
+		return &DeliveryError{Reason: ReasonAppriseReject, HTTPStatus: resp.StatusCode}
+	case resp.StatusCode == http.StatusFailedDependency:
+		return &DeliveryError{Reason: ReasonDeliverFailed, HTTPStatus: resp.StatusCode}
+	default:
+		return &DeliveryError{Reason: ReasonUnhealthy, HTTPStatus: resp.StatusCode}
 	}
-	return nil
 }
 
-// TestSend fires a synthetic notification through the same POST path, returning
-// any error so the caller (the Settings "Send test" button) can surface
-// success/failure to the operator. Unlike event dispatch, errors are returned.
+// TestSend fires a synthetic notification through the saved configuration.
 func (d *Dispatcher) TestSend(ctx context.Context) error {
 	cfg, err := d.cfg.AlertConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("load alert config: %w", err)
 	}
-	if cfg.APIBaseURL == "" {
-		return fmt.Errorf("apprise-api URL is not configured")
+	return d.TestSendTo(ctx, cfg)
+}
+
+// TestBodyPrefix opens the body of every test notification. Bellhop matches on
+// this exact prefix to tell a Front Desk test push apart from a real alert wake,
+// so it acknowledges the test with its own notification; changing it here without
+// changing TEST_BODY_PREFIX in Bellhop's push package silently breaks that.
+const TestBodyPrefix = "Test notification from "
+
+// TestSendTo fires the synthetic notification through an explicit config, so
+// the setup wizard can test a URL/target pair before anything is saved. Errors
+// are DeliveryErrors (reason-coded) so the caller can tell the operator what to
+// fix.
+func (d *Dispatcher) TestSendTo(ctx context.Context, cfg Config) error {
+	if strings.TrimSpace(cfg.APIBaseURL) == "" {
+		return &DeliveryError{Reason: ReasonNotConfigured, Err: fmt.Errorf("apprise-api URL is not configured")}
 	}
 	if strings.TrimSpace(cfg.Targets) == "" {
-		return fmt.Errorf("notification target is not configured")
+		return &DeliveryError{Reason: ReasonNotConfigured, Err: fmt.Errorf("notification target is not configured")}
 	}
 	return d.post(ctx, cfg, notifyPayload{
 		Title:  d.titlePrefix + ": test notification",
-		Body:   "If you can read this, " + d.titlePrefix + " alerting is wired up correctly.",
+		Body:   TestBodyPrefix + d.titlePrefix + ": if you can read this, alerting is wired up correctly.",
 		Type:   "info",
 		Format: "text",
 	})

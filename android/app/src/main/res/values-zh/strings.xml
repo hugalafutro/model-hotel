@@ -151,7 +151,6 @@
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>
     <string name="alerts_event_backup_stale">成员没有最近的备份</string>
     <string name="alerts_event_backup_recovered">成员备份已恢复</string>
-    <string name="alerts_event_backup_pruned">已清除 Front Desk 备份</string>
     <string name="event_device_paired">设备已配对</string>
     <string name="event_device_revoked">设备配对已撤销</string>
     <string name="event_settings_changed">设置已更改</string>
@@ -215,7 +214,7 @@
     <string name="settings_push_no_distributor">安装 UnifiedPush 分发器（如 ntfy）以接收推送。没有分发器时，此项在你添加之前保持未激活。</string>
     <string name="settings_push_endpoint_label">用于 Front Desk 的推送主题</string>
     <string name="settings_push_endpoint_waiting">正在等待分发器返回推送主题…</string>
-    <string name="settings_push_endpoint_note">将此粘贴到 Front Desk → 设置 → 警报 中作为手机主题，这样它的警报便能唤醒 Bellhop。</string>
+    <string name="settings_push_endpoint_note">在 Front Desk → 设置 → 警报 中运行 设置告警（告警配置完成后则选择 添加目标），选择 Bellhop 磁贴，然后将其粘贴到那里。</string>
     <string name="settings_push_copy">复制推送主题</string>
     <string name="settings_push_copied">已复制推送主题</string>
     <string name="settings_push_blocked">Bellhop 的通知已关闭，因此推送无法送达。请在系统设置中开启。</string>
@@ -232,6 +231,8 @@
     <string name="notif_stale_body">自动同步已关闭，且集群已超过一天未同步。点按以打开 Bellhop。</string>
     <string name="notif_stale_resumed_title">自动同步已恢复</string>
     <string name="notif_stale_resumed_body">集群正再次保持同步。</string>
+    <string name="notif_push_test_title">已收到 %1$s 推送测试</string>
+    <string name="notif_push_test_body">实时推送正常。Bellhop 仅在成员变化和自动同步漂移时提醒；测试不会产生提醒。</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">取消关联</string>

@@ -15,3 +15,21 @@ export function ntfyAppriseURL(server: string, topic: string): string {
 	const scheme = u.protocol === "https:" ? "ntfys" : "ntfy";
 	return `${scheme}://${u.host}/${cleanTopic}`;
 }
+
+const TOPIC_ALPHABET =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+// generateTopic makes a 20-character secret topic for a fresh ntfy destination so
+// the operator never has to invent one. Rejection sampling keeps every character
+// equally likely (62 does not divide 256).
+export function generateTopic(): string {
+	const out: string[] = [];
+	const buf = new Uint8Array(64);
+	while (out.length < 20) {
+		crypto.getRandomValues(buf);
+		for (const b of buf) {
+			if (b < 248 && out.length < 20) out.push(TOPIC_ALPHABET[b % 62]);
+		}
+	}
+	return out.join("");
+}

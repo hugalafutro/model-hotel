@@ -12,20 +12,18 @@ import (
 	"time"
 )
 
-// stubBackupMember is a fake Model Hotel member exposing the two backup routes
+// stubBackupMember is a fake Model Hotel member exposing the one backup route
 // Front Desk uses: GET /api/backups (the listing, each entry carrying the origin
-// the member itself derived) and DELETE /api/backups/{filename}. Origin is set
-// per entry by the test, deliberately independent of the filename, so a test can
-// model a manual backup whose name happens to contain the word frontdesk.
+// the member itself derived). Origin is set per entry by the test, deliberately
+// independent of the filename, so a test can model a manual backup whose name
+// happens to contain the word frontdesk.
 type stubBackupMember struct {
 	token string
 
 	mu         sync.Mutex
 	files      []memberBackupEntry
-	deleted    []string
 	listStatus int // 0 means 200 with the listing
 	listBody   string
-	delStatus  int // 0 means the real delete (204, or 404 for an unknown file)
 
 	srv *httptest.Server
 }
@@ -40,8 +38,7 @@ func newStubBackupMember(t *testing.T, token string, files ...memberBackupEntry)
 		}
 		sm.mu.Lock()
 		defer sm.mu.Unlock()
-		switch {
-		case r.Method == http.MethodGet && strings.TrimSuffix(r.URL.Path, "/") == "/api/backups":
+		if r.Method == http.MethodGet && strings.TrimSuffix(r.URL.Path, "/") == "/api/backups" {
 			if sm.listStatus != 0 {
 				w.WriteHeader(sm.listStatus)
 				return
@@ -56,44 +53,12 @@ func newStubBackupMember(t *testing.T, token string, files ...memberBackupEntry)
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(out)
-		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/backups/"):
-			name := strings.TrimPrefix(r.URL.Path, "/api/backups/")
-			if sm.delStatus != 0 {
-				w.WriteHeader(sm.delStatus)
-				return
-			}
-			for i, f := range sm.files {
-				if f.Filename == name {
-					sm.files = append(sm.files[:i:i], sm.files[i+1:]...)
-					sm.deleted = append(sm.deleted, name)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
-			}
-			w.WriteHeader(http.StatusNotFound)
-		default:
-			w.WriteHeader(http.StatusNotFound)
+			return
 		}
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(sm.srv.Close)
 	return sm
-}
-
-// remaining lists the filenames the member still holds.
-func (sm *stubBackupMember) remaining() []string {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	out := make([]string, 0, len(sm.files))
-	for _, f := range sm.files {
-		out = append(out, f.Filename)
-	}
-	return out
-}
-
-func (sm *stubBackupMember) deletedFiles() []string {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	return append([]string{}, sm.deleted...)
 }
 
 // backupEntryAt builds a listing entry with an explicit origin and age.
@@ -103,26 +68,6 @@ func backupEntryAt(name, origin string, age time.Duration) memberBackupEntry {
 		Origin:    origin,
 		CreatedAt: time.Now().Add(-age).UTC().Format(time.RFC3339),
 	}
-}
-
-// pruneResponse is the decoded body of the fleet prune endpoint.
-type pruneResponse struct {
-	Deleted int                 `json:"deleted"`
-	Failed  int                 `json:"failed"`
-	Results []backupPruneResult `json:"results"`
-}
-
-func doPrune(t *testing.T, srv *Server, path string) pruneResponse {
-	t.Helper()
-	rec := do(t, srv, http.MethodPost, path, "", true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST %s = %d (%s)", path, rec.Code, rec.Body.String())
-	}
-	var resp pruneResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode prune response: %v (%s)", err, rec.Body.String())
-	}
-	return resp
 }
 
 // eventTypes lists the recorded event types for a member, oldest first.
@@ -139,271 +84,6 @@ func eventTypes(t *testing.T, store *Store, memberID string) []string {
 		}
 	}
 	return out
-}
-
-// countType counts how many of the recorded events carry a given type.
-func countType(t *testing.T, store *Store, typ string) int {
-	t.Helper()
-	n := 0
-	for _, got := range eventTypes(t, store, "") {
-		if got == typ {
-			n++
-		}
-	}
-	return n
-}
-
-// TestPruneFrontDeskBackupsDeletesOnlyFrontDeskOrigin: the fleet prune removes
-// the dumps Front Desk asked members to take and leaves every other backup in
-// place. Manual and scheduled files are the operator's and the member's own
-// safety net; the prune must never touch them.
-func TestPruneFrontDeskBackupsDeletesOnlyFrontDeskOrigin(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_1_manual.dump", "manual", time.Hour),
-		backupEntryAt("backup_20260101_020000_1_auto.dump", "scheduled", time.Hour),
-		backupEntryAt("backup_20260101_030000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("legacy.dump", "somethingelse", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if resp.Deleted != 2 || resp.Failed != 0 {
-		t.Errorf("fleet totals: deleted=%d failed=%d, want 2/0", resp.Deleted, resp.Failed)
-	}
-	if len(resp.Results) != 1 || resp.Results[0].Name != "m1" || resp.Results[0].Deleted != 2 {
-		t.Fatalf("results = %+v", resp.Results)
-	}
-
-	left := member.remaining()
-	if len(left) != 3 {
-		t.Fatalf("member kept %v, want the manual, scheduled and unrecognised entries", left)
-	}
-	for _, name := range left {
-		if strings.HasSuffix(strings.TrimSuffix(name, ".dump"), "_frontdesk") {
-			t.Errorf("a frontdesk-origin backup survived: %s", name)
-		}
-	}
-
-	// An audit event names what the run did.
-	if n := countType(t, store, "backup.pruned"); n != 1 {
-		t.Errorf("backup.pruned events = %d, want exactly 1 for the run", n)
-	}
-}
-
-// TestPruneFrontDeskBackupsMatchesOriginNotFilename is the destructive-mistake
-// guard: selection is on the origin the member reports, never on the filename.
-// A manual backup an operator named with the word frontdesk in it must survive.
-// The fixture is one a real member can actually produce: the member classifies
-// by the trailing "_frontdesk" marker, so a name that merely contains the word
-// is reported as manual.
-func TestPruneFrontDeskBackupsMatchesOriginNotFilename(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("before-frontdesk-migration.dump", "manual", time.Hour),
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if resp.Deleted != 1 {
-		t.Errorf("deleted = %d, want 1", resp.Deleted)
-	}
-	got := member.remaining()
-	if len(got) != 1 || got[0] != "before-frontdesk-migration.dump" {
-		t.Errorf("member holds %v; a manual backup named with the word frontdesk was destroyed", got)
-	}
-}
-
-// TestPruneFrontDeskBackupsReportsTokenlessMember: a member Front Desk holds no
-// admin token for cannot be pruned, and the operator is told so rather than
-// left to assume the whole fleet was covered.
-func TestPruneFrontDeskBackupsReportsTokenlessMember(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "tokenless", member.srv.URL, ""); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if len(resp.Results) != 1 {
-		t.Fatalf("results = %+v, want the token-less member reported", resp.Results)
-	}
-	if resp.Results[0].Name != "tokenless" || resp.Results[0].Error == "" {
-		t.Errorf("result = %+v, want a stated reason", resp.Results[0])
-	}
-	if resp.Deleted != 0 {
-		t.Errorf("deleted = %d, want 0: the member was never authenticated to", resp.Deleted)
-	}
-	if len(member.remaining()) != 1 {
-		t.Errorf("member holds %v; it was pruned without a stored token", member.remaining())
-	}
-}
-
-// TestPruneFrontDeskBackupsReportsPerMemberFailure: a member whose listing
-// cannot be read is reported, not silently skipped, and does not stop the
-// remaining members being pruned.
-func TestPruneFrontDeskBackupsReportsPerMemberFailure(t *testing.T) {
-	srv, store := newTestServer(t)
-	broken := newStubBackupMember(t, "tok1")
-	broken.listStatus = http.StatusInternalServerError
-	good := newStubBackupMember(t, "tok2",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "broken", broken.srv.URL, "tok1"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-	if _, err := store.CreateMember(t.Context(), "good", good.srv.URL, "tok2"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if len(resp.Results) != 2 {
-		t.Fatalf("results = %+v, want both members reported", resp.Results)
-	}
-	byName := map[string]backupPruneResult{}
-	for _, r := range resp.Results {
-		byName[r.Name] = r
-	}
-	if byName["broken"].Error == "" {
-		t.Error("the unreadable member was reported without an error")
-	}
-	if byName["good"].Deleted != 1 || byName["good"].Error != "" {
-		t.Errorf("good member result = %+v; one member's failure aborted the run", byName["good"])
-	}
-	if resp.Deleted != 1 {
-		t.Errorf("fleet deleted = %d, want 1", resp.Deleted)
-	}
-	if len(good.deletedFiles()) != 1 {
-		t.Errorf("good member deletions = %v", good.deletedFiles())
-	}
-}
-
-// TestPruneFrontDeskBackupsHandlesAHugeListing: the prune is needed most on the
-// members that accumulated the most dumps, so the listing read must reach well
-// past the limit an ordinary member response gets. A listing far larger than
-// maxMemberRespBody is read and pruned in full rather than failing to parse.
-func TestPruneFrontDeskBackupsHandlesAHugeListing(t *testing.T) {
-	srv, store := newTestServer(t)
-	// Comfortably past maxMemberRespBody (1 MiB) at roughly 135 bytes an entry, and
-	// past the ~7,600 entries that limit allows.
-	const files = 20000
-	entries := make([]memberBackupEntry, 0, files)
-	for i := range files {
-		entries = append(entries, backupEntryAt(
-			fmt.Sprintf("backup_20260101_%06d_1_frontdesk.dump", i), "frontdesk", time.Hour))
-	}
-	member := newStubBackupMember(t, "tok", entries...)
-	if _, err := store.CreateMember(t.Context(), "packed", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
-	if resp.Deleted != files {
-		t.Errorf("dry-run counted %d of %d entries; the listing read stopped short", resp.Deleted, files)
-	}
-	if len(resp.Results) == 1 && resp.Results[0].Error != "" {
-		t.Errorf("member reported an error on a large listing: %q", resp.Results[0].Error)
-	}
-}
-
-// TestPruneFrontDeskBackupsReportsAnUnreadablyLargeListing: past even the
-// listing's own limit the body is refused rather than truncated, and the
-// operator is told that specifically. A truncated prefix would fail to parse and
-// report as a malformed listing, pointing at the wrong problem.
-func TestPruneFrontDeskBackupsReportsAnUnreadablyLargeListing(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok")
-	// Valid JSON, just past the read limit: the failure must come from the limit,
-	// not from the shape of the body.
-	member.listBody = "[" + strings.Repeat(`{"filename":"x","created_at":"","origin":"manual"},`,
-		(maxMemberBackupListBody/50)+1) + `{"filename":"y","created_at":"","origin":"manual"}]`
-	if _, err := store.CreateMember(t.Context(), "huge", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
-	if len(resp.Results) != 1 {
-		t.Fatalf("results = %+v, want the one member reported", resp.Results)
-	}
-	if got := resp.Results[0].Error; got != "this member holds more backups than Front Desk can list at once" {
-		t.Errorf("error = %q, want the too-large reason rather than a generic read failure", got)
-	}
-}
-
-// TestPruneFrontDeskBackupsCountsFailedDeletes: a member that lists a
-// frontdesk-origin file but refuses to delete it is reported as failed, and the
-// fleet total does not claim it was removed.
-func TestPruneFrontDeskBackupsCountsFailedDeletes(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	member.delStatus = http.StatusInternalServerError
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if resp.Deleted != 0 || resp.Failed != 1 {
-		t.Errorf("totals: deleted=%d failed=%d, want 0/1", resp.Deleted, resp.Failed)
-	}
-	if len(resp.Results) != 1 || resp.Results[0].Error == "" {
-		t.Errorf("results = %+v, want the failure surfaced", resp.Results)
-	}
-}
-
-// TestPruneFrontDeskBackupsDryRunDeletesNothing: the preview the confirmation
-// step is built on counts what would go without removing anything.
-func TestPruneFrontDeskBackupsDryRunDeletesNothing(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_1_manual.dump", "manual", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
-	if resp.Deleted != 1 {
-		t.Errorf("preview count = %d, want 1", resp.Deleted)
-	}
-	if len(member.remaining()) != 2 {
-		t.Errorf("a dry run deleted files: %v", member.remaining())
-	}
-	if n := countType(t, store, "backup.pruned"); n != 0 {
-		t.Errorf("backup.pruned events = %d after a dry run, want 0", n)
-	}
-}
-
-// TestPruneFrontDeskBackupsNeedsAuth: an unauthenticated caller is refused
-// outright.
-func TestPruneFrontDeskBackupsNeedsAuth(t *testing.T) {
-	srv, _ := newTestServer(t)
-	if rec := do(t, srv, http.MethodPost, "/api/fleet/backups/prune-frontdesk", "", false); rec.Code != http.StatusUnauthorized {
-		t.Errorf("unauthenticated prune = %d, want 401", rec.Code)
-	}
-}
-
-// TestPruneFrontDeskBackupsNeedsOperator: the prune is destructive, so a
-// read-only (monitor) device token is refused by the role gate even though it
-// authenticates fine for reads.
-func TestPruneFrontDeskBackupsNeedsOperator(t *testing.T) {
-	srv, _ := newTestServer(t)
-	monitor, _ := pairDevice(t, srv, RoleMonitor, "watcher")
-
-	rec := doDevice(t, srv, http.MethodPost, "/api/fleet/backups/prune-frontdesk", "", monitor)
-	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "device_role_forbidden") {
-		t.Errorf("monitor prune = %d: %s", rec.Code, rec.Body.String())
-	}
 }
 
 // TestBackupStaleEmitsOnceAcrossPolls: a member whose newest scheduled backup is
@@ -561,6 +241,74 @@ func TestBackupUnreadableMemberIsNotJudged(t *testing.T) {
 	}
 }
 
+// TestBackupWatchReadsPastTheSharedMemberLimit proves the watchdog reads a
+// member's listing under maxMemberBackupListBody, not the shared 1 MiB
+// maxMemberRespBody. A member is first flagged stale on a short listing, then
+// its listing balloons past 1 MiB (comfortably under the 16 MiB backup limit)
+// with a fresh scheduled entry appended; backup.recovered only fires if the
+// larger body was read in full, so a silent fall-back to the shared limit would
+// leave the member stuck stale instead.
+func TestBackupWatchReadsPastTheSharedMemberLimit(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_old_auto.dump", "scheduled", 30*time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	if got := eventTypes(t, store, m.ID); len(got) != 1 || got[0] != "backup.stale" {
+		t.Fatalf("events after first pass = %v, want one backup.stale", got)
+	}
+
+	// Comfortably past maxMemberRespBody (1 MiB) at roughly 135 bytes an entry,
+	// and comfortably short of maxMemberBackupListBody (16 MiB).
+	const files = 20000
+	entries := make([]memberBackupEntry, 0, files+1)
+	for i := range files {
+		entries = append(entries, backupEntryAt(
+			fmt.Sprintf("backup_20260101_%06d_manual.dump", i), "manual", 30*time.Hour))
+	}
+	entries = append(entries, backupEntryAt("backup_new_auto.dump", "scheduled", time.Minute))
+	member.mu.Lock()
+	member.files = entries
+	member.mu.Unlock()
+
+	srv.checkMemberBackups(t.Context())
+
+	got := eventTypes(t, store, m.ID)
+	want := []string{"backup.stale", "backup.recovered"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("events = %v, want %v: the larger listing must have been read in full", got, want)
+	}
+}
+
+// TestBackupWatchTreatsAnUnreadablyLargeListingAsUnread: past even the 16 MiB
+// backup limit the read is refused rather than truncated, and the watchdog
+// treats that exactly like any other unreadable listing: not judged, not
+// flagged stale.
+func TestBackupWatchTreatsAnUnreadablyLargeListingAsUnread(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	// Valid JSON, just past maxMemberBackupListBody: the failure must come from
+	// the size limit, not from the shape of the body.
+	member.listBody = "[" + strings.Repeat(`{"filename":"x","created_at":"","origin":"manual"},`,
+		(maxMemberBackupListBody/50)+1) + `{"filename":"y","created_at":"","origin":"manual"}]`
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none: an oversized listing is not a measurement", got)
+	}
+}
+
 // TestBackupUnreachableMemberIsNotJudged is the same invariant for a member that
 // does not answer at all.
 func TestBackupUnreachableMemberIsNotJudged(t *testing.T) {
@@ -609,162 +357,5 @@ func TestRunBackupWatchStopsOnContextCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunBackupWatch did not return after context cancel")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Fleet-wide count of frontdesk-origin backups (feeds Settings visibility)
-// ---------------------------------------------------------------------------
-
-func frontDeskCount(t *testing.T, srv *Server) int {
-	t.Helper()
-	rec := do(t, srv, http.MethodGet, "/api/fleet/backups/frontdesk-count", "", true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET frontdesk-count = %d (%s)", rec.Code, rec.Body.String())
-	}
-	var resp struct {
-		Count int `json:"count"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode count: %v (%s)", err, rec.Body.String())
-	}
-	return resp.Count
-}
-
-// TestFrontDeskBackupCountFollowsTheWatchdog: the count is zero until a pass has
-// read a listing, then reflects the frontdesk-origin entries across the fleet
-// (manual and scheduled dumps do not count), and the endpoint itself calls no
-// member.
-func TestFrontDeskBackupCountFollowsTheWatchdog(t *testing.T) {
-	srv, store := newTestServer(t)
-	a := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_020000_manual.dump", "manual", time.Hour),
-	)
-	b := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_3_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_auto.dump", "scheduled", time.Hour),
-	)
-	for i, m := range []*stubBackupMember{a, b} {
-		if _, err := store.CreateMember(t.Context(), fmt.Sprintf("m%d", i), m.srv.URL, "tok"); err != nil {
-			t.Fatalf("CreateMember: %v", err)
-		}
-	}
-
-	if n := frontDeskCount(t, srv); n != 0 {
-		t.Errorf("count before any pass = %d, want 0", n)
-	}
-	srv.checkMemberBackups(t.Context())
-	if n := frontDeskCount(t, srv); n != 3 {
-		t.Errorf("count after watchdog pass = %d, want 3", n)
-	}
-}
-
-// TestFrontDeskBackupCountKeepsLastValueForUnreadableMember: a member that stops
-// answering keeps the count from its last successful read. An unanswered listing
-// is not evidence its dumps are gone, and zeroing it would hide the section
-// exactly while the operator can do nothing about it.
-func TestFrontDeskBackupCountKeepsLastValueForUnreadableMember(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-	srv.checkMemberBackups(t.Context())
-	if n := frontDeskCount(t, srv); n != 1 {
-		t.Fatalf("count after first pass = %d, want 1", n)
-	}
-
-	member.mu.Lock()
-	member.listStatus = http.StatusInternalServerError
-	member.mu.Unlock()
-	srv.checkMemberBackups(t.Context())
-	if n := frontDeskCount(t, srv); n != 1 {
-		t.Errorf("count after an unreadable pass = %d, want the last good value 1", n)
-	}
-}
-
-// TestFrontDeskBackupCountRefreshedByPruneRuns: a dry run has just read the
-// listing, so it corrects the count too (the Settings probe and the button's
-// preview agree); a real run leaves exactly what the member refused to delete.
-func TestFrontDeskBackupCountRefreshedByPruneRuns(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-
-	// No watchdog pass yet: the dry run alone establishes the count.
-	doPrune(t, srv, "/api/fleet/backups/prune-frontdesk?dryRun=1")
-	if n := frontDeskCount(t, srv); n != 2 {
-		t.Errorf("count after dry run = %d, want 2", n)
-	}
-
-	doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if n := frontDeskCount(t, srv); n != 0 {
-		t.Errorf("count after a clean real run = %d, want 0", n)
-	}
-}
-
-// TestFrontDeskBackupCountKeepsRefusedDeletes: what a member refuses to delete
-// is what it still holds, so the count after a real run is the failed number,
-// and the section stays available for another go.
-func TestFrontDeskBackupCountKeepsRefusedDeletes(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_010000_2_frontdesk.dump", "frontdesk", time.Hour),
-		backupEntryAt("backup_20260101_020000_3_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-	member.mu.Lock()
-	member.delStatus = http.StatusForbidden
-	member.mu.Unlock()
-
-	resp := doPrune(t, srv, "/api/fleet/backups/prune-frontdesk")
-	if resp.Failed != 3 {
-		t.Fatalf("failed = %d, want 3", resp.Failed)
-	}
-	if n := frontDeskCount(t, srv); n != 3 {
-		t.Errorf("count after refused deletes = %d, want 3", n)
-	}
-}
-
-// TestFrontDeskBackupCountForgetsRemovedMember: a removed member's dumps stop
-// counting toward the fleet total.
-func TestFrontDeskBackupCountForgetsRemovedMember(t *testing.T) {
-	srv, store := newTestServer(t)
-	member := newStubBackupMember(t, "tok",
-		backupEntryAt("backup_20260101_000000_1_frontdesk.dump", "frontdesk", time.Hour),
-	)
-	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
-	if err != nil {
-		t.Fatalf("CreateMember: %v", err)
-	}
-	srv.checkMemberBackups(t.Context())
-	if n := frontDeskCount(t, srv); n != 1 {
-		t.Fatalf("count = %d, want 1", n)
-	}
-
-	srv.forgetMemberState(m.ID)
-	if n := frontDeskCount(t, srv); n != 0 {
-		t.Errorf("count after member removal = %d, want 0", n)
-	}
-}
-
-// TestFrontDeskBackupCountNeedsAuth: the count is fleet metadata, so it is
-// gated like every other read.
-func TestFrontDeskBackupCountNeedsAuth(t *testing.T) {
-	srv, _ := newTestServer(t)
-	if rec := do(t, srv, http.MethodGet, "/api/fleet/backups/frontdesk-count", "", false); rec.Code != http.StatusUnauthorized {
-		t.Errorf("unauthenticated count = %d, want 401", rec.Code)
 	}
 }

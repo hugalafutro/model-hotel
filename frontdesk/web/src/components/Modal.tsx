@@ -10,6 +10,12 @@ interface ModalProps {
 	// the in-progress feedback (the work keeps running server-side regardless).
 	// Defaults to true: every existing caller stays dismissible.
 	dismissible?: boolean;
+	// When false, a backdrop click is ignored; Escape still closes (subject to
+	// dismissible and the topmost-dialog rule above). Used by dialogs with
+	// meaningful in-progress input (e.g. a multi-step wizard), where a stray
+	// click outside the dialog should not discard it. Defaults to true: every
+	// existing caller keeps click-to-dismiss.
+	closeOnBackdrop?: boolean;
 	// Optional secondary line under the title (e.g. a plan name or status).
 	subtitle?: ReactNode;
 	// Optional controls rendered on the title row, opposite the heading. Callers
@@ -19,6 +25,25 @@ interface ModalProps {
 
 const FOCUSABLE =
 	'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+// Every open dialog. Escape is a document listener, so without this each open
+// modal answers the same keypress and one press closes a dialog together with
+// the one that opened it (e.g. the remove confirmation inside the alerts
+// wizard). Only the topmost acts.
+const openModals: HTMLElement[] = [];
+
+// The topmost dialog is the one every other open dialog precedes in document
+// order, which with no portal and a single shared z-index is also the one
+// painted on top: a nested dialog sits inside its opener, a separately opened
+// one is appended after it.
+function isTopmost(el: HTMLElement): boolean {
+	return openModals.every(
+		(other) =>
+			other === el ||
+			(el.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_PRECEDING) !==
+				0,
+	);
+}
 
 // Lightweight modal: backdrop click and Escape close it. The control plane has
 // only a handful of dialogs, so this stays deliberately minimal (no portal, no
@@ -31,6 +56,7 @@ export function Modal({
 	children,
 	actions,
 	dismissible = true,
+	closeOnBackdrop = true,
 	subtitle,
 	headerActions,
 }: ModalProps) {
@@ -58,15 +84,22 @@ export function Modal({
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 		// Focus the first focusable control (or the dialog itself) on open.
 		const dialog = dialogRef.current;
+		if (dialog) openModals.push(dialog);
 		const first = dialog?.querySelector<HTMLElement>(FOCUSABLE);
 		(first ?? dialog)?.focus();
 
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
+				// Only the topmost dialog answers; the ones underneath stay open.
+				if (dialog && !isTopmost(dialog)) return;
 				if (dismissibleRef.current) onCloseRef.current();
 				return;
 			}
 			if (e.key !== "Tab" || !dialog) return;
+			// Same reasoning as Escape: a dialog underneath must not manage the
+			// focus of the one on top, or a wrap inside the topmost lands on a
+			// control behind it.
+			if (!isTopmost(dialog)) return;
 			const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
 			if (items.length === 0) {
 				e.preventDefault();
@@ -86,6 +119,8 @@ export function Modal({
 		document.addEventListener("keydown", onKey);
 		return () => {
 			document.removeEventListener("keydown", onKey);
+			const at = dialog ? openModals.indexOf(dialog) : -1;
+			if (at !== -1) openModals.splice(at, 1);
 			previouslyFocused?.focus?.();
 		};
 	}, []);
@@ -95,7 +130,8 @@ export function Modal({
 		<div
 			className="fd-modal-backdrop"
 			onMouseDown={(e) => {
-				if (dismissible && e.target === e.currentTarget) onClose();
+				if (dismissible && closeOnBackdrop && e.target === e.currentTarget)
+					onClose();
 			}}
 		>
 			<div

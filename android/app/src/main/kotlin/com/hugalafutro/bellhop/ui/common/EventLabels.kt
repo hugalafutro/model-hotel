@@ -34,7 +34,6 @@ internal fun eventTypeLabel(type: String): String =
         "fleet.disbanded" -> stringResource(R.string.alerts_event_fleet_disbanded)
         "backup.stale" -> stringResource(R.string.alerts_event_backup_stale)
         "backup.recovered" -> stringResource(R.string.alerts_event_backup_recovered)
-        "backup.pruned" -> stringResource(R.string.alerts_event_backup_pruned)
         "device.paired" -> stringResource(R.string.event_device_paired)
         "device.revoked" -> stringResource(R.string.event_device_revoked)
         "settings.changed" -> stringResource(R.string.event_settings_changed)

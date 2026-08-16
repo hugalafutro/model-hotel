@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.push
 
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.notify.FleetNotifier
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.runBlocking
 import org.unifiedpush.android.connector.FailedReason
@@ -14,17 +15,25 @@ import org.unifiedpush.android.connector.data.PushMessage
  * Apprise pipeline pushes to Bellhop's topic. It is opt-in and Google-free — no
  * FCM, no google-services.json — the distributor holds the persistent socket.
  *
- * The push is deliberately treated as a bare wake trigger, not a data source: on a
- * message it re-runs the same backstop poll Layer 2 uses ([FleetPollWorker.runNow])
- * so Bellhop's notification always reflects current Front Desk truth rather than a
- * payload that may be stale, encrypted, or shaped by whatever Apprise sent. That
- * also means Bellhop never becomes a second, redundant alert source: it renders the
- * same fleet state, just woken sooner than the 15-minute periodic floor.
+ * The push is a bare wake trigger, not a data source: on a message it re-runs the
+ * same backstop poll Layer 2 uses ([FleetPollWorker.runNow]) so Bellhop's
+ * notification always reflects current Front Desk truth rather than a payload that
+ * may be stale, encrypted, or shaped by whatever Apprise sent. That also means
+ * Bellhop never becomes a second, redundant alert source: it renders the same fleet
+ * state, just woken sooner than the 15-minute periodic floor.
  *
- * The registration is thin on purpose (the testable pieces are [MonitorStore] and
- * [FleetPollWorker.runNow], exercised on their own); this shell only wires the
- * connector callbacks to them. runBlocking is safe here: the endpoint writes are
- * sub-millisecond DataStore edits and the callback must finish before it returns.
+ * The payload is inspected for exactly one thing: Front Desk's test marker
+ * ([BellhopPush.isTestPush]). A test alone would otherwise be invisible on the
+ * phone, since a healthy fleet gives the poll nothing to report, leaving the
+ * operator unable to tell a working pipeline from a broken one; a matching payload
+ * therefore posts a "push test received" notification. The wake poll runs either
+ * way, so nothing about real alerts changes.
+ *
+ * The registration is thin on purpose (the testable pieces are [MonitorStore],
+ * [BellhopPush.isTestPush] and [FleetPollWorker.runNow], exercised on their own);
+ * this shell only wires the connector callbacks to them. runBlocking is safe here:
+ * the endpoint writes are sub-millisecond DataStore edits and the callback must
+ * finish before it returns.
  */
 class BellhopPushService : PushService() {
     override fun onNewEndpoint(
@@ -42,7 +51,11 @@ class BellhopPushService : PushService() {
         message: PushMessage,
         instance: String,
     ) {
-        // Payload ignored on purpose (see class doc): the poll re-derives truth.
+        // The payload is read only for Front Desk's test marker; the poll re-derives
+        // every real alert from Front Desk truth (see class doc).
+        if (BellhopPush.isTestPush(message.content)) {
+            FleetNotifier.notifyPushTest(applicationContext, BellhopPush.testPushSender(message.content))
+        }
         FleetPollWorker.runNow(applicationContext)
     }
 

@@ -231,5 +231,59 @@
 	],
 	"quota.modal.provider": [
 		"nl"
+	],
+	"settings.alerts.kind.ntfy": [
+		"*"
+	],
+	"settings.alerts.kind.bellhop": [
+		"*"
+	],
+	"settings.alerts.kind.telegram": [
+		"*"
+	],
+	"settings.alerts.kind.discord": [
+		"*"
+	],
+	"settings.alerts.wizard.step1Title": [
+		"*"
+	],
+	"settings.alerts.ntfyServerPlaceholder": [
+		"*"
+	],
+	"settings.alerts.kind.other": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.wizard.field.url": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.wizard.apiUrlLabel": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.wizard.field.webhook": [
+		"ja",
+		"zh"
+	],
+	"settings.alerts.wizard.field.port": [
+		"cs",
+		"de",
+		"fr",
+		"pl",
+		"sk"
+	],
+	"settings.alerts.wizard.step3Title": [
+		"de",
+		"nl"
+	],
+	"settings.alerts.destinationsTitle": [
+		"fr"
+	],
+	"settings.alerts.wizard.step5Title": [
+		"fr"
 	]
 }

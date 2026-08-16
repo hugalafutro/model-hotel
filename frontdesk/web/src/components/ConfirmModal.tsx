@@ -14,6 +14,7 @@ export function ConfirmModal({
 	busy,
 	busyLabel,
 	ackLabel,
+	confirmTestId,
 	onConfirm,
 	onClose,
 	children,
@@ -30,6 +31,9 @@ export function ConfirmModal({
 	busyLabel?: string;
 	// When set, an acknowledgement checkbox must be ticked before confirming.
 	ackLabel?: string;
+	// Optional data-testid for the confirm button, so a caller's test can click
+	// the confirmation of its own dialog rather than any open one.
+	confirmTestId?: string;
 	onConfirm: () => void;
 	onClose: () => void;
 	children: ReactNode;
@@ -56,6 +60,7 @@ export function ConfirmModal({
 					<button
 						type="button"
 						className="ui-btn ui-btn-danger"
+						data-testid={confirmTestId}
 						disabled={blocked}
 						aria-busy={busy}
 						onClick={onConfirm}

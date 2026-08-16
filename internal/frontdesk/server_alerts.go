@@ -1,9 +1,14 @@
 package frontdesk
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -35,10 +40,12 @@ func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 				// A reachable apprise-api with no target still cannot deliver, so it
 				// must not show a green pill.
 				st.Healthy = false
+				st.Reason = alert.ReasonNotConfigured
 				st.Detail = "no notification target configured"
 			default:
 				if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
 					st.Healthy = false
+					st.Reason = alert.ReasonUndecryptable
 					st.Detail = "stored target cannot be decrypted (master key rotated?)"
 				}
 			}
@@ -47,14 +54,115 @@ func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-// alertTest sends a test notification to the configured target(s). A delivery or
-// configuration failure is reported as 502 with the reason, so the UI can show it.
+// alertProbe (POST /api/alert/probe, admin) checks an apprise-api URL the
+// operator has typed but not yet saved. The setup wizard gates its first step
+// on this answer. An admin can already save any URL and hit /alert/status, so
+// probing an explicit one adds no capability.
+func (s *Server) alertProbe(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		APIURL string `json:"api_url"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.APIURL) == "" {
+		writeCodedError(w, http.StatusBadRequest, "missing_api_url", "api_url is required")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancel()
+	writeJSON(w, http.StatusOK, s.alertDisp.ProbeURL(ctx, req.APIURL))
+}
+
+// alertTest (POST /api/alert/test, admin) sends a test notification. With no
+// body it uses the saved configuration (the card's Send test). The wizard sends
+// {api_url, targets} to test one destination through a URL before either is
+// saved; either field may be omitted to fall back to the saved value. Failure is
+// 502 with a reason code so the UI can say what to fix.
 func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
-	if err := s.alertDisp.TestSend(r.Context()); err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+	var req struct {
+		APIURL  *string  `json:"api_url"`
+		Targets []string `json:"targets"`
+	}
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
+	if err != nil {
+		writeCodedError(w, http.StatusBadRequest, "invalid_body", "read body")
+		return
+	}
+	if len(bytes.TrimSpace(raw)) > 0 {
+		if err := json.Unmarshal(raw, &req); err != nil {
+			writeCodedError(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
+			return
+		}
+	}
+	var cfg alert.Config
+	if req.APIURL != nil && len(req.Targets) > 0 {
+		// Fully explicit: nothing is read from settings, so a corrupt stored
+		// target cannot block testing a fresh one.
+		cfg = alert.Config{APIBaseURL: *req.APIURL, Targets: alert.JoinTargets(req.Targets)}
+	} else {
+		// A store error (transient DB failure) and a decrypt failure (bad
+		// ciphertext / rotated MASTER_KEY) are different failure kinds: the
+		// former is a generic 500 via writeError, the latter a 502 with the
+		// fixed undecryptable message, never the raw decrypt error text.
+		set, gerr := s.store.GetSettings(r.Context())
+		if gerr != nil {
+			writeError(w, gerr)
+			return
+		}
+		cfg.APIBaseURL = set.AlertAppriseAPIURL
+		if set.AlertAppriseTargets != "" {
+			plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
+			if derr != nil {
+				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
+					"stored target cannot be decrypted (master key rotated?)")
+				return
+			}
+			cfg.Targets = plain
+		}
+		if req.APIURL != nil {
+			cfg.APIBaseURL = *req.APIURL
+		}
+		if len(req.Targets) > 0 {
+			cfg.Targets = alert.JoinTargets(req.Targets)
+		}
+	}
+	if err := s.alertDisp.TestSendTo(r.Context(), cfg); err != nil {
+		code := alert.ReasonOf(err)
+		if code == "" {
+			// The only uncoded errors TestSendTo/post can return are marshal/
+			// build-request failures, never a delivery outcome.
+			code = "send_failed"
+		}
+		writeCodedError(w, http.StatusBadGateway, code, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// alertTargets (GET /api/alert/targets, admin) returns the stored destinations
+// in plaintext, one Apprise URL per entry. This is the one place the decrypted
+// list leaves the server; it feeds the readable destinations list in Settings.
+// Admins can already write any target and trigger delivery to it, so nothing
+// is revealed that an admin could not obtain, and it is what a readable list
+// requires.
+func (s *Server) alertTargets(w http.ResponseWriter, r *http.Request) {
+	set, err := s.store.GetSettings(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	targets := []string{}
+	if set.AlertAppriseTargets != "" {
+		plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
+		if derr != nil {
+			writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable,
+				"stored target cannot be decrypted (master key rotated?)")
+			return
+		}
+		targets = alert.SplitTargets(plain)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"targets": targets})
 }
 
 // alertEventState is one catalog event plus whether Front Desk currently alerts

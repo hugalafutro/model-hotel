@@ -513,6 +513,11 @@ h3 {
 	color: var(--danger);
 	font-size: 0.85rem;
 }
+/* Success counterpart of .fd-error-text: green result lines (probe ok, test sent). */
+.fd-ok-text {
+	color: var(--ok);
+	font-size: 0.85rem;
+}
 
 /* --- modal --- */
 .fd-modal-backdrop {
@@ -544,6 +549,9 @@ h3 {
 }
 .fd-modal-actions {
 	display: flex;
+	/* A dialog that grows a fourth button (or is read at 300px) wraps its
+	   footer instead of squashing the labels into ellipses. */
+	flex-wrap: wrap;
 	justify-content: flex-end;
 	gap: 0.6rem;
 	margin-top: 1.25rem;

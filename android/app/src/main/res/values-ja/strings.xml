@@ -151,7 +151,6 @@
     <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>
     <string name="alerts_event_backup_stale">メンバーに最近のバックアップがない</string>
     <string name="alerts_event_backup_recovered">メンバーのバックアップが復旧した</string>
-    <string name="alerts_event_backup_pruned">Front Desk のバックアップを削除した</string>
     <string name="event_device_paired">デバイスをペアリング</string>
     <string name="event_device_revoked">デバイスのペアリングを取り消し</string>
     <string name="event_settings_changed">設定を変更</string>
@@ -215,7 +214,7 @@
     <string name="settings_push_no_distributor">プッシュを受け取るには、ntfy などの UnifiedPush ディストリビューターをインストールしてください。ない場合、追加するまでこれは非アクティブのままです。</string>
     <string name="settings_push_endpoint_label">Front Desk 用のプッシュトピック</string>
     <string name="settings_push_endpoint_waiting">ディストリビューターがプッシュトピックを返すのを待っています…</string>
-    <string name="settings_push_endpoint_note">Front Desk → 設定 → アラート に電話トピックとしてこれを貼り付けると、そのアラートが Bellhop を起こします。</string>
+    <string name="settings_push_endpoint_note">Front Desk → 設定 → アラート で アラートを設定（アラートが設定済みなら 送信先を追加）を実行し、Bellhop のタイルを選んで、そこに貼り付けてください。</string>
     <string name="settings_push_copy">プッシュトピックをコピー</string>
     <string name="settings_push_copied">プッシュトピックをコピーしました</string>
     <string name="settings_push_blocked">Bellhop の通知がオフのため、プッシュは届きません。システム設定でオンにしてください。</string>
@@ -232,6 +231,8 @@
     <string name="notif_stale_body">自動同期がオフで、フリートは 1 日以上同期されていません。タップして Bellhop を開きます。</string>
     <string name="notif_stale_resumed_title">自動同期を再開</string>
     <string name="notif_stale_resumed_body">フリートは再び同期が保たれています。</string>
+    <string name="notif_push_test_title">%1$s のプッシュテストを受信しました</string>
+    <string name="notif_push_test_body">リアルタイム プッシュは動作しています。Bellhop が通知するのはメンバーの変化と自動同期のずれだけで、テストで通知は作成されません。</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">リンク解除</string>

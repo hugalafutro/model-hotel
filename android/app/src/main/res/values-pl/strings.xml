@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Węzeł wygaszony lub aktywowany</string>
     <string name="alerts_event_backup_stale">Członek bez świeżej kopii zapasowej</string>
     <string name="alerts_event_backup_recovered">Członek znowu ma kopie zapasowe</string>
-    <string name="alerts_event_backup_pruned">Kopie Front Desku usunięte</string>
     <string name="event_device_paired">Urządzenie sparowane</string>
     <string name="event_device_revoked">Sparowanie urządzenia cofnięte</string>
     <string name="event_settings_changed">Ustawienia zmienione</string>
@@ -224,7 +223,7 @@
     <string name="settings_push_no_distributor">Zainstaluj dystrybutor UnifiedPush, taki jak ntfy, aby odbierać pushe. Bez niego pozostanie to nieaktywne, dopóki go nie dodasz.</string>
     <string name="settings_push_endpoint_label">Temat push dla Front Desk</string>
     <string name="settings_push_endpoint_waiting">Czekanie, aż dystrybutor zwróci temat push…</string>
-    <string name="settings_push_endpoint_note">Wklej to w Front Desk → Ustawienia → Alerty jako temat telefonu, aby jego alerty budziły Bellhop.</string>
+    <string name="settings_push_endpoint_note">W Front Desk → Ustawienia → Alerty uruchom Skonfiguruj alerty (lub Dodaj cel, gdy alerty są już skonfigurowane), wybierz kafelek Bellhop, a następnie wklej to tam.</string>
     <string name="settings_push_copy">Kopiuj temat push</string>
     <string name="settings_push_copied">Skopiowano temat push</string>
     <string name="settings_push_blocked">Powiadomienia dla Bellhop są wyłączone, więc pushe nie mogą do Ciebie dotrzeć. Włącz je w ustawieniach systemu.</string>
@@ -241,6 +240,8 @@
     <string name="notif_stale_body">Autosynchronizacja jest wyłączona, a flota nie synchronizowała się od ponad doby. Dotknij, aby otworzyć Bellhop.</string>
     <string name="notif_stale_resumed_title">Autosynchronizacja wznowiona</string>
     <string name="notif_stale_resumed_body">Flota jest znów utrzymywana w synchronizacji.</string>
+    <string name="notif_push_test_title">Otrzymano testowy push z %1$s</string>
+    <string name="notif_push_test_body">Push w czasie rzeczywistym działa. Bellhop powiadamia tylko o zmianach węzłów i rozjeżdżaniu się autosynchronizacji; testy nie tworzą powiadomień.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Rozłącz</string>

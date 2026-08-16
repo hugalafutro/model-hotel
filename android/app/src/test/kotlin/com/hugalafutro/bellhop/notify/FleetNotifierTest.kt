@@ -56,6 +56,52 @@ class FleetNotifierTest {
     }
 
     @Test
+    fun pushTestPostsItsOwnRowAndReplacesItselfOnRepeat() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app, "Front Desk")
+        FleetNotifier.notifyPushTest(app, "Front Desk")
+        // One fixed tag, so a second test updates the row instead of stacking, and
+        // it rides the quiet recovered channel because a test is not a page.
+        assertEquals(1, shadowOf(notifications).size())
+        val posted = notifications.activeNotifications.single()
+        assertEquals("push_test", posted.tag)
+        assertEquals(FleetNotifier.CHANNEL_UP, posted.notification.channelId)
+    }
+
+    @Test
+    fun pushTestTitleNamesTheSender() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app, "Model Hotel")
+        val title =
+            notifications.activeNotifications
+                .single()
+                .notification.extras
+                .getString(android.app.Notification.EXTRA_TITLE)
+        // A phone can be pointed at more than one gateway, so the row has to say
+        // which one just proved its pipeline.
+        assertEquals("Model Hotel push test received", title)
+    }
+
+    @Test
+    fun pushTestWithoutASenderFallsBackToFrontDesk() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app, null)
+        val title =
+            notifications.activeNotifications
+                .single()
+                .notification.extras
+                .getString(android.app.Notification.EXTRA_TITLE)
+        assertEquals("Front Desk push test received", title)
+    }
+
+    @Test
+    fun pushTestIsNotPostedWithoutTheNotificationPermission() {
+        shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app, "Front Desk")
+        assertEquals(0, shadowOf(notifications).size())
+    }
+
+    @Test
     fun autoSyncResumeReplacesTheStaleRowInPlace() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         // Stale then Resumed share one fixed tag, so the resume updates the row
