@@ -366,7 +366,6 @@
 			"wizard": {
 				"open": "Skonfiguruj alerty",
 				"addDestination": "Dodaj cel",
-				"rerun": "Uruchom konfigurację ponownie",
 				"title": "Skonfiguruj alerty",
 				"cancel": "Anuluj",
 				"back": "Wstecz",

@@ -358,7 +358,6 @@
 			"wizard": {
 				"open": "Alerts instellen",
 				"addDestination": "Bestemming toevoegen",
-				"rerun": "Setup opnieuw uitvoeren",
 				"title": "Alerts instellen",
 				"cancel": "Annuleren",
 				"back": "Terug",

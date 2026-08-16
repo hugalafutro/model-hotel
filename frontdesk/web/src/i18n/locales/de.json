@@ -358,7 +358,6 @@
 			"wizard": {
 				"open": "Alerts einrichten",
 				"addDestination": "Ziel hinzufügen",
-				"rerun": "Einrichtung erneut ausführen",
 				"title": "Alerts einrichten",
 				"cancel": "Abbrechen",
 				"back": "Zurück",

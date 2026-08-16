@@ -48,10 +48,10 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 
 ### Guided setup (Front Desk)
 
-Front Desk's **Settings → Alerts** card leads with **Set up alerts** (**Re-run setup** once something is saved, plus **Add destination** to append one). It opens a seven-step wizard. Every step verifies its own input against the real container before **Next** unlocks, and nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
+Front Desk's **Settings → Alerts** card carries exactly one guided button: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Every step verifies its own input against the real container before **Next** unlocks, and nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
-*Front Desk Settings - Alerts: the status pill, the plaintext Destinations list with per-row Copy, Test and Remove, the Re-run setup / Add destination buttons, and the individual fields folded into "Manual configuration (advanced)".*
+*Front Desk Settings - Alerts: the status pill, the plaintext Destinations list with per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)".*
 
 1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the Front Desk stack in `deploy/ha/docker-compose.yml` (it ships commented out; uncomment it as shown under [Phone push](#phone-push-ntfy-and-bellhop)). Front Desk sends its own fleet and member alerts, so the container belongs beside it rather than in the main gateway's `docker-compose.yml`. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
 2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Bellhop**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**.

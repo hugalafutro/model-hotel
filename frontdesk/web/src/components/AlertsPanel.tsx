@@ -514,27 +514,28 @@ export function AlertsPanel() {
 			)}
 
 			<div className="fd-row" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
-				{/* The guided path. It is offered whether or not alerts are switched
-				    on: "Set up alerts" is exactly what an operator looking at a
-				    switched-off card is after, and it switches them on itself. */}
-				<button
-					type="button"
-					className="ui-btn ui-btn-primary"
-					data-testid="alert-wizard-open"
-					title={wizardBlocked}
-					disabled={busy || wizardBlocked !== undefined}
-					onClick={() => setWizardAt(1)}
-				>
-					{status?.configured
-						? t("settings.alerts.wizard.rerun")
-						: t("settings.alerts.wizard.open")}
-				</button>
-				{/* Adding to a working setup skips the apprise step, so it only
-				    appears once there is an address to add a destination to. */}
-				{url !== "" && (
+				{/* Exactly one guided entry point, chosen by whether anything is
+				    stored. With no destination the card offers the full run from
+				    step 1; it is offered whether or not alerts are switched on,
+				    because "Set up alerts" is exactly what an operator looking at a
+				    switched-off card is after, and it switches them on itself. Once
+				    a destination exists the only thing left to do is append another,
+				    which starts at step 2 and skips the Apprise step. */}
+				{targets.length === 0 ? (
 					<button
 						type="button"
-						className="ui-btn"
+						className="ui-btn ui-btn-primary"
+						data-testid="alert-wizard-open"
+						title={wizardBlocked}
+						disabled={busy || wizardBlocked !== undefined}
+						onClick={() => setWizardAt(1)}
+					>
+						{t("settings.alerts.wizard.open")}
+					</button>
+				) : (
+					<button
+						type="button"
+						className="ui-btn ui-btn-primary"
 						data-testid="alert-wizard-add"
 						title={wizardBlocked}
 						disabled={busy || wizardBlocked !== undefined}

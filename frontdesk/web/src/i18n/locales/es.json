@@ -362,7 +362,6 @@
 			"wizard": {
 				"open": "Configurar alertas",
 				"addDestination": "Añadir destino",
-				"rerun": "Repetir la configuración",
 				"title": "Configurar alertas",
 				"cancel": "Cancelar",
 				"back": "Atrás",

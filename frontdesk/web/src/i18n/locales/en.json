@@ -358,7 +358,6 @@
 			"wizard": {
 				"open": "Set up alerts",
 				"addDestination": "Add destination",
-				"rerun": "Re-run setup",
 				"title": "Set up alerts",
 				"cancel": "Cancel",
 				"back": "Back",

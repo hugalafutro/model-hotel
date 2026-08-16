@@ -548,27 +548,32 @@ it("opens the wizard from the card and cancels without writing", async () => {
 	);
 	renderPanel();
 
-	// A configured card offers to re-run the flow rather than to set it up.
-	const open = await screen.findByTestId("alert-wizard-open");
-	expect(open).toHaveTextContent(i18n.t("settings.alerts.wizard.rerun"));
-	await userEvent.click(open);
-	expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
+	// A card with a destination stored offers only "Add destination", which
+	// enters at step 2 and skips straight to picking a destination kind.
+	const add = await screen.findByTestId("alert-wizard-add");
+	expect(add).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.addDestination"),
+	);
+	expect(screen.queryByTestId("alert-wizard-open")).toBeNull();
+	await userEvent.click(add);
+	expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
 	await userEvent.click(screen.getByTestId("wiz-cancel"));
-	expect(screen.queryByTestId("wiz-step-1")).toBeNull();
+	expect(screen.queryByTestId("wiz-step-2")).toBeNull();
 	expect(putHit).toBe(false);
 });
 
-it("labels the wizard for a first run and hides Add destination without a URL", async () => {
+it("offers only Set up alerts while nothing is stored", async () => {
 	baseHandlers({
 		settings: { ...settings, alert_apprise_api_url: "" },
 		status: { configured: false, reachable: false, healthy: false },
+		targets: [],
 	});
 	renderPanel();
 	expect(await screen.findByTestId("alert-wizard-open")).toHaveTextContent(
 		i18n.t("settings.alerts.wizard.open"),
 	);
-	// "Add destination" enters at step 2, which only makes sense once an apprise
-	// address is stored to add it to.
+	// "Add destination" enters at step 2, which only makes sense once there is a
+	// configuration to append a destination to.
 	expect(screen.queryByTestId("alert-wizard-add")).toBeNull();
 });
 
@@ -636,8 +641,9 @@ it("refuses to open the wizard while the stored destinations cannot be read", as
 	);
 	renderPanel();
 	await screen.findByTestId("alert-destinations-error");
+	// An unreadable list serves no destinations, so the card is back to its
+	// first-run button, and that one is the one that has to be blocked.
 	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
-	expect(screen.getByTestId("alert-wizard-add")).toBeDisabled();
 	expect(screen.getByTestId("alert-wizard-open")).toHaveAttribute(
 		"title",
 		i18n.t("settings.alerts.destinationsError"),
@@ -653,11 +659,10 @@ it("refuses to open the wizard while the manual targets field is dirty", async (
 	);
 	renderPanel();
 	await screen.findByTestId("alert-destination-row");
-	expect(screen.getByTestId("alert-wizard-open")).toBeEnabled();
+	expect(screen.getByTestId("alert-wizard-add")).toBeEnabled();
 
 	await userEvent.type(screen.getByLabelText(/ntfy topic/i), "second");
 	await userEvent.click(screen.getByRole("button", { name: /set as target/i }));
-	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
 	expect(screen.getByTestId("alert-wizard-add")).toBeDisabled();
 	expect(screen.getByTestId("alert-wizard-add")).toHaveAttribute(
 		"title",
@@ -669,18 +674,8 @@ it("refuses to open the wizard while the manual targets field is dirty", async (
 		screen.getByRole("button", { name: /save alert settings/i }),
 	);
 	await waitFor(() =>
-		expect(screen.getByTestId("alert-wizard-open")).toBeEnabled(),
+		expect(screen.getByTestId("alert-wizard-add")).toBeEnabled(),
 	);
-	expect(screen.getByTestId("alert-wizard-add")).toBeEnabled();
-});
-
-it("offers Add destination once an apprise URL is stored", async () => {
-	baseHandlers();
-	server.use(http.post("/api/alert/probe", () => HttpResponse.json(okStatus)));
-	renderPanel();
-	await userEvent.click(await screen.findByTestId("alert-wizard-add"));
-	// Entering at step 2 skips straight to picking a destination kind.
-	expect(await screen.findByTestId("wiz-step-2")).toBeInTheDocument();
 });
 
 it("points at set-up next to the Not configured pill", async () => {

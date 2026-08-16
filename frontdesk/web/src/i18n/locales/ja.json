@@ -358,7 +358,6 @@
 			"wizard": {
 				"open": "アラートを設定",
 				"addDestination": "送信先を追加",
-				"rerun": "設定をやり直す",
 				"title": "アラートを設定",
 				"cancel": "キャンセル",
 				"back": "戻る",

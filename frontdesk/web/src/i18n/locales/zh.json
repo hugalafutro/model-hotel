@@ -358,7 +358,6 @@
 			"wizard": {
 				"open": "设置告警",
 				"addDestination": "添加目标",
-				"rerun": "重新运行设置",
 				"title": "设置告警",
 				"cancel": "取消",
 				"back": "上一步",

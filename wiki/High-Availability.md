@@ -529,14 +529,14 @@ routing events are available but off by default.
 
 Saved destinations then sit on the card as a plaintext, admin-only
 **Destinations** list with per-row **Copy**, **Test** and **Remove**, and
-**Add destination** appends another through the same wizard. The individual
+the card's guided button becomes **Add destination**, which appends another through the same wizard from step 2. The card carries only one of the two buttons at a time. The individual
 fields stay under **Manual configuration (advanced)** for anything the wizard
 does not cover. Targets are encrypted at rest with `FRONTDESK_MASTER_KEY`. This
 is the same `apprise-api` the main gateway uses, so one container can serve both;
 the main dashboard's own Alerts card keeps its manual fields until the same
 wizard reaches it.
 
-<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Re-run setup and Add destination buttons a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Add destination button a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
 
 ### Phone push via ntfy
 
