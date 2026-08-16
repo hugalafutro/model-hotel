@@ -1985,7 +1985,7 @@
 			"clear": "Wissen",
 			"description": "Stuur pushmeldingen voor opmerkelijke gebeurtenissen (een provider die uitvalt, een circuitbreaker die afgaat) naar Telegram, e-mail, Discord en meer via een stateless Apprise-container die u draait. Er wordt nooit verzoekinhoud verzonden - alleen de samenvatting van de gebeurtenis.",
 			"enable": "Schakel waarschuwingen in",
-			"enableDescription": "Stuur geselecteerde gebeurtenissen door naar uw Apprise-eindpunt.",
+			"enableDescription": "Stuur geselecteerde gebeurtenissen door naar je Apprise-eindpunt.",
 			"event": {
 				"circuit_breaker_closed": "Provider hersteld (circuitbreaker gesloten)",
 				"circuit_breaker_open": "Provider offline (circuitbreaker geopend)",

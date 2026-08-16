@@ -2079,7 +2079,7 @@
 		"alerts": {
 			"apiUrl": "Adres URL interfejsu API Apprise",
 			"apiUrlDescription": "Podstawowy adres URL kontenera apprise-api, który uruchamiasz (na przykład http://apprise:8000).",
-			"claimAge": "Alert o nierozwiązanych rozbieżnościach (dni)",
+			"claimAge": "Powiadomienie o nierozwiązanych rozbieżnościach (dni)",
 			"claimAge.description_few": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
 			"claimAge.description_many": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
 			"claimAge.description_one": "Ostrzegaj, gdy najstarsza liczona rozbieżność modelu pozostaje nierozwiązana dłużej niż to. Brakujące modele przestają się liczyć, gdy są na tyle stare, by uznać je za wycofane, więc maksimum to {{count}} dzień.",
@@ -2106,7 +2106,7 @@
 				"reset": "Przywróć ustawienia domyślne",
 				"title": "Zdarzenia, o których należy powiadamiać"
 			},
-			"eventsLabel": "Zdarzenia alertowe",
+			"eventsLabel": "Zdarzenia powiadomień",
 			"snippets": {
 				"browseAll": "Przeglądaj wszystkie ponad 80 usług",
 				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług - skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."
