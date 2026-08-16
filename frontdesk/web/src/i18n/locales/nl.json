@@ -436,7 +436,7 @@
 				"step7Hint": "Alles opslaan en alerts inschakelen.",
 				"finishing": "Opslaan…",
 				"done": "Alerts staan aan.",
-				"sendAll": "Test naar alle versturen",
+				"sendAll": "Test naar alle bestemmingen versturen",
 				"sentAll": "Test naar elke bestemming verzonden",
 				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"backToList": "Terug naar bestemmingen"
