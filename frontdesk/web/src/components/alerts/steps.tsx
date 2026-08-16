@@ -69,9 +69,8 @@ export function StepApprise({
 			</div>
 			{state.added.length > 0 && (
 				<p
-					className="fd-faint"
 					data-testid="wiz-api-changed-drops"
-					style={{ fontSize: "0.82rem" }}
+					style={{ color: "var(--warn)", fontSize: "0.82rem" }}
 				>
 					{t(`${K}.apiChangedDrops`)}
 				</p>
@@ -571,7 +570,11 @@ export function StepFinish({
 		<>
 			<h3 className="fd-step-title">{t(`${K}.step7Title`)}</h3>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step7Hint`)}</p>
-			<Summary label={t("settings.alerts.apiUrlLabel")} value={state.apiUrl} />
+			{/* Trimmed, because the summary promises what the write will store. */}
+			<Summary
+				label={t("settings.alerts.apiUrlLabel")}
+				value={state.apiUrl.trim()}
+			/>
 			<Summary
 				label={t("settings.alerts.destinationsTitle")}
 				value={targets.join("; ")}

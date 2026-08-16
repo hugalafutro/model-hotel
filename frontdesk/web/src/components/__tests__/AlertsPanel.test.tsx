@@ -562,6 +562,59 @@ it("reloads the stored configuration after the wizard finishes", async () => {
 	);
 });
 
+// The wizard finishes by writing "the stored destinations plus what it added",
+// so it must be handed a list that is both readable and current. An unreadable
+// one would be saved as the additions alone, silently dropping what is stored.
+it("refuses to open the wizard while the stored destinations cannot be read", async () => {
+	baseHandlers();
+	server.use(
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json(
+				{ code: "undecryptable", error: "decrypt failed" },
+				{ status: 500 },
+			),
+		),
+	);
+	renderPanel();
+	await screen.findByTestId("alert-destinations-error");
+	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
+	expect(screen.getByTestId("alert-wizard-add")).toBeDisabled();
+	expect(screen.getByTestId("alert-wizard-open")).toHaveAttribute(
+		"title",
+		i18n.t("settings.alerts.destinationsError"),
+	);
+});
+
+// Same reasoning for a pending manual edit: the wizard would carry the list
+// from before the edit into its write, quietly undoing it.
+it("refuses to open the wizard while the manual targets field is dirty", async () => {
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderPanel();
+	await screen.findByTestId("alert-destination-row");
+	expect(screen.getByTestId("alert-wizard-open")).toBeEnabled();
+
+	await userEvent.type(screen.getByLabelText(/ntfy topic/i), "second");
+	await userEvent.click(screen.getByRole("button", { name: /set as target/i }));
+	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
+	expect(screen.getByTestId("alert-wizard-add")).toBeDisabled();
+	expect(screen.getByTestId("alert-wizard-add")).toHaveAttribute(
+		"title",
+		i18n.t("settings.alerts.destinationsDirty"),
+	);
+
+	// Saving puts the field back in sync, which unblocks the guided path again.
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+	await waitFor(() =>
+		expect(screen.getByTestId("alert-wizard-open")).toBeEnabled(),
+	);
+	expect(screen.getByTestId("alert-wizard-add")).toBeEnabled();
+});
+
 it("offers Add destination once an apprise URL is stored", async () => {
 	baseHandlers();
 	server.use(http.post("/api/alert/probe", () => HttpResponse.json(okStatus)));

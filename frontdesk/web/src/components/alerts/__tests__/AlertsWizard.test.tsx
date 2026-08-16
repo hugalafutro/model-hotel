@@ -536,6 +536,9 @@ it("Add another returns to the list, and a row added here can be dropped again",
 		savedTargets: ["tgram://1/2"],
 		startAt: 2,
 	});
+	// The first destination has nowhere to go back to, so the escape hatch is
+	// not offered before there is a list to return to.
+	expect(screen.queryByTestId("wiz-back-to-list")).toBeNull();
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
 	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
 
@@ -547,6 +550,13 @@ it("Add another returns to the list, and a row added here can be dropped again",
 	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
 	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
 	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+
+	// Back off the list now skips the abandoned draft's test step, which has no
+	// destination left to talk about, and lands where one is started instead.
+	await userEvent.click(screen.getByTestId("wiz-back"));
+	expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
 
 	// Only the row this run added carries a Remove, and dropping it leaves the
 	// stored destination exactly where it was.
@@ -625,6 +635,30 @@ it("warns on step 1 that changing the address drops this run's destinations", as
 	// Editing the address carries out exactly what the note promised.
 	await userEvent.type(screen.getByTestId("wiz-api-url"), "1");
 	expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull();
+});
+
+// Cancel is the "I am not doing this after all" exit, and a probe or a test in
+// flight changes nothing that is stored: it stays live while they run, and only
+// the write itself is worth waiting for.
+it("keeps Cancel available while a probe is in flight", async () => {
+	server.use(
+		http.post("/api/alert/probe", async () => {
+			await new Promise((r) => setTimeout(r, 40));
+			return HttpResponse.json({
+				configured: true,
+				reachable: true,
+				healthy: true,
+			});
+		}),
+	);
+	const { onClose } = renderWizard();
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	expect(screen.getByTestId("wiz-api-check")).toBeDisabled();
+	expect(screen.getByTestId("wiz-next")).toBeDisabled();
+	expect(screen.getByTestId("wiz-cancel")).toBeEnabled();
+	await userEvent.click(screen.getByTestId("wiz-cancel"));
+	expect(onClose).toHaveBeenCalled();
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
 });
 
 it("does not add a destination that is already stored a second time", () => {

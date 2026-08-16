@@ -368,10 +368,13 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(reducer, props, initialState);
 
+	// The probe is taken against the trimmed address (which is what a save would
+	// store), while the result is filed under the raw field value so the step 1
+	// gate keeps comparing like for like.
 	const runProbe = useCallback((url: string, demote: boolean) => {
 		dispatch({ type: "checking" });
 		api
-			.probeAlert(url)
+			.probeAlert(url.trim())
 			.then((status) => dispatch({ type: "probed", url, status, demote }))
 			.catch((err) =>
 				dispatch({
@@ -403,7 +406,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	const sendTest = () => {
 		dispatch({ type: "testing" });
 		api
-			.testAlert({ api_url: state.apiUrl, targets: [state.draft.url] })
+			.testAlert({ api_url: state.apiUrl.trim(), targets: [state.draft.url] })
 			.then(() => dispatch({ type: "tested" }))
 			.catch((err) =>
 				dispatch({
@@ -469,7 +472,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	};
 
 	const testRow = (url: string) =>
-		api.testAlert({ api_url: state.apiUrl, targets: [url] });
+		api.testAlert({ api_url: state.apiUrl.trim(), targets: [url] });
 
 	const stepProps = { state, dispatch: dispatch as Dispatch<Action>, t };
 	const body = () => {
@@ -513,8 +516,17 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		}
 	};
 
-	const busy =
-		state.apiChecking || state.testing || state.finishing || state.sendingAll;
+	// Work that a step is waiting on, so moving off it would strand the result.
+	// Sending the closing test is deliberately not part of it: the run is over,
+	// its outcome is a note, and nothing downstream depends on it.
+	const busy = state.apiChecking || state.testing || state.finishing;
+
+	// After "Add another" was abandoned back to the list, the draft is empty and
+	// step 4 has nothing to test: Back goes to where a destination is started.
+	const backStep: Step =
+		state.step === 5 && state.draft.kind === null
+			? 2
+			: ((state.step - 1) as Step);
 
 	return (
 		<Modal
@@ -531,7 +543,6 @@ export function AlertsWizard(props: AlertsWizardProps) {
 						type="button"
 						className="ui-btn ui-btn-primary"
 						data-testid="wiz-close"
-						disabled={busy}
 						onClick={onFinished}
 					>
 						{t(`${K}.close`)}
@@ -542,7 +553,10 @@ export function AlertsWizard(props: AlertsWizardProps) {
 							type="button"
 							className="ui-btn"
 							data-testid="wiz-cancel"
-							disabled={busy}
+							// A probe or a test in flight changes nothing that is stored,
+							// so walking out mid-request is always allowed; only the write
+							// itself is worth waiting for.
+							disabled={state.finishing}
 							onClick={onClose}
 						>
 							{t(`${K}.cancel`)}
@@ -553,9 +567,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 								className="ui-btn"
 								data-testid="wiz-back"
 								disabled={busy}
-								onClick={() =>
-									dispatch({ type: "go", step: (state.step - 1) as Step })
-								}
+								onClick={() => dispatch({ type: "go", step: backStep })}
 							>
 								{t(`${K}.back`)}
 							</button>

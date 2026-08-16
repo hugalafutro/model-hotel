@@ -275,6 +275,18 @@ export function AlertsPanel() {
 	// the operator is looking at a different one. Both row actions wait for a Save.
 	const targetsDirty = target.trim() !== targets.join("; ");
 
+	// Why the wizard cannot be opened right now. It finishes by writing
+	// `savedTargets + what it added`, so it must be handed a destination list
+	// that is both readable and current: over an unreadable one it would save
+	// only its own additions (silently dropping the stored destinations), and
+	// over a pending manual edit it would save the list from before that edit.
+	// Both are fixed on the card first, which is where the message points.
+	const wizardBlocked = targetsError
+		? t(targetsError)
+		: targetsDirty
+			? t("settings.alerts.destinationsDirty")
+			: undefined;
+
 	return (
 		<div className="ui-card ui-card-pad fd-stack">
 			<div className="fd-row" style={{ justifyContent: "space-between" }}>
@@ -486,7 +498,7 @@ export function AlertsPanel() {
 				</div>
 			)}
 
-			<div className="fd-row" style={{ gap: "0.6rem" }}>
+			<div className="fd-row" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
 				{/* The guided path. It is offered whether or not alerts are switched
 				    on: "Set up alerts" is exactly what an operator looking at a
 				    switched-off card is after, and it switches them on itself. */}
@@ -494,7 +506,8 @@ export function AlertsPanel() {
 					type="button"
 					className="ui-btn ui-btn-primary"
 					data-testid="alert-wizard-open"
-					disabled={busy}
+					title={wizardBlocked}
+					disabled={busy || wizardBlocked !== undefined}
 					onClick={() => setWizardAt(1)}
 				>
 					{status?.configured
@@ -508,7 +521,8 @@ export function AlertsPanel() {
 						type="button"
 						className="ui-btn"
 						data-testid="alert-wizard-add"
-						disabled={busy}
+						title={wizardBlocked}
+						disabled={busy || wizardBlocked !== undefined}
 						onClick={() => setWizardAt(2)}
 					>
 						{t("settings.alerts.wizard.addDestination")}
