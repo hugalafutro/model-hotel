@@ -774,6 +774,39 @@ describe("AlertsWizard", () => {
 		]);
 	});
 
+	// The write landed, so the run is over either way; the pill is where an
+	// apprise that answers but reports a problem is reported honestly.
+	it("reports a saved but unhealthy apprise on the closing pill", async () => {
+		healthyProbe();
+		passingTest();
+		storedTargets([]);
+		capturePuts();
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({
+					configured: true,
+					reachable: true,
+					healthy: false,
+					reason: "unhealthy",
+					detail: "apprise reports a problem",
+				}),
+			),
+		);
+		renderWizard({ initialApiUrl: "http://apprise:8000", startAt: 2 });
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+
+		const pill = await screen.findByTestId("wiz-done-pill");
+		expect(pill).toHaveTextContent(i18n.t("settings.alerts.status.issues"));
+		// Themed by what the pill says, not by a palette utility.
+		expect(pill).toHaveClass("ui-badge", "ui-badge-warning");
+		// The raw server text stays a tooltip so it never becomes the message.
+		expect(pill).toHaveAttribute("title", "apprise reports a problem");
+	});
+
 	it("recovers from a rejected Finish, a failed probe read and a failed final test", async () => {
 		healthyProbe();
 		passingTest();
