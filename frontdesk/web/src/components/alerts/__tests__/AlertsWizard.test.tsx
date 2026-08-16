@@ -399,7 +399,7 @@ it("a stray backdrop click does not close the wizard or lose the typed input", a
 	expect(onClose).toHaveBeenCalled();
 });
 
-it("steps 5-7: lists this run's additions, applies the recommended preset, and writes once at Finish", async () => {
+it("steps 5-7: lists this run's additions, carries the saved events, and writes once at Finish", async () => {
 	const puts: Record<string, unknown>[] = [];
 	const testBodies: string[] = [];
 	server.use(
@@ -413,6 +413,9 @@ it("steps 5-7: lists this run's additions, applies the recommended preset, and w
 		http.get("/api/alert/status", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ targets: ["tgram://1/2"] }),
+		),
 		http.put("/api/settings", async ({ request }) => {
 			puts.push((await request.json()) as Record<string, unknown>);
 			return HttpResponse.json({});
@@ -421,6 +424,7 @@ it("steps 5-7: lists this run's additions, applies the recommended preset, and w
 	const { onFinished } = renderWizard({
 		initialApiUrl: "http://apprise:8000",
 		savedTargets: ["tgram://1/2"],
+		savedEvents: "health.down,health.up",
 		startAt: 2,
 	});
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
@@ -490,6 +494,9 @@ it("recovers from a rejected Finish, a failed probe read and a failed final test
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
 		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ targets: ["tgram://1/2"] }),
+		),
 		http.put("/api/settings", () =>
 			HttpResponse.text("apprise url must be http(s)", { status: 400 }),
 		),
@@ -829,4 +836,137 @@ it("counts a stored or already added destination as a duplicate, but not the dra
 			draft: { ...withUrl("tgram://9/9").draft, acceptedUrl: "tgram://9/9" },
 		}),
 	).toBe(false);
+});
+
+// A blank alert_events CSV is not "nothing chosen yet": Front Desk writes a
+// non-empty CSV for every selection it is given, so an empty one on a
+// configured install is the operator having turned every event off. Only a
+// setup run reads it as unset and seeds the recommended preset.
+it("keeps a deliberately empty event selection empty when adding a destination", async () => {
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "",
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+
+	expect(screen.getByTestId("wiz-event-health.down")).not.toBeChecked();
+	expect(screen.getByTestId("wiz-event-health.up")).not.toBeChecked();
+	expect(screen.getByTestId("wiz-event-member.added")).not.toBeChecked();
+	// Nothing is ticked, so the step says so rather than looking half-loaded.
+	expect(screen.getByTestId("wiz-none-selected")).toBeInTheDocument();
+	// The recommended set is one click away whenever it is wanted.
+	await userEvent.click(screen.getByTestId("wiz-reset-recommended"));
+	expect(screen.getByTestId("wiz-event-health.down")).toBeChecked();
+});
+
+it("seeds the recommended preset on a setup run with nothing saved", async () => {
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderWizard({ initialApiUrl: "http://apprise:8000", savedEvents: "" });
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+
+	expect(screen.getByTestId("wiz-event-health.down")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-health.up")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-member.added")).not.toBeChecked();
+	expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+});
+
+// The write replaces the whole destination list, and the wizard's copy of it is
+// as old as the dialog: a destination saved elsewhere while the run was open
+// would be written away. Finish re-reads the stored list first.
+it("keeps destinations saved elsewhere while the wizard was open", async () => {
+	const puts: Record<string, unknown>[] = [];
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+		http.get("/api/alert/status", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		// What is stored by the time Finish is pressed: the destination the wizard
+		// opened with, plus one another tab added in the meantime.
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({
+				targets: ["tgram://1/2", "ntfys://ntfy.example.com/added-elsewhere"],
+			}),
+		),
+		http.put("/api/settings", async ({ request }) => {
+			puts.push((await request.json()) as Record<string, unknown>);
+			return HttpResponse.json({});
+		}),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "health.down",
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+	);
+
+	expect(puts).toHaveLength(1);
+	expect(puts[0].alert_apprise_targets).toBe(
+		"tgram://1/2; ntfys://ntfy.example.com/added-elsewhere; ntfys://ntfy.example.com/abcabcabc",
+	);
+});
+
+it("writes nothing when the stored destinations cannot be read at Finish", async () => {
+	const puts: Record<string, unknown>[] = [];
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+		http.get(
+			"/api/alert/targets",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+		http.put("/api/settings", async ({ request }) => {
+			puts.push((await request.json()) as Record<string, unknown>);
+			return HttpResponse.json({});
+		}),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "health.down",
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+			i18n.t("settings.alerts.destinationsError"),
+		),
+	);
+	// The only write available would have dropped the stored destinations, so
+	// none was attempted and the run stays where it can be tried again.
+	expect(puts).toEqual([]);
+	expect(screen.getByTestId("wiz-step-7")).toBeInTheDocument();
+	expect(screen.getByTestId("wiz-finish")).toBeEnabled();
 });

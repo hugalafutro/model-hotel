@@ -234,7 +234,7 @@
     <string name="notif_stale_body">La synchro auto est désactivée et la flotte ne s\'est pas synchronisée depuis plus d\'un jour. Touchez pour ouvrir Bellhop.</string>
     <string name="notif_stale_resumed_title">Synchro auto reprise</string>
     <string name="notif_stale_resumed_body">La flotte est de nouveau maintenue synchronisée.</string>
-    <string name="notif_push_test_title">Test de push Front Desk reçu</string>
+    <string name="notif_push_test_title">Test de push de %1$s reçu</string>
     <string name="notif_push_test_body">Le push en temps réel fonctionne. Bellhop n\'alerte que sur les changements des membres et la dérive de la synchronisation automatique ; les tests ne créent pas d\'alertes.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>

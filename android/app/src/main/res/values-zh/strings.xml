@@ -231,7 +231,7 @@
     <string name="notif_stale_body">自动同步已关闭，且集群已超过一天未同步。点按以打开 Bellhop。</string>
     <string name="notif_stale_resumed_title">自动同步已恢复</string>
     <string name="notif_stale_resumed_body">集群正再次保持同步。</string>
-    <string name="notif_push_test_title">已收到 Front Desk 推送测试</string>
+    <string name="notif_push_test_title">已收到 %1$s 推送测试</string>
     <string name="notif_push_test_body">实时推送正常。Bellhop 仅在成员变化和自动同步漂移时提醒；测试不会产生提醒。</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>

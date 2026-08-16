@@ -240,7 +240,7 @@
     <string name="notif_stale_body">Automatická synchronizace je vypnutá a flotila se nesynchronizovala už přes den. Klepnutím otevřete Bellhop.</string>
     <string name="notif_stale_resumed_title">Automatická synchronizace obnovena</string>
     <string name="notif_stale_resumed_body">Flotila je opět udržována synchronizovaná.</string>
-    <string name="notif_push_test_title">Přijat testovací push z Front Desku</string>
+    <string name="notif_push_test_title">Přijat testovací push z %1$s</string>
     <string name="notif_push_test_body">Push v reálném čase funguje. Bellhop upozorňuje jen na změny členů a odchylky automatické synchronizace; testy žádná upozornění nevytvářejí.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>

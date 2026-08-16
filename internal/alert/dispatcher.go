@@ -308,11 +308,21 @@ func ReasonOf(err error) string {
 // trimmed, non-empty Apprise URLs. ";" is the documented separator because,
 // unlike commas, it does not collide with commas inside one URL (a
 // multi-recipient mailto://).
+//
+// Repeats are dropped, first occurrence winning so the operator's ordering
+// survives: the same address listed twice only means apprise is asked to
+// deliver the same notification to one phone twice, and every caller of this
+// (delivery, the plaintext list the UI shows, the test endpoint) wants the set.
 func SplitTargets(s string) []string {
 	parts := strings.Split(s, ";")
 	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, p := range parts {
 		if p = strings.TrimSpace(p); p != "" {
+			if _, dup := seen[p]; dup {
+				continue
+			}
+			seen[p] = struct{}{}
 			out = append(out, p)
 		}
 	}

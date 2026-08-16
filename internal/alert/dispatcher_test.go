@@ -545,6 +545,22 @@ func TestSplitJoinTargets(t *testing.T) {
 	}
 }
 
+// A destination listed twice is one destination: apprise would otherwise be
+// told to deliver the same notification to the same phone twice, and the
+// plaintext list the UI renders from this would show a phantom second row.
+func TestSplitTargetsDeduplicates(t *testing.T) {
+	got := SplitTargets("a://1; b://2 ;a://1;b://2;c://3")
+	want := []string{"a://1", "b://2", "c://3"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("SplitTargets = %q, want %q (first occurrence wins, order kept)", got, want)
+	}
+	// Whitespace is trimmed before the comparison, so padding does not smuggle a
+	// second copy of the same address past the check.
+	if n := normalizeTargets("  a://1  ;a://1"); n != "a://1" {
+		t.Errorf("normalizeTargets = %q, want %q", n, "a://1")
+	}
+}
+
 // Closing the bus (the first step of graceful shutdown) must stop Run even
 // while its context is still live: otherwise the loop would spin on the
 // closed channel until the process exits.

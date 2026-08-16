@@ -29,6 +29,36 @@ object BellhopPush {
      */
     fun isTestPush(content: ByteArray): Boolean = content.toString(Charsets.UTF_8).startsWith(TEST_BODY_PREFIX)
 
+    /**
+     * SENDER_MAX_LENGTH caps how much of the payload can reach the notification
+     * title. The sender is whatever the gateway was configured to call itself, so
+     * it is operator-supplied text arriving over the network: a long one would
+     * push the rest of the title out of view, and the title is the only part of a
+     * test notification that says who sent it.
+     */
+    private const val SENDER_MAX_LENGTH = 40
+
+    /**
+     * testPushSender returns the name the sending gateway gave itself, taken from
+     * the test body's `Test notification from <prefix>: ...` opening, or null when
+     * the payload is not a test push at all. A phone can be pointed at more than
+     * one Front Desk, so the title carries this rather than a fixed name.
+     *
+     * The name is trimmed and capped at [SENDER_MAX_LENGTH]; a test body with no
+     * ":" after the marker, or nothing but blanks in front of it, yields null, so
+     * the caller falls back to nothing rather than an empty-looking title.
+     */
+    fun testPushSender(content: ByteArray): String? {
+        val body = content.toString(Charsets.UTF_8)
+        if (!body.startsWith(TEST_BODY_PREFIX)) return null
+        val rest = body.substring(TEST_BODY_PREFIX.length)
+        val end = rest.indexOf(':')
+        if (end < 0) return null
+        val sender = rest.substring(0, end).trim()
+        if (sender.isEmpty()) return null
+        return sender.take(SENDER_MAX_LENGTH)
+    }
+
     /** hasDistributor reports whether any UnifiedPush distributor is installed. */
     fun hasDistributor(context: Context): Boolean = UnifiedPush.getDistributors(context).isNotEmpty()
 

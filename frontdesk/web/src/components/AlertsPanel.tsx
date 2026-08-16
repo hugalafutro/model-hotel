@@ -327,6 +327,20 @@ export function AlertsPanel() {
 				</span>
 			</label>
 
+			{/* An unreadable destination list is what greys out the guided button, and
+			    that button is offered whether or not alerts are switched on. The
+			    reason therefore sits outside the toggle's block too: a disabled
+			    button with no visible explanation is the one state to avoid. */}
+			{targetsError && (
+				<div
+					className="fd-error-text"
+					data-testid="alert-destinations-error"
+					style={{ marginBottom: "0.4rem" }}
+				>
+					{t(targetsError)}
+				</div>
+			)}
+
 			{/* Like the SSO card, the configuration only unrolls once alerts are on;
 			    switched off, the card is just its toggle plus Save. */}
 			{enabled && (
@@ -341,15 +355,6 @@ export function AlertsPanel() {
 						>
 							{t("settings.alerts.destinationsNote")}
 						</div>
-						{targetsError && (
-							<div
-								className="fd-error-text"
-								data-testid="alert-destinations-error"
-								style={{ marginBottom: "0.4rem" }}
-							>
-								{t(targetsError)}
-							</div>
-						)}
 						<DestinationList
 							targets={targets}
 							onRemove={removeDestination}
@@ -687,7 +692,15 @@ function StatusPill({
 		: !status.healthy
 			? (["ui-badge-warn", t("settings.alerts.statusUnhealthy")] as const)
 			: (["ui-badge-ok", t("settings.alerts.statusOk")] as const);
-	const showDetail = status.detail && (!status.reachable || !status.healthy);
+	// The reason code is the translated, actionable half of the probe result; the
+	// detail is raw server text (English, sometimes an HTTP status). The note
+	// therefore prefers the reason and keeps the detail as the tooltip, where an
+	// operator who wants the literal answer can still find it.
+	const note =
+		status.reason && REASON_CODES.has(status.reason)
+			? t(`settings.alerts.reason.${status.reason}`)
+			: status.detail;
+	const showNote = note && (!status.reachable || !status.healthy);
 	return (
 		<span
 			className="fd-row"
@@ -696,9 +709,13 @@ function StatusPill({
 			<span className={`ui-badge ${variant}`} title={status.detail}>
 				{label}
 			</span>
-			{showDetail && (
-				<span className="fd-faint" style={{ fontSize: "0.72rem" }}>
-					{status.detail}
+			{showNote && (
+				<span
+					className="fd-faint"
+					data-testid="alert-status-note"
+					style={{ fontSize: "0.72rem" }}
+				>
+					{note}
 				</span>
 			)}
 		</span>

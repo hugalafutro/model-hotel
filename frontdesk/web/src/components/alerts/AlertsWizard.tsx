@@ -45,7 +45,11 @@ export interface AlertsWizardProps {
 	initialApiUrl: string;
 	/** Plaintext saved destinations. The wizard appends to these, never drops one. */
 	savedTargets: string[];
-	/** Saved alert_events CSV; "" means "use the recommended preset". */
+	/**
+	 * Saved alert_events CSV. Blank is a real selection (everything deselected),
+	 * not "unset": only a run that starts at step 1 reads it as "nothing has been
+	 * chosen yet" and seeds the recommended preset.
+	 */
 	savedEvents: string;
 	catalog: AlertEventDef[];
 	/** 1 = Set up alerts / Re-run setup, 2 = Add destination to a working setup. */
@@ -195,20 +199,29 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 	};
 }
 
+/** parseCsv turns a stored alert_events CSV into a membership Set. */
+function parseCsv(csv: string): Set<string> {
+	return new Set(
+		csv
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean),
+	);
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function initialState(p: AlertsWizardProps): WizardState {
 	// "Add destination" only makes sense against a configured apprise-api; without
 	// one the run starts at step 1 whatever the caller asked for.
 	const start: Step = p.startAt === 2 && p.initialApiUrl !== "" ? 2 : 1;
+	// Front Desk stores a non-empty CSV for every selection it has ever been
+	// given, so a blank one on an "Add destination" run is the operator having
+	// deliberately turned every event off. Re-ticking the preset behind their back
+	// would silently undo that, so the preset is only the seed for a setup run.
 	const events =
-		p.savedEvents.trim() === ""
+		p.startAt === 1 && p.savedEvents.trim() === ""
 			? new Set(p.catalog.filter((e) => e.defaultOn).map((e) => e.type))
-			: new Set(
-					p.savedEvents
-						.split(",")
-						.map((s) => s.trim())
-						.filter(Boolean),
-				);
+			: parseCsv(p.savedEvents);
 	return {
 		step: start,
 		minStep: start,
@@ -442,40 +455,65 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		else dispatch({ type: "go", step: (state.step + 1) as Step });
 	};
 
-	// The destination list the run finishes with: what was already stored, plus
-	// what this run proved. Nothing is ever taken away from the stored half.
+	// The destination list the run finishes with, as the step-7 summary shows it:
+	// what was stored when the dialog opened, plus what this run proved. Nothing
+	// is ever taken away from the stored half; `finish` re-reads that half so the
+	// write also keeps anything saved while the dialog was open.
 	const finalTargets = [...savedTargets, ...state.added];
 
 	// The one and only write. Everything before this step was a read or a
 	// throwaway notification, so this is the moment the wizard's work becomes
 	// configuration; the status read after it is what the closing pill reports.
-	const finish = () => {
+	const finish = async () => {
 		dispatch({ type: "finishing" });
-		api
-			.putSettings({
+
+		// The write replaces the whole destination list, and the copy this dialog
+		// opened with is as old as the dialog: anything saved elsewhere since then
+		// (another tab, another operator) would be written away. The stored list is
+		// re-read here so the write is "what is stored now, plus this run's work".
+		let stored: string[];
+		try {
+			stored = (await api.getAlertTargets()).targets;
+		} catch {
+			// Without a trustworthy stored list the only write available is one that
+			// loses destinations, so nothing is written at all and the run stays on
+			// step 7 where Finish can be pressed again.
+			dispatch({
+				type: "finishFailed",
+				message: t("settings.alerts.destinationsError"),
+			});
+			return;
+		}
+		const merged = [...stored, ...state.added].filter(
+			(u, i, all) => all.indexOf(u) === i,
+		);
+
+		try {
+			await api.putSettings({
 				alert_enabled: true,
 				alert_apprise_api_url: state.apiUrl.trim(),
-				alert_apprise_targets: finalTargets.join("; "),
+				alert_apprise_targets: merged.join("; "),
 				alert_events: [...state.events].join(","),
-			})
-			.then(() =>
-				api.getAlertStatus().then(
-					(status) => dispatch({ type: "finished", status }),
-					// The settings landed; a failed probe read only costs the pill.
-					() => dispatch({ type: "finished", status: null }),
-				),
-			)
-			.catch((err) =>
-				dispatch({
-					type: "finishFailed",
-					// A 400 carries a safe, actionable sentence; anything else could
-					// leak internals, so it is reported generically.
-					message:
-						err instanceof ApiError && err.status === 400
-							? err.message
-							: t("errors.generic"),
-				}),
-			);
+			});
+		} catch (err) {
+			dispatch({
+				type: "finishFailed",
+				// A 400 carries a safe, actionable sentence; anything else could
+				// leak internals, so it is reported generically.
+				message:
+					err instanceof ApiError && err.status === 400
+						? err.message
+						: t("errors.generic"),
+			});
+			return;
+		}
+
+		try {
+			dispatch({ type: "finished", status: await api.getAlertStatus() });
+		} catch {
+			// The settings landed; a failed probe read only costs the pill.
+			dispatch({ type: "finished", status: null });
+		}
 	};
 
 	// The stored configuration is now the live one, so this test carries no body:
@@ -553,7 +591,10 @@ export function AlertsWizard(props: AlertsWizardProps) {
 			// parent's copy of the settings is stale: every way out of the dialog
 			// tells it to reload.
 			onClose={state.done ? onFinished : onClose}
-			dismissible={!busy}
+			// Escape is Cancel by another name, so it is allowed wherever Cancel is:
+			// a probe or a test in flight changes nothing that is stored, and only
+			// the write itself is worth waiting for.
+			dismissible={!state.finishing}
 			closeOnBackdrop={false}
 			actions={
 				state.done ? (
@@ -615,7 +656,14 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				)
 			}
 		>
-			<div className="fd-stack" data-testid={`wiz-step-${state.step}`}>
+			{/* The step body is swapped in place while the dialog title stays put, so
+			    a screen reader is told the content changed rather than left on a
+			    heading that no longer describes what is on screen. */}
+			<div
+				className="fd-stack"
+				data-testid={`wiz-step-${state.step}`}
+				aria-live="polite"
+			>
 				{body()}
 			</div>
 		</Modal>

@@ -108,8 +108,10 @@ services:
     # Front Desk POSTs HA event summaries to it (a member going down, a config sync
     # failing); Apprise fans them out to Telegram/Discord/email/etc. No request
     # content is ever sent, only routing metadata. Uncomment, then in Front Desk
-    # Settings -> Alerts set the Apprise API URL to http://apprise:8000 and paste
-    # your notification target (e.g. tgram://<bot_token>/<chat_id>).
+    # run "Set up alerts" in Settings -> Alerts: the wizard prefills
+    # http://apprise:8000, checks this container answers, and asks for the
+    # destination in plain fields (a Telegram bot token and chat id, an ntfy
+    # server and topic, and so on) instead of an Apprise URL.
     # apprise:
     #     image: caronc/apprise:latest
     #     labels:

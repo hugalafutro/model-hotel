@@ -240,7 +240,7 @@
     <string name="notif_stale_body">Autosynchronizacja jest wyłączona, a flota nie synchronizowała się od ponad doby. Dotknij, aby otworzyć Bellhop.</string>
     <string name="notif_stale_resumed_title">Autosynchronizacja wznowiona</string>
     <string name="notif_stale_resumed_body">Flota jest znów utrzymywana w synchronizacji.</string>
-    <string name="notif_push_test_title">Otrzymano testowy push z Front Desk</string>
+    <string name="notif_push_test_title">Otrzymano testowy push z %1$s</string>
     <string name="notif_push_test_body">Push w czasie rzeczywistym działa. Bellhop powiadamia tylko o zmianach węzłów i rozjeżdżaniu się autosynchronizacji; testy nie tworzą powiadomień.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>

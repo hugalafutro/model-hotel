@@ -234,7 +234,7 @@
     <string name="notif_stale_body">La sincronización automática está desactivada y la flota no se ha sincronizado en más de un día. Toca para abrir Bellhop.</string>
     <string name="notif_stale_resumed_title">Sincronización automática reanudada</string>
     <string name="notif_stale_resumed_body">La flota se mantiene sincronizada de nuevo.</string>
-    <string name="notif_push_test_title">Prueba de push de Front Desk recibida</string>
+    <string name="notif_push_test_title">Prueba de push de %1$s recibida</string>
     <string name="notif_push_test_body">El push en tiempo real funciona. Bellhop solo avisa de cambios en los miembros y del desvío de la sincronización automática; las pruebas no generan avisos.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>

@@ -50,6 +50,11 @@ object FleetNotifier {
     // second test from stacking a second row.
     private const val PUSH_TEST_TAG = "push_test"
 
+    // What the test title says when the payload carries no readable sender. It is
+    // a product name rather than a translated string, and it is the only thing a
+    // paired Bellhop can be receiving a test from.
+    private const val DEFAULT_TEST_SENDER = "Front Desk"
+
     /**
      * ensureChannels registers both notification channels. Safe to call
      * repeatedly (createNotificationChannel is idempotent) and cheap, so it runs
@@ -153,8 +158,16 @@ object FleetNotifier {
      * because the wake poll it accompanies finds a healthy fleet and so reports
      * nothing: without this row the operator cannot tell a working push pipeline
      * from a dead one. Real alerts never take this path.
+     *
+     * [sender] is the name the sending gateway gave itself, so a phone linked to
+     * one Front Desk while another operator tests a second one can see which
+     * pipeline just proved itself. Null when the payload carried no readable
+     * name, which falls back to [DEFAULT_TEST_SENDER].
      */
-    fun notifyPushTest(context: Context) {
+    fun notifyPushTest(
+        context: Context,
+        sender: String? = null,
+    ) {
         if (!canPost(context)) return
         ensureChannels(context)
 
@@ -162,7 +175,9 @@ object FleetNotifier {
             NotificationCompat
                 .Builder(context, CHANNEL_UP)
                 .setSmallIcon(R.drawable.ic_stat_bellhop)
-                .setContentTitle(context.getString(R.string.notif_push_test_title))
+                .setContentTitle(
+                    context.getString(R.string.notif_push_test_title, sender ?: DEFAULT_TEST_SENDER),
+                )
                 .setContentText(context.getString(R.string.notif_push_test_body))
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_push_test_body)),

@@ -54,7 +54,7 @@ class BellhopPushService : PushService() {
         // The payload is read only for Front Desk's test marker; the poll re-derives
         // every real alert from Front Desk truth (see class doc).
         if (BellhopPush.isTestPush(message.content)) {
-            FleetNotifier.notifyPushTest(applicationContext)
+            FleetNotifier.notifyPushTest(applicationContext, BellhopPush.testPushSender(message.content))
         }
         FleetPollWorker.runNow(applicationContext)
     }

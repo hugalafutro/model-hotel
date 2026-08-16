@@ -2,6 +2,7 @@ package com.hugalafutro.bellhop.push
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,6 +30,38 @@ class BellhopPushTest {
         // The marker only counts at the start: a body that merely mentions it is a
         // real alert, so a quoted marker must not silently swallow one.
         assertFalse(BellhopPush.isTestPush("Alert: Test notification from Front Desk".toByteArray()))
+    }
+
+    @Test
+    fun theSenderIsReadFromTheTestBody() {
+        val body = "Test notification from Front Desk: if you can read this, alerting is wired up correctly."
+        assertEquals("Front Desk", BellhopPush.testPushSender(body.toByteArray()))
+        // The gateway names itself, so a second Model Hotel testing the same phone
+        // is distinguishable from the Front Desk it is paired to.
+        assertEquals(
+            "Model Hotel",
+            BellhopPush.testPushSender("Test notification from Model Hotel: hello".toByteArray()),
+        )
+    }
+
+    @Test
+    fun aSenderThatIsMissingOrUnusableYieldsNull() {
+        // Not a test push at all.
+        assertNull(BellhopPush.testPushSender("mh-2 is down".toByteArray()))
+        // A test body with nothing after the marker has no ":" to close the name.
+        assertNull(BellhopPush.testPushSender("Test notification from Front Desk".toByteArray()))
+        // Blanks are not a name, so the caller falls back rather than rendering an
+        // empty-looking title.
+        assertNull(BellhopPush.testPushSender("Test notification from   : hi".toByteArray()))
+    }
+
+    @Test
+    fun anOverlongSenderIsCapped() {
+        // The sender is operator-supplied text off the network: uncapped, it would
+        // push the rest of the title out of view.
+        val long = "x".repeat(80)
+        val sender = BellhopPush.testPushSender("Test notification from $long: hi".toByteArray())
+        assertEquals("x".repeat(40), sender)
     }
 
     @Test

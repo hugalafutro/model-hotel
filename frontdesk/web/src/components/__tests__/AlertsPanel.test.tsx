@@ -760,3 +760,69 @@ it.each([
 		expect(screen.getByText(detail)).toBeInTheDocument();
 	}
 });
+
+// The guided button is offered whether or not alerts are switched on, and an
+// unreadable destination list is what greys it out. The reason therefore has to
+// live outside the toggle's block, or a switched-off card shows a disabled
+// button with no explanation anywhere on screen.
+it("shows why the guided button is greyed out even with alerts switched off", async () => {
+	baseHandlers({ settings: { ...settings, alert_enabled: false } });
+	server.use(
+		http.get(
+			"/api/alert/targets",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+	);
+	renderPanel();
+
+	expect(
+		await screen.findByTestId("alert-destinations-error"),
+	).toHaveTextContent(/something went wrong/i);
+	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
+	// The configuration itself is still folded away behind the toggle.
+	expect(screen.queryByTestId("alert-destination-row")).toBeNull();
+});
+
+// The probe's reason code is the translated, actionable half of the result; the
+// detail is raw server text. The note shows the reason and keeps the detail as
+// the tooltip for whoever wants the literal answer.
+it("shows the translated probe reason beside the pill, with the raw detail as its tooltip", async () => {
+	baseHandlers({
+		status: {
+			configured: true,
+			reachable: false,
+			healthy: false,
+			reason: "unreachable",
+			detail: "dial tcp 172.18.0.5:8000: connect: connection refused",
+		},
+	});
+	renderPanel();
+
+	const note = await screen.findByTestId("alert-status-note");
+	expect(note).toHaveTextContent(i18n.t("settings.alerts.reason.unreachable"));
+	expect(
+		screen.getByText(i18n.t("settings.alerts.statusUnreachable")),
+	).toHaveAttribute(
+		"title",
+		"dial tcp 172.18.0.5:8000: connect: connection refused",
+	);
+});
+
+// A reason Front Desk has no sentence for must not render its own translation
+// key, so the raw detail is the fallback.
+it("falls back to the raw detail when the probe reason has no translation", async () => {
+	baseHandlers({
+		status: {
+			configured: true,
+			reachable: true,
+			healthy: false,
+			reason: "something_new",
+			detail: "apprise-api returned status 417",
+		},
+	});
+	renderPanel();
+
+	expect(await screen.findByTestId("alert-status-note")).toHaveTextContent(
+		"apprise-api returned status 417",
+	);
+});
