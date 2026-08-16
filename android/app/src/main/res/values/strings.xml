@@ -234,7 +234,7 @@
     <string name="settings_push_no_distributor">Install a UnifiedPush distributor such as ntfy to receive pushes. Without one, this stays idle until you add it.</string>
     <string name="settings_push_endpoint_label">Push topic for Front Desk</string>
     <string name="settings_push_endpoint_waiting">Waiting for the distributor to hand back a push topic…</string>
-    <string name="settings_push_endpoint_note">In Front Desk → Settings → Alerts, choose Add destination and the Bellhop tile, then paste it there.</string>
+    <string name="settings_push_endpoint_note">In Front Desk → Settings → Alerts, run Set up alerts (or Add destination once alerts are configured), pick the Bellhop tile, then paste it there.</string>
     <string name="settings_push_copy">Copy push topic</string>
     <string name="settings_push_copied">Push topic copied</string>
     <string name="settings_push_blocked">Notifications are off for Bellhop, so pushes can\'t reach you. Turn them on in system settings.</string>

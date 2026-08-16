@@ -413,6 +413,7 @@
 				"bellhopPasteHint": "Abre Bellhop, Configuración, Push en tiempo real, y pega el Tema de push para Front Desk que aparece ahí.",
 				"bellhopBad": "Esto no parece un endpoint push de Bellhop. Debería tener este aspecto: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Un mensaje de prueba no mostrará ninguna notificación de Bellhop. Bellhop solo avisa cuando un miembro cae o vuelve, o cuando la sincronización automática se desvía. Front Desk usa este endpoint para despertar a Bellhop.",
+				"discordBad": "Esto no parece una URL de webhook de Discord. Debería tener este aspecto: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Explorar todos los servicios de Apprise",
 				"step4Title": "Probar este destino",
 				"step4Hint": "Front Desk envía una prueba a través de apprise solo a este destino. Todavía no se guarda nada.",

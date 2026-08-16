@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmModal } from "../ConfirmModal";
 import { describeTarget } from "./composers";
@@ -162,11 +162,22 @@ export function DestinationList({
 function CopyButton({ url, rowName }: { url: string; rowName: string }) {
 	const { t } = useTranslation();
 	const [copied, setCopied] = useState(false);
+	// The "Copied" label reverts on a timer, which has to be dropped if the row
+	// goes first: removing a destination unmounts it, and firing then would set
+	// state on an unmounted button.
+	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (timer.current !== null) clearTimeout(timer.current);
+		},
+		[],
+	);
 	const copy = async () => {
 		try {
 			await navigator.clipboard.writeText(url);
 			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
+			if (timer.current !== null) clearTimeout(timer.current);
+			timer.current = setTimeout(() => setCopied(false), 2000);
 		} catch {
 			/* clipboard blocked: the value stays selectable */
 		}

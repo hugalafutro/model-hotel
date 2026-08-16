@@ -417,6 +417,7 @@
 				"bellhopPasteHint": "Otvorte Bellhop, Nastavenia, Push v reálnom čase, a vložte Push tému pre Front Desk, ktorá sa tam zobrazuje.",
 				"bellhopBad": "Toto nevyzerá ako push endpoint Bellhopu. Mal by vyzerať takto: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Testovacia správa žiadnu notifikáciu Bellhopu nezobrazí. Bellhop hlási len výpadok alebo návrat člena a odchýlenie automatickej synchronizácie. Front Desk tento endpoint používa na zobudenie Bellhopu.",
+				"discordBad": "Toto nevyzerá ako URL webhooku na Discorde. Mala by vyzerať takto: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Prehliadať všetky služby Apprise",
 				"step4Title": "Otestovať tento cieľ",
 				"step4Hint": "Front Desk pošle cez apprise jeden test iba na tento cieľ. Zatiaľ sa nič neukladá.",

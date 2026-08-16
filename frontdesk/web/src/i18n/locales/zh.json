@@ -409,6 +409,7 @@
 				"bellhopPasteHint": "打开 Bellhop，设置，实时推送，把那里显示的“用于 Front Desk 的推送主题”粘贴过来。",
 				"bellhopBad": "这看起来不像 Bellhop 推送端点。它应形如 https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "测试消息不会显示 Bellhop 通知。Bellhop 只在成员离线或恢复、以及自动同步出现偏差时提醒您。Front Desk 使用该端点来唤醒 Bellhop。",
+				"discordBad": "这看起来不像 Discord Webhook URL。它应形如 https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "浏览全部 Apprise 服务",
 				"step4Title": "测试该目标",
 				"step4Hint": "Front Desk 会通过 apprise 只向该目标发送一条测试。目前还不会保存任何内容。",

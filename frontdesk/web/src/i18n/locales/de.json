@@ -409,6 +409,7 @@
 				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Echtzeit-Push, und fügen Sie das dort angezeigte Push-Thema für Front Desk ein.",
 				"bellhopBad": "Das sieht nicht nach einem Bellhop-Push-Endpunkt aus. Er sollte so aussehen: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Eine Testnachricht zeigt keine Bellhop-Benachrichtigung. Bellhop meldet nur, wenn ein Mitglied ausfällt oder zurückkommt oder die Auto-Synchronisierung abdriftet. Front Desk nutzt diesen Endpunkt, um Bellhop zu wecken.",
+				"discordBad": "Das sieht nicht nach einer Discord-Webhook-URL aus. Sie sollte so aussehen: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Alle Apprise-Dienste durchsuchen",
 				"step4Title": "Dieses Ziel testen",
 				"step4Hint": "Front Desk sendet einen Test über apprise nur an dieses Ziel. Es wird noch nichts gespeichert.",

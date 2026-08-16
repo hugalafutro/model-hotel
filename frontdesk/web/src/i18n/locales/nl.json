@@ -409,6 +409,7 @@
 				"bellhopPasteHint": "Open Bellhop, Instellingen, Realtime push, en plak het Push-onderwerp voor Front Desk dat daar staat.",
 				"bellhopBad": "Dat lijkt geen Bellhop-push-endpoint. Het hoort er zo uit te zien: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Een testbericht laat geen Bellhop-melding zien. Bellhop meldt alleen wanneer een member uitvalt of terugkomt, of wanneer auto-sync afdrijft. Front Desk gebruikt dit endpoint om Bellhop te wekken.",
+				"discordBad": "Dat lijkt geen Discord-webhook-URL. Die hoort er zo uit te zien: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Alle Apprise-services bekijken",
 				"step4Title": "Deze bestemming testen",
 				"step4Hint": "Front Desk stuurt via apprise één test naar alleen deze bestemming. Er wordt nog niets opgeslagen.",

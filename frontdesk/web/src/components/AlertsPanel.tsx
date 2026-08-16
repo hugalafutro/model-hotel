@@ -160,13 +160,22 @@ export function AlertsPanel() {
 	// `overrides` lets a row action (e.g. removing one destination) write a
 	// different target list than the manual field currently holds.
 	const persist = async (overrides?: Partial<Settings>) => {
-		await api.putSettings({
+		const body: Partial<Settings> = {
 			alert_enabled: enabled,
 			alert_apprise_api_url: url.trim(),
 			alert_apprise_targets: target.trim(),
 			alert_events: [...selected].join(","),
 			...overrides,
-		});
+		};
+		// The manual field is derived from the destination read, so when that read
+		// failed it holds nothing and writing it would clear the stored
+		// destinations. The key is left out of the PUT instead, and the server's
+		// partial merge keeps the stored ciphertext. A caller that passes its own
+		// list (a row removal) means it, so that one is still written.
+		if (targetsError !== "" && overrides?.alert_apprise_targets === undefined) {
+			delete body.alert_apprise_targets;
+		}
+		await api.putSettings(body);
 		const [s, loaded] = await Promise.all([api.getSettings(), fetchTargets()]);
 		applyLoaded(s, loaded);
 	};

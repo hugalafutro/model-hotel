@@ -20,6 +20,25 @@ interface ModalProps {
 const FOCUSABLE =
 	'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+// Every open dialog. Escape is a document listener, so without this each open
+// modal answers the same keypress and one press closes a dialog together with
+// the one that opened it (e.g. the remove confirmation inside the alerts
+// wizard). Only the topmost acts.
+const openModals: HTMLElement[] = [];
+
+// The topmost dialog is the one every other open dialog precedes in document
+// order, which with no portal and a single shared z-index is also the one
+// painted on top: a nested dialog sits inside its opener, a separately opened
+// one is appended after it.
+function isTopmost(el: HTMLElement): boolean {
+	return openModals.every(
+		(other) =>
+			other === el ||
+			(el.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_PRECEDING) !==
+				0,
+	);
+}
+
 // Lightweight modal: backdrop click and Escape close it. The control plane has
 // only a handful of dialogs, so this stays deliberately minimal (no portal, no
 // focus-trap library), but it does trap Tab focus within the dialog while open
@@ -58,11 +77,14 @@ export function Modal({
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 		// Focus the first focusable control (or the dialog itself) on open.
 		const dialog = dialogRef.current;
+		if (dialog) openModals.push(dialog);
 		const first = dialog?.querySelector<HTMLElement>(FOCUSABLE);
 		(first ?? dialog)?.focus();
 
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
+				// Only the topmost dialog answers; the ones underneath stay open.
+				if (dialog && !isTopmost(dialog)) return;
 				if (dismissibleRef.current) onCloseRef.current();
 				return;
 			}
@@ -86,6 +108,8 @@ export function Modal({
 		document.addEventListener("keydown", onKey);
 		return () => {
 			document.removeEventListener("keydown", onKey);
+			const at = dialog ? openModals.indexOf(dialog) : -1;
+			if (at !== -1) openModals.splice(at, 1);
 			previouslyFocused?.focus?.();
 		};
 	}, []);

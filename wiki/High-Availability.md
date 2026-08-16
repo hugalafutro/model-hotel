@@ -536,7 +536,7 @@ is the same `apprise-api` the main gateway uses, so one container can serve both
 the main dashboard's own Alerts card keeps its manual fields until the same
 wizard reaches it.
 
-<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Set up alerts button"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Re-run setup and Add destination buttons a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
 
 ### Phone push via ntfy
 

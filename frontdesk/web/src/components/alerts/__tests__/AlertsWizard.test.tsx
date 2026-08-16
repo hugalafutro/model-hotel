@@ -224,6 +224,31 @@ it("bellhop tile parses a pasted endpoint and rejects junk", async () => {
 	expect(screen.getByTestId("wiz-next")).toBeEnabled();
 });
 
+it("discord tile says why a webhook that will not parse blocks Next", async () => {
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+	);
+	renderWizard({ initialApiUrl: "http://apprise:8000", startAt: 2 });
+	await userEvent.click(screen.getByTestId("wiz-kind-discord"));
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.type(screen.getByTestId("wiz-field-webhook"), "nope");
+	expect(screen.getByTestId("wiz-discord-error")).toBeInTheDocument();
+	expect(screen.queryByTestId("wiz-composed")).toBeNull();
+	expect(screen.getByTestId("wiz-next")).toBeDisabled();
+	await userEvent.clear(screen.getByTestId("wiz-field-webhook"));
+	await userEvent.type(
+		screen.getByTestId("wiz-field-webhook"),
+		"https://discord.com/api/webhooks/123456789/AbCdEf",
+	);
+	expect(screen.queryByTestId("wiz-discord-error")).toBeNull();
+	expect(screen.getByTestId("wiz-composed")).toHaveTextContent(
+		"discord://123456789/AbCdEf",
+	);
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
+});
+
 it("falls back to step 1 when the saved apprise URL no longer answers", async () => {
 	server.use(
 		http.post("/api/alert/probe", () =>

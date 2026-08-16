@@ -223,7 +223,7 @@
     <string name="settings_push_no_distributor">Nainstalujte distributora UnifiedPush, například ntfy, pro příjem pushů. Bez něj zůstane toto nečinné, dokud ho nepřidáte.</string>
     <string name="settings_push_endpoint_label">Push téma pro Front Desk</string>
     <string name="settings_push_endpoint_waiting">Čeká se, až distributor vrátí push téma…</string>
-    <string name="settings_push_endpoint_note">Ve Front Desku → Nastavení → Upozornění zvolte Přidat cíl a dlaždici Bellhop a pak toto vložte tam.</string>
+    <string name="settings_push_endpoint_note">Ve Front Desku → Nastavení → Upozornění spusťte Nastavit upozornění (nebo Přidat cíl, když už jsou upozornění nastavená), zvolte dlaždici Bellhop a pak toto vložte tam.</string>
     <string name="settings_push_copy">Kopírovat push téma</string>
     <string name="settings_push_copied">Push téma zkopírováno</string>
     <string name="settings_push_blocked">Oznámení pro Bellhop jsou vypnutá, takže se k vám pushe nedostanou. Zapněte je v nastavení systému.</string>

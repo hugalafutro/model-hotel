@@ -43,6 +43,24 @@ describe("Modal", () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
+	it("closes only the topmost dialog on Escape", async () => {
+		// Mirrors the alerts wizard with a remove confirmation open inside it: one
+		// Escape must dismiss the confirmation and leave the wizard standing.
+		const closeOuter = vi.fn();
+		const closeInner = vi.fn();
+		render(
+			<Modal title="Outer" onClose={closeOuter}>
+				<input aria-label="outer field" />
+				<Modal title="Inner" onClose={closeInner}>
+					<input aria-label="inner field" />
+				</Modal>
+			</Modal>,
+		);
+		await userEvent.keyboard("{Escape}");
+		expect(closeInner).toHaveBeenCalledTimes(1);
+		expect(closeOuter).not.toHaveBeenCalled();
+	});
+
 	it("does not close on Escape or backdrop click when not dismissible", async () => {
 		const onClose = vi.fn();
 		render(

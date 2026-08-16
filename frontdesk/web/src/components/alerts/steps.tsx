@@ -1,5 +1,12 @@
 import type { TFunction } from "i18next";
-import { type Dispatch, type ReactNode, useMemo, useState } from "react";
+import {
+	type Dispatch,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
 import { generateTopic } from "../../utils/ntfy";
 import type { Action, WizardState } from "./AlertsWizard";
@@ -8,6 +15,7 @@ import {
 	type DestinationKind,
 	FIELDS,
 	type FieldDef,
+	parseDiscordWebhook,
 	parseUnifiedPushEndpoint,
 } from "./composers";
 import { DestinationList } from "./DestinationList";
@@ -202,6 +210,8 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 
 	const parsed =
 		kind === "bellhop" ? parseUnifiedPushEndpoint(value("endpoint")) : null;
+	const discord =
+		kind === "discord" ? parseDiscordWebhook(value("webhook")) : null;
 
 	return (
 		<>
@@ -287,6 +297,18 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 						{t(`${K}.bellhopNote`)}
 					</p>
 				</>
+			)}
+
+			{/* Next is gated on a composed URL, so an unparseable webhook otherwise
+			    leaves the operator with a dead button and no reason for it. */}
+			{kind === "discord" && !discord && value("webhook").trim() !== "" && (
+				<p
+					data-testid="wiz-discord-error"
+					role="status"
+					className="fd-error-text"
+				>
+					{t(`${K}.discordBad`)}
+				</p>
 			)}
 
 			{kind === "other" && (
@@ -700,12 +722,23 @@ function CopyRow({
 	t: TFunction;
 }) {
 	const [copied, setCopied] = useState(false);
+	// The "Copied" label reverts on a timer, which has to be dropped if the step
+	// is left first: the wizard swaps steps under it, and firing then would set
+	// state on an unmounted row.
+	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (timer.current !== null) clearTimeout(timer.current);
+		},
+		[],
+	);
 	if (value === "") return null;
 	const copy = async () => {
 		try {
 			await navigator.clipboard.writeText(value);
 			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
+			if (timer.current !== null) clearTimeout(timer.current);
+			timer.current = setTimeout(() => setCopied(false), 2000);
 		} catch {
 			/* clipboard blocked: the value stays selectable */
 		}

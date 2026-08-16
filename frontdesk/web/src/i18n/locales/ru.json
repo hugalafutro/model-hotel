@@ -417,6 +417,7 @@
 				"bellhopPasteHint": "Откройте Bellhop, «Настройки», «Push в реальном времени», и вставьте показанную там «Push-тему для Front Desk».",
 				"bellhopBad": "Это не похоже на push-адрес Bellhop. Он должен выглядеть так: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Тестовое сообщение не покажет уведомление Bellhop. Bellhop сообщает только о том, что узел упал или вернулся, либо что автосинхронизация разошлась. Front Desk использует этот адрес, чтобы разбудить Bellhop.",
+				"discordBad": "Это не похоже на URL вебхука Discord. Он должен выглядеть так: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Просмотреть все сервисы Apprise",
 				"step4Title": "Проверка этого получателя",
 				"step4Hint": "Front Desk отправит через apprise один тест только этому получателю. Пока ничего не сохраняется.",

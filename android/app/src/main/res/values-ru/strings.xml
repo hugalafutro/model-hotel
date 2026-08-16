@@ -223,7 +223,7 @@
     <string name="settings_push_no_distributor">Установите распространитель UnifiedPush, например ntfy, чтобы получать push-уведомления. Без него это остаётся неактивным, пока вы его не добавите.</string>
     <string name="settings_push_endpoint_label">Push-тема для Front Desk</string>
     <string name="settings_push_endpoint_waiting">Ожидание, пока распространитель вернёт push-тему…</string>
-    <string name="settings_push_endpoint_note">В Front Desk → Настройки → Оповещения выберите Добавить получателя и плитку Bellhop, затем вставьте это туда.</string>
+    <string name="settings_push_endpoint_note">В Front Desk → Настройки → Оповещения запустите Настроить оповещения (или Добавить получателя, если оповещения уже настроены), выберите плитку Bellhop, затем вставьте это туда.</string>
     <string name="settings_push_copy">Копировать push-тему</string>
     <string name="settings_push_copied">Push-тема скопирована</string>
     <string name="settings_push_blocked">Уведомления для Bellhop отключены, поэтому push-уведомления не могут до вас дойти. Включите их в системных настройках.</string>

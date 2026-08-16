@@ -413,6 +413,7 @@
 				"bellhopPasteHint": "Ouvrez Bellhop, Paramètres, Push en temps réel, et collez le Sujet push pour Front Desk affiché là.",
 				"bellhopBad": "Cela ne ressemble pas à un point de terminaison push Bellhop. Il devrait ressembler à https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Un message de test n'affichera pas de notification Bellhop. Bellhop ne signale que la chute ou le retour d'un membre, ou la dérive de la synchronisation automatique. Front Desk utilise ce point de terminaison pour réveiller Bellhop.",
+				"discordBad": "Cela ne ressemble pas à une URL de webhook Discord. Elle devrait ressembler à https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Parcourir tous les services Apprise",
 				"step4Title": "Tester cette destination",
 				"step4Hint": "Front Desk envoie un test via apprise à cette seule destination. Rien n'est encore enregistré.",

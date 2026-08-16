@@ -165,6 +165,35 @@ it("falls back to a generic message when the destinations read fails", async () 
 	expect(screen.getByTestId("alert-destinations-empty")).toBeInTheDocument();
 });
 
+// The manual field mirrors the destination read, so a failed read leaves it
+// empty. Saving must not write that emptiness over the stored ciphertext: the
+// key is left out of the PUT and the server's partial merge keeps it.
+it("omits the destinations from the PUT when the stored list could not be read", async () => {
+	let putBody: Record<string, unknown> | undefined;
+	baseHandlers();
+	server.use(
+		http.get(
+			"/api/alert/targets",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Record<string, unknown>;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await screen.findByTestId("alert-destinations-error");
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+
+	await waitFor(() => expect(putBody).toBeDefined());
+	expect(putBody).not.toHaveProperty("alert_apprise_targets");
+	// Everything else the card owns is still written.
+	expect(putBody?.alert_apprise_api_url).toBe("http://apprise:8000");
+	expect(putBody?.alert_events).toBe("health.down");
+});
+
 it("removing a row PUTs the remaining list", async () => {
 	let putBody: Settings | undefined;
 	baseHandlers();
