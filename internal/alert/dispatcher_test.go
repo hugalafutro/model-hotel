@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -466,6 +467,64 @@ func TestTestSendHappyAndError(t *testing.T) {
 	rs.status = http.StatusBadGateway
 	if err := d.TestSend(context.Background()); err == nil {
 		t.Error("expected error when apprise-api returns 502")
+	}
+}
+
+func TestTestSendToReasons(t *testing.T) {
+	status := http.StatusOK
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/notify" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(status)
+	}))
+	defer srv.Close()
+	d := New(fakeCfg{}, srv.Client())
+	base := Config{APIBaseURL: srv.URL, Targets: "ntfys://ntfy.example.com/topic"}
+
+	cases := []struct {
+		name   string
+		cfg    Config
+		status int
+		reason string
+	}{
+		{"ok", base, http.StatusOK, ""},
+		{"reject", base, http.StatusBadRequest, ReasonAppriseReject},
+		{"deliver_failed", base, http.StatusFailedDependency, ReasonDeliverFailed},
+		{"unhealthy", base, http.StatusInternalServerError, ReasonUnhealthy},
+		{"no url", Config{Targets: "x://y"}, http.StatusOK, ReasonNotConfigured},
+		{"no targets", Config{APIBaseURL: srv.URL}, http.StatusOK, ReasonNotConfigured},
+		{"unreachable", Config{APIBaseURL: "http://127.0.0.1:1", Targets: "x://y"}, http.StatusOK, ReasonUnreachable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			status = tc.status
+			err := d.TestSendTo(context.Background(), tc.cfg)
+			if got := ReasonOf(err); got != tc.reason {
+				t.Errorf("reason = %q (err %v), want %q", got, err, tc.reason)
+			}
+			if tc.reason == "" && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSplitJoinTargets(t *testing.T) {
+	got := SplitTargets(" a://1 ; ;b://2;c://x,y ")
+	want := []string{"a://1", "b://2", "c://x,y"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("SplitTargets = %q, want %q", got, want)
+	}
+	if j := JoinTargets(want); j != "a://1; b://2; c://x,y" {
+		t.Errorf("JoinTargets = %q", j)
+	}
+	if n := normalizeTargets("a://1;b://2"); n != "a://1 b://2" {
+		t.Errorf("normalizeTargets = %q", n)
+	}
+	if len(SplitTargets("")) != 0 {
+		t.Error("SplitTargets(\"\") should be empty")
 	}
 }
 
