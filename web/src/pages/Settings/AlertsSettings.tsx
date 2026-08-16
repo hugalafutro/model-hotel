@@ -252,12 +252,12 @@ export function AlertsSettings({
 				);
 
 	const status = statusQuery.data;
-	const statusDot =
+	const statusDotColor =
 		status?.reachable && status.healthy
-			? "bg-green-500"
+			? "var(--success-text)"
 			: status?.reachable
-				? "bg-amber-500"
-				: "bg-red-500";
+				? "var(--warning-text)"
+				: "var(--error-text)";
 	const statusText =
 		status?.reachable && status.healthy
 			? t("settings.alerts.status.reachable")
@@ -285,7 +285,7 @@ export function AlertsSettings({
 			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
-				<p className="text-gray-400 text-sm">
+				<p className="text-(--text-muted) text-sm">
 					{t("settings.alerts.description")}
 				</p>
 
@@ -303,7 +303,7 @@ export function AlertsSettings({
 						<div className="flex items-center justify-between gap-3 ui-settings-group">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
+									<p className="text-sm font-medium text-(--text-secondary)">
 										{t("settings.alerts.enable")}
 									</p>
 									<ResetButton
@@ -315,7 +315,7 @@ export function AlertsSettings({
 										disabled={isResetting}
 									/>
 								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
+								<p className="text-(--text-muted) text-xs mt-0.5">
 									{t("settings.alerts.enableDescription")}
 								</p>
 							</div>
@@ -339,7 +339,7 @@ export function AlertsSettings({
 							<div className="flex items-center gap-1.5">
 								<button
 									type="button"
-									className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
+									className="flex items-center gap-1.5 text-sm font-medium text-(--text-secondary)"
 									onClick={() => setPickerOpen((o) => !o)}
 									aria-expanded={pickerExpanded}
 									disabled={!enabled}
@@ -435,14 +435,15 @@ export function AlertsSettings({
 									data-testid="alert-status"
 								>
 									{statusQuery.isFetching ? (
-										<span className="inline-flex items-center gap-1.5 text-gray-400">
+										<span className="inline-flex items-center gap-1.5 text-(--text-muted)">
 											<RefreshCw size={12} className="animate-spin" />
 											{t("settings.alerts.status.checking")}
 										</span>
 									) : statusQuery.isError ? (
-										<span className="inline-flex items-center gap-1.5 text-gray-300">
+										<span className="inline-flex items-center gap-1.5 text-(--text-secondary)">
 											<span
-												className="inline-block w-2 h-2 rounded-full bg-red-500"
+												className="inline-block w-2 h-2 rounded-full"
+												style={{ background: "var(--error-text)" }}
 												aria-hidden="true"
 											/>
 											{t("settings.alerts.status.checkFailed")}
@@ -450,11 +451,12 @@ export function AlertsSettings({
 									) : status ? (
 										<>
 											<span
-												className="inline-flex items-center gap-1.5 text-gray-300"
+												className="inline-flex items-center gap-1.5 text-(--text-secondary)"
 												title={status.detail}
 											>
 												<span
-													className={`inline-block w-2 h-2 rounded-full ${statusDot}`}
+													className="inline-block w-2 h-2 rounded-full"
+													style={{ background: statusDotColor }}
 													aria-hidden="true"
 												/>
 												{statusText}
@@ -484,17 +486,22 @@ export function AlertsSettings({
 						<p className="text-xs text-(--text-muted)">
 							{t("settings.alerts.destinations.note")}
 						</p>
-						<DestinationList
-							targets={targets}
-							onRemove={removeDestination}
-							onTest={(url) => rowTestMutation.mutate(url)}
-							busy={busy}
-							disabledReason={
-								targetsDirty
-									? t("settings.alerts.destinations.dirty")
-									: undefined
-							}
-						/>
+						{/* An unreadable stored list has already been explained by the
+						    callout above; rendering an empty list here on top of it would
+						    read as "nothing is configured" instead of "cannot be read". */}
+						{targetsError === "" && (
+							<DestinationList
+								targets={targets}
+								onRemove={removeDestination}
+								onTest={(url) => rowTestMutation.mutate(url)}
+								busy={busy}
+								disabledReason={
+									targetsDirty
+										? t("settings.alerts.destinations.dirty")
+										: undefined
+								}
+							/>
+						)}
 					</div>
 				)}
 
@@ -552,7 +559,7 @@ export function AlertsSettings({
 							<div className="space-y-1.5">
 								<label
 									htmlFor="alert-api-url"
-									className="text-sm font-medium text-gray-300"
+									className="text-sm font-medium text-(--text-secondary)"
 								>
 									{t("settings.alerts.apiUrl")}
 								</label>
@@ -571,7 +578,7 @@ export function AlertsSettings({
 									className="ui-input text-sm w-full"
 									data-testid="alert-api-url-input"
 								/>
-								<p className="text-gray-500 text-xs">
+								<p className="text-(--text-muted) text-xs">
 									{t("settings.alerts.apiUrlDescription")}
 								</p>
 							</div>
@@ -580,7 +587,7 @@ export function AlertsSettings({
 							<div className="space-y-1.5">
 								<label
 									htmlFor="alert-target"
-									className="text-sm font-medium text-gray-300"
+									className="text-sm font-medium text-(--text-secondary)"
 								>
 									{t("settings.alerts.target")}
 								</label>
@@ -615,7 +622,7 @@ export function AlertsSettings({
 										</button>
 									)}
 								</div>
-								<p className="text-gray-500 text-xs">
+								<p className="text-(--text-muted) text-xs">
 									{/* The ';' separator is rendered as a code token (same effect as
 								    pg_dump in DB settings) so it doesn't read as ' ; ' literal. */}
 									<Trans
@@ -643,7 +650,7 @@ export function AlertsSettings({
 										: t("settings.alerts.testButton")}
 								</button>
 								{!canTest && (
-									<p className="text-gray-500 text-xs">
+									<p className="text-(--text-muted) text-xs">
 										{t("settings.alerts.testHint")}
 									</p>
 								)}

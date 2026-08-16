@@ -80,7 +80,7 @@ func (h *Handler) ProbeAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(req.APIURL) == "" {
-		http.Error(w, "api_url is required", http.StatusBadRequest)
+		writeCodedError(w, http.StatusBadRequest, "invalid_body", "api_url is required")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)

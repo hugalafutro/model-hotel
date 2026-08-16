@@ -440,6 +440,22 @@ describe("AlertsSettings", () => {
 		).toBe(i18n.t("settings.alerts.destinations.readFailed"));
 	});
 
+	it("hides the destination list, not just the callout, when the read fails", async () => {
+		// A 500 leaves `targets` at its empty-array fallback, which would
+		// otherwise render the list's own "nothing configured" empty state
+		// alongside the callout that already explains the read failed.
+		mockSettings({ alert_enabled: "true" });
+		failTargets();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-destinations-error");
+		expect(
+			screen.queryByTestId("alert-destinations-empty"),
+		).not.toBeInTheDocument();
+	});
+
 	it("shows the destination read failure even when alerting is off", async () => {
 		// The guided entry point is offered whether or not alerting is on, so the
 		// reason it is greyed out has to be visible in both states.
