@@ -408,7 +408,7 @@
 				"ntfySubscribe": "在手机的 ntfy 应用中：订阅主题，使用其他服务器，然后填入：",
 				"bellhopPasteHint": "打开 Bellhop，设置，实时推送，把那里显示的“用于 Front Desk 的推送主题”粘贴过来。",
 				"bellhopBad": "这看起来不像 Bellhop 推送端点。它应形如 https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "测试消息不会显示 Bellhop 通知。Bellhop 只在成员离线或恢复、以及自动同步出现偏差时提醒您。Front Desk 使用该端点来唤醒 Bellhop。",
+				"bellhopNote": "测试会在 Bellhop 中显示“已收到推送测试”通知。真实告警只会唤醒它：随后 Bellhop 会在成员离线或恢复、以及自动同步出现偏差时提醒您。Front Desk 使用该端点来唤醒 Bellhop。",
 				"discordBad": "这看起来不像 Discord Webhook URL。它应形如 https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "浏览全部 Apprise 服务",
 				"step4Title": "测试该目标",
@@ -417,7 +417,7 @@
 				"sending": "发送中…",
 				"testSent": {
 					"ntfy": "已发送。请查看手机。",
-					"bellhop": "已发送。Bellhop 已被唤醒（测试不会有通知）。",
+					"bellhop": "已发送。Bellhop 应在几秒内显示“已收到推送测试”（需要能识别测试推送的 Bellhop 版本）。",
 					"telegram": "已发送。请查看 Telegram。",
 					"discord": "已发送。请查看频道。",
 					"email": "已发送。请查看收件箱。",

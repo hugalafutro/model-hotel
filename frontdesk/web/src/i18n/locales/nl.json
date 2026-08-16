@@ -408,7 +408,7 @@
 				"ntfySubscribe": "Op je telefoon, in de ntfy-app: Abonneren op onderwerp, Andere server gebruiken, en voer dan in:",
 				"bellhopPasteHint": "Open Bellhop, Instellingen, Realtime push, en plak het Push-onderwerp voor Front Desk dat daar staat.",
 				"bellhopBad": "Dat lijkt geen Bellhop-push-endpoint. Het hoort er zo uit te zien: https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "Een testbericht laat geen Bellhop-melding zien. Bellhop meldt alleen wanneer een member uitvalt of terugkomt, of wanneer auto-sync afdrijft. Front Desk gebruikt dit endpoint om Bellhop te wekken.",
+				"bellhopNote": "Een test laat in Bellhop een melding “pushtest ontvangen” zien. Echte alerts wekken het alleen: Bellhop meldt dan wanneer een member uitvalt of terugkomt, of wanneer auto-sync afdrijft. Front Desk gebruikt dit endpoint om Bellhop te wekken.",
 				"discordBad": "Dat lijkt geen Discord-webhook-URL. Die hoort er zo uit te zien: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Alle Apprise-services bekijken",
 				"step4Title": "Deze bestemming testen",
@@ -417,7 +417,7 @@
 				"sending": "Verzenden…",
 				"testSent": {
 					"ntfy": "Verzonden. Kijk op je telefoon.",
-					"bellhop": "Verzonden. Bellhop is gewekt (bij een test wordt geen melding verwacht).",
+					"bellhop": "Verzonden. Bellhop hoort binnen enkele seconden “pushtest ontvangen” te tonen (vereist de Bellhop-build die testpushes begrijpt).",
 					"telegram": "Verzonden. Kijk in Telegram.",
 					"discord": "Verzonden. Kijk in het kanaal.",
 					"email": "Verzonden. Kijk in de inbox.",

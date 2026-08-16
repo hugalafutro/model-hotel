@@ -408,7 +408,7 @@
 				"ntfySubscribe": "Auf Ihrem Telefon in der ntfy-App: Thema abonnieren, Anderen Server verwenden, dann eingeben:",
 				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Echtzeit-Push, und fügen Sie das dort angezeigte Push-Thema für Front Desk ein.",
 				"bellhopBad": "Das sieht nicht nach einem Bellhop-Push-Endpunkt aus. Er sollte so aussehen: https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "Eine Testnachricht zeigt keine Bellhop-Benachrichtigung. Bellhop meldet nur, wenn ein Mitglied ausfällt oder zurückkommt oder die Auto-Synchronisierung abdriftet. Front Desk nutzt diesen Endpunkt, um Bellhop zu wecken.",
+				"bellhopNote": "Ein Test zeigt in Bellhop eine Benachrichtigung „Push-Test empfangen“. Echte Alarme wecken es nur: Bellhop meldet dann, wenn ein Mitglied ausfällt oder zurückkommt oder die Auto-Synchronisierung abdriftet. Front Desk nutzt diesen Endpunkt, um Bellhop zu wecken.",
 				"discordBad": "Das sieht nicht nach einer Discord-Webhook-URL aus. Sie sollte so aussehen: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Alle Apprise-Dienste durchsuchen",
 				"step4Title": "Dieses Ziel testen",
@@ -417,7 +417,7 @@
 				"sending": "Wird gesendet…",
 				"testSent": {
 					"ntfy": "Gesendet. Schauen Sie auf Ihr Telefon.",
-					"bellhop": "Gesendet. Bellhop wurde geweckt (bei einem Test ist keine Benachrichtigung zu erwarten).",
+					"bellhop": "Gesendet. Bellhop sollte innerhalb weniger Sekunden „Push-Test empfangen“ anzeigen (erfordert den Bellhop-Build, der Test-Pushes versteht).",
 					"telegram": "Gesendet. Schauen Sie in Telegram.",
 					"discord": "Gesendet. Schauen Sie in den Kanal.",
 					"email": "Gesendet. Schauen Sie in den Posteingang.",

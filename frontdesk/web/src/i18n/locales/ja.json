@@ -408,7 +408,7 @@
 				"ntfySubscribe": "スマホの ntfy アプリで、トピックを購読、別のサーバーを使用、の順に選び、次を入力してください:",
 				"bellhopPasteHint": "Bellhop を開き、設定、リアルタイム プッシュ、と進んで、そこに表示されている Front Desk 用のプッシュトピックを貼り付けてください。",
 				"bellhopBad": "これは Bellhop のプッシュエンドポイントには見えません。https://ntfy.example.com/upAbCdEf?up=1 のような形式になります。",
-				"bellhopNote": "テストメッセージでは Bellhop の通知は表示されません。Bellhop が知らせるのは、メンバーの停止と復帰、そして自動同期のずれだけです。Front Desk はこのエンドポイントを Bellhop を起こすために使います。",
+				"bellhopNote": "テストを送ると Bellhop に「プッシュテストを受信しました」という通知が表示されます。実際のアラートは Bellhop を起こすだけで、そのあと Bellhop が知らせるのは、メンバーの停止と復帰、そして自動同期のずれです。Front Desk はこのエンドポイントを Bellhop を起こすために使います。",
 				"discordBad": "これは Discord の Webhook URL には見えません。https://discord.com/api/webhooks/123456789/AbCdEf のような形式になります。",
 				"otherBrowse": "Apprise のサービスをすべて見る",
 				"step4Title": "この送信先をテスト",
@@ -417,7 +417,7 @@
 				"sending": "送信中…",
 				"testSent": {
 					"ntfy": "送信しました。スマホを確認してください。",
-					"bellhop": "送信しました。Bellhop を起こしました (テストでは通知は表示されません)。",
+					"bellhop": "送信しました。数秒以内に Bellhop に「プッシュテストを受信しました」と表示されるはずです (テストプッシュを理解する Bellhop のビルドが必要です)。",
 					"telegram": "送信しました。Telegram を確認してください。",
 					"discord": "送信しました。チャンネルを確認してください。",
 					"email": "送信しました。受信トレイを確認してください。",

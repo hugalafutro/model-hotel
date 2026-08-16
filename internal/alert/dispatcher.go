@@ -368,6 +368,12 @@ func (d *Dispatcher) TestSend(ctx context.Context) error {
 	return d.TestSendTo(ctx, cfg)
 }
 
+// TestBodyPrefix opens the body of every test notification. Bellhop matches on
+// this exact prefix to tell a Front Desk test push apart from a real alert wake,
+// so it acknowledges the test with its own notification; changing it here without
+// changing TEST_BODY_PREFIX in Bellhop's push package silently breaks that.
+const TestBodyPrefix = "Test notification from "
+
 // TestSendTo fires the synthetic notification through an explicit config, so
 // the setup wizard can test a URL/target pair before anything is saved. Errors
 // are DeliveryErrors (reason-coded) so the caller can tell the operator what to
@@ -381,7 +387,7 @@ func (d *Dispatcher) TestSendTo(ctx context.Context, cfg Config) error {
 	}
 	return d.post(ctx, cfg, notifyPayload{
 		Title:  d.titlePrefix + ": test notification",
-		Body:   "If you can read this, " + d.titlePrefix + " alerting is wired up correctly.",
+		Body:   TestBodyPrefix + d.titlePrefix + ": if you can read this, alerting is wired up correctly.",
 		Type:   "info",
 		Format: "text",
 	})

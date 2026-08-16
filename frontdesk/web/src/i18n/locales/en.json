@@ -408,7 +408,7 @@
 				"ntfySubscribe": "On your phone, in the ntfy app: Subscribe to topic, Use another server, then enter:",
 				"bellhopPasteHint": "Open Bellhop, Settings, Real-time push, and paste the Push topic for Front Desk shown there.",
 				"bellhopBad": "That does not look like a Bellhop push endpoint. It should look like https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "A test message will not show a Bellhop notification. Bellhop only tells you when a member goes down or comes back, or auto-sync drifts. Front Desk uses this endpoint to wake Bellhop.",
+				"bellhopNote": "A test shows a 'push test received' notification in Bellhop. Real alerts only wake it: Bellhop then tells you when a member goes down or comes back, or auto-sync drifts. Front Desk uses this endpoint to wake Bellhop.",
 				"discordBad": "That does not look like a Discord webhook URL. It should look like https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Browse all Apprise services",
 				"step4Title": "Test this destination",
@@ -417,7 +417,7 @@
 				"sending": "Sending…",
 				"testSent": {
 					"ntfy": "Sent. Check your phone.",
-					"bellhop": "Sent. Bellhop was woken (no notification is expected for a test).",
+					"bellhop": "Sent. Bellhop should show 'push test received' within a few seconds (needs the Bellhop build that understands test pushes).",
 					"telegram": "Sent. Check Telegram.",
 					"discord": "Sent. Check the channel.",
 					"email": "Sent. Check the inbox.",

@@ -416,7 +416,7 @@
 				"ntfySubscribe": "Na telefonie, w aplikacji ntfy: Subskrybuj temat, Użyj innego serwera, a potem wpisz:",
 				"bellhopPasteHint": "Otwórz Bellhop, Ustawienia, Push w czasie rzeczywistym, i wklej Temat push dla Front Desk, który tam widzisz.",
 				"bellhopBad": "To nie wygląda na endpoint push Bellhopa. Powinien wyglądać tak: https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "Wiadomość testowa nie pokaże powiadomienia Bellhopa. Bellhop informuje tylko o tym, że członek przestał działać lub wrócił, albo że auto-synchronizacja się rozjechała. Front Desk używa tego endpointu do wybudzenia Bellhopa.",
+				"bellhopNote": "Test pokaże w Bellhopie powiadomienie „otrzymano testowy push”. Prawdziwe alerty tylko go wybudzają: Bellhop informuje wtedy o tym, że członek przestał działać lub wrócił, albo że auto-synchronizacja się rozjechała. Front Desk używa tego endpointu do wybudzenia Bellhopa.",
 				"discordBad": "To nie wygląda na URL webhooka Discorda. Powinien wyglądać tak: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Przeglądaj wszystkie usługi Apprise",
 				"step4Title": "Przetestuj ten cel",
@@ -425,7 +425,7 @@
 				"sending": "Wysyłanie…",
 				"testSent": {
 					"ntfy": "Wysłano. Sprawdź telefon.",
-					"bellhop": "Wysłano. Bellhop został wybudzony (przy teście nie należy oczekiwać powiadomienia).",
+					"bellhop": "Wysłano. Bellhop powinien w ciągu kilku sekund pokazać „otrzymano testowy push” (wymaga wersji Bellhopa, która rozpoznaje testowe pushe).",
 					"telegram": "Wysłano. Sprawdź Telegram.",
 					"discord": "Wysłano. Sprawdź kanał.",
 					"email": "Wysłano. Sprawdź skrzynkę odbiorczą.",

@@ -465,6 +465,12 @@ func TestTestSendHappyAndError(t *testing.T) {
 	if rs.count() != 1 || rs.last().Type != "info" {
 		t.Errorf("test notification not sent as info type: count=%d", rs.count())
 	}
+	// Bellhop keys its "push test received" notification off this prefix, so a
+	// body that stops starting with it turns every test push back into a silent
+	// wake on the phone.
+	if !strings.HasPrefix(rs.last().Body, TestBodyPrefix) {
+		t.Errorf("test body must start with TestBodyPrefix, got %q", rs.last().Body)
+	}
 
 	rs.status = http.StatusBadGateway
 	if err := d.TestSend(context.Background()); err == nil {

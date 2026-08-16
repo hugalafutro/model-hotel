@@ -416,7 +416,7 @@
 				"ntfySubscribe": "Na telefóne v aplikácii ntfy: Odoberať tému, Použiť iný server, a potom zadajte:",
 				"bellhopPasteHint": "Otvorte Bellhop, Nastavenia, Push v reálnom čase, a vložte Push tému pre Front Desk, ktorá sa tam zobrazuje.",
 				"bellhopBad": "Toto nevyzerá ako push endpoint Bellhopu. Mal by vyzerať takto: https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "Testovacia správa žiadnu notifikáciu Bellhopu nezobrazí. Bellhop hlási len výpadok alebo návrat člena a odchýlenie automatickej synchronizácie. Front Desk tento endpoint používa na zobudenie Bellhopu.",
+				"bellhopNote": "Test zobrazí v Bellhope notifikáciu „prijatý testovací push“. Skutočné výstrahy ho len zobudia: Bellhop potom hlási výpadok alebo návrat člena a odchýlenie automatickej synchronizácie. Front Desk tento endpoint používa na zobudenie Bellhopu.",
 				"discordBad": "Toto nevyzerá ako URL webhooku na Discorde. Mala by vyzerať takto: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Prehliadať všetky služby Apprise",
 				"step4Title": "Otestovať tento cieľ",
@@ -425,7 +425,7 @@
 				"sending": "Odosielanie…",
 				"testSent": {
 					"ntfy": "Odoslané. Skontrolujte telefón.",
-					"bellhop": "Odoslané. Bellhop bol zobudený (pri teste sa žiadna notifikácia neočakáva).",
+					"bellhop": "Odoslané. Bellhop by mal do niekoľkých sekúnd zobraziť „prijatý testovací push“ (vyžaduje zostavenie Bellhopu, ktoré rozumie testovacím pushom).",
 					"telegram": "Odoslané. Skontrolujte Telegram.",
 					"discord": "Odoslané. Skontrolujte kanál.",
 					"email": "Odoslané. Skontrolujte schránku.",

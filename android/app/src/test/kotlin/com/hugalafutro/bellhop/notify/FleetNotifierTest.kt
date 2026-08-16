@@ -56,6 +56,26 @@ class FleetNotifierTest {
     }
 
     @Test
+    fun pushTestPostsItsOwnRowAndReplacesItselfOnRepeat() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app)
+        FleetNotifier.notifyPushTest(app)
+        // One fixed tag, so a second test updates the row instead of stacking, and
+        // it rides the quiet recovered channel because a test is not a page.
+        assertEquals(1, shadowOf(notifications).size())
+        val posted = notifications.activeNotifications.single()
+        assertEquals("push_test", posted.tag)
+        assertEquals(FleetNotifier.CHANNEL_UP, posted.notification.channelId)
+    }
+
+    @Test
+    fun pushTestIsNotPostedWithoutTheNotificationPermission() {
+        shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notifyPushTest(app)
+        assertEquals(0, shadowOf(notifications).size())
+    }
+
+    @Test
     fun autoSyncResumeReplacesTheStaleRowInPlace() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         // Stale then Resumed share one fixed tag, so the resume updates the row

@@ -12,6 +12,23 @@ import org.unifiedpush.android.connector.UnifiedPush
  * install one instead of silently failing.
  */
 object BellhopPush {
+    /**
+     * TEST_BODY_PREFIX opens the body of Front Desk's "Send test" notification. It
+     * mirrors `TestBodyPrefix` in the gateway's Go `internal/alert` package, and the
+     * two must stay identical: it is the only thing that tells a test push apart
+     * from a real alert wake, which is why a test gets its own notification while
+     * everything else stays a silent wake.
+     */
+    const val TEST_BODY_PREFIX = "Test notification from "
+
+    /**
+     * isTestPush reports whether a push payload is Front Desk's test notification.
+     * The UnifiedPush payload ntfy hands over is the message body as UTF-8 bytes;
+     * bytes that are not valid UTF-8 decode to replacement characters rather than
+     * throwing, so a malformed or empty payload simply reads as "not a test".
+     */
+    fun isTestPush(content: ByteArray): Boolean = content.toString(Charsets.UTF_8).startsWith(TEST_BODY_PREFIX)
+
     /** hasDistributor reports whether any UnifiedPush distributor is installed. */
     fun hasDistributor(context: Context): Boolean = UnifiedPush.getDistributors(context).isNotEmpty()
 

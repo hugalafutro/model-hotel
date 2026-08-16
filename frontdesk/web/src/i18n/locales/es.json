@@ -412,7 +412,7 @@
 				"ntfySubscribe": "En tu teléfono, en la aplicación ntfy: Suscribirse a un tema, Usar otro servidor, y luego introduce:",
 				"bellhopPasteHint": "Abre Bellhop, Configuración, Push en tiempo real, y pega el Tema de push para Front Desk que aparece ahí.",
 				"bellhopBad": "Esto no parece un endpoint push de Bellhop. Debería tener este aspecto: https://ntfy.example.com/upAbCdEf?up=1",
-				"bellhopNote": "Un mensaje de prueba no mostrará ninguna notificación de Bellhop. Bellhop solo avisa cuando un miembro cae o vuelve, o cuando la sincronización automática se desvía. Front Desk usa este endpoint para despertar a Bellhop.",
+				"bellhopNote": "Una prueba muestra en Bellhop una notificación “prueba de push recibida”. Las alertas reales solo lo despiertan: Bellhop te avisa entonces cuando un miembro cae o vuelve, o cuando la sincronización automática se desvía. Front Desk usa este endpoint para despertar a Bellhop.",
 				"discordBad": "Esto no parece una URL de webhook de Discord. Debería tener este aspecto: https://discord.com/api/webhooks/123456789/AbCdEf",
 				"otherBrowse": "Explorar todos los servicios de Apprise",
 				"step4Title": "Probar este destino",
@@ -421,7 +421,7 @@
 				"sending": "Enviando…",
 				"testSent": {
 					"ntfy": "Enviada. Mira tu teléfono.",
-					"bellhop": "Enviada. Bellhop se ha despertado (en una prueba no se espera ninguna notificación).",
+					"bellhop": "Enviada. Bellhop debería mostrar “prueba de push recibida” en unos segundos (requiere la versión de Bellhop que entiende los pushes de prueba).",
 					"telegram": "Enviada. Mira Telegram.",
 					"discord": "Enviada. Mira el canal.",
 					"email": "Enviada. Mira la bandeja de entrada.",
