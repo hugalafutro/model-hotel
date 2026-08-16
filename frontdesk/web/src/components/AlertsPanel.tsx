@@ -5,12 +5,8 @@ import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ntfyAppriseURL } from "../utils/ntfy";
-import { ntfyServerOf } from "./alerts/composers";
+import { APPRISE_SERVICES_URL, ntfyServerOf } from "./alerts/composers";
 import { DestinationList } from "./alerts/DestinationList";
-
-// Official Apprise docs listing every supported service and its URL shape, the
-// same reference the main dashboard links from its alert settings.
-const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
 
 // The failure codes /api/alert/test returns with a 502 that map to an
 // actionable sentence; anything else falls back to the generic error.

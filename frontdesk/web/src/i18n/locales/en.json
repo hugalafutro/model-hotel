@@ -373,6 +373,7 @@
 				"check": "Check",
 				"checking": "Checking…",
 				"apiOk": "apprise-api reachable and healthy",
+				"apiFailed": "Could not check the address.",
 				"step2Title": "Where should alerts go?",
 				"step2Hint": "Pick one now; you can add more afterwards.",
 				"kindNtfyHint": "Notifications in the ntfy app on your phone (self-hosted or ntfy.sh).",

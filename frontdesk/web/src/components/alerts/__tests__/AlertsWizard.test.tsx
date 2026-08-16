@@ -1,11 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "i18next";
 import { HttpResponse, http } from "msw";
 import { expect, it, vi } from "vitest";
 import type { AlertEventDef } from "../../../api/types";
 import { ToastProvider } from "../../../context/ToastContext";
 import { server } from "../../../test/server";
-import { AlertsWizard, type AlertsWizardProps } from "../AlertsWizard";
+import {
+	AlertsWizard,
+	type AlertsWizardProps,
+	initialState,
+	reducer,
+} from "../AlertsWizard";
 
 const catalog: AlertEventDef[] = [
 	{
@@ -155,6 +161,10 @@ it("steps 2-4: composes an ntfy URL, requires a passing test, and never writes s
 			"false",
 		),
 	);
+	// the 502's code is resolved through the shared reason catalog
+	expect(screen.getByTestId("wiz-test-result").textContent).toBe(
+		i18n.t("settings.alerts.reason.deliver_failed"),
+	);
 	expect(screen.getByTestId("wiz-next")).toBeDisabled();
 	await userEvent.click(screen.getByTestId("wiz-back")); // -> 3, fix
 	await userEvent.clear(screen.getByTestId("wiz-field-server"));
@@ -232,6 +242,105 @@ it("falls back to step 1 when the saved apprise URL no longer answers", async ()
 	expect(screen.getByTestId("wiz-next")).toBeDisabled();
 	// step 1 is now the first reachable step, so there is nothing to go back to
 	expect(screen.queryByTestId("wiz-back")).toBeNull();
+});
+
+it("re-locks a tested destination when the apprise URL changes", async () => {
+	const tests: { api_url: string }[] = [];
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", async ({ request }) => {
+			tests.push((await request.json()) as { api_url: string });
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderWizard();
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+	await userEvent.click(screen.getByTestId("wiz-kind-ntfy"));
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 3
+	await userEvent.type(
+		screen.getByTestId("wiz-field-server"),
+		"https://ntfy.example.com",
+	);
+	await userEvent.click(screen.getByTestId("wiz-generate-topic"));
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 4
+	await userEvent.click(screen.getByTestId("wiz-send-test"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-test-result")).toHaveAttribute(
+			"data-ok",
+			"true",
+		),
+	);
+
+	// walk back to step 1 and point at a different apprise
+	await userEvent.click(screen.getByTestId("wiz-back")); // -> 3
+	await userEvent.click(screen.getByTestId("wiz-back")); // -> 2
+	await userEvent.click(screen.getByTestId("wiz-back")); // -> 1
+	await userEvent.clear(screen.getByTestId("wiz-api-url"));
+	await userEvent.type(
+		screen.getByTestId("wiz-api-url"),
+		"http://apprise-b:8000",
+	);
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-api-status")).toHaveAttribute(
+			"data-ok",
+			"true",
+		),
+	);
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 3
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 4
+	// the destination was only ever proven through the old apprise
+	expect(screen.queryByTestId("wiz-test-result")).toBeNull();
+	expect(screen.getByTestId("wiz-next")).toBeDisabled();
+	await userEvent.click(screen.getByTestId("wiz-send-test"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	expect(tests.at(-1)?.api_url).toBe("http://apprise-b:8000");
+});
+
+it("accepting an edited destination replaces the one it superseded", () => {
+	const props: AlertsWizardProps = {
+		initialApiUrl: "",
+		savedTargets: [],
+		savedEvents: "",
+		catalog,
+		startAt: 1,
+		onClose: () => {},
+		onFinished: () => {},
+	};
+	const ntfyServer = "https://ntfy.example.com";
+	const accept = (from: ReturnType<typeof initialState>, topic: string) => {
+		let next = reducer(from, { type: "setField", key: "topic", value: topic });
+		next = reducer(next, { type: "tested" });
+		return reducer(next, { type: "acceptDraft" });
+	};
+
+	let s = reducer(initialState(props), {
+		type: "setKind",
+		kind: "ntfy",
+		ntfyServer,
+	});
+	s = accept(s, "one");
+	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
+
+	// Back to the details, fix the topic, test again, accept again: the wizard
+	// carries one destination forward, not the superseded URL beside it.
+	s = reducer(s, { type: "go", step: 3 });
+	s = accept(s, "two");
+	expect(s.added).toEqual(["ntfys://ntfy.example.com/two"]);
+
+	// "Add another" starts a fresh draft, which appends rather than replaces.
+	s = reducer(s, { type: "setKind", kind: "ntfy", ntfyServer });
+	s = accept(s, "three");
+	expect(s.added).toEqual([
+		"ntfys://ntfy.example.com/two",
+		"ntfys://ntfy.example.com/three",
+	]);
 });
 
 it("cancel closes without any request", async () => {

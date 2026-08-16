@@ -3,6 +3,7 @@ import { type Dispatch, type ReactNode, useState } from "react";
 import { generateTopic } from "../../utils/ntfy";
 import type { Action, WizardState } from "./AlertsWizard";
 import {
+	APPRISE_SERVICES_URL,
 	type DestinationKind,
 	FIELDS,
 	type FieldDef,
@@ -16,7 +17,6 @@ import {
 // itself through.
 
 const K = "settings.alerts.wizard";
-const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
 
 export interface StepProps {
 	state: WizardState;
@@ -65,13 +65,14 @@ export function StepApprise({
 			</div>
 			{status && (
 				<p
+					role="status"
 					data-testid="wiz-api-status"
 					data-ok={status.healthy ? "true" : "false"}
 					className={status.healthy ? "fd-faint" : "fd-error-text"}
 				>
 					{status.healthy
 						? t(`${K}.apiOk`)
-						: reasonText(status.reason ?? "", t)}
+						: reasonText(status.reason ?? "", t, t(`${K}.apiFailed`))}
 				</p>
 			)}
 		</>
@@ -104,9 +105,16 @@ export function StepKind({
 }: StepProps & { ntfyServer: string }) {
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step2Title`)}</h3>
+			<h3 className="fd-step-title" id="wiz-kind-title">
+				{t(`${K}.step2Title`)}
+			</h3>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step2Hint`)}</p>
-			<div className="fd-stack" style={{ gap: "0.4rem" }}>
+			<div
+				role="radiogroup"
+				aria-labelledby="wiz-kind-title"
+				className="fd-stack"
+				style={{ gap: "0.4rem" }}
+			>
 				{KINDS.map((kind) => {
 					const selected = state.draft.kind === kind;
 					return (
@@ -310,13 +318,14 @@ export function StepTest({
 			</div>
 			{(state.testOk || state.testError !== "") && (
 				<p
+					role="status"
 					data-testid="wiz-test-result"
 					data-ok={state.testOk ? "true" : "false"}
 					className={state.testOk ? "fd-faint" : "fd-error-text"}
 				>
 					{state.testOk
 						? t(`${K}.testSent.${kind}`)
-						: reasonText(state.testError, t)}
+						: reasonText(state.testError, t, t("settings.alerts.testFailed"))}
 				</p>
 			)}
 			{!state.draft.tested && (
@@ -329,12 +338,11 @@ export function StepTest({
 }
 
 // reasonText renders a server reason code. Codes the catalog does not cover
-// (and a failure that carried none) fall back to the generic wording rather
-// than leaking a raw key into the dialog.
-function reasonText(code: string, t: TFunction): string {
-	return t(`settings.alerts.reason.${code}`, {
-		defaultValue: t("settings.alerts.testFailed"),
-	});
+// (and a failure that carried none) fall back to the caller's own wording
+// rather than leaking a raw key, or a sentence about the wrong thing, into the
+// dialog: a probe that could not be made is not a test that failed to deliver.
+function reasonText(code: string, t: TFunction, fallback: string): string {
+	return t(`settings.alerts.reason.${code}`, { defaultValue: fallback });
 }
 
 // The composed Apprise URL, shown from the moment the fields make a valid one.

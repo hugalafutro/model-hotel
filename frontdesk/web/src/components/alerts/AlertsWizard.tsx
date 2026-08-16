@@ -56,6 +56,10 @@ export interface Draft {
 	url: string;
 	/** True once a test to exactly this URL came back successful. */
 	tested: boolean;
+	// The URL this draft was last accepted into `added` as, or null when it has
+	// not been accepted yet. Re-accepting an edited draft replaces that entry
+	// instead of leaving the superseded URL in the list beside it.
+	acceptedUrl: string | null;
 }
 
 export interface WizardState {
@@ -125,7 +129,13 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 	const fields: DestinationFields = {};
 	for (const f of FIELDS[kind]) fields[f.key] = f.defaultValue ?? "";
 	if (kind === "ntfy") fields.server = ntfyServer;
-	return { kind, fields, url: compose(kind, fields), tested: false };
+	return {
+		kind,
+		fields,
+		url: compose(kind, fields),
+		tested: false,
+		acceptedUrl: null,
+	};
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -149,7 +159,13 @@ export function initialState(p: AlertsWizardProps): WizardState {
 		probedUrl: "",
 		apiStatus: null,
 		apiChecking: false,
-		draft: { kind: null, fields: {}, url: "", tested: false },
+		draft: {
+			kind: null,
+			fields: {},
+			url: "",
+			tested: false,
+			acceptedUrl: null,
+		},
 		added: [],
 		savedCount: p.savedTargets.length,
 		events,
@@ -163,7 +179,16 @@ export function initialState(p: AlertsWizardProps): WizardState {
 export function reducer(s: WizardState, a: Action): WizardState {
 	switch (a.type) {
 		case "setApiUrl":
-			return { ...s, apiUrl: a.value };
+			// A successful test proves one destination through one apprise. Pointing
+			// at a different apprise makes that proof worthless, so step 4 re-locks
+			// alongside step 1.
+			return {
+				...s,
+				apiUrl: a.value,
+				draft: { ...s.draft, tested: false },
+				testOk: false,
+				testError: "",
+			};
 		case "checking":
 			return { ...s, apiChecking: true };
 		case "probed": {
@@ -224,14 +249,21 @@ export function reducer(s: WizardState, a: Action): WizardState {
 			};
 		case "go":
 			return { ...s, step: a.step };
-		case "acceptDraft":
+		case "acceptDraft": {
+			// Editing and re-testing an already accepted destination replaces it; a
+			// draft that has never been accepted (Add another) joins the list.
+			const previous = s.draft.acceptedUrl;
+			const next =
+				previous !== null && s.added.includes(previous)
+					? s.added.map((u) => (u === previous ? s.draft.url : u))
+					: [...s.added, s.draft.url];
 			return {
 				...s,
 				step: 5,
-				added: s.added.includes(s.draft.url)
-					? s.added
-					: [...s.added, s.draft.url],
+				added: next.filter((u, i) => next.indexOf(u) === i),
+				draft: { ...s.draft, acceptedUrl: s.draft.url },
 			};
+		}
 	}
 }
 
@@ -252,7 +284,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 					// A transport failure is indistinguishable from an unreachable
 					// apprise as far as the gate is concerned: both mean "not proven".
 					status: {
-						configured: true,
+						configured: url.trim() !== "",
 						reachable: false,
 						healthy: false,
 						reason:

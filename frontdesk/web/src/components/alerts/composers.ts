@@ -4,6 +4,10 @@ import { ntfyAppriseURL } from "../../utils/ntfy";
 // up as a single Apprise target URL; the wizard only ever asks for the parts an
 // operator can copy out of the service's own UI, and this module turns those
 // parts into the URL (and back, for the readable list of saved targets).
+// Official Apprise docs listing every supported service and its URL shape, the
+// same reference the main dashboard links from its alert settings.
+export const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
+
 export type DestinationKind =
 	| "ntfy"
 	| "bellhop"
