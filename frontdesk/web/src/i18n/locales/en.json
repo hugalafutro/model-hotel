@@ -284,7 +284,6 @@
 			"apiUrlHint": "Base URL of your apprise-api container, reachable from Front Desk (e.g. http://apprise:8000 on the HA network).",
 			"targetLabel": "Notification target(s)",
 			"targetHint": "One or more Apprise URLs, separated by ; (e.g. tgram://token/chat_id). Stored encrypted; shown in clear to admins.",
-			"targetStoredNote": "A target is stored (hidden). Leave as-is to keep it, type a new value to replace it, or clear it to remove.",
 			"browseServices": "Browse all 80+ services",
 			"eventsLabel": "Notify on",
 			"eventsHint": "Choose which fleet events send a notification.",
