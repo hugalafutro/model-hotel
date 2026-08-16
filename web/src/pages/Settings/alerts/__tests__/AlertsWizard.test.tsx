@@ -758,8 +758,11 @@ describe("AlertsWizard", () => {
 		);
 		expect(screen.queryByTestId("alert-event-picker")).toBeNull();
 		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
-		// Nothing on this member decides the events, so the summary does not
-		// promise a selection the write will not carry.
+		// Nothing on this member decides the events, so neither the closing line
+		// nor the summary promises a selection the write will not carry.
+		expect(screen.getByTestId("wiz-step-7")).toHaveTextContent(
+			i18n.t("settings.alerts.wizard.step7HintManaged"),
+		);
 		expect(screen.queryByTestId("wiz-summary-events")).toBeNull();
 
 		await userEvent.click(screen.getByTestId("wiz-finish"));
@@ -807,16 +810,58 @@ describe("AlertsWizard", () => {
 		expect(pill).toHaveAttribute("title", "apprise reports a problem");
 	});
 
+	// The recommended preset is seeded from the catalog, so a run that never got
+	// one starts with nothing ticked. That is not a choice, and writing it would
+	// silently switch every alert off.
+	it("leaves the event selection alone when the catalog could not be read", async () => {
+		healthyProbe();
+		passingTest();
+		storedTargets([]);
+		const puts = capturePuts();
+		server.use(
+			http.get(
+				"/api/alert/events",
+				() => new HttpResponse(null, { status: 500 }),
+			),
+		);
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			catalog: [],
+			savedEvents: null,
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		// Without a catalog there is nothing to tick, and the step says so.
+		expect(screen.queryByTestId("alert-event-picker")).toBeNull();
+		expect(screen.getByTestId("wiz-none-selected")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+		);
+
+		// Alerting is still switched on and the destination is still written; the
+		// events key is simply not part of the write, so whatever is stored (or
+		// the server's own defaults) stays in force.
+		expect(puts).toEqual([
+			{
+				alert_apprise_api_url: "http://apprise:8000",
+				alert_apprise_targets: "ntfys://ntfy.example.com/abcabcabc",
+				alert_enabled: "true",
+			},
+		]);
+	});
+
 	it("recovers from a rejected Finish, a failed probe read and a failed final test", async () => {
 		healthyProbe();
 		passingTest();
 		storedTargets(["tgram://1/2"]);
 		server.use(
+			// The settings handler rejects with http.Error, so a 400 is the bare
+			// sentence rather than a coded JSON body.
 			http.put("/api/settings", () =>
-				HttpResponse.json(
-					{ error: "apprise url must be http(s)" },
-					{ status: 400 },
-				),
+				HttpResponse.text("apprise url must be http(s)", { status: 400 }),
 			),
 		);
 		renderWizard({
@@ -849,8 +894,10 @@ describe("AlertsWizard", () => {
 		await screen.findByTestId("alert-event-picker");
 		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
 		await userEvent.click(screen.getByTestId("wiz-finish"));
+		// The dialog already says which step failed, so the message is the
+		// server's sentence alone: no "Failed to update settings: 400" in front.
 		await waitFor(() =>
-			expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+			expect(screen.getByTestId("wiz-finish-error").textContent).toBe(
 				"apprise url must be http(s)",
 			),
 		);

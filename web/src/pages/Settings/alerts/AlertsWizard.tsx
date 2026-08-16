@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../../../api/client";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { Modal } from "../../../components/Modal";
+import { stripApiHead } from "./apiText";
 import {
 	compose,
 	type DestinationFields,
@@ -524,17 +525,28 @@ export function AlertsWizard(props: AlertsWizardProps) {
 					? {}
 					: {
 							alert_enabled: "true",
-							alert_events: [...state.events].join(","),
+							// The selection starts as the catalog's recommended set, so
+							// without a catalog it starts empty and writing it would store
+							// "alert me about nothing" as though it had been chosen. The key
+							// is left out of the write instead, which leaves whatever is
+							// stored (and the server's defaults when nothing is) in force.
+							// The card keeps the run from starting in this state; this is
+							// the belt to that braces.
+							...(catalog.length === 0
+								? {}
+								: { alert_events: [...state.events].join(",") }),
 						}),
 			});
 		} catch (err) {
 			dispatch({
 				type: "finishFailed",
 				// A 400 carries a safe, actionable sentence; anything else could
-				// leak internals, so it is reported generically.
+				// leak internals, so it is reported generically. The dialog already
+				// says which step failed, so fetchOK's "what failed: <status>" head
+				// comes off and only the sentence is shown.
 				message:
 					err instanceof ApiError && err.status === 400
-						? err.message
+						? stripApiHead(err.message, "Failed to update settings")
 						: t("common.unknownError"),
 			});
 			return;

@@ -1697,6 +1697,8 @@
 			"wizard": {
 				"open": "Set up alerts",
 				"addDestination": "Add destination",
+				"catalogLoading": "Loading the event list…",
+				"catalogUnavailable": "The event list could not be loaded. Reload the page and try again.",
 				"title": "Set up alerts",
 				"cancel": "Cancel",
 				"back": "Back",
@@ -1770,6 +1772,7 @@
 				"noneSelected": "You will not receive any alerts until you tick something.",
 				"step7Title": "Finish",
 				"step7Hint": "Save everything and switch alerts on.",
+				"step7HintManaged": "Save the destinations. Alert switches and events are managed fleet-wide on this member.",
 				"finishing": "Saving…",
 				"done": "Alerts are on.",
 				"doneManaged": "Destinations saved. Which events send an alert stays managed fleet-wide.",

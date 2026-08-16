@@ -564,7 +564,11 @@ export function StepFinish({
 	return (
 		<>
 			<StepTitle>{t(`${K}.step7Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step7Hint`)}</p>
+			{/* A managed member is not switching alerting on and is not choosing
+			    events, so the closing line promises only what it writes. */}
+			<p className="text-xs text-(--text-muted)">
+				{t(`${K}.${managed ? "step7HintManaged" : "step7Hint"}`)}
+			</p>
 			{/* Trimmed, because the summary promises what the write will store. */}
 			<Summary
 				label={t("settings.alerts.apiUrl")}

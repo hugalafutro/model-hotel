@@ -270,6 +270,68 @@ describe("AlertsSettings", () => {
 		expect(screen.queryByTestId("wiz-step-1")).not.toBeInTheDocument();
 	});
 
+	// The guided run seeds its recommended events from the catalog once, when it
+	// mounts, so it must not start before the catalog is there to seed from.
+	it("holds the guided run back until the event list has loaded", async () => {
+		let release = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		mockSettings({ alert_enabled: "true" });
+		mockTargets([]);
+		server.use(
+			http.get("/api/alert/events", async () => {
+				await gate;
+				return HttpResponse.json([
+					{
+						type: "circuit_breaker.open",
+						category: "Failover",
+						severity: "warning",
+						defaultOn: true,
+					},
+				]);
+			}),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const button = await screen.findByTestId("alert-wizard-open");
+		expect(button).toBeDisabled();
+		expect(button).toHaveAttribute(
+			"title",
+			i18n.t("settings.alerts.wizard.catalogLoading"),
+		);
+
+		release();
+		await waitFor(() => expect(button).toBeEnabled());
+	});
+
+	it("says why the guided run is unavailable when the event list cannot be read", async () => {
+		mockSettings({ alert_enabled: "true" });
+		mockTargets([]);
+		server.use(
+			http.get(
+				"/api/alert/events",
+				() => new HttpResponse(null, { status: 500 }),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const button = await screen.findByTestId("alert-wizard-open");
+		await waitFor(() =>
+			expect(button).toHaveAttribute(
+				"title",
+				i18n.t("settings.alerts.wizard.catalogUnavailable"),
+			),
+		);
+		// Starting without it would offer an empty recommended preset, so the run
+		// waits for a reload rather than writing a selection nobody made.
+		expect(button).toBeDisabled();
+	});
+
 	it("opens the guided run and writes nothing when it is cancelled", async () => {
 		mockSettings({ alert_enabled: "true" });
 		mockTargets([]);
@@ -279,7 +341,9 @@ describe("AlertsSettings", () => {
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		await user.click(await screen.findByTestId("alert-wizard-open"));
+		const open = await screen.findByTestId("alert-wizard-open");
+		await waitFor(() => expect(open).toBeEnabled());
+		await user.click(open);
 		// Nothing is stored, so the run starts at the apprise address.
 		await screen.findByTestId("wiz-step-1");
 
@@ -305,7 +369,9 @@ describe("AlertsSettings", () => {
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		await user.click(await screen.findByTestId("alert-wizard-add"));
+		const add = await screen.findByTestId("alert-wizard-add");
+		await waitFor(() => expect(add).toBeEnabled());
+		await user.click(add);
 		await screen.findByTestId("wiz-step-2");
 	});
 
@@ -328,7 +394,9 @@ describe("AlertsSettings", () => {
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		await user.click(await screen.findByTestId("alert-wizard-open"));
+		const open = await screen.findByTestId("alert-wizard-open");
+		await waitFor(() => expect(open).toBeEnabled());
+		await user.click(open);
 		await screen.findByTestId("wiz-step-1");
 		await user.click(screen.getByTestId("wiz-api-check"));
 		await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());

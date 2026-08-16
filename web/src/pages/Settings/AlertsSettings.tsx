@@ -11,6 +11,7 @@ import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
 import { AlertsWizard } from "./alerts/AlertsWizard";
+import { stripApiHead } from "./alerts/apiText";
 import { DestinationList } from "./alerts/DestinationList";
 import { SETTING_DEFAULTS } from "./defaults";
 import {
@@ -30,11 +31,6 @@ const REASON_CODES = new Set([
 	"deliver_failed",
 	"undecryptable",
 ]);
-
-// fetchOK builds ApiError.message as `${errorPrefix}: ${status} ${detail}`
-// ("Test notification failed: 400 targets must be Apprise URLs"); the toast
-// supplies that head itself from the testFailed string, so it is stripped here.
-const TEST_ERROR_HEAD = /^Test notification failed: \d+ /;
 
 interface AlertsSettingsProps {
 	collapsed: boolean;
@@ -117,7 +113,11 @@ export function AlertsSettings({
 	// leak. The apprise response body is never surfaced: it can echo target URLs.
 	const describeError = (err: unknown) => {
 		if (!(err instanceof ApiError)) return t("common.unknownError");
-		if (err.status === 400) return err.message.replace(TEST_ERROR_HEAD, "");
+		// The toast supplies the "test failed" head itself from the testFailed
+		// string, so the one fetchOK built is stripped off the sentence.
+		if (err.status === 400) {
+			return stripApiHead(err.message, "Test notification failed");
+		}
 		if (err.status === 502 && err.code && REASON_CODES.has(err.code)) {
 			return t(`settings.alerts.reason.${err.code}`);
 		}
@@ -195,13 +195,21 @@ export function AlertsSettings({
 	// Why the guided setup cannot be started right now. An unreadable list means
 	// it cannot show what is already configured, and a pending manual edit means
 	// it would show the list from before that edit; both are sorted out on the
-	// card first, which is what the message points at.
+	// card first, which is what the message points at. The event catalog is the
+	// third: the run seeds its recommended selection from it once, when it
+	// mounts, so starting without it would offer an empty preset and a "reset to
+	// recommended" with nothing to reset to. Waiting is a moment; a failed read
+	// is worth saying out loud, because reloading is what fixes it.
 	const wizardBlocked =
 		targetsError !== ""
 			? targetsErrorText
 			: targetsDirty
 				? t("settings.alerts.destinations.dirty")
-				: undefined;
+				: eventsQuery.isPending
+					? t("settings.alerts.wizard.catalogLoading")
+					: eventsQuery.isError
+						? t("settings.alerts.wizard.catalogUnavailable")
+						: undefined;
 
 	const canTest = enabled && apiUrl !== "" && targetConfigured;
 
@@ -647,12 +655,7 @@ export function AlertsSettings({
 					</details>
 				)}
 
-				{/* The run reads the catalog once, when it mounts, to seed the
-				    recommended events: opening it before the catalog has landed
-				    would seed an empty preset and offer a "reset to recommended"
-				    with nothing to reset to. A failed read still opens it, because
-				    a dialog that never appears is the worse answer. */}
-				{wizardStart !== null && !eventsQuery.isPending && (
+				{wizardStart !== null && (
 					<AlertsWizard
 						initialApiUrl={apiUrl}
 						savedTargets={targets}
