@@ -16,6 +16,25 @@ function mockSettings(values: Record<string, string>) {
 	);
 }
 
+// mockTargets serves the decrypted destination list GET /api/alert/targets
+// returns; the settings row keeps its "********" mask so a test that asserts
+// plaintext proves the card reads the list, not the mask.
+function mockTargets(targets: string[]) {
+	server.use(
+		http.get("/api/alert/targets", () => HttpResponse.json({ targets })),
+	);
+}
+
+// failTargets makes the destination read fail the way an unreadable stored
+// value does after a master-key rotation.
+function failTargets(code?: string) {
+	server.use(
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ code, error: "boom" }, { status: 500 }),
+		),
+	);
+}
+
 describe("AlertsSettings", () => {
 	beforeEach(() => {
 		server.resetHandlers();
@@ -44,21 +63,25 @@ describe("AlertsSettings", () => {
 		expect(screen.queryByTestId("alert-test-button")).not.toBeInTheDocument();
 	});
 
-	it("shows inputs and a configured target when enabled", async () => {
+	it("shows inputs and the stored destinations in clear when enabled", async () => {
 		mockSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
 		});
+		mockTargets(["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"]);
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		const target = await screen.findByTestId("alert-target-input");
-		expect(target).toHaveAttribute(
-			"placeholder",
-			"Configured (type to replace)",
+		// The manual field mirrors the decrypted list, so what is on screen is
+		// exactly what is stored; the settings row's mask never reaches the UI.
+		await waitFor(() =>
+			expect(screen.getByTestId("alert-target-input")).toHaveValue(
+				"tgram://tok/chat; ntfys://ntfy.example.com/topic1",
+			),
 		);
+		expect(screen.queryByText("********")).toBeNull();
 		expect(screen.getByTestId("alert-api-url-input")).toHaveValue(
 			"http://apprise:8000",
 		);
@@ -66,6 +89,246 @@ describe("AlertsSettings", () => {
 		expect(screen.getByTestId("alert-test-button")).toBeEnabled();
 		// A clear button appears for the configured secret.
 		expect(screen.getByTestId("alert-target-clear")).toBeInTheDocument();
+	});
+
+	it("renders one readable row per stored destination", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"]);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const rows = await screen.findAllByTestId("alert-destination-row");
+		expect(rows).toHaveLength(2);
+		expect(rows[0]).toHaveTextContent("api.telegram.org");
+		expect(rows[1]).toHaveTextContent("topic1");
+	});
+
+	it("writes the remaining list when a destination row is removed", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"]);
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const rows = await screen.findAllByTestId("alert-destination-row");
+		await user.click(within(rows[0]).getByTestId("alert-destination-remove"));
+		await user.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+		await waitFor(() =>
+			expect(put.body).toEqual({
+				alert_apprise_targets: "ntfys://ntfy.example.com/topic1",
+			}),
+		);
+	});
+
+	it("clears the setting when the last destination row is removed", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat"]);
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-destination-remove"));
+		await user.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+		await waitFor(() =>
+			expect(put.body).toEqual({ alert_apprise_targets: "" }),
+		);
+	});
+
+	it("tests one destination on its own", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"]);
+		const sent: { body: unknown } = { body: null };
+		server.use(
+			http.post("/api/alert/test", async ({ request }) => {
+				sent.body = await request.json();
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const rows = await screen.findAllByTestId("alert-destination-row");
+		await user.click(within(rows[1]).getByTestId("alert-destination-test"));
+
+		await waitFor(() =>
+			expect(sent.body).toEqual({
+				targets: ["ntfys://ntfy.example.com/topic1"],
+			}),
+		);
+		expect(screen.getByText("Test notification sent.")).toBeInTheDocument();
+	});
+
+	it("explains a row test failure with the reported reason", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat"]);
+		server.use(
+			http.post("/api/alert/test", () =>
+				HttpResponse.json(
+					{ code: "deliver_failed", error: "apprise-api could not deliver" },
+					{ status: 502 },
+				),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-destination-test"));
+		await waitFor(() =>
+			expect(
+				screen.getByText(/apprise-api could not deliver\. For ntfy/),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("offers the full guided run when nothing is stored", async () => {
+		mockSettings({ alert_enabled: "true" });
+		mockTargets([]);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-destinations-empty");
+		expect(screen.getByTestId("alert-wizard-open")).toBeInTheDocument();
+		expect(screen.queryByTestId("alert-wizard-add")).not.toBeInTheDocument();
+	});
+
+	it("offers adding a destination once one is stored", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat"]);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-wizard-add");
+		expect(screen.queryByTestId("alert-wizard-open")).not.toBeInTheDocument();
+	});
+
+	it("blocks the guided run and says why when the stored list cannot be read", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		failTargets("undecryptable");
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const line = await screen.findByTestId("alert-destinations-error");
+		// Themed by what the box is, not by a palette utility, so it renders the
+		// same way under all three UI styles.
+		expect(line).toHaveClass("ui-callout", "ui-callout-warning");
+		const button = screen.getByTestId("alert-wizard-open");
+		expect(button).toBeDisabled();
+		expect(button).toHaveAttribute("title", line.textContent as string);
+	});
+
+	it("reports an uncoded destination read failure generically", async () => {
+		mockSettings({ alert_enabled: "true" });
+		failTargets();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		expect(
+			await screen.findByTestId("alert-destinations-error"),
+		).toHaveTextContent("Unknown error");
+	});
+
+	it("shows the destination read failure even when alerting is off", async () => {
+		// The guided entry point is offered whether or not alerting is on, so the
+		// reason it is greyed out has to be visible in both states.
+		mockSettings({ alert_enabled: "false" });
+		failTargets("undecryptable");
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-destinations-error");
+		expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
+	});
+
+	it("keeps the manual configuration behind the advanced disclosure", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const manual = within(await screen.findByTestId("alert-manual"));
+		expect(manual.getByTestId("alert-api-url-input")).toBeInTheDocument();
+		expect(manual.getByTestId("alert-target-input")).toBeInTheDocument();
+		expect(manual.getByTestId("alert-test-button")).toBeInTheDocument();
+		expect(manual.getByTestId("alert-snippets")).toBeInTheDocument();
+		// The readable list stays outside it: it is the primary view.
+		expect(
+			manual.queryByTestId("alert-destinations-empty"),
+		).not.toBeInTheDocument();
+	});
+
+	it("points at the guided run when no apprise address is set", async () => {
+		mockSettings({ alert_enabled: "true" });
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		expect(await screen.findByTestId("alert-status-hint")).toBeInTheDocument();
+	});
+
+	it("keeps the destinations and the guided run usable on a managed member", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat"]);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} managed />,
+		);
+
+		// The Apprise address and its destinations are instance-local, so config
+		// sync does not replicate them and they stay editable here.
+		await screen.findByTestId("alert-wizard-add");
+		expect(screen.getByTestId("alert-destination-remove")).toBeEnabled();
+		expect(screen.getByTestId("alert-target-input")).toBeEnabled();
+		expect(screen.getByTestId("alert-api-url-input")).toBeEnabled();
 	});
 
 	it("reveals the event picker from the catalog API on toggle", async () => {
@@ -243,13 +506,14 @@ describe("AlertsSettings", () => {
 		);
 
 		await user.click(await screen.findByTestId("alert-test-button"));
-		// The toast shows the decoded {code, error} body's message, not the raw
-		// JSON error text fetchOK falls back to for uncoded bodies.
+		// The decoded {code, error} body's code picks the translated, actionable
+		// sentence; the server's own English text never reaches the toast.
 		await waitFor(() =>
 			expect(
-				screen.getByText("Test notification failed: apprise-api unreachable"),
+				screen.getByText(/Nothing answered at that address/),
 			).toBeInTheDocument(),
 		);
+		expect(screen.queryByText(/apprise-api unreachable$/)).toBeNull();
 	});
 
 	it("toggles a whole category with select-all/none", async () => {
@@ -322,7 +586,8 @@ describe("AlertsSettings", () => {
 					configured: true,
 					reachable: false,
 					healthy: false,
-					detail: "unreachable",
+					reason: "unreachable",
+					detail: "dial tcp 10.0.0.9:8000: connect: no route to host",
 				}),
 			),
 		);
@@ -332,6 +597,12 @@ describe("AlertsSettings", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
 		);
+		// The reason code is the translated, actionable half; the raw server text
+		// stays a tooltip so it never becomes the message.
+		expect(screen.getByTestId("alert-status-note")).toHaveTextContent(
+			"Nothing answered at that address",
+		);
+		expect(screen.queryByText(/no route to host/)).toBeNull();
 	});
 
 	// --- outstanding-discrepancy threshold -----------------------------------
