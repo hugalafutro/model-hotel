@@ -893,6 +893,10 @@ it("seeds the recommended preset on a setup run with nothing saved", async () =>
 // would be written away. Finish re-reads the stored list first.
 it("keeps destinations saved elsewhere while the wizard was open", async () => {
 	const puts: Record<string, unknown>[] = [];
+	let releaseWrite = () => {};
+	const writeGate = new Promise<void>((resolve) => {
+		releaseWrite = resolve;
+	});
 	server.use(
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
@@ -908,8 +912,10 @@ it("keeps destinations saved elsewhere while the wizard was open", async () => {
 				targets: ["tgram://1/2", "ntfys://ntfy.example.com/added-elsewhere"],
 			}),
 		),
+		// Held open so the summary can be read while the write is in flight.
 		http.put("/api/settings", async ({ request }) => {
 			puts.push((await request.json()) as Record<string, unknown>);
+			await writeGate;
 			return HttpResponse.json({});
 		}),
 	);
@@ -922,7 +928,20 @@ it("keeps destinations saved elsewhere while the wizard was open", async () => {
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	// Before Finish the summary can only promise what the wizard was handed.
+	expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
+		"tgram://1/2; ntfys://ntfy.example.com/abcabcabc",
+	);
+
 	await userEvent.click(screen.getByTestId("wiz-finish"));
+	// The fresh list lands in state before the write, so the summary the operator
+	// is looking at while it runs is what the write carries.
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
+			"tgram://1/2; ntfys://ntfy.example.com/added-elsewhere; ntfys://ntfy.example.com/abcabcabc",
+		),
+	);
+	releaseWrite();
 	await waitFor(() =>
 		expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
 	);
@@ -935,15 +954,22 @@ it("keeps destinations saved elsewhere while the wizard was open", async () => {
 
 it("writes nothing when the stored destinations cannot be read at Finish", async () => {
 	const puts: Record<string, unknown>[] = [];
+	let reads = 0;
 	server.use(
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
 		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
-		http.get(
-			"/api/alert/targets",
-			() => new HttpResponse(null, { status: 500 }),
-		),
+		// A rotated master key first, then a failure with nothing to say.
+		http.get("/api/alert/targets", () => {
+			reads += 1;
+			return reads === 1
+				? HttpResponse.json(
+						{ code: "undecryptable", error: "cannot decrypt" },
+						{ status: 500 },
+					)
+				: new HttpResponse(null, { status: 500 });
+		}),
 		http.put("/api/settings", async ({ request }) => {
 			puts.push((await request.json()) as Record<string, unknown>);
 			return HttpResponse.json({});
@@ -958,6 +984,9 @@ it("writes nothing when the stored destinations cannot be read at Finish", async
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+
+	// A rotated master key is the one cause worth naming, because it tells the
+	// operator what to do about it.
 	await userEvent.click(screen.getByTestId("wiz-finish"));
 	await waitFor(() =>
 		expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
@@ -969,4 +998,14 @@ it("writes nothing when the stored destinations cannot be read at Finish", async
 	expect(puts).toEqual([]);
 	expect(screen.getByTestId("wiz-step-7")).toBeInTheDocument();
 	expect(screen.getByTestId("wiz-finish")).toBeEnabled();
+
+	// Any other read failure is not something the operator can act on, so it is
+	// reported generically rather than blamed on the master key.
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+			i18n.t("errors.generic"),
+		),
+	);
+	expect(puts).toEqual([]);
 });

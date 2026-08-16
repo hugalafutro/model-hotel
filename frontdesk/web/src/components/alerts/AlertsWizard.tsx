@@ -119,6 +119,7 @@ export type Action =
 	| { type: "acceptDraft" }
 	| { type: "newDraft" }
 	| { type: "dropAdded"; url: string }
+	| { type: "savedRefreshed"; targets: string[] }
 	| { type: "toggleEvent"; eventType: string; on: boolean }
 	| { type: "resetEvents"; types: string[] }
 	| { type: "finishing" }
@@ -364,6 +365,16 @@ export function reducer(s: WizardState, a: Action): WizardState {
 						? { ...s.draft, acceptedUrl: null }
 						: s.draft,
 			};
+		case "savedRefreshed":
+			// The stored half re-read at Finish. Anything this run added that turns
+			// out to be stored already (the same destination set up elsewhere while
+			// the dialog was open) moves to the stored side, so the list the summary
+			// shows carries each destination exactly once.
+			return {
+				...s,
+				saved: a.targets,
+				added: s.added.filter((u) => !a.targets.includes(u)),
+			};
 		case "toggleEvent": {
 			const events = new Set(s.events);
 			if (a.on) events.add(a.eventType);
@@ -394,8 +405,9 @@ export function reducer(s: WizardState, a: Action): WizardState {
 }
 
 export function AlertsWizard(props: AlertsWizardProps) {
-	const { savedTargets, catalog, startAt, initialApiUrl, onClose, onFinished } =
-		props;
+	// savedTargets is seeded into state (and re-read at Finish), so the stored
+	// half is read off state from here on rather than off the prop.
+	const { catalog, startAt, initialApiUrl, onClose, onFinished } = props;
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(reducer, props, initialState);
 
@@ -455,11 +467,11 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		else dispatch({ type: "go", step: (state.step + 1) as Step });
 	};
 
-	// The destination list the run finishes with, as the step-7 summary shows it:
-	// what was stored when the dialog opened, plus what this run proved. Nothing
-	// is ever taken away from the stored half; `finish` re-reads that half so the
-	// write also keeps anything saved while the dialog was open.
-	const finalTargets = [...savedTargets, ...state.added];
+	// The destination list the run finishes with: the stored half plus what this
+	// run proved. Nothing is ever taken away from the stored half, and `finish`
+	// re-reads it into state before the write, so from step 7 onwards the summary
+	// and the done screen show exactly what was written.
+	const finalTargets = [...state.saved, ...state.added];
 
 	// The one and only write. Everything before this step was a read or a
 	// throwaway notification, so this is the moment the wizard's work becomes
@@ -474,16 +486,25 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		let stored: string[];
 		try {
 			stored = (await api.getAlertTargets()).targets;
-		} catch {
+		} catch (err) {
 			// Without a trustworthy stored list the only write available is one that
 			// loses destinations, so nothing is written at all and the run stays on
-			// step 7 where Finish can be pressed again.
+			// step 7 where Finish can be pressed again. The card reads this failure
+			// the same way: a rotated master key is the one cause worth naming,
+			// because it tells the operator what to do about it.
 			dispatch({
 				type: "finishFailed",
-				message: t("settings.alerts.destinationsError"),
+				message:
+					err instanceof ApiError && err.code === "undecryptable"
+						? t("settings.alerts.destinationsError")
+						: t("errors.generic"),
 			});
 			return;
 		}
+		// The summary and the done screen read off state, so the fresh list lands
+		// there before the write rather than after it: what step 7 shows while the
+		// write is in flight is then already what the write carries.
+		dispatch({ type: "savedRefreshed", targets: stored });
 		const merged = [...stored, ...state.added].filter(
 			(u, i, all) => all.indexOf(u) === i,
 		);
@@ -541,10 +562,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				);
 			case 2:
 				return (
-					<StepKind
-						{...stepProps}
-						ntfyServer={ntfyServerOf([...savedTargets, ...state.added])}
-					/>
+					<StepKind {...stepProps} ntfyServer={ntfyServerOf(finalTargets)} />
 				);
 			case 3:
 				return <StepDetails {...stepProps} />;
@@ -554,7 +572,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				return (
 					<StepDestinations
 						{...stepProps}
-						savedTargets={savedTargets}
+						savedTargets={state.saved}
 						onTestRow={testRow}
 					/>
 				);
@@ -656,14 +674,10 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				)
 			}
 		>
-			{/* The step body is swapped in place while the dialog title stays put, so
-			    a screen reader is told the content changed rather than left on a
-			    heading that no longer describes what is on screen. */}
-			<div
-				className="fd-stack"
-				data-testid={`wiz-step-${state.step}`}
-				aria-live="polite"
-			>
+			{/* The step change is announced by the step title alone (StepTitle in
+			    steps.tsx); the body is not a live region, or every keystroke in a
+			    destination field would be read back. */}
+			<div className="fd-stack" data-testid={`wiz-step-${state.step}`}>
 				{body()}
 			</div>
 		</Modal>

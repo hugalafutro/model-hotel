@@ -53,6 +53,26 @@ class BellhopPushTest {
         // Blanks are not a name, so the caller falls back rather than rendering an
         // empty-looking title.
         assertNull(BellhopPush.testPushSender("Test notification from   : hi".toByteArray()))
+        // Nor is a name with nothing allowed left in it once it is stripped.
+        assertNull(BellhopPush.testPushSender("Test notification from \u202E\u0007: hi".toByteArray()))
+    }
+
+    @Test
+    fun theSenderIsStrippedToWhatATitleMayShow() {
+        // The payload is unauthenticated text from whoever can post to the push
+        // topic, so a newline, a control character or a right-to-left override
+        // (which could dress a hostile push up as something else) is dropped
+        // rather than rendered into the title.
+        assertEquals(
+            "Front Desk",
+            BellhopPush.testPushSender("Test notification from Front Desk\u202E \u0007: hi".toByteArray()),
+        )
+        // Dots, underscores and hyphens are how gateways are actually named, so
+        // they survive.
+        assertEquals(
+            "mh-1.prod_eu",
+            BellhopPush.testPushSender("Test notification from mh-1.prod_eu: hi".toByteArray()),
+        )
     }
 
     @Test

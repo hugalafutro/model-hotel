@@ -39,14 +39,24 @@ object BellhopPush {
     private const val SENDER_MAX_LENGTH = 40
 
     /**
+     * SENDER_ALLOWED is what a gateway name may consist of once it reaches a
+     * notification title. Anything outside it is dropped rather than escaped: the
+     * payload is unauthenticated text from whoever can post to the push topic, and
+     * a title is not the place for newlines, control characters or right-to-left
+     * overrides that could dress a hostile push up as something else.
+     */
+    private val SENDER_ALLOWED = Regex("[^A-Za-z0-9 ._-]")
+
+    /**
      * testPushSender returns the name the sending gateway gave itself, taken from
      * the test body's `Test notification from <prefix>: ...` opening, or null when
      * the payload is not a test push at all. A phone can be pointed at more than
      * one Front Desk, so the title carries this rather than a fixed name.
      *
-     * The name is trimmed and capped at [SENDER_MAX_LENGTH]; a test body with no
-     * ":" after the marker, or nothing but blanks in front of it, yields null, so
-     * the caller falls back to nothing rather than an empty-looking title.
+     * The name is stripped to [SENDER_ALLOWED], then trimmed and capped at
+     * [SENDER_MAX_LENGTH]. A test body with no ":" after the marker, or one whose
+     * name has nothing usable left in it, yields null, so the caller falls back to
+     * a fixed name rather than rendering an empty-looking title.
      */
     fun testPushSender(content: ByteArray): String? {
         val body = content.toString(Charsets.UTF_8)
@@ -54,9 +64,9 @@ object BellhopPush {
         val rest = body.substring(TEST_BODY_PREFIX.length)
         val end = rest.indexOf(':')
         if (end < 0) return null
-        val sender = rest.substring(0, end).trim()
+        val sender = SENDER_ALLOWED.replace(rest.substring(0, end), "").trim()
         if (sender.isEmpty()) return null
-        return sender.take(SENDER_MAX_LENGTH)
+        return sender.take(SENDER_MAX_LENGTH).trim()
     }
 
     /** hasDistributor reports whether any UnifiedPush distributor is installed. */

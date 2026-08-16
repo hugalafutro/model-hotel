@@ -36,6 +36,23 @@ export interface StepProps {
 	t: TFunction;
 }
 
+// StepTitle names the step, and is the only part of the wizard that announces
+// itself. The live region is deliberately this small: over the whole step body
+// it would read every keystroke in the destination fields back at the operator,
+// while over the title alone it says which of the seven steps the run just
+// moved to. The wrapper carries the role so the heading stays a heading, and
+// the role="alert" nodes inside the body (a failed test, a rejected Finish) are
+// outside this region and keep announcing themselves.
+function StepTitle({ id, children }: { id?: string; children: ReactNode }) {
+	return (
+		<div role="status">
+			<h3 className="fd-step-title" id={id}>
+				{children}
+			</h3>
+		</div>
+	);
+}
+
 export function StepApprise({
 	state,
 	dispatch,
@@ -47,7 +64,7 @@ export function StepApprise({
 	const status = state.apiUrl === state.probedUrl ? state.apiStatus : null;
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step1Title`)}</h3>
+			<StepTitle>{t(`${K}.step1Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step1Hint`)}</p>
 			<div className="ui-field">
 				<label className="ui-label" htmlFor="wiz-api-url">
@@ -134,9 +151,7 @@ export function StepKind({
 }: StepProps & { ntfyServer: string }) {
 	return (
 		<>
-			<h3 className="fd-step-title" id="wiz-kind-title">
-				{t(`${K}.step2Title`)}
-			</h3>
+			<StepTitle id="wiz-kind-title">{t(`${K}.step2Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step2Hint`)}</p>
 			{/* "Add another" is one click, so undoing it has to be one click too:
 			    Back walks the run's own order (towards the apprise address), which
@@ -221,7 +236,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step3Title`)}</h3>
+			<StepTitle>{t(`${K}.step3Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
@@ -357,7 +372,7 @@ export function StepTest({
 	const kind = state.draft.kind ?? "other";
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step4Title`)}</h3>
+			<StepTitle>{t(`${K}.step4Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step4Hint`)}</p>
 			<Composed url={state.draft.url} t={t} />
 			<div>
@@ -422,7 +437,7 @@ export function StepDestinations({
 
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step5Title`)}</h3>
+			<StepTitle>{t(`${K}.step5Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step5Hint`)}</p>
 			{/* The stored destinations are not this run's work and not this run's to
 			    delete, so they are counted rather than listed: the list below is
@@ -490,7 +505,7 @@ export function StepEvents({
 
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step6Title`)}</h3>
+			<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step6Hint`)}</p>
 			{grouped.map(([category, defs]) => (
 				<div key={category} style={{ marginBottom: "0.6rem" }}>
@@ -606,7 +621,7 @@ export function StepFinish({
 	}
 	return (
 		<>
-			<h3 className="fd-step-title">{t(`${K}.step7Title`)}</h3>
+			<StepTitle>{t(`${K}.step7Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step7Hint`)}</p>
 			{/* Trimmed, because the summary promises what the write will store. */}
 			<Summary
@@ -616,6 +631,7 @@ export function StepFinish({
 			<Summary
 				label={t("settings.alerts.destinationsTitle")}
 				value={targets.join("; ")}
+				testId="wiz-summary-targets"
 			/>
 			<Summary
 				label={t("settings.alerts.eventsLabel")}
@@ -660,11 +676,22 @@ function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
 
 // One labelled line of the closing summary: what is about to be written, in the
 // operator's own words rather than as the settings keys it becomes.
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({
+	label,
+	value,
+	testId,
+}: {
+	label: string;
+	value: string;
+	testId?: string;
+}) {
 	return (
 		<div className="ui-field">
 			<span className="ui-label">{label}</span>
-			<span style={{ fontSize: "0.85rem", wordBreak: "break-all" }}>
+			<span
+				data-testid={testId}
+				style={{ fontSize: "0.85rem", wordBreak: "break-all" }}
+			>
 				{value}
 			</span>
 		</div>

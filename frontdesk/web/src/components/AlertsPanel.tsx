@@ -290,12 +290,13 @@ export function AlertsPanel() {
 	// the operator is looking at a different one. Both row actions wait for a Save.
 	const targetsDirty = target.trim() !== targets.join("; ");
 
-	// Why the wizard cannot be opened right now. It finishes by writing
-	// `savedTargets + what it added`, so it must be handed a destination list
-	// that is both readable and current: over an unreadable one it would save
-	// only its own additions (silently dropping the stored destinations), and
-	// over a pending manual edit it would save the list from before that edit.
-	// Both are fixed on the card first, which is where the message points.
+	// Why the wizard cannot be opened right now. The write itself is safe either
+	// way (the wizard re-reads the stored destinations immediately before it, so
+	// it cannot drop one), but the run leading up to it would be misleading: an
+	// unreadable list means step 5 cannot show what is already configured, and a
+	// pending manual edit means it would show the list from before that edit. In
+	// both cases the destinations have to be sorted out on the card first, which
+	// is what the message points at.
 	const wizardBlocked = targetsError
 		? t(targetsError)
 		: targetsDirty
