@@ -385,7 +385,7 @@ it("cancel closes without any request", async () => {
 	expect(puts).toHaveLength(0);
 });
 
-it("steps 5-7: lists saved + new, applies the recommended preset, and writes once at Finish", async () => {
+it("steps 5-7: lists this run's additions, applies the recommended preset, and writes once at Finish", async () => {
 	const puts: Record<string, unknown>[] = [];
 	const testBodies: string[] = [];
 	server.use(
@@ -411,13 +411,17 @@ it("steps 5-7: lists saved + new, applies the recommended preset, and writes onc
 	});
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
 
-	// The saved destination rides along untouched beside the one just proven, and
-	// only the new one can be dropped: the wizard never removes stored targets.
-	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+	// The list is this run's work only: the one destination just proven, which
+	// can be dropped again. The stored one is counted in a note instead, because
+	// the wizard never removes stored targets.
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
 	expect(screen.getAllByTestId("alert-destination-remove")).toHaveLength(1);
+	expect(screen.getByTestId("wiz-saved-note")).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.savedNote", { count: 1 }),
+	);
 	expect(screen.getByTestId("wiz-add-another")).toBeInTheDocument();
 
-	// Any row can be tried on its own from here, stored ones included.
+	// Any row can be tried on its own from here.
 	await userEvent.click(screen.getAllByTestId("alert-destination-test")[0]);
 	await waitFor(() =>
 		expect(screen.getByTestId("wiz-row-test-result")).toHaveAttribute(
@@ -427,7 +431,7 @@ it("steps 5-7: lists saved + new, applies the recommended preset, and writes onc
 	);
 	expect(JSON.parse(testBodies.at(-1) ?? "{}")).toEqual({
 		api_url: "http://apprise:8000",
-		targets: ["tgram://1/2"],
+		targets: ["ntfys://ntfy.example.com/abcabcabc"],
 	});
 
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
@@ -552,7 +556,7 @@ it("Add another returns to the list, and a row added here can be dropped again",
 	// not offered before there is a list to return to.
 	expect(screen.queryByTestId("wiz-back-to-list")).toBeNull();
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
-	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
 
 	// Starting a second destination and changing your mind comes straight back
 	// to the list rather than stranding the run on an empty step 2.
@@ -561,7 +565,7 @@ it("Add another returns to the list, and a row added here can be dropped again",
 	expect(screen.getByTestId("wiz-next")).toBeDisabled();
 	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
 	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
-	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
 
 	// Back off the list now skips the abandoned draft's test step, which has no
 	// destination left to talk about, and lands where one is started instead.
@@ -570,15 +574,13 @@ it("Add another returns to the list, and a row added here can be dropped again",
 	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
 	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
 
-	// Only the row this run added carries a Remove, and dropping it leaves the
-	// stored destination exactly where it was.
+	// Dropping the row this run added empties the list, and leaves the stored
+	// destination exactly where it was: it is only ever counted here.
 	await userEvent.click(screen.getByTestId("alert-destination-remove"));
 	await userEvent.click(screen.getByTestId("alert-destination-remove-confirm"));
-	const rows = screen.getAllByTestId("alert-destination-row");
-	expect(rows).toHaveLength(1);
-	expect(rows[0]).not.toHaveTextContent("ntfy.example.com");
-	expect(screen.getByTestId("alert-destination-saved")).toBeInTheDocument();
-	expect(screen.queryByTestId("alert-destination-new")).toBeNull();
+	expect(screen.queryAllByTestId("alert-destination-row")).toHaveLength(0);
+	expect(screen.getByTestId("alert-destinations-empty")).toBeInTheDocument();
+	expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
 	// One stored destination is still a destination, so the run can continue.
 	expect(screen.getByTestId("wiz-next")).toBeEnabled();
 });
@@ -635,6 +637,8 @@ it("warns on step 1 that changing the address drops this run's destinations", as
 	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
 	await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
 	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+	// Nothing was stored before this run, so there is nothing to say survives it.
+	expect(screen.queryByTestId("wiz-saved-note")).toBeNull();
 
 	for (let i = 0; i < 4; i += 1) {
 		await userEvent.click(screen.getByTestId("wiz-back"));

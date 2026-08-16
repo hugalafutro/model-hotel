@@ -382,6 +382,7 @@ export function StepDestinations({
 	savedTargets,
 	onTestRow,
 }: StepProps & {
+	/** Already-stored destinations, which this step counts but never lists. */
 	savedTargets: string[];
 	/** Deliver one test to this destination through the wizard's apprise URL. */
 	onTestRow: (url: string) => Promise<void>;
@@ -406,15 +407,23 @@ export function StepDestinations({
 		<>
 			<h3 className="fd-step-title">{t(`${K}.step5Title`)}</h3>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step5Hint`)}</p>
+			{/* The stored destinations are not this run's work and not this run's to
+			    delete, so they are counted rather than listed: the list below is
+			    what this run adds, and every row on it can be taken back off. */}
+			{savedTargets.length > 0 && (
+				<p
+					data-testid="wiz-saved-note"
+					className="fd-faint"
+					style={{ fontSize: "0.82rem" }}
+				>
+					{t(`${K}.savedNote`, { count: savedTargets.length })}
+				</p>
+			)}
 			<DestinationList
-				targets={[...savedTargets, ...state.added]}
+				targets={state.added}
 				onRemove={(url) => dispatch({ type: "dropAdded", url })}
 				onTest={run}
 				busy={rowTest?.state === "sending"}
-				// A stored destination is not this run's to delete: the wizard only
-				// ever adds, and removing one lives on the card beside it.
-				removable={(url) => !savedTargets.includes(url)}
-				tagOf={(url) => (savedTargets.includes(url) ? "saved" : "new")}
 			/>
 			{rowTest && rowTest.state !== "sending" && (
 				<p
