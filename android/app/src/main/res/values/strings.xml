@@ -170,7 +170,6 @@
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
     <string name="alerts_event_backup_stale">Member has no recent backup</string>
     <string name="alerts_event_backup_recovered">Member backups healthy again</string>
-    <string name="alerts_event_backup_pruned">Front Desk backups cleared</string>
     <!-- Event-log-only types (not in the alert catalog), used by the shared event-title map. -->
     <string name="event_device_paired">Device paired</string>
     <string name="event_device_revoked">Device revoked</string>

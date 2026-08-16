@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Węzeł wygaszony lub aktywowany</string>
     <string name="alerts_event_backup_stale">Członek bez świeżej kopii zapasowej</string>
     <string name="alerts_event_backup_recovered">Członek znowu ma kopie zapasowe</string>
-    <string name="alerts_event_backup_pruned">Kopie Front Desku usunięte</string>
     <string name="event_device_paired">Urządzenie sparowane</string>
     <string name="event_device_revoked">Sparowanie urządzenia cofnięte</string>
     <string name="event_settings_changed">Ustawienia zmienione</string>

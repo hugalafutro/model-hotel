@@ -151,7 +151,6 @@
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>
     <string name="alerts_event_backup_stale">成员没有最近的备份</string>
     <string name="alerts_event_backup_recovered">成员备份已恢复</string>
-    <string name="alerts_event_backup_pruned">已清除 Front Desk 备份</string>
     <string name="event_device_paired">设备已配对</string>
     <string name="event_device_revoked">设备配对已撤销</string>
     <string name="event_settings_changed">设置已更改</string>

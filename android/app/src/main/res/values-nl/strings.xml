@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
     <string name="alerts_event_backup_stale">Lid zonder recente back-up</string>
     <string name="alerts_event_backup_recovered">Lid wordt weer geback-upt</string>
-    <string name="alerts_event_backup_pruned">Front Desk-back-ups gewist</string>
     <string name="event_device_paired">Apparaat gekoppeld</string>
     <string name="event_device_revoked">Apparaatkoppeling ingetrokken</string>
     <string name="event_settings_changed">Instellingen gewijzigd</string>

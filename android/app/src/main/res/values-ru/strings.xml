@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
     <string name="alerts_event_backup_stale">У участника нет свежей резервной копии</string>
     <string name="alerts_event_backup_recovered">Участник снова резервируется</string>
-    <string name="alerts_event_backup_pruned">Копии Front Desk удалены</string>
     <string name="event_device_paired">Устройство сопряжено</string>
     <string name="event_device_revoked">Сопряжение устройства отозвано</string>
     <string name="event_settings_changed">Настройки изменены</string>

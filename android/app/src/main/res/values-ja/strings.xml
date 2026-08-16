@@ -151,7 +151,6 @@
     <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>
     <string name="alerts_event_backup_stale">メンバーに最近のバックアップがない</string>
     <string name="alerts_event_backup_recovered">メンバーのバックアップが復旧した</string>
-    <string name="alerts_event_backup_pruned">Front Desk のバックアップを削除した</string>
     <string name="event_device_paired">デバイスをペアリング</string>
     <string name="event_device_revoked">デバイスのペアリングを取り消し</string>
     <string name="event_settings_changed">設定を変更</string>

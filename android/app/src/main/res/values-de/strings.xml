@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>
     <string name="alerts_event_backup_stale">Mitglied ohne aktuelles Backup</string>
     <string name="alerts_event_backup_recovered">Mitglied wird wieder gesichert</string>
-    <string name="alerts_event_backup_pruned">Front-Desk-Backups gelöscht</string>
     <string name="event_device_paired">Gerät gekoppelt</string>
     <string name="event_device_revoked">Gerätekopplung widerrufen</string>
     <string name="event_settings_changed">Einstellungen geändert</string>

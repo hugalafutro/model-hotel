@@ -154,7 +154,6 @@
     <string name="alerts_event_member_state_changed">Miembro drenado o activado</string>
     <string name="alerts_event_backup_stale">Miembro sin copia reciente</string>
     <string name="alerts_event_backup_recovered">Miembro con copias al día de nuevo</string>
-    <string name="alerts_event_backup_pruned">Copias de Front Desk borradas</string>
     <string name="event_device_paired">Dispositivo emparejado</string>
     <string name="event_device_revoked">Dispositivo revocado</string>
     <string name="event_settings_changed">Ajustes modificados</string>

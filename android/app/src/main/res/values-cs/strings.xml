@@ -160,7 +160,6 @@
     <string name="alerts_event_member_state_changed">Člen odstaven nebo aktivován</string>
     <string name="alerts_event_backup_stale">Člen bez aktuální zálohy</string>
     <string name="alerts_event_backup_recovered">Člen se opět zálohuje</string>
-    <string name="alerts_event_backup_pruned">Zálohy od Front Desku smazány</string>
     <string name="event_device_paired">Zařízení spárováno</string>
     <string name="event_device_revoked">Spárování zařízení zrušeno</string>
     <string name="event_settings_changed">Nastavení změněno</string>
