@@ -2139,7 +2139,7 @@
 				"step7HintManaged": "Tallenna kohteet. Hälytysten päälle- ja poiskytkentää sekä tapahtumia hallitaan tässä ilmentymässä koko laivaston osalta.",
 				"finishing": "Tallennetaan…",
 				"done": "Hälytykset ovat päällä.",
-				"doneManaged": "Kohteet tallennettu. Se, mitkä tapahtumat lähettävät hälytyksen, pysyy koko laivaston osalta hallittuna.",
+				"doneManaged": "Kohteet tallennettu. Sitä, mitkä tapahtumat lähettävät hälytyksen, hallitaan edelleen koko laivaston tasolla.",
 				"sendAll": "Lähetä testi kaikkiin",
 				"sentAll": "Testi lähetetty jokaiseen kohteeseen",
 				"apiChangedDrops": "Osoitteen vaihtaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."

@@ -2019,7 +2019,7 @@
 			},
 			"target": "알림 대상",
 			"targetConfigured": "구성됨 (교체하려면 입력)",
-			"targetDescription": "Apprise URL입니다. 암호화되어 저장되며 관리자에게는 평문으로 표시됩니다. 여러 대상은 <code>;</code> 형식으로 구분하십시오.",
+			"targetDescription": "Apprise URL입니다. 암호화되어 저장되며 관리자에게는 평문으로 표시됩니다. 여러 대상은 <code>;</code>으로 구분하십시오.",
 			"testButton": "테스트 알림 보내기",
 			"testFailed": "알림 테스트 실패: {{message}}",
 			"testHint": "알림 기능을 활성화하고, 테스트를 전송할 Apprise API URL과 대상을 모두 설정하십시오.",

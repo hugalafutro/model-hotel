@@ -2028,7 +2028,7 @@
 			"title": "Warnmeldungen",
 			"destinations": {
 				"title": "Ziele",
-				"note": "Für Admins im Klartext sichtbar. Wer diese Seite lesen kann, kann sie ohnehin ändern.",
+				"note": "Für Admins im Klartext sichtbar. Wer diese Seite lesen kann, kann die Ziele ohnehin ändern.",
 				"empty": "Noch keine Ziele.",
 				"error": "Die gespeicherten Ziele können nicht gelesen werden (Master-Key rotiert?). Entfernen Sie sie unten und richten Sie sie neu ein.",
 				"dirty": "Speichern oder verwerfen Sie die ausstehende Änderung am Benachrichtigungsziel, bevor Sie ein Ziel testen oder entfernen.",

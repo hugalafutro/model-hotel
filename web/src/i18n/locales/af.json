@@ -2044,7 +2044,7 @@
 			},
 			"manualTitle": "Handmatige opstelling (gevorderd)",
 			"reason": {
-				"not_configured": "Niks om te stuur nie: stel die Apprise API-URL en ten minste een bestemming.",
+				"not_configured": "Niks om te stuur nie: stel die Apprise API-URL en ten minste een bestemming in.",
 				"invalid_url": "Dit is nie 'n geldige URL nie.",
 				"unreachable": "Niks het by daardie adres geantwoord nie. Loop die apprise-houer in dieselfde stapel, en heet dit apprise?",
 				"unhealthy": "apprise-api het geantwoord, maar rapporteer 'n probleem.",
@@ -2056,7 +2056,7 @@
 			"removeConfirm": "Verwyder",
 			"removeRow": "Verwyder",
 			"removeTitle": "Verwyder bestemming",
-			"statusNotConfiguredHint": "Loop Stel waarskuwings op, of stel die Apprise API-URL onder Handmatige opstelling.",
+			"statusNotConfiguredHint": "Voer Stel waarskuwings op uit, of stel die Apprise API-URL onder Handmatige opstelling in.",
 			"testRow": "Toets",
 			"wizard": {
 				"open": "Stel waarskuwings op",

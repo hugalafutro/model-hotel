@@ -2019,7 +2019,7 @@
 			},
 			"target": "Értesítési cél",
 			"targetConfigured": "Beállítva (gépeljen a cseréhez)",
-			"targetDescription": "Az Apprise URL-je. Titkosítva tárolódik, és az adminisztrátoroknak olvashatóan jelenik meg. Több célt <code>;</code> formában válasszon el egymástól.",
+			"targetDescription": "Az Apprise URL-je. Titkosítva tárolódik, és az adminisztrátoroknak olvashatóan jelenik meg. Több célt <code>;</code> jellel válasszon el egymástól.",
 			"testButton": "Tesztértesítés küldése",
 			"testFailed": "A tesztértesítés sikertelen: {{message}}",
 			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",
@@ -2139,7 +2139,7 @@
 				"step7HintManaged": "Mentse a célokat. A riasztások be- és kikapcsolását és az eseményeket ezen a példányon az egész flottára kezelik.",
 				"finishing": "Mentés…",
 				"done": "A riasztások be vannak kapcsolva.",
-				"doneManaged": "A célok mentve. Az, hogy mely események küldenek riasztást, továbbra is az egész flottára van kezelve.",
+				"doneManaged": "A célok mentve. Az, hogy mely események küldenek riasztást, továbbra is az egész flottára vonatkozóan kezelt.",
 				"sendAll": "Teszt küldése mindenhová",
 				"sentAll": "Teszt elküldve minden célra",
 				"apiChangedDrops": "A cím módosítása eltávolítja az ebben a futtatásban hozzáadott célokat; azokat a régi címmel tesztelte."

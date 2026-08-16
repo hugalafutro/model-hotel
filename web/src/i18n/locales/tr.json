@@ -2019,7 +2019,7 @@
 			},
 			"target": "Bildirim hedefi",
 			"targetConfigured": "Yapılandırıldı (değiştirmek için yazın)",
-			"targetDescription": "Apprise URL'niz. Şifrelenmiş olarak saklanır ve yöneticilere açık metin olarak gösterilir. Birden fazla hedefi <code>;</code> şeklinde ayırın.",
+			"targetDescription": "Apprise URL'niz. Şifrelenmiş olarak saklanır ve yöneticilere açık metin olarak gösterilir. Birden fazla hedefi <code>;</code> ile ayırın.",
 			"testButton": "Test bildirimi gönder",
 			"testFailed": "Bildirim testi başarısız: {{message}}",
 			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",
