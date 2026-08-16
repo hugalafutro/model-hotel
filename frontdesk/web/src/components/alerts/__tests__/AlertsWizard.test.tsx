@@ -34,14 +34,6 @@ const catalog: AlertEventDef[] = [
 	},
 ];
 
-// The ntfy server field runs a soft reachability check on blur. It is a plain
-// browser fetch to the operator's own server, so msw (which errors on
-// unhandled requests) needs it declared; the result never gates anything.
-const softCheck = http.get(
-	/\/v1\/health$/,
-	() => new HttpResponse(null, { status: 200 }),
-);
-
 function renderWizard(over: Partial<AlertsWizardProps> = {}) {
 	const onFinished = vi.fn();
 	const onClose = vi.fn();
@@ -126,7 +118,6 @@ it("steps 2-4: composes an ntfy URL, requires a passing test, and never writes s
 	const puts: unknown[] = [];
 	const tests: unknown[] = [];
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -260,7 +251,6 @@ it("falls back to step 1 when the saved apprise URL no longer answers", async ()
 it("re-locks a tested destination when the apprise URL changes", async () => {
 	const tests: { api_url: string }[] = [];
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -374,7 +364,6 @@ it("steps 5-7: lists saved + new, applies the recommended preset, and writes onc
 	const puts: Record<string, unknown>[] = [];
 	const testBodies: string[] = [];
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -454,7 +443,6 @@ it("steps 5-7: lists saved + new, applies the recommended preset, and writes onc
 
 it("recovers from a rejected Finish, a failed probe read and a failed final test", async () => {
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -525,7 +513,6 @@ it("recovers from a rejected Finish, a failed probe read and a failed final test
 
 it("Add another returns to the list, and a row added here can be dropped again", async () => {
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -573,7 +560,6 @@ it("Add another returns to the list, and a row added here can be dropped again",
 
 it("step 6 resets to the recommended preset and warns when nothing is ticked", async () => {
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),
@@ -612,7 +598,6 @@ it("step 6 resets to the recommended preset and warns when nothing is ticked", a
 
 it("warns on step 1 that changing the address drops this run's destinations", async () => {
 	server.use(
-		softCheck,
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
 		),

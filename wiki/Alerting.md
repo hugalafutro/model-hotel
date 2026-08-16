@@ -65,7 +65,7 @@ Front Desk's **Settings → Alerts** card leads with **Set up alerts** (**Re-run
 *Step 1: the Apprise API URL after a successful Check. Next stays locked until the container answers.*
 
 ![Alerts wizard, step 3](screenshots/frontdesk_alerts_wizard_step3_ntfy.png)
-*Step 3 for the Phone (ntfy app) tile: server and topic as plain fields, Generate for a random topic, the subscribe instructions for the phone with copy buttons, and the composed Apprise URL underneath. The browser cannot reach an ntfy server across origins, so the courtesy line says so and step 4 does the real proving.*
+*Step 3 for the Phone (ntfy app) tile: server and topic as plain fields, Generate for a random topic, the subscribe instructions for the phone with copy buttons, and the composed Apprise URL underneath. Whether the server is reachable is settled by step 4, which sends from Front Desk rather than from the browser.*
 
 ![Alerts wizard, step 4](screenshots/frontdesk_alerts_wizard_step4_test.png)
 *Step 4: one test to the destination being added, through the step-1 container. Still nothing saved.*

@@ -411,8 +411,6 @@
 				"generate": "Vygenerovať",
 				"copy": "Kopírovať",
 				"copied": "Skopírované",
-				"ntfySoftOk": "Server odpovedal",
-				"ntfySoftUnknown": "Z tohto prehliadača sa to nedá overiť; rozhoduje test v ďalšom kroku.",
 				"ntfySubscribe": "Na telefóne v aplikácii ntfy: Odoberať tému, Použiť iný server, a potom zadajte:",
 				"bellhopPasteHint": "Otvorte Bellhop, Nastavenia, Push v reálnom čase, a vložte Push tému pre Front Desk, ktorá sa tam zobrazuje.",
 				"bellhopBad": "Toto nevyzerá ako push endpoint Bellhopu. Mal by vyzerať takto: https://ntfy.example.com/upAbCdEf?up=1",

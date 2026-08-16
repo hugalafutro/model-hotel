@@ -407,8 +407,6 @@
 				"generate": "Generar",
 				"copy": "Copiar",
 				"copied": "Copiado",
-				"ntfySoftOk": "El servidor respondió",
-				"ntfySoftUnknown": "No se pudo verificar desde este navegador; lo que cuenta es la prueba del paso siguiente.",
 				"ntfySubscribe": "En tu teléfono, en la aplicación ntfy: Suscribirse a un tema, Usar otro servidor, y luego introduce:",
 				"bellhopPasteHint": "Abre Bellhop, Configuración, Push en tiempo real, y pega el Tema de push para Front Desk que aparece ahí.",
 				"bellhopBad": "Esto no parece un endpoint push de Bellhop. Debería tener este aspecto: https://ntfy.example.com/upAbCdEf?up=1",

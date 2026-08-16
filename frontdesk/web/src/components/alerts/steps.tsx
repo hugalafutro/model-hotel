@@ -183,27 +183,11 @@ export function StepKind({
 
 export function StepDetails({ state, dispatch, t }: StepProps) {
 	const kind = state.draft.kind;
-	const [softCheck, setSoftCheck] = useState<"none" | "ok" | "unknown">("none");
 	if (kind === null) return null;
 
 	const value = (key: string) => state.draft.fields[key] ?? "";
 	const set = (key: string, v: string) =>
 		dispatch({ type: "setField", key, value: v });
-
-	// A courtesy reachability ping at the server the operator typed, straight from
-	// the browser. It is only ever a hint: private servers, CORS and captive
-	// networks all make it fail for reasons that say nothing about whether Front
-	// Desk can deliver, which is what the next step actually proves.
-	const probeNtfyServer = () => {
-		const server = value("server").trim().replace(/\/+$/, "");
-		if (server === "") {
-			setSoftCheck("none");
-			return;
-		}
-		fetch(`${server}/v1/health`, { signal: AbortSignal.timeout(3000) })
-			.then((res) => setSoftCheck(res.ok ? "ok" : "unknown"))
-			.catch(() => setSoftCheck("unknown"));
-	};
 
 	const parsed =
 		kind === "bellhop" ? parseUnifiedPushEndpoint(value("endpoint")) : null;
@@ -220,9 +204,6 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 					label={t(`${K}.field.${f.key}`)}
 					value={value(f.key)}
 					onChange={(v) => set(f.key, v)}
-					onBlur={
-						kind === "ntfy" && f.key === "server" ? probeNtfyServer : undefined
-					}
 				>
 					{kind === "ntfy" && f.key === "topic" && (
 						<button
@@ -237,23 +218,16 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 				</Field>
 			))}
 
+			{/* Nothing here checks that the ntfy server answers: Front Desk serves
+			    `connect-src 'self'`, so a fetch at the operator's own server is
+			    blocked before it leaves the page and could only ever report
+			    failure. Step 4 sends from Front Desk, which is the side that has
+			    to reach the server anyway. */}
 			{kind === "ntfy" && (
 				<>
 					<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
 						{t(`${K}.ntfyServerHint`)}
 					</p>
-					{softCheck !== "none" && (
-						<p
-							data-testid="wiz-ntfy-soft-check"
-							data-ok={softCheck === "ok" ? "true" : "false"}
-							className="fd-faint"
-							style={{ fontSize: "0.82rem" }}
-						>
-							{softCheck === "ok"
-								? t(`${K}.ntfySoftOk`)
-								: t(`${K}.ntfySoftUnknown`)}
-						</p>
-					)}
 					<div className="fd-stack" style={{ gap: "0.3rem" }}>
 						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
 							{t(`${K}.ntfySubscribe`)}
@@ -669,14 +643,12 @@ function Field({
 	label,
 	value,
 	onChange,
-	onBlur,
 	children,
 }: {
 	def: FieldDef;
 	label: string;
 	value: string;
 	onChange: (v: string) => void;
-	onBlur?: () => void;
 	children?: ReactNode;
 }) {
 	const id = `wiz-field-${def.key}`;
@@ -696,7 +668,6 @@ function Field({
 					placeholder={def.placeholder}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
-					onBlur={onBlur}
 				/>
 				{children}
 			</div>

@@ -403,8 +403,6 @@
 				"generate": "Erzeugen",
 				"copy": "Kopieren",
 				"copied": "Kopiert",
-				"ntfySoftOk": "Server hat geantwortet",
-				"ntfySoftUnknown": "Aus diesem Browser nicht überprüfbar; entscheidend ist der Test im nächsten Schritt.",
 				"ntfySubscribe": "Auf Ihrem Telefon in der ntfy-App: Thema abonnieren, Anderen Server verwenden, dann eingeben:",
 				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Echtzeit-Push, und fügen Sie das dort angezeigte Push-Thema für Front Desk ein.",
 				"bellhopBad": "Das sieht nicht nach einem Bellhop-Push-Endpunkt aus. Er sollte so aussehen: https://ntfy.example.com/upAbCdEf?up=1",
