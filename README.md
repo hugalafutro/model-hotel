@@ -398,10 +398,13 @@ ADMIN_TOKEN=
                 retries: 5
     
         # Optional: outbound alerting via Apprise. Uncomment to run a stateless
-        # apprise-api container, then in Settings → Alerts set the Apprise API URL to
-        # http://apprise:8000 and paste your notification target (e.g.
-        # tgram://<bot_token>/<chat_id>). Model Hotel POSTs event summaries here and
-        # Apprise fans them out to your service. No request content is ever sent.
+        # apprise-api container, then in Settings → Alerts press "Set up alerts": the
+        # wizard checks http://apprise:8000, builds the destination URL for you (ntfy,
+        # Telegram, Discord, email, or a raw Apprise URL), tests it, and saves only at
+        # Finish. The same fields sit under "Manual configuration (advanced)" if you
+        # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
+        # event summaries here and Apprise fans them out to your service. No request
+        # content is ever sent.
         # apprise:
         #     image: caronc/apprise:latest
         #     labels:
