@@ -1753,6 +1753,7 @@
 					"email": "Sent. Check the inbox.",
 					"other": "Sent. Check the destination."
 				},
+				"testFailed": "The test notification could not be delivered.",
 				"testMustPass": "Send a test and get a success before continuing. Use Back to fix the details.",
 				"step5Title": "Destinations",
 				"step5Hint": "These are the destinations this run adds. Add another, or continue.",

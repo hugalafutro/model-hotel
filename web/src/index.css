@@ -117,6 +117,7 @@ html[data-ui-style="cyber-terminal"] {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
+	--success-text: #059669;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -140,6 +141,7 @@ html[data-ui-style="clean-saas"].dark {
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #fca5a5;
+	--success-text: #4ade80;
 	--error-text-muted: rgb(248 113 113 / 60%);
 	--error-icon: #f87171;
 	--warning-text: #fb923c;
@@ -218,6 +220,7 @@ html[data-ui-style="cyber-terminal"].dark {
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #fca5a5;
+	--success-text: #4ade80;
 	--error-text-muted: rgb(248 113 113 / 60%);
 	--error-icon: #f87171;
 	--warning-text: #fb923c;
@@ -266,6 +269,7 @@ html[data-ui-style="cyber-terminal"].light {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
+	--success-text: #059669;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -301,6 +305,7 @@ html[data-ui-style="glassmorphism-lite"].dark {
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #fca5a5;
+	--success-text: #4ade80;
 	--error-text-muted: rgb(248 113 113 / 60%);
 	--error-icon: #f87171;
 	--warning-text: #fb923c;
@@ -347,6 +352,7 @@ html[data-ui-style="glassmorphism-lite"].light {
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
 	--error-text: #b91c1c;
+	--success-text: #059669;
 	--error-text-muted: rgb(185 28 28 / 60%);
 	--error-icon: #dc2626;
 	--warning-text: #c2410c;
@@ -2680,6 +2686,19 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	background-color: rgba(8, 145, 178, 0.1);
 	color: #0e7490;
 	border-color: rgba(8, 145, 178, 0.25);
+}
+
+/* Result lines: one sentence reporting how something the operator just asked
+   for turned out (an apprise probe, a test notification). The wording carries
+   the meaning and the colour only confirms it, so these are plain text colours
+   rather than a box; --success-text / --error-text are per theme and per mode,
+   which is what keeps them readable on every surface. */
+[data-ui-style] .ui-text-success {
+	color: var(--success-text);
+}
+
+[data-ui-style] .ui-text-error {
+	color: var(--error-text);
 }
 
 /* =============================================
