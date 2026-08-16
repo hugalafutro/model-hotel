@@ -5,8 +5,10 @@ import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ntfyAppriseURL } from "../utils/ntfy";
+import { AlertsWizard } from "./alerts/AlertsWizard";
 import { APPRISE_SERVICES_URL, ntfyServerOf } from "./alerts/composers";
 import { DestinationList } from "./alerts/DestinationList";
+import { eventLabel, SEVERITY_COLOR } from "./alerts/events";
 
 // The failure codes /api/alert/test returns with a 502 that map to an
 // actionable sentence; anything else falls back to the generic error.
@@ -19,14 +21,6 @@ const REASON_CODES = new Set([
 	"deliver_failed",
 	"undecryptable",
 ]);
-
-// Display dot colour per event/display severity, using the Front Desk palette.
-const SEVERITY_COLOR: Record<string, string> = {
-	success: "var(--ok)",
-	info: "var(--info)",
-	warning: "var(--warn)",
-	error: "var(--danger)",
-};
 
 // parseCsv turns the stored alert_events CSV into a membership Set.
 function parseCsv(csv: string): Set<string> {
@@ -91,6 +85,10 @@ export function AlertsPanel() {
 	const [saving, setSaving] = useState(false);
 	const [testing, setTesting] = useState(false);
 	const [saveError, setSaveError] = useState("");
+	// Which entry point opened the wizard, or null while it is closed. Step 1
+	// walks the whole setup; step 2 goes straight to adding a destination to an
+	// apprise address that is already stored.
+	const [wizardAt, setWizardAt] = useState<1 | 2 | null>(null);
 
 	// applyLoaded pushes a freshly read settings row and destination list into the
 	// form. The manual field is derived from the plaintext list, so it shows
@@ -130,13 +128,6 @@ export function AlertsPanel() {
 			.then(setStatus)
 			.catch(() => {});
 	}, []);
-
-	// Friendly label for an event Type, falling back to the raw type so a brand-new
-	// server-side event still renders something readable before a string is added.
-	const eventLabel = (type: string) =>
-		t(`settings.alerts.event.${type.replace(/\./g, "_")}`, {
-			defaultValue: type,
-		});
 
 	// A validation error (400) carries a safe, user-facing message and a 502 from
 	// the test endpoint carries a machine-readable reason code; anything else
@@ -178,6 +169,24 @@ export function AlertsPanel() {
 		});
 		const [s, loaded] = await Promise.all([api.getSettings(), fetchTargets()]);
 		applyLoaded(s, loaded);
+	};
+
+	// reload re-reads what the wizard wrote. The card holds its own copy of the
+	// settings row, so after a write it did not make itself it has to fetch what
+	// actually landed rather than mirror what the wizard said it sent.
+	const reload = async () => {
+		setSaveError("");
+		try {
+			const [s, loaded] = await Promise.all([
+				api.getSettings(),
+				fetchTargets(),
+			]);
+			applyLoaded(s, loaded);
+			await refreshStatus();
+			toast(t("settings.alerts.saved"), "success");
+		} catch {
+			setSaveError(t("errors.generic"));
+		}
 	};
 
 	const save = async () => {
@@ -432,7 +441,7 @@ export function AlertsPanel() {
 											{category}
 										</div>
 										{defs.map((d) => {
-											const label = eventLabel(d.type);
+											const label = eventLabel(t, d.type);
 											return (
 												<label
 													key={d.type}
@@ -478,12 +487,34 @@ export function AlertsPanel() {
 			)}
 
 			<div className="fd-row" style={{ gap: "0.6rem" }}>
+				{/* The guided path. It is offered whether or not alerts are switched
+				    on: "Set up alerts" is exactly what an operator looking at a
+				    switched-off card is after, and it switches them on itself. */}
 				<button
 					type="button"
 					className="ui-btn ui-btn-primary"
+					data-testid="alert-wizard-open"
 					disabled={busy}
-					onClick={save}
+					onClick={() => setWizardAt(1)}
 				>
+					{status?.configured
+						? t("settings.alerts.wizard.rerun")
+						: t("settings.alerts.wizard.open")}
+				</button>
+				{/* Adding to a working setup skips the apprise step, so it only
+				    appears once there is an address to add a destination to. */}
+				{url !== "" && (
+					<button
+						type="button"
+						className="ui-btn"
+						data-testid="alert-wizard-add"
+						disabled={busy}
+						onClick={() => setWizardAt(2)}
+					>
+						{t("settings.alerts.wizard.addDestination")}
+					</button>
+				)}
+				<button type="button" className="ui-btn" disabled={busy} onClick={save}>
 					{saving ? t("common.saving") : t("settings.alerts.saveBtn")}
 				</button>
 				{enabled && (
@@ -499,6 +530,22 @@ export function AlertsPanel() {
 					</button>
 				)}
 			</div>
+
+			{wizardAt !== null && (
+				<AlertsWizard
+					initialApiUrl={url}
+					savedTargets={targets}
+					savedEvents={[...selected].join(",")}
+					catalog={catalog}
+					startAt={wizardAt}
+					// Cancel: the wizard wrote nothing, so there is nothing to reload.
+					onClose={() => setWizardAt(null)}
+					onFinished={() => {
+						setWizardAt(null);
+						reload();
+					}}
+				/>
+			)}
 		</div>
 	);
 }

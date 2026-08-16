@@ -62,6 +62,19 @@ function renderWizard(over: Partial<AlertsWizardProps> = {}) {
 	return { onFinished, onClose };
 }
 
+// addNtfy drives steps 2-4 for one ntfy destination (kind -> details -> passing
+// test) and clicks Next onto step 5. Callers mock POST /api/alert/test as 204.
+async function addNtfy(serverUrl: string, topic: string) {
+	await userEvent.click(screen.getByTestId("wiz-kind-ntfy"));
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.type(screen.getByTestId("wiz-field-server"), serverUrl);
+	await userEvent.type(screen.getByTestId("wiz-field-topic"), topic);
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.click(screen.getByTestId("wiz-send-test"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next"));
+}
+
 it("step 1 gates Next on a healthy probe of the typed URL", async () => {
 	let probed = "";
 	server.use(
@@ -317,7 +330,7 @@ it("accepting an edited destination replaces the one it superseded", () => {
 	const accept = (from: ReturnType<typeof initialState>, topic: string) => {
 		let next = reducer(from, { type: "setField", key: "topic", value: topic });
 		next = reducer(next, { type: "tested" });
-		return reducer(next, { type: "acceptDraft" });
+		return reducer(next, { type: "acceptDraft", saved: props.savedTargets });
 	};
 
 	let s = reducer(initialState(props), {
@@ -355,4 +368,314 @@ it("cancel closes without any request", async () => {
 	await userEvent.click(screen.getByTestId("wiz-cancel"));
 	expect(onClose).toHaveBeenCalled();
 	expect(puts).toHaveLength(0);
+});
+
+it("steps 5-7: lists saved + new, applies the recommended preset, and writes once at Finish", async () => {
+	const puts: Record<string, unknown>[] = [];
+	const testBodies: string[] = [];
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", async ({ request }) => {
+			testBodies.push(await request.text());
+			return new HttpResponse(null, { status: 204 });
+		}),
+		http.get("/api/alert/status", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.put("/api/settings", async ({ request }) => {
+			puts.push((await request.json()) as Record<string, unknown>);
+			return HttpResponse.json({});
+		}),
+	);
+	const { onFinished } = renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
+
+	// The saved destination rides along untouched beside the one just proven, and
+	// only the new one can be dropped: the wizard never removes stored targets.
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+	expect(screen.getAllByTestId("alert-destination-remove")).toHaveLength(1);
+	expect(screen.getByTestId("wiz-add-another")).toBeInTheDocument();
+
+	// Any row can be tried on its own from here, stored ones included.
+	await userEvent.click(screen.getAllByTestId("alert-destination-test")[0]);
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-row-test-result")).toHaveAttribute(
+			"data-ok",
+			"true",
+		),
+	);
+	expect(JSON.parse(testBodies.at(-1) ?? "{}")).toEqual({
+		api_url: "http://apprise:8000",
+		targets: ["tgram://1/2"],
+	});
+
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	expect(screen.getByTestId("wiz-event-health.down")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-member.added")).not.toBeChecked();
+	await userEvent.click(screen.getByTestId("wiz-event-member.added"));
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+
+	expect(puts).toHaveLength(0);
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+	);
+	// The closing pill reports the probe taken after the write, not before it.
+	expect(screen.getByTestId("wiz-done-pill")).toHaveTextContent(
+		i18n.t("settings.alerts.statusOk"),
+	);
+	expect(puts).toEqual([
+		{
+			alert_enabled: true,
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "tgram://1/2; ntfys://ntfy.example.com/abcabcabc",
+			alert_events: "health.down,health.up,member.added",
+		},
+	]);
+
+	// "Send test to everything" exercises what is now stored, so it carries no
+	// body at all.
+	await userEvent.click(screen.getByTestId("wiz-send-all"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-sent-all")).toBeInTheDocument(),
+	);
+	expect(testBodies.at(-1)).toBe("");
+
+	await userEvent.click(screen.getByTestId("wiz-close"));
+	expect(onFinished).toHaveBeenCalled();
+});
+
+it("recovers from a rejected Finish, a failed probe read and a failed final test", async () => {
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+		http.put("/api/settings", () =>
+			HttpResponse.text("apprise url must be http(s)", { status: 400 }),
+		),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
+
+	// A row test that does not deliver says so without touching any gate.
+	server.use(
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 502 })),
+	);
+	await userEvent.click(screen.getAllByTestId("alert-destination-test")[0]);
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-row-test-result")).toHaveAttribute(
+			"data-ok",
+			"false",
+		),
+	);
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
+
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+			"apprise url must be http(s)",
+		),
+	);
+	expect(screen.getByTestId("wiz-step-7")).toBeInTheDocument();
+	// Nothing was written, so the run stays put and Finish can be pressed again.
+	expect(screen.getByTestId("wiz-finish")).toBeEnabled();
+
+	// Second attempt: the write lands, but the probe read after it does not. The
+	// configuration is saved either way, so the run finishes without a pill
+	// rather than reporting a failure that did not happen.
+	server.use(
+		http.put("/api/settings", () => HttpResponse.json({})),
+		http.get(
+			"/api/alert/status",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+	);
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+	);
+	expect(screen.queryByTestId("wiz-done-pill")).toBeNull();
+	expect(screen.queryByTestId("wiz-finish-error")).toBeNull();
+
+	// The closing test still reports honestly; the configuration is saved.
+	await userEvent.click(screen.getByTestId("wiz-send-all"));
+	await waitFor(() =>
+		expect(screen.getByTestId("wiz-sent-all")).toHaveAttribute(
+			"data-ok",
+			"false",
+		),
+	);
+	expect(screen.getByTestId("wiz-close")).toBeEnabled();
+});
+
+it("Add another returns to the list, and a row added here can be dropped again", async () => {
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // lands on step 5
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+
+	// Starting a second destination and changing your mind comes straight back
+	// to the list rather than stranding the run on an empty step 2.
+	await userEvent.click(screen.getByTestId("wiz-add-another"));
+	expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+	expect(screen.getByTestId("wiz-next")).toBeDisabled();
+	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
+
+	// Only the row this run added carries a Remove, and dropping it leaves the
+	// stored destination exactly where it was.
+	await userEvent.click(screen.getByTestId("alert-destination-remove"));
+	await userEvent.click(screen.getByTestId("alert-destination-remove-confirm"));
+	const rows = screen.getAllByTestId("alert-destination-row");
+	expect(rows).toHaveLength(1);
+	expect(rows[0]).not.toHaveTextContent("ntfy.example.com");
+	expect(screen.getByTestId("alert-destination-saved")).toBeInTheDocument();
+	expect(screen.queryByTestId("alert-destination-new")).toBeNull();
+	// One stored destination is still a destination, so the run can continue.
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
+});
+
+it("step 6 resets to the recommended preset and warns when nothing is ticked", async () => {
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	// A stored selection wins over the recommended set on entry.
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "member.added",
+		startAt: 2,
+	});
+	await addNtfy("https://ntfy.example.com", "abcabcabc");
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	expect(screen.getByTestId("wiz-event-member.added")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-health.down")).not.toBeChecked();
+	expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+
+	await userEvent.click(screen.getByTestId("wiz-event-member.added"));
+	expect(screen.getByTestId("wiz-none-selected")).toBeInTheDocument();
+	// An empty selection is allowed through: it means "configured, notify me
+	// about nothing yet", which the note says out loud on both steps.
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	expect(screen.getByTestId("wiz-step-7")).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.noneSelected"),
+	);
+	await userEvent.click(screen.getByTestId("wiz-back")); // -> 6
+
+	await userEvent.click(screen.getByTestId("wiz-reset-recommended"));
+	expect(screen.getByTestId("wiz-event-health.down")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-health.up")).toBeChecked();
+	expect(screen.getByTestId("wiz-event-member.added")).not.toBeChecked();
+	expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+});
+
+it("warns on step 1 that changing the address drops this run's destinations", async () => {
+	server.use(
+		softCheck,
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderWizard();
+	// Nothing has been added yet, so there is nothing to warn about.
+	expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull();
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+	await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+
+	for (let i = 0; i < 4; i += 1) {
+		await userEvent.click(screen.getByTestId("wiz-back"));
+	}
+	expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
+	expect(screen.getByTestId("wiz-api-changed-drops")).toBeInTheDocument();
+
+	// Editing the address carries out exactly what the note promised.
+	await userEvent.type(screen.getByTestId("wiz-api-url"), "1");
+	expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull();
+});
+
+it("does not add a destination that is already stored a second time", () => {
+	const saved = ["ntfys://ntfy.example.com/one"];
+	let s = reducer(
+		initialState({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: saved,
+			savedEvents: "",
+			catalog,
+			startAt: 1,
+			onClose: () => {},
+			onFinished: () => {},
+		}),
+		{ type: "setKind", kind: "ntfy", ntfyServer: "https://ntfy.example.com" },
+	);
+	s = reducer(s, { type: "setField", key: "topic", value: "one" });
+	s = reducer(s, { type: "tested" });
+	s = reducer(s, { type: "acceptDraft", saved });
+	// The list the run finishes with already carries it once; a second entry
+	// would make apprise deliver the same alert twice to the same phone.
+	expect(s.added).toEqual([]);
+	expect(s.step).toBe(5);
+});
+
+it("drops the destinations added in this run when the apprise address changes", () => {
+	const props: AlertsWizardProps = {
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "",
+		catalog,
+		startAt: 1,
+		onClose: () => {},
+		onFinished: () => {},
+	};
+	let s = reducer(initialState(props), {
+		type: "setKind",
+		kind: "ntfy",
+		ntfyServer: "https://ntfy.example.com",
+	});
+	s = reducer(s, { type: "setField", key: "topic", value: "one" });
+	s = reducer(s, { type: "tested" });
+	s = reducer(s, { type: "acceptDraft", saved: props.savedTargets });
+	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
+	expect(s.savedCount).toBe(1);
+
+	// The destination was proven through the old apprise only, so pointing at a
+	// different one drops it rather than carrying an unproven URL to Finish. The
+	// saved targets are untouched: they are not this run's to remove.
+	s = reducer(s, { type: "setApiUrl", value: "http://apprise-b:8000" });
+	expect(s.added).toEqual([]);
+	expect(s.draft.acceptedUrl).toBeNull();
+	expect(s.savedCount).toBe(1);
 });

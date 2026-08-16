@@ -438,7 +438,9 @@
 				"finishing": "Saving…",
 				"done": "Alerts are on.",
 				"sendAll": "Send test to everything",
-				"sentAll": "Test sent to every destination"
+				"sentAll": "Test sent to every destination",
+				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one.",
+				"backToList": "Back to destinations"
 			}
 		},
 		"wizard": {

@@ -10,7 +10,15 @@ import {
 	FIELDS,
 	ntfyServerOf,
 } from "./composers";
-import { StepApprise, StepDetails, StepKind, StepTest } from "./steps";
+import {
+	StepApprise,
+	StepDestinations,
+	StepDetails,
+	StepEvents,
+	StepFinish,
+	StepKind,
+	StepTest,
+} from "./steps";
 
 // AlertsWizard walks an operator from "no alerting at all" to a working setup in
 // one gated flow: point at apprise-api and prove it answers, pick a destination
@@ -81,6 +89,17 @@ export interface WizardState {
 	/** Reason code of the last failed test; "" when there is no failure to show. */
 	testError: string;
 	testOk: boolean;
+	/** True while the single settings write is in flight. */
+	finishing: boolean;
+	/** Message from a rejected write; "" when there is nothing to show. */
+	finishError: string;
+	/** True once the write succeeded: the run is over and only Close remains. */
+	done: boolean;
+	/** Probe result read straight after the write, for the closing pill. */
+	finalStatus: AlertStatus | null;
+	sendingAll: boolean;
+	/** Outcome of "send test to everything"; "none" until it is used. */
+	sentAll: "none" | "ok" | "failed";
 }
 
 export type Action =
@@ -93,7 +112,27 @@ export type Action =
 	| { type: "tested" }
 	| { type: "testFailed"; code: string }
 	| { type: "go"; step: Step }
-	| { type: "acceptDraft" };
+	// `saved` is the already-stored destination list, so a draft that turns out
+	// to duplicate one is not added a second time.
+	| { type: "acceptDraft"; saved: string[] }
+	| { type: "newDraft" }
+	| { type: "dropAdded"; url: string }
+	| { type: "toggleEvent"; eventType: string; on: boolean }
+	| { type: "resetEvents"; types: string[] }
+	| { type: "finishing" }
+	| { type: "finished"; status: AlertStatus | null }
+	| { type: "finishFailed"; message: string }
+	| { type: "sendingAll" }
+	| { type: "sentAll"; ok: boolean };
+
+/** A draft with nothing chosen yet, which is where steps 2 to 4 start. */
+const EMPTY_DRAFT: Draft = {
+	kind: null,
+	fields: {},
+	url: "",
+	tested: false,
+	acceptedUrl: null,
+};
 
 // canNext answers "may this step advance", from state alone. Every gate is a
 // verified fact: a healthy probe of the URL currently in the field, a chosen
@@ -159,19 +198,19 @@ export function initialState(p: AlertsWizardProps): WizardState {
 		probedUrl: "",
 		apiStatus: null,
 		apiChecking: false,
-		draft: {
-			kind: null,
-			fields: {},
-			url: "",
-			tested: false,
-			acceptedUrl: null,
-		},
+		draft: EMPTY_DRAFT,
 		added: [],
 		savedCount: p.savedTargets.length,
 		events,
 		testing: false,
 		testError: "",
 		testOk: false,
+		finishing: false,
+		finishError: "",
+		done: false,
+		finalStatus: null,
+		sendingAll: false,
+		sentAll: "none",
 	};
 }
 
@@ -181,11 +220,15 @@ export function reducer(s: WizardState, a: Action): WizardState {
 		case "setApiUrl":
 			// A successful test proves one destination through one apprise. Pointing
 			// at a different apprise makes that proof worthless, so step 4 re-locks
-			// alongside step 1.
+			// alongside step 1, and every destination accepted in this run goes with
+			// it: each was proven through the old address only, and carrying an
+			// unproven URL to Finish is exactly what the gates exist to prevent. The
+			// stored destinations are untouched; they are not this run's to drop.
 			return {
 				...s,
 				apiUrl: a.value,
-				draft: { ...s.draft, tested: false },
+				added: [],
+				draft: { ...s.draft, tested: false, acceptedUrl: null },
 				testOk: false,
 				testError: "",
 			};
@@ -260,15 +303,68 @@ export function reducer(s: WizardState, a: Action): WizardState {
 			return {
 				...s,
 				step: 5,
-				added: next.filter((u, i) => next.indexOf(u) === i),
+				// A destination that is already stored needs no second entry: it is
+				// on the list the run finishes with either way, and adding it again
+				// would write the same URL to apprise twice.
+				added: next.filter(
+					(u, i) => next.indexOf(u) === i && !a.saved.includes(u),
+				),
 				draft: { ...s.draft, acceptedUrl: s.draft.url },
 			};
 		}
+		case "newDraft":
+			// "Add another" walks the same three steps again from nothing, so the
+			// next acceptance appends instead of replacing what it started from.
+			return {
+				...s,
+				step: 2,
+				draft: EMPTY_DRAFT,
+				testOk: false,
+				testError: "",
+			};
+		case "dropAdded":
+			return {
+				...s,
+				added: s.added.filter((u) => u !== a.url),
+				// The draft no longer has a place in the list, so re-accepting it
+				// appends rather than replacing a row that is gone.
+				draft:
+					s.draft.acceptedUrl === a.url
+						? { ...s.draft, acceptedUrl: null }
+						: s.draft,
+			};
+		case "toggleEvent": {
+			const events = new Set(s.events);
+			if (a.on) events.add(a.eventType);
+			else events.delete(a.eventType);
+			return { ...s, events };
+		}
+		case "resetEvents":
+			return { ...s, events: new Set(a.types) };
+		case "finishing":
+			return { ...s, finishing: true, finishError: "" };
+		case "finished":
+			return {
+				...s,
+				finishing: false,
+				finishError: "",
+				done: true,
+				finalStatus: a.status,
+			};
+		case "finishFailed":
+			// Nothing was written, so the run stays exactly where it was: the
+			// address or a destination can be fixed and Finish pressed again.
+			return { ...s, finishing: false, finishError: a.message };
+		case "sendingAll":
+			return { ...s, sendingAll: true, sentAll: "none" };
+		case "sentAll":
+			return { ...s, sendingAll: false, sentAll: a.ok ? "ok" : "failed" };
 	}
 }
 
 export function AlertsWizard(props: AlertsWizardProps) {
-	const { savedTargets, startAt, initialApiUrl, onClose } = props;
+	const { savedTargets, catalog, startAt, initialApiUrl, onClose, onFinished } =
+		props;
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(reducer, props, initialState);
 
@@ -321,9 +417,59 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	// hint, this is the rule.
 	const goNext = () => {
 		if (!canNext(state)) return;
-		if (state.step === 4) dispatch({ type: "acceptDraft" });
+		if (state.step === 4)
+			dispatch({ type: "acceptDraft", saved: savedTargets });
 		else dispatch({ type: "go", step: (state.step + 1) as Step });
 	};
+
+	// The destination list the run finishes with: what was already stored, plus
+	// what this run proved. Nothing is ever taken away from the stored half.
+	const finalTargets = [...savedTargets, ...state.added];
+
+	// The one and only write. Everything before this step was a read or a
+	// throwaway notification, so this is the moment the wizard's work becomes
+	// configuration; the status read after it is what the closing pill reports.
+	const finish = () => {
+		dispatch({ type: "finishing" });
+		api
+			.putSettings({
+				alert_enabled: true,
+				alert_apprise_api_url: state.apiUrl.trim(),
+				alert_apprise_targets: finalTargets.join("; "),
+				alert_events: [...state.events].join(","),
+			})
+			.then(() =>
+				api.getAlertStatus().then(
+					(status) => dispatch({ type: "finished", status }),
+					// The settings landed; a failed probe read only costs the pill.
+					() => dispatch({ type: "finished", status: null }),
+				),
+			)
+			.catch((err) =>
+				dispatch({
+					type: "finishFailed",
+					// A 400 carries a safe, actionable sentence; anything else could
+					// leak internals, so it is reported generically.
+					message:
+						err instanceof ApiError && err.status === 400
+							? err.message
+							: t("errors.generic"),
+				}),
+			);
+	};
+
+	// The stored configuration is now the live one, so this test carries no body:
+	// it exercises exactly what was written, to every destination at once.
+	const sendAll = () => {
+		dispatch({ type: "sendingAll" });
+		api
+			.testAlert()
+			.then(() => dispatch({ type: "sentAll", ok: true }))
+			.catch(() => dispatch({ type: "sentAll", ok: false }));
+	};
+
+	const testRow = (url: string) =>
+		api.testAlert({ api_url: state.apiUrl, targets: [url] });
 
 	const stepProps = { state, dispatch: dispatch as Dispatch<Action>, t };
 	const body = () => {
@@ -346,53 +492,97 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				return <StepDetails {...stepProps} />;
 			case 4:
 				return <StepTest {...stepProps} onSendTest={sendTest} />;
+			case 5:
+				return (
+					<StepDestinations
+						{...stepProps}
+						savedTargets={savedTargets}
+						onTestRow={testRow}
+					/>
+				);
+			case 6:
+				return <StepEvents {...stepProps} catalog={catalog} />;
 			default:
-				// Steps 5 to 7 (destinations, events, finish) are not built yet.
-				return null;
+				return (
+					<StepFinish
+						{...stepProps}
+						targets={finalTargets}
+						onSendAll={sendAll}
+					/>
+				);
 		}
 	};
 
-	const busy = state.apiChecking || state.testing;
+	const busy =
+		state.apiChecking || state.testing || state.finishing || state.sendingAll;
+
 	return (
 		<Modal
 			title={t(`${K}.title`)}
 			subtitle={t(`${K}.stepOf`, { step: state.step, total: TOTAL_STEPS })}
-			onClose={onClose}
+			// Once the write has landed there is nothing left to cancel, and the
+			// parent's copy of the settings is stale: every way out of the dialog
+			// tells it to reload.
+			onClose={state.done ? onFinished : onClose}
 			dismissible={!busy}
 			actions={
-				<>
+				state.done ? (
 					<button
 						type="button"
-						className="ui-btn"
-						data-testid="wiz-cancel"
-						onClick={onClose}
+						className="ui-btn ui-btn-primary"
+						data-testid="wiz-close"
+						disabled={busy}
+						onClick={onFinished}
 					>
-						{t(`${K}.cancel`)}
+						{t(`${K}.close`)}
 					</button>
-					{state.step > state.minStep && (
+				) : (
+					<>
 						<button
 							type="button"
 							className="ui-btn"
-							data-testid="wiz-back"
-							onClick={() =>
-								dispatch({ type: "go", step: (state.step - 1) as Step })
-							}
+							data-testid="wiz-cancel"
+							disabled={busy}
+							onClick={onClose}
 						>
-							{t(`${K}.back`)}
+							{t(`${K}.cancel`)}
 						</button>
-					)}
-					{state.step < TOTAL_STEPS && (
-						<button
-							type="button"
-							className="ui-btn ui-btn-primary"
-							data-testid="wiz-next"
-							disabled={busy || !canNext(state)}
-							onClick={goNext}
-						>
-							{t(`${K}.next`)}
-						</button>
-					)}
-				</>
+						{state.step > state.minStep && (
+							<button
+								type="button"
+								className="ui-btn"
+								data-testid="wiz-back"
+								disabled={busy}
+								onClick={() =>
+									dispatch({ type: "go", step: (state.step - 1) as Step })
+								}
+							>
+								{t(`${K}.back`)}
+							</button>
+						)}
+						{state.step < TOTAL_STEPS ? (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="wiz-next"
+								disabled={busy || !canNext(state)}
+								onClick={goNext}
+							>
+								{t(`${K}.next`)}
+							</button>
+						) : (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="wiz-finish"
+								disabled={busy}
+								onClick={finish}
+							>
+								{state.finishing ? t(`${K}.finishing`) : t(`${K}.finish`)}
+							</button>
+						)}
+					</>
+				)
 			}
 		>
 			<div className="fd-stack" data-testid={`wiz-step-${state.step}`}>

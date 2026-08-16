@@ -474,6 +474,103 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 	).toBeInTheDocument();
 });
 
+// The card is the only way into the wizard, and the wizard is the only thing on
+// the card that can write without a Save: cancelling it must leave the stored
+// configuration exactly as it was.
+it("opens the wizard from the card and cancels without writing", async () => {
+	let putHit = false;
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", () => {
+			putHit = true;
+			return new HttpResponse(null, { status: 204 });
+		}),
+		http.post("/api/alert/probe", () => HttpResponse.json(okStatus)),
+	);
+	renderPanel();
+
+	// A configured card offers to re-run the flow rather than to set it up.
+	const open = await screen.findByTestId("alert-wizard-open");
+	expect(open).toHaveTextContent(i18n.t("settings.alerts.wizard.rerun"));
+	await userEvent.click(open);
+	expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
+	await userEvent.click(screen.getByTestId("wiz-cancel"));
+	expect(screen.queryByTestId("wiz-step-1")).toBeNull();
+	expect(putHit).toBe(false);
+});
+
+it("labels the wizard for a first run and hides Add destination without a URL", async () => {
+	baseHandlers({
+		settings: { ...settings, alert_apprise_api_url: "" },
+		status: { configured: false, reachable: false, healthy: false },
+	});
+	renderPanel();
+	expect(await screen.findByTestId("alert-wizard-open")).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.open"),
+	);
+	// "Add destination" enters at step 2, which only makes sense once an apprise
+	// address is stored to add it to.
+	expect(screen.queryByTestId("alert-wizard-add")).toBeNull();
+});
+
+// The wizard writes on its own, so the card cannot mirror what it sent: it has
+// to go and read what actually landed, or the rows and the manual field keep
+// describing the configuration from before the run.
+it("reloads the stored configuration after the wizard finishes", async () => {
+	let written = "";
+	baseHandlers();
+	server.use(
+		http.post("/api/alert/probe", () => HttpResponse.json(okStatus)),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+		http.put("/api/settings", async ({ request }) => {
+			written = ((await request.json()) as Settings).alert_apprise_targets;
+			return new HttpResponse(null, { status: 204 });
+		}),
+		// The reads after the write serve what the wizard just stored.
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({
+				targets: written === "" ? storedTargets : written.split("; "),
+			}),
+		),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-wizard-add"));
+
+	await userEvent.click(await screen.findByTestId("wiz-kind-telegram"));
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.type(screen.getByTestId("wiz-field-token"), "tok");
+	await userEvent.type(screen.getByTestId("wiz-field-chat_id"), "chat");
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.click(screen.getByTestId("wiz-send-test"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 5
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+	await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+	await userEvent.click(screen.getByTestId("wiz-finish"));
+	await userEvent.click(await screen.findByTestId("wiz-close"));
+
+	expect(written).toBe("ntfys://ntfy.example.com/secret1; tgram://tok/chat");
+	await waitFor(() =>
+		expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2),
+	);
+	// The manual field is re-derived from the freshly read list, so it is not
+	// left holding the pre-wizard value and reported as a pending edit.
+	expect(screen.getByLabelText(/notification target/i)).toHaveValue(written);
+	expect(screen.queryByTestId("alert-destinations-dirty")).toBeNull();
+	expect(screen.getByRole("status")).toHaveTextContent(
+		i18n.t("settings.alerts.saved"),
+	);
+});
+
+it("offers Add destination once an apprise URL is stored", async () => {
+	baseHandlers();
+	server.use(http.post("/api/alert/probe", () => HttpResponse.json(okStatus)));
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-wizard-add"));
+	// Entering at step 2 skips straight to picking a destination kind.
+	expect(await screen.findByTestId("wiz-step-2")).toBeInTheDocument();
+});
+
 it("points at set-up next to the Not configured pill", async () => {
 	baseHandlers({
 		status: { configured: false, reachable: false, healthy: false },

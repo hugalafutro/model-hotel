@@ -15,6 +15,8 @@ export function DestinationList({
 	onTest,
 	busy,
 	disabledReason,
+	tagOf,
+	removable,
 }: {
 	/** Plaintext Apprise URLs, in stored order. */
 	targets: string[];
@@ -29,6 +31,14 @@ export function DestinationList({
 	// Set: the note is shown, and both row actions are blocked and carry it as a
 	// tooltip. Undefined: the rows act normally.
 	disabledReason?: string;
+	// Where a row came from, when the caller mixes provenances in one list. The
+	// wizard shows already-stored destinations beside the ones proven in this
+	// run; the card, whose rows are all stored, passes nothing and gets no tags.
+	tagOf?: (url: string) => "saved" | "new" | undefined;
+	// Whether a row may be removed here. The wizard says no for stored rows: it
+	// only ever adds, so dropping one would be a deletion the operator did not
+	// ask for. Omitted: every row is removable, as on the card.
+	removable?: (url: string) => boolean;
 }) {
 	const { t } = useTranslation();
 	const [removing, setRemoving] = useState<string | null>(null);
@@ -60,6 +70,7 @@ export function DestinationList({
 			{targets.map((url) => {
 				const info = describeTarget(url);
 				const kindLabel = t(`settings.alerts.kind.${info.kind}`);
+				const tag = tagOf?.(url);
 				// Every row carries the same three buttons, so the accessible name
 				// says which destination it acts on.
 				const rowName = `${kindLabel} ${info.host}`;
@@ -75,6 +86,14 @@ export function DestinationList({
 						}}
 					>
 						<span className="ui-badge ui-badge-info">{kindLabel}</span>
+						{tag && (
+							<span
+								className="ui-badge"
+								data-testid={`alert-destination-${tag}`}
+							>
+								{t(`settings.alerts.wizard.${tag}Tag`)}
+							</span>
+						)}
 						<span style={{ fontSize: "0.85rem" }}>{info.host}</span>
 						<code
 							className="fd-mono"
@@ -98,17 +117,19 @@ export function DestinationList({
 							>
 								{t("settings.alerts.testRow")}
 							</button>
-							<button
-								type="button"
-								className="ui-btn ui-btn-sm"
-								data-testid="alert-destination-remove"
-								aria-label={`${t("settings.alerts.removeRow")}: ${rowName}`}
-								title={disabledReason}
-								disabled={blocked}
-								onClick={() => setRemoving(url)}
-							>
-								{t("settings.alerts.removeRow")}
-							</button>
+							{(removable?.(url) ?? true) && (
+								<button
+									type="button"
+									className="ui-btn ui-btn-sm"
+									data-testid="alert-destination-remove"
+									aria-label={`${t("settings.alerts.removeRow")}: ${rowName}`}
+									title={disabledReason}
+									disabled={blocked}
+									onClick={() => setRemoving(url)}
+								>
+									{t("settings.alerts.removeRow")}
+								</button>
+							)}
 						</span>
 					</div>
 				);

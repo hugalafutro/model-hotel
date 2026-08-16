@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
-import { type Dispatch, type ReactNode, useState } from "react";
+import { type Dispatch, type ReactNode, useMemo, useState } from "react";
+import type { AlertEventDef, AlertStatus } from "../../api/types";
 import { generateTopic } from "../../utils/ntfy";
 import type { Action, WizardState } from "./AlertsWizard";
 import {
@@ -9,12 +10,15 @@ import {
 	type FieldDef,
 	parseUnifiedPushEndpoint,
 } from "./composers";
+import { DestinationList } from "./DestinationList";
+import { eventLabel, SEVERITY_COLOR } from "./events";
 
-// The four step bodies the alerts wizard shows before its destination list:
-// prove apprise-api answers, pick what kind of destination this is, fill in the
-// parts that kind needs, and deliver one real test to it. They are presentation
-// only; every gate lives in AlertsWizard's canNext, so a step can never let
-// itself through.
+// The seven step bodies of the alerts wizard: prove apprise-api answers, pick
+// what kind of destination this is, fill in the parts that kind needs, deliver
+// one real test to it, review the destination list, choose the events, and
+// write. They are presentation only; every gate lives in AlertsWizard's
+// canNext, so a step can never let itself through, and only the last one asks
+// the wizard to persist anything.
 
 const K = "settings.alerts.wizard";
 
@@ -63,6 +67,15 @@ export function StepApprise({
 					</button>
 				</div>
 			</div>
+			{state.added.length > 0 && (
+				<p
+					className="fd-faint"
+					data-testid="wiz-api-changed-drops"
+					style={{ fontSize: "0.82rem" }}
+				>
+					{t(`${K}.apiChangedDrops`)}
+				</p>
+			)}
 			{status && (
 				<p
 					role="status"
@@ -109,6 +122,21 @@ export function StepKind({
 				{t(`${K}.step2Title`)}
 			</h3>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step2Hint`)}</p>
+			{/* "Add another" is one click, so undoing it has to be one click too:
+			    Back walks the run's own order (towards the apprise address), which
+			    is not where a second destination was started from. */}
+			{state.added.length > 0 && (
+				<div>
+					<button
+						type="button"
+						className="fd-link"
+						data-testid="wiz-back-to-list"
+						onClick={() => dispatch({ type: "go", step: 5 })}
+					>
+						{t(`${K}.backToList`)}
+					</button>
+				</div>
+			)}
 			<div
 				role="radiogroup"
 				aria-labelledby="wiz-kind-title"
@@ -334,6 +362,271 @@ export function StepTest({
 				</p>
 			)}
 		</>
+	);
+}
+
+export function StepDestinations({
+	state,
+	dispatch,
+	t,
+	savedTargets,
+	onTestRow,
+}: StepProps & {
+	savedTargets: string[];
+	/** Deliver one test to this destination through the wizard's apprise URL. */
+	onTestRow: (url: string) => Promise<void>;
+}) {
+	// Which row was last tested from here and how it went. It is a per-row
+	// courtesy check on a list nothing is gated on, so it stays local rather
+	// than joining the wizard's state machine.
+	const [rowTest, setRowTest] = useState<{
+		url: string;
+		state: "sending" | "ok" | "failed";
+	} | null>(null);
+
+	const run = (url: string) => {
+		setRowTest({ url, state: "sending" });
+		onTestRow(url).then(
+			() => setRowTest({ url, state: "ok" }),
+			() => setRowTest({ url, state: "failed" }),
+		);
+	};
+
+	return (
+		<>
+			<h3 className="fd-step-title">{t(`${K}.step5Title`)}</h3>
+			<p className="fd-faint fd-step-intro">{t(`${K}.step5Hint`)}</p>
+			<DestinationList
+				targets={[...savedTargets, ...state.added]}
+				onRemove={(url) => dispatch({ type: "dropAdded", url })}
+				onTest={run}
+				busy={rowTest?.state === "sending"}
+				// A stored destination is not this run's to delete: the wizard only
+				// ever adds, and removing one lives on the card beside it.
+				removable={(url) => !savedTargets.includes(url)}
+				tagOf={(url) => (savedTargets.includes(url) ? "saved" : "new")}
+			/>
+			{rowTest && rowTest.state !== "sending" && (
+				<p
+					role="status"
+					data-testid="wiz-row-test-result"
+					data-ok={rowTest.state === "ok" ? "true" : "false"}
+					className={rowTest.state === "ok" ? "fd-faint" : "fd-error-text"}
+					style={{ fontSize: "0.82rem" }}
+				>
+					{rowTest.state === "ok"
+						? t("settings.alerts.testSent")
+						: t("settings.alerts.testFailed")}
+				</p>
+			)}
+			<div>
+				<button
+					type="button"
+					className="ui-btn"
+					data-testid="wiz-add-another"
+					onClick={() => dispatch({ type: "newDraft" })}
+				>
+					{t(`${K}.addAnother`)}
+				</button>
+			</div>
+		</>
+	);
+}
+
+export function StepEvents({
+	state,
+	dispatch,
+	t,
+	catalog,
+}: StepProps & { catalog: AlertEventDef[] }) {
+	// Grouped by the catalog's own (English) category, exactly as the card's
+	// picker does, so the two lists read the same way.
+	const grouped = useMemo(() => {
+		const m = new Map<string, AlertEventDef[]>();
+		for (const e of catalog) {
+			const g = m.get(e.category) ?? [];
+			g.push(e);
+			m.set(e.category, g);
+		}
+		return [...m.entries()];
+	}, [catalog]);
+
+	return (
+		<>
+			<h3 className="fd-step-title">{t(`${K}.step6Title`)}</h3>
+			<p className="fd-faint fd-step-intro">{t(`${K}.step6Hint`)}</p>
+			{grouped.map(([category, defs]) => (
+				<div key={category} style={{ marginBottom: "0.6rem" }}>
+					<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>{category}</div>
+					{defs.map((d) => {
+						const label = eventLabel(t, d.type);
+						return (
+							<label
+								key={d.type}
+								className="fd-row"
+								style={{ cursor: "pointer", marginTop: "0.2rem" }}
+							>
+								<input
+									type="checkbox"
+									data-testid={`wiz-event-${d.type}`}
+									aria-label={label}
+									checked={state.events.has(d.type)}
+									onChange={(e) =>
+										dispatch({
+											type: "toggleEvent",
+											eventType: d.type,
+											on: e.target.checked,
+										})
+									}
+								/>
+								<span
+									aria-hidden="true"
+									style={{
+										display: "inline-block",
+										width: "0.5rem",
+										height: "0.5rem",
+										borderRadius: "50%",
+										background:
+											SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
+									}}
+								/>
+								<span style={{ fontSize: "0.85rem" }}>{label}</span>
+							</label>
+						);
+					})}
+				</div>
+			))}
+			{/* An empty selection is a legitimate choice ("set up now, decide what
+			    to hear about later"), so it is a note rather than a gate. */}
+			{state.events.size === 0 && (
+				<p
+					data-testid="wiz-none-selected"
+					style={{ color: "var(--warn)", fontSize: "0.82rem" }}
+				>
+					{t(`${K}.noneSelected`)}
+				</p>
+			)}
+			<div>
+				<button
+					type="button"
+					className="fd-link"
+					data-testid="wiz-reset-recommended"
+					onClick={() =>
+						dispatch({
+							type: "resetEvents",
+							types: catalog.filter((e) => e.defaultOn).map((e) => e.type),
+						})
+					}
+				>
+					{t(`${K}.resetRecommended`)}
+				</button>
+			</div>
+		</>
+	);
+}
+
+export function StepFinish({
+	state,
+	t,
+	targets,
+	onSendAll,
+}: StepProps & { targets: string[]; onSendAll: () => void }) {
+	if (state.done) {
+		return (
+			<>
+				<p role="status" data-testid="wiz-done" className="fd-row">
+					<span className="ui-badge ui-badge-ok">{t(`${K}.done`)}</span>
+					{/* Read back from the server after the write, so the pill describes
+					    the stored configuration rather than the one just typed. */}
+					{state.finalStatus && <FinalPill status={state.finalStatus} t={t} />}
+				</p>
+				<div>
+					<button
+						type="button"
+						className="ui-btn"
+						data-testid="wiz-send-all"
+						disabled={state.sendingAll}
+						onClick={onSendAll}
+					>
+						{state.sendingAll ? t(`${K}.sending`) : t(`${K}.sendAll`)}
+					</button>
+				</div>
+				{state.sentAll !== "none" && (
+					<p
+						role="status"
+						data-testid="wiz-sent-all"
+						data-ok={state.sentAll === "ok" ? "true" : "false"}
+						className={state.sentAll === "ok" ? "fd-faint" : "fd-error-text"}
+						style={{ fontSize: "0.82rem" }}
+					>
+						{state.sentAll === "ok"
+							? t(`${K}.sentAll`)
+							: t("settings.alerts.testFailed")}
+					</p>
+				)}
+			</>
+		);
+	}
+	return (
+		<>
+			<h3 className="fd-step-title">{t(`${K}.step7Title`)}</h3>
+			<p className="fd-faint fd-step-intro">{t(`${K}.step7Hint`)}</p>
+			<Summary label={t("settings.alerts.apiUrlLabel")} value={state.apiUrl} />
+			<Summary
+				label={t("settings.alerts.destinationsTitle")}
+				value={targets.join("; ")}
+			/>
+			<Summary
+				label={t("settings.alerts.eventsLabel")}
+				value={
+					state.events.size === 0
+						? t(`${K}.noneSelected`)
+						: [...state.events].map((type) => eventLabel(t, type)).join(", ")
+				}
+			/>
+			{state.finishError !== "" && (
+				<p
+					role="alert"
+					data-testid="wiz-finish-error"
+					className="fd-error-text"
+				>
+					{state.finishError}
+				</p>
+			)}
+		</>
+	);
+}
+
+// FinalPill reports the probe taken straight after the write. The card's own
+// pill covers a fourth state (nothing configured at all) that cannot happen
+// here: the wizard has just configured it.
+function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
+	const [variant, label] = !status.reachable
+		? (["ui-badge-danger", "statusUnreachable"] as const)
+		: !status.healthy
+			? (["ui-badge-warn", "statusUnhealthy"] as const)
+			: (["ui-badge-ok", "statusOk"] as const);
+	return (
+		<span
+			className={`ui-badge ${variant}`}
+			data-testid="wiz-done-pill"
+			title={status.detail}
+		>
+			{t(`settings.alerts.${label}`)}
+		</span>
+	);
+}
+
+// One labelled line of the closing summary: what is about to be written, in the
+// operator's own words rather than as the settings keys it becomes.
+function Summary({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="ui-field">
+			<span className="ui-label">{label}</span>
+			<span style={{ fontSize: "0.85rem", wordBreak: "break-all" }}>
+				{value}
+			</span>
+		</div>
 	);
 }
 
