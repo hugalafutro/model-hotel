@@ -537,6 +537,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 			// tells it to reload.
 			onClose={state.done ? onFinished : onClose}
 			dismissible={!busy}
+			closeOnBackdrop={false}
 			actions={
 				state.done ? (
 					<button

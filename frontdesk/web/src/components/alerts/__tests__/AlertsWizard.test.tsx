@@ -385,6 +385,19 @@ it("cancel closes without any request", async () => {
 	expect(puts).toHaveLength(0);
 });
 
+it("a stray backdrop click does not close the wizard or lose the typed input", async () => {
+	const { onClose } = renderWizard();
+	await userEvent.clear(screen.getByTestId("wiz-api-url"));
+	await userEvent.type(screen.getByTestId("wiz-api-url"), "http://typed:8000");
+	const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
+	await userEvent.click(backdrop);
+	expect(onClose).not.toHaveBeenCalled();
+	expect(screen.getByTestId("wiz-api-url")).toHaveValue("http://typed:8000");
+	expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
+	await userEvent.click(screen.getByTestId("wiz-cancel"));
+	expect(onClose).toHaveBeenCalled();
+});
+
 it("steps 5-7: lists this run's additions, applies the recommended preset, and writes once at Finish", async () => {
 	const puts: Record<string, unknown>[] = [];
 	const testBodies: string[] = [];

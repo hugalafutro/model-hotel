@@ -10,6 +10,12 @@ interface ModalProps {
 	// the in-progress feedback (the work keeps running server-side regardless).
 	// Defaults to true: every existing caller stays dismissible.
 	dismissible?: boolean;
+	// When false, a backdrop click is ignored; Escape still closes (subject to
+	// dismissible and the topmost-dialog rule above). Used by dialogs with
+	// meaningful in-progress input (e.g. a multi-step wizard), where a stray
+	// click outside the dialog should not discard it. Defaults to true: every
+	// existing caller keeps click-to-dismiss.
+	closeOnBackdrop?: boolean;
 	// Optional secondary line under the title (e.g. a plan name or status).
 	subtitle?: ReactNode;
 	// Optional controls rendered on the title row, opposite the heading. Callers
@@ -50,6 +56,7 @@ export function Modal({
 	children,
 	actions,
 	dismissible = true,
+	closeOnBackdrop = true,
 	subtitle,
 	headerActions,
 }: ModalProps) {
@@ -123,7 +130,8 @@ export function Modal({
 		<div
 			className="fd-modal-backdrop"
 			onMouseDown={(e) => {
-				if (dismissible && e.target === e.currentTarget) onClose();
+				if (dismissible && closeOnBackdrop && e.target === e.currentTarget)
+					onClose();
 			}}
 		>
 			<div

@@ -89,6 +89,24 @@ describe("Modal", () => {
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
+	it("ignores a backdrop click but still closes on Escape when closeOnBackdrop is false", async () => {
+		const onClose = vi.fn();
+		render(
+			<Modal
+				title="Wizard-like dialog"
+				onClose={onClose}
+				closeOnBackdrop={false}
+			>
+				<input aria-label="field" />
+			</Modal>,
+		);
+		const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
+		await userEvent.click(backdrop);
+		expect(onClose).not.toHaveBeenCalled();
+		await userEvent.keyboard("{Escape}");
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
 	it("does not steal focus when the parent re-renders (new onClose identity)", async () => {
 		// Mirrors the real panels: an inline-arrow onClose plus an in-modal control
 		// that re-renders the parent. Focus must stay where the user put it.
