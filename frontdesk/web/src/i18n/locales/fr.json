@@ -410,7 +410,7 @@
 				"ntfySoftOk": "Le serveur a répondu",
 				"ntfySoftUnknown": "Impossible de vérifier depuis ce navigateur ; c'est le test de l'étape suivante qui compte.",
 				"ntfySubscribe": "Sur votre téléphone, dans l'application ntfy : S'abonner à un sujet, Utiliser un autre serveur, puis saisissez :",
-				"bellhopPasteHint": "Ouvrez Bellhop, Paramètres, Notifications push, et collez le point de terminaison affiché là.",
+				"bellhopPasteHint": "Ouvrez Bellhop, Paramètres, Push en temps réel, et collez le Sujet push pour Front Desk affiché là.",
 				"bellhopBad": "Cela ne ressemble pas à un point de terminaison push Bellhop. Il devrait ressembler à https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Un message de test n'affichera pas de notification Bellhop. Bellhop ne signale que la chute ou le retour d'un membre, ou la dérive de la synchronisation automatique. Front Desk utilise ce point de terminaison pour réveiller Bellhop.",
 				"otherBrowse": "Parcourir tous les services Apprise",
@@ -440,7 +440,7 @@
 				"step7Hint": "Tout enregistrer et activer les alertes.",
 				"finishing": "Enregistrement…",
 				"done": "Les alertes sont actives.",
-				"sendAll": "Envoyer un test à tout",
+				"sendAll": "Envoyer un test à toutes",
 				"sentAll": "Test envoyé à toutes les destinations",
 				"apiChangedDrops": "Changer l'adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
 				"backToList": "Retour aux destinations"

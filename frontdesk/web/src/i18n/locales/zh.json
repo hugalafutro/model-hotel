@@ -345,7 +345,7 @@
 			},
 			"ntfyAppended": "已添加到上方的通知目标。按保存以生效。",
 			"ntfyServerPlaceholder": "https://ntfy.example.com",
-			"statusNotConfiguredHint": "运行设置告警，或在下方手动填写 Apprise API URL。",
+			"statusNotConfiguredHint": "运行“设置告警”，或在下方手动填写 Apprise API URL。",
 			"reason": {
 				"not_configured": "没有可发送的内容：请设置 Apprise API URL 和至少一个目标。",
 				"invalid_url": "这不是有效的 URL。",
@@ -406,7 +406,7 @@
 				"ntfySoftOk": "服务器已响应",
 				"ntfySoftUnknown": "无法从当前浏览器验证；以下一步的测试结果为准。",
 				"ntfySubscribe": "在手机的 ntfy 应用中：订阅主题，使用其他服务器，然后填入：",
-				"bellhopPasteHint": "打开 Bellhop，设置，推送通知，把那里显示的端点粘贴过来。",
+				"bellhopPasteHint": "打开 Bellhop，设置，实时推送，把那里显示的“用于 Front Desk 的推送主题”粘贴过来。",
 				"bellhopBad": "这看起来不像 Bellhop 推送端点。它应形如 https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "测试消息不会显示 Bellhop 通知。Bellhop 只在成员离线或恢复、以及自动同步出现偏差时提醒您。Front Desk 使用该端点来唤醒 Bellhop。",
 				"otherBrowse": "浏览全部 Apprise 服务",

@@ -283,7 +283,7 @@
 			"apiUrlLabel": "Apprise-API-URL",
 			"apiUrlHint": "Basis-URL Ihres apprise-api-Containers, erreichbar von Front Desk (z. B. http://apprise:8000 im HA-Netzwerk).",
 			"targetLabel": "Benachrichtigungsziel(e)",
-			"targetHint": "Eine oder mehrere Apprise-URLs, getrennt durch ; (z. B. tgram://token/chat_id). Verschlüsselt gespeichert; Admins im Klartext angezeigt.",
+			"targetHint": "Eine oder mehrere Apprise-URLs, getrennt durch ; (z. B. tgram://token/chat_id). Verschlüsselt gespeichert; für Admins im Klartext sichtbar.",
 			"browseServices": "Alle 80+ Dienste durchsuchen",
 			"eventsLabel": "Benachrichtigen bei",
 			"eventsHint": "Wählen Sie, bei welchen Flotten-Ereignissen eine Benachrichtigung gesendet wird.",
@@ -343,7 +343,7 @@
 				"email": "E-Mail",
 				"other": "Apprise-URL"
 			},
-			"ntfyAppended": "Oben zu den Benachrichtigungszielen hinzugefügt. Zum Übernehmen auf Speichern klicken.",
+			"ntfyAppended": "Oben zu den Benachrichtigungszielen hinzugefügt. Klicken Sie auf Speichern, um es zu übernehmen.",
 			"ntfyServerPlaceholder": "https://ntfy.example.com",
 			"statusNotConfiguredHint": "Führen Sie Alerts einrichten aus oder setzen Sie die Apprise-API-URL unten manuell.",
 			"reason": {
@@ -406,7 +406,7 @@
 				"ntfySoftOk": "Server hat geantwortet",
 				"ntfySoftUnknown": "Aus diesem Browser nicht überprüfbar; entscheidend ist der Test im nächsten Schritt.",
 				"ntfySubscribe": "Auf Ihrem Telefon in der ntfy-App: Thema abonnieren, Anderen Server verwenden, dann eingeben:",
-				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Push-Benachrichtigungen, und fügen Sie den dort angezeigten Endpunkt ein.",
+				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Echtzeit-Push, und fügen Sie das dort angezeigte Push-Thema für Front Desk ein.",
 				"bellhopBad": "Das sieht nicht nach einem Bellhop-Push-Endpunkt aus. Er sollte so aussehen: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Eine Testnachricht zeigt keine Bellhop-Benachrichtigung. Bellhop meldet nur, wenn ein Mitglied ausfällt oder zurückkommt oder die Auto-Synchronisierung abdriftet. Front Desk nutzt diesen Endpunkt, um Bellhop zu wecken.",
 				"otherBrowse": "Alle Apprise-Dienste durchsuchen",
@@ -438,7 +438,7 @@
 				"done": "Alerts sind aktiv.",
 				"sendAll": "Test an alle senden",
 				"sentAll": "Test an jedes Ziel gesendet",
-				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden gegen die alte Adresse getestet.",
+				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
 				"backToList": "Zurück zu den Zielen"
 			}
 		},

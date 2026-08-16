@@ -345,7 +345,7 @@
 			},
 			"ntfyAppended": "上の通知ターゲットに追加しました。適用するには保存を押してください。",
 			"ntfyServerPlaceholder": "https://ntfy.example.com",
-			"statusNotConfiguredHint": "アラートを設定を実行するか、下で Apprise API URL を手動で設定してください。",
+			"statusNotConfiguredHint": "「アラートを設定」を実行するか、下で Apprise API URL を手動で設定してください。",
 			"reason": {
 				"not_configured": "送信するものがありません: Apprise API URL と送信先を 1 つ以上設定してください。",
 				"invalid_url": "有効な URL ではありません。",
@@ -406,7 +406,7 @@
 				"ntfySoftOk": "サーバーが応答しました",
 				"ntfySoftUnknown": "このブラウザーからは確認できませんでした。決め手になるのは次のステップのテストです。",
 				"ntfySubscribe": "スマホの ntfy アプリで、トピックを購読、別のサーバーを使用、の順に選び、次を入力してください:",
-				"bellhopPasteHint": "Bellhop を開き、設定、プッシュ通知、と進んで、そこに表示されているエンドポイントを貼り付けてください。",
+				"bellhopPasteHint": "Bellhop を開き、設定、リアルタイム プッシュ、と進んで、そこに表示されている Front Desk 用のプッシュトピックを貼り付けてください。",
 				"bellhopBad": "これは Bellhop のプッシュエンドポイントには見えません。https://ntfy.example.com/upAbCdEf?up=1 のような形式になります。",
 				"bellhopNote": "テストメッセージでは Bellhop の通知は表示されません。Bellhop が知らせるのは、メンバーの停止と復帰、そして自動同期のずれだけです。Front Desk はこのエンドポイントを Bellhop を起こすために使います。",
 				"otherBrowse": "Apprise のサービスをすべて見る",
@@ -422,7 +422,7 @@
 					"email": "送信しました。受信トレイを確認してください。",
 					"other": "送信しました。送信先を確認してください。"
 				},
-				"testMustPass": "先に進む前に、テストを送信して成功させてください。内容を直すには戻るを使います。",
+				"testMustPass": "先に進む前に、テストを送信して成功させてください。「戻る」で内容を修正できます。",
 				"step5Title": "送信先",
 				"step5Hint": "ここに並ぶ送信先がアラートを受け取ります。追加するか、そのまま進んでください。",
 				"savedTag": "保存済み",

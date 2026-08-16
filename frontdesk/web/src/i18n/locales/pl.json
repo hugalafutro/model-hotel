@@ -351,7 +351,7 @@
 				"email": "E-mail",
 				"other": "Adres URL Apprise"
 			},
-			"ntfyAppended": "Dodano powyżej do Cel(e) powiadomień. Naciśnij Zapisz, aby zastosować.",
+			"ntfyAppended": "Dodano powyżej do pola Cel(e) powiadomień. Naciśnij Zapisz, aby zastosować.",
 			"ntfyServerPlaceholder": "https://ntfy.example.com",
 			"statusNotConfiguredHint": "Uruchom Skonfiguruj alerty albo podaj adres URL API Apprise ręcznie poniżej.",
 			"reason": {
@@ -414,7 +414,7 @@
 				"ntfySoftOk": "Serwer odpowiedział",
 				"ntfySoftUnknown": "Nie da się tego zweryfikować z tej przeglądarki; liczy się test w następnym kroku.",
 				"ntfySubscribe": "Na telefonie, w aplikacji ntfy: Subskrybuj temat, Użyj innego serwera, a potem wpisz:",
-				"bellhopPasteHint": "Otwórz Bellhop, Ustawienia, Powiadomienia push, i wklej endpoint, który tam widzisz.",
+				"bellhopPasteHint": "Otwórz Bellhop, Ustawienia, Push w czasie rzeczywistym, i wklej Temat push dla Front Desk, który tam widzisz.",
 				"bellhopBad": "To nie wygląda na endpoint push Bellhopa. Powinien wyglądać tak: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Wiadomość testowa nie pokaże powiadomienia Bellhopa. Bellhop informuje tylko o tym, że członek przestał działać lub wrócił, albo że auto-synchronizacja się rozjechała. Front Desk używa tego endpointu do wybudzenia Bellhopa.",
 				"otherBrowse": "Przeglądaj wszystkie usługi Apprise",
@@ -444,7 +444,7 @@
 				"step7Hint": "Zapisz wszystko i włącz alerty.",
 				"finishing": "Zapisywanie…",
 				"done": "Alerty są włączone.",
-				"sendAll": "Wyślij test do wszystkiego",
+				"sendAll": "Wyślij test do wszystkich",
 				"sentAll": "Test wysłany do każdego celu",
 				"apiChangedDrops": "Zmiana adresu usuwa cele dodane w tym przebiegu; były testowane wobec starego adresu.",
 				"backToList": "Wróć do celów"

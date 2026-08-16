@@ -406,7 +406,7 @@
 				"ntfySoftOk": "Server antwoordde",
 				"ntfySoftUnknown": "Vanuit deze browser niet te verifiëren; de test in de volgende stap is wat telt.",
 				"ntfySubscribe": "Op je telefoon, in de ntfy-app: Abonneren op onderwerp, Andere server gebruiken, en voer dan in:",
-				"bellhopPasteHint": "Open Bellhop, Instellingen, Pushmeldingen, en plak het endpoint dat daar staat.",
+				"bellhopPasteHint": "Open Bellhop, Instellingen, Realtime push, en plak het Push-onderwerp voor Front Desk dat daar staat.",
 				"bellhopBad": "Dat lijkt geen Bellhop-push-endpoint. Het hoort er zo uit te zien: https://ntfy.example.com/upAbCdEf?up=1",
 				"bellhopNote": "Een testbericht laat geen Bellhop-melding zien. Bellhop meldt alleen wanneer een member uitvalt of terugkomt, of wanneer auto-sync afdrijft. Front Desk gebruikt dit endpoint om Bellhop te wekken.",
 				"otherBrowse": "Alle Apprise-services bekijken",
@@ -436,9 +436,9 @@
 				"step7Hint": "Alles opslaan en alerts inschakelen.",
 				"finishing": "Opslaan…",
 				"done": "Alerts staan aan.",
-				"sendAll": "Test naar alles versturen",
+				"sendAll": "Test naar alle versturen",
 				"sentAll": "Test naar elke bestemming verzonden",
-				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn tegen het oude adres getest.",
+				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"backToList": "Terug naar bestemmingen"
 			}
 		},
