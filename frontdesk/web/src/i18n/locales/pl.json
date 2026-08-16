@@ -450,7 +450,9 @@
 				"sendAll": "Wyślij test do wszystkich",
 				"sentAll": "Test wysłany do każdego celu",
 				"apiChangedDrops": "Zmiana adresu usuwa cele dodane w tym przebiegu; były testowane wobec starego adresu.",
-				"backToList": "Wróć do celów"
+				"backToList": "Wróć do celów",
+				"nothingAdded": "W tym przebiegu nie dodano jeszcze niczego.",
+				"alreadySaved": "Ten cel jest już skonfigurowany. Można go przetestować, ale nie zostanie dodany ponownie."
 			}
 		},
 		"wizard": {

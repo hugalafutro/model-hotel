@@ -15,6 +15,7 @@ export function DestinationList({
 	onTest,
 	busy,
 	disabledReason,
+	emptyText,
 }: {
 	/** Plaintext Apprise URLs, in stored order. */
 	targets: string[];
@@ -29,6 +30,11 @@ export function DestinationList({
 	// Set: the note is shown, and both row actions are blocked and carry it as a
 	// tooltip. Undefined: the rows act normally.
 	disabledReason?: string;
+	// What to say when there is nothing to list. Unset: the card's own "no
+	// destinations yet" line, which is right when this list is the stored set.
+	// Set: the caller's wording, for a list that is only part of the picture
+	// (the wizard shows what one run added, not what is saved).
+	emptyText?: string;
 }) {
 	const { t } = useTranslation();
 	const [removing, setRemoving] = useState<string | null>(null);
@@ -41,7 +47,7 @@ export function DestinationList({
 				data-testid="alert-destinations-empty"
 				style={{ fontSize: "0.85rem" }}
 			>
-				{t("settings.alerts.destinationsEmpty")}
+				{emptyText ?? t("settings.alerts.destinationsEmpty")}
 			</div>
 		);
 	}

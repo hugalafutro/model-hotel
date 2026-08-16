@@ -440,7 +440,9 @@
 				"sendAll": "Test an alle senden",
 				"sentAll": "Test an jedes Ziel gesendet",
 				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
-				"backToList": "Zurück zu den Zielen"
+				"backToList": "Zurück zu den Zielen",
+				"nothingAdded": "In diesem Durchlauf wurde noch nichts hinzugefügt.",
+				"alreadySaved": "Dieses Ziel ist bereits eingerichtet. Sie können es testen, aber es wird nicht erneut hinzugefügt."
 			}
 		},
 		"wizard": {

@@ -440,7 +440,9 @@
 				"sendAll": "向全部目标发送测试",
 				"sentAll": "已向每个目标发送测试",
 				"apiChangedDrops": "更改地址会移除本次添加的目标；它们是针对旧地址测试的。",
-				"backToList": "返回目标列表"
+				"backToList": "返回目标列表",
+				"nothingAdded": "本次尚未添加任何内容。",
+				"alreadySaved": "该目标已配置。仍可测试，但不会重复添加。"
 			}
 		},
 		"wizard": {

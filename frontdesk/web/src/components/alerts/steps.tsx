@@ -200,7 +200,16 @@ export function StepKind({
 	);
 }
 
-export function StepDetails({ state, dispatch, t }: StepProps) {
+export function StepDetails({
+	state,
+	dispatch,
+	t,
+	savedTargets,
+}: StepProps & {
+	/** Already-stored destinations, so a duplicate is called out while it is
+	    still being typed rather than silently swallowed on acceptance. */
+	savedTargets: string[];
+}) {
 	const kind = state.draft.kind;
 	if (kind === null) return null;
 
@@ -212,6 +221,18 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 		kind === "bellhop" ? parseUnifiedPushEndpoint(value("endpoint")) : null;
 	const discord =
 		kind === "discord" ? parseDiscordWebhook(value("webhook")) : null;
+
+	// This exact URL is already on the list the run will finish with, either
+	// stored or accepted earlier in this run, so acceptance will fold it away
+	// instead of adding a second copy. A draft that is being edited back into
+	// its own accepted row is not a duplicate of itself. Nothing is gated on
+	// this: testing a destination that already exists is a legitimate reason to
+	// walk the step, it just does not grow the list.
+	const alreadySaved =
+		state.draft.url !== "" &&
+		state.draft.url !== state.draft.acceptedUrl &&
+		(savedTargets.includes(state.draft.url) ||
+			state.added.includes(state.draft.url));
 
 	return (
 		<>
@@ -328,6 +349,17 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			)}
 
 			<Composed url={state.draft.url} t={t} />
+
+			{alreadySaved && (
+				<p
+					data-testid="wiz-already-saved"
+					role="status"
+					className="fd-faint"
+					style={{ fontSize: "0.82rem" }}
+				>
+					{t(`${K}.alreadySaved`)}
+				</p>
+			)}
 		</>
 	);
 }
@@ -424,6 +456,7 @@ export function StepDestinations({
 				onRemove={(url) => dispatch({ type: "dropAdded", url })}
 				onTest={run}
 				busy={rowTest?.state === "sending"}
+				emptyText={t(`${K}.nothingAdded`)}
 			/>
 			{rowTest && rowTest.state !== "sending" && (
 				<p

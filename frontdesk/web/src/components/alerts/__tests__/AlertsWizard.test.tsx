@@ -740,3 +740,47 @@ it("drops the destinations added in this run when the apprise address changes", 
 	expect(s.draft.acceptedUrl).toBeNull();
 	expect(s.savedCount).toBe(1);
 });
+
+it("re-adding a stored destination says so on step 3 and leaves step 5 empty", async () => {
+	server.use(
+		http.post("/api/alert/probe", () =>
+			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+		),
+		http.post("/api/alert/test", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderWizard({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		startAt: 2,
+	});
+	await userEvent.click(screen.getByTestId("wiz-kind-other"));
+	await userEvent.click(screen.getByTestId("wiz-next"));
+
+	// A URL nobody has stored is just a new destination.
+	await userEvent.type(screen.getByTestId("wiz-field-url"), "tgram://9/9");
+	expect(screen.queryByTestId("wiz-already-saved")).toBeNull();
+
+	// Typing one that is already stored is called out while it is being typed,
+	// and says so without closing the gate: it can still be tested.
+	await userEvent.clear(screen.getByTestId("wiz-field-url"));
+	await userEvent.type(screen.getByTestId("wiz-field-url"), "tgram://1/2");
+	expect(screen.getByTestId("wiz-already-saved")).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.alreadySaved"),
+	);
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
+
+	await userEvent.click(screen.getByTestId("wiz-next"));
+	await userEvent.click(screen.getByTestId("wiz-send-test"));
+	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+	await userEvent.click(screen.getByTestId("wiz-next"));
+
+	// The run added nothing the stored list did not already have, so step 5 says
+	// exactly that rather than the card's "no destinations yet", which would
+	// contradict the note about the destination that is saved.
+	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
+	expect(screen.queryAllByTestId("alert-destination-row")).toHaveLength(0);
+	expect(screen.getByTestId("alert-destinations-empty")).toHaveTextContent(
+		i18n.t("settings.alerts.wizard.nothingAdded"),
+	);
+	expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
+});

@@ -440,7 +440,9 @@
 				"sendAll": "Send test to everything",
 				"sentAll": "Test sent to every destination",
 				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one.",
-				"backToList": "Back to destinations"
+				"backToList": "Back to destinations",
+				"nothingAdded": "Nothing added in this run yet.",
+				"alreadySaved": "This destination is already set up. You can still test it, but it will not be added again."
 			}
 		},
 		"wizard": {

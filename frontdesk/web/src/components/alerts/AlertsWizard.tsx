@@ -492,7 +492,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 					/>
 				);
 			case 3:
-				return <StepDetails {...stepProps} />;
+				return <StepDetails {...stepProps} savedTargets={savedTargets} />;
 			case 4:
 				return <StepTest {...stepProps} onSendTest={sendTest} />;
 			case 5:

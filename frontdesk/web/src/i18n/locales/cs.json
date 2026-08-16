@@ -450,7 +450,9 @@
 				"sendAll": "Odeslat test na vše",
 				"sentAll": "Test odeslán na všechny cíle",
 				"apiChangedDrops": "Změna adresy odebere cíle přidané v tomto průchodu; byly testovány proti té staré.",
-				"backToList": "Zpět na cíle"
+				"backToList": "Zpět na cíle",
+				"nothingAdded": "V tomto průchodu zatím nic nepřidáno.",
+				"alreadySaved": "Tento cíl už je nastavený. Můžete ho otestovat, ale znovu se nepřidá."
 			}
 		},
 		"wizard": {
