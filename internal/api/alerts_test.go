@@ -149,6 +149,27 @@ func TestSendAlertTestDelivers(t *testing.T) {
 	}
 }
 
+// newCapturingAppriseStub is a stand-in apprise-api that accepts GET /status
+// and records the "urls" field of every POST /notify body, so a test can
+// assert which destination string SendAlertTest actually dispatched to.
+func newCapturingAppriseStub(gotURLs *string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/status":
+			w.WriteHeader(http.StatusOK)
+		case "/notify":
+			var p struct {
+				URLs string `json:"urls"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&p)
+			*gotURLs = p.URLs
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
 func TestAlertProbeEndpoint(t *testing.T) {
 	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/status" {
@@ -235,8 +256,8 @@ func TestSendAlertTestExplicitConfig(t *testing.T) {
 }
 
 func TestSendAlertTestTargetsOnlyUsesSavedURL(t *testing.T) {
-	hit := false
-	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { hit = true }))
+	var gotURLs string
+	stub := newCapturingAppriseStub(&gotURLs)
 	defer stub.Close()
 	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: &mockSettingsStore{
 		getWithDefaultFn: func(_ context.Context, key, def string) string {
@@ -248,8 +269,77 @@ func TestSendAlertTestTargetsOnlyUsesSavedURL(t *testing.T) {
 	}}
 	rec := httptest.NewRecorder()
 	h.SendAlertTest(rec, httptest.NewRequest(http.MethodPost, "/alert/test", strings.NewReader(`{"targets":["ntfys://ntfy.example.com/row"]}`)))
-	if rec.Code != http.StatusOK || !hit {
-		t.Fatalf("targets-only = %d hit=%v", rec.Code, hit)
+	if rec.Code != http.StatusOK || gotURLs != "ntfys://ntfy.example.com/row" {
+		t.Fatalf("targets-only = %d urls=%q", rec.Code, gotURLs)
+	}
+}
+
+// TestSendAlertTestAPIURLOnlyFallsBackToSavedTarget covers the branch where
+// the request supplies api_url but no targets: SendAlertTest must decrypt and
+// use the saved target rather than sending to nothing.
+func TestSendAlertTestAPIURLOnlyFallsBackToSavedTarget(t *testing.T) {
+	var gotURLs string
+	stub := newCapturingAppriseStub(&gotURLs)
+	defer stub.Close()
+
+	enc, err := auth.EncryptString("ntfys://ntfy.example.com/saved", secretTestMasterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, def string) string {
+			if key == "alert_apprise_targets" {
+				return enc
+			}
+			return def
+		},
+	}}
+	rec := httptest.NewRecorder()
+	h.SendAlertTest(rec, httptest.NewRequest(http.MethodPost, "/alert/test", strings.NewReader(`{"api_url":"`+stub.URL+`"}`)))
+	if rec.Code != http.StatusOK || gotURLs != "ntfys://ntfy.example.com/saved" {
+		t.Fatalf("api_url-only = %d urls=%q", rec.Code, gotURLs)
+	}
+}
+
+// TestSendAlertTestAPIURLOnlyUndecryptableSavedTarget covers the same branch
+// when the saved target was encrypted under a different MASTER_KEY: the
+// decrypt failure must surface as a coded 502, not a silent empty send.
+func TestSendAlertTestAPIURLOnlyUndecryptableSavedTarget(t *testing.T) {
+	// The decrypt failure must be caught before any request reaches apprise-api,
+	// so the stub only needs to exist; it should never receive a call.
+	hit := false
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hit = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer stub.Close()
+
+	bad, err := auth.EncryptString("ntfys://ntfy.example.com/x", "another-master-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, def string) string {
+			if key == "alert_apprise_targets" {
+				return bad
+			}
+			return def
+		},
+	}}
+	rec := httptest.NewRecorder()
+	h.SendAlertTest(rec, httptest.NewRequest(http.MethodPost, "/alert/test", strings.NewReader(`{"api_url":"`+stub.URL+`"}`)))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("undecryptable = %d %s", rec.Code, rec.Body.String())
+	}
+	var e struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	if e.Code != alert.ReasonUndecryptable {
+		t.Errorf("code = %q", e.Code)
+	}
+	if hit {
+		t.Error("apprise-api should not be called when the saved target can't be decrypted")
 	}
 }
 

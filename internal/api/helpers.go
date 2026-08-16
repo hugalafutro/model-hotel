@@ -79,6 +79,14 @@ func writeJSONCreated(w http.ResponseWriter, v any) {
 	}
 }
 
+// writeCodedError writes a JSON {code, error} body so the dashboard can route
+// on a stable code instead of matching English text.
+func writeCodedError(w http.ResponseWriter, status int, code, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg})
+}
+
 // logEncodeError logs a failure to encode a JSON response. A client that hangs
 // up before the body is written (broken pipe, connection reset, closed conn) is
 // not a server fault, so it is logged at debug level to keep production logs

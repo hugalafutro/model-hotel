@@ -34,22 +34,21 @@ func (h *Handler) RegisterAlerts(r chi.Router) {
 	})
 }
 
-// writeCodedError writes a JSON {code, error} body so the dashboard can route
-// on a stable code instead of matching English text.
-func writeCodedError(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg})
+// masterKey returns the configured MASTER_KEY, or "" when h.cfg is nil (as in
+// tests that only exercise routes with no secret material). Every alert
+// handler that touches encrypted settings routes through this so the nil
+// check lives in one place.
+func (h *Handler) masterKey() string {
+	if h.cfg != nil {
+		return h.cfg.MasterKey
+	}
+	return ""
 }
 
 // alertDispatcher builds a Dispatcher reading live settings, used by every
 // alert handler so the master-key lookup lives in one place.
 func (h *Handler) alertDispatcher() *alert.Dispatcher {
-	masterKey := ""
-	if h.cfg != nil {
-		masterKey = h.cfg.MasterKey
-	}
-	return alert.New(alert.NewSettingsConfigProvider(h.settingsRepo, masterKey), nil)
+	return alert.New(alert.NewSettingsConfigProvider(h.settingsRepo, h.masterKey()), nil)
 }
 
 // GetAlertStatus reports whether the configured apprise-api container is
@@ -119,10 +118,6 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	masterKey := ""
-	if h.cfg != nil {
-		masterKey = h.cfg.MasterKey
-	}
 	var cfg alert.Config
 	if req.APIURL != nil && len(req.Targets) > 0 {
 		// Fully explicit: nothing is read from settings, so a corrupt stored
@@ -130,21 +125,26 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 		cfg = alert.Config{APIBaseURL: *req.APIURL, Targets: alert.JoinTargets(req.Targets)}
 	} else {
 		cfg.APIBaseURL = h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_api_url", "")
-		stored := h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_targets", "")
-		if stored != "" {
-			plain, derr := auth.DecryptString(stored, masterKey)
-			if derr != nil {
-				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
-					"stored target cannot be decrypted (master key rotated?)")
-				return
-			}
-			cfg.Targets = plain
-		}
 		if req.APIURL != nil {
 			cfg.APIBaseURL = *req.APIURL
 		}
 		if len(req.Targets) > 0 {
 			cfg.Targets = alert.JoinTargets(req.Targets)
+		} else {
+			// Only decrypt the saved target when it is actually needed: an
+			// explicit api_url with no targets still falls back to the saved
+			// (possibly undecryptable) target, but a request that already
+			// supplies its own targets never touches it.
+			stored := h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_targets", "")
+			if stored != "" {
+				plain, derr := auth.DecryptString(stored, h.masterKey())
+				if derr != nil {
+					writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
+						"stored target cannot be decrypted (master key rotated?)")
+					return
+				}
+				cfg.Targets = plain
+			}
 		}
 	}
 	if err := h.alertDispatcher().TestSendTo(r.Context(), cfg); err != nil {
@@ -166,14 +166,10 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 // list leaves the server. Admins can already write any target and trigger
 // delivery to it, so nothing new is revealed.
 func (h *Handler) GetAlertTargets(w http.ResponseWriter, r *http.Request) {
-	masterKey := ""
-	if h.cfg != nil {
-		masterKey = h.cfg.MasterKey
-	}
 	stored := h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_targets", "")
 	targets := []string{}
 	if stored != "" {
-		plain, err := auth.DecryptString(stored, masterKey)
+		plain, err := auth.DecryptString(stored, h.masterKey())
 		if err != nil {
 			writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable,
 				"stored target cannot be decrypted (master key rotated?)")
