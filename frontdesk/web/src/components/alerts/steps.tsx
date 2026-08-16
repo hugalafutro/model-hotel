@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import {
 	type Dispatch,
+	Fragment,
 	type ReactNode,
 	useEffect,
 	useMemo,
@@ -240,36 +241,40 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			<p className="fd-faint fd-step-intro">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
-				<Field
-					key={f.key}
-					def={f}
-					label={t(`${K}.field.${f.key}`)}
-					value={value(f.key)}
-					onChange={(v) => set(f.key, v)}
-				>
-					{kind === "ntfy" && f.key === "topic" && (
-						<button
-							type="button"
-							className="ui-btn"
-							data-testid="wiz-generate-topic"
-							onClick={() => set("topic", generateTopic())}
-						>
-							{t(`${K}.generate`)}
-						</button>
+				<Fragment key={f.key}>
+					<Field
+						def={f}
+						label={t(`${K}.field.${f.key}`)}
+						value={value(f.key)}
+						onChange={(v) => set(f.key, v)}
+					>
+						{kind === "ntfy" && f.key === "topic" && (
+							<button
+								type="button"
+								className="ui-btn"
+								data-testid="wiz-generate-topic"
+								onClick={() => set("topic", generateTopic())}
+							>
+								{t(`${K}.generate`)}
+							</button>
+						)}
+					</Field>
+					{/* The hint belongs under the field it talks about. Nothing here
+					    checks that the ntfy server answers: Front Desk serves
+					    `connect-src 'self'`, so a fetch at the operator's own server is
+					    blocked before it leaves the page and could only ever report
+					    failure. Step 4 sends from Front Desk, which is the side that has
+					    to reach the server anyway. */}
+					{kind === "ntfy" && f.key === "server" && (
+						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
+							{t(`${K}.ntfyServerHint`)}
+						</p>
 					)}
-				</Field>
+				</Fragment>
 			))}
 
-			{/* Nothing here checks that the ntfy server answers: Front Desk serves
-			    `connect-src 'self'`, so a fetch at the operator's own server is
-			    blocked before it leaves the page and could only ever report
-			    failure. Step 4 sends from Front Desk, which is the side that has
-			    to reach the server anyway. */}
 			{kind === "ntfy" && (
 				<>
-					<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
-						{t(`${K}.ntfyServerHint`)}
-					</p>
 					<div className="fd-stack" style={{ gap: "0.3rem" }}>
 						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
 							{t(`${K}.ntfySubscribe`)}

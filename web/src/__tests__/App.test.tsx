@@ -14,7 +14,10 @@ function clearAuthCookie() {
 	document.cookie = "mh_csrf=; path=/; max-age=0";
 }
 
-vi.mock("../api/client", () => ({
+// Partial mock: the real module still supplies ApiError, which components
+// branch on with instanceof, so a hand-rolled stub would never match.
+vi.mock("../api/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../api/client")>()),
 	API_BASE: "",
 	// Cookie-derived auth signal so AppContent gates on it, mirroring production.
 	isAuthenticated: vi.fn(() => /mh_csrf=[^;\s]/.test(document.cookie)),

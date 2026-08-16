@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import {
 	type Dispatch,
+	Fragment,
 	type ReactNode,
 	useEffect,
 	useRef,
@@ -243,36 +244,40 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
-				<Field
-					key={f.key}
-					def={f}
-					label={t(`${K}.field.${f.key}`)}
-					value={value(f.key)}
-					onChange={(v) => set(f.key, v)}
-				>
-					{kind === "ntfy" && f.key === "topic" && (
-						<button
-							type="button"
-							className="ui-btn ui-btn-secondary shrink-0"
-							data-testid="wiz-generate-topic"
-							onClick={() => set("topic", generateTopic())}
-						>
-							{t(`${K}.generate`)}
-						</button>
+				<Fragment key={f.key}>
+					<Field
+						def={f}
+						label={t(`${K}.field.${f.key}`)}
+						value={value(f.key)}
+						onChange={(v) => set(f.key, v)}
+					>
+						{kind === "ntfy" && f.key === "topic" && (
+							<button
+								type="button"
+								className="ui-btn ui-btn-secondary shrink-0"
+								data-testid="wiz-generate-topic"
+								onClick={() => set("topic", generateTopic())}
+							>
+								{t(`${K}.generate`)}
+							</button>
+						)}
+					</Field>
+					{/* The hint belongs under the field it talks about. Nothing here
+					    checks that the ntfy server answers: Model Hotel serves
+					    `connect-src 'self'`, so a fetch at the operator's own server is
+					    blocked before it leaves the page and could only ever report
+					    failure. Step 4 sends from the server, which is the side that has
+					    to reach the ntfy server anyway. */}
+					{kind === "ntfy" && f.key === "server" && (
+						<p className="text-xs text-(--text-muted)">
+							{t(`${K}.ntfyServerHint`)}
+						</p>
 					)}
-				</Field>
+				</Fragment>
 			))}
 
-			{/* Nothing here checks that the ntfy server answers: Model Hotel serves
-			    `connect-src 'self'`, so a fetch at the operator's own server is
-			    blocked before it leaves the page and could only ever report
-			    failure. Step 4 sends from the server, which is the side that has to
-			    reach the ntfy server anyway. */}
 			{kind === "ntfy" && (
 				<>
-					<p className="text-xs text-(--text-muted)">
-						{t(`${K}.ntfyServerHint`)}
-					</p>
 					<div className="space-y-1">
 						<p className="text-xs text-(--text-muted)">
 							{t(`${K}.ntfySubscribe`)}

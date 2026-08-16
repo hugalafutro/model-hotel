@@ -48,12 +48,12 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 
 ### Guided setup
 
-**Settings → Alerts** carries exactly one guided button on either surface: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Every step verifies its own input against the real container before **Next** unlocks, and nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
+**Settings → Alerts** carries exactly one guided button on either surface: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Steps 1 and 4 verify against the real container before **Next** unlocks; the other steps unlock on their own input (a chosen tile, a valid, not-yet-used destination, a non-empty list). Nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
 
-The two runs differ in two places. Front Desk offers a **Bellhop** tile and Model Hotel does not: [[Bellhop]] notifies from Front Desk's own fleet poll, so the gateway's events never reach it. And a Model Hotel member whose settings are managed fleet-wide by config sync skips the events step, because Front Desk owns the event selection there; that run writes the Apprise API URL and the destinations and leaves the alert switches alone.
+The two runs differ in two places. Front Desk offers a **Bellhop** tile and Model Hotel does not: [[Bellhop]] notifies from Front Desk's own fleet poll, so the gateway's events never reach it. And on a Model Hotel member whose settings are managed fleet-wide by config sync the events step shows a note in place of the picker, because Front Desk owns the event selection there and there is nothing to choose; that run writes the Apprise API URL and the destinations and leaves the alert switches alone.
 
 ![Model Hotel Alerts card](screenshots/settings_alerts.png)
-*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off the card rolls up to its toggle.*
+*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list and the manual fields are hidden; the toggle, the event list and the guided button stay.*
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
 *Front Desk Settings - Alerts: the same card in Front Desk's styling.*
@@ -63,7 +63,7 @@ The two runs differ in two places. Front Desk offers a **Bellhop** tile and Mode
 3. **Details.** Plain fields for the tile you picked, with the composed Apprise URL rendered in clear underneath. You never type an Apprise URL yourself. A destination that is already stored, or already added earlier in this run, stops here: it cannot be added twice.
 4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A success is required before the wizard moves on. A failure says which part failed: apprise rejected the destination URL, apprise could not deliver it (check the server and topic, or the bot token), or apprise stopped answering. A Bellhop destination answers the test with a "push test received" notification on the phone (needs Bellhop 0.9.10 or newer); real alerts only wake it.
 5. **Destinations.** The destinations this run adds; anything already saved stays as it is. **Add another** returns to step 2. The wizard only appends; it never drops a destination you already had.
-6. **Events.** The event picker. A run on a surface with no saved selection starts from the recommended set; a run where you already saved one starts from that selection, including an empty one. **Reset to recommended** is always there to tick the recommended set again. Managed members skip this step entirely.
+6. **Events.** The event picker. A run on a surface with no saved selection starts from the recommended set; a run where you already saved one starts from that selection, including an empty one. **Reset to recommended** is always there to tick the recommended set again. On a managed member the step shows a note instead of the picker, because there is nothing to choose there, and **Next** carries on.
 7. **Finish.** One write covering the API URL, the destinations, the events and the enable toggle, so a failure leaves nothing half-applied. The final screen offers **Send test to everything**.
 
 ![Alerts wizard, step 1](screenshots/alerts_wizard_step1.png)
@@ -108,10 +108,13 @@ Current events:
 | Provider down (circuit breaker opened) | Failover | ✅ on | a provider's breaker trips |
 | Provider recovered (circuit breaker closed) | Failover | ✅ on | the breaker recovers |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
+| Provider disabled as scheduled | Failover | ✅ on | a provider reaches the disable date you set for it and the background sweep switches it off |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
-| Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
-| SSO identity bound | Security | ⬜ off | an external identity is bound to an admin account for the first time |
-| Quota schema drift | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
+| Model discrepancies left unaddressed | Discovery | ⬜ off | the Models badge has been asking for attention for longer than your threshold |
+| Model disabled (provider no longer serves it) | Discovery | ✅ on | the gateway disables a model because the provider keeps refusing it as retired |
+| Front Desk ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
+| SSO identity bound to an account | Security | ⬜ off | an external identity is bound to an admin account for the first time |
+| Provider changed its quota response shape | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
 
 On first run the default-on events are pre-selected. Deselecting everything means nothing fires.
 
