@@ -3,11 +3,13 @@ package alert
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -471,13 +473,14 @@ func TestTestSendHappyAndError(t *testing.T) {
 }
 
 func TestTestSendToReasons(t *testing.T) {
-	status := http.StatusOK
+	var status atomic.Int32
+	status.Store(http.StatusOK)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/notify" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(status)
+		w.WriteHeader(int(status.Load()))
 	}))
 	defer srv.Close()
 	d := New(fakeCfg{}, srv.Client())
@@ -499,13 +502,21 @@ func TestTestSendToReasons(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			status = tc.status
+			status.Store(int32(tc.status))
 			err := d.TestSendTo(context.Background(), tc.cfg)
 			if got := ReasonOf(err); got != tc.reason {
 				t.Errorf("reason = %q (err %v), want %q", got, err, tc.reason)
 			}
 			if tc.reason == "" && err != nil {
 				t.Errorf("unexpected error: %v", err)
+			}
+			if tc.reason == ReasonUnreachable {
+				// The transport error must still be reachable through the wrap
+				// chain, not just summarized by Reason.
+				var de *DeliveryError
+				if !errors.As(err, &de) || de.Unwrap() == nil {
+					t.Errorf("expected DeliveryError.Unwrap() to expose the transport error, got %v", err)
+				}
 			}
 		})
 	}

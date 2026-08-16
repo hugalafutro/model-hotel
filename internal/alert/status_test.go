@@ -73,9 +73,6 @@ func TestProbeConfigError(t *testing.T) {
 	}
 }
 
-// TestProbeIgnoresCorruptTarget guards against regressing to AlertConfig (which
-// decrypts the target): a target that can't be decrypted must not fail a
-// reachability probe when the URL is valid and reachable.
 func TestProbeURLReasons(t *testing.T) {
 	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("OK")) }))
 	defer healthy.Close()
@@ -89,6 +86,8 @@ func TestProbeURLReasons(t *testing.T) {
 	}{
 		{"blank", "   ", ReasonNotConfigured, false},
 		{"invalid", "://nope", ReasonInvalidURL, false},
+		{"no scheme", "apprise:8000", ReasonInvalidURL, false},
+		{"non-http scheme", "ftp://h", ReasonInvalidURL, false},
 		{"unreachable", "http://127.0.0.1:1", ReasonUnreachable, false},
 		{"unhealthy", sick.URL, ReasonUnhealthy, false},
 		{"healthy", healthy.URL, "", true},
@@ -115,6 +114,9 @@ func TestProbeDelegatesToProbeURL(t *testing.T) {
 	}
 }
 
+// TestProbeIgnoresCorruptTarget guards against regressing to AlertConfig (which
+// decrypts the target): a target that can't be decrypted must not fail a
+// reachability probe when the URL is valid and reachable.
 func TestProbeIgnoresCorruptTarget(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
 	defer srv.Close()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -47,6 +48,13 @@ func (d *Dispatcher) ProbeURL(ctx context.Context, base string) Status {
 	base = strings.TrimSpace(base)
 	if base == "" {
 		return Status{Configured: false, Reason: ReasonNotConfigured}
+	}
+	// Reject anything that isn't a real http(s) URL up front: url.Parse alone
+	// accepts garbage like "apprise:8000" (parsed as scheme "apprise", opaque
+	// "8000", empty Host) or "ftp://h", which would otherwise reach the HTTP
+	// client and get misreported as "unreachable" instead of "invalid".
+	if u, err := url.Parse(base); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return Status{Configured: true, Reason: ReasonInvalidURL, Detail: "invalid apprise-api URL"}
 	}
 	endpoint := strings.TrimRight(base, "/") + "/status"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
