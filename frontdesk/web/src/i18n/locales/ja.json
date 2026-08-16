@@ -307,8 +307,7 @@
 				"fleet_disbanded": "フリート解散",
 				"fleet_state_changed": "フリートの状態が変化しました",
 				"backup_stale": "メンバーに最近のバックアップがない",
-				"backup_recovered": "メンバーのバックアップが復旧した",
-				"backup_pruned": "Front Desk のバックアップを削除した"
+				"backup_recovered": "メンバーのバックアップが復旧した"
 			},
 			"saveBtn": "アラート設定を保存",
 			"testBtn": "テスト送信",
@@ -326,23 +325,6 @@
 			"ntfyTopicLabel": "ntfy トピック",
 			"ntfyTopicPlaceholder": "my-secret-topic",
 			"ntfyUse": "ターゲットに設定"
-		},
-		"maintenance": {
-			"title": "フリートのメンテナンス",
-			"pruneHint": "以前の Front Desk は、設定を同期するたびに各メンバーへデータベースダンプを要求しており、メンバー側のローテーションはそれらを削除しません。Front Desk はもう作成しないため、ここで残ったものを削除します。手動および定期バックアップはそのまま残ります。",
-			"pruneBtn": "Front Desk のバックアップを削除",
-			"pruneChecking": "確認中…",
-			"pruneTitle": "Front Desk のバックアップを削除",
-			"pruneBody_one": "Front Desk が作成したバックアップ {{count}} 件を完全に削除します。手動および定期バックアップはそのまま残ります。",
-			"pruneBody_other": "Front Desk が作成したバックアップ {{count}} 件を完全に削除します。手動および定期バックアップはそのまま残ります。",
-			"pruneNone": "メンバー上に Front Desk が作成したバックアップは見つかりませんでした。削除するものはありません。",
-			"pruneUnreadable": "一部のメンバーを読み取れなかったため、それらのバックアップはここに含まれていません。",
-			"pruneConfirm": "削除",
-			"pruning": "削除中…",
-			"pruneDone_one": "{{count}} 件のバックアップを削除しました",
-			"pruneDone_other": "{{count}} 件のバックアップを削除しました",
-			"pruneUnknown": "Front Desk はこの処理との接続を失いました。結果はイベントタブで確認してください。",
-			"pruneFailed": "バックアップを削除できませんでした"
 		},
 		"wizard": {
 			"title": "フリート同期ウィザード",

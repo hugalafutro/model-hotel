@@ -307,8 +307,7 @@
 				"fleet_disbanded": "Fleet disbanded",
 				"fleet_state_changed": "Fleet state changed",
 				"backup_stale": "Member has no recent backup",
-				"backup_recovered": "Member backups healthy again",
-				"backup_pruned": "Front Desk backups cleared"
+				"backup_recovered": "Member backups healthy again"
 			},
 			"saveBtn": "Save alert settings",
 			"testBtn": "Send test",
@@ -326,23 +325,6 @@
 			"ntfyTopicLabel": "ntfy topic",
 			"ntfyTopicPlaceholder": "my-secret-topic",
 			"ntfyUse": "Set as target"
-		},
-		"maintenance": {
-			"title": "Fleet maintenance",
-			"pruneHint": "Older Front Desk builds asked every member for a database dump before each config sync, and member-side rotation never removes those. Front Desk no longer creates them; this clears the ones left behind. Manual and scheduled backups are untouched.",
-			"pruneBtn": "Clear Front Desk backups",
-			"pruneChecking": "Checking…",
-			"pruneTitle": "Clear Front Desk backups",
-			"pruneBody_one": "This permanently deletes {{count}} backup taken by Front Desk. Manual and scheduled backups are left alone.",
-			"pruneBody_other": "This permanently deletes {{count}} backups taken by Front Desk. Manual and scheduled backups are left alone.",
-			"pruneNone": "No backups taken by Front Desk were found on your members. There is nothing to delete.",
-			"pruneUnreadable": "Some members could not be read, so any backups they hold are not counted here.",
-			"pruneConfirm": "Delete",
-			"pruning": "Deleting…",
-			"pruneDone_one": "Deleted {{count}} backup",
-			"pruneDone_other": "Deleted {{count}} backups",
-			"pruneUnknown": "Front Desk lost contact with this run. Check the Events tab for the result.",
-			"pruneFailed": "Could not clear the backups"
 		},
 		"wizard": {
 			"title": "Fleet sync wizard",

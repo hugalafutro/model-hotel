@@ -307,8 +307,7 @@
 				"fleet_disbanded": "集群已解散",
 				"fleet_state_changed": "集群状态已更改",
 				"backup_stale": "成员没有最近的备份",
-				"backup_recovered": "成员备份已恢复",
-				"backup_pruned": "已清除 Front Desk 备份"
+				"backup_recovered": "成员备份已恢复"
 			},
 			"saveBtn": "保存告警设置",
 			"testBtn": "发送测试",
@@ -326,23 +325,6 @@
 			"ntfyTopicLabel": "ntfy 主题",
 			"ntfyTopicPlaceholder": "my-secret-topic",
 			"ntfyUse": "设为目标"
-		},
-		"maintenance": {
-			"title": "集群维护",
-			"pruneHint": "旧版 Front Desk 会在每次配置同步前要求每个成员做一次数据库转储，而成员端的轮转从不清理它们。Front Desk 不再创建这些文件；此操作清除遗留的部分。手动和计划备份不受影响。",
-			"pruneBtn": "清除 Front Desk 备份",
-			"pruneChecking": "正在检查…",
-			"pruneTitle": "清除 Front Desk 备份",
-			"pruneBody_one": "这将永久删除 Front Desk 创建的 {{count}} 个备份。手动和计划备份将保留。",
-			"pruneBody_other": "这将永久删除 Front Desk 创建的 {{count}} 个备份。手动和计划备份将保留。",
-			"pruneNone": "成员上没有找到 Front Desk 创建的备份，无需删除。",
-			"pruneUnreadable": "部分成员无法读取，其备份未计入此数。",
-			"pruneConfirm": "删除",
-			"pruning": "正在删除…",
-			"pruneDone_one": "已删除 {{count}} 个备份",
-			"pruneDone_other": "已删除 {{count}} 个备份",
-			"pruneUnknown": "Front Desk 与本次操作失去了联系。请在事件标签页查看结果。",
-			"pruneFailed": "无法清除备份"
 		},
 		"wizard": {
 			"title": "集群同步向导",

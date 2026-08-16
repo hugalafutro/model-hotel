@@ -31,7 +31,6 @@ const EVENT_TYPES = [
 	"config.regenerated",
 	"backup.stale",
 	"backup.recovered",
-	"backup.pruned",
 	"device.paired",
 	"device.revoked",
 	"settings.changed",

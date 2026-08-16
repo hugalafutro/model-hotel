@@ -307,8 +307,7 @@
 				"fleet_disbanded": "Vloot ontbonden",
 				"fleet_state_changed": "Vlootstatus gewijzigd",
 				"backup_stale": "Lid zonder recente back-up",
-				"backup_recovered": "Lid wordt weer geback-upt",
-				"backup_pruned": "Front Desk-back-ups gewist"
+				"backup_recovered": "Lid wordt weer geback-upt"
 			},
 			"saveBtn": "Alert-instellingen opslaan",
 			"testBtn": "Test versturen",
@@ -326,23 +325,6 @@
 			"ntfyTopicLabel": "ntfy-onderwerp",
 			"ntfyTopicPlaceholder": "mijn-geheime-onderwerp",
 			"ntfyUse": "Instellen als doel"
-		},
-		"maintenance": {
-			"title": "Vlootonderhoud",
-			"pruneHint": "Oudere Front Desk-versies vroegen elk lid vóór elke configuratiesynchronisatie om een databasedump, en de rotatie op het lid zelf verwijdert die nooit. Front Desk maakt ze niet meer aan; hiermee wis je wat is achtergebleven. Handmatige en geplande back-ups blijven ongemoeid.",
-			"pruneBtn": "Front Desk-back-ups wissen",
-			"pruneChecking": "Bezig met controleren…",
-			"pruneTitle": "Front Desk-back-ups wissen",
-			"pruneBody_one": "Hiermee wordt {{count}} door Front Desk gemaakte back-up definitief verwijderd. Handmatige en geplande back-ups blijven behouden.",
-			"pruneBody_other": "Hiermee worden {{count}} door Front Desk gemaakte back-ups definitief verwijderd. Handmatige en geplande back-ups blijven behouden.",
-			"pruneNone": "Er zijn geen door Front Desk gemaakte back-ups op je leden gevonden. Er is niets te verwijderen.",
-			"pruneUnreadable": "Sommige leden konden niet worden gelezen, dus hun back-ups tellen hier niet mee.",
-			"pruneConfirm": "Verwijderen",
-			"pruning": "Bezig met verwijderen…",
-			"pruneDone_one": "{{count}} back-up verwijderd",
-			"pruneDone_other": "{{count}} back-ups verwijderd",
-			"pruneUnknown": "Front Desk is het contact met deze actie verloren. Bekijk het tabblad Gebeurtenissen voor het resultaat.",
-			"pruneFailed": "Kon de back-ups niet wissen"
 		},
 		"wizard": {
 			"title": "Vloot-sync-wizard",

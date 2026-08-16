@@ -4,7 +4,6 @@ import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
 import { ActiveSessionsPanel } from "../components/ActiveSessionsPanel";
 import { AlertsPanel } from "../components/AlertsPanel";
-import { FleetMaintenancePanel } from "../components/FleetMaintenancePanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { ObservabilityPanel } from "../components/ObservabilityPanel";
 import { OidcPanel } from "../components/OidcPanel";
@@ -250,8 +249,6 @@ export function SettingsPage() {
 			</form>
 
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
-
-			<FleetMaintenancePanel />
 
 			<div className="fd-settings-pair">
 				<AlertsPanel />

@@ -311,8 +311,7 @@
 				"fleet_disbanded": "Flotte dissoute",
 				"fleet_state_changed": "État de la flotte modifié",
 				"backup_stale": "Membre sans sauvegarde récente",
-				"backup_recovered": "Membre à nouveau sauvegardé",
-				"backup_pruned": "Sauvegardes Front Desk effacées"
+				"backup_recovered": "Membre à nouveau sauvegardé"
 			},
 			"saveBtn": "Enregistrer les paramètres d'alerte",
 			"testBtn": "Envoyer un test",
@@ -330,25 +329,6 @@
 			"ntfyTopicLabel": "Sujet ntfy",
 			"ntfyTopicPlaceholder": "mon-sujet-secret",
 			"ntfyUse": "Définir comme cible"
-		},
-		"maintenance": {
-			"title": "Maintenance de la flotte",
-			"pruneHint": "Les anciennes versions de Front Desk demandaient à chaque membre un vidage de base de données avant chaque synchronisation de configuration, et la rotation côté membre ne les supprime jamais. Front Desk ne les crée plus ; ceci efface celles qui restent. Les sauvegardes manuelles et planifiées ne sont pas touchées.",
-			"pruneBtn": "Effacer les sauvegardes Front Desk",
-			"pruneChecking": "Vérification…",
-			"pruneTitle": "Effacer les sauvegardes Front Desk",
-			"pruneBody_one": "Cette action supprime définitivement {{count}} sauvegarde créée par Front Desk. Les sauvegardes manuelles et planifiées sont conservées.",
-			"pruneBody_many": "Cette action supprime définitivement {{count}} sauvegardes créées par Front Desk. Les sauvegardes manuelles et planifiées sont conservées.",
-			"pruneBody_other": "Cette action supprime définitivement {{count}} sauvegardes créées par Front Desk. Les sauvegardes manuelles et planifiées sont conservées.",
-			"pruneNone": "Aucune sauvegarde créée par Front Desk n'a été trouvée sur vos membres. Il n'y a rien à supprimer.",
-			"pruneUnreadable": "Certains membres n'ont pas pu être lus, leurs sauvegardes ne sont donc pas comptées ici.",
-			"pruneConfirm": "Supprimer",
-			"pruning": "Suppression…",
-			"pruneDone_one": "{{count}} sauvegarde supprimée",
-			"pruneDone_many": "{{count}} sauvegardes supprimées",
-			"pruneDone_other": "{{count}} sauvegardes supprimées",
-			"pruneUnknown": "Front Desk a perdu le contact avec cette exécution. Consultez l'onglet Événements pour le résultat.",
-			"pruneFailed": "Impossible d'effacer les sauvegardes"
 		},
 		"wizard": {
 			"title": "Assistant de synchronisation de flotte",
