@@ -109,6 +109,15 @@ const KIND_HINT: Record<DestinationKind, string> = {
 	other: "kindOtherHint",
 };
 
+// Four tiles are named after the service itself, so they reuse the shared
+// settings.alerts.kind.* labels. Two need more than the bare name to be
+// picked correctly: "ntfy" means nothing until it says it is the phone app,
+// and "Apprise URL" is the catch-all rather than a service.
+const KIND_TITLE: Partial<Record<DestinationKind, string>> = {
+	ntfy: "kindNtfyTitle",
+	other: "kindOtherTitle",
+};
+
 export function StepKind({
 	state,
 	dispatch,
@@ -164,7 +173,9 @@ export function StepKind({
 							/>
 							<span>
 								<span style={{ display: "block", fontWeight: 600 }}>
-									{t(`settings.alerts.kind.${kind}`)}
+									{KIND_TITLE[kind]
+										? t(`${K}.${KIND_TITLE[kind]}`)
+										: t(`settings.alerts.kind.${kind}`)}
 								</span>
 								<span
 									className="fd-faint"

@@ -217,7 +217,7 @@
     <string name="settings_push_no_distributor">Installeer een UnifiedPush-distributeur zoals ntfy om pushes te ontvangen. Zonder een blijft dit inactief tot je er een toevoegt.</string>
     <string name="settings_push_endpoint_label">Push-onderwerp voor Front Desk</string>
     <string name="settings_push_endpoint_waiting">Wachten tot de distributeur een push-onderwerp teruggeeft…</string>
-    <string name="settings_push_endpoint_note">Plak dit in Front Desk → Instellingen → Waarschuwingen als het telefoononderwerp, zodat zijn waarschuwingen Bellhop wekken.</string>
+    <string name="settings_push_endpoint_note">Kies in Front Desk → Instellingen → Waarschuwingen voor Bestemming toevoegen en de Bellhop-tegel, en plak dit daar.</string>
     <string name="settings_push_copy">Push-onderwerp kopiëren</string>
     <string name="settings_push_copied">Push-onderwerp gekopieerd</string>
     <string name="settings_push_blocked">Meldingen staan uit voor Bellhop, dus pushes kunnen je niet bereiken. Zet ze aan in de systeeminstellingen.</string>

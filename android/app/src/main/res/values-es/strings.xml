@@ -217,7 +217,7 @@
     <string name="settings_push_no_distributor">Instala un distribuidor de UnifiedPush como ntfy para recibir pushes. Sin uno, esto permanece inactivo hasta que añadas uno.</string>
     <string name="settings_push_endpoint_label">Tema de push para Front Desk</string>
     <string name="settings_push_endpoint_waiting">Esperando a que el distribuidor devuelva un tema de push…</string>
-    <string name="settings_push_endpoint_note">Pega esto en Front Desk → Configuración → Alertas como el tema del teléfono, para que sus alertas despierten Bellhop.</string>
+    <string name="settings_push_endpoint_note">En Front Desk → Configuración → Alertas, elige Añadir destino y el mosaico Bellhop, y luego pégalo ahí.</string>
     <string name="settings_push_copy">Copiar tema de push</string>
     <string name="settings_push_copied">Tema de push copiado</string>
     <string name="settings_push_blocked">Las notificaciones de Bellhop están desactivadas, así que los pushes no pueden llegarte. Actívalas en los ajustes del sistema.</string>

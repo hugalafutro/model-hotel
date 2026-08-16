@@ -53,7 +53,7 @@ Front Desk's **Settings → Alerts** card leads with **Set up alerts** (**Re-run
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
 *Front Desk Settings - Alerts: the status pill, the plaintext Destinations list with per-row Copy, Test and Remove, the Re-run setup / Add destination buttons, and the individual fields folded into "Manual configuration (advanced)".*
 
-1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000` (the service name in the compose block above). **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
+1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the Front Desk stack in `deploy/ha/docker-compose.yml` (it ships commented out; uncomment it as shown under [Phone push](#phone-push-ntfy-and-bellhop)). Front Desk sends its own fleet and member alerts, so the container belongs beside it rather than in the main gateway's `docker-compose.yml`. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
 2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Bellhop**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**.
 3. **Details.** Plain fields for the tile you picked, with the composed Apprise URL rendered in clear underneath. You never type an Apprise URL yourself.
 4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A failure says which part failed: apprise rejected the destination URL, apprise could not deliver it (check the server and topic, or the bot token), or apprise stopped answering.
@@ -72,12 +72,14 @@ Front Desk's **Settings → Alerts** card leads with **Set up alerts** (**Re-run
 
 ### Manual configuration
 
-The individual fields remain available on both surfaces: on Front Desk under the **Manual configuration (advanced)** disclosure, on the Model Hotel dashboard as the card itself. Open **Settings → Alerts**:
+On the Model Hotel dashboard the individual fields are the whole surface. Open **Settings → Alerts**:
 
-- Toggle alerting on.
-- Set **Apprise API URL** to `http://apprise:8000` (the service name from compose).
-- Paste your **Notification target(s)**: one or more Apprise URLs separated by `;`, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)).
-- Click **Send test** to verify the whole chain end to end.
+- Turn **Enable alerting** on.
+- Set **Apprise API URL** to `http://apprise:8000` (the service name in the gateway's own compose block above).
+- Paste your **Notification target**: one or more Apprise URLs separated by `;`, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)).
+- Click **Send test notification** to verify the whole chain end to end.
+
+Front Desk offers the same fields under its **Manual configuration (advanced)** disclosure, below the Destinations list, for adjusting a saved setup without walking the wizard again.
 
 A live **reachability indicator** next to the URL shows whether the gateway can reach the apprise-api container: green (reachable), amber (reachable but the container reports an issue), or red (unreachable, e.g. wrong URL or the container isn't running), so a misconfiguration is visible immediately rather than only when an event later fails to send. Use **Re-check** to re-probe.
 
@@ -158,7 +160,10 @@ services:
 
 ## Security
 
-The notification target typically contains a credential (a bot token, an SMTP password). Model Hotel **encrypts it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys, and the dashboard only ever shows a masked placeholder; the stored value is never returned to the browser. To change it, type a new value; to keep it, leave the field untouched.
+The notification target typically contains a credential (a bot token, an SMTP password). Both surfaces **encrypt it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys (Front Desk with its own `FRONTDESK_MASTER_KEY`). What they show differs:
+
+- On the **Model Hotel dashboard** the field only ever shows a masked placeholder, and the stored value is never returned to the browser. To change it, type a new value; to keep it, leave the field untouched.
+- On **Front Desk** the **Destinations** list shows each saved destination in clear to signed-in admins, for the reason given under [Notification targets](#notification-targets): an admin can already rewrite the targets and fire a test at them, so masking hides nothing from them and only makes it harder to check what is stored. `GET /api/alert/targets` is the one endpoint that decrypts, and it is admin-only.
 
 ## Reliability
 

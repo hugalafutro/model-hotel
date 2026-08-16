@@ -214,7 +214,7 @@
     <string name="settings_push_no_distributor">安装 UnifiedPush 分发器（如 ntfy）以接收推送。没有分发器时，此项在你添加之前保持未激活。</string>
     <string name="settings_push_endpoint_label">用于 Front Desk 的推送主题</string>
     <string name="settings_push_endpoint_waiting">正在等待分发器返回推送主题…</string>
-    <string name="settings_push_endpoint_note">将此粘贴到 Front Desk → 设置 → 警报 中作为手机主题，这样它的警报便能唤醒 Bellhop。</string>
+    <string name="settings_push_endpoint_note">在 Front Desk → 设置 → 警报 中依次选择 添加目标 和 Bellhop 磁贴，然后将其粘贴到那里。</string>
     <string name="settings_push_copy">复制推送主题</string>
     <string name="settings_push_copied">已复制推送主题</string>
     <string name="settings_push_blocked">Bellhop 的通知已关闭，因此推送无法送达。请在系统设置中开启。</string>

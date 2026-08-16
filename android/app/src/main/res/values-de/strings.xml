@@ -217,7 +217,7 @@
     <string name="settings_push_no_distributor">Installiere einen UnifiedPush-Distributor wie ntfy, um Pushes zu empfangen. Ohne einen bleibt dies inaktiv, bis du einen hinzufügst.</string>
     <string name="settings_push_endpoint_label">Push-Thema für Front Desk</string>
     <string name="settings_push_endpoint_waiting">Warten, bis der Distributor ein Push-Thema zurückgibt…</string>
-    <string name="settings_push_endpoint_note">Füge dies in Front Desk → Einstellungen → Warnungen als Telefon-Thema ein, damit dessen Warnungen Bellhop wecken.</string>
+    <string name="settings_push_endpoint_note">Wähle in Front Desk → Einstellungen → Warnungen Ziel hinzufügen und die Bellhop-Kachel, und füge dies dann dort ein.</string>
     <string name="settings_push_copy">Push-Thema kopieren</string>
     <string name="settings_push_copied">Push-Thema kopiert</string>
     <string name="settings_push_blocked">Benachrichtigungen für Bellhop sind aus, daher können Pushes dich nicht erreichen. Schalte sie in den Systemeinstellungen ein.</string>
