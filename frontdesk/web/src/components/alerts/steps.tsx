@@ -88,7 +88,7 @@ export function StepApprise({
 					role="status"
 					data-testid="wiz-api-status"
 					data-ok={status.healthy ? "true" : "false"}
-					className={status.healthy ? "fd-faint" : "fd-error-text"}
+					className={status.healthy ? "fd-ok-text" : "fd-error-text"}
 				>
 					{status.healthy
 						? t(`${K}.apiOk`)
@@ -376,7 +376,7 @@ export function StepTest({
 					role="status"
 					data-testid="wiz-test-result"
 					data-ok={state.testOk ? "true" : "false"}
-					className={state.testOk ? "fd-faint" : "fd-error-text"}
+					className={state.testOk ? "fd-ok-text" : "fd-error-text"}
 				>
 					{state.testOk
 						? t(`${K}.testSent.${kind}`)
@@ -448,7 +448,7 @@ export function StepDestinations({
 					role="status"
 					data-testid="wiz-row-test-result"
 					data-ok={rowTest.state === "ok" ? "true" : "false"}
-					className={rowTest.state === "ok" ? "fd-faint" : "fd-error-text"}
+					className={rowTest.state === "ok" ? "fd-ok-text" : "fd-error-text"}
 					style={{ fontSize: "0.82rem" }}
 				>
 					{rowTest.state === "ok"
@@ -593,7 +593,7 @@ export function StepFinish({
 						role="status"
 						data-testid="wiz-sent-all"
 						data-ok={state.sentAll === "ok" ? "true" : "false"}
-						className={state.sentAll === "ok" ? "fd-faint" : "fd-error-text"}
+						className={state.sentAll === "ok" ? "fd-ok-text" : "fd-error-text"}
 						style={{ fontSize: "0.82rem" }}
 					>
 						{state.sentAll === "ok"

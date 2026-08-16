@@ -513,6 +513,11 @@ h3 {
 	color: var(--danger);
 	font-size: 0.85rem;
 }
+/* Success counterpart of .fd-error-text: green result lines (probe ok, test sent). */
+.fd-ok-text {
+	color: var(--ok);
+	font-size: 0.85rem;
+}
 
 /* --- modal --- */
 .fd-modal-backdrop {
