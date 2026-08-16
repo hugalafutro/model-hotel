@@ -14,6 +14,7 @@ export function DestinationList({
 	onRemove,
 	onTest,
 	busy,
+	disabledReason,
 }: {
 	/** Plaintext Apprise URLs, in stored order. */
 	targets: string[];
@@ -23,9 +24,15 @@ export function DestinationList({
 	onTest: (url: string) => void;
 	/** True while the card is saving or testing: row actions are blocked. */
 	busy: boolean;
+	// Why testing and removing are unavailable right now (e.g. the manual field
+	// holds an unsaved change, so this list no longer describes what is stored).
+	// Set: the note is shown, and both row actions are blocked and carry it as a
+	// tooltip. Undefined: the rows act normally.
+	disabledReason?: string;
 }) {
 	const { t } = useTranslation();
 	const [removing, setRemoving] = useState<string | null>(null);
+	const blocked = busy || !!disabledReason;
 
 	if (targets.length === 0) {
 		return (
@@ -41,8 +48,21 @@ export function DestinationList({
 
 	return (
 		<div className="fd-stack" style={{ gap: "0.4rem" }}>
+			{disabledReason && (
+				<div
+					className="fd-faint"
+					data-testid="alert-destinations-dirty"
+					style={{ fontSize: "0.78rem" }}
+				>
+					{disabledReason}
+				</div>
+			)}
 			{targets.map((url) => {
 				const info = describeTarget(url);
+				const kindLabel = t(`settings.alerts.kind.${info.kind}`);
+				// Every row carries the same three buttons, so the accessible name
+				// says which destination it acts on.
+				const rowName = `${kindLabel} ${info.host}`;
 				return (
 					<div
 						key={url}
@@ -54,9 +74,7 @@ export function DestinationList({
 							alignItems: "center",
 						}}
 					>
-						<span className="ui-badge ui-badge-info">
-							{t(`settings.alerts.kind.${info.kind}`)}
-						</span>
+						<span className="ui-badge ui-badge-info">{kindLabel}</span>
 						<span style={{ fontSize: "0.85rem" }}>{info.host}</span>
 						<code
 							className="fd-mono"
@@ -68,12 +86,14 @@ export function DestinationList({
 							className="fd-row"
 							style={{ gap: "0.3rem", marginLeft: "auto" }}
 						>
-							<CopyButton url={url} />
+							<CopyButton url={url} rowName={rowName} />
 							<button
 								type="button"
 								className="ui-btn ui-btn-sm"
 								data-testid="alert-destination-test"
-								disabled={busy}
+								aria-label={`${t("settings.alerts.testRow")}: ${rowName}`}
+								title={disabledReason}
+								disabled={blocked}
 								onClick={() => onTest(url)}
 							>
 								{t("settings.alerts.testRow")}
@@ -82,7 +102,9 @@ export function DestinationList({
 								type="button"
 								className="ui-btn ui-btn-sm"
 								data-testid="alert-destination-remove"
-								disabled={busy}
+								aria-label={`${t("settings.alerts.removeRow")}: ${rowName}`}
+								title={disabledReason}
+								disabled={blocked}
 								onClick={() => setRemoving(url)}
 							>
 								{t("settings.alerts.removeRow")}
@@ -116,7 +138,7 @@ export function DestinationList({
 // CopyButton puts one target URL on the clipboard so it can be pasted into
 // another Front Desk or a service's own UI. A blocked clipboard is silent; the
 // row text stays selectable.
-function CopyButton({ url }: { url: string }) {
+function CopyButton({ url, rowName }: { url: string; rowName: string }) {
 	const { t } = useTranslation();
 	const [copied, setCopied] = useState(false);
 	const copy = async () => {
@@ -133,6 +155,7 @@ function CopyButton({ url }: { url: string }) {
 			type="button"
 			className="ui-btn ui-btn-sm"
 			data-testid="alert-destination-copy"
+			aria-label={`${t("common.copy")}: ${rowName}`}
 			onClick={copy}
 		>
 			{copied ? t("common.copied") : t("common.copy")}

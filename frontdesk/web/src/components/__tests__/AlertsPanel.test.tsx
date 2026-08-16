@@ -202,11 +202,45 @@ it("surfaces a rejected removal instead of silently keeping the row", async () =
 	expect(screen.getByTestId("alert-destination-row")).toBeInTheDocument();
 });
 
+// The rows describe what is stored, so an unsaved edit to the manual field puts
+// them out of sync: both row actions wait until the edit is saved (or undone).
+it("blocks the row actions while the manual targets field is dirty", async () => {
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", () => new HttpResponse(null, { status: 204 })),
+	);
+	renderPanel();
+	await screen.findByTestId("alert-destination-row");
+	expect(screen.getByTestId("alert-destination-remove")).toBeEnabled();
+	expect(screen.queryByTestId("alert-destinations-dirty")).toBeNull();
+
+	// Appending through the ntfy helper leaves the field ahead of the stored list.
+	await userEvent.type(screen.getByLabelText(/ntfy topic/i), "second");
+	await userEvent.click(screen.getByRole("button", { name: /set as target/i }));
+	expect(screen.getByTestId("alert-destinations-dirty")).toBeInTheDocument();
+	expect(screen.getByTestId("alert-destination-remove")).toBeDisabled();
+	expect(screen.getByTestId("alert-destination-test")).toBeDisabled();
+
+	// Saving re-reads the stored list, which puts the field back in sync.
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+	await waitFor(() =>
+		expect(screen.getByTestId("alert-destination-remove")).toBeEnabled(),
+	);
+	expect(screen.queryByTestId("alert-destinations-dirty")).toBeNull();
+});
+
 it("tests a single row without persisting the form", async () => {
 	let testBody: { targets?: string[] } | undefined;
 	let putHit = false;
+	let statusReads = 0;
 	baseHandlers();
 	server.use(
+		http.get("/api/alert/status", () => {
+			statusReads += 1;
+			return HttpResponse.json(okStatus);
+		}),
 		http.put("/api/settings", () => {
 			putHit = true;
 			return new HttpResponse(null, { status: 204 });
@@ -222,6 +256,8 @@ it("tests a single row without persisting the form", async () => {
 	await waitFor(() => expect(testBody).toBeDefined());
 	expect(testBody?.targets).toEqual(["ntfys://ntfy.example.com/secret1"]);
 	expect(putHit).toBe(false);
+	// The probe result is re-read afterwards, so the pill reflects the attempt.
+	await waitFor(() => expect(statusReads).toBeGreaterThan(1));
 });
 
 // A 502 from the test endpoint carries a machine-readable code; the card turns

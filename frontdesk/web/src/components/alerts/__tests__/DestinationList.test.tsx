@@ -85,6 +85,49 @@ it("keeps the destination when the confirm is cancelled", async () => {
 	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(2);
 });
 
+it("blocks and explains the row actions when a reason is given", () => {
+	render(
+		<DestinationList
+			targets={targets}
+			onRemove={() => {}}
+			onTest={() => {}}
+			busy={false}
+			disabledReason="unsaved change"
+		/>,
+	);
+	expect(screen.getByTestId("alert-destinations-dirty")).toHaveTextContent(
+		"unsaved change",
+	);
+	const remove = screen.getAllByTestId("alert-destination-remove")[0];
+	expect(remove).toBeDisabled();
+	expect(remove).toHaveAttribute("title", "unsaved change");
+	expect(screen.getAllByTestId("alert-destination-test")[0]).toBeDisabled();
+	// Copying is local, so it stays available.
+	expect(screen.getAllByTestId("alert-destination-copy")[0]).toBeEnabled();
+});
+
+// Three identical button labels per row, so the accessible name says which
+// destination each one acts on.
+it("names every row action after its destination", () => {
+	render(
+		<DestinationList
+			targets={targets}
+			onRemove={() => {}}
+			onTest={() => {}}
+			busy={false}
+		/>,
+	);
+	expect(
+		screen.getByRole("button", { name: "Remove: ntfy ntfy.example.com" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Test: Telegram api.telegram.org" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Copy: Telegram api.telegram.org" }),
+	).toBeInTheDocument();
+});
+
 it("copies a target URL to the clipboard", async () => {
 	const writeText = vi.fn().mockResolvedValue(undefined);
 	Object.defineProperty(navigator, "clipboard", {

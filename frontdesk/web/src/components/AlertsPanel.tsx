@@ -220,7 +220,8 @@ export function AlertsPanel() {
 
 	// testDestination delivers to one saved destination only, so a fleet with
 	// several phones can tell which one is broken. It tests what is stored, so
-	// nothing on screen is persisted first.
+	// nothing on screen is persisted first; the probe result is refreshed after,
+	// exactly as a full Send test does.
 	const testDestination = async (dest: string) => {
 		setSaveError("");
 		setTesting(true);
@@ -231,6 +232,7 @@ export function AlertsPanel() {
 			setSaveError(describeError(err));
 			toast(t("settings.alerts.testFailed"), "error");
 		} finally {
+			await refreshStatus();
 			setTesting(false);
 		}
 	};
@@ -262,6 +264,11 @@ export function AlertsPanel() {
 		});
 
 	const busy = saving || testing;
+
+	// The manual field holds an unsaved edit, so the rows below no longer describe
+	// what is stored: testing or removing one would act on the stored list while
+	// the operator is looking at a different one. Both row actions wait for a Save.
+	const targetsDirty = target.trim() !== targets.join("; ");
 
 	return (
 		<div className="ui-card ui-card-pad fd-stack">
@@ -316,6 +323,11 @@ export function AlertsPanel() {
 							onRemove={removeDestination}
 							onTest={testDestination}
 							busy={busy}
+							disabledReason={
+								targetsDirty
+									? t("settings.alerts.destinationsDirty")
+									: undefined
+							}
 						/>
 					</div>
 

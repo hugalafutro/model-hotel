@@ -330,6 +330,7 @@
 			"destinationsEmpty": "No destinations yet.",
 			"destinationsNote": "Shown in clear to admins. Anyone who can read this page can already change it.",
 			"destinationsError": "Stored destinations cannot be read (master key rotated?). Remove them below and set them up again.",
+			"destinationsDirty": "Save or clear the pending change to Notification targets before testing or removing a destination.",
 			"testRow": "Test",
 			"removeRow": "Remove",
 			"removeTitle": "Remove destination",

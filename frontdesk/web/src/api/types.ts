@@ -115,10 +115,13 @@ export interface Settings {
 	// Admin-UI inactivity auto-logout window in minutes; 0 disables it. Consumed
 	// by useIdleLogout to sign the operator out after inactivity.
 	session_idle_timeout_minutes: number;
-	// Outbound Apprise alerting. alert_apprise_targets is masked over the API
-	// ("********" when a secret is stored); echo it back unchanged to preserve the
-	// stored value, send a new value to replace it, or "" to clear it. alert_events
-	// is a CSV of enabled event Types (the per-event picker).
+	// Outbound Apprise alerting. GET /api/settings still serves
+	// alert_apprise_targets masked ("********" when a secret is stored), and a PUT
+	// that echoes the mask back preserves the stored value, for compatibility with
+	// clients that never see the plaintext. The admin UI does not use that path: it
+	// reads the plaintext list from GET /api/alert/targets, shows it in clear, and
+	// always PUTs a real value ("" clears it) so the mask is never sent back.
+	// alert_events is a CSV of enabled event Types (the per-event picker).
 	alert_enabled: boolean;
 	alert_apprise_api_url: string;
 	alert_apprise_targets: string;
