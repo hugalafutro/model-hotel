@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AlertsSettings } from "../AlertsSettings";
@@ -23,6 +24,12 @@ function mockTargets(targets: string[]) {
 	server.use(
 		http.get("/api/alert/targets", () => HttpResponse.json({ targets })),
 	);
+}
+
+// toastText is the message of the toast currently on screen. Tests compare it
+// with i18n.t(...) rather than a literal so they hold in any locale.
+function toastText() {
+	return screen.getByTestId("toast-message").textContent;
 }
 
 // failTargets makes the destination read fail the way an unreadable stored
@@ -180,7 +187,7 @@ describe("AlertsSettings", () => {
 				targets: ["ntfys://ntfy.example.com/topic1"],
 			}),
 		);
-		expect(screen.getByText("Test notification sent.")).toBeInTheDocument();
+		expect(toastText()).toBe(i18n.t("settings.alerts.testSent"));
 	});
 
 	it("explains a row test failure with the reported reason", async () => {
@@ -205,9 +212,11 @@ describe("AlertsSettings", () => {
 
 		await user.click(await screen.findByTestId("alert-destination-test"));
 		await waitFor(() =>
-			expect(
-				screen.getByText(/apprise-api could not deliver\. For ntfy/),
-			).toBeInTheDocument(),
+			expect(toastText()).toBe(
+				i18n.t("settings.alerts.testFailed", {
+					message: i18n.t("settings.alerts.reason.deliver_failed"),
+				}),
+			),
 		);
 	});
 
@@ -266,8 +275,8 @@ describe("AlertsSettings", () => {
 		);
 
 		expect(
-			await screen.findByTestId("alert-destinations-error"),
-		).toHaveTextContent("Unknown error");
+			(await screen.findByTestId("alert-destinations-error")).textContent,
+		).toBe(i18n.t("settings.alerts.destinations.readFailed"));
 	});
 
 	it("shows the destination read failure even when alerting is off", async () => {
@@ -310,6 +319,57 @@ describe("AlertsSettings", () => {
 		);
 
 		expect(await screen.findByTestId("alert-status-hint")).toBeInTheDocument();
+	});
+
+	// countTargetReads serves the destination list and counts how often it is
+	// asked for, so a test can prove a write dropped the cached copy.
+	function countTargetReads() {
+		const reads = { n: 0 };
+		server.use(
+			http.get("/api/alert/targets", () => {
+				reads.n += 1;
+				return HttpResponse.json({ targets: [] });
+			}),
+		);
+		return reads;
+	}
+
+	it("re-reads the destinations after a settings write", async () => {
+		mockSettings({ alert_enabled: "true" });
+		const reads = countTargetReads();
+		capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => expect(reads.n).toBe(1));
+		const input = await screen.findByTestId("alert-api-url-input");
+		await user.type(input, "http://apprise:8000");
+		await user.tab();
+
+		await waitFor(() => expect(reads.n).toBeGreaterThan(1));
+	});
+
+	it("re-reads the destinations after a setting is reset", async () => {
+		// A reset clears the Apprise address and targets just as an edit can, so
+		// the decrypted list it produced is stale either way.
+		mockSettings({ alert_enabled: "true" });
+		const reads = countTargetReads();
+		server.use(http.delete("/api/settings", () => HttpResponse.json({})));
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => expect(reads.n).toBe(1));
+		await user.click(
+			screen.getAllByRole("button", {
+				name: i18n.t("settings.common.resetSetting"),
+			})[0],
+		);
+
+		await waitFor(() => expect(reads.n).toBeGreaterThan(1));
 	});
 
 	it("keeps the destinations and the guided run usable on a managed member", async () => {
@@ -509,11 +569,12 @@ describe("AlertsSettings", () => {
 		// The decoded {code, error} body's code picks the translated, actionable
 		// sentence; the server's own English text never reaches the toast.
 		await waitFor(() =>
-			expect(
-				screen.getByText(/Nothing answered at that address/),
-			).toBeInTheDocument(),
+			expect(toastText()).toBe(
+				i18n.t("settings.alerts.testFailed", {
+					message: i18n.t("settings.alerts.reason.unreachable"),
+				}),
+			),
 		);
-		expect(screen.queryByText(/apprise-api unreachable$/)).toBeNull();
 	});
 
 	it("toggles a whole category with select-all/none", async () => {
@@ -594,13 +655,16 @@ describe("AlertsSettings", () => {
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
+		const row = await screen.findByTestId("alert-status");
 		await waitFor(() =>
-			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
+			expect(row).toHaveTextContent(
+				i18n.t("settings.alerts.status.unreachable"),
+			),
 		);
 		// The reason code is the translated, actionable half; the raw server text
 		// stays a tooltip so it never becomes the message.
-		expect(screen.getByTestId("alert-status-note")).toHaveTextContent(
-			"Nothing answered at that address",
+		expect(screen.getByTestId("alert-status-note").textContent).toBe(
+			i18n.t("settings.alerts.reason.unreachable"),
 		);
 		expect(screen.queryByText(/no route to host/)).toBeNull();
 	});

@@ -1625,6 +1625,7 @@
 				"note": "Shown in clear to admins. Anyone who can read this page can already change them.",
 				"empty": "No destinations yet.",
 				"error": "Stored destinations cannot be read (master key rotated?). Remove them below and set them up again.",
+				"readFailed": "Could not read the stored destinations.",
 				"dirty": "Save or clear the pending change to the notification target before testing or removing a destination."
 			},
 			"enable": "Enable alerting",

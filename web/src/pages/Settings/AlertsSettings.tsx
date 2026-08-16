@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
@@ -47,7 +47,6 @@ export function AlertsSettings({
 }: AlertsSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const queryClient = useQueryClient();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
@@ -73,6 +72,9 @@ export function AlertsSettings({
 		queryKey: ["alert-targets"],
 		queryFn: () => api.alert.targets(),
 		refetchOnWindowFocus: false,
+		// A stored value that cannot be decrypted fails the same way every time,
+		// so a retry only delays the message that says so.
+		retry: false,
 	});
 	const targets = targetsQuery.data?.targets ?? [];
 	const storedTargets = targets.join("; ");
@@ -88,7 +90,7 @@ export function AlertsSettings({
 		targetsError === "undecryptable"
 			? t("settings.alerts.destinations.error")
 			: targetsError === "generic"
-				? t("common.unknownError")
+				? t("settings.alerts.destinations.readFailed")
 				: "";
 
 	// A validation error (400) carries a safe, user-facing message and a 502 from
@@ -133,19 +135,9 @@ export function AlertsSettings({
 		refetchOnWindowFocus: false,
 	});
 
-	// The decrypted destinations and the reachability probe both describe what is
-	// stored, so a write to the address or the target list makes both stale.
-	const saveAlertConfig = (updates: Record<string, string>) =>
-		updateMutation.mutate(updates, {
-			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: ["alert-targets"] });
-				queryClient.invalidateQueries({ queryKey: ["alert-status"] });
-			},
-		});
-
 	const commitApiUrl = () => {
 		if (apiUrlDraft !== null && apiUrlDraft !== apiUrl) {
-			saveAlertConfig({ alert_apprise_api_url: apiUrlDraft });
+			updateMutation.mutate({ alert_apprise_api_url: apiUrlDraft });
 		}
 		setApiUrlDraft(null);
 	};
@@ -154,24 +146,27 @@ export function AlertsSettings({
 	// writes nothing and an emptied field clears the destinations.
 	const commitTarget = () => {
 		if (targetDraft !== null && targetDraft.trim() !== storedTargets) {
-			saveAlertConfig({ alert_apprise_targets: targetDraft.trim() });
+			updateMutation.mutate({ alert_apprise_targets: targetDraft.trim() });
 		}
 		setTargetDraft(null);
 	};
 
 	const clearTarget = () => {
-		saveAlertConfig({ alert_apprise_targets: "" });
+		updateMutation.mutate({ alert_apprise_targets: "" });
 		setTargetDraft(null);
 	};
 
 	// Removing one destination persists the rest; an empty remaining list sends
 	// "", which clears the setting.
 	const removeDestination = (url: string) =>
-		saveAlertConfig({
+		updateMutation.mutate({
 			alert_apprise_targets: targets.filter((x) => x !== url).join("; "),
 		});
 
-	const busy = updateMutation.isPending || rowTestMutation.isPending;
+	const busy =
+		updateMutation.isPending ||
+		testMutation.isPending ||
+		rowTestMutation.isPending;
 
 	// The manual field holds an unsaved edit, so the rows no longer describe what
 	// is stored: testing or removing one would act on the stored list while the
@@ -400,9 +395,66 @@ export function AlertsSettings({
 
 				{enabled && (
 					<div className="space-y-1.5" data-testid="alert-destinations">
-						<p className="text-sm font-medium text-(--text-secondary)">
-							{t("settings.alerts.destinations.title")}
-						</p>
+						{/* Whether apprise-api can be reached decides whether any of these
+						    destinations can be delivered to, so the probe sits with the
+						    list it qualifies and stays out of the collapsed manual block
+						    that holds the address itself. */}
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<p className="text-sm font-medium text-(--text-secondary)">
+								{t("settings.alerts.destinations.title")}
+							</p>
+							{apiUrl !== "" && (
+								<div
+									className="flex items-center gap-2 text-xs"
+									data-testid="alert-status"
+								>
+									{statusQuery.isFetching ? (
+										<span className="inline-flex items-center gap-1.5 text-gray-400">
+											<RefreshCw size={12} className="animate-spin" />
+											{t("settings.alerts.status.checking")}
+										</span>
+									) : statusQuery.isError ? (
+										<span className="inline-flex items-center gap-1.5 text-gray-300">
+											<span
+												className="inline-block w-2 h-2 rounded-full bg-red-500"
+												aria-hidden="true"
+											/>
+											{t("settings.alerts.status.checkFailed")}
+										</span>
+									) : status ? (
+										<>
+											<span
+												className="inline-flex items-center gap-1.5 text-gray-300"
+												title={status.detail}
+											>
+												<span
+													className={`inline-block w-2 h-2 rounded-full ${statusDot}`}
+													aria-hidden="true"
+												/>
+												{statusText}
+											</span>
+											{statusReason !== "" && (
+												<span
+													className="text-(--text-secondary)"
+													data-testid="alert-status-note"
+												>
+													{statusReason}
+												</span>
+											)}
+										</>
+									) : null}
+									<button
+										type="button"
+										className="ui-link-accent inline-flex items-center gap-1"
+										onClick={() => statusQuery.refetch()}
+										data-testid="alert-status-recheck"
+									>
+										<RefreshCw size={11} />
+										{t("settings.alerts.status.recheck")}
+									</button>
+								</div>
+							)}
+						</div>
 						<p className="text-xs text-(--text-muted)">
 							{t("settings.alerts.destinations.note")}
 						</p>
@@ -447,9 +499,10 @@ export function AlertsSettings({
 							{t("settings.alerts.wizard.addDestination")}
 						</button>
 					)}
-					{/* Nothing to probe yet, so the status line below has nothing to
-					    say. The hint takes its place and names both ways in: it points
-					    at the manual block, so it waits until that block is on screen. */}
+					{/* Nothing to probe yet, so the status line above the list has
+					    nothing to say. The hint takes its place and names both ways in:
+					    it points at the manual block, so it waits until that block is
+					    on screen. */}
 					{enabled && apiUrl === "" && (
 						<p
 							className="text-xs text-(--text-muted)"
@@ -494,57 +547,6 @@ export function AlertsSettings({
 								<p className="text-gray-500 text-xs">
 									{t("settings.alerts.apiUrlDescription")}
 								</p>
-								{apiUrl !== "" && (
-									<div
-										className="flex items-center gap-2 text-xs"
-										data-testid="alert-status"
-									>
-										{statusQuery.isFetching ? (
-											<span className="inline-flex items-center gap-1.5 text-gray-400">
-												<RefreshCw size={12} className="animate-spin" />
-												{t("settings.alerts.status.checking")}
-											</span>
-										) : statusQuery.isError ? (
-											<span className="inline-flex items-center gap-1.5 text-gray-300">
-												<span
-													className="inline-block w-2 h-2 rounded-full bg-red-500"
-													aria-hidden="true"
-												/>
-												{t("settings.alerts.status.checkFailed")}
-											</span>
-										) : status ? (
-											<>
-												<span
-													className="inline-flex items-center gap-1.5 text-gray-300"
-													title={status.detail}
-												>
-													<span
-														className={`inline-block w-2 h-2 rounded-full ${statusDot}`}
-														aria-hidden="true"
-													/>
-													{statusText}
-												</span>
-												{statusReason !== "" && (
-													<span
-														className="text-(--text-secondary)"
-														data-testid="alert-status-note"
-													>
-														{statusReason}
-													</span>
-												)}
-											</>
-										) : null}
-										<button
-											type="button"
-											className="ui-link-accent inline-flex items-center gap-1"
-											onClick={() => statusQuery.refetch()}
-											data-testid="alert-status-recheck"
-										>
-											<RefreshCw size={11} />
-											{t("settings.alerts.status.recheck")}
-										</button>
-									</div>
-								)}
 							</div>
 
 							{/* Apprise target (encrypted secret) */}
