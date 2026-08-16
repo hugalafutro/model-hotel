@@ -45,7 +45,7 @@ func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 			default:
 				if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
 					st.Healthy = false
-					st.Reason = "undecryptable"
+					st.Reason = alert.ReasonUndecryptable
 					st.Detail = "stored target cannot be decrypted (master key rotated?)"
 				}
 			}
@@ -86,26 +86,39 @@ func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
 	if err != nil {
-		http.Error(w, "read body", http.StatusBadRequest)
+		writeCodedError(w, http.StatusBadRequest, "invalid_body", "read body")
 		return
 	}
 	if len(bytes.TrimSpace(raw)) > 0 {
 		if err := json.Unmarshal(raw, &req); err != nil {
-			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			writeCodedError(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
 			return
 		}
 	}
-	provider := alertConfigProvider{store: s.store, masterKey: s.masterKey}
 	var cfg alert.Config
 	if req.APIURL != nil && len(req.Targets) > 0 {
 		// Fully explicit: nothing is read from settings, so a corrupt stored
 		// target cannot block testing a fresh one.
 		cfg = alert.Config{APIBaseURL: *req.APIURL, Targets: alert.JoinTargets(req.Targets)}
 	} else {
-		cfg, err = provider.AlertConfig(r.Context())
-		if err != nil {
-			writeCodedError(w, http.StatusBadGateway, "undecryptable", err.Error())
+		// A store error (transient DB failure) and a decrypt failure (bad
+		// ciphertext / rotated MASTER_KEY) are different failure kinds: the
+		// former is a generic 500 via writeError, the latter a 502 with the
+		// fixed undecryptable message, never the raw decrypt error text.
+		set, gerr := s.store.GetSettings(r.Context())
+		if gerr != nil {
+			writeError(w, gerr)
 			return
+		}
+		cfg.APIBaseURL = set.AlertAppriseAPIURL
+		if set.AlertAppriseTargets != "" {
+			plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
+			if derr != nil {
+				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
+					"stored target cannot be decrypted (master key rotated?)")
+				return
+			}
+			cfg.Targets = plain
 		}
 		if req.APIURL != nil {
 			cfg.APIBaseURL = *req.APIURL
@@ -117,7 +130,9 @@ func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
 	if err := s.alertDisp.TestSendTo(r.Context(), cfg); err != nil {
 		code := alert.ReasonOf(err)
 		if code == "" {
-			code = "delivery_failed"
+			// The only uncoded errors TestSendTo/post can return are marshal/
+			// build-request failures, never a delivery outcome.
+			code = "send_failed"
 		}
 		writeCodedError(w, http.StatusBadGateway, code, err.Error())
 		return
@@ -141,7 +156,7 @@ func (s *Server) alertTargets(w http.ResponseWriter, r *http.Request) {
 	if set.AlertAppriseTargets != "" {
 		plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
 		if derr != nil {
-			writeCodedError(w, http.StatusInternalServerError, "undecryptable",
+			writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable,
 				"stored target cannot be decrypted (master key rotated?)")
 			return
 		}

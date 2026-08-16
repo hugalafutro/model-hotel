@@ -17,6 +17,7 @@ const (
 	ReasonUnhealthy     = "unhealthy"      // apprise-api answered with an unexpected non-2xx
 	ReasonAppriseReject = "apprise_reject" // /notify answered 400: the target URL is malformed
 	ReasonDeliverFailed = "deliver_failed" // /notify answered 424: apprise could not deliver
+	ReasonUndecryptable = "undecryptable"  // stored target cannot be decrypted, e.g. MASTER_KEY rotated
 )
 
 // Status is the reachability of an apprise-api, surfaced in the Settings ->

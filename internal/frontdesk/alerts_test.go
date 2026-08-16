@@ -267,6 +267,9 @@ func TestAlertStatusFlagsUndecryptableTarget(t *testing.T) {
 	if st.Healthy {
 		t.Error("status should be unhealthy when the stored target cannot be decrypted")
 	}
+	if st.Reason != alert.ReasonUndecryptable {
+		t.Errorf("reason = %q, want %q", st.Reason, alert.ReasonUndecryptable)
+	}
 	if !strings.Contains(st.Detail, "decrypt") {
 		t.Errorf("detail = %q, want a decrypt reason", st.Detail)
 	}
@@ -307,6 +310,9 @@ func TestAlertStatusFlagsMissingTarget(t *testing.T) {
 	}
 	if st.Healthy {
 		t.Error("status should be unhealthy when no target is configured")
+	}
+	if st.Reason != alert.ReasonNotConfigured {
+		t.Errorf("reason = %q, want %q", st.Reason, alert.ReasonNotConfigured)
 	}
 	if !strings.Contains(st.Detail, "target") {
 		t.Errorf("detail = %q, want a missing-target reason", st.Detail)
@@ -725,6 +731,67 @@ func TestAlertTestEndpointExplicitConfig(t *testing.T) {
 	// Empty body keeps today's behaviour: saved config, which here is absent.
 	if rec := do(t, srv, http.MethodPost, "/api/alert/test", "", true); rec.Code != http.StatusBadGateway {
 		t.Errorf("empty-body test without config = %d, want 502", rec.Code)
+	}
+}
+
+// TestAlertTestEndpointAPIURLOnlyUsesSavedTarget covers the split between a
+// settings-store failure and an undecryptable stored target: supplying only
+// api_url must fall back to the saved (decrypted) target, and a saved target
+// that fails to decrypt must fail as 502 undecryptable rather than leak the
+// decrypt error text or the store's own error.
+func TestAlertTestEndpointAPIURLOnlyUsesSavedTarget(t *testing.T) {
+	var gotURLs string
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/notify" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var p struct {
+			URLs string `json:"urls"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&p)
+		gotURLs = p.URLs
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer stub.Close()
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	enc, err := auth.EncryptString("ntfys://ntfy.example.com/saved", testMasterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, _ := store.GetSettings(ctx)
+	set.AlertAppriseTargets = enc
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+
+	body := `{"api_url":"` + stub.URL + `"}`
+	if rec := do(t, srv, http.MethodPost, "/api/alert/test", body, true); rec.Code != http.StatusNoContent {
+		t.Fatalf("api_url-only test = %d body %s", rec.Code, rec.Body.String())
+	}
+	if gotURLs != "ntfys://ntfy.example.com/saved" {
+		t.Errorf("apprise received urls %q, want the saved target", gotURLs)
+	}
+
+	// Now the saved target is undecryptable: api_url alone must fail 502
+	// undecryptable, not leak the decrypt error or fall through to delivery.
+	bad, _ := auth.EncryptString("x://y", "another-master-key")
+	set.AlertAppriseTargets = bad
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+	rec := do(t, srv, http.MethodPost, "/api/alert/test", body, true)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("undecryptable saved target = %d, want 502", rec.Code)
+	}
+	var e struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	if e.Code != alert.ReasonUndecryptable {
+		t.Errorf("code = %q, want %q", e.Code, alert.ReasonUndecryptable)
 	}
 }
 
