@@ -1772,6 +1772,7 @@
 				"step7Hint": "Save everything and switch alerts on.",
 				"finishing": "Saving…",
 				"done": "Alerts are on.",
+				"doneManaged": "Destinations saved. Which events send an alert stays managed fleet-wide.",
 				"sendAll": "Send test to everything",
 				"sentAll": "Test sent to every destination",
 				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one."

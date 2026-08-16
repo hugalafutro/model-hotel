@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckSquare, Square } from "@/lib/icons";
@@ -11,6 +12,16 @@ const SEVERITY_DOT: Record<string, string> = {
 	warning: "bg-amber-500",
 	error: "bg-red-500",
 };
+
+// eventLabel names one catalog event. The dots in an event type are not legal
+// in a translation key, so they become underscores; an event the locale does
+// not name yet reads as its own type rather than as a missing key.
+// eslint-disable-next-line react-refresh/only-export-components
+export function eventLabel(t: TFunction, type: string): string {
+	return t(`settings.alerts.event.${type.replace(/\./g, "_")}`, {
+		defaultValue: type,
+	});
+}
 
 interface AlertEventPickerProps {
 	/** Current alert_events value (CSV); undefined when the key is unset (first run). */
@@ -124,10 +135,7 @@ export function AlertEventPicker({
 							)}
 						</div>
 						{items.map((e) => {
-							const label = t(
-								`settings.alerts.event.${e.type.replace(/\./g, "_")}`,
-								{ defaultValue: e.type },
-							);
+							const label = eventLabel(t, e.type);
 							return (
 								<label
 									key={e.type}

@@ -6,8 +6,15 @@ import {
 	useRef,
 	useState,
 } from "react";
+import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { generateTopic } from "../../../utils/ntfy";
-import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
+import { AlertEventPicker, eventLabel } from "../AlertEventPicker";
+import {
+	type Action,
+	isDuplicate,
+	parseCsv,
+	type WizardState,
+} from "./AlertsWizard";
 import {
 	APPRISE_SERVICES_URL,
 	type DestinationKind,
@@ -15,12 +22,14 @@ import {
 	type FieldDef,
 	parseDiscordWebhook,
 } from "./composers";
+import { DestinationList } from "./DestinationList";
 
-// The first four step bodies of the alerts wizard: prove apprise-api answers,
-// pick what kind of destination this is, fill in the parts that kind needs, and
-// deliver one real test to it. They are presentation only; every gate lives in
-// AlertsWizard's canNext, so a step can never let itself through, and none of
-// them persists anything.
+// The seven step bodies of the alerts wizard: prove apprise-api answers, pick
+// what kind of destination this is, fill in the parts that kind needs, deliver
+// one real test to it, review the destination list, choose the events, and
+// write. They are presentation only; every gate lives in AlertsWizard's
+// canNext, so a step can never let itself through, and only the last one asks
+// the wizard to persist anything.
 
 const K = "settings.alerts.wizard";
 
@@ -360,6 +369,280 @@ export function StepTest({
 				<p className="text-xs text-(--text-muted)">{t(`${K}.testMustPass`)}</p>
 			)}
 		</>
+	);
+}
+
+export function StepDestinations({
+	state,
+	dispatch,
+	t,
+	savedTargets,
+	onTestRow,
+}: StepProps & {
+	/** Already-stored destinations, which this step counts but never lists. */
+	savedTargets: string[];
+	/** Deliver one test to this destination through the wizard's apprise URL. */
+	onTestRow: (url: string) => Promise<void>;
+}) {
+	// Which row was last tested from here and how it went. It is a per-row
+	// courtesy check on a list nothing is gated on, so it stays local rather
+	// than joining the wizard's state machine.
+	const [rowTest, setRowTest] = useState<{
+		url: string;
+		state: "sending" | "ok" | "failed";
+	} | null>(null);
+
+	const run = (url: string) => {
+		setRowTest({ url, state: "sending" });
+		onTestRow(url).then(
+			() => setRowTest({ url, state: "ok" }),
+			() => setRowTest({ url, state: "failed" }),
+		);
+	};
+
+	return (
+		<>
+			<StepTitle>{t(`${K}.step5Title`)}</StepTitle>
+			<p className="text-xs text-(--text-muted)">{t(`${K}.step5Hint`)}</p>
+			{/* The stored destinations are not this run's work and not this run's to
+			    delete, so they are counted rather than listed: the list below is
+			    what this run adds, and every row on it can be taken back off. */}
+			{savedTargets.length > 0 && (
+				<p data-testid="wiz-saved-note" className="text-xs text-(--text-muted)">
+					{t(`${K}.savedNote`, { count: savedTargets.length })}
+				</p>
+			)}
+			<DestinationList
+				targets={state.added}
+				onRemove={(url) => dispatch({ type: "dropAdded", url })}
+				onTest={run}
+				busy={rowTest?.state === "sending"}
+				emptyText={t(`${K}.nothingAdded`)}
+			/>
+			{rowTest && rowTest.state !== "sending" && (
+				<p
+					role="status"
+					data-testid="wiz-row-test-result"
+					data-ok={rowTest.state === "ok" ? "true" : "false"}
+					className={`text-sm ${rowTest.state === "ok" ? "ui-text-success" : "ui-text-error"}`}
+				>
+					{rowTest.state === "ok"
+						? t("settings.alerts.testSent")
+						: t(`${K}.testFailed`)}
+				</p>
+			)}
+			<div>
+				<button
+					type="button"
+					className="ui-btn ui-btn-secondary"
+					data-testid="wiz-add-another"
+					onClick={() => dispatch({ type: "newDraft" })}
+				>
+					{t(`${K}.addAnother`)}
+				</button>
+			</div>
+		</>
+	);
+}
+
+export function StepEvents({
+	state,
+	dispatch,
+	t,
+	catalog,
+	managed,
+}: StepProps & { catalog: AlertEventDef[]; managed?: boolean }) {
+	// Config sync owns the event routing fleet-wide on a managed member, so
+	// there is nothing to choose here: the step says who decides instead of
+	// offering a selection this member would not be allowed to write.
+	if (managed) {
+		return (
+			<>
+				<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
+				<p
+					className="ui-callout ui-callout-info"
+					data-testid="wiz-managed-events"
+				>
+					{t(`${K}.managedEventsNote`)}
+				</p>
+			</>
+		);
+	}
+
+	return (
+		<>
+			<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
+			<p className="text-xs text-(--text-muted)">{t(`${K}.step6Hint`)}</p>
+			{/* The card's own picker, so the guided run and the card offer the same
+			    list in the same order; it reads the catalog from the API itself. */}
+			<AlertEventPicker
+				value={[...state.events].join(",")}
+				onChange={(csv) =>
+					dispatch({ type: "resetEvents", types: [...parseCsv(csv)] })
+				}
+			/>
+			{/* An empty selection is a legitimate choice ("set up now, decide what
+			    to hear about later"), so it is a note rather than a gate. */}
+			{state.events.size === 0 && (
+				<p
+					data-testid="wiz-none-selected"
+					className="ui-callout ui-callout-warning"
+				>
+					{t(`${K}.noneSelected`)}
+				</p>
+			)}
+			<div>
+				<button
+					type="button"
+					className="ui-link-accent text-xs text-(--accent)"
+					data-testid="wiz-reset-recommended"
+					onClick={() =>
+						dispatch({
+							type: "resetEvents",
+							types: catalog.filter((e) => e.defaultOn).map((e) => e.type),
+						})
+					}
+				>
+					{t(`${K}.resetRecommended`)}
+				</button>
+			</div>
+		</>
+	);
+}
+
+export function StepFinish({
+	state,
+	t,
+	targets,
+	managed,
+	onSendAll,
+}: StepProps & {
+	/** The destination list the write carries: stored plus this run's work. */
+	targets: string[];
+	managed?: boolean;
+	onSendAll: () => void;
+}) {
+	if (state.done) {
+		return (
+			<>
+				<p
+					role="status"
+					data-testid="wiz-done"
+					className="flex flex-wrap items-center gap-2"
+				>
+					<span className="ui-badge ui-badge-success">
+						{t(`${K}.${managed ? "doneManaged" : "done"}`)}
+					</span>
+					{/* Read back from the server after the write, so the pill describes
+					    the stored configuration rather than the one just typed. */}
+					{state.finalStatus && <FinalPill status={state.finalStatus} t={t} />}
+				</p>
+				<div>
+					<button
+						type="button"
+						className="ui-btn ui-btn-secondary"
+						data-testid="wiz-send-all"
+						disabled={state.sendingAll}
+						onClick={onSendAll}
+					>
+						{state.sendingAll ? t(`${K}.sending`) : t(`${K}.sendAll`)}
+					</button>
+				</div>
+				{state.sentAll !== "none" && (
+					<p
+						role="status"
+						data-testid="wiz-sent-all"
+						data-ok={state.sentAll === "ok" ? "true" : "false"}
+						className={`text-sm ${state.sentAll === "ok" ? "ui-text-success" : "ui-text-error"}`}
+					>
+						{state.sentAll === "ok" ? t(`${K}.sentAll`) : t(`${K}.testFailed`)}
+					</p>
+				)}
+			</>
+		);
+	}
+	return (
+		<>
+			<StepTitle>{t(`${K}.step7Title`)}</StepTitle>
+			<p className="text-xs text-(--text-muted)">{t(`${K}.step7Hint`)}</p>
+			{/* Trimmed, because the summary promises what the write will store. */}
+			<Summary
+				label={t("settings.alerts.apiUrl")}
+				value={state.apiUrl.trim()}
+			/>
+			<Summary
+				label={t("settings.alerts.destinations.title")}
+				value={targets.join("; ")}
+				testId="wiz-summary-targets"
+			/>
+			{/* A managed member writes no event selection, so it promises none. */}
+			{!managed && (
+				<Summary
+					label={t("settings.alerts.eventsLabel")}
+					testId="wiz-summary-events"
+					value={
+						state.events.size === 0
+							? t(`${K}.noneSelected`)
+							: [...state.events].map((type) => eventLabel(t, type)).join(", ")
+					}
+				/>
+			)}
+			{state.finishError !== "" && (
+				<p
+					role="alert"
+					data-testid="wiz-finish-error"
+					className="text-sm ui-text-error"
+				>
+					{state.finishError}
+				</p>
+			)}
+		</>
+	);
+}
+
+// FinalPill reports the probe taken straight after the write. The card's own
+// status line covers a fourth state (nothing configured at all) that cannot
+// happen here: the wizard has just configured it.
+function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
+	const [variant, label] = !status.reachable
+		? (["ui-badge-error", "unreachable"] as const)
+		: !status.healthy
+			? (["ui-badge-warning", "issues"] as const)
+			: (["ui-badge-success", "reachable"] as const);
+	return (
+		<span
+			className={`ui-badge ${variant}`}
+			data-testid="wiz-done-pill"
+			title={status.detail}
+		>
+			{t(`settings.alerts.status.${label}`)}
+		</span>
+	);
+}
+
+// One labelled line of the closing summary: what is about to be written, in the
+// operator's own words rather than as the settings keys it becomes.
+function Summary({
+	label,
+	value,
+	testId,
+}: {
+	label: string;
+	value: string;
+	testId?: string;
+}) {
+	return (
+		<div className="space-y-1">
+			<span className="block text-sm font-medium text-(--text-secondary)">
+				{label}
+			</span>
+			<span
+				className="block text-sm text-(--text-primary) break-all"
+				data-testid={testId}
+			>
+				{value}
+			</span>
+		</div>
 	);
 }
 

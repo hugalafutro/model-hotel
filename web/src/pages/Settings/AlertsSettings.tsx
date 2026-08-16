@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
@@ -10,9 +10,13 @@ import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
+import { AlertsWizard } from "./alerts/AlertsWizard";
 import { DestinationList } from "./alerts/DestinationList";
 import { SETTING_DEFAULTS } from "./defaults";
-import { useSettingsMutations } from "./useSettingsMutations";
+import {
+	invalidateAlertReads,
+	useSettingsMutations,
+} from "./useSettingsMutations";
 
 // The stable failure codes the alert endpoints report: /api/alert/test with a
 // 502 and the reachability probe in AlertStatus.reason. Anything outside this
@@ -47,6 +51,7 @@ export function AlertsSettings({
 }: AlertsSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const queryClient = useQueryClient();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
@@ -60,6 +65,10 @@ export function AlertsSettings({
 	// "********" mask, so the readable value comes from the decrypted read below.
 	const [targetDraft, setTargetDraft] = useState<string | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
+	// Which guided run is open, as the step it starts on; null when the dialog is
+	// closed. Nothing is written until its own Finish, so closing it changes
+	// nothing on this card.
+	const [wizardStart, setWizardStart] = useState<1 | 2 | null>(null);
 	// The picker is only "expanded" while alerting is on: when disabled the
 	// panel is not rendered, so aria-expanded and the chevron must follow suit
 	// (otherwise the toggle announces "expanded" with no region in the DOM).
@@ -75,6 +84,15 @@ export function AlertsSettings({
 		// A stored value that cannot be decrypted fails the same way every time,
 		// so a retry only delays the message that says so.
 		retry: false,
+	});
+	// The event catalog, read with the card rather than on the click that opens
+	// the wizard: the guided run seeds its recommended selection from it the
+	// moment it mounts. It shares its cache key with the picker below, so the
+	// two never ask for it twice.
+	const eventsQuery = useQuery({
+		queryKey: ["alert-events"],
+		queryFn: () => api.alert.getEvents(),
+		refetchOnWindowFocus: false,
 	});
 	const targets = targetsQuery.data?.targets ?? [];
 	const storedTargets = targets.join("; ");
@@ -475,8 +493,7 @@ export function AlertsSettings({
 				{/* Exactly one guided entry point, chosen by whether anything is
 				    stored. It is offered whether or not alerting is switched on,
 				    because "Set up alerts" is what an operator looking at a
-				    switched-off card is after, and the run switches it on itself.
-				    The wizard it opens is not wired yet, so the button is inert. */}
+				    switched-off card is after, and the run switches it on itself. */}
 				<div className="flex flex-wrap items-center gap-3">
 					{targets.length === 0 ? (
 						<button
@@ -484,7 +501,8 @@ export function AlertsSettings({
 							className="ui-btn ui-btn-primary"
 							data-testid="alert-wizard-open"
 							title={wizardBlocked}
-							disabled
+							disabled={busy || wizardBlocked !== undefined}
+							onClick={() => setWizardStart(1)}
 						>
 							{t("settings.alerts.wizard.open")}
 						</button>
@@ -494,7 +512,8 @@ export function AlertsSettings({
 							className="ui-btn ui-btn-primary"
 							data-testid="alert-wizard-add"
 							title={wizardBlocked}
-							disabled
+							disabled={busy || wizardBlocked !== undefined}
+							onClick={() => setWizardStart(2)}
 						>
 							{t("settings.alerts.wizard.addDestination")}
 						</button>
@@ -626,6 +645,38 @@ export function AlertsSettings({
 							<AlertSnippets />
 						</div>
 					</details>
+				)}
+
+				{/* The run reads the catalog once, when it mounts, to seed the
+				    recommended events: opening it before the catalog has landed
+				    would seed an empty preset and offer a "reset to recommended"
+				    with nothing to reset to. A failed read still opens it, because
+				    a dialog that never appears is the worse answer. */}
+				{wizardStart !== null && !eventsQuery.isPending && (
+					<AlertsWizard
+						initialApiUrl={apiUrl}
+						savedTargets={targets}
+						// An absent alert_events row is "nothing has been decided yet",
+						// which the wizard answers with the recommended preset; a stored
+						// blank is every event deliberately switched off.
+						savedEvents={
+							settings?.alert_events === undefined
+								? null
+								: settings.alert_events
+						}
+						catalog={eventsQuery.data ?? []}
+						startAt={wizardStart}
+						managed={managed}
+						onClose={() => setWizardStart(null)}
+						onFinished={() => {
+							setWizardStart(null);
+							// The run wrote settings behind this card's back, so both its
+							// own copy and the reads derived from it are stale.
+							queryClient.invalidateQueries({ queryKey: ["settings"] });
+							invalidateAlertReads(queryClient);
+							toast(t("settings.common.settingsSaved"), "success");
+						}}
+					/>
 				)}
 			</div>
 		</SettingsSection>

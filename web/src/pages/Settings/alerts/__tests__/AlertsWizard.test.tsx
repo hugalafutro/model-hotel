@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import type { AlertEventDef } from "../../../../api/types";
@@ -13,26 +13,37 @@ import {
 	reducer,
 } from "../AlertsWizard";
 
+// The same catalog the mocked GET /api/alert/events serves, because step 6
+// renders the card's own picker: the wizard is handed the catalog for the
+// recommended preset while the picker reads it from the API, and the two
+// disagreeing would make the step describe events it cannot tick.
 const catalog: AlertEventDef[] = [
 	{
-		type: "circuit_breaker_open",
-		category: "Health",
-		severity: "error",
+		type: "circuit_breaker.open",
+		category: "Failover",
+		severity: "warning",
 		defaultOn: true,
 	},
 	{
-		type: "circuit_breaker_closed",
-		category: "Health",
+		type: "circuit_breaker.closed",
+		category: "Failover",
 		severity: "success",
 		defaultOn: true,
 	},
 	{
-		type: "fleet_conflict",
-		category: "Fleet",
-		severity: "info",
+		type: "discovery.provider_failed",
+		category: "Discovery",
+		severity: "error",
 		defaultOn: false,
 	},
 ];
+
+/** The picker's checkbox for one event type, addressed by role inside its row. */
+function eventBox(type: string): HTMLInputElement {
+	return within(screen.getByTestId(`alert-event-${type}`)).getByRole(
+		"checkbox",
+	);
+}
 
 function props(over: Partial<AlertsWizardProps> = {}): AlertsWizardProps {
 	return {
@@ -70,6 +81,25 @@ function passingTest() {
 	server.use(
 		http.post("/api/alert/test", () => HttpResponse.json({ ok: true })),
 	);
+}
+
+/** What GET /api/alert/targets reports as stored, which Finish re-reads. */
+function storedTargets(targets: string[]) {
+	server.use(
+		http.get("/api/alert/targets", () => HttpResponse.json({ targets })),
+	);
+}
+
+/** Every settings write the run makes, in order. */
+function capturePuts() {
+	const puts: Record<string, unknown>[] = [];
+	server.use(
+		http.put("/api/settings", async ({ request }) => {
+			puts.push((await request.json()) as Record<string, unknown>);
+			return HttpResponse.json({});
+		}),
+	);
+	return puts;
 }
 
 // addNtfy drives steps 2-4 for one ntfy destination (kind -> details -> passing
@@ -592,13 +622,14 @@ describe("AlertsWizard", () => {
 	// turned every event off, and stays off.
 	it("seeds the recommended events only when the key has never been written", () => {
 		expect([...initialState(props({ savedEvents: null })).events]).toEqual([
-			"circuit_breaker_open",
-			"circuit_breaker_closed",
+			"circuit_breaker.open",
+			"circuit_breaker.closed",
 		]);
 		expect([...initialState(props({ savedEvents: "" })).events]).toEqual([]);
 		expect([
-			...initialState(props({ savedEvents: "fleet_conflict" })).events,
-		]).toEqual(["fleet_conflict"]);
+			...initialState(props({ savedEvents: "discovery.provider_failed" }))
+				.events,
+		]).toEqual(["discovery.provider_failed"]);
 		// Which step the run starts on does not change what is stored, so an
 		// "Add destination" run reads the same absent key the same way.
 		expect([
@@ -609,7 +640,7 @@ describe("AlertsWizard", () => {
 					initialApiUrl: "http://apprise:8000",
 				}),
 			).events,
-		]).toEqual(["circuit_breaker_open", "circuit_breaker_closed"]);
+		]).toEqual(["circuit_breaker.open", "circuit_breaker.closed"]);
 		expect([
 			...initialState(
 				props({
@@ -619,5 +650,445 @@ describe("AlertsWizard", () => {
 				}),
 			).events,
 		]).toEqual([]);
+	});
+
+	it("steps 5-7: lists this run's additions, carries the saved events, and writes once at Finish", async () => {
+		const testBodies: string[] = [];
+		healthyProbe();
+		storedTargets(["tgram://1/2"]);
+		const puts = capturePuts();
+		server.use(
+			http.post("/api/alert/test", async ({ request }) => {
+				testBodies.push(await request.text());
+				return HttpResponse.json({ ok: true });
+			}),
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+			),
+		);
+		const { onFinished } = renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "circuit_breaker.open",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+
+		// The list is this run's work only: the one destination just proven, which
+		// can be dropped again. The stored one is counted in a note instead,
+		// because the wizard never removes stored destinations.
+		expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
+		expect(screen.getByTestId("wiz-saved-note")).toHaveTextContent(
+			i18n.t("settings.alerts.wizard.savedNote", { count: 1 }),
+		);
+
+		// Any row can be tried on its own from here, through the URL this run
+		// proved rather than the stored configuration.
+		await userEvent.click(screen.getByTestId("alert-destination-test"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-row-test-result")).toHaveAttribute(
+				"data-ok",
+				"true",
+			),
+		);
+		expect(JSON.parse(testBodies.at(-1) ?? "{}")).toEqual({
+			api_url: "http://apprise:8000",
+			targets: ["ntfys://ntfy.example.com/abcabcabc"],
+		});
+
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		expect(eventBox("circuit_breaker.open")).toBeChecked();
+		expect(eventBox("discovery.provider_failed")).not.toBeChecked();
+		await userEvent.click(eventBox("discovery.provider_failed"));
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+
+		expect(puts).toHaveLength(0);
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+		);
+		// The closing pill reports the probe taken after the write, not before it.
+		expect(screen.getByTestId("wiz-done-pill")).toHaveTextContent(
+			i18n.t("settings.alerts.status.reachable"),
+		);
+		expect(puts).toEqual([
+			{
+				alert_apprise_api_url: "http://apprise:8000",
+				alert_apprise_targets:
+					"tgram://1/2; ntfys://ntfy.example.com/abcabcabc",
+				alert_enabled: "true",
+				alert_events: "circuit_breaker.open,discovery.provider_failed",
+			},
+		]);
+
+		// "Send test to everything" exercises what is now stored, so it carries no
+		// body at all.
+		await userEvent.click(screen.getByTestId("wiz-send-all"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-sent-all")).toHaveAttribute(
+				"data-ok",
+				"true",
+			),
+		);
+		expect(testBodies.at(-1)).toBe("");
+
+		await userEvent.click(screen.getByTestId("wiz-close"));
+		expect(onFinished).toHaveBeenCalled();
+	});
+
+	// Config sync owns alerting on/off and the event routing fleet-wide, so a
+	// managed member's run writes only what is local to it.
+	it("skips the event step and writes only the destination settings when managed", async () => {
+		healthyProbe();
+		passingTest();
+		storedTargets([]);
+		const puts = capturePuts();
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedEvents: "circuit_breaker.open",
+			managed: true,
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+
+		expect(screen.getByTestId("wiz-managed-events")).toHaveTextContent(
+			i18n.t("settings.alerts.wizard.managedEventsNote"),
+		);
+		expect(screen.queryByTestId("alert-event-picker")).toBeNull();
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		// Nothing on this member decides the events, so the summary does not
+		// promise a selection the write will not carry.
+		expect(screen.queryByTestId("wiz-summary-events")).toBeNull();
+
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+		);
+		expect(puts).toEqual([
+			{
+				alert_apprise_api_url: "http://apprise:8000",
+				alert_apprise_targets: "ntfys://ntfy.example.com/abcabcabc",
+			},
+		]);
+	});
+
+	it("recovers from a rejected Finish, a failed probe read and a failed final test", async () => {
+		healthyProbe();
+		passingTest();
+		storedTargets(["tgram://1/2"]);
+		server.use(
+			http.put("/api/settings", () =>
+				HttpResponse.json(
+					{ error: "apprise url must be http(s)" },
+					{ status: 400 },
+				),
+			),
+		);
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "circuit_breaker.open",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+
+		// A row test that does not deliver says so without touching any gate.
+		server.use(
+			http.post("/api/alert/test", () =>
+				HttpResponse.json(
+					{ code: "deliver_failed", error: "x" },
+					{ status: 502 },
+				),
+			),
+		);
+		await userEvent.click(screen.getByTestId("alert-destination-test"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-row-test-result")).toHaveAttribute(
+				"data-ok",
+				"false",
+			),
+		);
+		expect(screen.getByTestId("wiz-next")).toBeEnabled();
+
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+				"apprise url must be http(s)",
+			),
+		);
+		// Nothing was written, so the run stays put and Finish can be pressed again.
+		expect(screen.getByTestId("wiz-step-7")).toBeInTheDocument();
+		expect(screen.getByTestId("wiz-finish")).toBeEnabled();
+
+		// Second attempt: the write lands, but the probe read after it does not.
+		// The configuration is saved either way, so the run finishes without a
+		// pill rather than reporting a failure that did not happen.
+		server.use(
+			http.put("/api/settings", () => HttpResponse.json({})),
+			http.get(
+				"/api/alert/status",
+				() => new HttpResponse(null, { status: 500 }),
+			),
+		);
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+		);
+		expect(screen.queryByTestId("wiz-done-pill")).toBeNull();
+		expect(screen.queryByTestId("wiz-finish-error")).toBeNull();
+
+		// The closing test still reports honestly; the configuration is saved.
+		await userEvent.click(screen.getByTestId("wiz-send-all"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-sent-all")).toHaveAttribute(
+				"data-ok",
+				"false",
+			),
+		);
+		expect(screen.getByTestId("wiz-close")).toBeEnabled();
+	});
+
+	it("Add another returns to the list, and a row added here can be dropped again", async () => {
+		healthyProbe();
+		passingTest();
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			startAt: 2,
+		});
+		// The first destination has nowhere to go back to, so the escape hatch is
+		// not offered before there is a list to return to.
+		expect(screen.queryByTestId("wiz-back-to-list")).toBeNull();
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
+
+		// Starting a second destination and changing your mind comes straight back
+		// to the list rather than stranding the run on an empty step 2.
+		await userEvent.click(screen.getByTestId("wiz-add-another"));
+		expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+		expect(screen.getByTestId("wiz-next")).toBeDisabled();
+		await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+		expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
+
+		// Back off the list now skips the abandoned draft's test step, which has no
+		// destination left to talk about, and lands where one is started instead.
+		await userEvent.click(screen.getByTestId("wiz-back"));
+		expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+
+		// Dropping the row this run added empties the list, and leaves the stored
+		// destination exactly where it was: it is only ever counted here.
+		await userEvent.click(screen.getByTestId("alert-destination-remove"));
+		await userEvent.click(
+			screen.getByTestId("alert-destination-remove-confirm"),
+		);
+		// The confirmation animates itself out and drops the row on the way.
+		await waitFor(() =>
+			expect(screen.queryAllByTestId("alert-destination-row")).toHaveLength(0),
+		);
+		expect(screen.getByTestId("alert-destinations-empty")).toHaveTextContent(
+			i18n.t("settings.alerts.wizard.nothingAdded"),
+		);
+		expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
+		// One stored destination is still a destination, so the run can continue.
+		expect(screen.getByTestId("wiz-next")).toBeEnabled();
+	});
+
+	it("step 6 resets to the recommended preset and warns when nothing is ticked", async () => {
+		healthyProbe();
+		passingTest();
+		// A stored selection wins over the recommended set on entry.
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "discovery.provider_failed",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		expect(eventBox("discovery.provider_failed")).toBeChecked();
+		expect(eventBox("circuit_breaker.open")).not.toBeChecked();
+		expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+
+		await userEvent.click(eventBox("discovery.provider_failed"));
+		expect(screen.getByTestId("wiz-none-selected")).toHaveClass(
+			"ui-callout",
+			"ui-callout-warning",
+		);
+		// An empty selection is allowed through: it means "configured, notify me
+		// about nothing yet", which the note says out loud on both steps.
+		expect(screen.getByTestId("wiz-next")).toBeEnabled();
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		expect(screen.getByTestId("wiz-summary-events")).toHaveTextContent(
+			i18n.t("settings.alerts.wizard.noneSelected"),
+		);
+		await userEvent.click(screen.getByTestId("wiz-back")); // -> 6
+
+		await userEvent.click(screen.getByTestId("wiz-reset-recommended"));
+		expect(eventBox("circuit_breaker.open")).toBeChecked();
+		expect(eventBox("circuit_breaker.closed")).toBeChecked();
+		expect(eventBox("discovery.provider_failed")).not.toBeChecked();
+		expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+	});
+
+	it("keeps a deliberately empty event selection empty when adding a destination", async () => {
+		healthyProbe();
+		passingTest();
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+
+		expect(eventBox("circuit_breaker.open")).not.toBeChecked();
+		expect(eventBox("circuit_breaker.closed")).not.toBeChecked();
+		// Nothing is ticked, so the step says so rather than looking half-loaded.
+		expect(screen.getByTestId("wiz-none-selected")).toBeInTheDocument();
+		// The recommended set is one click away whenever it is wanted.
+		await userEvent.click(screen.getByTestId("wiz-reset-recommended"));
+		expect(eventBox("circuit_breaker.open")).toBeChecked();
+	});
+
+	it("seeds the recommended preset on a setup run with nothing written yet", async () => {
+		healthyProbe();
+		passingTest();
+		renderWizard({ savedEvents: null });
+		await userEvent.click(screen.getByTestId("wiz-api-check"));
+		await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+
+		expect(eventBox("circuit_breaker.open")).toBeChecked();
+		expect(eventBox("circuit_breaker.closed")).toBeChecked();
+		expect(eventBox("discovery.provider_failed")).not.toBeChecked();
+		expect(screen.queryByTestId("wiz-none-selected")).toBeNull();
+	});
+
+	// The write replaces the whole destination list, and the wizard's copy of it
+	// is as old as the dialog: a destination saved elsewhere while the run was
+	// open would be written away. Finish re-reads the stored list first.
+	it("keeps destinations saved elsewhere while the wizard was open", async () => {
+		let releaseWrite = () => {};
+		const writeGate = new Promise<void>((resolve) => {
+			releaseWrite = resolve;
+		});
+		const puts: Record<string, unknown>[] = [];
+		healthyProbe();
+		passingTest();
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+			),
+			// What is stored by the time Finish is pressed: the destination the
+			// wizard opened with, plus one another tab added in the meantime.
+			http.get("/api/alert/targets", () =>
+				HttpResponse.json({
+					targets: ["tgram://1/2", "ntfys://ntfy.example.com/added-elsewhere"],
+				}),
+			),
+			// Held open so the summary can be read while the write is in flight.
+			http.put("/api/settings", async ({ request }) => {
+				puts.push((await request.json()) as Record<string, unknown>);
+				await writeGate;
+				return HttpResponse.json({});
+			}),
+		);
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "circuit_breaker.open",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+		// Before Finish the summary can only promise what the wizard was handed.
+		expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
+			"tgram://1/2; ntfys://ntfy.example.com/abcabcabc",
+		);
+
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		// The fresh list lands in state before the write, so the summary the
+		// operator is looking at while it runs is what the write carries.
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
+				"tgram://1/2; ntfys://ntfy.example.com/added-elsewhere; ntfys://ntfy.example.com/abcabcabc",
+			),
+		);
+		releaseWrite();
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-done")).toBeInTheDocument(),
+		);
+
+		expect(puts).toHaveLength(1);
+		expect(puts[0].alert_apprise_targets).toBe(
+			"tgram://1/2; ntfys://ntfy.example.com/added-elsewhere; ntfys://ntfy.example.com/abcabcabc",
+		);
+	});
+
+	it("writes nothing when the stored destinations cannot be read at Finish", async () => {
+		let reads = 0;
+		healthyProbe();
+		passingTest();
+		const puts = capturePuts();
+		server.use(
+			// A rotated master key first, then a failure with nothing to say.
+			http.get("/api/alert/targets", () => {
+				reads += 1;
+				return reads === 1
+					? HttpResponse.json(
+							{ code: "undecryptable", error: "cannot decrypt" },
+							{ status: 500 },
+						)
+					: new HttpResponse(null, { status: 500 });
+			}),
+		);
+		renderWizard({
+			initialApiUrl: "http://apprise:8000",
+			savedTargets: ["tgram://1/2"],
+			savedEvents: "circuit_breaker.open",
+			startAt: 2,
+		});
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
+
+		// A rotated master key is the one cause worth naming, because it tells the
+		// operator what to do about it.
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+				i18n.t("settings.alerts.destinations.error"),
+			),
+		);
+		// The only write available would have dropped the stored destinations, so
+		// none was attempted and the run stays where it can be tried again.
+		expect(puts).toEqual([]);
+		expect(screen.getByTestId("wiz-step-7")).toBeInTheDocument();
+		expect(screen.getByTestId("wiz-finish")).toBeEnabled();
+
+		// Any other read failure is not something the operator can act on, so it
+		// is reported generically rather than blamed on the master key.
+		await userEvent.click(screen.getByTestId("wiz-finish"));
+		await waitFor(() =>
+			expect(screen.getByTestId("wiz-finish-error")).toHaveTextContent(
+				i18n.t("settings.alerts.destinations.readFailed"),
+			),
+		);
+		expect(puts).toEqual([]);
 	});
 });

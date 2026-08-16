@@ -10,7 +10,15 @@ import {
 	FIELDS,
 	ntfyServerOf,
 } from "./composers";
-import { StepApprise, StepDetails, StepKind, StepTest } from "./steps";
+import {
+	StepApprise,
+	StepDestinations,
+	StepDetails,
+	StepEvents,
+	StepFinish,
+	StepKind,
+	StepTest,
+} from "./steps";
 
 // AlertsWizard walks an operator from "no alerting at all" to a working setup in
 // one gated flow: point at apprise-api and prove it answers, pick a destination
@@ -194,8 +202,9 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 	};
 }
 
-/** parseCsv turns a stored alert_events CSV into a membership Set. */
-function parseCsv(csv: string): Set<string> {
+/** parseCsv turns an alert_events CSV into a membership Set. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function parseCsv(csv: string): Set<string> {
 	return new Set(
 		csv
 			.split(",")
@@ -402,7 +411,8 @@ export function reducer(s: WizardState, a: Action): WizardState {
 export function AlertsWizard(props: AlertsWizardProps) {
 	// savedTargets is seeded into state (and re-read at Finish), so the stored
 	// half is read off state from here on rather than off the prop.
-	const { startAt, initialApiUrl, managed, onClose, onFinished } = props;
+	const { startAt, initialApiUrl, catalog, managed, onClose, onFinished } =
+		props;
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(reducer, props, initialState);
 
@@ -492,7 +502,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				message:
 					err instanceof ApiError && err.code === "undecryptable"
 						? t("settings.alerts.destinations.error")
-						: t("common.unknownError"),
+						: t("settings.alerts.destinations.readFailed"),
 			});
 			return;
 		}
@@ -538,8 +548,23 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		}
 	};
 
+	// The stored configuration is now the live one, so this test carries no
+	// body: it exercises exactly what was written, to every destination at once.
+	const sendAll = () => {
+		dispatch({ type: "sendingAll" });
+		api.alert
+			.test()
+			.then(() => dispatch({ type: "sentAll", ok: true }))
+			.catch(() => dispatch({ type: "sentAll", ok: false }));
+	};
+
+	// One row of the step 5 list, through the address this run proved rather
+	// than the stored one, which may still be a different apprise.
+	const testRow = async (url: string) => {
+		await api.alert.test({ api_url: state.apiUrl.trim(), targets: [url] });
+	};
+
 	const stepProps = { state, dispatch: dispatch as Dispatch<Action>, t };
-	// Steps 5 to 7 have no body yet; the flow through them is already live.
 	const body = () => {
 		switch (state.step) {
 			case 1:
@@ -557,8 +582,27 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				return <StepDetails {...stepProps} />;
 			case 4:
 				return <StepTest {...stepProps} onSendTest={sendTest} />;
+			case 5:
+				return (
+					<StepDestinations
+						{...stepProps}
+						savedTargets={state.saved}
+						onTestRow={testRow}
+					/>
+				);
+			case 6:
+				return (
+					<StepEvents {...stepProps} catalog={catalog} managed={managed} />
+				);
 			default:
-				return null;
+				return (
+					<StepFinish
+						{...stepProps}
+						targets={finalTargets}
+						managed={managed}
+						onSendAll={sendAll}
+					/>
+				);
 		}
 	};
 

@@ -265,6 +265,99 @@ describe("AlertsSettings", () => {
 		const button = screen.getByTestId("alert-wizard-open");
 		expect(button).toBeDisabled();
 		expect(button).toHaveAttribute("title", line.textContent as string);
+		// The wizard would have to show a list it cannot read, so it does not open.
+		await userEvent.setup().click(button);
+		expect(screen.queryByTestId("wiz-step-1")).not.toBeInTheDocument();
+	});
+
+	it("opens the guided run and writes nothing when it is cancelled", async () => {
+		mockSettings({ alert_enabled: "true" });
+		mockTargets([]);
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-wizard-open"));
+		// Nothing is stored, so the run starts at the apprise address.
+		await screen.findByTestId("wiz-step-1");
+
+		await user.click(screen.getByTestId("wiz-cancel"));
+		expect(screen.queryByTestId("wiz-step-1")).not.toBeInTheDocument();
+		expect(put.body).toBeNull();
+	});
+
+	it("starts the add-destination run at the destination step", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		mockTargets(["tgram://tok/chat"]);
+		server.use(
+			http.post("/api/alert/probe", () =>
+				HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-wizard-add"));
+		await screen.findByTestId("wiz-step-2");
+	});
+
+	it("re-reads its own state and says so when the guided run finishes", async () => {
+		let settingsReads = 0;
+		server.use(
+			http.get("/api/settings", () => {
+				settingsReads += 1;
+				return HttpResponse.json({ alert_enabled: "true" });
+			}),
+			http.post("/api/alert/probe", () =>
+				HttpResponse.json({ configured: true, reachable: true, healthy: true }),
+			),
+			http.post("/api/alert/test", () => HttpResponse.json({ ok: true })),
+		);
+		const reads = countTargetReads();
+		capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-wizard-open"));
+		await screen.findByTestId("wiz-step-1");
+		await user.click(screen.getByTestId("wiz-api-check"));
+		await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+		await user.click(screen.getByTestId("wiz-next")); // -> 2
+		await user.click(screen.getByTestId("wiz-kind-other"));
+		await user.click(screen.getByTestId("wiz-next")); // -> 3
+		await user.type(screen.getByTestId("wiz-field-url"), "tgram://tok/chat");
+		await user.click(screen.getByTestId("wiz-next")); // -> 4
+		await user.click(screen.getByTestId("wiz-send-test"));
+		await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+		await user.click(screen.getByTestId("wiz-next")); // -> 5
+		await user.click(screen.getByTestId("wiz-next")); // -> 6
+		await screen.findByTestId("alert-event-picker");
+		await user.click(screen.getByTestId("wiz-next")); // -> 7
+
+		const settledSettings = settingsReads;
+		const settledTargets = reads.n;
+		await user.click(screen.getByTestId("wiz-finish"));
+		await screen.findByTestId("wiz-done");
+		await user.click(screen.getByTestId("wiz-close"));
+
+		// The dialog is gone, the card's own copy of both reads is dropped, and
+		// the write it made is reported the way every other save on this page is.
+		expect(screen.queryByTestId("wiz-done")).not.toBeInTheDocument();
+		expect(toastText()).toBe(i18n.t("settings.common.settingsSaved"));
+		await waitFor(() => {
+			expect(settingsReads).toBeGreaterThan(settledSettings);
+			expect(reads.n).toBeGreaterThan(settledTargets + 1);
+		});
 	});
 
 	it("reports an uncoded destination read failure generically", async () => {
