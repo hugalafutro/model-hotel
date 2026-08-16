@@ -58,6 +58,6 @@ See [[Development]] for local setup details.
 
 ![Architecture](screenshots/architecture-tree.svg)
 
-Core packages: `proxy/` (streaming, failover), `provider/` (discovery, encryption), `failover/` (circuit breaker, routing), `virtualkey/` (auth, rate limiting), `model/` (caching, CRUD). PostgreSQL backend with 43 migrations.
+Core packages: `proxy/` (streaming, failover), `provider/` (discovery, encryption), `failover/` (circuit breaker, routing), `virtualkey/` (auth, rate limiting), `model/` (caching, CRUD). PostgreSQL backend (schema managed by versioned migrations).
 
 See the [full architecture diagram](https://github.com/hugalafutro/model-hotel#architecture) in the README.
