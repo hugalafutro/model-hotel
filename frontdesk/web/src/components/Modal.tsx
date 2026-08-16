@@ -89,6 +89,10 @@ export function Modal({
 				return;
 			}
 			if (e.key !== "Tab" || !dialog) return;
+			// Same reasoning as Escape: a dialog underneath must not manage the
+			// focus of the one on top, or a wrap inside the topmost lands on a
+			// control behind it.
+			if (!isTopmost(dialog)) return;
 			const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
 			if (items.length === 0) {
 				e.preventDefault();

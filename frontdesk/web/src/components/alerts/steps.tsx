@@ -285,7 +285,11 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 						</div>
 					)}
 					{!parsed && value("endpoint").trim() !== "" && (
-						<p data-testid="wiz-bellhop-error" className="fd-error-text">
+						<p
+							data-testid="wiz-bellhop-error"
+							role="status"
+							className="fd-error-text"
+						>
 							{t(`${K}.bellhopBad`)}
 						</p>
 					)}

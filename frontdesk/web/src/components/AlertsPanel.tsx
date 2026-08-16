@@ -168,11 +168,17 @@ export function AlertsPanel() {
 			...overrides,
 		};
 		// The manual field is derived from the destination read, so when that read
-		// failed it holds nothing and writing it would clear the stored
-		// destinations. The key is left out of the PUT instead, and the server's
-		// partial merge keeps the stored ciphertext. A caller that passes its own
-		// list (a row removal) means it, so that one is still written.
-		if (targetsError !== "" && overrides?.alert_apprise_targets === undefined) {
+		// failed and nothing was typed into it, it holds nothing and writing it
+		// would clear the stored destinations. The key is left out of the PUT
+		// instead, and the server's partial merge keeps the stored ciphertext.
+		// Anything actually typed is the operator rewriting an unreadable list
+		// (the master-key-rotated recovery path) and is written, as is a list a
+		// caller passes itself (a row removal).
+		if (
+			targetsError !== "" &&
+			target.trim() === "" &&
+			overrides?.alert_apprise_targets === undefined
+		) {
 			delete body.alert_apprise_targets;
 		}
 		await api.putSettings(body);

@@ -194,6 +194,36 @@ it("omits the destinations from the PUT when the stored list could not be read",
 	expect(putBody?.alert_events).toBe("health.down");
 });
 
+// An unreadable stored list is also how a rotated master key looks, and the way
+// out is to retype the destinations. What was typed is a deliberate rewrite, so
+// it is written even though the read failed.
+it("writes a retyped destination even when the stored list could not be read", async () => {
+	let putBody: Record<string, unknown> | undefined;
+	baseHandlers();
+	server.use(
+		http.get(
+			"/api/alert/targets",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Record<string, unknown>;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await screen.findByTestId("alert-destinations-error");
+	await userEvent.type(
+		screen.getByLabelText(/notification target/i),
+		"ntfys://ntfy.example.com/x",
+	);
+	await userEvent.click(
+		screen.getByRole("button", { name: /save alert settings/i }),
+	);
+
+	await waitFor(() => expect(putBody).toBeDefined());
+	expect(putBody?.alert_apprise_targets).toBe("ntfys://ntfy.example.com/x");
+});
+
 it("removing a row PUTs the remaining list", async () => {
 	let putBody: Settings | undefined;
 	baseHandlers();
