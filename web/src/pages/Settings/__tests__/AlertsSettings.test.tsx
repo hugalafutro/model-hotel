@@ -232,7 +232,7 @@ describe("AlertsSettings", () => {
 		server.use(
 			http.post("/api/alert/test", () =>
 				HttpResponse.json(
-					{ error: "apprise-api unreachable" },
+					{ code: "unreachable", error: "apprise-api unreachable" },
 					{ status: 502 },
 				),
 			),
@@ -243,8 +243,12 @@ describe("AlertsSettings", () => {
 		);
 
 		await user.click(await screen.findByTestId("alert-test-button"));
+		// The toast shows the decoded {code, error} body's message, not the raw
+		// JSON error text fetchOK falls back to for uncoded bodies.
 		await waitFor(() =>
-			expect(screen.getByText(/Test notification failed/i)).toBeInTheDocument(),
+			expect(
+				screen.getByText("Test notification failed: apprise-api unreachable"),
+			).toBeInTheDocument(),
 		);
 	});
 

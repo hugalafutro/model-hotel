@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
-import { api } from "../../api/client";
+import { ApiError, api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
@@ -46,8 +46,17 @@ export function AlertsSettings({
 	const testMutation = useMutation({
 		mutationFn: () => api.alert.test(),
 		onSuccess: () => toast(t("settings.alerts.testSent"), "success"),
-		onError: (err: Error) =>
-			toast(t("settings.alerts.testFailed", { message: err.message }), "error"),
+		onError: (err: Error) => {
+			// fetchOK builds ApiError.message as `${errorPrefix}: ${status} ${detail}`
+			// ("Test notification failed: 502 apprise-api unreachable"); strip that
+			// prefix+status head so the toast (built from the testFailed i18n key,
+			// which already supplies "Test notification failed: ") doesn't repeat it.
+			const message =
+				err instanceof ApiError
+					? err.message.replace(/^Test notification failed: \d+ /, "")
+					: err.message;
+			toast(t("settings.alerts.testFailed", { message }), "error");
+		},
 	});
 
 	// Probe apprise-api reachability. Keyed on the saved URL so it re-runs when

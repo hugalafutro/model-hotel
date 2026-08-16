@@ -3,6 +3,7 @@ import { ExternalLink } from "@/lib/icons";
 import type { LangIconKey } from "../../components/langIcons";
 import { ShikiCode } from "../../components/ShikiCode";
 import { TerminalPreview } from "../../components/TerminalPreview";
+import { APPRISE_SERVICES_URL } from "./alerts/composers";
 
 /**
  * Example Apprise URL shapes for the most popular services, shown as copyable
@@ -33,8 +34,6 @@ const SERVICES: ReadonlyArray<{
 	{ id: "webhook", title: "Webhook (JSON)", url: "json://{host}/{path}" },
 	{ id: "email", title: "Email", url: "mailto://{user}:{password}@gmail.com" },
 ];
-
-const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
 
 /** Copyable example Apprise URLs for popular services. */
 export function AlertSnippets() {

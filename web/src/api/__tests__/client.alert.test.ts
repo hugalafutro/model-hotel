@@ -80,6 +80,49 @@ describe("api.alert", () => {
 		});
 	});
 
+	// fetchOK is shared by every api.* call; these exercise its coded-body
+	// fallbacks through api.alert.test() since alert already has full coverage
+	// of the happy path above.
+	describe("fetchOK error-body fallbacks", () => {
+		it("keeps the raw JSON in the message and leaves code undefined for a JSON body with no string code (e.g. a 401 auth body)", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({ totp_required: true }), {
+					status: 401,
+				}),
+			);
+
+			await expect(api.alert.test()).rejects.toMatchObject({
+				code: undefined,
+				status: 401,
+				message: 'Test notification failed: 401 {"totp_required":true}',
+			});
+		});
+
+		it("falls back to the raw text and leaves code undefined for a body that merely starts with '{' but isn't valid JSON", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("{not json", { status: 500 }),
+			);
+
+			await expect(api.alert.test()).rejects.toMatchObject({
+				code: undefined,
+				status: 500,
+				message: "Test notification failed: 500 {not json",
+			});
+		});
+
+		it("falls back to the raw text (not an empty string) when a coded body omits `error`", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({ code: "x" }), { status: 502 }),
+			);
+
+			await expect(api.alert.test()).rejects.toMatchObject({
+				code: "x",
+				status: 502,
+				message: 'Test notification failed: 502 {"code":"x"}',
+			});
+		});
+	});
+
 	describe("probe", () => {
 		it("posts api_url and returns the AlertStatus", async () => {
 			const status = {
