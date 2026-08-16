@@ -11,8 +11,8 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// The watchdog for a member with no recent scheduled backup, reading a member's
-// own listing (GET /api/backups).
+// This file holds the watchdog for a member with no recent scheduled backup. It
+// reads a member's own listing (GET /api/backups) and never writes to it.
 //
 // Front Desk never creates a backup. Members back themselves up on their own
 // schedule, so those dumps are the only snapshot of a member's config and their
@@ -27,9 +27,9 @@ const (
 	// "scheduled" (internal/api.backupOrigin).
 	memberBackupOriginScheduled = "scheduled"
 
-	// memberBackupTimeout bounds one member backup call: a listing read or a file
-	// delete. More generous than the health probe, because a member with thousands
-	// of dumps takes longer to enumerate them than to answer /health.
+	// memberBackupTimeout bounds one member backup-listing read. More generous
+	// than the health probe, because a member with thousands of dumps takes
+	// longer to enumerate them than to answer /health.
 	memberBackupTimeout = 30 * time.Second
 
 	// memberBackupStaleAfter is how old a member's newest scheduled backup may be
@@ -64,8 +64,8 @@ type memberBackupEntry struct {
 
 // listMemberBackups reads a member's backup listing under maxMemberBackupListBody.
 // A listing past even that limit is returned as errMemberRespTooLarge rather than
-// a partial set: every caller here either deletes or judges, and both must act on
-// the whole listing or none of it.
+// a partial set: the watchdog judges a member on its whole listing or not at all,
+// never on a truncated prefix that could hide the actually-newest entry.
 func (s *Server) listMemberBackups(ctx context.Context, m *Member, token string) ([]memberBackupEntry, error) {
 	status, body, err := s.callMemberLimited(ctx, s.backupClient, maxMemberBackupListBody,
 		http.MethodGet, m.URL, memberBackupsPath, token, nil)

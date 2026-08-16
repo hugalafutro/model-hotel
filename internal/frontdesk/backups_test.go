@@ -241,6 +241,74 @@ func TestBackupUnreadableMemberIsNotJudged(t *testing.T) {
 	}
 }
 
+// TestBackupWatchReadsPastTheSharedMemberLimit proves the watchdog reads a
+// member's listing under maxMemberBackupListBody, not the shared 1 MiB
+// maxMemberRespBody. A member is first flagged stale on a short listing, then
+// its listing balloons past 1 MiB (comfortably under the 16 MiB backup limit)
+// with a fresh scheduled entry appended; backup.recovered only fires if the
+// larger body was read in full, so a silent fall-back to the shared limit would
+// leave the member stuck stale instead.
+func TestBackupWatchReadsPastTheSharedMemberLimit(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok",
+		backupEntryAt("backup_old_auto.dump", "scheduled", 30*time.Hour),
+	)
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	if got := eventTypes(t, store, m.ID); len(got) != 1 || got[0] != "backup.stale" {
+		t.Fatalf("events after first pass = %v, want one backup.stale", got)
+	}
+
+	// Comfortably past maxMemberRespBody (1 MiB) at roughly 135 bytes an entry,
+	// and comfortably short of maxMemberBackupListBody (16 MiB).
+	const files = 20000
+	entries := make([]memberBackupEntry, 0, files+1)
+	for i := range files {
+		entries = append(entries, backupEntryAt(
+			fmt.Sprintf("backup_20260101_%06d_manual.dump", i), "manual", 30*time.Hour))
+	}
+	entries = append(entries, backupEntryAt("backup_new_auto.dump", "scheduled", time.Minute))
+	member.mu.Lock()
+	member.files = entries
+	member.mu.Unlock()
+
+	srv.checkMemberBackups(t.Context())
+
+	got := eventTypes(t, store, m.ID)
+	want := []string{"backup.stale", "backup.recovered"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("events = %v, want %v: the larger listing must have been read in full", got, want)
+	}
+}
+
+// TestBackupWatchTreatsAnUnreadablyLargeListingAsUnread: past even the 16 MiB
+// backup limit the read is refused rather than truncated, and the watchdog
+// treats that exactly like any other unreadable listing: not judged, not
+// flagged stale.
+func TestBackupWatchTreatsAnUnreadablyLargeListingAsUnread(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubBackupMember(t, "tok")
+	// Valid JSON, just past maxMemberBackupListBody: the failure must come from
+	// the size limit, not from the shape of the body.
+	member.listBody = "[" + strings.Repeat(`{"filename":"x","created_at":"","origin":"manual"},`,
+		(maxMemberBackupListBody/50)+1) + `{"filename":"y","created_at":"","origin":"manual"}]`
+	m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	srv.checkMemberBackups(t.Context())
+	srv.checkMemberBackups(t.Context())
+
+	if got := eventTypes(t, store, m.ID); len(got) != 0 {
+		t.Fatalf("events = %v, want none: an oversized listing is not a measurement", got)
+	}
+}
+
 // TestBackupUnreachableMemberIsNotJudged is the same invariant for a member that
 // does not answer at all.
 func TestBackupUnreachableMemberIsNotJudged(t *testing.T) {
