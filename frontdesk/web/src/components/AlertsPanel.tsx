@@ -5,15 +5,24 @@ import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { ntfyAppriseURL } from "../utils/ntfy";
-
-// The mask the API returns in place of a stored Apprise target. Echoing it back
-// unchanged preserves the stored secret; any other value replaces it. Must match
-// the server's alertMaskValue.
-const MASK = "********";
+import { ntfyServerOf } from "./alerts/composers";
+import { DestinationList } from "./alerts/DestinationList";
 
 // Official Apprise docs listing every supported service and its URL shape, the
 // same reference the main dashboard links from its alert settings.
 const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
+
+// The failure codes /api/alert/test returns with a 502 that map to an
+// actionable sentence; anything else falls back to the generic error.
+const REASON_CODES = new Set([
+	"not_configured",
+	"invalid_url",
+	"unreachable",
+	"unhealthy",
+	"apprise_reject",
+	"deliver_failed",
+	"undecryptable",
+]);
 
 // Display dot colour per event/display severity, using the Front Desk palette.
 const SEVERITY_COLOR: Record<string, string> = {
@@ -33,6 +42,31 @@ function parseCsv(csv: string): Set<string> {
 	);
 }
 
+interface LoadedTargets {
+	targets: string[];
+	/** Translation key of the read failure, or "" when the read succeeded. */
+	error: string;
+}
+
+// fetchTargets reads the plaintext destination list. It resolves either way so
+// it can sit in the same Promise.all as the other reads: an unreadable stored
+// value (master key rotated) is a message beside an empty list, not a card that
+// refuses to render.
+async function fetchTargets(): Promise<LoadedTargets> {
+	try {
+		const { targets } = await api.getAlertTargets();
+		return { targets, error: "" };
+	} catch (err) {
+		return {
+			targets: [],
+			error:
+				err instanceof ApiError && err.code === "undecryptable"
+					? "settings.alerts.destinationsError"
+					: "errors.generic",
+		};
+	}
+}
+
 // AlertsPanel is the Settings -> Alerts control: point Front Desk at an apprise-api
 // container, choose which HA events to be notified about, and send a test. It is
 // self-contained (loads and saves its own copy of Settings); on every save it
@@ -40,6 +74,10 @@ function parseCsv(csv: string): Set<string> {
 // clobbers edits made in the polling form above it (and that form does the same).
 // It stays quiet (renders nothing) if it cannot load, so the rest of the page
 // still works.
+//
+// Destinations are shown in clear, both as the readable list and in the manual
+// field: the page is admin-only and anyone who can read it can already rewrite
+// the targets, while a masked list makes two phones indistinguishable.
 export function AlertsPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -48,18 +86,27 @@ export function AlertsPanel() {
 	const [loadError, setLoadError] = useState(false);
 	const [enabled, setEnabled] = useState(false);
 	const [url, setUrl] = useState("");
+	const [targets, setTargets] = useState<string[]>([]);
+	const [targetsError, setTargetsError] = useState("");
 	const [target, setTarget] = useState("");
+	const [appended, setAppended] = useState(false);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [status, setStatus] = useState<AlertStatus | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [testing, setTesting] = useState(false);
 	const [saveError, setSaveError] = useState("");
 
-	const applySettings = (s: Settings) => {
+	// applyLoaded pushes a freshly read settings row and destination list into the
+	// form. The manual field is derived from the plaintext list, so it shows
+	// exactly what is stored and a save round-trips it unchanged.
+	const applyLoaded = (s: Settings, loaded: LoadedTargets) => {
 		setEnabled(s.alert_enabled);
 		setUrl(s.alert_apprise_api_url);
-		setTarget(s.alert_apprise_targets); // mask when a secret is stored
 		setSelected(parseCsv(s.alert_events));
+		setTargets(loaded.targets);
+		setTargetsError(loaded.error);
+		setTarget(loaded.targets.join("; "));
+		setAppended(false);
 	};
 
 	const refreshStatus = () =>
@@ -68,16 +115,18 @@ export function AlertsPanel() {
 			.then(setStatus)
 			.catch(() => {});
 
-	// Load once on mount. Inlined (not via applySettings/refreshStatus) so the
+	// Load once on mount. Inlined (not via applyLoaded/refreshStatus) so the
 	// effect's only dependencies are stable setters and the empty array is honest.
 	useEffect(() => {
-		Promise.all([api.getSettings(), api.getAlertEvents()])
-			.then(([s, cat]) => {
+		Promise.all([api.getSettings(), api.getAlertEvents(), fetchTargets()])
+			.then(([s, cat, loaded]) => {
 				setEnabled(s.alert_enabled);
 				setUrl(s.alert_apprise_api_url);
-				setTarget(s.alert_apprise_targets);
 				setSelected(parseCsv(s.alert_events));
 				setCatalog(cat);
+				setTargets(loaded.targets);
+				setTargetsError(loaded.error);
+				setTarget(loaded.targets.join("; "));
 			})
 			.catch(() => setLoadError(true));
 		api
@@ -93,12 +142,18 @@ export function AlertsPanel() {
 			defaultValue: type,
 		});
 
-	// Only a validation error (400) carries a safe, user-facing message; anything
-	// else (network, 5xx, auth) is shown as a generic string so internals do not leak.
-	const describeError = (err: unknown) =>
-		err instanceof ApiError && err.status === 400
-			? err.message
-			: t("errors.generic");
+	// A validation error (400) carries a safe, user-facing message and a 502 from
+	// the test endpoint carries a machine-readable reason code; anything else
+	// (network, other 5xx, auth) is shown as a generic string so internals do not
+	// leak.
+	const describeError = (err: unknown) => {
+		if (!(err instanceof ApiError)) return t("errors.generic");
+		if (err.status === 400) return err.message;
+		if (err.status === 502 && err.code && REASON_CODES.has(err.code)) {
+			return t(`settings.alerts.reason.${err.code}`);
+		}
+		return t("errors.generic");
+	};
 
 	// Group the catalog by its (English) category for the picker.
 	const grouped = useMemo(() => {
@@ -115,16 +170,18 @@ export function AlertsPanel() {
 
 	// persist PUTs only the alert fields; the server merges them onto the stored
 	// row, so this never disturbs the polling form's settings (and vice versa).
-	const persist = async () => {
+	// `overrides` lets a row action (e.g. removing one destination) write a
+	// different target list than the manual field currently holds.
+	const persist = async (overrides?: Partial<Settings>) => {
 		await api.putSettings({
 			alert_enabled: enabled,
 			alert_apprise_api_url: url.trim(),
-			// MASK preserves the stored secret; a new value replaces it; "" clears it.
-			// The mask is never trimmed (it has no whitespace); a typed value is.
-			alert_apprise_targets: target === MASK ? target : target.trim(),
+			alert_apprise_targets: target.trim(),
 			alert_events: [...selected].join(","),
+			...overrides,
 		});
-		applySettings(await api.getSettings());
+		const [s, loaded] = await Promise.all([api.getSettings(), fetchTargets()]);
+		applyLoaded(s, loaded);
 	};
 
 	const save = async () => {
@@ -158,6 +215,41 @@ export function AlertsPanel() {
 		} finally {
 			await refreshStatus();
 			setTesting(false);
+		}
+	};
+
+	// testDestination delivers to one saved destination only, so a fleet with
+	// several phones can tell which one is broken. It tests what is stored, so
+	// nothing on screen is persisted first.
+	const testDestination = async (dest: string) => {
+		setSaveError("");
+		setTesting(true);
+		try {
+			await api.testAlert({ targets: [dest] });
+			toast(t("settings.alerts.testSent"), "success");
+		} catch (err) {
+			setSaveError(describeError(err));
+			toast(t("settings.alerts.testFailed"), "error");
+		} finally {
+			setTesting(false);
+		}
+	};
+
+	// removeDestination persists the list without that one URL. The remaining
+	// on-screen edits ride along, exactly as they do for Save.
+	const removeDestination = async (dest: string) => {
+		setSaveError("");
+		setSaving(true);
+		try {
+			await persist({
+				alert_apprise_targets: targets.filter((x) => x !== dest).join("; "),
+			});
+			await refreshStatus();
+			toast(t("settings.alerts.saved"), "success");
+		} catch (err) {
+			setSaveError(describeError(err));
+		} finally {
+			setSaving(false);
 		}
 	};
 
@@ -201,114 +293,173 @@ export function AlertsPanel() {
 			{enabled && (
 				<>
 					<div className="ui-field">
-						<label className="ui-label" htmlFor="alert-url">
-							{t("settings.alerts.apiUrlLabel")}
-						</label>
-						<input
-							id="alert-url"
-							className="ui-input"
-							type="url"
-							placeholder="http://apprise:8000"
-							value={url}
-							disabled={busy}
-							onChange={(e) => setUrl(e.target.value)}
-						/>
+						<span className="ui-label">
+							{t("settings.alerts.destinationsTitle")}
+						</span>
 						<div
 							className="fd-faint"
-							style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+							style={{ fontSize: "0.78rem", margin: "0.1rem 0 0.4rem" }}
 						>
-							{t("settings.alerts.apiUrlHint")}
+							{t("settings.alerts.destinationsNote")}
 						</div>
-					</div>
-
-					<div className="ui-field">
-						<label className="ui-label" htmlFor="alert-target">
-							{t("settings.alerts.targetLabel")}
-						</label>
-						<input
-							id="alert-target"
-							className="ui-input"
-							type="password"
-							autoComplete="off"
-							placeholder="tgram://token/chat_id"
-							value={target}
-							disabled={busy}
-							onChange={(e) => setTarget(e.target.value)}
-						/>
-						<div
-							className="fd-faint"
-							style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
-						>
-							{target === MASK
-								? t("settings.alerts.targetStoredNote")
-								: t("settings.alerts.targetHint")}{" "}
-							<a
-								className="fd-link"
-								href={APPRISE_SERVICES_URL}
-								target="_blank"
-								rel="noreferrer"
+						{targetsError && (
+							<div
+								className="fd-error-text"
+								data-testid="alert-destinations-error"
+								style={{ marginBottom: "0.4rem" }}
 							>
-								{t("settings.alerts.browseServices")}
-								<ArrowSquareOutIcon
-									size={12}
-									style={{ marginLeft: 3, verticalAlign: "-1px" }}
-								/>
-							</a>
-						</div>
+								{t(targetsError)}
+							</div>
+						)}
+						<DestinationList
+							targets={targets}
+							onRemove={removeDestination}
+							onTest={testDestination}
+							busy={busy}
+						/>
 					</div>
 
-					<NtfyHelper disabled={busy} onUse={(apprise) => setTarget(apprise)} />
-
-					<fieldset
-						style={{ border: "none", padding: 0, margin: 0 }}
-						disabled={busy}
-					>
-						<legend className="ui-label">
-							{t("settings.alerts.eventsLabel")}
-						</legend>
-						<div
-							className="fd-faint"
-							style={{ fontSize: "0.78rem", margin: "0 0 0.5rem" }}
-						>
-							{t("settings.alerts.eventsHint")}
-						</div>
-						{grouped.map(([category, defs]) => (
-							<div key={category} style={{ marginBottom: "0.6rem" }}>
-								<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
-									{category}
+					{/* Everything the wizard writes for you, kept reachable for the
+					    operator who would rather type the Apprise URL themselves. */}
+					<details data-testid="alert-manual">
+						<summary style={{ cursor: "pointer", fontWeight: 500 }}>
+							{t("settings.alerts.manualTitle")}
+						</summary>
+						<div className="fd-stack" style={{ marginTop: "0.6rem" }}>
+							<div className="ui-field">
+								<label className="ui-label" htmlFor="alert-url">
+									{t("settings.alerts.apiUrlLabel")}
+								</label>
+								<input
+									id="alert-url"
+									className="ui-input"
+									type="url"
+									placeholder="http://apprise:8000"
+									value={url}
+									disabled={busy}
+									onChange={(e) => setUrl(e.target.value)}
+								/>
+								<div
+									className="fd-faint"
+									style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+								>
+									{t("settings.alerts.apiUrlHint")}
 								</div>
-								{defs.map((d) => {
-									const label = eventLabel(d.type);
-									return (
-										<label
-											key={d.type}
-											className="fd-row"
-											style={{ cursor: "pointer", marginTop: "0.2rem" }}
-										>
-											<input
-												type="checkbox"
-												aria-label={label}
-												checked={selected.has(d.type)}
-												onChange={(e) => toggleEvent(d.type, e.target.checked)}
-											/>
-											<span
-												aria-hidden="true"
-												style={{
-													display: "inline-block",
-													width: "0.5rem",
-													height: "0.5rem",
-													borderRadius: "50%",
-													background:
-														SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
-												}}
-											/>
-											<span style={{ fontSize: "0.85rem" }}>{label}</span>
-										</label>
-									);
-								})}
 							</div>
-						))}
-					</fieldset>
+
+							<div className="ui-field">
+								<label className="ui-label" htmlFor="alert-target">
+									{t("settings.alerts.targetLabel")}
+								</label>
+								<input
+									id="alert-target"
+									className="ui-input fd-mono"
+									type="text"
+									autoComplete="off"
+									spellCheck={false}
+									placeholder="tgram://token/chat_id"
+									value={target}
+									disabled={busy}
+									onChange={(e) => {
+										setTarget(e.target.value);
+										setAppended(false);
+									}}
+								/>
+								<div
+									className="fd-faint"
+									style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+								>
+									{t("settings.alerts.targetHint")}{" "}
+									<a
+										className="fd-link"
+										href={APPRISE_SERVICES_URL}
+										target="_blank"
+										rel="noreferrer"
+									>
+										{t("settings.alerts.browseServices")}
+										<ArrowSquareOutIcon
+											size={12}
+											style={{ marginLeft: 3, verticalAlign: "-1px" }}
+										/>
+									</a>
+								</div>
+							</div>
+
+							<NtfyHelper
+								disabled={busy}
+								initialServer={ntfyServerOf(targets)}
+								onUse={(apprise) => {
+									setTarget((prev) =>
+										prev.trim() ? `${prev.trim()}; ${apprise}` : apprise,
+									);
+									setAppended(true);
+								}}
+							/>
+							{appended && (
+								<div
+									className="fd-faint"
+									data-testid="alert-ntfy-appended"
+									style={{ fontSize: "0.78rem" }}
+								>
+									{t("settings.alerts.ntfyAppended")}
+								</div>
+							)}
+
+							<fieldset
+								style={{ border: "none", padding: 0, margin: 0 }}
+								disabled={busy}
+							>
+								<legend className="ui-label">
+									{t("settings.alerts.eventsLabel")}
+								</legend>
+								<div
+									className="fd-faint"
+									style={{ fontSize: "0.78rem", margin: "0 0 0.5rem" }}
+								>
+									{t("settings.alerts.eventsHint")}
+								</div>
+								{grouped.map(([category, defs]) => (
+									<div key={category} style={{ marginBottom: "0.6rem" }}>
+										<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
+											{category}
+										</div>
+										{defs.map((d) => {
+											const label = eventLabel(d.type);
+											return (
+												<label
+													key={d.type}
+													className="fd-row"
+													style={{ cursor: "pointer", marginTop: "0.2rem" }}
+												>
+													<input
+														type="checkbox"
+														aria-label={label}
+														checked={selected.has(d.type)}
+														onChange={(e) =>
+															toggleEvent(d.type, e.target.checked)
+														}
+													/>
+													<span
+														aria-hidden="true"
+														style={{
+															display: "inline-block",
+															width: "0.5rem",
+															height: "0.5rem",
+															borderRadius: "50%",
+															background:
+																SEVERITY_COLOR[d.severity] ??
+																"var(--text-faint)",
+														}}
+													/>
+													<span style={{ fontSize: "0.85rem" }}>{label}</span>
+												</label>
+											);
+										})}
+									</div>
+								))}
+							</fieldset>
+						</div>
+					</details>
 				</>
 			)}
 
@@ -346,18 +497,22 @@ export function AlertsPanel() {
 
 // NtfyHelper is the phone-push convenience block (Bellhop plan section 4.3):
 // it pre-formats the Apprise URL for an ntfy topic so pointing fleet alerts at
-// a phone is a copy-free two-field job. Self-hosted ntfy and ntfy.sh with a
-// secret topic both work; the composed URL still goes through the ordinary
-// target field and save flow.
+// a phone is a copy-free two-field job. Self-hosted ntfy and hosted ntfy both
+// work; the operator says which server, and the composed URL is appended to the
+// target field and goes through the ordinary save flow.
 function NtfyHelper({
 	disabled,
+	initialServer,
 	onUse,
 }: {
 	disabled: boolean;
+	// The ntfy server already in use, so a second phone joins it without the
+	// operator retyping the URL. Empty when no ntfy target is stored yet.
+	initialServer: string;
 	onUse: (appriseURL: string) => void;
 }) {
 	const { t } = useTranslation();
-	const [server, setServer] = useState("https://ntfy.sh");
+	const [server, setServer] = useState(initialServer);
 	const [topic, setTopic] = useState("");
 	const composed = ntfyAppriseURL(server, topic);
 
@@ -375,7 +530,7 @@ function NtfyHelper({
 					className="ui-input"
 					type="url"
 					aria-label={t("settings.alerts.ntfyServerLabel")}
-					placeholder="https://ntfy.sh"
+					placeholder={t("settings.alerts.ntfyServerPlaceholder")}
 					value={server}
 					disabled={disabled}
 					onChange={(e) => setServer(e.target.value)}
@@ -414,7 +569,8 @@ function NtfyHelper({
 
 // StatusPill renders the apprise-api reachability as a coloured badge, with the
 // probe detail (e.g. "unreachable", "apprise-api returned status 417") shown as a
-// tooltip and inline note so the operator gets a reason, not just a colour.
+// tooltip and inline note so the operator gets a reason, not just a colour. With
+// nothing configured yet it says where to start instead of only what is missing.
 function StatusPill({
 	status,
 	t,
@@ -424,8 +580,20 @@ function StatusPill({
 }) {
 	if (!status?.configured) {
 		return (
-			<span className="ui-badge ui-badge-info">
-				{t("settings.alerts.statusNotConfigured")}
+			<span
+				className="fd-row"
+				style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
+			>
+				<span className="ui-badge ui-badge-info">
+					{t("settings.alerts.statusNotConfigured")}
+				</span>
+				<span
+					className="fd-faint"
+					data-testid="alert-status-hint"
+					style={{ fontSize: "0.72rem" }}
+				>
+					{t("settings.alerts.statusNotConfiguredHint")}
+				</span>
 			</span>
 		);
 	}

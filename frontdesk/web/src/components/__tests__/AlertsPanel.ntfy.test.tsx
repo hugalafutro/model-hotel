@@ -53,6 +53,7 @@ beforeEach(() => {
 		http.get("/api/settings", () => HttpResponse.json(settings)),
 		http.get("/api/alert/events", () => HttpResponse.json(catalog)),
 		http.get("/api/alert/status", () => HttpResponse.json(okStatus)),
+		http.get("/api/alert/targets", () => HttpResponse.json({ targets: [] })),
 	);
 });
 
@@ -65,44 +66,78 @@ function renderPanel() {
 }
 
 it("composes ntfy Apprise URLs from server scheme and topic", () => {
-	expect(ntfyAppriseURL("https://ntfy.sh", "secret-1")).toBe(
-		"ntfys://ntfy.sh/secret-1",
+	expect(ntfyAppriseURL("https://ntfy.example.com", "secret-1")).toBe(
+		"ntfys://ntfy.example.com/secret-1",
 	);
 	expect(ntfyAppriseURL("http://ntfy.lan:8080", "fleet")).toBe(
 		"ntfy://ntfy.lan:8080/fleet",
 	);
 	// Invalid pairs compose to nothing.
 	expect(ntfyAppriseURL("not a url", "topic")).toBe("");
-	expect(ntfyAppriseURL("ftp://ntfy.sh", "topic")).toBe("");
-	expect(ntfyAppriseURL("https://ntfy.sh", "")).toBe("");
-	expect(ntfyAppriseURL("https://ntfy.sh", "has space")).toBe("");
-	expect(ntfyAppriseURL("https://ntfy.sh", "has/slash")).toBe("");
+	expect(ntfyAppriseURL("ftp://ntfy.example.com", "topic")).toBe("");
+	expect(ntfyAppriseURL("https://ntfy.example.com", "")).toBe("");
+	expect(ntfyAppriseURL("https://ntfy.example.com", "has space")).toBe("");
+	expect(ntfyAppriseURL("https://ntfy.example.com", "has/slash")).toBe("");
 });
 
-it("previews the composed URL and sets it as the notification target", async () => {
+// No target is stored, so the operator says which ntfy server to use: the field
+// starts empty rather than pointing at a public server nobody chose.
+it("starts with an empty server field and composes what the operator types", async () => {
 	renderPanel();
-	const topic = await screen.findByLabelText("ntfy topic");
+	const serverInput = (await screen.findByLabelText(
+		"ntfy server",
+	)) as HTMLInputElement;
+	expect(serverInput.value).toBe("");
+	expect(screen.queryByDisplayValue("https://ntfy.sh")).toBeNull();
 
-	// Button is disabled until a valid topic exists.
+	// Button is disabled until a valid server/topic pair exists.
 	const useBtn = screen.getByRole("button", { name: "Set as target" });
 	expect(useBtn).toBeDisabled();
+	await userEvent.type(screen.getByLabelText("ntfy topic"), "my-secret-topic");
+	expect(useBtn).toBeDisabled();
+	await userEvent.type(serverInput, "https://ntfy.example.com");
 
-	await userEvent.type(topic, "my-secret-topic");
 	expect(
-		screen.getByText("ntfys://ntfy.sh/my-secret-topic"),
+		screen.getByText("ntfys://ntfy.example.com/my-secret-topic"),
 	).toBeInTheDocument();
 	expect(useBtn).toBeEnabled();
 
 	await userEvent.click(useBtn);
 	expect(screen.getByLabelText("Notification target(s)")).toHaveValue(
-		"ntfys://ntfy.sh/my-secret-topic",
+		"ntfys://ntfy.example.com/my-secret-topic",
 	);
+	expect(screen.getByTestId("alert-ntfy-appended")).toBeInTheDocument();
+});
+
+// A second phone joins the ntfy server already in use, so the field is prefilled
+// from the stored target and the composed URL is appended, not substituted.
+it("prefills the server from a stored ntfy target and appends the new topic", async () => {
+	server.use(
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ targets: ["ntfys://ntfy.example.com/first"] }),
+		),
+	);
+	renderPanel();
+	const serverInput = (await screen.findByLabelText(
+		"ntfy server",
+	)) as HTMLInputElement;
+	expect(serverInput.value).toBe("https://ntfy.example.com");
+
+	await userEvent.type(screen.getByLabelText("ntfy topic"), "second");
+	await userEvent.click(screen.getByRole("button", { name: "Set as target" }));
+	expect(screen.getByLabelText("Notification target(s)")).toHaveValue(
+		"ntfys://ntfy.example.com/first; ntfys://ntfy.example.com/second",
+	);
+	expect(screen.getByTestId("alert-ntfy-appended")).toBeInTheDocument();
+
+	// The note is a reminder to save, so the next edit clears it.
+	await userEvent.type(screen.getByLabelText("Notification target(s)"), "x");
+	expect(screen.queryByTestId("alert-ntfy-appended")).toBeNull();
 });
 
 it("recomposes for a self-hosted plain-http server", async () => {
 	renderPanel();
 	const serverInput = await screen.findByLabelText("ntfy server");
-	await userEvent.clear(serverInput);
 	await userEvent.type(serverInput, "http://ntfy.lan:8080");
 	await userEvent.type(screen.getByLabelText("ntfy topic"), "fleet");
 	expect(screen.getByText("ntfy://ntfy.lan:8080/fleet")).toBeInTheDocument();

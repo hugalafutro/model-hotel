@@ -39,7 +39,9 @@ const settings: Settings = {
 	session_idle_timeout_minutes: 60,
 	alert_enabled: true,
 	alert_apprise_api_url: "http://apprise:8000",
-	alert_apprise_targets: "********", // a secret is stored; served masked
+	// Settings serves the stored targets masked; the card reads the plaintext
+	// list from /api/alert/targets instead, so this value must never reach the UI.
+	alert_apprise_targets: "********",
 	alert_events: "health.down",
 	oidc_enabled: false,
 	oidc_issuer_url: "",
@@ -48,6 +50,10 @@ const settings: Settings = {
 	oidc_public_base_url: "",
 	oidc_allowed_emails: "",
 };
+
+// The plaintext destinations /api/alert/targets serves, which is what both the
+// destinations list and the manual field render.
+const storedTargets = ["ntfys://ntfy.example.com/secret1"];
 
 const okStatus: AlertStatus = {
 	configured: true,
@@ -70,6 +76,7 @@ function baseHandlers(opts?: {
 	settings?: Settings;
 	catalog?: AlertEventDef[];
 	status?: AlertStatus;
+	targets?: string[];
 }) {
 	server.use(
 		http.get("/api/settings", () =>
@@ -80,6 +87,9 @@ function baseHandlers(opts?: {
 		),
 		http.get("/api/alert/status", () =>
 			HttpResponse.json(opts?.status ?? okStatus),
+		),
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ targets: opts?.targets ?? storedTargets }),
 		),
 	);
 }
@@ -104,18 +114,137 @@ it("renders friendly labels and reflects the stored selection", async () => {
 	).toBeChecked();
 });
 
-it("shows the stored target masked, never as raw text", async () => {
+it("shows the stored targets as readable rows and in the manual text field", async () => {
 	baseHandlers();
 	renderPanel();
-	const target = (await screen.findByLabelText(
+	const rows = await screen.findAllByTestId("alert-destination-row");
+	expect(rows).toHaveLength(1);
+	expect(rows[0]).toHaveTextContent("ntfy.example.com");
+	expect(rows[0]).toHaveTextContent("secret1");
+	// The manual field mirrors the same plaintext list, never the served mask.
+	const target = screen.getByLabelText(
 		/notification target/i,
-	)) as HTMLInputElement;
-	expect(target.value).toBe("********");
-	expect(target.type).toBe("password");
-	expect(document.body.textContent).not.toContain("tgram://");
+	) as HTMLInputElement;
+	expect(target.type).toBe("text");
+	expect(target.value).toBe("ntfys://ntfy.example.com/secret1");
+	expect(screen.queryByText("********")).toBeNull();
 });
 
-it("save preserves the masked secret and writes the current selection", async () => {
+it("reports unreadable stored destinations instead of an empty list", async () => {
+	baseHandlers();
+	server.use(
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json(
+				{ code: "undecryptable", error: "decrypt failed" },
+				{ status: 500 },
+			),
+		),
+	);
+	renderPanel();
+	expect(
+		await screen.findByTestId("alert-destinations-error"),
+	).toHaveTextContent(/master key/i);
+	expect(screen.queryByTestId("alert-destination-row")).toBeNull();
+	expect(screen.getByTestId("alert-destinations-empty")).toBeInTheDocument();
+});
+
+// Any other read failure is generic: the reason is not something the operator
+// can act on, and the card must still render the rest of the configuration.
+it("falls back to a generic message when the destinations read fails", async () => {
+	baseHandlers();
+	server.use(
+		http.get(
+			"/api/alert/targets",
+			() => new HttpResponse(null, { status: 500 }),
+		),
+	);
+	renderPanel();
+	expect(
+		await screen.findByTestId("alert-destinations-error"),
+	).toHaveTextContent(/something went wrong/i);
+	expect(screen.getByTestId("alert-destinations-empty")).toBeInTheDocument();
+});
+
+it("removing a row PUTs the remaining list", async () => {
+	let putBody: Settings | undefined;
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", async ({ request }) => {
+			putBody = (await request.json()) as Settings;
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-destination-remove"));
+	await userEvent.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+	await waitFor(() => expect(putBody).toBeDefined());
+	// The only stored destination is gone, so the list persists as empty.
+	expect(putBody?.alert_apprise_targets).toBe("");
+});
+
+it("surfaces a rejected removal instead of silently keeping the row", async () => {
+	baseHandlers();
+	server.use(
+		http.put(
+			"/api/settings",
+			() =>
+				new HttpResponse("frontdesk: validation failed: bad target", {
+					status: 400,
+				}),
+		),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-destination-remove"));
+	await userEvent.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(/bad target/i);
+	expect(screen.getByTestId("alert-destination-row")).toBeInTheDocument();
+});
+
+it("tests a single row without persisting the form", async () => {
+	let testBody: { targets?: string[] } | undefined;
+	let putHit = false;
+	baseHandlers();
+	server.use(
+		http.put("/api/settings", () => {
+			putHit = true;
+			return new HttpResponse(null, { status: 204 });
+		}),
+		http.post("/api/alert/test", async ({ request }) => {
+			testBody = (await request.json()) as { targets?: string[] };
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-destination-test"));
+
+	await waitFor(() => expect(testBody).toBeDefined());
+	expect(testBody?.targets).toEqual(["ntfys://ntfy.example.com/secret1"]);
+	expect(putHit).toBe(false);
+});
+
+// A 502 from the test endpoint carries a machine-readable code; the card turns
+// it into an actionable sentence rather than the generic fallback.
+it("explains a coded delivery failure on a row test", async () => {
+	baseHandlers();
+	server.use(
+		http.post("/api/alert/test", () =>
+			HttpResponse.json(
+				{ code: "deliver_failed", error: "apprise-api returned status 424" },
+				{ status: 502 },
+			),
+		),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("alert-destination-test"));
+
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent(/could not deliver/i);
+	expect(alert.textContent).not.toContain("424");
+});
+
+it("save writes the plaintext targets and the current selection", async () => {
 	// Declared without a `= null` initializer: the only assignment happens inside
 	// the handler closure below, and a null initializer would make TS's control-
 	// flow analysis pin the outer reads to `null` (collapsing putBody?.x to never).
@@ -134,8 +263,10 @@ it("save preserves the masked secret and writes the current selection", async ()
 	);
 
 	await waitFor(() => expect(putBody).toBeDefined());
-	// The mask is echoed back unchanged so the backend keeps the stored secret.
-	expect(putBody?.alert_apprise_targets).toBe("********");
+	// The plaintext list round-trips; the served mask is never written back.
+	expect(putBody?.alert_apprise_targets).toBe(
+		"ntfys://ntfy.example.com/secret1",
+	);
 	expect(putBody?.alert_enabled).toBe(true);
 	expect(putBody?.alert_events).toBe("health.down");
 });
@@ -158,19 +289,16 @@ it("saves the edited URL, a composed ntfy target, and a toggled event", async ()
 	await userEvent.clear(url);
 	await userEvent.type(url, "http://apprise:9000");
 
-	// Typing a raw target replaces the stored mask...
+	// Typing a raw target replaces the loaded list...
 	const target = screen.getByLabelText(/notification target/i);
 	await userEvent.clear(target);
 	await userEvent.type(target, "tgram://tok/chat");
-	// ...and the ntfy helper overwrites it with the composed Apprise URL.
-	await userEvent.clear(screen.getByLabelText(/ntfy server/i));
-	await userEvent.type(
-		screen.getByLabelText(/ntfy server/i),
-		"https://ntfy.example.com",
-	);
+	// ...and the ntfy helper appends the composed Apprise URL to it.
 	await userEvent.type(screen.getByLabelText(/ntfy topic/i), "fleet-alerts");
 	await userEvent.click(screen.getByRole("button", { name: /set as target/i }));
-	expect(target).toHaveValue("ntfys://ntfy.example.com/fleet-alerts");
+	expect(target).toHaveValue(
+		"tgram://tok/chat; ntfys://ntfy.example.com/fleet-alerts",
+	);
 
 	await userEvent.click(
 		screen.getByRole("checkbox", { name: "Member recovered" }),
@@ -186,7 +314,7 @@ it("saves the edited URL, a composed ntfy target, and a toggled event", async ()
 	await waitFor(() => expect(putBody).toBeDefined());
 	expect(putBody?.alert_apprise_api_url).toBe("http://apprise:9000");
 	expect(putBody?.alert_apprise_targets).toBe(
-		"ntfys://ntfy.example.com/fleet-alerts",
+		"tgram://tok/chat; ntfys://ntfy.example.com/fleet-alerts",
 	);
 	expect(putBody?.alert_events).toBe("health.up");
 });
@@ -286,8 +414,8 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 	).toBeNull();
 	expect(screen.queryByRole("button", { name: /send test/i })).toBeNull();
 	// Save stays reachable so switching alerts off can be persisted, and a save
-	// while rolled up still carries the stored URL, the masked secret and the
-	// event selection: hiding the fields must never blank what they held, or
+	// while rolled up still carries the stored URL, the stored destinations and
+	// the event selection: hiding the fields must never blank what they held, or
 	// toggling alerts off would silently wipe the operator's Apprise setup.
 	await userEvent.click(
 		screen.getByRole("button", { name: /save alert settings/i }),
@@ -295,7 +423,9 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 	await waitFor(() => expect(putBody).toBeDefined());
 	expect(putBody?.alert_enabled).toBe(false);
 	expect(putBody?.alert_apprise_api_url).toBe(settings.alert_apprise_api_url);
-	expect(putBody?.alert_apprise_targets).toBe("********");
+	expect(putBody?.alert_apprise_targets).toBe(
+		"ntfys://ntfy.example.com/secret1",
+	);
 	expect(putBody?.alert_events).toBe(settings.alert_events);
 
 	await userEvent.click(toggle);
@@ -306,6 +436,14 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 	expect(
 		screen.getByRole("button", { name: /send test/i }),
 	).toBeInTheDocument();
+});
+
+it("points at set-up next to the Not configured pill", async () => {
+	baseHandlers({
+		status: { configured: false, reachable: false, healthy: false },
+	});
+	renderPanel();
+	expect(await screen.findByTestId("alert-status-hint")).toBeInTheDocument();
 });
 
 it("renders without a picker when the catalog is empty", async () => {
@@ -325,6 +463,9 @@ it("stays quiet (renders nothing) when settings fail to load", async () => {
 		http.get("/api/settings", () => new HttpResponse(null, { status: 500 })),
 		http.get("/api/alert/events", () => HttpResponse.json(catalog)),
 		http.get("/api/alert/status", () => HttpResponse.json(okStatus)),
+		http.get("/api/alert/targets", () =>
+			HttpResponse.json({ targets: storedTargets }),
+		),
 	);
 	const { container } = render(
 		<ToastProvider>
