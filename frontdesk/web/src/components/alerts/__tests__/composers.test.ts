@@ -35,6 +35,7 @@ describe("compose", () => {
 			"tgram://123:abc/42",
 		);
 		expect(compose("telegram", { token: "", chat_id: "42" })).toBe("");
+		expect(compose("telegram", { token: "a/b", chat_id: "1" })).toBe("");
 		expect(
 			compose("discord", {
 				webhook: "https://discord.com/api/webhooks/111/tok_en",
@@ -70,11 +71,11 @@ describe("compose", () => {
 describe("parsers", () => {
 	it("parseUnifiedPushEndpoint accepts host/topic with or without ?up=1", () => {
 		expect(
-			parseUnifiedPushEndpoint("https://ntfy.example.com/upK8?up=1"),
-		).toEqual({ server: "https://ntfy.example.com", topic: "upK8" });
-		expect(parseUnifiedPushEndpoint(" https://ntfy.example.com/upK8 ")).toEqual(
-			{ server: "https://ntfy.example.com", topic: "upK8" },
-		);
+			parseUnifiedPushEndpoint("https://ntfy.example.com/upAbCdEfGh?up=1"),
+		).toEqual({ server: "https://ntfy.example.com", topic: "upAbCdEfGh" });
+		expect(
+			parseUnifiedPushEndpoint(" https://ntfy.example.com/upAbCdEfGh "),
+		).toEqual({ server: "https://ntfy.example.com", topic: "upAbCdEfGh" });
 		expect(parseUnifiedPushEndpoint("https://ntfy.example.com/")).toBeNull();
 		expect(parseUnifiedPushEndpoint("https://ntfy.example.com/a/b")).toBeNull();
 		expect(parseUnifiedPushEndpoint("ftp://x/y")).toBeNull();
@@ -99,8 +100,8 @@ describe("describeTarget / ntfyServerOf", () => {
 			host: "ntfy.example.com",
 			secret: "secret1",
 		});
-		expect(describeTarget("ntfys://ntfy.example.com/upK8JCiSSg")).toMatchObject(
-			{ kind: "bellhop", secret: "upK8JCiSSg" },
+		expect(describeTarget("ntfys://ntfy.example.com/upZyXwVuTs")).toMatchObject(
+			{ kind: "bellhop", secret: "upZyXwVuTs" },
 		);
 		expect(describeTarget("tgram://123:abc/42")).toMatchObject({
 			kind: "telegram",
@@ -113,6 +114,12 @@ describe("describeTarget / ntfyServerOf", () => {
 		expect(
 			describeTarget("mailtos://u:p@smtp.example.com:587?to=x"),
 		).toMatchObject({ kind: "email", host: "smtp.example.com:587" });
+		expect(
+			describeTarget("mailtos://u:p%40w@smtp.example.com:587?to=x").secret,
+		).toBe("p@w");
+		expect(describeTarget("mailtos://u:p%@h/?to=x")).toMatchObject({
+			kind: "email",
+		});
 		expect(describeTarget("slack://T/B/C")).toMatchObject({
 			kind: "other",
 			host: "slack",

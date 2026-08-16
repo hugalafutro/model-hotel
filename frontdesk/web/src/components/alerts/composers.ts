@@ -19,7 +19,7 @@ export interface DestinationFields {
 
 export interface FieldDef {
 	key: string;
-	/** Rendered as a password input and masked in the readable target list. */
+	/** Entered through a password-type input while typing; not masked after. */
 	secret?: boolean;
 	placeholder?: string;
 	defaultValue?: string;
@@ -121,6 +121,7 @@ export function compose(kind: DestinationKind, f: DestinationFields): string {
 export interface TargetInfo {
 	kind: DestinationKind;
 	host: string;
+	/** The identifying segment the destination row highlights: topic, token, password. */
 	secret: string;
 	url: string;
 }
@@ -143,9 +144,10 @@ function decodePart(s: string): string {
 }
 
 // describeTarget reads a stored Apprise URL back into something the settings
-// list can show: which service it points at, which host, and the one piece
-// worth masking. Stored targets come from the server, but a hand-edited or
-// future-scheme value must still render, so this never throws.
+// list can show: which service it points at, which host, and the identifying
+// segment the destination row highlights (topic, token, password). Stored
+// targets come from the server, but a hand-edited or future-scheme value must
+// still render, so this never throws.
 export function describeTarget(url: string): TargetInfo {
 	const fallback: TargetInfo = {
 		kind: "other",

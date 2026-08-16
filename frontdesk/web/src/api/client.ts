@@ -204,23 +204,19 @@ export const api = {
 	getAlertEvents: () => request<AlertEventDef[]>("/api/alert/events"),
 	getAlertStatus: () => request<AlertStatus>("/api/alert/status"),
 	probeAlert: (apiUrl: string) =>
-		request<AlertStatus>("/api/alert/probe", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ api_url: apiUrl }),
-		}),
+		request<AlertStatus>(
+			"/api/alert/probe",
+			jsonInit("POST", { api_url: apiUrl }),
+		),
 	// No body: test the saved configuration. {api_url, targets}: test one or more
 	// explicit destinations through an explicit URL before anything is saved.
+	// The no-body form sends no body and no Content-Type, which is how the
+	// server tells "use what is stored" from "use exactly this".
 	testAlert: (body?: { api_url?: string; targets?: string[] }) =>
-		request<void>("/api/alert/test", {
-			method: "POST",
-			...(body
-				? {
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(body),
-					}
-				: {}),
-		}),
+		request<void>(
+			"/api/alert/test",
+			body ? jsonInit("POST", body) : { method: "POST" },
+		),
 	getAlertTargets: () => request<AlertTargets>("/api/alert/targets"),
 
 	listEvents: (params: URLSearchParams) =>
