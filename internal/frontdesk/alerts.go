@@ -72,10 +72,6 @@ var fdCatalog = []alert.EventDef{
 	// wedged scheduler. Default-on; migration 019 brings the seed in line.
 	{Type: "backup.stale", Category: "Backups", Severity: "warning", DefaultOn: true},
 	{Type: "backup.recovered", Category: "Backups", Severity: "success", DefaultOn: false},
-	// An operator ran the fleet-wide delete of the backups Front Desk took. Like
-	// member.removed, an audit record of a destructive act; off by default, so the
-	// seed CSV is unaffected.
-	{Type: "backup.pruned", Category: "Backups", Severity: "info", DefaultOn: false},
 }
 
 // alertConfigProvider resolves Front Desk's alert.Config from the settings row,
