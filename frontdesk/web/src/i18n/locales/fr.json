@@ -447,7 +447,7 @@
 				"apiChangedDrops": "Changer l'adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
 				"backToList": "Retour aux destinations",
 				"nothingAdded": "Rien n'a encore été ajouté dans cette session.",
-				"alreadySaved": "Cette destination est déjà configurée. Vous pouvez la tester, mais elle ne sera pas ajoutée une seconde fois."
+				"alreadySaved": "Vous avez déjà ajouté cette destination. Elle ne peut pas être ajoutée deux fois."
 			}
 		},
 		"wizard": {

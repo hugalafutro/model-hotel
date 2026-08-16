@@ -10,6 +10,7 @@ import {
 	AlertsWizard,
 	type AlertsWizardProps,
 	initialState,
+	isDuplicate,
 	reducer,
 } from "../AlertsWizard";
 
@@ -345,7 +346,7 @@ it("accepting an edited destination replaces the one it superseded", () => {
 	const accept = (from: ReturnType<typeof initialState>, topic: string) => {
 		let next = reducer(from, { type: "setField", key: "topic", value: topic });
 		next = reducer(next, { type: "tested" });
-		return reducer(next, { type: "acceptDraft", saved: props.savedTargets });
+		return reducer(next, { type: "acceptDraft" });
 	};
 
 	let s = reducer(initialState(props), {
@@ -704,7 +705,7 @@ it("does not add a destination that is already stored a second time", () => {
 	);
 	s = reducer(s, { type: "setField", key: "topic", value: "one" });
 	s = reducer(s, { type: "tested" });
-	s = reducer(s, { type: "acceptDraft", saved });
+	s = reducer(s, { type: "acceptDraft" });
 	// The list the run finishes with already carries it once; a second entry
 	// would make apprise deliver the same alert twice to the same phone.
 	expect(s.added).toEqual([]);
@@ -728,9 +729,9 @@ it("drops the destinations added in this run when the apprise address changes", 
 	});
 	s = reducer(s, { type: "setField", key: "topic", value: "one" });
 	s = reducer(s, { type: "tested" });
-	s = reducer(s, { type: "acceptDraft", saved: props.savedTargets });
+	s = reducer(s, { type: "acceptDraft" });
 	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
-	expect(s.savedCount).toBe(1);
+	expect(s.saved).toEqual(["tgram://1/2"]);
 
 	// The destination was proven through the old apprise only, so pointing at a
 	// different one drops it rather than carrying an unproven URL to Finish. The
@@ -738,10 +739,10 @@ it("drops the destinations added in this run when the apprise address changes", 
 	s = reducer(s, { type: "setApiUrl", value: "http://apprise-b:8000" });
 	expect(s.added).toEqual([]);
 	expect(s.draft.acceptedUrl).toBeNull();
-	expect(s.savedCount).toBe(1);
+	expect(s.saved).toEqual(["tgram://1/2"]);
 });
 
-it("re-adding a stored destination says so on step 3 and leaves step 5 empty", async () => {
+it("refuses a stored destination on step 3 until it is changed", async () => {
 	server.use(
 		http.post("/api/alert/probe", () =>
 			HttpResponse.json({ configured: true, reachable: true, healthy: true }),
@@ -759,28 +760,73 @@ it("re-adding a stored destination says so on step 3 and leaves step 5 empty", a
 	// A URL nobody has stored is just a new destination.
 	await userEvent.type(screen.getByTestId("wiz-field-url"), "tgram://9/9");
 	expect(screen.queryByTestId("wiz-already-saved")).toBeNull();
+	expect(screen.getByTestId("wiz-next")).toBeEnabled();
 
-	// Typing one that is already stored is called out while it is being typed,
-	// and says so without closing the gate: it can still be tested.
+	// Typing one that is already stored is a hard stop: the same destination
+	// twice is never what was meant, so the step says so and refuses to advance.
 	await userEvent.clear(screen.getByTestId("wiz-field-url"));
 	await userEvent.type(screen.getByTestId("wiz-field-url"), "tgram://1/2");
 	expect(screen.getByTestId("wiz-already-saved")).toHaveTextContent(
 		i18n.t("settings.alerts.wizard.alreadySaved"),
 	);
+	expect(screen.getByTestId("wiz-next")).toBeDisabled();
+
+	// Changing it into a destination the run does not have yet clears both.
+	await userEvent.clear(screen.getByTestId("wiz-field-url"));
+	await userEvent.type(screen.getByTestId("wiz-field-url"), "tgram://3/4");
+	expect(screen.queryByTestId("wiz-already-saved")).toBeNull();
 	expect(screen.getByTestId("wiz-next")).toBeEnabled();
 
 	await userEvent.click(screen.getByTestId("wiz-next"));
 	await userEvent.click(screen.getByTestId("wiz-send-test"));
 	await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
 	await userEvent.click(screen.getByTestId("wiz-next"));
-
-	// The run added nothing the stored list did not already have, so step 5 says
-	// exactly that rather than the card's "no destinations yet", which would
-	// contradict the note about the destination that is saved.
 	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
-	expect(screen.queryAllByTestId("alert-destination-row")).toHaveLength(0);
+	expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
+
+	// Taking that row back off leaves the run with nothing of its own, which is
+	// what the list says rather than the card's "no destinations yet": the note
+	// above it is still counting the destination that is stored.
+	await userEvent.click(screen.getByTestId("alert-destination-remove"));
+	await userEvent.click(screen.getByTestId("alert-destination-remove-confirm"));
 	expect(screen.getByTestId("alert-destinations-empty")).toHaveTextContent(
 		i18n.t("settings.alerts.wizard.nothingAdded"),
 	);
 	expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
+});
+
+it("counts a stored or already added destination as a duplicate, but not the draft's own row", () => {
+	const base = initialState({
+		initialApiUrl: "http://apprise:8000",
+		savedTargets: ["tgram://1/2"],
+		savedEvents: "",
+		catalog,
+		startAt: 1,
+		onClose: () => {},
+		onFinished: () => {},
+	});
+	const withUrl = (url: string) =>
+		reducer(reducer(base, { type: "setKind", kind: "other", ntfyServer: "" }), {
+			type: "setField",
+			key: "url",
+			value: url,
+		});
+
+	// Nothing typed yet is not a duplicate of anything.
+	expect(isDuplicate(base)).toBe(false);
+	expect(isDuplicate(withUrl("tgram://9/9"))).toBe(false);
+	// One of the stored destinations, and one this run already accepted.
+	expect(isDuplicate(withUrl("tgram://1/2"))).toBe(true);
+	expect(
+		isDuplicate({ ...withUrl("tgram://9/9"), added: ["tgram://9/9"] }),
+	).toBe(true);
+	// A draft being edited back into the row it was accepted as is itself, so
+	// re-accepting an edited destination still works.
+	expect(
+		isDuplicate({
+			...withUrl("tgram://9/9"),
+			added: ["tgram://9/9"],
+			draft: { ...withUrl("tgram://9/9").draft, acceptedUrl: "tgram://9/9" },
+		}),
+	).toBe(false);
 });

@@ -452,7 +452,7 @@
 				"apiChangedDrops": "Zmena adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
 				"backToList": "Späť na ciele",
 				"nothingAdded": "V tomto priechode zatiaľ nebolo nič pridané.",
-				"alreadySaved": "Tento cieľ je už nastavený. Môžete ho otestovať, ale znova sa nepridá."
+				"alreadySaved": "Tento cieľ ste už pridali. Nedá sa pridať dvakrát."
 			}
 		},
 		"wizard": {

@@ -442,7 +442,7 @@
 				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"backToList": "Terug naar bestemmingen",
 				"nothingAdded": "In deze ronde is nog niets toegevoegd.",
-				"alreadySaved": "Deze bestemming is al ingesteld. Je kunt hem testen, maar hij wordt niet opnieuw toegevoegd."
+				"alreadySaved": "Je hebt deze bestemming al toegevoegd. Hij kan niet twee keer worden toegevoegd."
 			}
 		},
 		"wizard": {

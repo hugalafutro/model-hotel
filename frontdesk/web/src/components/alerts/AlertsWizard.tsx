@@ -82,8 +82,8 @@ export interface WizardState {
 	draft: Draft;
 	/** Destinations tested and accepted during this run, in the order added. */
 	added: string[];
-	/** How many destinations are already stored; they survive the wizard. */
-	savedCount: number;
+	/** The destinations already stored; they survive the wizard untouched. */
+	saved: string[];
 	events: Set<string>;
 	testing: boolean;
 	/** Reason code of the last failed test; "" when there is no failure to show. */
@@ -112,9 +112,7 @@ export type Action =
 	| { type: "tested" }
 	| { type: "testFailed"; code: string }
 	| { type: "go"; step: Step }
-	// `saved` is the already-stored destination list, so a draft that turns out
-	// to duplicate one is not added a second time.
-	| { type: "acceptDraft"; saved: string[] }
+	| { type: "acceptDraft" }
 	| { type: "newDraft" }
 	| { type: "dropAdded"; url: string }
 	| { type: "toggleEvent"; eventType: string; on: boolean }
@@ -134,10 +132,28 @@ const EMPTY_DRAFT: Draft = {
 	acceptedUrl: null,
 };
 
+// isDuplicate answers "is the draft a second copy of a destination the run
+// already has", counting both the stored list and what this run accepted. A
+// draft being edited back into its own accepted row is not a duplicate of
+// itself, so re-accepting an edit still works. Step 3 is gated on this: the
+// same URL twice is never what the operator meant, and apprise would just be
+// told to deliver to one address twice.
+// eslint-disable-next-line react-refresh/only-export-components
+export function isDuplicate(s: WizardState): boolean {
+	const url =
+		s.draft.kind === null ? "" : compose(s.draft.kind, s.draft.fields);
+	return (
+		url !== "" &&
+		url !== s.draft.acceptedUrl &&
+		(s.saved.includes(url) || s.added.includes(url))
+	);
+}
+
 // canNext answers "may this step advance", from state alone. Every gate is a
 // verified fact: a healthy probe of the URL currently in the field, a chosen
-// kind, a URL that composes, a test that was delivered. Editing anything a gate
-// depends on clears the fact, so the gate closes again by construction.
+// kind, a URL that composes and is not already on the list, a test that was
+// delivered. Editing anything a gate depends on clears the fact, so the gate
+// closes again by construction.
 // eslint-disable-next-line react-refresh/only-export-components
 export function canNext(s: WizardState): boolean {
 	switch (s.step) {
@@ -147,12 +163,14 @@ export function canNext(s: WizardState): boolean {
 			return s.draft.kind !== null;
 		case 3:
 			return (
-				s.draft.kind !== null && compose(s.draft.kind, s.draft.fields) !== ""
+				s.draft.kind !== null &&
+				compose(s.draft.kind, s.draft.fields) !== "" &&
+				!isDuplicate(s)
 			);
 		case 4:
 			return s.draft.tested;
 		case 5:
-			return s.savedCount + s.added.length > 0;
+			return s.saved.length + s.added.length > 0;
 		case 6:
 			return true;
 		default:
@@ -200,7 +218,7 @@ export function initialState(p: AlertsWizardProps): WizardState {
 		apiChecking: false,
 		draft: EMPTY_DRAFT,
 		added: [],
-		savedCount: p.savedTargets.length,
+		saved: p.savedTargets,
 		events,
 		testing: false,
 		testError: "",
@@ -303,11 +321,11 @@ export function reducer(s: WizardState, a: Action): WizardState {
 			return {
 				...s,
 				step: 5,
-				// A destination that is already stored needs no second entry: it is
-				// on the list the run finishes with either way, and adding it again
-				// would write the same URL to apprise twice.
+				// Step 3 refuses a duplicate, so this filter is the belt to that
+				// braces: whatever route a repeat took to get here, the list the run
+				// finishes with holds each destination once.
 				added: next.filter(
-					(u, i) => next.indexOf(u) === i && !a.saved.includes(u),
+					(u, i) => next.indexOf(u) === i && !s.saved.includes(u),
 				),
 				draft: { ...s.draft, acceptedUrl: s.draft.url },
 			};
@@ -420,8 +438,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	// hint, this is the rule.
 	const goNext = () => {
 		if (!canNext(state)) return;
-		if (state.step === 4)
-			dispatch({ type: "acceptDraft", saved: savedTargets });
+		if (state.step === 4) dispatch({ type: "acceptDraft" });
 		else dispatch({ type: "go", step: (state.step + 1) as Step });
 	};
 
@@ -492,7 +509,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 					/>
 				);
 			case 3:
-				return <StepDetails {...stepProps} savedTargets={savedTargets} />;
+				return <StepDetails {...stepProps} />;
 			case 4:
 				return <StepTest {...stepProps} onSendTest={sendTest} />;
 			case 5:

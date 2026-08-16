@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
 import { generateTopic } from "../../utils/ntfy";
-import type { Action, WizardState } from "./AlertsWizard";
+import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
 import {
 	APPRISE_SERVICES_URL,
 	type DestinationKind,
@@ -200,16 +200,7 @@ export function StepKind({
 	);
 }
 
-export function StepDetails({
-	state,
-	dispatch,
-	t,
-	savedTargets,
-}: StepProps & {
-	/** Already-stored destinations, so a duplicate is called out while it is
-	    still being typed rather than silently swallowed on acceptance. */
-	savedTargets: string[];
-}) {
+export function StepDetails({ state, dispatch, t }: StepProps) {
 	const kind = state.draft.kind;
 	if (kind === null) return null;
 
@@ -223,16 +214,10 @@ export function StepDetails({
 		kind === "discord" ? parseDiscordWebhook(value("webhook")) : null;
 
 	// This exact URL is already on the list the run will finish with, either
-	// stored or accepted earlier in this run, so acceptance will fold it away
-	// instead of adding a second copy. A draft that is being edited back into
-	// its own accepted row is not a duplicate of itself. Nothing is gated on
-	// this: testing a destination that already exists is a legitimate reason to
-	// walk the step, it just does not grow the list.
-	const alreadySaved =
-		state.draft.url !== "" &&
-		state.draft.url !== state.draft.acceptedUrl &&
-		(savedTargets.includes(state.draft.url) ||
-			state.added.includes(state.draft.url));
+	// stored or accepted earlier in this run. The step 3 gate refuses it, so
+	// this line explains a Next button that will not move until the destination
+	// is changed into a new one.
+	const duplicate = isDuplicate(state);
 
 	return (
 		<>
@@ -350,11 +335,11 @@ export function StepDetails({
 
 			<Composed url={state.draft.url} t={t} />
 
-			{alreadySaved && (
+			{duplicate && (
 				<p
 					data-testid="wiz-already-saved"
-					role="status"
-					className="fd-faint"
+					role="alert"
+					className="fd-error-text"
 					style={{ fontSize: "0.82rem" }}
 				>
 					{t(`${K}.alreadySaved`)}

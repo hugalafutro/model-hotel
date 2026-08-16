@@ -447,7 +447,7 @@
 				"apiChangedDrops": "Cambiar la dirección elimina los destinos añadidos en esta sesión; se probaron con la dirección anterior.",
 				"backToList": "Volver a los destinos",
 				"nothingAdded": "Todavía no se ha añadido nada en esta sesión.",
-				"alreadySaved": "Este destino ya está configurado. Puedes probarlo, pero no se añadirá otra vez."
+				"alreadySaved": "Ya has añadido este destino. No se puede añadir dos veces."
 			}
 		},
 		"wizard": {
