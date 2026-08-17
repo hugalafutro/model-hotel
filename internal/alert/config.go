@@ -7,12 +7,16 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 )
 
-// Setting keys backing the alerting feature.
+// Setting keys backing the alerting feature. The two an API handler also has
+// to read are exported, so a rename here is a compile error there rather than
+// a settings lookup that silently returns the default.
 const (
-	keyEnabled    = "alert_enabled"
-	keyAPIBaseURL = "alert_apprise_api_url"
-	keyTargets    = "alert_apprise_targets" // encrypted at rest
-	keyEvents     = "alert_events"          // CSV of enabled event Types
+	keyEnabled = "alert_enabled"
+	// KeyAPIBaseURL holds the apprise-api base URL.
+	KeyAPIBaseURL = "alert_apprise_api_url"
+	// KeyTargets holds the ";"-joined destination list, encrypted at rest.
+	KeyTargets = "alert_apprise_targets"
+	keyEvents  = "alert_events" // CSV of enabled event Types
 )
 
 // settingsReader is the slice of the settings repository the provider needs.
@@ -37,13 +41,13 @@ func NewSettingsConfigProvider(settings settingsReader, masterKey string) *Setti
 // APIBaseURL implements ConfigProvider: returns the apprise-api base URL
 // straight from settings, without touching (decrypting) the target secret.
 func (p *SettingsConfigProvider) APIBaseURL(ctx context.Context) (string, error) {
-	return p.settings.GetWithDefault(ctx, keyAPIBaseURL, ""), nil
+	return p.settings.GetWithDefault(ctx, KeyAPIBaseURL, ""), nil
 }
 
 // AlertConfig implements ConfigProvider, reading live settings on each call so
 // operator changes (toggles, picker edits) take effect without a restart.
 func (p *SettingsConfigProvider) AlertConfig(ctx context.Context) (Config, error) {
-	stored := p.settings.GetWithDefault(ctx, keyTargets, "")
+	stored := p.settings.GetWithDefault(ctx, KeyTargets, "")
 	targets, err := auth.DecryptString(stored, p.masterKey)
 	if err != nil {
 		return Config{}, fmt.Errorf("decrypt alert target: %w", err)
@@ -56,7 +60,7 @@ func (p *SettingsConfigProvider) AlertConfig(ctx context.Context) (Config, error
 
 	return Config{
 		Enabled:    p.settings.GetBool(ctx, keyEnabled, false),
-		APIBaseURL: p.settings.GetWithDefault(ctx, keyAPIBaseURL, ""),
+		APIBaseURL: p.settings.GetWithDefault(ctx, KeyAPIBaseURL, ""),
 		Targets:    targets,
 		Events:     ParseEnabled(enabledCSV),
 	}, nil

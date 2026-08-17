@@ -56,15 +56,13 @@ export interface StepProps {
 	t: TFunction;
 }
 
-// StepTitle names the step, and is the only part of the wizard that announces
-// itself. The live region is deliberately this small: over the whole step body
-// it would read every keystroke in the destination fields back at the operator,
-// while over the title alone it says which step the run just moved to. The
-// wrapper carries the role so the heading stays a heading, and the role="alert"
-// nodes inside the body (a failed test) are outside this region and keep
-// announcing themselves. The icon chip beside the title is the same accent
-// chip the settings sections and dashboard cards wear, so each step opens like
-// a section of the app rather than a form field.
+// StepTitle names the step. It is a plain heading: the step change is announced
+// by the wizard's own live region (AlertsWizard's StepAnnouncer), which is
+// mounted once for the whole run so a step change mutates its text rather than
+// inserting a new region, and screen readers reliably miss the latter. The icon
+// chip beside the title is the same accent chip the settings sections and
+// dashboard cards wear, so each step opens like a section of the app rather
+// than a form field.
 function StepTitle({
 	id,
 	icon: Icon,
@@ -75,7 +73,7 @@ function StepTitle({
 	children: ReactNode;
 }) {
 	return (
-		<div role="status" className="flex items-center gap-3">
+		<div className="flex items-center gap-3">
 			<span className="ui-wizard-icon" aria-hidden="true">
 				<Icon size={18} />
 			</span>
@@ -230,8 +228,10 @@ export function StepKind({
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step2Hint`)}</p>
 			{/* "Add another" is one click, so undoing it has to be one click too:
 			    Back walks the run's own order (towards the apprise address), which
-			    is not where a second destination was started from. */}
-			{state.added.length > 0 && (
+			    is not where a second destination was started from. It is offered
+			    from the moment the run has seen the list, which includes coming
+			    back here after removing every row that was on it. */}
+			{state.listSeen && (
 				<div>
 					<button
 						type="button"

@@ -91,6 +91,13 @@ export interface WizardState {
 	draft: Draft;
 	/** Destinations tested and accepted during this run, in the order added. */
 	added: string[];
+	/**
+	 * True once the run has reached the destination list. It is what makes
+	 * "Back to destinations" a real escape from step 2: the list can be empty
+	 * again (every row this run added was removed) and still be the place the
+	 * operator came from and wants back.
+	 */
+	listSeen: boolean;
 	/** The destinations already stored; they survive the wizard untouched. */
 	saved: string[];
 	events: Set<string>;
@@ -239,6 +246,7 @@ export function initialState(p: AlertsWizardProps): WizardState {
 		apiChecking: false,
 		draft: EMPTY_DRAFT,
 		added: [],
+		listSeen: false,
 		saved: p.savedTargets,
 		events,
 		testing: false,
@@ -257,20 +265,13 @@ export function initialState(p: AlertsWizardProps): WizardState {
 export function reducer(s: WizardState, a: Action): WizardState {
 	switch (a.type) {
 		case "setApiUrl":
-			// A successful test proves one destination through one apprise. Pointing
-			// at a different apprise makes that proof worthless, so step 4 re-locks
-			// alongside step 1, and every destination accepted in this run goes with
-			// it: each was proven through the old address only, and carrying an
-			// unproven URL to Finish is exactly what the gates exist to prevent. The
-			// stored destinations are untouched; they are not this run's to drop.
-			return {
-				...s,
-				apiUrl: a.value,
-				added: [],
-				draft: { ...s.draft, tested: false, acceptedUrl: null },
-				testOk: false,
-				testError: "",
-			};
+			// Editing the field costs this run nothing on its own. The step 1 gate
+			// closes the moment the text stops matching what was probed, so an
+			// unverified address can never be carried forward, and an address typed
+			// back (a stray keystroke, undone) leaves the run exactly as it was.
+			// The proofs this run holds are only really invalidated when a
+			// different apprise is verified, which is where they are dropped.
+			return { ...s, apiUrl: a.value };
 		case "checking":
 			return { ...s, apiChecking: true };
 		case "probed": {
@@ -278,6 +279,15 @@ export function reducer(s: WizardState, a: Action): WizardState {
 			// wrong: apprise cannot deliver, so the run drops back to step 1 where
 			// the address can be fixed.
 			const fellBack = a.demote && !a.status.healthy;
+			// A different apprise than the one this run last verified. Every proof
+			// the run holds describes that old address: a successful test proves
+			// one destination through one apprise, so step 4 re-locks and the
+			// destinations accepted here go with it, rather than reaching Finish as
+			// addresses nothing has delivered to. The stored destinations are
+			// untouched; they are not this run's to drop. The first probe of a run
+			// takes this branch too and has nothing to clear, which is the same
+			// statement with an empty list.
+			const switched = a.url.trim() !== s.probedUrl.trim();
 			return {
 				...s,
 				apiChecking: false,
@@ -285,6 +295,14 @@ export function reducer(s: WizardState, a: Action): WizardState {
 				apiStatus: a.status,
 				step: fellBack ? 1 : s.step,
 				minStep: fellBack ? 1 : s.minStep,
+				...(switched
+					? {
+							added: [],
+							draft: { ...s.draft, tested: false, acceptedUrl: null },
+							testOk: false,
+							testError: "",
+						}
+					: {}),
 			};
 		}
 		case "setKind":
@@ -330,7 +348,7 @@ export function reducer(s: WizardState, a: Action): WizardState {
 				draft: { ...s.draft, tested: false },
 			};
 		case "go":
-			return { ...s, step: a.step };
+			return { ...s, step: a.step, listSeen: s.listSeen || a.step === 5 };
 		case "acceptDraft": {
 			// Editing and re-testing an already accepted destination replaces it; a
 			// draft that has never been accepted (Add another) joins the list.
@@ -342,6 +360,7 @@ export function reducer(s: WizardState, a: Action): WizardState {
 			return {
 				...s,
 				step: 5,
+				listSeen: true,
 				// Step 3 refuses a duplicate, so this filter is the belt to that
 				// braces: whatever route a repeat took to get here, the list the run
 				// finishes with holds each destination once.
@@ -648,10 +667,13 @@ export function AlertsWizard(props: AlertsWizardProps) {
 			scrollable
 		>
 			<div className="space-y-5">
+				<StepAnnouncer step={state.step} done={state.done} t={t} />
 				<StepRail step={state.step} t={t} />
-				{/* The step change is announced by the step title alone (StepTitle in
-				    steps.tsx); the body is not a live region, or every keystroke in a
-				    destination field would be read back. */}
+				{/* The step change is announced by StepAnnouncer above and nothing
+				    else: a live region over the body would read every keystroke in a
+				    destination field back at the operator. The role="alert" nodes
+				    inside the body (a failed test) sit outside it and keep announcing
+				    themselves. */}
 				<div className="space-y-3" data-testid={`wiz-step-${state.step}`}>
 					{body()}
 				</div>
@@ -719,21 +741,42 @@ export function AlertsWizard(props: AlertsWizardProps) {
 	);
 }
 
+// StepAnnouncer is the wizard's single live region, mounted for the whole run
+// so that moving to another step mutates its text. A region that arrives with
+// its text already in it is the case screen readers routinely miss, which is
+// what a per-step region (one live node per step body) would be. It carries
+// only the step's name, so nothing typed into the step is read back.
+function StepAnnouncer({
+	step,
+	done,
+	t,
+}: {
+	step: Step;
+	done: boolean;
+	t: TFunction;
+}) {
+	return (
+		<p role="status" className="sr-only" data-testid="wiz-announce">
+			{done ? t(`${K}.done`) : t(`${K}.step${step}Title`)}
+		</p>
+	);
+}
+
 // StepRail is the run's progress, drawn as one node per step joined by
 // hairlines: done nodes carry a check, the current one is lit in the accent,
-// the ones ahead wait in the input surface. It is a list for assistive
-// technology (the current node says so via aria-current) and the "Step n of
-// 7" caption beside it is the same fact in words, so nothing depends on the
-// colours alone. Each node names its step in a tooltip; the titles are too
-// long, in most locales, to sit under seven nodes at this width.
+// the ones ahead wait in the input surface.
+//
+// It is decoration, and marked as such. Everything it says is already in the
+// "Step n of N" caption beside it, in words, which is what a screen reader
+// reads; exposing the rail as well would spend seven list items on the same
+// fact and still leave done-versus-ahead carried by colour and a glyph. Each
+// node names its step in a tooltip for the pointer; the titles are too long,
+// in most locales, to sit under seven nodes at this width.
 function StepRail({ step, t }: { step: Step; t: TFunction }) {
 	const steps = Array.from({ length: TOTAL_STEPS }, (_, i) => (i + 1) as Step);
 	return (
 		<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-			<ol
-				className="ui-wizard-rail min-w-0 flex-1"
-				aria-label={t(`${K}.stepOf`, { step, total: TOTAL_STEPS })}
-			>
+			<ol className="ui-wizard-rail min-w-0 flex-1" aria-hidden="true">
 				{steps.map((n) => {
 					const state = n < step ? "done" : n === step ? "current" : "ahead";
 					return (
@@ -749,15 +792,9 @@ function StepRail({ step, t }: { step: Step; t: TFunction }) {
 								className="ui-wizard-node"
 								data-state={state}
 								data-testid={`wiz-rail-${n}`}
-								aria-current={state === "current" ? "step" : undefined}
 								title={t(`${K}.step${n}Title`)}
 							>
-								{state === "done" ? (
-									<Check size={14} weight="bold" aria-hidden="true" />
-								) : (
-									n
-								)}
-								<span className="sr-only">{t(`${K}.step${n}Title`)}</span>
+								{state === "done" ? <Check size={14} weight="bold" /> : n}
 							</span>
 						</li>
 					);

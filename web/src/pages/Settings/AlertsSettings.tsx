@@ -52,6 +52,13 @@ export function AlertsSettings({
 		useSettingsMutations();
 
 	const enabled = settings?.alert_enabled === "true";
+	// The Apprise address, the destination list and the guided run are this
+	// instance's own, even on a managed member where alerting on/off and the
+	// event routing are decided fleet-wide. They follow the toggle only where
+	// the toggle is this member's to flip: a managed member cannot switch
+	// alerting on itself, so hiding them behind it would leave the member no way
+	// to set up the delivery it is expected to do once the fleet switches on.
+	const showDelivery = enabled || Boolean(managed);
 	const apiUrl = settings?.alert_apprise_api_url ?? "";
 	const targetConfigured = Boolean(settings?.alert_apprise_targets);
 
@@ -198,18 +205,23 @@ export function AlertsSettings({
 	// card first, which is what the message points at. The event catalog is the
 	// third: the run seeds its recommended selection from it once, when it
 	// mounts, so starting without it would offer an empty preset and a "reset to
-	// recommended" with nothing to reset to. Waiting is a moment; a failed read
-	// is worth saying out loud, because reloading is what fixes it.
+	// recommended" with nothing to reset to. The destination read is the fourth,
+	// for the same reason: the run snapshots the stored list when it opens, so
+	// starting before that read lands would promise a summary missing whatever
+	// is already saved. Waiting is a moment; a failed read is worth saying out
+	// loud, because reloading is what fixes it.
 	const wizardBlocked =
 		targetsError !== ""
 			? targetsErrorText
 			: targetsDirty
 				? t("settings.alerts.destinations.dirty")
-				: eventsQuery.isPending
-					? t("settings.alerts.wizard.catalogLoading")
-					: eventsQuery.isError
-						? t("settings.alerts.wizard.catalogUnavailable")
-						: undefined;
+				: targetsQuery.isPending
+					? t("common.loading")
+					: eventsQuery.isPending
+						? t("settings.alerts.wizard.catalogLoading")
+						: eventsQuery.isError
+							? t("settings.alerts.wizard.catalogUnavailable")
+							: undefined;
 
 	const canTest = enabled && apiUrl !== "" && targetConfigured;
 
@@ -418,7 +430,7 @@ export function AlertsSettings({
 					</p>
 				)}
 
-				{enabled && (
+				{showDelivery && (
 					<div className="space-y-1.5" data-testid="alert-destinations">
 						{/* Whether apprise-api can be reached decides whether any of these
 						    destinations can be delivered to, so the probe sits with the
@@ -507,8 +519,9 @@ export function AlertsSettings({
 				{/* Exactly one guided entry point, chosen by whether anything is
 				    stored. It sits inside the toggle like everything else that
 				    delivers: a switched-off card shows the toggle alone, so the way
-				    in is the same on every visit (switch on, then set up). */}
-				{enabled && (
+				    in is the same on every visit (switch on, then set up). A
+				    managed member is the exception, see showDelivery. */}
+				{showDelivery && (
 					<div className="flex flex-wrap items-center gap-3">
 						{targets.length === 0 ? (
 							<button
@@ -537,7 +550,7 @@ export function AlertsSettings({
 					    nothing to say. The hint takes its place and names both ways in:
 					    it points at the manual block, so it waits until that block is
 					    on screen. */}
-						{enabled && apiUrl === "" && (
+						{showDelivery && apiUrl === "" && (
 							<p
 								className="text-xs text-(--text-muted)"
 								data-testid="alert-status-hint"
@@ -550,7 +563,7 @@ export function AlertsSettings({
 
 				{/* Everything the guided run writes for you, kept reachable for the
 				    operator who would rather type the Apprise URL themselves. */}
-				{enabled && (
+				{showDelivery && (
 					<details data-testid="alert-manual">
 						<summary className="text-sm font-medium text-(--text-secondary)">
 							{t("settings.alerts.manualTitle")}

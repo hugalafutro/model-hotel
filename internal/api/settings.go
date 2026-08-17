@@ -18,7 +18,11 @@ import (
 
 // secretSettingKeys are settings whose values carry a credential (e.g. an
 // Apprise URL containing a bot token). They are encrypted at rest via
-// auth.EncryptString and never returned in plaintext to the dashboard.
+// auth.EncryptString and masked in every settings response, so the dashboard
+// only ever sees secretMaskValue here. The alert destinations have one
+// deliberate exception: GET /alert/targets decrypts them for the readable
+// list on the Alerts card (see Handler.GetAlertTargets, which carries its own
+// demo guard for that reason).
 var secretSettingKeys = map[string]bool{
 	"alert_apprise_targets": true,
 	"oidc_client_secret":    true,

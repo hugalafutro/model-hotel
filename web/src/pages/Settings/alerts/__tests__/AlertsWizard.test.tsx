@@ -454,9 +454,18 @@ describe("AlertsWizard", () => {
 		expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
 		expect(screen.getByTestId("wiz-api-changed-drops")).toBeInTheDocument();
 
-		// Editing the address carries out exactly what the note promised.
+		// Typing is not yet the change the note is about: nothing is dropped
+		// while the field is only being edited, and Next locks itself instead.
 		await userEvent.type(screen.getByTestId("wiz-api-url"), "1");
-		expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull();
+		expect(screen.getByTestId("wiz-api-changed-drops")).toBeInTheDocument();
+		expect(screen.getByTestId("wiz-next")).toBeDisabled();
+
+		// Checking the new address is, and it carries out exactly what the note
+		// promised.
+		await userEvent.click(screen.getByTestId("wiz-api-check"));
+		await waitFor(() =>
+			expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull(),
+		);
 	});
 
 	it("cancel closes without any request", async () => {
@@ -583,13 +592,44 @@ describe("AlertsWizard", () => {
 		expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
 		expect(s.saved).toEqual(["tgram://1/2"]);
 
-		// The destination was proven through the old apprise only, so pointing at a
-		// different one drops it rather than carrying an unproven URL to Finish. The
-		// saved targets are untouched: they are not this run's to remove.
+		// Typing another address changes nothing on its own: the step 1 gate
+		// closes while the field and the probe disagree, so nothing unproven can
+		// move forward and an edit that is undone costs the run nothing.
 		s = reducer(s, { type: "setApiUrl", value: "http://apprise-b:8000" });
+		expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
+
+		// Verifying that different address is the change that counts: the
+		// destination was proven through the old apprise only, so it goes rather
+		// than reaching Finish as an address nothing has delivered to. The saved
+		// targets are untouched: they are not this run's to remove.
+		s = reducer(s, {
+			type: "probed",
+			url: "http://apprise-b:8000",
+			status: { configured: true, reachable: true, healthy: true },
+			demote: false,
+		});
 		expect(s.added).toEqual([]);
 		expect(s.draft.acceptedUrl).toBeNull();
+		expect(s.draft.tested).toBe(false);
 		expect(s.saved).toEqual(["tgram://1/2"]);
+
+		// Re-checking the address the run is already on is not a change.
+		s = reducer(s, { type: "setKind", kind: "ntfy", ntfyServer: "" });
+		s = reducer(s, {
+			type: "setField",
+			key: "server",
+			value: "https://n.example.com",
+		});
+		s = reducer(s, { type: "setField", key: "topic", value: "two" });
+		s = reducer(s, { type: "tested" });
+		s = reducer(s, { type: "acceptDraft" });
+		s = reducer(s, {
+			type: "probed",
+			url: "http://apprise-b:8000",
+			status: { configured: true, reachable: true, healthy: true },
+			demote: false,
+		});
+		expect(s.added).toEqual(["ntfys://n.example.com/two"]);
 	});
 
 	it("counts a stored or already added destination as a duplicate, but not the draft's own row", () => {
@@ -941,6 +981,37 @@ describe("AlertsWizard", () => {
 		expect(screen.getByTestId("wiz-close")).toBeEnabled();
 	});
 
+	it("keeps this run's destinations through an edit that is undone", async () => {
+		// The drop is irreversible, so it waits for a different address to be
+		// verified rather than firing on a keystroke: a stray character that is
+		// taken straight back out must not cost the run everything it proved.
+		healthyProbe();
+		passingTest();
+		renderWizard({ initialApiUrl: "http://apprise:8000", startAt: 1 });
+		await userEvent.click(screen.getByTestId("wiz-api-check"));
+		await waitFor(() => expect(screen.getByTestId("wiz-next")).toBeEnabled());
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+		await addNtfy("https://ntfy.example.com", "abcabcabc"); // -> 5
+		expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
+
+		// Back to step 1, type a character and take it straight back out.
+		await userEvent.click(screen.getByTestId("wiz-back")); // -> 4
+		await userEvent.click(screen.getByTestId("wiz-back")); // -> 3
+		await userEvent.click(screen.getByTestId("wiz-back")); // -> 2
+		await userEvent.click(screen.getByTestId("wiz-back")); // -> 1
+		const field = screen.getByTestId("wiz-api-url");
+		await userEvent.type(field, "x");
+		await userEvent.type(field, "{backspace}");
+
+		// The address is what it was probed as, so step 1 is still open without a
+		// re-probe, and the destination is still on the list.
+		expect(screen.getByTestId("wiz-next")).toBeEnabled();
+		expect(screen.queryByTestId("wiz-api-changed-drops")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("wiz-next")); // -> 2
+		await userEvent.click(screen.getByTestId("wiz-back-to-list")); // -> 5
+		expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1);
+	});
+
 	it("Add another returns to the list, and a row added here can be dropped again", async () => {
 		healthyProbe();
 		passingTest();
@@ -983,6 +1054,14 @@ describe("AlertsWizard", () => {
 			i18n.t("settings.alerts.wizard.nothingAdded"),
 		);
 		expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
+
+		// With the list emptied, starting another destination and changing your
+		// mind again still has its way back: the list is where the run came from,
+		// whether or not this run currently has a row on it.
+		await userEvent.click(screen.getByTestId("wiz-add-another"));
+		expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+		expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
 		// One stored destination is still a destination, so the run can continue.
 		expect(screen.getByTestId("wiz-next")).toBeEnabled();
 	});

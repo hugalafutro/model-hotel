@@ -34,10 +34,10 @@ func (h *Handler) RegisterAlerts(r chi.Router) {
 	})
 }
 
-// masterKey returns the configured MASTER_KEY, or "" when h.cfg is nil (as in
-// tests that only exercise routes with no secret material). Every alert
-// handler that touches encrypted settings routes through this so the nil
-// check lives in one place.
+// masterKey returns the configured MASTER_KEY, or "" when there is no config at
+// all. Every alert handler that touches encrypted settings routes through this,
+// so the nil check lives in one place and an absent key degrades to a decrypt
+// failure (reported as undecryptable) rather than a panic.
 func (h *Handler) masterKey() string {
 	if h.cfg != nil {
 		return h.cfg.MasterKey
@@ -118,33 +118,29 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Each half falls back to what is stored, independently: the wizard tests a
+	// destination it has not saved yet through an address it has not saved
+	// either, while the card's own button tests the stored pair.
 	var cfg alert.Config
-	if req.APIURL != nil && len(req.Targets) > 0 {
-		// Fully explicit: nothing is read from settings, so a corrupt stored
-		// target cannot block testing a fresh one.
-		cfg = alert.Config{APIBaseURL: *req.APIURL, Targets: alert.JoinTargets(req.Targets)}
+	cfg.APIBaseURL = h.settingsRepo.GetWithDefault(r.Context(), alert.KeyAPIBaseURL, "")
+	if req.APIURL != nil {
+		cfg.APIBaseURL = *req.APIURL
+	}
+	if len(req.Targets) > 0 {
+		cfg.Targets = alert.JoinTargets(req.Targets)
 	} else {
-		cfg.APIBaseURL = h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_api_url", "")
-		if req.APIURL != nil {
-			cfg.APIBaseURL = *req.APIURL
-		}
-		if len(req.Targets) > 0 {
-			cfg.Targets = alert.JoinTargets(req.Targets)
-		} else {
-			// Only decrypt the saved target when it is actually needed: an
-			// explicit api_url with no targets still falls back to the saved
-			// (possibly undecryptable) target, but a request that already
-			// supplies its own targets never touches it.
-			stored := h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_targets", "")
-			if stored != "" {
-				plain, derr := auth.DecryptString(stored, h.masterKey())
-				if derr != nil {
-					writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
-						"stored target cannot be decrypted (master key rotated?)")
-					return
-				}
-				cfg.Targets = plain
+		// Only decrypt the saved target when it is actually needed, which is
+		// what keeps a corrupt stored target from blocking a test of a fresh
+		// one: a request carrying its own targets never reads it.
+		stored := h.settingsRepo.GetWithDefault(r.Context(), alert.KeyTargets, "")
+		if stored != "" {
+			plain, derr := auth.DecryptString(stored, h.masterKey())
+			if derr != nil {
+				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
+					"stored target cannot be decrypted (master key rotated?)")
+				return
 			}
+			cfg.Targets = plain
 		}
 	}
 	if err := h.alertDispatcher().TestSendTo(r.Context(), cfg); err != nil {
@@ -154,7 +150,7 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 			// build-request failures, never a delivery outcome.
 			code = "send_failed"
 		}
-		debuglog.Info("api: test notification failed", "code", code, "error", err)
+		debuglog.Warn("api: test notification failed", "code", code, "error", err)
 		writeCodedError(w, http.StatusBadGateway, code, err.Error())
 		return
 	}
@@ -163,10 +159,23 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 
 // GetAlertTargets (GET /alert/targets) returns the stored destinations in
 // plaintext for the admin UI's readable list; the only place the decrypted
-// list leaves the server. Admins can already write any target and trigger
-// delivery to it, so nothing new is revealed.
+// list leaves the server. On a normal instance nothing new is revealed: an
+// admin can already write any target and trigger delivery to it.
+//
+// A read-only demo is the exception, and the reason this handler carries a
+// guard the other two do not. DEMO_SHOW_TOKEN publishes the admin token on the
+// login screen, which config.Load only permits alongside DEMO_READONLY,
+// because that pairing is safe exactly while every admin surface is either
+// non-mutating or non-secret. This read is the one that is neither, so it is
+// refused there rather than handing a visitor the operator's bot tokens.
+// readOnlyGuard cannot do it: it passes every GET through by design, so the
+// dashboard stays browsable.
 func (h *Handler) GetAlertTargets(w http.ResponseWriter, r *http.Request) {
-	stored := h.settingsRepo.GetWithDefault(r.Context(), "alert_apprise_targets", "")
+	if h.cfg != nil && h.cfg.DemoReadOnly {
+		respondError(w, "this is a read-only demo: stored alert destinations are hidden", nil, http.StatusForbidden)
+		return
+	}
+	stored := h.settingsRepo.GetWithDefault(r.Context(), alert.KeyTargets, "")
 	targets := []string{}
 	if stored != "" {
 		plain, err := auth.DecryptString(stored, h.masterKey())

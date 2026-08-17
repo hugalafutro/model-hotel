@@ -573,6 +573,30 @@ describe("AlertsSettings", () => {
 		expect(screen.getByTestId("alert-api-url-input")).toBeEnabled();
 	});
 
+	it("keeps the delivery settings reachable on a managed member with alerting off", async () => {
+		// Alerting on/off is decided fleet-wide, so a managed member cannot
+		// switch it on to reach its own delivery settings. Hiding them behind
+		// the toggle the way an unmanaged card does would leave this member no
+		// way to configure the address it is expected to deliver through.
+		mockSettings({ alert_enabled: "false" });
+		mockTargets([]);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} managed />,
+		);
+
+		// Enabled only once the destination read lands: until then the run would
+		// snapshot an empty stored list.
+		await waitFor(() =>
+			expect(screen.getByTestId("alert-wizard-open")).toBeEnabled(),
+		);
+		expect(screen.getByTestId("alert-manual")).toBeInTheDocument();
+		expect(screen.getByTestId("alert-api-url-input")).toBeEnabled();
+		// The fleet-owned half stays locked whatever the toggle says.
+		expect(
+			screen.getByRole("switch", { name: "Enable alerting" }),
+		).toBeDisabled();
+	});
+
 	it("reveals the event picker from the catalog API on toggle", async () => {
 		mockSettings({ alert_enabled: "true" });
 		const user = userEvent.setup();

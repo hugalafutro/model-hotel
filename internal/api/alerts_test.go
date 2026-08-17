@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 func TestGetAlertEvents(t *testing.T) {
@@ -386,6 +387,106 @@ func TestGetAlertTargets(t *testing.T) {
 	h.GetAlertTargets(rec, httptest.NewRequest(http.MethodGet, "/alert/targets", http.NoBody))
 	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "undecryptable") {
 		t.Errorf("undecryptable = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The decrypted destination list is the only alert read that returns a
+// credential, so a read-only demo (where DEMO_SHOW_TOKEN hands every visitor
+// the admin token) must not serve it. readOnlyGuard passes GETs through by
+// design, so the guard lives in the handler and this test is what keeps it
+// there: without it a demo instance answers with the operator's bot tokens.
+func TestGetAlertTargetsHiddenInReadOnlyDemo(t *testing.T) {
+	enc, err := auth.EncryptString("tgram://tok/chat", secretTestMasterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	store := &mockSettingsStore{getWithDefaultFn: func(context.Context, string, string) string {
+		return enc
+	}}
+	h := &Handler{
+		cfg:          &config.Config{MasterKey: secretTestMasterKey, DemoReadOnly: true},
+		settingsRepo: store,
+	}
+
+	rec := httptest.NewRecorder()
+	h.GetAlertTargets(rec, httptest.NewRequest(http.MethodGet, "/alert/targets", http.NoBody))
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+	if strings.Contains(rec.Body.String(), "tgram://") {
+		t.Errorf("response leaked the decrypted target: %s", rec.Body.String())
+	}
+
+	// The same handler on a normal instance still serves the list, so the guard
+	// is demo-scoped rather than a blanket refusal.
+	h.cfg.DemoReadOnly = false
+	rec = httptest.NewRecorder()
+	h.GetAlertTargets(rec, httptest.NewRequest(http.MethodGet, "/alert/targets", http.NoBody))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "tgram://tok/chat") {
+		t.Errorf("normal instance = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The alert routes sit inside Register's requireAdmin group. Nothing else pins
+// that, and /alert/targets hands back decrypted credentials, so a refactor that
+// moved the group up to the usage-grant section would quietly widen it to every
+// authenticated account with a green suite. This walks the real guard.
+func TestAlertTargetsRequiresAdmin(t *testing.T) {
+	h := &Handler{
+		cfg:          &config.Config{MasterKey: secretTestMasterKey},
+		settingsRepo: &mockSettingsStore{},
+	}
+	r := chi.NewRouter()
+	r.Group(func(r chi.Router) {
+		r.Use(requireAdmin)
+		h.RegisterAlerts(r)
+	})
+
+	for _, tc := range []struct {
+		name string
+		id   *user.Identity
+		want int
+	}{
+		{"admin", user.AdminIdentity(), http.StatusOK},
+		{"usage grant", &user.Identity{Role: user.RoleUser, Grants: []string{string(user.GrantUsage)}}, http.StatusForbidden},
+		{"plain user", &user.Identity{Role: user.RoleUser}, http.StatusForbidden},
+		{"unauthenticated", nil, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/alert/targets", http.NoBody)
+			req = req.WithContext(user.WithIdentity(req.Context(), tc.id))
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Errorf("status = %d, want %d (%s)", rec.Code, tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+// An explicit empty api_url is a real value, not an absent one: it overrides
+// the stored address, so the test reports "not configured" rather than quietly
+// delivering through whatever happens to be saved.
+func TestSendAlertTestExplicitEmptyAPIURLOverridesSaved(t *testing.T) {
+	store := &mockSettingsStore{getWithDefaultFn: func(_ context.Context, key, def string) string {
+		if key == alert.KeyAPIBaseURL {
+			return "http://apprise:8000"
+		}
+		return def
+	}}
+	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: store}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/alert/test",
+		strings.NewReader(`{"api_url":"","targets":["ntfys://n.example.com/t"]}`))
+	h.SendAlertTest(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d (%s)", rec.Code, http.StatusBadGateway, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), alert.ReasonNotConfigured) {
+		t.Errorf("code = %s, want %s", rec.Body.String(), alert.ReasonNotConfigured)
 	}
 }
 
