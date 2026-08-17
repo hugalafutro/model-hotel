@@ -17,7 +17,18 @@
 #
 # The scan pulls from GHCR: every publish path (release, :dev, and the refresh
 # job below) pushes the same digest to GHCR and Docker Hub, so scanning one
-# registry covers both, and GHCR is the one our own stacks pull from.
+# registry covers both, and GHCR is the one our own stacks pull from. Note it
+# scans :latest specifically — a :dev publish does not move :latest, and no
+# publish of any kind re-runs this workflow, so nothing here reacts to a merge.
+#
+# Findings come in two tiers. Fixable CRITICAL/HIGH decides red or green, as it
+# always has. Below that sits everything else fixable, which for a long time was
+# uploaded to the Security tab and then read by nobody: Alpine ships advisories
+# with no severity, Trivy reports them UNKNOWN, GitHub files them as `note`, and
+# `note` is under every threshold here. 27 fixable PostgreSQL client CVEs sat on
+# the published image that way behind a series of green runs. The lower tier now
+# triggers the same rebuild and reaches the same tracking issue; it just never
+# turns anything red.
 name: Scan Published Image
 
 on:
@@ -43,6 +54,11 @@ jobs:
     outputs:
       app_gate: ${{ steps.gate_app.outcome }}
       frontdesk_gate: ${{ steps.gate_frontdesk.outcome }}
+      app_advisory: ${{ steps.advisory_app.outcome }}
+      frontdesk_advisory: ${{ steps.advisory_frontdesk.outcome }}
+      app_sarif: ${{ steps.upload_app.outputs.sarif-id }}
+      frontdesk_sarif: ${{ steps.upload_frontdesk.outputs.sarif-id }}
+      postgres_line: ${{ steps.postgres_summary.outputs.line }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -117,6 +133,74 @@ jobs:
           sarif_file: trivy-frontdesk-image.sarif
           category: published-frontdesk-image
 
+      # The database is the one part of the stack we ship a compose file for but
+      # do not build, and it is where a PostgreSQL CVE actually lands: our images
+      # carry only the client, so a server-side finding cannot fire in them and
+      # would go unlooked-at entirely. Read the tag out of the compose file
+      # rather than repeating it here, so the scan cannot drift from what the
+      # stack actually runs.
+      - name: Resolve the stack's PostgreSQL image
+        id: postgres_image
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/^[[:space:]]*image:[[:space:]]*\(postgres:[^[:space:]]*\).*/\1/p' docker-compose.yml | head -1)
+          if [ -z "$image" ]; then
+            echo "::error::no postgres image found in docker-compose.yml"
+            exit 1
+          fi
+          echo "image=$image" >>"$GITHUB_OUTPUT"
+          echo "Scanning $image"
+
+      - name: Pull the PostgreSQL image (with retries)
+        id: pull_postgres
+        continue-on-error: true
+        run: scripts/ci/pull-image-with-retries.sh "${{ steps.postgres_image.outputs.image }}"
+
+      - name: Scan the PostgreSQL image
+        id: scan_postgres
+        if: steps.pull_postgres.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.postgres_image.outputs.image }}
+          format: json
+          output: trivy-postgres-image.json
+          ignore-unfixed: true
+          timeout: 15m
+
+      # Deliberately NOT uploaded to the Security tab. This image is not ours to
+      # fix, and its bundled Go helper binaries carry dozens of stdlib CVEs that
+      # no action in this repo can clear — filing those as alerts would bury the
+      # findings that are actionable under a permanent pile that is not, which is
+      # the failure this whole change exists to undo. A counted one-line summary
+      # says the same thing without costing anyone a triage pass.
+      - name: Summarise the PostgreSQL findings
+        id: postgres_summary
+        if: steps.scan_postgres.outcome == 'success'
+        continue-on-error: true
+        env:
+          IMAGE: ${{ steps.postgres_image.outputs.image }}
+        run: |
+          set -euo pipefail
+          line=$(jq -r --arg img "$IMAGE" '
+            [.Results[]?.Vulnerabilities[]?] as $v
+            | if ($v | length) == 0 then
+                "`\($img)`: no fixable vulnerabilities."
+              else
+                "`\($img)`: \($v | length) fixable findings ("
+                + ($v | group_by(.PkgName) | sort_by(-length) | .[0:3]
+                   | map("\(.[0].PkgName) \(length)") | join(", "))
+                + ")."
+              end' trivy-postgres-image.json)
+          echo "$line"
+          echo "line=$line" >>"$GITHUB_OUTPUT"
+          {
+            echo "### The stack's database image"
+            echo
+            echo "$line"
+          } >>"$GITHUB_STEP_SUMMARY"
+
       # Gates run after both uploads, so a gate failure never costs us the
       # Security tab record of why it failed, and each gate is tied only to its
       # own image's pull: an unreachable Front Desk image must not let an
@@ -149,6 +233,43 @@ jobs:
           exit-code: 1
           timeout: 15m
 
+      # A second, softer tier: fixable at ANY severity. It exists because
+      # severity alone turned out to be a bad proxy for "worth doing". Alpine's
+      # security DB assigns no severity to its advisories, so Trivy reports them
+      # UNKNOWN and the CRITICAL/HIGH gate above ignores them forever — that is
+      # how 27 fixable PostgreSQL client CVEs rode the published image behind a
+      # green run. Fixable is the honest test: a fix exists upstream, and the
+      # rebuild below is already built to apply it.
+      #
+      # These deliberately do NOT decide red or green. They only trigger the
+      # rebuild and feed the report, so a low-severity finding gets fixed
+      # quietly instead of either failing the run or being ignored.
+      - name: Check the published image for fixable vulnerabilities at any severity
+        id: advisory_app
+        if: steps.pull_app.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.APP_IMAGE }}
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
+      - name: Check the Front Desk image for fixable vulnerabilities at any severity
+        id: advisory_frontdesk
+        if: steps.pull_frontdesk.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.FRONTDESK_IMAGE }}
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
       # Single place that decides red or green. Every step above is
       # continue-on-error so none of them can abort the others, which means the
       # job's own status would be green no matter what happened; this step is
@@ -166,6 +287,11 @@ jobs:
             scan_frontdesk=${{ steps.scan_frontdesk.outcome }}
             upload_frontdesk=${{ steps.upload_frontdesk.outcome }}
             gate_frontdesk=${{ steps.gate_frontdesk.outcome }}
+            advisory_app?=${{ steps.advisory_app.outcome }}
+            advisory_frontdesk?=${{ steps.advisory_frontdesk.outcome }}
+            pull_postgres?=${{ steps.pull_postgres.outcome }}
+            scan_postgres?=${{ steps.scan_postgres.outcome }}
+            postgres_summary?=${{ steps.postgres_summary.outcome }}
         run: |
           # shellcheck disable=SC2086 # deliberate split: one argument per outcome
           scripts/ci/summarise-scan-outcomes.sh $OUTCOMES
@@ -179,17 +305,30 @@ jobs:
   # rebuild only clears OS-level CVEs: anything coming from go.mod needs a code
   # change that exists only on master, so it cannot fix itself and the report job
   # says so instead of pretending otherwise.
+  #
+  # The trigger is fixable-at-any-severity, not the CRITICAL/HIGH gate. Keying it
+  # to the gate left findings that this job could have fixed in one step sitting
+  # on the published image indefinitely: nothing else rebuilds :latest, and no
+  # image publish re-runs this scan, so a below-gate finding had no path to ever
+  # being fixed or noticed. Widening the trigger costs a rebuild in the weeks
+  # something fixable exists and nothing in the weeks it does not.
   refresh:
     name: Rebuild ${{ matrix.image }} from the current release
     needs: scan
     if: >-
       always() && (needs.scan.outputs.app_gate == 'failure'
-      || needs.scan.outputs.frontdesk_gate == 'failure')
+      || needs.scan.outputs.frontdesk_gate == 'failure'
+      || needs.scan.outputs.app_advisory == 'failure'
+      || needs.scan.outputs.frontdesk_advisory == 'failure')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       # packages write: the republish to GHCR uses GITHUB_TOKEN.
       packages: write
+    # `triggered` keeps each leg tied to its OWN image's findings. The job runs
+    # if either image needs a rebuild, and without this the other image would be
+    # rebuilt and republished alongside it for no reason, handing everyone who
+    # pulls it a new digest that fixes nothing.
     strategy:
       fail-fast: false
       matrix:
@@ -197,9 +336,11 @@ jobs:
           - image: model-hotel
             dockerfile: Dockerfile
             smoke: true
+            triggered: ${{ needs.scan.outputs.app_gate == 'failure' || needs.scan.outputs.app_advisory == 'failure' }}
           - image: model-hotel-frontdesk
             dockerfile: Dockerfile.frontdesk
             smoke: false
+            triggered: ${{ needs.scan.outputs.frontdesk_gate == 'failure' || needs.scan.outputs.frontdesk_advisory == 'failure' }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -223,6 +364,7 @@ jobs:
       # published image was built from.
       - name: Resolve the released tag behind :latest
         id: release
+        if: matrix.triggered == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -233,9 +375,11 @@ jobs:
           echo "Rebuilding from $tag"
 
       - name: Check out the released tag
+        if: matrix.triggered == 'true'
         run: git checkout --detach "${{ steps.release.outputs.tag }}"
 
       - name: Rebuild the image
+        if: matrix.triggered == 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
@@ -253,6 +397,7 @@ jobs:
 
       - name: Does the rebuild clear the findings?
         id: rescan
+        if: matrix.triggered == 'true'
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -263,13 +408,31 @@ jobs:
           exit-code: 1
           timeout: 15m
 
+      # Whether the rebuild also cleared the below-gate backlog. This is recorded
+      # and reported, but deliberately does NOT gate the republish: a fixable
+      # finding that a no-cache rebuild cannot shift comes from go.mod, and
+      # refusing to publish because of it would throw away the OS-level fixes
+      # this rebuild does carry.
+      - name: Does the rebuild clear the below-gate backlog too?
+        id: rescan_advisory
+        if: matrix.triggered == 'true'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ matrix.image }}:rebuild-candidate
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
       # Nothing else in this repo smoke-tests an image before publishing; the
       # release path relies on the full suite passing before the build. A
       # rebuild runs none of that, so this is the only thing standing between a
       # broken base-image update and everyone who pulls :latest.
       - name: Smoke test the rebuilt image
         id: smoke
-        if: matrix.smoke && steps.rescan.outcome == 'success'
+        if: matrix.triggered == 'true' && matrix.smoke && steps.rescan.outcome == 'success'
         continue-on-error: true
         env:
           IMAGE: ${{ matrix.image }}:rebuild-candidate
@@ -281,7 +444,8 @@ jobs:
       - name: Publish the rebuilt image as :latest
         id: publish
         if: >-
-          steps.rescan.outcome == 'success'
+          matrix.triggered == 'true'
+          && steps.rescan.outcome == 'success'
           && (matrix.smoke != true || steps.smoke.outcome == 'success')
         env:
           IMAGE: ${{ matrix.image }}
@@ -307,6 +471,7 @@ jobs:
           IMAGE: ${{ matrix.image }}
           TAG: ${{ steps.release.outputs.tag }}
           RESCAN: ${{ steps.rescan.outcome }}
+          RESCAN_ADVISORY: ${{ steps.rescan_advisory.outcome }}
           SMOKE: ${{ steps.smoke.outcome }}
           PUBLISH: ${{ steps.publish.outcome }}
         run: |
@@ -316,6 +481,7 @@ jobs:
             echo "image=$IMAGE"
             echo "tag=$TAG"
             echo "rebuild_clean=$RESCAN"
+            echo "rebuild_clean_advisory=$RESCAN_ADVISORY"
             echo "smoke=$SMOKE"
             echo "published=$PUBLISH"
           } >"refresh-status/$IMAGE.txt"
@@ -338,6 +504,9 @@ jobs:
     permissions:
       contents: read
       issues: write
+      # security-events read: the report says what is actually open in the
+      # Security tab, which is the whole point of this job existing.
+      security-events: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -350,10 +519,37 @@ jobs:
           merge-multiple: true
           path: refresh-status
 
+      # Read back what this run just uploaded. Waiting on the SARIF ids matters:
+      # GitHub processes uploads asynchronously, and reading too early would
+      # report the previous run's picture, which on the week a backlog first
+      # appears is the difference between telling you and not.
+      - name: Summarise the Security tab
+        id: digest
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          # The ref the uploads above recorded their alerts against, so the
+          # report can never describe a different branch than the one scanned.
+          REF: ${{ github.ref }}
+          SARIF_IDS: >-
+            ${{ needs.scan.outputs.app_sarif }}
+            ${{ needs.scan.outputs.frontdesk_sarif }}
+        run: scripts/ci/summarise-code-scanning.sh code-scanning.md
+
+      - name: Add the summary to the run
+        if: always()
+        run: cat code-scanning.md >>"$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
       - name: Compose and file the report
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_GATE: ${{ needs.scan.outputs.app_gate }}
           FRONTDESK_GATE: ${{ needs.scan.outputs.frontdesk_gate }}
+          APP_ADVISORY: ${{ needs.scan.outputs.app_advisory }}
+          FRONTDESK_ADVISORY: ${{ needs.scan.outputs.frontdesk_advisory }}
+          BACKLOG: ${{ steps.digest.outputs.fixable_backlog }}
+          DIGEST_FILE: code-scanning.md
+          POSTGRES_LINE: ${{ needs.scan.outputs.postgres_line }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: scripts/ci/compose-scan-report.sh
