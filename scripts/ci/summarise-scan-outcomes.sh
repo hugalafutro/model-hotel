@@ -12,6 +12,14 @@
 # Usage: summarise-scan-outcomes.sh name=outcome [name=outcome ...]
 # where outcome is a GitHub steps.<id>.outcome: success, failure, skipped,
 # cancelled, or empty when the step never ran.
+#
+# A name ending in `?` is advisory: it is printed and reported, but it cannot
+# fail the run. Two kinds of step need that. The fixable-at-any-severity checks
+# "fail" whenever a backlog exists, which is a finding for the report to act on
+# rather than a broken run. And the third-party images we scan for information
+# are not ours to fix, so a registry blip on one must not turn red a run that
+# says nothing about our own images. Advisory steps still get an empty-outcome
+# check, so a renamed step id cannot retire one silently.
 set -euo pipefail
 
 if [ "$#" -eq 0 ]; then
@@ -22,12 +30,21 @@ fi
 failed=()
 skipped=()
 unknown=()
+advisory=()
 
 echo "Weekly image scan outcomes:"
 for pair in "$@"; do
   name=${pair%%=*}
   outcome=${pair#*=}
-  printf '  %-20s %s\n' "$name" "${outcome:-<empty>}"
+
+  soft=false
+  if [ "${name%\?}" != "$name" ]; then
+    soft=true
+    name=${name%\?}
+  fi
+
+  printf '  %-20s %s%s\n' "$name" "${outcome:-<empty>}" "$([ "$soft" = true ] && echo ' (advisory)')"
+
   case "$outcome" in
   success) ;;
   skipped) skipped+=("$name") ;;
@@ -35,9 +52,19 @@ for pair in "$@"; do
   # exist, so a gate we believe is running is in fact absent. Treating it as
   # "skipped" would let a typo silently retire a gate and still report green.
   '') unknown+=("$name") ;;
-  *) failed+=("$name") ;;
+  *)
+    if [ "$soft" = true ]; then
+      advisory+=("$name")
+    else
+      failed+=("$name")
+    fi
+    ;;
   esac
 done
+
+if [ "${#advisory[@]}" -gt 0 ]; then
+  echo "::notice::advisory (reported, does not fail the run): ${advisory[*]}"
+fi
 
 if [ "${#unknown[@]}" -gt 0 ]; then
   echo "::error::no outcome reported for: ${unknown[*]} (step id renamed or misspelled in image-scan.yml)"
