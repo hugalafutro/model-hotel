@@ -68,6 +68,10 @@ describe("AlertsSettings", () => {
 		});
 		expect(screen.queryByTestId("alert-api-url-input")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("alert-test-button")).not.toBeInTheDocument();
+		// The guided run switches nothing on by itself: it is offered once the
+		// toggle is, so a switched-off card has no way into it.
+		expect(screen.queryByTestId("alert-wizard-open")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("alert-wizard-add")).not.toBeInTheDocument();
 	});
 
 	it("shows inputs and the stored destinations in clear when enabled", async () => {
@@ -457,8 +461,9 @@ describe("AlertsSettings", () => {
 	});
 
 	it("shows the destination read failure even when alerting is off", async () => {
-		// The guided entry point is offered whether or not alerting is on, so the
-		// reason it is greyed out has to be visible in both states.
+		// A rotated master key is the one thing on this card the toggle does
+		// nothing about, so it is reported in both states; the guided entry point
+		// itself waits for the toggle.
 		mockSettings({ alert_enabled: "false" });
 		failTargets("undecryptable");
 		renderWithProviders(
@@ -466,7 +471,7 @@ describe("AlertsSettings", () => {
 		);
 
 		await screen.findByTestId("alert-destinations-error");
-		expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
+		expect(screen.queryByTestId("alert-wizard-open")).not.toBeInTheDocument();
 	});
 
 	it("keeps the manual configuration behind the advanced disclosure", async () => {

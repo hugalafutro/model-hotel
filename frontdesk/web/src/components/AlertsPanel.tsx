@@ -328,10 +328,10 @@ export function AlertsPanel() {
 				</span>
 			</label>
 
-			{/* An unreadable destination list is what greys out the guided button, and
-			    that button is offered whether or not alerts are switched on. The
-			    reason therefore sits outside the toggle's block too: a disabled
-			    button with no visible explanation is the one state to avoid. */}
+			{/* A stored list that cannot be read (a rotated master key) is worth
+			    saying whether or not alerts are switched on: it is the one
+			    condition on this card the toggle does nothing about, and it also
+			    greys out the guided button below. */}
 			{targetsError && (
 				<div
 					className="fd-error-text"
@@ -521,35 +521,36 @@ export function AlertsPanel() {
 
 			<div className="fd-row" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
 				{/* Exactly one guided entry point, chosen by whether anything is
-				    stored. With no destination the card offers the full run from
-				    step 1; it is offered whether or not alerts are switched on,
-				    because "Set up alerts" is exactly what an operator looking at a
-				    switched-off card is after, and it switches them on itself. Once
-				    a destination exists the only thing left to do is append another,
+				    stored, and offered once the toggle is on like the rest of the
+				    configuration: a switched-off card is its toggle plus Save, so
+				    the way in is the same on every visit (switch on, then set up).
+				    With no destination the card offers the full run from step 1;
+				    once one exists the only thing left to do is append another,
 				    which starts at step 2 and skips the Apprise step. */}
-				{targets.length === 0 ? (
-					<button
-						type="button"
-						className="ui-btn ui-btn-primary"
-						data-testid="alert-wizard-open"
-						title={wizardBlocked}
-						disabled={busy || wizardBlocked !== undefined}
-						onClick={() => setWizardAt(1)}
-					>
-						{t("settings.alerts.wizard.open")}
-					</button>
-				) : (
-					<button
-						type="button"
-						className="ui-btn ui-btn-primary"
-						data-testid="alert-wizard-add"
-						title={wizardBlocked}
-						disabled={busy || wizardBlocked !== undefined}
-						onClick={() => setWizardAt(2)}
-					>
-						{t("settings.alerts.wizard.addDestination")}
-					</button>
-				)}
+				{enabled &&
+					(targets.length === 0 ? (
+						<button
+							type="button"
+							className="ui-btn ui-btn-primary"
+							data-testid="alert-wizard-open"
+							title={wizardBlocked}
+							disabled={busy || wizardBlocked !== undefined}
+							onClick={() => setWizardAt(1)}
+						>
+							{t("settings.alerts.wizard.open")}
+						</button>
+					) : (
+						<button
+							type="button"
+							className="ui-btn ui-btn-primary"
+							data-testid="alert-wizard-add"
+							title={wizardBlocked}
+							disabled={busy || wizardBlocked !== undefined}
+							onClick={() => setWizardAt(2)}
+						>
+							{t("settings.alerts.wizard.addDestination")}
+						</button>
+					))}
 				<button type="button" className="ui-btn" disabled={busy} onClick={save}>
 					{saving ? t("common.saving") : t("settings.alerts.saveBtn")}
 				</button>

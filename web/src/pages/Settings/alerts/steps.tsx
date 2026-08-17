@@ -7,6 +7,22 @@ import {
 	useRef,
 	useState,
 } from "react";
+import {
+	Bell,
+	CheckCircle2,
+	CheckSquare,
+	DiscordLogo,
+	Link,
+	ListChecks,
+	type LucideIcon,
+	Mail,
+	Pencil,
+	PlugZap,
+	Send,
+	Smartphone,
+	TelegramLogo,
+	XCircle,
+} from "@/lib/icons";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { generateTopic } from "../../../utils/ntfy";
 import { AlertEventPicker, eventLabel } from "../AlertEventPicker";
@@ -46,14 +62,56 @@ export interface StepProps {
 // while over the title alone it says which step the run just moved to. The
 // wrapper carries the role so the heading stays a heading, and the role="alert"
 // nodes inside the body (a failed test) are outside this region and keep
-// announcing themselves.
-function StepTitle({ id, children }: { id?: string; children: ReactNode }) {
+// announcing themselves. The icon chip beside the title is the same accent
+// chip the settings sections and dashboard cards wear, so each step opens like
+// a section of the app rather than a form field.
+function StepTitle({
+	id,
+	icon: Icon,
+	children,
+}: {
+	id?: string;
+	icon: LucideIcon;
+	children: ReactNode;
+}) {
 	return (
-		<div role="status">
+		<div role="status" className="flex items-center gap-3">
+			<span className="ui-wizard-icon" aria-hidden="true">
+				<Icon size={18} />
+			</span>
 			<h3 className="text-base font-semibold text-(--text-primary)" id={id}>
 				{children}
 			</h3>
 		</div>
+	);
+}
+
+// ResultLine is one sentence reporting how something the operator just asked
+// for turned out, in the theme's success or error tone with the matching
+// glyph. The glyph is decoration: the sentence carries the meaning, and the
+// element's text is the sentence alone.
+function ResultLine({
+	ok,
+	testId,
+	role = "status",
+	children,
+}: {
+	ok: boolean;
+	testId: string;
+	role?: "status" | "alert";
+	children: ReactNode;
+}) {
+	const Icon = ok ? CheckCircle2 : XCircle;
+	return (
+		<p
+			role={role}
+			data-testid={testId}
+			data-ok={ok ? "true" : "false"}
+			className={`flex items-start gap-1.5 text-sm ${ok ? "ui-text-success" : "ui-text-error"}`}
+		>
+			<Icon size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+			<span>{children}</span>
+		</p>
 	);
 }
 
@@ -68,7 +126,7 @@ export function StepApprise({
 	const status = state.apiUrl === state.probedUrl ? state.apiStatus : null;
 	return (
 		<>
-			<StepTitle>{t(`${K}.step1Title`)}</StepTitle>
+			<StepTitle icon={PlugZap}>{t(`${K}.step1Title`)}</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step1Hint`)}</p>
 			<div className="space-y-1.5">
 				<label
@@ -110,16 +168,11 @@ export function StepApprise({
 				</p>
 			)}
 			{status && (
-				<p
-					role="status"
-					data-testid="wiz-api-status"
-					data-ok={status.healthy ? "true" : "false"}
-					className={`text-sm ${status.healthy ? "ui-text-success" : "ui-text-error"}`}
-				>
+				<ResultLine ok={status.healthy} testId="wiz-api-status">
 					{status.healthy
 						? t(`${K}.apiOk`)
 						: reasonText(status.reason ?? "", t, t(`${K}.apiFailed`))}
-				</p>
+				</ResultLine>
 			)}
 		</>
 	);
@@ -153,6 +206,16 @@ const KIND_TITLE: Partial<Record<(typeof KINDS)[number], string>> = {
 	other: "kindOtherTitle",
 };
 
+// One glyph per tile, so the five options can be told apart at a glance
+// before the titles are read: the two services with a logo wear it.
+const KIND_ICON: Record<(typeof KINDS)[number], LucideIcon> = {
+	ntfy: Smartphone,
+	telegram: TelegramLogo,
+	discord: DiscordLogo,
+	email: Mail,
+	other: Link,
+};
+
 export function StepKind({
 	state,
 	dispatch,
@@ -161,7 +224,9 @@ export function StepKind({
 }: StepProps & { ntfyServer: string }) {
 	return (
 		<>
-			<StepTitle id="wiz-kind-title">{t(`${K}.step2Title`)}</StepTitle>
+			<StepTitle id="wiz-kind-title" icon={Send}>
+				{t(`${K}.step2Title`)}
+			</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step2Hint`)}</p>
 			{/* "Add another" is one click, so undoing it has to be one click too:
 			    Back walks the run's own order (towards the apprise address), which
@@ -178,32 +243,28 @@ export function StepKind({
 					</button>
 				</div>
 			)}
+			{/* The phone tile is the one most operators are here for, so it takes
+			    the full width as the lead; the rest pair up beneath it. */}
 			<div
 				role="radiogroup"
 				aria-labelledby="wiz-kind-title"
-				className="space-y-2"
+				className="grid gap-2 sm:grid-cols-2"
 			>
 				{KINDS.map((kind) => {
 					const selected = state.draft.kind === kind;
+					const Icon = KIND_ICON[kind];
 					return (
 						<label
 							key={kind}
-							className="ui-card flex items-start gap-3 p-3 cursor-pointer"
-							// The selected tile is drawn in the theme's accent. An inline
-							// style rather than a utility class: index.css is unlayered, so
-							// .ui-card's own border rule outranks any Tailwind border a
-							// checked-state variant could apply.
-							style={{ borderColor: selected ? "var(--accent)" : undefined }}
+							className={`ui-detail-tile ui-wizard-choice flex items-start gap-3 p-3${
+								kind === "ntfy" ? " sm:col-span-2" : ""
+							}`}
+							data-selected={selected ? "true" : "false"}
 						>
-							<input
-								type="radio"
-								name="wiz-kind"
-								className="mt-1"
-								data-testid={`wiz-kind-${kind}`}
-								checked={selected}
-								onChange={() => dispatch({ type: "setKind", kind, ntfyServer })}
-							/>
-							<span>
+							<span className="ui-wizard-icon" aria-hidden="true">
+								<Icon size={18} />
+							</span>
+							<span className="min-w-0 flex-1">
 								<span className="block text-sm font-semibold text-(--text-primary)">
 									{KIND_TITLE[kind]
 										? t(`${K}.${KIND_TITLE[kind]}`)
@@ -213,6 +274,14 @@ export function StepKind({
 									{t(`${K}.${KIND_HINT[kind]}`)}
 								</span>
 							</span>
+							<input
+								type="radio"
+								name="wiz-kind"
+								className="mt-1 shrink-0"
+								data-testid={`wiz-kind-${kind}`}
+								checked={selected}
+								onChange={() => dispatch({ type: "setKind", kind, ntfyServer })}
+							/>
 						</label>
 					);
 				})}
@@ -240,7 +309,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 
 	return (
 		<>
-			<StepTitle>{t(`${K}.step3Title`)}</StepTitle>
+			<StepTitle icon={Pencil}>{t(`${K}.step3Title`)}</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
@@ -276,10 +345,15 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 				</Fragment>
 			))}
 
+			{/* What to type into the phone, boxed as its own tile: it is the one
+			    part of this step that happens somewhere other than this screen. */}
 			{kind === "ntfy" && (
-				<>
-					<div className="space-y-1">
-						<p className="text-xs text-(--text-muted)">
+				<div className="ui-detail-tile flex items-start gap-3 p-3">
+					<span className="ui-wizard-icon" aria-hidden="true">
+						<Smartphone size={18} />
+					</span>
+					<div className="min-w-0 flex-1 space-y-1.5">
+						<p className="text-xs text-(--text-secondary)">
 							{t(`${K}.ntfySubscribe`)}
 						</p>
 						<CopyRow
@@ -295,7 +369,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 							t={t}
 						/>
 					</div>
-				</>
+				</div>
 			)}
 
 			{/* Next is gated on a composed URL, so an unparseable webhook otherwise
@@ -324,13 +398,9 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			<Composed url={state.draft.url} t={t} />
 
 			{duplicate && (
-				<p
-					data-testid="wiz-already-saved"
-					role="alert"
-					className="text-xs ui-text-error"
-				>
+				<ResultLine ok={false} testId="wiz-already-saved" role="alert">
 					{t(`${K}.alreadySaved`)}
-				</p>
+				</ResultLine>
 			)}
 		</>
 	);
@@ -344,7 +414,7 @@ export function StepTest({
 	const kind = state.draft.kind ?? "other";
 	return (
 		<>
-			<StepTitle>{t(`${K}.step4Title`)}</StepTitle>
+			<StepTitle icon={Bell}>{t(`${K}.step4Title`)}</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step4Hint`)}</p>
 			<Composed url={state.draft.url} t={t} />
 			<div>
@@ -359,16 +429,11 @@ export function StepTest({
 				</button>
 			</div>
 			{(state.testOk || state.testError !== "") && (
-				<p
-					role="status"
-					data-testid="wiz-test-result"
-					data-ok={state.testOk ? "true" : "false"}
-					className={`text-sm ${state.testOk ? "ui-text-success" : "ui-text-error"}`}
-				>
+				<ResultLine ok={state.testOk} testId="wiz-test-result">
 					{state.testOk
 						? t(`${K}.testSent.${kind}`)
 						: reasonText(state.testError, t, t(`${K}.testFailed`))}
-				</p>
+				</ResultLine>
 			)}
 			{!state.draft.tested && (
 				<p className="text-xs text-(--text-muted)">{t(`${K}.testMustPass`)}</p>
@@ -407,7 +472,7 @@ export function StepDestinations({
 
 	return (
 		<>
-			<StepTitle>{t(`${K}.step5Title`)}</StepTitle>
+			<StepTitle icon={ListChecks}>{t(`${K}.step5Title`)}</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step5Hint`)}</p>
 			{/* The stored destinations are not this run's work and not this run's to
 			    delete, so they are counted rather than listed: the list below is
@@ -425,16 +490,11 @@ export function StepDestinations({
 				emptyText={t(`${K}.nothingAdded`)}
 			/>
 			{rowTest && rowTest.state !== "sending" && (
-				<p
-					role="status"
-					data-testid="wiz-row-test-result"
-					data-ok={rowTest.state === "ok" ? "true" : "false"}
-					className={`text-sm ${rowTest.state === "ok" ? "ui-text-success" : "ui-text-error"}`}
-				>
+				<ResultLine ok={rowTest.state === "ok"} testId="wiz-row-test-result">
 					{rowTest.state === "ok"
 						? t("settings.alerts.testSent")
 						: t(`${K}.testFailed`)}
-				</p>
+				</ResultLine>
 			)}
 			<div>
 				<button
@@ -463,7 +523,7 @@ export function StepEvents({
 	if (managed) {
 		return (
 			<>
-				<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
+				<StepTitle icon={CheckSquare}>{t(`${K}.step6Title`)}</StepTitle>
 				<p
 					className="ui-callout ui-callout-info"
 					data-testid="wiz-managed-events"
@@ -476,7 +536,7 @@ export function StepEvents({
 
 	return (
 		<>
-			<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
+			<StepTitle icon={CheckSquare}>{t(`${K}.step6Title`)}</StepTitle>
 			<p className="text-xs text-(--text-muted)">{t(`${K}.step6Hint`)}</p>
 			{/* The card's own picker, so the guided run and the card offer the same
 			    list in the same order; it reads the catalog from the API itself. */}
@@ -530,18 +590,32 @@ export function StepFinish({
 	if (state.done) {
 		return (
 			<>
-				<p
+				{/* The run is over, and this tile says so before anything else: a
+				    raised tile with the success glyph, the outcome, and the probe
+				    read back from the server after the write, so the pill describes
+				    the stored configuration rather than the one just typed. */}
+				<div
 					role="status"
 					data-testid="wiz-done"
-					className="flex flex-wrap items-center gap-2"
+					className="ui-stat-tile flex items-center gap-3 p-4"
 				>
-					<span className="ui-badge ui-badge-success">
-						{t(`${K}.${managed ? "doneManaged" : "done"}`)}
-					</span>
-					{/* Read back from the server after the write, so the pill describes
-					    the stored configuration rather than the one just typed. */}
-					{state.finalStatus && <FinalPill status={state.finalStatus} t={t} />}
-				</p>
+					<CheckCircle2
+						size={32}
+						className="ui-text-success shrink-0"
+						aria-hidden="true"
+					/>
+					<div className="min-w-0 flex-1 space-y-1">
+						<p className="text-base font-semibold text-(--text-primary)">
+							{t(`${K}.${managed ? "doneManaged" : "done"}`)}
+						</p>
+						{state.finalStatus && (
+							<p className="flex flex-wrap items-center gap-2 text-xs text-(--text-muted)">
+								<span>{t("settings.alerts.apiUrl")}</span>
+								<FinalPill status={state.finalStatus} t={t} />
+							</p>
+						)}
+					</div>
+				</div>
 				<div>
 					<button
 						type="button"
@@ -554,56 +628,65 @@ export function StepFinish({
 					</button>
 				</div>
 				{state.sentAll !== "none" && (
-					<p
-						role="status"
-						data-testid="wiz-sent-all"
-						data-ok={state.sentAll === "ok" ? "true" : "false"}
-						className={`text-sm ${state.sentAll === "ok" ? "ui-text-success" : "ui-text-error"}`}
-					>
+					<ResultLine ok={state.sentAll === "ok"} testId="wiz-sent-all">
 						{state.sentAll === "ok" ? t(`${K}.sentAll`) : t(`${K}.testFailed`)}
-					</p>
+					</ResultLine>
 				)}
 			</>
 		);
 	}
 	return (
 		<>
-			<StepTitle>{t(`${K}.step7Title`)}</StepTitle>
+			<StepTitle icon={CheckCircle2}>{t(`${K}.step7Title`)}</StepTitle>
 			{/* A managed member is not switching alerting on and is not choosing
 			    events, so the closing line promises only what it writes. */}
 			<p className="text-xs text-(--text-muted)">
 				{t(`${K}.${managed ? "step7HintManaged" : "step7Hint"}`)}
 			</p>
 			{/* Trimmed, because the summary promises what the write will store. */}
-			<Summary
-				label={t("settings.alerts.apiUrl")}
-				value={state.apiUrl.trim()}
-			/>
+			<Summary label={t("settings.alerts.apiUrl")}>
+				<Mono>{state.apiUrl.trim()}</Mono>
+			</Summary>
+			{/* One line per destination, so a long list reads as a list. */}
 			<Summary
 				label={t("settings.alerts.destinations.title")}
-				value={targets.join("; ")}
 				testId="wiz-summary-targets"
-			/>
-			{/* A managed member writes no event selection, so it promises none. */}
+			>
+				<span className="block space-y-0.5">
+					{targets.map((url) => (
+						<Mono key={url} block>
+							{url}
+						</Mono>
+					))}
+				</span>
+			</Summary>
+			{/* A managed member writes no event selection, so it promises none.
+			    The events are labels, not addresses, so they wrap as chips rather
+			    than breaking mid-word the way an address may. */}
 			{!managed && (
 				<Summary
 					label={t("settings.alerts.eventsLabel")}
 					testId="wiz-summary-events"
-					value={
-						state.events.size === 0
-							? t(`${K}.noneSelected`)
-							: [...state.events].map((type) => eventLabel(t, type)).join(", ")
-					}
-				/>
+				>
+					{state.events.size === 0 ? (
+						<span className="text-sm text-(--text-primary)">
+							{t(`${K}.noneSelected`)}
+						</span>
+					) : (
+						<span className="flex flex-wrap gap-1.5">
+							{[...state.events].map((type) => (
+								<span key={type} className="ui-badge ui-badge-accent">
+									{eventLabel(t, type)}
+								</span>
+							))}
+						</span>
+					)}
+				</Summary>
 			)}
 			{state.finishError !== "" && (
-				<p
-					role="alert"
-					data-testid="wiz-finish-error"
-					className="text-sm ui-text-error"
-				>
+				<ResultLine ok={false} testId="wiz-finish-error" role="alert">
 					{state.finishError}
-				</p>
+				</ResultLine>
 			)}
 		</>
 	);
@@ -629,29 +712,40 @@ function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
 	);
 }
 
-// One labelled line of the closing summary: what is about to be written, in the
-// operator's own words rather than as the settings keys it becomes.
+// One labelled tile of the closing summary: what is about to be written, in
+// the operator's own words rather than as the settings keys it becomes.
 function Summary({
 	label,
-	value,
 	testId,
+	children,
 }: {
 	label: string;
-	value: string;
 	testId?: string;
+	children: ReactNode;
 }) {
 	return (
-		<div className="space-y-1">
-			<span className="block text-sm font-medium text-(--text-secondary)">
+		<div className="ui-detail-tile space-y-1.5 px-3 py-2.5">
+			<span className="block text-[11px] font-medium uppercase tracking-wider text-(--text-tertiary)">
 				{label}
 			</span>
-			<span
-				className="block text-sm text-(--text-primary) break-all"
-				data-testid={testId}
-			>
-				{value}
+			<span className="block min-w-0" data-testid={testId}>
+				{children}
 			</span>
 		</div>
+	);
+}
+
+// Mono is an address in the theme's own mono face (Tailwind's font-mono is a
+// fixed stack and would ignore the Terminal style's JetBrains Mono). It may
+// break anywhere: an address has no word boundaries worth keeping.
+function Mono({ block, children }: { block?: boolean; children: ReactNode }) {
+	return (
+		<code
+			className={`${block ? "block " : ""}text-xs text-(--text-primary) select-all break-all`}
+			style={{ fontFamily: "var(--font-mono)" }}
+		>
+			{children}
+		</code>
 	);
 }
 
@@ -669,8 +763,8 @@ function reasonText(code: string, t: TFunction, fallback: string): string {
 function Composed({ url, t }: { url: string; t: TFunction }) {
 	if (url === "") return null;
 	return (
-		<div className="space-y-1">
-			<span className="block text-sm font-medium text-(--text-secondary)">
+		<div className="ui-detail-tile space-y-1.5 px-3 py-2.5">
+			<span className="block text-[11px] font-medium uppercase tracking-wider text-(--text-tertiary)">
 				{t(`${K}.composedLabel`)}
 			</span>
 			{/* The theme's own mono face: Tailwind's font-mono is a fixed stack and

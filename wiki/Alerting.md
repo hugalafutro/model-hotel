@@ -48,12 +48,12 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 
 ### Guided setup
 
-**Settings → Alerts** carries exactly one guided button on either surface: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Steps 1 and 4 verify against the real container before **Next** unlocks; the other steps unlock on their own input (a chosen tile, a valid, not-yet-used destination, a non-empty list). Nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
+**Settings → Alerts** carries exactly one guided button on either surface once **Enable alerting** is on: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Steps 1 and 4 verify against the real container before **Next** unlocks; the other steps unlock on their own input (a chosen tile, a valid, not-yet-used destination, a non-empty list). Nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
 
 The two runs differ in two places. Front Desk offers a **Bellhop** tile and Model Hotel does not: [[Bellhop]] notifies from Front Desk's own fleet poll, so the gateway's events never reach it. And on a Model Hotel member whose settings are managed fleet-wide by config sync the events step shows a note in place of the picker, because Front Desk owns the event selection there and there is nothing to choose; that run writes the Apprise API URL and the destinations and leaves the alert switches alone.
 
 ![Model Hotel Alerts card](screenshots/settings_alerts.png)
-*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list and the manual fields are hidden; the toggle, the event list and the guided button stay.*
+*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list, the guided button and the manual fields are hidden; the toggle and the event list stay.*
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
 *Front Desk Settings - Alerts: the same card in Front Desk's styling.*
@@ -161,7 +161,7 @@ services:
       - "8000"
 ```
 
-**2. Run the wizard for the ntfy app.** In Front Desk → **Settings → Alerts**, press **Set up alerts** (or **Add destination** if alerts are already configured), then:
+**2. Run the wizard for the ntfy app.** In Front Desk → **Settings → Alerts**, switch **Send outbound alert notifications** on and press **Set up alerts** (or **Add destination** if alerts are already configured), then:
    - Step 1: **Apprise API URL** `http://apprise:8000`, then **Check** until it reports the container reachable and healthy.
    - Step 2: pick the **Phone (ntfy app)** tile.
    - Step 3: enter your ntfy server (yours, or `https://ntfy.sh`) and press **Generate** for a random 20-character topic. The topic is the only access control on a public server, so treat it like a password; **Generate** exists so you do not invent a weak one. The step also prints the exact phone-side steps ("Subscribe to topic, Use another server", then the server and topic with copy buttons) and shows the composed `ntfys://<server>/<topic>` underneath.

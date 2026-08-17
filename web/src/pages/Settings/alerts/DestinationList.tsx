@@ -71,7 +71,7 @@ export function DestinationList({
 					<div
 						key={url}
 						data-testid="alert-destination-row"
-						className="flex items-center gap-3 text-sm flex-wrap"
+						className="ui-detail-tile flex items-center gap-3 px-3 py-2 text-sm flex-wrap"
 					>
 						<span className="ui-badge ui-badge-neutral">{kindLabel}</span>
 						<span className="text-(--text-secondary)">{info.host}</span>

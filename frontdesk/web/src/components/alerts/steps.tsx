@@ -274,25 +274,23 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			))}
 
 			{kind === "ntfy" && (
-				<>
-					<div className="fd-stack" style={{ gap: "0.3rem" }}>
-						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
-							{t(`${K}.ntfySubscribe`)}
-						</p>
-						<CopyRow
-							testId="wiz-copy-server"
-							label={t(`${K}.field.server`)}
-							value={value("server")}
-							t={t}
-						/>
-						<CopyRow
-							testId="wiz-copy-topic"
-							label={t(`${K}.field.topic`)}
-							value={value("topic")}
-							t={t}
-						/>
-					</div>
-				</>
+				<div className="fd-stack" style={{ gap: "0.3rem" }}>
+					<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
+						{t(`${K}.ntfySubscribe`)}
+					</p>
+					<CopyRow
+						testId="wiz-copy-server"
+						label={t(`${K}.field.server`)}
+						value={value("server")}
+						t={t}
+					/>
+					<CopyRow
+						testId="wiz-copy-topic"
+						label={t(`${K}.field.topic`)}
+						value={value("topic")}
+						t={t}
+					/>
+				</div>
 			)}
 
 			{kind === "bellhop" && (
@@ -632,11 +630,13 @@ export function StepFinish({
 			<Summary
 				label={t("settings.alerts.apiUrlLabel")}
 				value={state.apiUrl.trim()}
+				address
 			/>
 			<Summary
 				label={t("settings.alerts.destinationsTitle")}
 				value={targets.join("; ")}
 				testId="wiz-summary-targets"
+				address
 			/>
 			<Summary
 				label={t("settings.alerts.eventsLabel")}
@@ -680,22 +680,30 @@ function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
 }
 
 // One labelled line of the closing summary: what is about to be written, in the
-// operator's own words rather than as the settings keys it becomes.
+// operator's own words rather than as the settings keys it becomes. An address
+// may break anywhere (it has no word boundaries worth keeping); a list of event
+// names wraps between words like any other sentence.
 function Summary({
 	label,
 	value,
 	testId,
+	address,
 }: {
 	label: string;
 	value: string;
 	testId?: string;
+	address?: boolean;
 }) {
 	return (
 		<div className="ui-field">
 			<span className="ui-label">{label}</span>
 			<span
 				data-testid={testId}
-				style={{ fontSize: "0.85rem", wordBreak: "break-all" }}
+				style={{
+					fontSize: "0.85rem",
+					wordBreak: address ? "break-all" : "normal",
+					overflowWrap: "anywhere",
+				}}
 			>
 				{value}
 			</span>

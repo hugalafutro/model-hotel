@@ -70,9 +70,9 @@ export function AlertsSettings({
 	// (otherwise the toggle announces "expanded" with no region in the DOM).
 	const pickerExpanded = pickerOpen && enabled;
 
-	// The saved destinations, decrypted. Read whether or not alerting is on: the
-	// readable list, the reason a stored value cannot be read, and the guided
-	// entry point are all offered in both states.
+	// The saved destinations, decrypted. Read whether or not alerting is on: a
+	// stored value that cannot be read is reported in both states, and the list
+	// is ready the moment the toggle goes on.
 	const targetsQuery = useQuery({
 		queryKey: ["alert-targets"],
 		queryFn: () => api.alert.targets(),
@@ -404,11 +404,10 @@ export function AlertsSettings({
 					)}
 				</fieldset>
 
-				{/* An unreadable destination list is what greys out the guided
-				    button, and that button is offered whether or not alerting is
-				    switched on. The reason therefore sits outside the toggle's block
-				    too: a disabled button with no visible explanation is the one
-				    state to avoid. */}
+				{/* A stored list that cannot be read (a rotated master key) is worth
+				    saying whether or not alerting is switched on: it is the one
+				    condition on this card the toggle does nothing about, and it also
+				    greys out the guided button below. */}
 				{targetsErrorText !== "" && (
 					<p
 						className="ui-callout ui-callout-warning"
@@ -506,46 +505,48 @@ export function AlertsSettings({
 				)}
 
 				{/* Exactly one guided entry point, chosen by whether anything is
-				    stored. It is offered whether or not alerting is switched on,
-				    because "Set up alerts" is what an operator looking at a
-				    switched-off card is after, and the run switches it on itself. */}
-				<div className="flex flex-wrap items-center gap-3">
-					{targets.length === 0 ? (
-						<button
-							type="button"
-							className="ui-btn ui-btn-primary"
-							data-testid="alert-wizard-open"
-							title={wizardBlocked}
-							disabled={busy || wizardBlocked !== undefined}
-							onClick={() => setWizardStart(1)}
-						>
-							{t("settings.alerts.wizard.open")}
-						</button>
-					) : (
-						<button
-							type="button"
-							className="ui-btn ui-btn-primary"
-							data-testid="alert-wizard-add"
-							title={wizardBlocked}
-							disabled={busy || wizardBlocked !== undefined}
-							onClick={() => setWizardStart(2)}
-						>
-							{t("settings.alerts.wizard.addDestination")}
-						</button>
-					)}
-					{/* Nothing to probe yet, so the status line above the list has
+				    stored. It sits inside the toggle like everything else that
+				    delivers: a switched-off card shows the toggle alone, so the way
+				    in is the same on every visit (switch on, then set up). */}
+				{enabled && (
+					<div className="flex flex-wrap items-center gap-3">
+						{targets.length === 0 ? (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="alert-wizard-open"
+								title={wizardBlocked}
+								disabled={busy || wizardBlocked !== undefined}
+								onClick={() => setWizardStart(1)}
+							>
+								{t("settings.alerts.wizard.open")}
+							</button>
+						) : (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="alert-wizard-add"
+								title={wizardBlocked}
+								disabled={busy || wizardBlocked !== undefined}
+								onClick={() => setWizardStart(2)}
+							>
+								{t("settings.alerts.wizard.addDestination")}
+							</button>
+						)}
+						{/* Nothing to probe yet, so the status line above the list has
 					    nothing to say. The hint takes its place and names both ways in:
 					    it points at the manual block, so it waits until that block is
 					    on screen. */}
-					{enabled && apiUrl === "" && (
-						<p
-							className="text-xs text-(--text-muted)"
-							data-testid="alert-status-hint"
-						>
-							{t("settings.alerts.statusNotConfiguredHint")}
-						</p>
-					)}
-				</div>
+						{enabled && apiUrl === "" && (
+							<p
+								className="text-xs text-(--text-muted)"
+								data-testid="alert-status-hint"
+							>
+								{t("settings.alerts.statusNotConfiguredHint")}
+							</p>
+						)}
+					</div>
+				)}
 
 				{/* Everything the guided run writes for you, kept reachable for the
 				    operator who would rather type the Apprise URL themselves. */}

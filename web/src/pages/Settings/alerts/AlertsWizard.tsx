@@ -1,5 +1,7 @@
+import type { TFunction } from "i18next";
 import { type Dispatch, useCallback, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
+import { Check } from "@/lib/icons";
 import { ApiError, api } from "../../../api/client";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { Modal } from "../../../components/Modal";
@@ -645,17 +647,15 @@ export function AlertsWizard(props: AlertsWizardProps) {
 			maxWidth="max-w-2xl"
 			scrollable
 		>
-			<div className="space-y-4">
-				<p className="text-xs text-(--text-muted)" data-testid="wiz-step-of">
-					{t(`${K}.stepOf`, { step: state.step, total: TOTAL_STEPS })}
-				</p>
+			<div className="space-y-5">
+				<StepRail step={state.step} t={t} />
 				{/* The step change is announced by the step title alone (StepTitle in
 				    steps.tsx); the body is not a live region, or every keystroke in a
 				    destination field would be read back. */}
 				<div className="space-y-3" data-testid={`wiz-step-${state.step}`}>
 					{body()}
 				</div>
-				<div className="flex flex-wrap justify-end gap-2">
+				<div className="flex flex-wrap justify-end gap-2 border-t border-(--border-subtle) pt-4">
 					{state.done ? (
 						<button
 							type="button"
@@ -716,5 +716,59 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				</div>
 			</div>
 		</Modal>
+	);
+}
+
+// StepRail is the run's progress, drawn as one node per step joined by
+// hairlines: done nodes carry a check, the current one is lit in the accent,
+// the ones ahead wait in the input surface. It is a list for assistive
+// technology (the current node says so via aria-current) and the "Step n of
+// 7" caption beside it is the same fact in words, so nothing depends on the
+// colours alone. Each node names its step in a tooltip; the titles are too
+// long, in most locales, to sit under seven nodes at this width.
+function StepRail({ step, t }: { step: Step; t: TFunction }) {
+	const steps = Array.from({ length: TOTAL_STEPS }, (_, i) => (i + 1) as Step);
+	return (
+		<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+			<ol
+				className="ui-wizard-rail min-w-0 flex-1"
+				aria-label={t(`${K}.stepOf`, { step, total: TOTAL_STEPS })}
+			>
+				{steps.map((n) => {
+					const state = n < step ? "done" : n === step ? "current" : "ahead";
+					return (
+						<li key={n} className="contents">
+							{n > 1 && (
+								<span
+									aria-hidden="true"
+									className="ui-wizard-link"
+									data-done={n <= step ? "true" : "false"}
+								/>
+							)}
+							<span
+								className="ui-wizard-node"
+								data-state={state}
+								data-testid={`wiz-rail-${n}`}
+								aria-current={state === "current" ? "step" : undefined}
+								title={t(`${K}.step${n}Title`)}
+							>
+								{state === "done" ? (
+									<Check size={14} weight="bold" aria-hidden="true" />
+								) : (
+									n
+								)}
+								<span className="sr-only">{t(`${K}.step${n}Title`)}</span>
+							</span>
+						</li>
+					);
+				})}
+			</ol>
+			<p
+				className="shrink-0 text-xs text-(--text-muted) tabular-nums"
+				data-testid="wiz-step-of"
+			>
+				{t(`${K}.stepOf`, { step, total: TOTAL_STEPS })}
+			</p>
+		</div>
 	);
 }

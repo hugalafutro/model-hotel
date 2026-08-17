@@ -38,6 +38,14 @@ const catalog: AlertEventDef[] = [
 	},
 ];
 
+/** The destinations the closing summary lists, one row each, in order. */
+function summaryTargets(): string[] {
+	return Array.from(
+		screen.getByTestId("wiz-summary-targets").querySelectorAll("code"),
+		(c) => c.textContent ?? "",
+	);
+}
+
 /** The picker's checkbox for one event type, addressed by role inside its row. */
 function eventBox(type: string): HTMLInputElement {
 	return within(screen.getByTestId(`alert-event-${type}`)).getByRole(
@@ -1096,17 +1104,20 @@ describe("AlertsWizard", () => {
 		await screen.findByTestId("alert-event-picker");
 		await userEvent.click(screen.getByTestId("wiz-next")); // -> 7
 		// Before Finish the summary can only promise what the wizard was handed.
-		expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
-			"tgram://1/2; ntfys://ntfy.example.com/abcabcabc",
-		);
+		expect(summaryTargets()).toEqual([
+			"tgram://1/2",
+			"ntfys://ntfy.example.com/abcabcabc",
+		]);
 
 		await userEvent.click(screen.getByTestId("wiz-finish"));
 		// The fresh list lands in state before the write, so the summary the
 		// operator is looking at while it runs is what the write carries.
 		await waitFor(() =>
-			expect(screen.getByTestId("wiz-summary-targets")).toHaveTextContent(
-				"tgram://1/2; ntfys://ntfy.example.com/added-elsewhere; ntfys://ntfy.example.com/abcabcabc",
-			),
+			expect(summaryTargets()).toEqual([
+				"tgram://1/2",
+				"ntfys://ntfy.example.com/added-elsewhere",
+				"ntfys://ntfy.example.com/abcabcabc",
+			]),
 		);
 		releaseWrite();
 		await waitFor(() =>
