@@ -42,6 +42,7 @@ describe("api.providers", () => {
 			const data = {
 				name: "Test",
 				base_url: "https://api.example.com",
+				provider_type: "custom",
 				api_key: "sk-123",
 			};
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -70,6 +71,7 @@ describe("api.providers", () => {
 				api.providers.create({
 					name: "Test",
 					base_url: "https://api.example.com",
+					provider_type: "custom",
 					api_key: "sk-123",
 				}),
 			).rejects.toThrow("Failed to create provider: 400 bad request");

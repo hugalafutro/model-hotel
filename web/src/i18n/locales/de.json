@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Anbieter hinzufügen",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} Modell",
 		"card_models_other": "{{count}} Modelle",
 		"add": {
+			"typeMismatch": "Der Server unter dieser Adresse meldet sich als {{detected}}, nicht als {{expected}}. Wählen Sie den passenden Typ oder korrigieren Sie die Adresse.",
+			"typeMismatchVersion": "Der Server unter dieser Adresse meldet sich als {{detected}} {{version}}, nicht als {{expected}}. Wählen Sie den passenden Typ oder korrigieren Sie die Adresse.",
+			"typeUnconfirmed": "Unter dieser Adresse hat keine {{expected}}-API geantwortet. Prüfen Sie die Adresse und ob der Server läuft.",
+			"serverUnreachable": "Unter dieser Adresse war kein Server erreichbar. Prüfen Sie die Adresse und ob der Server läuft.",
+			"duplicateAddress": "Diese Adresse wird bereits von „{{name}}“ verwendet. Fügen Sie dafür nur dann einen zweiten Anbieter hinzu, wenn er einen anderen API-Schlüssel nutzt.",
+			"urlRejected": "Model Hotel hat diese Adresse abgelehnt: {{detail}}. Eine private, Loopback- oder anderweitig reservierte Adresse muss in ALLOWED_PROVIDER_HOSTS stehen, und ein Model Hotel im Container erreicht Ihren eigenen Rechner nicht über localhost: verwenden Sie die Netzwerkadresse des Rechners.",
+			"duplicateAddressBlocked": "Für diese Adresse gibt es bereits einen Anbieter („{{name}}“). Ein selbst gehosteter Server lässt sich nicht zweimal hinzufügen: ein zweiter Anbieter würde nur dieselben Modelle erneut finden.",
 			"providerFallback": "Anbieter",
 			"discoveredModels_one": "Entdeckte {{count}} Modell…",
 			"discoveredModels_other": "Entdeckte {{count}} Modelle…",
@@ -786,11 +794,12 @@
 			"deepseekBalanceDetected": "DeepSeek Saldo erkannt",
 			"openrouterBalance": "OpenRouter Saldo erkannt: ${{balance}}",
 			"baseUrl": "Basis-URL",
-			"baseUrlHelperDefault": "Standard-URL vorausgefüllt; bearbeiten, wenn Ihr Server auf einer anderen Adresse läuft. Typ wird von der Portnummer erkannt.",
+			"baseUrlHelperDefault": "Geben Sie die Adresse an, auf der Ihr Server lauscht, mit beliebigem Port. Model Hotel prüft vor dem Speichern, ob der Server wirklich der gewählte Typ ist, er muss also laufen.",
 			"baseUrlHelperFull": "Vollständige API-Basis-URL mit jedem Pfad-Präfix. Modelle werden von \"<base_url>\"/models\" entdeckt",
 			"apiKey": "API-Schlüssel"
 		},
 		"edit": {
+			"typeHelper": "Ändern Sie das nur, um einen Typ zu korrigieren, der beim Import oder Upgrade falsch geraten wurde. Ein selbst gehosteter Typ wird vor dem Speichern gegen den Server geprüft.",
 			"enabledToggle": "Anbieter aktiviert",
 			"enabledHelper": "Steuert Proxy-Routing und API-Zugriff. Deaktivierte Anbieter lehnen alle Anfragen ab.",
 			"autodiscoveryToggle": "Provider-Autoentdeckung",
@@ -2271,7 +2280,7 @@
 			"title": "Passwortrichtlinie",
 			"breachCheckLabel": "Kompromittierte Passwörter ablehnen",
 			"breachCheckDescription": "Neue Kontopasswörter mit einer öffentlichen Datenbank bekannter kompromittierter Passwörter abgleichen und jeden Treffer ablehnen. Es wird nur ein kurzes Hash-Präfix gesendet, niemals das Passwort selbst.",
-			"breachCheckInfo": "Solange dies aktiv ist, wird ein gesetztes oder geändertes Passwort mit SHA-1 gehasht, und nur die ersten fünf Zeichen dieses Hashes gehen an die Range-API von Have I Been Pwned; die API liefert alle geleakten Suffixe hinter diesem Präfix zurück (mit Attrappen aufgefüllt, sodass die Anzahl der Treffer nicht verrät, wie viele davon echt sind) und der Abgleich findet hier statt, sodass weder das Passwort noch sein vollständiger Hash diese Instanz jemals verlassen. Es ist die einzige Stelle, an der eine Spur eines Nutzerpassworts einen externen Dienst erreicht: Schalte die Prüfung ab, um Kontoänderungen vollständig offline zu halten, oder richte PWNED_PASSWORD_API_URL auf einen selbst gehosteten Spiegel; PWNED_PASSWORD_CHECK_ENABLED=false schaltet sie ganz ab, dieser Schalter hat dann keine Wirkung. Ist die API nicht erreichbar oder liefert sie einen Fehler, wird die Änderung trotzdem zugelassen.",
+			"breachCheckInfo": "Wenn dies aktiviert ist, wird ein neu gesetztes Passwort mit Have I Been Pwned abgeglichen. Es werden nur die ersten fünf Zeichen seines SHA-1-Hashes gesendet; der restliche Abgleich erfolgt auf dieser Instanz, sodass das Passwort sie nie verlässt. Ist der Dienst nicht erreichbar, wird das Passwort akzeptiert.",
 			"breachCheckInfoLink": "So funktioniert die Range-Abfrage (haveibeenpwned.com)"
 		}
 	},

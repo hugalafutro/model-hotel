@@ -735,6 +735,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Aggiungi Provider",
@@ -789,6 +790,13 @@
 		"card_models_many": "{{count}} modelli",
 		"card_models_other": "{{count}} modelli",
 		"add": {
+			"typeMismatch": "Il server a questo indirizzo si dichiara {{detected}}, non {{expected}}. Scegli il tipo corrispondente o correggi l'indirizzo.",
+			"typeMismatchVersion": "Il server a questo indirizzo si dichiara {{detected}} {{version}}, non {{expected}}. Scegli il tipo corrispondente o correggi l'indirizzo.",
+			"typeUnconfirmed": "Nessuna API {{expected}} ha risposto a questo indirizzo. Verifica l'indirizzo e che il server sia in esecuzione.",
+			"serverUnreachable": "Impossibile raggiungere un server a questo indirizzo. Verifica l'indirizzo e che il server sia in esecuzione.",
+			"duplicateAddress": "Questo indirizzo è già usato da «{{name}}». Aggiungi un secondo provider solo se usa una chiave API diversa.",
+			"urlRejected": "Model Hotel ha rifiutato questo indirizzo: {{detail}}. Un indirizzo privato, di loopback o comunque riservato deve essere elencato in ALLOWED_PROVIDER_HOSTS, e un Model Hotel in container non può raggiungere il tuo computer tramite localhost: usa l'indirizzo di rete della macchina.",
+			"duplicateAddressBlocked": "Esiste già un provider per questo indirizzo («{{name}}»). Un server self-hosted non può essere aggiunto due volte: un secondo provider si limiterebbe a rilevare di nuovo gli stessi modelli.",
 			"providerFallback": "Provider",
 			"discoveredModels_one": "Ho scoperto {{count}} modello…",
 			"discoveredModels_many": "Scoperti {{count}} modelli…",
@@ -797,11 +805,12 @@
 			"deepseekBalanceDetected": "Rilevato saldo DeepSeek",
 			"openrouterBalance": "Rilevato saldo OpenRouter: ${{balance}}",
 			"baseUrl": "Url Base",
-			"baseUrlHelperDefault": "URL predefinito pre-compilato; modificare se il server viene eseguito su un indirizzo diverso. Il tipo viene rilevato dal numero di porta.",
+			"baseUrlHelperDefault": "Inserisci l'indirizzo su cui il tuo server è in ascolto, su qualsiasi porta. Model Hotel verifica prima del salvataggio che il server sia davvero del tipo scelto, quindi deve essere in esecuzione.",
 			"baseUrlHelperFull": "URL di base API completo incluso qualsiasi prefisso percorso. I modelli saranno scoperti da \"<base_url>\"/models",
 			"apiKey": "Chiave API"
 		},
 		"edit": {
+			"typeHelper": "Modificalo solo per correggere un tipo dedotto male durante l'importazione o l'aggiornamento. Un tipo self-hosted viene verificato con il server prima del salvataggio.",
 			"enabledToggle": "Provider abilitato",
 			"enabledHelper": "Controlla l'instradamento del proxy e l'accesso alle API. I provider disabilitati rifiutano tutte le richieste.",
 			"autodiscoveryToggle": "Scoperta automatica del provider",
@@ -2324,7 +2333,7 @@
 			"title": "Criteri per le password",
 			"breachCheckLabel": "Rifiuta le password compromesse",
 			"breachCheckDescription": "Verifica le password dei nuovi account rispetto a un database pubblico di password compromesse note e rifiuta qualsiasi corrispondenza. Viene inviato solo un breve prefisso dell'hash, mai la password stessa.",
-			"breachCheckInfo": "Finché è attivo, una password impostata o cambiata viene trasformata in un hash SHA-1 e solo i primi cinque caratteri di quell'hash vengono inviati alla range API di Have I Been Pwned; l'API restituisce tutti i suffissi compromessi dietro quel prefisso (con voci esca di riempimento, così il numero di risultati non rivela quante corrispondenze reali ci sono) e il confronto avviene qui, così né la password né il suo hash completo lasciano mai questa istanza. È l'unico punto in cui una traccia della password di un utente raggiunge un servizio esterno: disattiva il controllo per mantenere le modifiche degli account completamente offline, oppure punta PWNED_PASSWORD_API_URL a un mirror self-hosted; PWNED_PASSWORD_CHECK_ENABLED=false lo disattiva del tutto e questo interruttore non ha più effetto. Se l'API non è raggiungibile o restituisce un errore, la modifica viene comunque consentita.",
+			"breachCheckInfo": "Quando è attivo, la password impostata viene confrontata con Have I Been Pwned. Vengono inviati solo i primi cinque caratteri del suo hash SHA-1; il resto del confronto avviene su questa istanza, quindi la password non la lascia mai. Se il servizio non è raggiungibile, la password viene accettata.",
 			"breachCheckInfoLink": "Come funziona la ricerca per intervallo (haveibeenpwned.com)"
 		}
 	},

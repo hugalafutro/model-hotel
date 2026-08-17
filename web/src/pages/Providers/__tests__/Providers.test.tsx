@@ -939,12 +939,14 @@ describe("Providers", () => {
 					id: "p1",
 					name: "OpenAI",
 					base_url: "https://api.openai.com/v1",
+					provider_type: "openai",
 				},
 				{
 					...mockProvider,
 					id: "p2",
 					name: "Anthropic",
 					base_url: "https://api.anthropic.com",
+					provider_type: "anthropic",
 				},
 			];
 			server.use(...mockProvidersPageDefaults({ providers }));

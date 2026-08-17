@@ -9,13 +9,14 @@ import { Modal } from "../../components/Modal";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import {
 	baseUrls,
-	getProviderType,
 	isLocalProviderType,
-	localProviderDefaults,
+	localProviderPlaceholders,
 	providerTypeAllowsEmptyKey,
 	providerTypeHasFreeModels,
 	providerTypeTranslationKeys,
 } from "./constants";
+import { findProviderAtAddress } from "./duplicateAddress";
+import { providerTypeGateMessage } from "./typeGateError";
 
 interface AddProviderModalProps {
 	onClose: () => void;
@@ -67,8 +68,12 @@ export function AddProviderModal({
 	const [error, setError] = useState<string | null>(null);
 
 	const createMutation = useMutation({
-		mutationFn: (data: { name: string; base_url: string; api_key: string }) =>
-			api.providers.create(data),
+		mutationFn: (data: {
+			name: string;
+			base_url: string;
+			provider_type: string;
+			api_key: string;
+		}) => api.providers.create(data),
 		onSuccess: async (newProvider) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			onClose();
@@ -84,7 +89,7 @@ export function AddProviderModal({
 				"success",
 			);
 			const shouldDiscover = settings?.discovery_on_provider_create !== "false";
-			const providerType = getProviderType(newProvider.base_url);
+			const providerType = newProvider.provider_type;
 			if (shouldDiscover) {
 				try {
 					const result = await api.providers.discover(newProvider.id);
@@ -185,13 +190,27 @@ export function AddProviderModal({
 			}
 		},
 		onError: (err: Error) => {
-			setError(err.message);
-			onToast(
-				t("providers.toast_add_failed", { message: err.message }),
-				"error",
-			);
+			// A failed type check or a refused address is the operator's mistake
+			// to fix in this form, so both are phrased for them rather than
+			// shown as a raw HTTP error.
+			const message = providerTypeGateMessage(err, t) ?? err.message;
+			setError(message);
+			onToast(t("providers.toast_add_failed", { message }), "error");
 		},
 	});
+
+	// Two providers may share a hosted API's address (each row carries its own
+	// key, so each gets its own quota), which is worth a warning but not a
+	// refusal. A self-hosted server has no such split and the backend refuses
+	// it outright, so the warning says which of the two this is.
+	const duplicateOf = findProviderAtAddress(providers, formData.base_url);
+	// The backend only refuses when BOTH rows are self-hosted: adding a
+	// self-hosted provider alongside a `custom` one at the same address is the
+	// supported escape hatch, so the warning must not claim it is impossible.
+	const duplicateIsBlocked =
+		duplicateOf !== null &&
+		isLocalProviderType(formData.provider_type) &&
+		isLocalProviderType(duplicateOf.provider_type);
 
 	const handleProviderTypeChange = (type: string) => {
 		if (type === "custom") {
@@ -207,7 +226,11 @@ export function AddProviderModal({
 		setFormData((prev) => ({
 			...prev,
 			provider_type: type,
-			base_url: localProviderDefaults[type] || baseUrls[type] || prev.base_url,
+			// Self-hosted servers get no pre-filled address: their host is the
+			// operator's to know, and a wrong guess is worse than an empty field.
+			base_url: isLocalProviderType(type)
+				? ""
+				: baseUrls[type] || prev.base_url,
 			name: newName,
 		}));
 	};
@@ -218,6 +241,7 @@ export function AddProviderModal({
 		createMutation.mutate({
 			name: formData.name.trim(),
 			base_url: formData.base_url,
+			provider_type: formData.provider_type,
 			api_key: formData.api_key,
 		});
 	};
@@ -237,7 +261,10 @@ export function AddProviderModal({
 	return (
 		<Modal title={t("providers.form_modal_title")} onClose={closeAndReset}>
 			{error && (
-				<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+				<div
+					data-testid="add-provider-error"
+					className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"
+				>
 					{error}
 				</div>
 			)}
@@ -324,7 +351,10 @@ export function AddProviderModal({
 								? "ui-input opacity-60 cursor-not-allowed"
 								: "ui-input"
 						}
-						placeholder={t("providers.form_base_url_placeholder")}
+						placeholder={
+							localProviderPlaceholders[formData.provider_type] ??
+							t("providers.form_base_url_placeholder")
+						}
 					/>
 					{formData.provider_type !== "custom" &&
 						!isLocalProviderType(formData.provider_type) && (
@@ -335,6 +365,20 @@ export function AddProviderModal({
 					{isLocalProviderType(formData.provider_type) && (
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.add.baseUrlHelperDefault")}
+						</p>
+					)}
+					{duplicateOf && (
+						<p
+							data-testid="duplicate-address-warning"
+							className="text-amber-400 text-xs mt-1"
+						>
+							{duplicateIsBlocked
+								? t("providers.add.duplicateAddressBlocked", {
+										name: duplicateOf.name,
+									})
+								: t("providers.add.duplicateAddress", {
+										name: duplicateOf.name,
+									})}
 						</p>
 					)}
 					{formData.provider_type === "custom" && (

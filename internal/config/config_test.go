@@ -113,7 +113,7 @@ func TestValidateProviderURL_AllowKnownProviderSubdomain(t *testing.T) {
 
 func TestValidateProviderURL_KnownSubdomainWithRestrictiveAllowlist(t *testing.T) {
 	// Subdomains of known provider domains must pass even when
-	// ALLOWED_PROVIDER_HOSTS is set and does not list them: DetectProviderType
+	// ALLOWED_PROVIDER_HOSTS is set and does not list them: LegacyTypeFromURL
 	// classifies them as first-class provider types, so creation-time
 	// validation has to accept what the detector advertises.
 	cfg := &Config{AllowedProviderHosts: []string{"custom-llm.example.com"}}

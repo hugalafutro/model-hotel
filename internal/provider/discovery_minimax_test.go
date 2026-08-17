@@ -17,10 +17,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// DetectProviderType
+// LegacyTypeFromURL
 // ---------------------------------------------------------------------------
 
-func TestDetectProviderType_MiniMax(t *testing.T) {
+func TestLegacyTypeFromURL_MiniMax(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -34,9 +34,9 @@ func TestDetectProviderType_MiniMax(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != tc.want {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, tc.want)
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, tc.want)
 			}
 		})
 	}
@@ -346,7 +346,7 @@ func TestGetMiniMaxQuota_DecryptFailure(t *testing.T) {
 }
 
 // TestDiscoverModels_MiniMaxDispatch exercises the minimax arm of the
-// DiscoverModels provider-type switch end-to-end offline: DetectProviderType
+// DiscoverModels provider-type switch end-to-end offline: LegacyTypeFromURL
 // routes the api.minimax.io host to "minimax", and a mock transport returns a
 // canned listing so discoverMiniMax runs without a real network call.
 func TestDiscoverModels_MiniMaxDispatch(t *testing.T) {

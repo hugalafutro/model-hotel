@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
 	baseUrls,
-	getProviderType,
 	isKnownProviderUrl,
 	isLocalProviderType,
-	localProviderDefaults,
+	localProviderPlaceholders,
 	providerTypeAllowsEmptyKey,
 	providerTypeTranslationKeys,
 } from "../constants";
@@ -99,18 +98,19 @@ describe("baseUrls", () => {
 	});
 });
 
-describe("localProviderDefaults", () => {
-	it("has default for ollama", () => {
-		expect(localProviderDefaults.ollama).toBe("http://localhost:11434");
-	});
-
-	it("has default for koboldcpp", () => {
-		expect(localProviderDefaults.koboldcpp).toBe("http://localhost:5001/v1");
-	});
-
-	it("has default for lmstudio", () => {
-		expect(localProviderDefaults.lmstudio).toBe("http://localhost:1234/v1");
-	});
+describe("localProviderPlaceholders", () => {
+	// These are placeholders, never values: a self-hosted server's address is
+	// the operator's to supply, and a containerised Model Hotel cannot reach
+	// its own localhost.
+	it.each(["ollama", "koboldcpp", "lmstudio"])(
+		"offers a routable example address for %s",
+		(type) => {
+			const example = localProviderPlaceholders[type];
+			expect(example).toBeDefined();
+			expect(example).not.toContain("localhost");
+			expect(example).not.toContain("127.0.0.1");
+		},
+	);
 });
 
 describe("isLocalProviderType", () => {
@@ -183,122 +183,6 @@ describe("isKnownProviderUrl", () => {
 	it("returns false for similar but different url", () => {
 		expect(isKnownProviderUrl("https://api.openai.com/v2")).toBe(false);
 		expect(isKnownProviderUrl("https://api.anthropic.com/v1")).toBe(false);
-	});
-});
-
-describe("getProviderType", () => {
-	it("returns openai for openai url", () => {
-		expect(getProviderType("https://api.openai.com/v1")).toBe("openai");
-	});
-
-	it("returns anthropic for anthropic url", () => {
-		expect(getProviderType("https://api.anthropic.com")).toBe("anthropic");
-	});
-
-	it("returns deepseek for deepseek url", () => {
-		expect(getProviderType("https://api.deepseek.com/v1")).toBe("deepseek");
-	});
-
-	it("returns ollama for localhost ollama url (port-based detection)", () => {
-		expect(getProviderType("http://localhost:11434")).toBe("ollama");
-	});
-
-	it("returns ollama for LAN ollama url (port-based detection)", () => {
-		expect(getProviderType("http://192.168.1.50:11434")).toBe("ollama");
-	});
-
-	it("returns ollama-cloud for ollama-cloud url", () => {
-		expect(getProviderType("https://ollama.com/v1")).toBe("ollama-cloud");
-	});
-
-	it("returns bedrock for any-region mantle url (host-based detection)", () => {
-		expect(
-			getProviderType("https://bedrock-mantle.eu-central-1.api.aws/v1"),
-		).toBe("bedrock");
-	});
-
-	it("does not detect bedrock-runtime (no /models listing, unsupported)", () => {
-		expect(
-			getProviderType("https://bedrock-runtime.us-west-2.amazonaws.com/v1"),
-		).toBe("custom");
-	});
-
-	it("does not detect bedrock-named hosts on other domains", () => {
-		expect(getProviderType("https://bedrock-mantle.example.com/v1")).toBe(
-			"custom",
-		);
-	});
-
-	it("returns azure for any foundry project endpoint (host-based detection)", () => {
-		expect(
-			getProviderType(
-				"https://myres-resource.services.ai.azure.com/api/projects/myproject",
-			),
-		).toBe("azure");
-	});
-
-	it("returns azure for classic azure openai resource url", () => {
-		expect(getProviderType("https://myres.openai.azure.com/openai/v1")).toBe(
-			"azure",
-		);
-	});
-
-	it("does not detect azure-lookalike hosts on other domains", () => {
-		expect(
-			getProviderType("https://services.ai.azure.com.evil.example/openai/v1"),
-		).toBe("custom");
-	});
-
-	it("returns vertex-express for regional aiplatform hosts (host-based detection)", () => {
-		expect(
-			getProviderType("https://us-central1-aiplatform.googleapis.com/v1"),
-		).toBe("vertex-express");
-	});
-
-	it("does not detect aiplatform-lookalike hosts on other domains", () => {
-		expect(
-			getProviderType("https://aiplatform.googleapis.com.evil.example"),
-		).toBe("custom");
-	});
-
-	it("returns google for google url", () => {
-		expect(
-			getProviderType(
-				"https://generativelanguage.googleapis.com/v1beta/openai",
-			),
-		).toBe("google");
-	});
-
-	it("returns koboldcpp for localhost koboldcpp url (port-based detection)", () => {
-		expect(getProviderType("http://localhost:5001/v1")).toBe("koboldcpp");
-	});
-
-	it("returns koboldcpp for LAN koboldcpp url (port-based detection)", () => {
-		expect(getProviderType("http://192.168.1.50:5001/v1")).toBe("koboldcpp");
-	});
-
-	it("returns lmstudio for localhost lmstudio url (port-based detection)", () => {
-		expect(getProviderType("http://localhost:1234/v1")).toBe("lmstudio");
-	});
-
-	it("returns lmstudio for LAN lmstudio url (port-based detection)", () => {
-		expect(getProviderType("http://10.0.0.5:1234/v1")).toBe("lmstudio");
-	});
-
-	it("returns custom for LAN host with unrecognised port", () => {
-		expect(getProviderType("http://192.168.1.50:9999/v1")).toBe("custom");
-	});
-
-	it("returns custom for unknown url", () => {
-		expect(getProviderType("https://custom-provider.com/api")).toBe("custom");
-	});
-
-	it("returns custom for empty string", () => {
-		expect(getProviderType("")).toBe("custom");
-	});
-
-	it("returns custom for partial match", () => {
-		expect(getProviderType("https://api.openai.com")).toBe("custom");
 	});
 });
 

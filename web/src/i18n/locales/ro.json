@@ -735,6 +735,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Adaugă furnizor",
@@ -789,6 +790,13 @@
 		"card_models_few": "{{count}} modele",
 		"card_models_other": "{{count}} de modele",
 		"add": {
+			"typeMismatch": "Serverul de la această adresă se declară {{detected}}, nu {{expected}}. Alegeți tipul corespunzător sau corectați adresa.",
+			"typeMismatchVersion": "Serverul de la această adresă se declară {{detected}} {{version}}, nu {{expected}}. Alegeți tipul corespunzător sau corectați adresa.",
+			"typeUnconfirmed": "Nicio interfață {{expected}} nu a răspuns la această adresă. Verificați adresa și dacă serverul rulează.",
+			"serverUnreachable": "Nu s-a putut contacta niciun server la această adresă. Verificați adresa și dacă serverul rulează.",
+			"duplicateAddress": "Această adresă este deja folosită de „{{name}}”. Adăugați un al doilea furnizor pentru ea doar dacă folosește altă cheie API.",
+			"urlRejected": "Model Hotel a respins această adresă: {{detail}}. O adresă privată, loopback sau rezervată trebuie listată în ALLOWED_PROVIDER_HOSTS, iar un Model Hotel rulat în container nu vă poate contacta calculatorul prin localhost: folosiți adresa de rețea a mașinii.",
+			"duplicateAddressBlocked": "Există deja un furnizor pentru această adresă („{{name}}”). Un server găzduit local nu poate fi adăugat de două ori: un al doilea furnizor ar descoperi doar aceleași modele.",
 			"providerFallback": "Furnizor",
 			"discoveredModels_one": "S-a descoperit {{count}} model…",
 			"discoveredModels_few": "S-au descoperit {{count}} modele…",
@@ -797,11 +805,12 @@
 			"deepseekBalanceDetected": "Sold DeepSeek detectat",
 			"openrouterBalance": "Sold OpenRouter detectat: ${{balance}}",
 			"baseUrl": "URL de bază",
-			"baseUrlHelperDefault": "URL precompletat implicit; editare dacă serverul rulează pe o adresă diferită. Tipul este detectat din numărul portului.",
+			"baseUrlHelperDefault": "Introduceți adresa pe care ascultă serverul dumneavoastră, pe orice port. Înainte de salvare, Model Hotel verifică dacă serverul chiar este tipul ales, deci trebuie să ruleze.",
 			"baseUrlHelperFull": "URL de bază API complet, inclusiv orice prefix de cale. Modelele vor fi descoperite de la \"<base_url>\"/models",
 			"apiKey": "Cheie API"
 		},
 		"edit": {
+			"typeHelper": "Modificați doar pentru a corecta un tip ghicit greșit la import sau la actualizare. Un tip găzduit local este verificat pe server înainte de salvare.",
 			"enabledToggle": "Furnizor activat",
 			"enabledHelper": "Controlează rutarea proxy și accesul API. Furnizorii dezactivați resping toate cererile.",
 			"autodiscoveryToggle": "Furnizor autodescoperire",
@@ -2324,7 +2333,7 @@
 			"title": "Politica parolelor",
 			"breachCheckLabel": "Respinge parolele compromise",
 			"breachCheckDescription": "Verifică parolele conturilor noi față de o bază de date publică cu parole compromise cunoscute și respinge orice potrivire. Se trimite doar un prefix scurt al amprentei (hash), niciodată parola în sine.",
-			"breachCheckInfo": "Cât timp aceasta este activă, unei parole setate sau schimbate i se calculează hash-ul SHA-1 și doar primele cinci caractere ale acestuia sunt trimise către range API-ul Have I Been Pwned; API-ul returnează toate sufixele compromise din spatele acelui prefix (completate cu intrări-momeală, astfel încât numărul de rezultate să nu dezvăluie câte potriviri reale există), iar potrivirea se face aici, astfel încât nici parola, nici hash-ul ei complet nu părăsesc vreodată această instanță. Este singurul loc în care o urmă a parolei unui utilizator ajunge la un serviciu extern: dezactivează verificarea pentru a păstra modificările de cont complet offline sau îndreaptă PWNED_PASSWORD_API_URL către o oglindă găzduită local; PWNED_PASSWORD_CHECK_ENABLED=false o dezactivează complet, iar acest comutator nu mai are niciun efect. Dacă API-ul nu poate fi contactat sau returnează o eroare, modificarea este permisă oricum.",
+			"breachCheckInfo": "Când această opțiune este activată, parola care se setează este comparată cu Have I Been Pwned. Se trimit doar primele cinci caractere din hash-ul său SHA-1; restul comparației are loc pe această instanță, așa că parola nu o părăsește niciodată. Dacă serviciul nu poate fi contactat, parola este acceptată.",
 			"breachCheckInfoLink": "Cum funcționează căutarea pe interval (haveibeenpwned.com)"
 		}
 	},

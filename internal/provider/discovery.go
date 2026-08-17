@@ -242,28 +242,37 @@ func detectByHost(host, path string) string {
 	return ""
 }
 
-// DetectProviderType parses the provider's base URL and returns a type string
-// based on the hostname and (for some providers) the URL path or port.
-func DetectProviderType(baseURL string) string {
+// TypeFromHostname derives a provider type from the vendor hostname alone.
+// It is the fallback for API clients that create a provider without naming a
+// type: a vendor host still identifies itself unambiguously, while an address
+// that does not match one is generic OpenAI-compatible rather than a guess at
+// which self-hosted server might be listening on that port.
+func TypeFromHostname(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
 		debuglog.Warn("discovery: failed to parse base URL", "url", baseURL)
 		return "openai"
 	}
-	host := strings.ToLower(u.Hostname())
-	path := strings.ToLower(u.Path)
-
-	if typ := detectByHost(host, path); typ != "" {
+	if typ := detectByHost(strings.ToLower(u.Hostname()), strings.ToLower(u.Path)); typ != "" {
 		return typ
 	}
+	return "openai"
+}
 
-	// Port-based heuristics for self-hosted providers (Ollama, LM Studio, KoboldCPP).
-	// These providers commonly run on non-localhost hosts (LAN servers, Kubernetes, etc.)
-	// so port detection must work on any host, not just loopback.
-	//
-	// Note: port 5001 is also used by IPFS HTTP API and Apple AirPlay Receiver.
-	// Port 1234 is a common generic dev port. If discovery misclassifies a non-LLM
-	// service on one of these ports, the user can override the provider type manually.
+// LegacyTypeFromURL derives a provider type from a base URL, including the
+// default-port rules for self-hosted servers. It exists only to give rows that
+// predate the stored provider_type column a type: the startup backfill and
+// TypeOf's fallback are its only callers, and those rows were created while
+// the port rules were in force. Provider type is chosen by the operator when
+// the provider is added, never guessed at request time.
+func LegacyTypeFromURL(baseURL string) string {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || u.Host == "" {
+		return TypeFromHostname(baseURL)
+	}
+	if typ := detectByHost(strings.ToLower(u.Hostname()), strings.ToLower(u.Path)); typ != "" {
+		return typ
+	}
 	switch u.Port() {
 	case "11434":
 		return "ollama"
@@ -272,14 +281,26 @@ func DetectProviderType(baseURL string) string {
 	case "1234":
 		return "lmstudio"
 	}
-
-	// Unrecognised hosts (including bare loopback) fall back to openai.
 	return "openai"
+}
+
+// TypeOf returns the provider's stored type. Rows that have not been backfilled
+// yet (a restored dump, an import that landed after startup) fall back to the
+// legacy URL derivation so they keep behaving as they did before the column
+// existed.
+func TypeOf(p *Provider) string {
+	if p == nil {
+		return "openai"
+	}
+	if p.ProviderType != "" {
+		return p.ProviderType
+	}
+	return LegacyTypeFromURL(p.BaseURL)
 }
 
 // DiscoverModels discovers available models from a provider.
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
-	providerType := DetectProviderType(provider.BaseURL)
+	providerType := TypeOf(provider)
 	debuglog.Info("discovery: starting discovery", "provider", provider.Name, "provider_id", provider.ID, "type", providerType)
 
 	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted

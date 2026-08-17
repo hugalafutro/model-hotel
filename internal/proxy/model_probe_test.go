@@ -541,7 +541,7 @@ func TestProbeDeliveredContent(t *testing.T) {
 // the given test server regardless of the hostname in the URL. Nothing about
 // the probe is faked: it is the production *http.Transport field, carrying a
 // DialContext, which is how the real one reaches providers too. The hostname
-// still has to be Google's, because that is what DetectProviderType reads to
+// still has to be Google's, because that is what LegacyTypeFromURL reads to
 // decide a candidate is vertex-express.
 func dialToTestServer(t *testing.T, srv *httptest.Server) *http.Transport {
 	t.Helper()

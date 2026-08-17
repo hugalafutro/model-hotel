@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "공급자 추가",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} 모델",
 		"card_models_other": "{{count}} 모델",
 		"add": {
+			"typeMismatch": "이 주소의 서버는 {{expected}}가 아니라 {{detected}}(으)로 응답합니다. 알맞은 종류를 선택하거나 주소를 수정하세요.",
+			"typeMismatchVersion": "이 주소의 서버는 {{expected}}가 아니라 {{detected}} {{version}}(으)로 응답합니다. 알맞은 종류를 선택하거나 주소를 수정하세요.",
+			"typeUnconfirmed": "이 주소에서 {{expected}} API가 응답하지 않았습니다. 주소와 서버 실행 여부를 확인하세요.",
+			"serverUnreachable": "이 주소에서 서버에 연결할 수 없습니다. 주소와 서버 실행 여부를 확인하세요.",
+			"duplicateAddress": "이 주소는 이미 \"{{name}}\"이(가) 사용 중입니다. 다른 API 키를 사용할 때만 두 번째 제공자를 추가하세요.",
+			"urlRejected": "Model Hotel이 이 주소를 거부했습니다: {{detail}}. 사설, 루프백 또는 예약된 주소는 ALLOWED_PROVIDER_HOSTS에 등록해야 하며, 컨테이너에서 실행되는 Model Hotel은 localhost로 사용자의 컴퓨터에 접근할 수 없습니다. 해당 컴퓨터의 네트워크 주소를 사용하세요.",
+			"duplicateAddressBlocked": "이 주소의 제공자가 이미 있습니다(\"{{name}}\"). 자체 호스팅 서버는 두 번 추가할 수 없습니다. 두 번째 제공자는 같은 모델을 다시 찾을 뿐입니다.",
 			"providerFallback": "제공업체",
 			"discoveredModels_one": "발견됨 {{count}} 모델…",
 			"discoveredModels_other": "발견된 {{count}} 모델들…",
@@ -786,11 +794,12 @@
 			"deepseekBalanceDetected": "DeepSeek 잔액 감지됨",
 			"openrouterBalance": "OpenRouter 잔액 확인: ${{balance}}",
 			"baseUrl": "기본 URL",
-			"baseUrlHelperDefault": "기본 URL이 미리 입력되어 있습니다. 서버가 다른 주소에서 실행되는 경우 수정하십시오. 유형은 포트 번호로 자동 감지됩니다.",
+			"baseUrlHelperDefault": "서버가 수신 대기하는 주소를 입력하세요. 포트는 무엇이든 됩니다. 저장하기 전에 Model Hotel이 서버가 실제로 선택한 종류인지 확인하므로 서버가 실행 중이어야 합니다.",
 			"baseUrlHelperFull": "경로 접두사를 포함한 전체 API 기본 URL. 모델은 \"<base_url>\"/models 에서 검색됩니다.",
 			"apiKey": "API 키"
 		},
 		"edit": {
+			"typeHelper": "가져오기나 업그레이드 과정에서 잘못 추정된 종류를 바로잡을 때만 변경하세요. 자체 호스팅 종류는 저장 전에 서버와 대조합니다.",
 			"enabledToggle": "서비스 제공자 활성화됨",
 			"enabledHelper": "프록시 라우팅 및 API 액세스를 제어합니다. 비활성화된 제공자는 모든 요청을 거부합니다.",
 			"autodiscoveryToggle": "서비스 제공자 자동 검색",
@@ -2271,7 +2280,7 @@
 			"title": "비밀번호 정책",
 			"breachCheckLabel": "유출된 비밀번호 거부",
 			"breachCheckDescription": "새 계정 비밀번호를 알려진 유출 비밀번호의 공개 데이터베이스와 대조하여 일치하는 항목을 거부합니다. 짧은 해시 접두사만 전송되며 비밀번호 자체는 전송되지 않습니다.",
-			"breachCheckInfo": "이 옵션이 켜져 있는 동안 설정하거나 변경하는 비밀번호는 SHA-1로 해시되고, 그 해시의 앞 다섯 글자만 Have I Been Pwned range API로 전송됩니다. API는 해당 접두사 뒤의 유출된 접미사를 모두 돌려주며(가짜 항목으로 패딩되어 결과 수만으로는 실제 일치가 몇 건인지 드러나지 않음) 대조는 여기서 이루어지므로 비밀번호도 전체 해시도 이 인스턴스를 떠나지 않습니다. 사용자 비밀번호의 흔적이 외부 서비스에 닿는 유일한 지점입니다. 계정 변경을 완전히 오프라인으로 유지하려면 검사를 끄거나 PWNED_PASSWORD_API_URL을 자체 호스팅 미러로 지정하세요. PWNED_PASSWORD_CHECK_ENABLED=false로 두면 검사가 아예 꺼지며 이 스위치는 효과가 없습니다. API에 연결할 수 없거나 오류를 반환해도 변경은 그대로 허용됩니다.",
+			"breachCheckInfo": "이 옵션을 켜면 설정되는 비밀번호를 Have I Been Pwned와 대조합니다. SHA-1 해시의 처음 다섯 글자만 전송되고 나머지 비교는 이 인스턴스에서 이루어지므로 비밀번호가 인스턴스를 벗어나지 않습니다. 서비스에 연결할 수 없으면 비밀번호는 그대로 허용됩니다.",
 			"breachCheckInfoLink": "range 조회 동작 방식 (haveibeenpwned.com)"
 		}
 	},

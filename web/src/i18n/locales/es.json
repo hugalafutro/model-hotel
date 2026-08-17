@@ -735,6 +735,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Añadir proveedor",
@@ -789,6 +790,13 @@
 		"card_models_many": "Modelos {{count}}",
 		"card_models_other": "Modelos {{count}}",
 		"add": {
+			"typeMismatch": "El servidor de esta dirección se identifica como {{detected}}, no como {{expected}}. Elige el tipo correspondiente o corrige la dirección.",
+			"typeMismatchVersion": "El servidor de esta dirección se identifica como {{detected}} {{version}}, no como {{expected}}. Elige el tipo correspondiente o corrige la dirección.",
+			"typeUnconfirmed": "Ninguna API de {{expected}} respondió en esta dirección. Comprueba la dirección y que el servidor esté en marcha.",
+			"serverUnreachable": "No se pudo contactar con ningún servidor en esta dirección. Comprueba la dirección y que el servidor esté en marcha.",
+			"duplicateAddress": "Esta dirección ya la usa «{{name}}». Añade un segundo proveedor para ella solo si utiliza otra clave de API.",
+			"urlRejected": "Model Hotel rechazó esta dirección: {{detail}}. Una dirección privada, de loopback o reservada debe figurar en ALLOWED_PROVIDER_HOSTS, y un Model Hotel en contenedor no puede llegar a tu equipo por localhost: usa la dirección de red de la máquina.",
+			"duplicateAddressBlocked": "Ya existe un proveedor para esta dirección («{{name}}»). Un servidor autoalojado no se puede añadir dos veces: un segundo proveedor solo volvería a descubrir los mismos modelos.",
 			"providerFallback": "Proveedor",
 			"discoveredModels_one": "Descubierto el modelo {{count}}…",
 			"discoveredModels_many": "Descubiertos {{count}} modelos…",
@@ -797,11 +805,12 @@
 			"deepseekBalanceDetected": "Saldo de DeepSeek detectado",
 			"openrouterBalance": "Saldo de OpenRouter detectado: ${{balance}}",
 			"baseUrl": "URL base",
-			"baseUrlHelperDefault": "URL predefinida pre-llenada; edite si su servidor se ejecuta en una dirección diferente. Tipo se detecta desde el número de puerto.",
+			"baseUrlHelperDefault": "Introduce la dirección en la que escucha tu servidor, con cualquier puerto. Model Hotel comprueba antes de guardar que el servidor sea realmente del tipo elegido, así que debe estar en marcha.",
 			"baseUrlHelperFull": "URL base completa de la API, incluyendo cualquier prefijo de ruta. Los modelos se descubrirán de \"<base_url>\"/models",
 			"apiKey": "Clave API"
 		},
 		"edit": {
+			"typeHelper": "Cámbialo solo para corregir un tipo que se dedujo mal al importar o actualizar el proveedor. Un tipo autoalojado se comprueba con el servidor antes de guardarlo.",
 			"enabledToggle": "Proveedor habilitado",
 			"enabledHelper": "Controla la ruta proxy y el acceso de la API. Los proveedores desactivados rechazan todas las solicitudes.",
 			"autodiscoveryToggle": "Auto-descubrimiento del proveedor",
@@ -2324,7 +2333,7 @@
 			"title": "Política de contraseñas",
 			"breachCheckLabel": "Rechazar contraseñas filtradas",
 			"breachCheckDescription": "Comprueba las contraseñas de las cuentas nuevas con una base de datos pública de contraseñas filtradas conocidas y rechaza cualquier coincidencia. Solo se envía un prefijo corto del hash, nunca la contraseña.",
-			"breachCheckInfo": "Mientras esto está activado, una contraseña que se establece o se cambia se convierte en un hash SHA-1 y solo los cinco primeros caracteres de ese hash se envían a la API de rangos de Have I Been Pwned; la API devuelve todos los sufijos filtrados tras ese prefijo (con entradas señuelo de relleno, para que el número de resultados no revele cuántas coincidencias reales hay) y la comparación se hace aquí, de modo que ni la contraseña ni su hash completo salen nunca de esta instancia. Es el único punto en el que un rastro de la contraseña de un usuario llega a un servicio externo: desactiva la comprobación para mantener los cambios de cuenta totalmente sin conexión, o apunta PWNED_PASSWORD_API_URL a un espejo autoalojado; PWNED_PASSWORD_CHECK_ENABLED=false la desactiva por completo y este interruptor deja de tener efecto. Si no se puede contactar con la API o devuelve un error, el cambio se permite de todos modos.",
+			"breachCheckInfo": "Cuando esto está activado, la contraseña que se establece se compara con Have I Been Pwned. Solo se envían los cinco primeros caracteres de su hash SHA-1; el resto de la comparación se hace en esta instancia, así que la contraseña nunca sale de ella. Si no se puede acceder al servicio, la contraseña se acepta.",
 			"breachCheckInfoLink": "Cómo funciona la búsqueda por rangos (haveibeenpwned.com)"
 		}
 	},

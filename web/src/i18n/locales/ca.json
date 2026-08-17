@@ -735,6 +735,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Afegeix proveïdor",
@@ -789,6 +790,13 @@
 		"card_models_many": "{{count}} models",
 		"card_models_other": "{{count}} models",
 		"add": {
+			"typeMismatch": "El servidor d'aquesta adreça diu que és {{detected}}, no pas {{expected}}. Tria el tipus corresponent o corregeix l'adreça.",
+			"typeMismatchVersion": "El servidor d'aquesta adreça diu que és {{detected}} {{version}}, no pas {{expected}}. Tria el tipus corresponent o corregeix l'adreça.",
+			"typeUnconfirmed": "Cap API de {{expected}} ha respost en aquesta adreça. Comprova l'adreça i que el servidor s'estigui executant.",
+			"serverUnreachable": "No s'ha pogut connectar amb cap servidor en aquesta adreça. Comprova l'adreça i que el servidor s'estigui executant.",
+			"duplicateAddress": "Aquesta adreça ja l'utilitza \"{{name}}\". Afegeix-hi un segon proveïdor només si fa servir una clau API diferent.",
+			"urlRejected": "Model Hotel ha rebutjat aquesta adreça: {{detail}}. Una adreça privada, de loopback o reservada ha de figurar a ALLOWED_PROVIDER_HOSTS, i un Model Hotel executat en un contenidor no pot arribar al teu ordinador per localhost: fes servir l'adreça de xarxa de la màquina.",
+			"duplicateAddressBlocked": "Ja existeix un proveïdor per a aquesta adreça (\"{{name}}\"). Un servidor autoallotjat no es pot afegir dues vegades: un segon proveïdor només tornaria a descobrir els mateixos models.",
 			"providerFallback": "Proveïdor",
 			"discoveredModels_one": "Descobert el model {{count}}…",
 			"discoveredModels_many": "Descoberts els models {{count}}…",
@@ -797,11 +805,12 @@
 			"deepseekBalanceDetected": "Saldo de DeepSeek detectat",
 			"openrouterBalance": "Saldo d'OpenRouter detectat: ${{balance}}",
 			"baseUrl": "URL base",
-			"baseUrlHelperDefault": "URL per defecte ja omplert; modifica-ho si el teu servidor funciona en una adreça diferent. El tipus es detecta pel número de port.",
+			"baseUrlHelperDefault": "Introdueix l'adreça on escolta el teu servidor, amb qualsevol port. Model Hotel comprova que el servidor sigui realment del tipus que has triat abans de desar-lo, així que ha d'estar en marxa.",
 			"baseUrlHelperFull": "URL base completa de l'API, incloent-hi qualsevol prefix de ruta. Els models es descobriran a \"<base_url>/models\"",
 			"apiKey": "Clau de l'API"
 		},
 		"edit": {
+			"typeHelper": "Canvia-ho només per corregir un tipus que es va deduir malament en importar o actualitzar el proveïdor. Un tipus autoallotjat es comprova amb el servidor abans de desar-lo.",
 			"enabledToggle": "Proveïdor habilitat",
 			"enabledHelper": "Controla l'encaminament del proxy i l'accés a l'API. Els proveïdors desactivats rebutgen totes les sol·licituds.",
 			"autodiscoveryToggle": "Descobriment automàtic de proveïdors",
@@ -2324,7 +2333,7 @@
 			"title": "Política de contrasenyes",
 			"breachCheckLabel": "Rebutja les contrasenyes filtrades",
 			"breachCheckDescription": "Comprova les contrasenyes dels comptes nous amb una base de dades pública de contrasenyes filtrades conegudes i rebutja qualsevol coincidència. Només s'envia un prefix curt del resum (hash), mai la contrasenya.",
-			"breachCheckInfo": "Mentre això és actiu, una contrasenya que s'estableix o es canvia es converteix en un hash SHA-1 i només els cinc primers caràcters d'aquest hash s'envien a l'API de rangs de Have I Been Pwned; l'API retorna tots els sufixos filtrats darrere d'aquest prefix (amb entrades d'esquer afegides, de manera que el nombre de resultats no revela quantes coincidències reals hi ha) i la comparació es fa aquí, per tant ni la contrasenya ni el seu hash complet surten mai d'aquesta instància. És l'únic punt on un rastre de la contrasenya d'un usuari arriba a un servei extern: desactiva la comprovació per mantenir els canvis de compte completament fora de línia, o apunta PWNED_PASSWORD_API_URL a un mirall autoallotjat; PWNED_PASSWORD_CHECK_ENABLED=false la desactiva del tot i aquest interruptor deixa de tenir efecte. Si no es pot contactar amb l'API o retorna un error, el canvi es permet igualment.",
+			"breachCheckInfo": "Quan això està activat, la contrasenya que s'estableix es compara amb Have I Been Pwned. Només s'envien els cinc primers caràcters del seu hash SHA-1; la resta de la comparació es fa en aquesta instància, de manera que la contrasenya no en surt mai. Si no es pot accedir al servei, la contrasenya s'accepta.",
 			"breachCheckInfoLink": "Com funciona la cerca per rangs (haveibeenpwned.com)"
 		}
 	},

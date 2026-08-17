@@ -182,7 +182,7 @@ curl http://localhost:8081/v1/models \
 curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
+  -d '{"model": "hotel/glm-4.6", "messages": [{"role": "user", "content": "Hello!"}]}'
 
 # Speech-to-text (multimodal endpoints share the same provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/audio/transcriptions \

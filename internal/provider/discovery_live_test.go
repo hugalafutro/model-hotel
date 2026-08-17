@@ -221,7 +221,7 @@ func TestOllamaEmbeddingModalityLiveAPI(t *testing.T) {
 
 	svc := NewDiscoveryService(nil, nil)
 	// Keyless local provider: empty EncryptedKey routes through the no-decrypt
-	// path in DiscoverModels, and DetectProviderType maps :11434 to "ollama".
+	// path in DiscoverModels, and LegacyTypeFromURL maps :11434 to "ollama".
 	prov := &Provider{ID: uuid.New(), BaseURL: baseURL}
 
 	models, err := svc.DiscoverModels(context.Background(), prov, "unused-master-key")

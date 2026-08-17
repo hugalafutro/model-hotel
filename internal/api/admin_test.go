@@ -1273,37 +1273,26 @@ func TestProviderTypeAllowsEmptyKey(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		baseURL string
-		want    bool
+		name         string
+		providerType string
+		want         bool
 	}{
-		{
-			name:    "opencode_zen_base_url",
-			baseURL: "https://opencode.ai/api/zen",
-			want:    true,
-		},
-		{
-			name:    "openai_base_url",
-			baseURL: "https://api.openai.com/v1",
-			want:    false,
-		},
-		{
-			name:    "anthropic_base_url",
-			baseURL: "https://api.anthropic.com/v1",
-			want:    false,
-		},
-		{
-			name:    "ollama_localhost",
-			baseURL: "http://localhost:11434",
-			want:    true,
-		},
+		{name: "opencode_zen", providerType: "opencode-zen", want: true},
+		{name: "openai", providerType: "openai", want: false},
+		{name: "anthropic", providerType: "anthropic", want: false},
+		{name: "ollama", providerType: "ollama", want: true},
+		// Self-hosted servers are keyless whatever port they run on: the
+		// waiver follows the stored type, not the address.
+		{name: "lmstudio", providerType: "lmstudio", want: true},
+		{name: "koboldcpp", providerType: "koboldcpp", want: true},
+		{name: "custom", providerType: "custom", want: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := providerTypeAllowsEmptyKey(tt.baseURL)
+			got := providerTypeAllowsEmptyKey(tt.providerType)
 			if got != tt.want {
-				t.Errorf("providerTypeAllowsEmptyKey(%q) = %v, want %v", tt.baseURL, got, tt.want)
+				t.Errorf("providerTypeAllowsEmptyKey(%q) = %v, want %v", tt.providerType, got, tt.want)
 			}
 		})
 	}
@@ -1512,8 +1501,13 @@ func TestCreateProvider_BlockedHost(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 	got := strings.TrimSpace(w.Body.String())
-	if !strings.Contains(got, "invalid provider URL") {
-		t.Errorf("expected error about invalid provider URL, got %q", got)
+	// The operator gets the reason, not a bare "invalid": which rule refused
+	// the address decides what they have to change.
+	if !strings.Contains(got, codeProviderURLRejected) {
+		t.Errorf("expected the %s code, got %q", codeProviderURLRejected, got)
+	}
+	if !strings.Contains(got, "ALLOWED_PROVIDER_HOSTS") {
+		t.Errorf("expected the reason to name the allowlist, got %q", got)
 	}
 }
 
@@ -1596,8 +1590,13 @@ func TestUpdateProvider_BlockedHost(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 	got := strings.TrimSpace(w.Body.String())
-	if !strings.Contains(got, "invalid provider URL") {
-		t.Errorf("expected error about invalid provider URL, got %q", got)
+	// The operator gets the reason, not a bare "invalid": which rule refused
+	// the address decides what they have to change.
+	if !strings.Contains(got, codeProviderURLRejected) {
+		t.Errorf("expected the %s code, got %q", codeProviderURLRejected, got)
+	}
+	if !strings.Contains(got, "ALLOWED_PROVIDER_HOSTS") {
+		t.Errorf("expected the reason to name the allowlist, got %q", got)
 	}
 }
 

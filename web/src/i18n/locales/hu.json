@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Szolgáltató hozzáadása",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} modell",
 		"card_models_other": "{{count}} modell",
 		"add": {
+			"typeMismatch": "A megadott címen lévő kiszolgáló {{detected}}-ként jelentkezik, nem {{expected}}-ként. Válassza a megfelelő típust, vagy javítsa a címet.",
+			"typeMismatchVersion": "A megadott címen lévő kiszolgáló {{detected}} {{version}}-ként jelentkezik, nem {{expected}}-ként. Válassza a megfelelő típust, vagy javítsa a címet.",
+			"typeUnconfirmed": "Ezen a címen egyetlen {{expected}} API sem válaszolt. Ellenőrizze a címet, és hogy fut-e a kiszolgáló.",
+			"serverUnreachable": "Ezen a címen nem sikerült kiszolgálót elérni. Ellenőrizze a címet, és hogy fut-e a kiszolgáló.",
+			"duplicateAddress": "Ezt a címet már használja a(z) „{{name}}”. Csak akkor vegyen fel hozzá második szolgáltatót, ha az más API-kulcsot használ.",
+			"urlRejected": "A Model Hotel elutasította ezt a címet: {{detail}}. A privát, loopback vagy egyéb fenntartott címeknek szerepelniük kell az ALLOWED_PROVIDER_HOSTS listában, a konténerben futó Model Hotel pedig nem éri el a saját gépét a localhost címen: használja a gép hálózati címét.",
+			"duplicateAddressBlocked": "Ehhez a címhez már tartozik szolgáltató („{{name}}”). Saját üzemeltetésű kiszolgálót nem lehet kétszer felvenni: a második szolgáltató csak ugyanazokat a modelleket találná meg újra.",
 			"providerFallback": "Szolgáltató",
 			"discoveredModels_one": "{{count}} modell felfedezve…",
 			"discoveredModels_other": "Felfedezett {{count}} modellek…",
@@ -786,11 +794,12 @@
 			"deepseekBalanceDetected": "DeepSeek egyenleg észlelve",
 			"openrouterBalance": "OpenRouter egyenleg:{{balance}} dollár",
 			"baseUrl": "Alap-URL",
-			"baseUrlHelperDefault": "Az alapértelmezett URL-cím előre kitöltve; módosítsd, ha a szervered más címen fut. A típus a portszám alapján kerül felismerésre.",
+			"baseUrlHelperDefault": "Adja meg a címet, amelyen a kiszolgálója figyel, bármelyik porton. A Model Hotel mentés előtt ellenőrzi, hogy a kiszolgáló tényleg a választott típusú-e, ezért futnia kell.",
 			"baseUrlHelperFull": "A teljes API-alap-URL, beleértve az esetleges elérési út előtagokat is. A modellek a „<base_url> ”/models alatt lesznek elérhetők.",
 			"apiKey": "API-kulcs"
 		},
 		"edit": {
+			"typeHelper": "Csak akkor módosítsa, ha az importáláskor vagy frissítéskor rosszul megtippelt típust kell javítani. A saját üzemeltetésű típust mentés előtt ellenőrizzük a kiszolgálón.",
 			"enabledToggle": "Szolgáltató engedélyezve",
 			"enabledHelper": "Irányítja a proxy-átirányítást és az API-hozzáférést. A letiltott szolgáltatók minden kérést elutasítanak.",
 			"autodiscoveryToggle": "Szolgáltatók automatikus felismerése",
@@ -2271,7 +2280,7 @@
 			"title": "Jelszóházirend",
 			"breachCheckLabel": "Kiszivárgott jelszavak elutasítása",
 			"breachCheckDescription": "Az új fiókjelszavak ellenőrzése egy ismert kiszivárgott jelszavakat tartalmazó nyilvános adatbázissal, és minden egyezés elutasítása. Csak egy rövid kivonat-előtag kerül elküldésre, soha nem maga a jelszó.",
-			"breachCheckInfo": "Amíg ez be van kapcsolva, a beállított vagy módosított jelszóból SHA-1 kivonat készül, és a kivonatnak csak az első öt karaktere megy el a Have I Been Pwned range API-jához; az API visszaadja az adott előtag mögötti összes kiszivárgott utótagot (csali bejegyzésekkel kiegészítve, hogy a találatok száma ne árulja el, hány valódi egyezés van), az egyeztetés pedig itt történik, így sem a jelszó, sem a teljes kivonat soha nem hagyja el ezt a példányt. Ez az egyetlen hely, ahol egy felhasználói jelszó nyoma külső szolgáltatáshoz jut: kapcsold ki az ellenőrzést, hogy a fiókmódosítások teljesen offline maradjanak, vagy irányítsd a PWNED_PASSWORD_API_URL-t egy saját tükörre; a PWNED_PASSWORD_CHECK_ENABLED=false teljesen letiltja, és ennek a kapcsolónak akkor nincs hatása. Ha az API nem érhető el vagy hibát ad vissza, a módosítás így is engedélyezett.",
+			"breachCheckInfo": "Ha ez be van kapcsolva, a rendszer a beállított jelszót összeveti a Have I Been Pwned adatbázisával. A SHA-1 lenyomatának csak az első öt karakterét küldi el; az összehasonlítás többi része ezen a példányon történik, így a jelszó soha nem hagyja el. Ha a szolgáltatás nem érhető el, a rendszer elfogadja a jelszót.",
 			"breachCheckInfoLink": "Így működik a tartománykeresés (haveibeenpwned.com)"
 		}
 	},

@@ -742,6 +742,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Přidat poskytovatele",
@@ -799,6 +800,13 @@
 		"card_models_many": "{{count}} modelu",
 		"card_models_other": "{{count}} modelů",
 		"add": {
+			"typeMismatch": "Server na této adrese se hlásí jako {{detected}}, ne {{expected}}. Vyberte odpovídající typ nebo opravte adresu.",
+			"typeMismatchVersion": "Server na této adrese se hlásí jako {{detected}} {{version}}, ne {{expected}}. Vyberte odpovídající typ nebo opravte adresu.",
+			"typeUnconfirmed": "Na této adrese neodpovědělo žádné API {{expected}}. Zkontrolujte adresu a to, že server běží.",
+			"serverUnreachable": "Na této adrese se nepodařilo spojit se serverem. Zkontrolujte adresu a to, že server běží.",
+			"duplicateAddress": "Tuto adresu už používá „{{name}}“. Druhého poskytovatele pro ni přidávejte jen tehdy, pokud používá jiný API klíč.",
+			"urlRejected": "Model Hotel tuto adresu odmítl: {{detail}}. Privátní, loopback nebo jinak vyhrazená adresa musí být uvedena v ALLOWED_PROVIDER_HOSTS a Model Hotel běžící v kontejneru se na váš počítač přes localhost nedostane: použijte síťovou adresu stroje.",
+			"duplicateAddressBlocked": "Pro tuto adresu už poskytovatel existuje („{{name}}“). Vlastní server nelze přidat dvakrát: druhý poskytovatel by jen znovu objevil tytéž modely.",
 			"providerFallback": "Poskytovatel",
 			"discoveredModels_one": "Nalezen {{count}} model…",
 			"discoveredModels_few": "Nalezeny {{count}} modely…",
@@ -808,11 +816,12 @@
 			"deepseekBalanceDetected": "Detekován zůstatek DeepSeek",
 			"openrouterBalance": "Zjištěný zůstatek na OpenRouteru: ${{balance}}",
 			"baseUrl": "Základní adresa URL",
-			"baseUrlHelperDefault": "Výchozí adresa URL je již vyplněna; upravte ji, pokud váš server běží na jiné adrese. Typ se určí podle čísla portu.",
+			"baseUrlHelperDefault": "Zadejte adresu, na které váš server naslouchá, na libovolném portu. Model Hotel před uložením ověří, že server je opravdu zvoleného typu, takže musí běžet.",
 			"baseUrlHelperFull": "Úplná základní adresa URL rozhraní API včetně případného předpony cesty. Modely budou vyhledány na adrese „<base_url>“/models",
 			"apiKey": "API klíč"
 		},
 		"edit": {
+			"typeHelper": "Měňte jen kvůli opravě typu, který byl při importu nebo upgradu odhadnut špatně. Typ vlastního serveru se před uložením ověří proti serveru.",
 			"enabledToggle": "Poskytovatel povolen",
 			"enabledHelper": "Řídí směrování přes proxy a přístup k API. U deaktivovaných poskytovatelů jsou všechny požadavky odmítnuty.",
 			"autodiscoveryToggle": "Auto-vyhledávání modelů",
@@ -2377,7 +2386,7 @@
 			"title": "Zásady hesel",
 			"breachCheckLabel": "Odmítat uniklá hesla",
 			"breachCheckDescription": "Porovnat nová hesla účtů s veřejnou databází známých uniklých hesel a odmítnout jakoukoli shodu. Odesílá se pouze krátká předpona otisku, nikdy samotné heslo.",
-			"breachCheckInfo": "Dokud je toto zapnuté, nastavované nebo měněné heslo se zahashuje pomocí SHA-1 a do range API služby Have I Been Pwned se odešle jen prvních pět znaků tohoto hashe; API vrátí všechny uniklé sufixy za tímto prefixem (doplněné o falešné záznamy, aby počet výsledků neprozradil, kolik skutečných shod existuje) a porovnání proběhne zde, takže heslo ani jeho úplný hash tuto instanci nikdy neopustí. Je to jediné místo, kde stopa uživatelského hesla dosáhne externí služby: kontrolu vypněte, aby změny účtů zůstaly zcela offline, nebo nasměrujte PWNED_PASSWORD_API_URL na vlastní zrcadlo; PWNED_PASSWORD_CHECK_ENABLED=false ji vypne úplně a tento přepínač pak nemá žádný účinek. Pokud je API nedostupné nebo vrátí chybu, změna se přesto povolí.",
+			"breachCheckInfo": "Když je toto zapnuté, nastavované heslo se porovná s databází Have I Been Pwned. Odesílá se jen prvních pět znaků jeho otisku SHA-1; zbytek porovnání proběhne na této instanci, takže heslo ji nikdy neopustí. Pokud službu nelze kontaktovat, heslo se přijme.",
 			"breachCheckInfoLink": "Jak funguje vyhledávání podle rozsahu (haveibeenpwned.com)"
 		}
 	},

@@ -531,7 +531,7 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 	}
 	baseBody, _ = json.Marshal(body)
 
-	providerType = provider.DetectProviderType(prov.BaseURL)
+	providerType = provider.TypeOf(prov)
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
 	if providerType == "vertex-express" {
 		// Vertex express serves chat only on the native generateContent route;

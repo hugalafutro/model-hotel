@@ -9,7 +9,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
-	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // ModelChange describes one model affected by a discovery scan.
@@ -61,8 +60,8 @@ const priceRelTolerance = 0.07
 // with no snapshot, and for nil endpoints.
 //
 // Call it after snapshotting and before upserting, at every discovery path.
-func DampenOpenRouterPriceJitter(baseURL string, snapshot map[string]ModelSnapshot, models []*model.Model) {
-	if provider.DetectProviderType(baseURL) != "openrouter" {
+func DampenOpenRouterPriceJitter(providerType string, snapshot map[string]ModelSnapshot, models []*model.Model) {
+	if providerType != "openrouter" {
 		return
 	}
 	for _, m := range models {

@@ -466,7 +466,7 @@ func (h *ConfigSyncHandler) providerIDToName(ctx context.Context, q querier) (ma
 
 func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	rows, err := q.Query(ctx, `
-		SELECT name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled,
+		SELECT name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled,
 		       to_char(scheduled_disable_on, 'YYYY-MM-DD')
 		FROM providers ORDER BY name`)
 	if err != nil {
@@ -476,10 +476,17 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	out := []ExportProvider{}
 	for rows.Next() {
 		var p ExportProvider
-		if err := rows.Scan(&p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt,
+		if err := rows.Scan(&p.Name, &p.BaseURL, &p.ProviderType, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt,
 			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn); err != nil {
 			return nil, err
 		}
+		// A row the startup backfill has not reached yet exports the type it
+		// would be given, which is the same value the importer derives. Without
+		// this, a primary whose backfill has not run and a member whose has
+		// would export different payloads for identical providers and never
+		// agree on the version hash. (Version skew between builds is a separate
+		// concern, handled by the fail-closed skew gate.)
+		p.ProviderType = providerTypeForImport(p)
 		out = append(out, p)
 	}
 	return out, rows.Err()

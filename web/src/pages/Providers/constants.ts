@@ -13,17 +13,21 @@ export const baseUrls: Record<string, string> = {
 	google: "https://generativelanguage.googleapis.com/v1beta/openai",
 	cohere: "https://api.cohere.ai/compatibility/v1",
 	openrouter: "https://openrouter.ai/api/v1",
+	neuralwatt: "https://api.neuralwatt.com/v1",
 	bedrock: "https://bedrock-mantle.us-east-1.api.aws/v1",
 	azure:
 		"https://your-resource.services.ai.azure.com/api/projects/your-project",
 	"vertex-express": "https://aiplatform.googleapis.com",
 };
 
-/** Default URLs for self-hosted providers. Pre-filled but user-editable. */
-export const localProviderDefaults: Record<string, string> = {
-	ollama: "http://localhost:11434",
-	koboldcpp: "http://localhost:5001/v1",
-	lmstudio: "http://localhost:1234/v1",
+/** Example addresses for self-hosted providers, shown as placeholder text.
+ * Nothing is pre-filled: only the operator knows whether their server runs on
+ * this machine or another one, and a containerised Model Hotel cannot reach
+ * its own localhost. The ports are the conventional ones, but any port works. */
+export const localProviderPlaceholders: Record<string, string> = {
+	ollama: "http://192.168.1.50:11434",
+	koboldcpp: "http://192.168.1.50:5001",
+	lmstudio: "http://192.168.1.50:1234",
 };
 
 /** Self-hosted provider types whose base URL is editable (not locked). */
@@ -36,67 +40,6 @@ export function isLocalProviderType(type: string): boolean {
 
 export function isKnownProviderUrl(url: string): boolean {
 	return Object.values(baseUrls).includes(url);
-}
-
-/** Detect provider type from a base URL using port-based heuristics for self-hosted providers. */
-function detectLocalProviderType(url: string): string | null {
-	try {
-		const u = new URL(url);
-		const port = u.port;
-		switch (port) {
-			case "11434":
-				return "ollama";
-			case "5001":
-				return "koboldcpp";
-			case "1234":
-				return "lmstudio";
-		}
-	} catch {
-		// ignore malformed URLs
-	}
-	return null;
-}
-
-/**
- * Host-based detection for providers whose URL varies per account or region
- * (Bedrock, Azure). Only bedrock-mantle is detected for AWS: the classic
- * bedrock-runtime endpoint has no /models listing, so discovery can never
- * work against it. Azure matches both Foundry ({res}.services.ai.azure.com)
- * and classic ({res}.openai.azure.com) resource hosts. Vertex express matches
- * aiplatform.googleapis.com including regional hosts.
- */
-function detectRegionalProviderType(baseUrl: string): string | null {
-	try {
-		const host = new URL(baseUrl).hostname.toLowerCase();
-		if (host.startsWith("bedrock-mantle.") && host.endsWith(".api.aws")) {
-			return "bedrock";
-		}
-		if (
-			host.endsWith(".services.ai.azure.com") ||
-			host.endsWith(".openai.azure.com")
-		) {
-			return "azure";
-		}
-		if (host.endsWith(".googleapis.com") && host.includes("aiplatform")) {
-			return "vertex-express";
-		}
-	} catch {
-		// ignore malformed URLs
-	}
-	return null;
-}
-
-export function getProviderType(baseUrl: string): string {
-	for (const [type, url] of Object.entries(baseUrls)) {
-		if (baseUrl === url) return type;
-	}
-	// Host-based detection for region-variant providers on any region
-	const regionalType = detectRegionalProviderType(baseUrl);
-	if (regionalType) return regionalType;
-	// Port-based detection for self-hosted providers on any host
-	const localType = detectLocalProviderType(baseUrl);
-	if (localType) return localType;
-	return "custom";
 }
 
 /** @deprecated Use providerTypeTranslationKeys + t() instead. Kept for reference only. */
@@ -117,6 +60,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	google: "Google AI Studio (Gemini)",
 	cohere: "Cohere",
 	openrouter: "OpenRouter",
+	neuralwatt: "NeuralWatt",
 	koboldcpp: "KoboldCPP",
 	lmstudio: "LM Studio",
 	bedrock: "AWS Bedrock",
@@ -142,6 +86,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	google: "providers.type_google",
 	cohere: "providers.type_cohere",
 	openrouter: "providers.type_openrouter",
+	neuralwatt: "providers.type_neuralwatt",
 	koboldcpp: "providers.type_koboldcpp",
 	lmstudio: "providers.type_lmstudio",
 	bedrock: "providers.type_bedrock",

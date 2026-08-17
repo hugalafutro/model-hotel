@@ -17,7 +17,7 @@ import (
 // contract config-sync already uses.
 type QuotaSnapshotWire struct {
 	ProviderName string          `json:"provider_name"`
-	Type         string          `json:"type"` // provider type from DetectProviderType(base_url); chooses the badge
+	Type         string          `json:"type"` // the provider's stored provider_type; chooses the badge
 	Kind         string          `json:"kind"`
 	Payload      json.RawMessage `json:"payload"`
 	HTTPStatus   int             `json:"http_status"`
@@ -82,7 +82,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 			continue
 		}
 		idToName[p.ID] = p.Name
-		idToType[p.ID] = provider.DetectProviderType(p.BaseURL)
+		idToType[p.ID] = provider.TypeOf(p)
 	}
 
 	wire := make([]QuotaSnapshotWire, 0, len(snaps))

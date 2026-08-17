@@ -40,7 +40,7 @@ func quotaKindFor(providerType string) (string, bool) {
 // in a non-nil interface, so NeuralWatt's `nil` free-tier result must be
 // detected on the typed value, not via an interface `== nil` check.
 func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, prov *provider.Provider, masterKey string) (string, json.RawMessage, int, error) {
-	providerType := provider.DetectProviderType(prov.BaseURL)
+	providerType := provider.TypeOf(prov)
 	kind, ok := quotaKindFor(providerType)
 	if !ok {
 		return "", nil, 0, errors.New("provider type does not expose quota")
@@ -133,7 +133,7 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		if !prov.Enabled {
 			continue
 		}
-		kind, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL))
+		kind, ok := quotaKindFor(provider.TypeOf(prov))
 		if !ok {
 			continue
 		}
@@ -223,7 +223,7 @@ func (h *Handler) NudgeQuotaPoll(providerID uuid.UUID) {
 	if err != nil || prov == nil || !prov.Enabled {
 		return
 	}
-	kind, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL))
+	kind, ok := quotaKindFor(provider.TypeOf(prov))
 	if !ok {
 		return
 	}
@@ -311,7 +311,7 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	typeByID := make(map[uuid.UUID]string, len(providers))
 	nameByID := make(map[uuid.UUID]string, len(providers))
 	for _, p := range providers {
-		typeByID[p.ID] = provider.DetectProviderType(p.BaseURL)
+		typeByID[p.ID] = provider.TypeOf(p)
 		nameByID[p.ID] = p.Name
 	}
 

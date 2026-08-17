@@ -2,7 +2,8 @@ import type { GenerationParams } from "../api/types";
 
 /**
  * Maps provider type → param key → human-readable reason the param is incompatible.
- * Provider type keys must match the output of DetectProviderType() (backend) and ProviderBrand keys.
+ * Provider type keys must match the backend's provider-type vocabulary
+ * (internal/provider/types.go) and the ProviderBrand keys.
  */
 export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	string,
@@ -78,7 +79,10 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 
 /**
  * Normalizes a user-facing provider name to the canonical provider type key
- * used by PROVIDER_PARAM_INCOMPATIBILITY and backend DetectProviderType().
+ * used by PROVIDER_PARAM_INCOMPATIBILITY.
+ *
+ * This works off the display name because its callers (the chat parameter
+ * panel) hold a name, not a provider row.
  *
  * Handles common cases like "OpenAI" → "openai", "Anthropic Pro" → "anthropic",
  * "Google AI Studio (Gemini)" → "google", etc.

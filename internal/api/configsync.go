@@ -289,6 +289,7 @@ func (r ExportModelRef) String() string { return r.ProviderName + "/" + r.ModelI
 type ExportProvider struct {
 	Name                 string  `json:"name"`
 	BaseURL              string  `json:"base_url"`
+	ProviderType         string  `json:"provider_type"`
 	Enabled              bool    `json:"enabled"`
 	AutodiscoveryEnabled bool    `json:"autodiscovery_enabled"`
 	EncryptedKey         []byte  `json:"encrypted_key,omitempty"`

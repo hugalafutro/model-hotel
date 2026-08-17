@@ -179,7 +179,7 @@ The informational journal, newest first. It never holds the badge count open, on
 
 ## Provider-Specific Discovery
 
-Each provider type has its own discovery implementation in `internal/provider/discovery_*.go`. Provider type is auto-detected from the base URL hostname (and path, for OpenCode Go/Zen) via `DetectProviderType`. Unknown hosts default to OpenAI-compatible discovery.
+Each provider type has its own discovery implementation in `internal/provider/discovery_*.go`. Discovery reads the type stored on the provider row, which is the one the operator picked when adding it. A row without a type (created before the column existed) falls back to the legacy URL derivation. Types with no dedicated implementation, including `custom`, use OpenAI-compatible discovery.
 
 ### Live + Catalog Merge
 
@@ -193,9 +193,26 @@ models.dev enrichment runs *after* the merge and fills anything still empty, so 
 
 Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog. **MiniMax** is a third, narrower case - call it *live-stub + models.dev*: `discoverMiniMax` has no catalog either, but unlike Kimi Code its live listing is metadata-bare (id and owner only), so every other field (context, pricing, capabilities) comes from models.dev enrichment rather than a rich live payload. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
 
-### Provider Type Detection
+### Provider Type
 
-The `DetectProviderType` function in `internal/provider/discovery.go` uses exact host matching and suffix matching:
+A provider's type is chosen by the operator in the add dialog and stored on the
+row (`providers.provider_type`); nothing re-derives it from the URL afterwards.
+
+For the three self-hosted server families (Ollama, LM Studio, KoboldCPP) the
+address says nothing about what is listening on it, so the choice is
+**verified** before the provider is saved: Model Hotel probes the identifying
+endpoint of the chosen family and refuses the save if another server answers,
+naming what it found. The same check runs when an existing provider's base URL
+is changed. That means the server has to be running when it is added.
+
+A create request that omits `provider_type` (an API client rather than the
+dashboard) falls back to the vendor hostname, using the table below; a host that
+matches nothing is a generic OpenAI-compatible endpoint. Rows created before the
+column existed are backfilled once at startup, using those same hostname rules
+plus the default-port rules that were in force when they were written
+(`LegacyTypeFromURL` in `internal/provider/discovery.go`).
+
+Hostname rules (`detectByHost`, exact and suffix matching):
 
 | Hostname Pattern | Path Pattern | Provider Type |
 |------------------|--------------|---------------|
@@ -217,10 +234,22 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `*.services.ai.azure.com`, `*.openai.azure.com` | - | `azure` |
 | `api.cohere.com`, `api.cohere.ai`, `*.cohere.com`, `*.cohere.ai` | - | `cohere` |
 | `api.neuralwatt.com`, `neuralwatt.com` | - | `neuralwatt` |
-| `localhost`, `127.0.0.1`, `::1` (port 11434) | - | `ollama` |
-| `localhost`, `127.0.0.1`, `::1` (port 5001) | - | `koboldcpp` |
-| `localhost`, `127.0.0.1`, `::1` (port 1234) | - | `lmstudio` |
 | Any other host | - | `openai` (fallback) |
+
+Self-hosted servers have no entry here: `ollama`, `lmstudio` and `koboldcpp`
+are chosen, not matched, and run on whatever address and port the operator gave.
+
+**Identifying endpoints used to verify a self-hosted choice:**
+
+| Type | Endpoint | Match |
+|------|----------|-------|
+| `koboldcpp` | `GET {origin}/api/extra/version` | `result` equals `KoboldCpp` (the reply also carries the version and the modality flags) |
+| `lmstudio` | `GET {origin}/api/v0/models` | a `data` array with LM Studio's native model fields |
+| `ollama` | `GET {origin}/api/tags` | a `models` array |
+
+The match is on the body, never on the status: LM Studio answers routes it does
+not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
+would identify it as whichever family was probed first.
 
 ### OpenAI
 
@@ -688,37 +717,37 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Source files:** `discovery_lmstudio.go`
 
-**Method:** LMStudio is a local provider that exposes an OpenAI-compatible API at a predictable port (`localhost:1234`). Discovery detects this by port-based detection and fetches models via `GET /v1/models`. No built-in catalog is used.
+**Method:** LMStudio is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery reads its native listing (`GET /api/v0/models`), which reports context length and capabilities, and falls back to `GET /v1/models` when that endpoint is unavailable. No built-in catalog is used.
 
-**Detection:** Port-based detection on `localhost:1234`
+**Detection:** Chosen by the operator, confirmed by probing `/api/v0/models` when the provider is added or its URL changed.
 
 **Hardcoded / missing:**
 
 | Field | Value |
 |-------|-------|
-| Context length | Not set |
+| Context length | From the native listing (`max_context_length`); not set on the `/v1/models` fallback |
 | Max output tokens | Not set |
-| Pricing | None (local provider) |
-| Capabilities | Not set |
-| Modality | Not set |
+| Pricing | None (self-hosted) |
+| Capabilities | From the native listing (e.g. `tool_use`); not set on the fallback |
+| Modality | From the native listing's model `type`; not set on the fallback |
 
 ### KoboldCPP
 
 **Source files:** `discovery_koboldcpp.go`
 
-**Method:** KoboldCPP is a local provider that exposes an OpenAI-compatible API at `localhost:5001`. Discovery detects this by port-based detection and fetches models via `GET /v1/models`. No built-in catalog is used.
+**Method:** KoboldCPP is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery confirms the server via `GET /api/extra/version`, reads the loaded model from `GET /v1/models`, and takes the context size from `GET /api/extra/true_max_context_length`. Image and audio input come from the version endpoint's `vision` and `audio` flags, which describe the adapters the loaded chat model was given. No built-in catalog is used.
 
-**Detection:** Port-based detection on `localhost:5001`
+**Detection:** Chosen by the operator, confirmed by probing `/api/extra/version` when the provider is added or its URL changed.
 
 **Hardcoded / missing:**
 
 | Field | Value |
 |-------|-------|
-| Context length | Not set |
+| Context length | From `/api/extra/true_max_context_length`; left unset when that endpoint is unavailable |
 | Max output tokens | Not set |
-| Pricing | None (local provider) |
-| Capabilities | Not set |
-| Modality | Not set |
+| Pricing | None (self-hosted) |
+| Capabilities | Hardcoded: streaming on, tool calling off (KoboldCPP uses its own tool format) |
+| Modality | Input modalities from the version endpoint's `vision` and `audio` flags. `transcribe`, `tts`, `txt2img` and `embeddings` are separate endpoints and are deliberately ignored |
 
 ---
 

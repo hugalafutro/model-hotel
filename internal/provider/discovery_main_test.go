@@ -127,7 +127,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://generativelanguage.googleapis.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "google", providerType)
 	})
 
@@ -137,7 +137,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.cohere.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "cohere", providerType)
 	})
 
@@ -147,7 +147,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.deepseek.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "deepseek", providerType)
 	})
 
@@ -157,7 +157,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.x.ai",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "xai", providerType)
 	})
 
@@ -167,7 +167,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://openrouter.ai",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "openrouter", providerType)
 	})
 
@@ -177,7 +177,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "http://localhost:11434",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "ollama", providerType)
 	})
 
@@ -187,7 +187,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://ollama.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "ollama-cloud", providerType)
 	})
 
@@ -197,7 +197,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://opencode.ai/zen/go",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "opencode-go", providerType)
 	})
 
@@ -207,7 +207,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://opencode.ai/zen",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "opencode-zen", providerType)
 	})
 
@@ -217,7 +217,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.z.ai",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "zai-coding", providerType)
 	})
 
@@ -227,7 +227,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.nano-gpt.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "nanogpt", providerType)
 	})
 
@@ -237,7 +237,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "http://localhost:5001",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "koboldcpp", providerType)
 	})
 
@@ -247,7 +247,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "http://localhost:1234",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "lmstudio", providerType)
 	})
 
@@ -257,7 +257,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://api.neuralwatt.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "neuralwatt", providerType)
 	})
 
@@ -267,7 +267,7 @@ func TestDiscoverModels(t *testing.T) {
 			ID:      uuid.New(),
 			BaseURL: "https://custom.neuralwatt.com",
 		}
-		providerType := DetectProviderType(provider.BaseURL)
+		providerType := LegacyTypeFromURL(provider.BaseURL)
 		assert.Equal(t, "neuralwatt", providerType)
 	})
 }

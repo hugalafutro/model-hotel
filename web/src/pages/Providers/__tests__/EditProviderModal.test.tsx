@@ -12,6 +12,7 @@ describe("EditProviderModal", () => {
 		id: "provider-123",
 		name: "Test Provider",
 		base_url: "https://api.example.com/v1",
+		provider_type: "custom",
 		masked_key: "sk-****test",
 		enabled: true,
 		autodiscovery_enabled: true,
@@ -255,6 +256,7 @@ describe("EditProviderModal", () => {
 			const knownProvider = {
 				...mockProvider,
 				base_url: "https://api.openai.com/v1",
+				provider_type: "openai",
 			};
 			renderWithProviders(
 				<EditProviderModal {...defaultProps} provider={knownProvider} />,
@@ -267,6 +269,7 @@ describe("EditProviderModal", () => {
 			const knownProvider = {
 				...mockProvider,
 				base_url: "https://api.openai.com/v1",
+				provider_type: "openai",
 			};
 			renderWithProviders(
 				<EditProviderModal {...defaultProps} provider={knownProvider} />,

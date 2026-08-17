@@ -239,15 +239,17 @@ describe("Providers", () => {
 		});
 
 		it("type filter filters by provider type", async () => {
-			// Create providers with different types based on base_url
-			// mockProvider has base_url "https://api.test-provider.com/v1" which is "custom" type
+			// The type is the one stored on the row, not something inferred from
+			// the address: mockProvider is custom, the second is an Ollama the
+			// operator added.
 			const providers = [
 				mockProvider,
 				{
 					...mockProvider,
 					id: "provider-002",
 					name: "Ollama Provider",
-					base_url: "http://localhost:11434", // This is recognized as "ollama" type
+					base_url: "http://192.168.1.9:11434/v1",
+					provider_type: "ollama",
 				},
 			];
 

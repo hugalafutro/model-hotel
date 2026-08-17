@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Voeg verskaffer by",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modelle",
 		"add": {
+			"typeMismatch": "Die bediener by hierdie adres rapporteer {{detected}}, nie {{expected}} nie. Kies die passende tipe of korrigeer die adres.",
+			"typeMismatchVersion": "Die bediener by hierdie adres rapporteer {{detected}} {{version}}, nie {{expected}} nie. Kies die passende tipe of korrigeer die adres.",
+			"typeUnconfirmed": "Geen {{expected}}-API het by hierdie adres geantwoord nie. Kontroleer die adres en of die bediener loop.",
+			"serverUnreachable": "Kon nie 'n bediener by hierdie adres bereik nie. Kontroleer die adres en of die bediener loop.",
+			"duplicateAddress": "Hierdie adres word reeds deur \"{{name}}\" gebruik. Voeg net 'n tweede verskaffer daarvoor by as dit 'n ander API-sleutel gebruik.",
+			"urlRejected": "Model Hotel het hierdie adres geweier: {{detail}}. 'n Privaat, loopback of andersins gereserveerde adres moet in ALLOWED_PROVIDER_HOSTS gelys wees, en 'n Model Hotel wat in 'n houer loop kan nie jou eie masjien via localhost bereik nie: gebruik die masjien se netwerkadres.",
+			"duplicateAddressBlocked": "Daar bestaan reeds 'n verskaffer vir hierdie adres (\"{{name}}\"). 'n Self-gehuisveste bediener kan nie twee keer bygevoeg word nie: 'n tweede verskaffer sou net dieselfde modelle weer ontdek.",
 			"providerFallback": "Verskaffer",
 			"discoveredModels_one": "Ontdek {{count}} -model…",
 			"discoveredModels_other": "Ontdek {{count}} modelle…",
@@ -786,11 +794,12 @@
 			"deepseekBalanceDetected": "DeepSeek-balans opgespoor",
 			"openrouterBalance": "OpenRouter-balans opgespoor: ${{balance}}",
 			"baseUrl": "Basis-URL",
-			"baseUrlHelperDefault": "Standaard-URL vooraf ingevul; wysig dit as jou bediener op 'n ander adres loop. Die tipe word uit die poortnommer opgespoor.",
+			"baseUrlHelperDefault": "Voer die adres in waarop jou bediener luister, enige poort. Model Hotel kontroleer dat die bediener werklik die tipe is wat jy gekies het voordat dit gestoor word, dus moet dit loop.",
 			"baseUrlHelperFull": "Volledige API-basis-URL, insluitend enige padvoorsetsel. Modele sal ontdek word vanaf \"<base_url>\"/models",
 			"apiKey": "API-sleutel"
 		},
 		"edit": {
+			"typeHelper": "Verander dit net om 'n tipe reg te stel wat verkeerd geraai is toe die verskaffer ingevoer of opgegradeer is. 'n Self-gehuisveste tipe word teen die bediener gekontroleer voordat dit gestoor word.",
 			"enabledToggle": "Verskaffer geaktiveer",
 			"enabledHelper": "Beheer proxy-roetering en API-toegang. Geblokkeerde verskaffers verwerp alle versoeke.",
 			"autodiscoveryToggle": "Verskaffer-outodeteksie",
@@ -2271,7 +2280,7 @@
 			"title": "Wagwoordbeleid",
 			"breachCheckLabel": "Verwerp gelekte wagwoorde",
 			"breachCheckDescription": "Kontroleer nuwe rekeningwagwoorde teen 'n openbare databasis van bekende gelekte wagwoorde en verwerp enige treffer. Slegs 'n kort hutswaarde-voorvoegsel word gestuur, nooit die wagwoord self nie.",
-			"breachCheckInfo": "Terwyl dit aan is, word 'n wagwoord wat gestel of verander word met SHA-1 gehash en slegs die eerste vyf karakters van daardie hash gaan na die Have I Been Pwned range-API; die API stuur elke gelekte agtervoegsel agter daardie voorvoegsel terug (met lokvalle opgevul, sodat die aantal resultate nie verklap hoeveel werklike treffers daar is nie) en die vergelyking gebeur hier, sodat nóg die wagwoord nóg sy volle hash ooit hierdie instansie verlaat. Dit is die enigste plek waar 'n spoor van 'n gebruiker se wagwoord 'n eksterne diens bereik: skakel die kontrole af om rekeningveranderinge heeltemal vanlyn te hou, of wys PWNED_PASSWORD_API_URL na 'n selfgehuisveste spieël; PWNED_PASSWORD_CHECK_ENABLED=false skakel dit heeltemal af en hierdie skakelaar het dan geen uitwerking nie. As die API nie bereik kan word nie of 'n fout teruggee, word die verandering in elk geval toegelaat.",
+			"breachCheckInfo": "Wanneer dit aan is, word 'n wagwoord wat gestel word teen Have I Been Pwned vergelyk. Slegs die eerste vyf karakters van sy SHA-1-hash word gestuur; die res van die vergelyking gebeur op hierdie instansie, sodat die wagwoord dit nooit verlaat nie. As die diens nie bereik kan word nie, word die wagwoord aanvaar.",
 			"breachCheckInfoLink": "Hoe die range-soektog werk (haveibeenpwned.com)"
 		}
 	},

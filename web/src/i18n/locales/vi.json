@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Thêm nhà cung cấp",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} mô hình",
 		"card_models_other": "{{count}} mô hình",
 		"add": {
+			"typeMismatch": "Máy chủ tại địa chỉ này báo là {{detected}}, không phải {{expected}}. Hãy chọn đúng loại hoặc sửa lại địa chỉ.",
+			"typeMismatchVersion": "Máy chủ tại địa chỉ này báo là {{detected}} {{version}}, không phải {{expected}}. Hãy chọn đúng loại hoặc sửa lại địa chỉ.",
+			"typeUnconfirmed": "Không có API {{expected}} nào trả lời tại địa chỉ này. Hãy kiểm tra địa chỉ và xem máy chủ có đang chạy không.",
+			"serverUnreachable": "Không thể kết nối tới máy chủ tại địa chỉ này. Hãy kiểm tra địa chỉ và xem máy chủ có đang chạy không.",
+			"duplicateAddress": "Địa chỉ này đã được \"{{name}}\" sử dụng. Chỉ thêm nhà cung cấp thứ hai cho nó nếu dùng khóa API khác.",
+			"urlRejected": "Model Hotel đã từ chối địa chỉ này: {{detail}}. Địa chỉ nội bộ, loopback hoặc dành riêng phải được liệt kê trong ALLOWED_PROVIDER_HOSTS, và một Model Hotel chạy trong container không thể tới máy của bạn qua localhost: hãy dùng địa chỉ mạng của máy đó.",
+			"duplicateAddressBlocked": "Đã có nhà cung cấp cho địa chỉ này (\"{{name}}\"). Máy chủ tự vận hành không thể thêm hai lần: nhà cung cấp thứ hai chỉ phát hiện lại đúng những mô hình đó.",
 			"providerFallback": "Nhà cung cấp",
 			"discoveredModels_one": "Đã phát hiện {{count}} mô hình…",
 			"discoveredModels_other": "Đã phát hiện {{count}} mô hình…",
@@ -786,11 +794,12 @@
 			"deepseekBalanceDetected": "Đã phát hiện số dư DeepSeek",
 			"openrouterBalance": "Phát hiện số dư OpenRouter: ${{balance}}",
 			"baseUrl": "URL gốc",
-			"baseUrlHelperDefault": "URL mặc định đã được điền sẵn; hãy chỉnh sửa nếu máy chủ của bạn chạy trên một địa chỉ khác. Loại kết nối được xác định dựa trên số cổng.",
+			"baseUrlHelperDefault": "Nhập địa chỉ mà máy chủ của bạn đang lắng nghe, cổng nào cũng được. Trước khi lưu, Model Hotel kiểm tra máy chủ có đúng là loại bạn chọn hay không, nên máy chủ phải đang chạy.",
 			"baseUrlHelperFull": "URL gốc của API đầy đủ, bao gồm cả tiền tố đường dẫn. Các mô hình sẽ được tìm thấy tại \"<base_url>\"/models",
 			"apiKey": "Khóa API"
 		},
 		"edit": {
+			"typeHelper": "Chỉ thay đổi để sửa loại bị đoán sai khi nhập hoặc nâng cấp. Loại máy chủ tự vận hành sẽ được đối chiếu với máy chủ trước khi lưu.",
 			"enabledToggle": "Đã kích hoạt nhà cung cấp",
 			"enabledHelper": "Quản lý định tuyến proxy và quyền truy cập API. Các nhà cung cấp bị vô hiệu hóa sẽ từ chối tất cả các yêu cầu.",
 			"autodiscoveryToggle": "Tự động phát hiện nhà cung cấp",
@@ -2271,7 +2280,7 @@
 			"title": "Chính sách mật khẩu",
 			"breachCheckLabel": "Từ chối mật khẩu bị rò rỉ",
 			"breachCheckDescription": "Kiểm tra mật khẩu của tài khoản mới với cơ sở dữ liệu công khai về các mật khẩu bị rò rỉ đã biết và từ chối mọi kết quả trùng khớp. Chỉ một tiền tố băm ngắn được gửi đi, không bao giờ gửi chính mật khẩu.",
-			"breachCheckInfo": "Khi bật tùy chọn này, mật khẩu được đặt hoặc đổi sẽ được băm bằng SHA-1 và chỉ năm ký tự đầu của mã băm đó được gửi tới range API của Have I Been Pwned; API trả về mọi hậu tố đã bị lộ đứng sau tiền tố đó (được đệm thêm các mục giả, nên số lượng kết quả không tiết lộ có bao nhiêu kết quả khớp thật) và việc so khớp diễn ra tại đây, nên cả mật khẩu lẫn mã băm đầy đủ của nó không bao giờ rời khỏi phiên bản này. Đây là nơi duy nhất mà dấu vết mật khẩu của người dùng đến được một dịch vụ bên ngoài: tắt kiểm tra để các thay đổi tài khoản hoàn toàn ngoại tuyến, hoặc trỏ PWNED_PASSWORD_API_URL tới một bản sao tự lưu trữ; PWNED_PASSWORD_CHECK_ENABLED=false sẽ tắt hẳn kiểm tra và công tắc này khi đó không còn tác dụng. Nếu không kết nối được API hoặc API trả về lỗi, thay đổi vẫn được cho phép.",
+			"breachCheckInfo": "Khi bật tùy chọn này, mật khẩu đang được đặt sẽ được đối chiếu với Have I Been Pwned. Chỉ năm ký tự đầu của mã băm SHA-1 được gửi đi; phần còn lại của việc đối chiếu diễn ra trên máy chủ này, nên mật khẩu không bao giờ rời khỏi đây. Nếu không kết nối được dịch vụ, mật khẩu vẫn được chấp nhận.",
 			"breachCheckInfoLink": "Cách tra cứu theo dải hoạt động (haveibeenpwned.com)"
 		}
 	},

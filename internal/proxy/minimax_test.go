@@ -255,7 +255,7 @@ func TestRemapMiniMaxBusinessError_MidBodyFailureSurfaces(t *testing.T) {
 // the proxy would forward the empty 200 and never try the backup.
 //
 // Mirrors the type-pinned transport-rewrite pattern in gemini_egress_test.go:
-// provider base URLs keep real hostnames (so DetectProviderType classifies the
+// provider base URLs keep real hostnames (so LegacyTypeFromURL classifies the
 // first as "minimax"), while a bare transport's DialContext routes every TCP
 // connection to a single fake upstream that branches on the request Host.
 func TestChatCompletions_MiniMaxBusinessErrorFailsOver(t *testing.T) {
@@ -315,10 +315,10 @@ func TestChatCompletions_MiniMaxBusinessErrorFailsOver(t *testing.T) {
 		t.Fatalf("create backup provider: %v", err)
 	}
 	// Sanity: the pinned types must be what the seam keys on.
-	if got := provider.DetectProviderType("http://api.minimax.io"); got != "minimax" {
+	if got := provider.LegacyTypeFromURL("http://api.minimax.io"); got != "minimax" {
 		t.Fatalf("provider1 detects as %q, want minimax", got)
 	}
-	if got := provider.DetectProviderType("http://backup.upstream.test"); got == "minimax" {
+	if got := provider.LegacyTypeFromURL("http://backup.upstream.test"); got == "minimax" {
 		t.Fatalf("provider2 must not detect as minimax")
 	}
 

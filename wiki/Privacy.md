@@ -28,7 +28,7 @@ The only information recorded is strictly necessary for routing, metering, and d
 | Data | Column | Purpose |
 |------|--------|---------|
 | Timestamp | `created_at` | Request timing and analytics |
-| Model ID | `model_id` | Usage analytics and cost estimation (e.g. `openai/gpt-4o`, `hotel/gpt-4o`) |
+| Model ID | `model_id` | Usage analytics and cost estimation (e.g. `z-ai/glm-4.6`, `hotel/glm-4.6`) |
 | Provider ID | `provider_id` | Routing analysis and failover tracking (set to `NULL` when a provider is deleted) |
 | Virtual key name | `virtual_key_name` | Usage attribution per client |
 | Virtual key ID | `virtual_key_id` | Stable key reference (persists even if key is revoked) |
@@ -260,7 +260,11 @@ For maximum privacy, run Model Hotel locally with [Ollama](https://github.com/ol
 To use Ollama as a provider:
 1. Set `ALLOW_HTTP_PROVIDERS=true` (Ollama typically runs on HTTP, not HTTPS)
 2. Add `localhost` to `ALLOWED_PROVIDER_HOSTS`
-3. Configure the provider with base URL `http://localhost:11434`
+3. Add the provider, picking the **Ollama** type and giving the address the server listens on
+   (the server has to be running: Model Hotel confirms it is really an Ollama before saving).
+   A loopback or private address must be listed in `ALLOWED_PROVIDER_HOSTS`, and a
+   containerised Model Hotel cannot reach your own machine through `localhost` at all, so use
+   the machine's network address
 
 One optional outbound call remains even then: with breached-password screening on (the default), setting or changing a dashboard password sends the first five characters of the password's SHA-1 hash to the Have I Been Pwned range API and matches the returned suffixes locally, so neither the password nor its full hash leaves the instance. Switch the check off in **Settings > Authentication > Password policy** (or set `PWNED_PASSWORD_CHECK_ENABLED=false`) to keep account changes fully offline, or point `PWNED_PASSWORD_API_URL` at a self-hosted mirror; see [Configuration](Configuration#breached-password-screening).
 

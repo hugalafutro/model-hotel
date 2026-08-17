@@ -18,6 +18,7 @@ type Provider struct {
 	ID                   uuid.UUID  `json:"id"`
 	Name                 string     `json:"name"`
 	BaseURL              string     `json:"base_url"`
+	ProviderType         string     `json:"provider_type"`
 	EncryptedKey         []byte     `json:"-"`
 	KeyNonce             []byte     `json:"-"`
 	KeySalt              []byte     `json:"-"`
@@ -35,13 +36,23 @@ type Provider struct {
 type CreateProviderRequest struct {
 	Name    string `json:"name"`
 	BaseURL string `json:"base_url"`
-	APIKey  string `json:"api_key"`
+	// ProviderType is the vendor/API family the operator picked in the add
+	// dialog. It is stored as given and never re-derived from the URL.
+	ProviderType string `json:"provider_type"`
+	APIKey       string `json:"api_key"`
 }
 
 // UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
-	Name                 *string      `json:"name"`
-	BaseURL              *string      `json:"base_url"`
+	Name    *string `json:"name"`
+	BaseURL *string `json:"base_url"`
+	// ProviderType corrects a provider's type. It is not something to change
+	// casually, but a row backfilled from the old URL rules can carry a type
+	// its operator never chose (a self-hosted server on a non-default port was
+	// filed as generic OpenAI), and re-adding the provider would cascade away
+	// its models. A new self-hosted type is confirmed by probing, exactly as on
+	// create.
+	ProviderType         *string      `json:"provider_type"`
 	APIKey               *string      `json:"api_key"`
 	Enabled              *bool        `json:"enabled"`
 	AutodiscoveryEnabled *bool        `json:"autodiscovery_enabled"`
@@ -78,6 +89,7 @@ type ProviderResponse struct {
 	ID                   uuid.UUID  `json:"id"`
 	Name                 string     `json:"name"`
 	BaseURL              string     `json:"base_url"`
+	ProviderType         string     `json:"provider_type"`
 	MaskedKey            string     `json:"masked_key"`
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
@@ -106,11 +118,11 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encryptedKey []byte, keyNonce []byte, keySalt []byte) (*Provider, error) {
 	mk := MaskAPIKey(req.APIKey)
 	query := `
-		INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, true, true)
+		INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, true, true)
 		RETURNING ` + providerColumns
 
-	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, mk))
+	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, req.ProviderType, encryptedKey, keyNonce, keySalt, mk))
 	if err != nil {
 		debuglog.Error("provider: create failed", "name", req.Name, "error", err)
 		return nil, err
@@ -120,7 +132,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return p, nil
 }
 
-const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, last_discovered_at, last_used_at, created_at, updated_at`
+const providerColumns = `id, name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, last_discovered_at, last_used_at, created_at, updated_at`
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
@@ -129,7 +141,7 @@ type scanner interface{ Scan(dest ...any) error }
 func scanProvider(row scanner) (*Provider, error) {
 	var p Provider
 	err := row.Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
+		&p.ID, &p.Name, &p.BaseURL, &p.ProviderType, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
 		&p.ScheduledDisableOn, &p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -259,6 +271,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		UPDATE providers
 		SET name = COALESCE($1, name),
 		    base_url = COALESCE($2, base_url),
+		    provider_type = COALESCE($12, provider_type),
 		    encrypted_key = COALESCE($3, encrypted_key),
 		    key_nonce = COALESCE($4, key_nonce),
 		    key_salt = COALESCE($5, key_salt),
@@ -277,7 +290,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	p, err := scanProvider(r.pool.QueryRow(ctx, query,
 		req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey,
 		req.Enabled, req.AutodiscoveryEnabled,
-		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id))
+		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id, req.ProviderType))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
@@ -432,6 +445,47 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// BackfillTypes gives a stored type to every provider row that has none:
+// rows created before provider_type existed, and rows arriving from an older
+// dump or fleet export. The type is derived once, from the URL rules that were
+// in force when those rows were written, so their behaviour does not change.
+// Idempotent, and a no-op once every row has a type.
+func (r *Repository) BackfillTypes(ctx context.Context) (int, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, base_url FROM providers WHERE provider_type = ''`)
+	if err != nil {
+		return 0, err
+	}
+	type pending struct {
+		id  uuid.UUID
+		typ string
+	}
+	var todo []pending
+	for rows.Next() {
+		var id uuid.UUID
+		var baseURL string
+		if err := rows.Scan(&id, &baseURL); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		todo = append(todo, pending{id: id, typ: LegacyTypeFromURL(baseURL)})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	for _, p := range todo {
+		if _, err := r.pool.Exec(ctx, `UPDATE providers SET provider_type = $1 WHERE id = $2 AND provider_type = ''`, p.typ, p.id); err != nil {
+			return 0, err
+		}
+	}
+	if len(todo) > 0 {
+		InvalidateProviderCache()
+		debuglog.Info("provider: backfilled provider types", "count", len(todo))
+	}
+	return len(todo), nil
+}
+
 // ToResponse converts a Provider to a ProviderResponse.
 func ToResponse(p *Provider) ProviderResponse {
 	maskedKey := "N/A"
@@ -452,6 +506,7 @@ func ToResponse(p *Provider) ProviderResponse {
 		ID:                   p.ID,
 		Name:                 p.Name,
 		BaseURL:              p.BaseURL,
+		ProviderType:         TypeOf(p),
 		MaskedKey:            maskedKey,
 		Enabled:              p.Enabled,
 		AutodiscoveryEnabled: p.AutodiscoveryEnabled,
