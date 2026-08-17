@@ -439,7 +439,7 @@
 				"savedNote_other": "{{count}} już zapisanego celu pozostaje bez zmian.",
 				"addAnother": "Dodaj kolejny",
 				"step6Title": "Zdarzenia",
-				"step6Hint": "Które zdarzenia floty wysyłają alert. Zalecany zestaw jest zaznaczony; dostosuj go po swojemu.",
+				"step6Hint": "Które zdarzenia floty wysyłają alert. Dostosuj wybór po swojemu lub przywróć zalecany zestaw.",
 				"resetRecommended": "Przywróć zalecane",
 				"noneSelected": "Dopóki nic nie zaznaczysz, nie otrzymasz żadnych alertów.",
 				"step7Title": "Zakończenie",
@@ -451,7 +451,7 @@
 				"apiChangedDrops": "Zmiana adresu usuwa cele dodane w tym przebiegu; były testowane wobec starego adresu.",
 				"backToList": "Wróć do celów",
 				"nothingAdded": "W tym przebiegu nie dodano jeszcze niczego.",
-				"alreadySaved": "Ten cel został już dodany. Nie można dodać go dwa razy."
+				"alreadySaved": "Ten cel jest już na liście. Nie można dodać go dwa razy."
 			}
 		},
 		"wizard": {

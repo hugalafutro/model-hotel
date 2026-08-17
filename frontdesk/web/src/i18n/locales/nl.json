@@ -429,7 +429,7 @@
 				"savedNote_other": "{{count}} al opgeslagen bestemmingen blijven zoals ze zijn.",
 				"addAnother": "Nog een toevoegen",
 				"step6Title": "Gebeurtenissen",
-				"step6Hint": "Welke vlootgebeurtenissen een alert sturen. De aanbevolen set staat aangevinkt; pas hem naar wens aan.",
+				"step6Hint": "Welke vlootgebeurtenissen een alert sturen. Pas de selectie naar wens aan of zet hem terug op de aanbevolen set.",
 				"resetRecommended": "Terug naar aanbevolen",
 				"noneSelected": "Je ontvangt geen enkele alert zolang er niets is aangevinkt.",
 				"step7Title": "Afronden",
@@ -441,7 +441,7 @@
 				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"backToList": "Terug naar bestemmingen",
 				"nothingAdded": "In deze ronde is nog niets toegevoegd.",
-				"alreadySaved": "Je hebt deze bestemming al toegevoegd. Hij kan niet twee keer worden toegevoegd."
+				"alreadySaved": "Deze bestemming staat al in de lijst. Hij kan niet twee keer worden toegevoegd."
 			}
 		},
 		"wizard": {

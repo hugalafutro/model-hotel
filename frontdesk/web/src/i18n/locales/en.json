@@ -429,7 +429,7 @@
 				"savedNote_other": "{{count}} destinations already saved stay as they are.",
 				"addAnother": "Add another",
 				"step6Title": "Events",
-				"step6Hint": "Which fleet events send an alert. The recommended set is ticked; adjust as you like.",
+				"step6Hint": "Which fleet events send an alert. Adjust the selection as you like, or reset it to the recommended set.",
 				"resetRecommended": "Reset to recommended",
 				"noneSelected": "You will not receive any alerts until you tick something.",
 				"step7Title": "Finish",
@@ -441,7 +441,7 @@
 				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one.",
 				"backToList": "Back to destinations",
 				"nothingAdded": "Nothing added in this run yet.",
-				"alreadySaved": "You already added this destination. It cannot be added twice."
+				"alreadySaved": "This destination is already on the list. It cannot be added twice."
 			}
 		},
 		"wizard": {

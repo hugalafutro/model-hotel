@@ -730,6 +730,34 @@ describe("AlertsSettings", () => {
 		);
 	});
 
+	it("keeps a stored event type the running catalog does not know about", async () => {
+		// Config sync replicates alert_events across a fleet, so a member running
+		// behind the primary holds a selection naming events its own catalog has
+		// not heard of. Rebuilding the CSV from the catalog alone would drop them
+		// on the first tick, and sync would carry that loss back out.
+		mockSettings({
+			alert_enabled: "true",
+			alert_events: "circuit_breaker.open,from.the.future",
+		});
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		const row = await screen.findByTestId("alert-event-circuit_breaker.closed");
+		await user.click(row.querySelector("input") as HTMLElement);
+
+		// The unknown type survives the write, after the ones this build knows.
+		await waitFor(() =>
+			expect(put.body).toEqual({
+				alert_events:
+					"circuit_breaker.open,circuit_breaker.closed,from.the.future",
+			}),
+		);
+	});
+
 	it("reflects a stored event selection in the picker", async () => {
 		// value-defined branch: only circuit_breaker.open selected.
 		mockSettings({

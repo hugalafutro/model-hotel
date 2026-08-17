@@ -439,7 +439,7 @@
 				"savedNote_other": "{{count}} už uložených cieľov zostáva bez zmeny.",
 				"addAnother": "Pridať ďalší",
 				"step6Title": "Udalosti",
-				"step6Hint": "Ktoré udalosti flotily odošlú alert. Odporúčaná sada je zaškrtnutá; upravte si ju podľa seba.",
+				"step6Hint": "Ktoré udalosti flotily odošlú alert. Upravte si výber podľa seba alebo ho obnovte na odporúčanú sadu.",
 				"resetRecommended": "Obnoviť odporúčané",
 				"noneSelected": "Kým nič nezaškrtnete, žiadne alerty nedostanete.",
 				"step7Title": "Dokončenie",
@@ -451,7 +451,7 @@
 				"apiChangedDrops": "Zmena adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
 				"backToList": "Späť na ciele",
 				"nothingAdded": "V tomto priechode zatiaľ nebolo nič pridané.",
-				"alreadySaved": "Tento cieľ ste už pridali. Nedá sa pridať dvakrát."
+				"alreadySaved": "Tento cieľ už je v zozname. Nedá sa pridať dvakrát."
 			}
 		},
 		"wizard": {

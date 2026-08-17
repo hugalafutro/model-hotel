@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
@@ -140,7 +141,10 @@ type PwnedChecker interface {
 
 // Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
-	cfg                    *config.Config
+	cfg *config.Config
+	// Shared outbound client for the alert endpoints; nil is valid and makes
+	// each dispatcher build its own, which is what handlers in tests get.
+	alertClient            *http.Client
 	providerRepo           ProviderStore
 	dbPool                 *db.DB
 	adminMgr               AdminAuthenticator
@@ -206,6 +210,9 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		// not be a free brute-force oracle for the account's current password.
 		pwThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 		quotaRepo:  quota.NewRepository(database.Pool()),
+		// One client for every alert probe/test this handler serves, rather than
+		// one per request: see alert.NewHTTPClient.
+		alertClient: alert.NewHTTPClient(),
 	}
 	// Wire the discovery service factory to use the SSRF-protected dial/redirect
 	// functions so admin-API discovery endpoints are also protected.

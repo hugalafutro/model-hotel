@@ -48,7 +48,12 @@ func (h *Handler) masterKey() string {
 // alertDispatcher builds a Dispatcher reading live settings, used by every
 // alert handler so the master-key lookup lives in one place.
 func (h *Handler) alertDispatcher() *alert.Dispatcher {
-	return alert.New(alert.NewSettingsConfigProvider(h.settingsRepo, h.masterKey()), nil)
+	// h.alertClient is nil only for a hand-built Handler (tests), where
+	// alert.New falls back to a client of its own.
+	return alert.New(
+		alert.NewSettingsConfigProvider(h.settingsRepo, h.masterKey()),
+		h.alertClient,
+	)
 }
 
 // GetAlertStatus reports whether the configured apprise-api container is
