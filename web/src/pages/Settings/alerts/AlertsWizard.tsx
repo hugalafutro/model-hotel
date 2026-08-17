@@ -1,0 +1,811 @@
+import type { TFunction } from "i18next";
+import { type Dispatch, useCallback, useEffect, useReducer } from "react";
+import { useTranslation } from "react-i18next";
+import { Check } from "@/lib/icons";
+import { ApiError, api } from "../../../api/client";
+import type { AlertEventDef, AlertStatus } from "../../../api/types";
+import { Modal } from "../../../components/Modal";
+import { stripApiHead } from "./apiText";
+import {
+	compose,
+	type DestinationFields,
+	type DestinationKind,
+	FIELDS,
+	ntfyServerOf,
+} from "./composers";
+import {
+	StepApprise,
+	StepDestinations,
+	StepDetails,
+	StepEvents,
+	StepFinish,
+	StepKind,
+	StepTest,
+} from "./steps";
+
+// AlertsWizard walks an operator from "no alerting at all" to a working setup in
+// one gated flow: point at apprise-api and prove it answers, pick a destination
+// kind, fill in the parts that kind needs, deliver one real test to it, review
+// the destination list, choose the events, and only then write settings once.
+//
+// Nothing is persisted before the last step: every earlier step either reads
+// (probe) or sends a throwaway notification (test) with an explicit URL, so
+// cancelling at any point leaves the stored configuration untouched. Each gate
+// is a fact the wizard verified, never a checkbox the operator ticked, which is
+// what makes "Finish" mean "this works" rather than "this was typed in".
+
+export type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const TOTAL_STEPS = 7;
+
+// The address apprise-api answers on when it runs as `apprise` in the Model
+// Hotel compose stack, which is how the documented setup names it.
+export const DEFAULT_APPRISE_URL = "http://apprise:8000";
+
+const K = "settings.alerts.wizard";
+
+export interface AlertsWizardProps {
+	/** Saved Apprise API URL ("" when none is configured yet). */
+	initialApiUrl: string;
+	/** Plaintext saved destinations. The wizard appends to these, never drops one. */
+	savedTargets: string[];
+	/**
+	 * Saved alert_events CSV, or null when the setting has never been written.
+	 * Null on a setup run seeds the recommended preset; "" is a real selection
+	 * (everything deselected) and stays empty.
+	 */
+	savedEvents: string | null;
+	catalog: AlertEventDef[];
+	/** 1 = Set up alerts / Re-run setup, 2 = Add destination to a working setup. */
+	startAt: 1 | 2;
+	/** True on a member whose events are owned fleet-wide by config sync. */
+	managed?: boolean;
+	/** Cancel: nothing has been written. */
+	onClose: () => void;
+	/** After the single PUT succeeded; the parent reloads its own state. */
+	onFinished: () => void;
+}
+
+/** The destination being built on steps 2 to 4, before it joins `added`. */
+export interface Draft {
+	kind: DestinationKind | null;
+	fields: DestinationFields;
+	/** compose(kind, fields); "" while the fields are incomplete or invalid. */
+	url: string;
+	/** True once a test to exactly this URL came back successful. */
+	tested: boolean;
+	// The URL this draft was last accepted into `added` as, or null when it has
+	// not been accepted yet. Re-accepting an edited draft replaces that entry
+	// instead of leaving the superseded URL in the list beside it.
+	acceptedUrl: string | null;
+}
+
+export interface WizardState {
+	step: Step;
+	/** The first step this run can reach; Back is hidden there. */
+	minStep: Step;
+	apiUrl: string;
+	/** The URL `apiStatus` describes. Editing apiUrl past it re-locks step 1. */
+	probedUrl: string;
+	apiStatus: AlertStatus | null;
+	apiChecking: boolean;
+	draft: Draft;
+	/** Destinations tested and accepted during this run, in the order added. */
+	added: string[];
+	/**
+	 * True once the run has reached the destination list. It is what makes
+	 * "Back to destinations" a real escape from step 2: the list can be empty
+	 * again (every row this run added was removed) and still be the place the
+	 * operator came from and wants back.
+	 */
+	listSeen: boolean;
+	/** The destinations already stored; they survive the wizard untouched. */
+	saved: string[];
+	events: Set<string>;
+	testing: boolean;
+	/** Reason code of the last failed test; "" when there is no failure to show. */
+	testError: string;
+	testOk: boolean;
+	/** True while the single settings write is in flight. */
+	finishing: boolean;
+	/** Message from a rejected write; "" when there is nothing to show. */
+	finishError: string;
+	/** True once the write succeeded: the run is over and only Close remains. */
+	done: boolean;
+	/** Probe result read straight after the write, for the closing pill. */
+	finalStatus: AlertStatus | null;
+	sendingAll: boolean;
+	/** Outcome of "send test to everything"; "none" until it is used. */
+	sentAll: "none" | "ok" | "failed";
+}
+
+export type Action =
+	| { type: "setApiUrl"; value: string }
+	| { type: "checking" }
+	| { type: "probed"; url: string; status: AlertStatus; demote: boolean }
+	| { type: "setKind"; kind: DestinationKind; ntfyServer: string }
+	| { type: "setField"; key: string; value: string }
+	| { type: "testing" }
+	| { type: "tested" }
+	| { type: "testFailed"; code: string }
+	| { type: "go"; step: Step }
+	| { type: "acceptDraft" }
+	| { type: "newDraft" }
+	| { type: "dropAdded"; url: string }
+	| { type: "savedRefreshed"; targets: string[] }
+	| { type: "toggleEvent"; eventType: string; on: boolean }
+	| { type: "resetEvents"; types: string[] }
+	| { type: "finishing" }
+	| { type: "finished"; status: AlertStatus | null }
+	| { type: "finishFailed"; message: string }
+	| { type: "sendingAll" }
+	| { type: "sentAll"; ok: boolean };
+
+/** A draft with nothing chosen yet, which is where steps 2 to 4 start. */
+const EMPTY_DRAFT: Draft = {
+	kind: null,
+	fields: {},
+	url: "",
+	tested: false,
+	acceptedUrl: null,
+};
+
+// isDuplicate answers "is the draft a second copy of a destination the run
+// already has", counting both the stored list and what this run accepted. A
+// draft being edited back into its own accepted row is not a duplicate of
+// itself, so re-accepting an edit still works. Step 3 is gated on this: the
+// same URL twice is never what the operator meant, and apprise would just be
+// told to deliver to one address twice.
+// eslint-disable-next-line react-refresh/only-export-components
+export function isDuplicate(s: WizardState): boolean {
+	const url =
+		s.draft.kind === null ? "" : compose(s.draft.kind, s.draft.fields);
+	return (
+		url !== "" &&
+		url !== s.draft.acceptedUrl &&
+		(s.saved.includes(url) || s.added.includes(url))
+	);
+}
+
+// canNext answers "may this step advance", from state alone. Every gate is a
+// verified fact: a healthy probe of the URL currently in the field, a chosen
+// kind, a URL that composes and is not already on the list, a test that was
+// delivered. Editing anything a gate depends on clears the fact, so the gate
+// closes again by construction.
+// eslint-disable-next-line react-refresh/only-export-components
+export function canNext(s: WizardState): boolean {
+	switch (s.step) {
+		case 1:
+			return s.apiStatus?.healthy === true && s.apiUrl === s.probedUrl;
+		case 2:
+			return s.draft.kind !== null;
+		case 3:
+			return (
+				s.draft.kind !== null &&
+				compose(s.draft.kind, s.draft.fields) !== "" &&
+				!isDuplicate(s)
+			);
+		case 4:
+			return s.draft.tested;
+		case 5:
+			return s.saved.length + s.added.length > 0;
+		case 6:
+			return true;
+		default:
+			return false;
+	}
+}
+
+// A fresh draft for `kind`, seeded with the field defaults. The ntfy server is
+// carried over from the destinations already in play so a second phone on the
+// same server does not have to be told the address again; there is deliberately
+// no ntfy.sh default, because guessing the server wrong is worse than asking.
+function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
+	const fields: DestinationFields = {};
+	for (const f of FIELDS[kind]) fields[f.key] = f.defaultValue ?? "";
+	if (kind === "ntfy") fields.server = ntfyServer;
+	return {
+		kind,
+		fields,
+		url: compose(kind, fields),
+		tested: false,
+		acceptedUrl: null,
+	};
+}
+
+/** parseCsv turns an alert_events CSV into a membership Set. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function parseCsv(csv: string): Set<string> {
+	return new Set(
+		csv
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean),
+	);
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function initialState(p: AlertsWizardProps): WizardState {
+	// "Add destination" only makes sense against a configured apprise-api; without
+	// one the run starts at step 1 whatever the caller asked for.
+	const start: Step = p.startAt === 2 && p.initialApiUrl !== "" ? 2 : 1;
+	// A missing alert_events row is "nothing has been decided yet": Model Hotel
+	// runs on the recommended defaults until the setting is written, so the wizard
+	// shows the same set it is already behaving as. A stored blank is the
+	// opposite, and the only value that means it: the operator turned every event
+	// off, and re-ticking the preset behind their back would silently undo that.
+	const events =
+		p.savedEvents === null
+			? new Set(p.catalog.filter((e) => e.defaultOn).map((e) => e.type))
+			: parseCsv(p.savedEvents);
+	return {
+		step: start,
+		minStep: start,
+		apiUrl: p.initialApiUrl || DEFAULT_APPRISE_URL,
+		probedUrl: "",
+		apiStatus: null,
+		apiChecking: false,
+		draft: EMPTY_DRAFT,
+		added: [],
+		listSeen: false,
+		saved: p.savedTargets,
+		events,
+		testing: false,
+		testError: "",
+		testOk: false,
+		finishing: false,
+		finishError: "",
+		done: false,
+		finalStatus: null,
+		sendingAll: false,
+		sentAll: "none",
+	};
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function reducer(s: WizardState, a: Action): WizardState {
+	switch (a.type) {
+		case "setApiUrl":
+			// Editing the field costs this run nothing on its own. The step 1 gate
+			// closes the moment the text stops matching what was probed, so an
+			// unverified address can never be carried forward, and an address typed
+			// back (a stray keystroke, undone) leaves the run exactly as it was.
+			// The proofs this run holds are only really invalidated when a
+			// different apprise is verified, which is where they are dropped.
+			return { ...s, apiUrl: a.value };
+		case "checking":
+			return { ...s, apiChecking: true };
+		case "probed": {
+			// A failed re-probe of a saved URL means the shortcut into step 2 was
+			// wrong: apprise cannot deliver, so the run drops back to step 1 where
+			// the address can be fixed.
+			const fellBack = a.demote && !a.status.healthy;
+			// A different apprise than the one this run last verified. Every proof
+			// the run holds describes that old address: a successful test proves
+			// one destination through one apprise, so step 4 re-locks and the
+			// destinations accepted here go with it, rather than reaching Finish as
+			// addresses nothing has delivered to. The stored destinations are
+			// untouched; they are not this run's to drop. The first probe of a run
+			// takes this branch too and has nothing to clear, which is the same
+			// statement with an empty list.
+			const switched = a.url.trim() !== s.probedUrl.trim();
+			return {
+				...s,
+				apiChecking: false,
+				probedUrl: a.url,
+				apiStatus: a.status,
+				step: fellBack ? 1 : s.step,
+				minStep: fellBack ? 1 : s.minStep,
+				...(switched
+					? {
+							added: [],
+							draft: { ...s.draft, tested: false, acceptedUrl: null },
+							testOk: false,
+							testError: "",
+						}
+					: {}),
+			};
+		}
+		case "setKind":
+			return {
+				...s,
+				draft: newDraft(a.kind, a.ntfyServer),
+				testError: "",
+				testOk: false,
+			};
+		case "setField": {
+			if (s.draft.kind === null) return s;
+			const fields = { ...s.draft.fields, [a.key]: a.value };
+			// Any edit invalidates the test: the successful delivery described the
+			// old URL, not this one.
+			return {
+				...s,
+				draft: {
+					...s.draft,
+					fields,
+					url: compose(s.draft.kind, fields),
+					tested: false,
+				},
+				testError: "",
+				testOk: false,
+			};
+		}
+		case "testing":
+			return { ...s, testing: true, testError: "", testOk: false };
+		case "tested":
+			return {
+				...s,
+				testing: false,
+				testOk: true,
+				testError: "",
+				draft: { ...s.draft, tested: true },
+			};
+		case "testFailed":
+			return {
+				...s,
+				testing: false,
+				testOk: false,
+				testError: a.code || "generic",
+				draft: { ...s.draft, tested: false },
+			};
+		case "go":
+			return { ...s, step: a.step, listSeen: s.listSeen || a.step === 5 };
+		case "acceptDraft": {
+			// Editing and re-testing an already accepted destination replaces it; a
+			// draft that has never been accepted (Add another) joins the list.
+			const previous = s.draft.acceptedUrl;
+			const next =
+				previous !== null && s.added.includes(previous)
+					? s.added.map((u) => (u === previous ? s.draft.url : u))
+					: [...s.added, s.draft.url];
+			return {
+				...s,
+				step: 5,
+				listSeen: true,
+				// Step 3 refuses a duplicate, so this filter is the belt to that
+				// braces: whatever route a repeat took to get here, the list the run
+				// finishes with holds each destination once.
+				added: next.filter(
+					(u, i) => next.indexOf(u) === i && !s.saved.includes(u),
+				),
+				draft: { ...s.draft, acceptedUrl: s.draft.url },
+			};
+		}
+		case "newDraft":
+			// "Add another" walks the same three steps again from nothing, so the
+			// next acceptance appends instead of replacing what it started from.
+			return {
+				...s,
+				step: 2,
+				draft: EMPTY_DRAFT,
+				testOk: false,
+				testError: "",
+			};
+		case "dropAdded":
+			return {
+				...s,
+				added: s.added.filter((u) => u !== a.url),
+				// The draft no longer has a place in the list, so re-accepting it
+				// appends rather than replacing a row that is gone.
+				draft:
+					s.draft.acceptedUrl === a.url
+						? { ...s.draft, acceptedUrl: null }
+						: s.draft,
+			};
+		case "savedRefreshed":
+			// The stored half re-read at Finish. Anything this run added that turns
+			// out to be stored already (the same destination set up elsewhere while
+			// the dialog was open) moves to the stored side, so the list the summary
+			// shows carries each destination exactly once.
+			return {
+				...s,
+				saved: a.targets,
+				added: s.added.filter((u) => !a.targets.includes(u)),
+			};
+		case "toggleEvent": {
+			const events = new Set(s.events);
+			if (a.on) events.add(a.eventType);
+			else events.delete(a.eventType);
+			return { ...s, events };
+		}
+		case "resetEvents":
+			return { ...s, events: new Set(a.types) };
+		case "finishing":
+			return { ...s, finishing: true, finishError: "" };
+		case "finished":
+			return {
+				...s,
+				finishing: false,
+				finishError: "",
+				done: true,
+				finalStatus: a.status,
+			};
+		case "finishFailed":
+			// Nothing was written, so the run stays exactly where it was: the
+			// address or a destination can be fixed and Finish pressed again.
+			return { ...s, finishing: false, finishError: a.message };
+		case "sendingAll":
+			return { ...s, sendingAll: true, sentAll: "none" };
+		case "sentAll":
+			return { ...s, sendingAll: false, sentAll: a.ok ? "ok" : "failed" };
+	}
+}
+
+export function AlertsWizard(props: AlertsWizardProps) {
+	// savedTargets is seeded into state (and re-read at Finish), so the stored
+	// half is read off state from here on rather than off the prop.
+	const { startAt, initialApiUrl, catalog, managed, onClose, onFinished } =
+		props;
+	const { t } = useTranslation();
+	const [state, dispatch] = useReducer(reducer, props, initialState);
+
+	// The probe is taken against the trimmed address (which is what a save would
+	// store), while the result is filed under the raw field value so the step 1
+	// gate keeps comparing like for like.
+	const runProbe = useCallback((url: string, demote: boolean) => {
+		dispatch({ type: "checking" });
+		api.alert
+			.probe(url.trim())
+			.then((status) => dispatch({ type: "probed", url, status, demote }))
+			.catch((err) =>
+				dispatch({
+					type: "probed",
+					url,
+					// A transport failure is indistinguishable from an unreachable
+					// apprise as far as the gate is concerned: both mean "not proven".
+					status: {
+						configured: url.trim() !== "",
+						reachable: false,
+						healthy: false,
+						reason:
+							err instanceof ApiError
+								? (err.code ?? "unreachable")
+								: "unreachable",
+					},
+					demote,
+				}),
+			);
+	}, []);
+
+	// Entering at "Add destination" trusts the saved URL enough to show step 2
+	// straight away, then confirms it in the background. The confirmation is what
+	// keeps the trust honest: a dead apprise sends the run back to step 1.
+	useEffect(() => {
+		if (startAt === 2 && initialApiUrl !== "") runProbe(initialApiUrl, true);
+	}, [startAt, initialApiUrl, runProbe]);
+
+	const sendTest = () => {
+		dispatch({ type: "testing" });
+		api.alert
+			.test({ api_url: state.apiUrl.trim(), targets: [state.draft.url] })
+			.then(() => dispatch({ type: "tested" }))
+			.catch((err) =>
+				dispatch({
+					type: "testFailed",
+					code: err instanceof ApiError ? (err.code ?? "") : "",
+				}),
+			);
+	};
+
+	// The gate is re-checked here as well as on the button: a disabled button is a
+	// hint, this is the rule.
+	const goNext = () => {
+		if (!canNext(state)) return;
+		if (state.step === 4) dispatch({ type: "acceptDraft" });
+		else dispatch({ type: "go", step: (state.step + 1) as Step });
+	};
+
+	// The destination list the run finishes with: the stored half plus what this
+	// run proved. Nothing is ever taken away from the stored half, and `finish`
+	// re-reads it into state before the write, so from step 7 onwards the summary
+	// and the done screen show exactly what was written.
+	const finalTargets = [...state.saved, ...state.added];
+
+	// The one and only write. Everything before this step was a read or a
+	// throwaway notification, so this is the moment the wizard's work becomes
+	// configuration; the status read after it is what the closing pill reports.
+	const finish = async () => {
+		dispatch({ type: "finishing" });
+
+		// The write replaces the whole destination list, and the copy this dialog
+		// opened with is as old as the dialog: anything saved elsewhere since then
+		// (another tab, another operator) would be written away. The stored list is
+		// re-read here so the write is "what is stored now, plus this run's work".
+		let stored: string[];
+		try {
+			stored = (await api.alert.targets()).targets;
+		} catch (err) {
+			// Without a trustworthy stored list the only write available is one that
+			// loses destinations, so nothing is written at all and the run stays on
+			// step 7 where Finish can be pressed again. The card reads this failure
+			// the same way: a rotated master key is the one cause worth naming,
+			// because it tells the operator what to do about it.
+			dispatch({
+				type: "finishFailed",
+				message:
+					err instanceof ApiError && err.code === "undecryptable"
+						? t("settings.alerts.destinations.error")
+						: t("settings.alerts.destinations.readFailed"),
+			});
+			return;
+		}
+		// The summary and the done screen read off state, so the fresh list lands
+		// there before the write rather than after it: what step 7 shows while the
+		// write is in flight is then already what the write carries.
+		dispatch({ type: "savedRefreshed", targets: stored });
+		const merged = [...stored, ...state.added].filter(
+			(u, i, all) => all.indexOf(u) === i,
+		);
+
+		try {
+			await api.settings.update({
+				alert_apprise_api_url: state.apiUrl.trim(),
+				alert_apprise_targets: merged.join("; "),
+				// Config sync owns both of these on a managed member, so the wizard
+				// writes only what is local to it: the address and the destinations.
+				...(managed
+					? {}
+					: {
+							alert_enabled: "true",
+							// The selection starts as the catalog's recommended set, so
+							// without a catalog it starts empty and writing it would store
+							// "alert me about nothing" as though it had been chosen. The key
+							// is left out of the write instead, which leaves whatever is
+							// stored (and the server's defaults when nothing is) in force.
+							// The card keeps the run from starting in this state; this is
+							// the belt to that braces.
+							...(catalog.length === 0
+								? {}
+								: { alert_events: [...state.events].join(",") }),
+						}),
+			});
+		} catch (err) {
+			dispatch({
+				type: "finishFailed",
+				// A 400 carries a safe, actionable sentence; anything else could
+				// leak internals, so it is reported generically. The dialog already
+				// says which step failed, so fetchOK's "what failed: <status>" head
+				// comes off and only the sentence is shown.
+				message:
+					err instanceof ApiError && err.status === 400
+						? stripApiHead(err.message, "Failed to update settings")
+						: t("common.unknownError"),
+			});
+			return;
+		}
+
+		try {
+			dispatch({ type: "finished", status: await api.alert.status() });
+		} catch {
+			// The settings landed; a failed probe read only costs the pill.
+			dispatch({ type: "finished", status: null });
+		}
+	};
+
+	// The stored configuration is now the live one, so this test carries no
+	// body: it exercises exactly what was written, to every destination at once.
+	const sendAll = () => {
+		dispatch({ type: "sendingAll" });
+		api.alert
+			.test()
+			.then(() => dispatch({ type: "sentAll", ok: true }))
+			.catch(() => dispatch({ type: "sentAll", ok: false }));
+	};
+
+	// One row of the step 5 list, through the address this run proved rather
+	// than the stored one, which may still be a different apprise.
+	const testRow = async (url: string) => {
+		await api.alert.test({ api_url: state.apiUrl.trim(), targets: [url] });
+	};
+
+	const stepProps = { state, dispatch: dispatch as Dispatch<Action>, t };
+	const body = () => {
+		switch (state.step) {
+			case 1:
+				return (
+					<StepApprise
+						{...stepProps}
+						onCheck={() => runProbe(state.apiUrl, false)}
+					/>
+				);
+			case 2:
+				return (
+					<StepKind {...stepProps} ntfyServer={ntfyServerOf(finalTargets)} />
+				);
+			case 3:
+				return <StepDetails {...stepProps} />;
+			case 4:
+				return <StepTest {...stepProps} onSendTest={sendTest} />;
+			case 5:
+				return (
+					<StepDestinations
+						{...stepProps}
+						savedTargets={state.saved}
+						onTestRow={testRow}
+					/>
+				);
+			case 6:
+				return (
+					<StepEvents {...stepProps} catalog={catalog} managed={managed} />
+				);
+			default:
+				return (
+					<StepFinish
+						{...stepProps}
+						targets={finalTargets}
+						managed={managed}
+						onSendAll={sendAll}
+					/>
+				);
+		}
+	};
+
+	// Work that a step is waiting on, so moving off it would strand the result.
+	// Sending the closing test is deliberately not part of it: the run is over,
+	// its outcome is a note, and nothing downstream depends on it.
+	const busy = state.apiChecking || state.testing || state.finishing;
+
+	// After "Add another" was abandoned back to the list, the draft is empty and
+	// step 4 has nothing to test: Back goes to where a destination is started.
+	const backStep: Step =
+		state.step === 5 && state.draft.kind === null
+			? 2
+			: ((state.step - 1) as Step);
+
+	return (
+		<Modal
+			title={t(`${K}.title`)}
+			// Once the write has landed there is nothing left to cancel, and the
+			// parent's copy of the settings is stale: every way out of the dialog
+			// tells it to reload.
+			onClose={state.done ? onFinished : onClose}
+			// Escape is Cancel by another name, so it is allowed wherever Cancel is:
+			// a probe or a test in flight changes nothing that is stored, and only
+			// the write itself is worth waiting for.
+			dismissible={!state.finishing}
+			closeOnBackdrop={false}
+			maxWidth="max-w-2xl"
+			scrollable
+		>
+			<div className="space-y-5">
+				<StepAnnouncer step={state.step} done={state.done} t={t} />
+				<StepRail step={state.step} t={t} />
+				{/* The step change is announced by StepAnnouncer above and nothing
+				    else: a live region over the body would read every keystroke in a
+				    destination field back at the operator. The role="alert" nodes
+				    inside the body (a failed test) sit outside it and keep announcing
+				    themselves. */}
+				<div className="space-y-3" data-testid={`wiz-step-${state.step}`}>
+					{body()}
+				</div>
+				<div className="flex flex-wrap justify-end gap-2 border-t border-(--border-subtle) pt-4">
+					{state.done ? (
+						<button
+							type="button"
+							className="ui-btn ui-btn-primary"
+							data-testid="wiz-close"
+							onClick={onFinished}
+						>
+							{t(`${K}.close`)}
+						</button>
+					) : (
+						<>
+							<button
+								type="button"
+								className="ui-btn ui-btn-secondary"
+								data-testid="wiz-cancel"
+								// A probe or a test in flight changes nothing that is stored,
+								// so walking out mid-request is always allowed; only the write
+								// itself is worth waiting for.
+								disabled={state.finishing}
+								onClick={onClose}
+							>
+								{t(`${K}.cancel`)}
+							</button>
+							{state.step > state.minStep && (
+								<button
+									type="button"
+									className="ui-btn ui-btn-secondary"
+									data-testid="wiz-back"
+									disabled={busy}
+									onClick={() => dispatch({ type: "go", step: backStep })}
+								>
+									{t(`${K}.back`)}
+								</button>
+							)}
+							{state.step < TOTAL_STEPS ? (
+								<button
+									type="button"
+									className="ui-btn ui-btn-primary"
+									data-testid="wiz-next"
+									disabled={busy || !canNext(state)}
+									onClick={goNext}
+								>
+									{t(`${K}.next`)}
+								</button>
+							) : (
+								<button
+									type="button"
+									className="ui-btn ui-btn-primary"
+									data-testid="wiz-finish"
+									disabled={busy}
+									onClick={finish}
+								>
+									{state.finishing ? t(`${K}.finishing`) : t(`${K}.finish`)}
+								</button>
+							)}
+						</>
+					)}
+				</div>
+			</div>
+		</Modal>
+	);
+}
+
+// StepAnnouncer is the wizard's single live region, mounted for the whole run
+// so that moving to another step mutates its text. A region that arrives with
+// its text already in it is the case screen readers routinely miss, which is
+// what a per-step region (one live node per step body) would be. It carries
+// only the step's name, so nothing typed into the step is read back.
+function StepAnnouncer({
+	step,
+	done,
+	t,
+}: {
+	step: Step;
+	done: boolean;
+	t: TFunction;
+}) {
+	return (
+		<p role="status" className="sr-only" data-testid="wiz-announce">
+			{done ? t(`${K}.done`) : t(`${K}.step${step}Title`)}
+		</p>
+	);
+}
+
+// StepRail is the run's progress, drawn as one node per step joined by
+// hairlines: done nodes carry a check, the current one is lit in the accent,
+// the ones ahead wait in the input surface.
+//
+// It is decoration, and marked as such. Everything it says is already in the
+// "Step n of N" caption beside it, in words, which is what a screen reader
+// reads; exposing the rail as well would spend seven list items on the same
+// fact and still leave done-versus-ahead carried by colour and a glyph. Each
+// node names its step in a tooltip for the pointer; the titles are too long,
+// in most locales, to sit under seven nodes at this width.
+function StepRail({ step, t }: { step: Step; t: TFunction }) {
+	const steps = Array.from({ length: TOTAL_STEPS }, (_, i) => (i + 1) as Step);
+	return (
+		<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+			<ol className="ui-wizard-rail min-w-0 flex-1" aria-hidden="true">
+				{steps.map((n) => {
+					const state = n < step ? "done" : n === step ? "current" : "ahead";
+					return (
+						<li key={n} className="contents">
+							{n > 1 && (
+								<span
+									aria-hidden="true"
+									className="ui-wizard-link"
+									data-done={n <= step ? "true" : "false"}
+								/>
+							)}
+							<span
+								className="ui-wizard-node"
+								data-state={state}
+								data-testid={`wiz-rail-${n}`}
+								title={t(`${K}.step${n}Title`)}
+							>
+								{state === "done" ? <Check size={14} weight="bold" /> : n}
+							</span>
+						</li>
+					);
+				})}
+			</ol>
+			<p
+				className="shrink-0 text-xs text-(--text-muted) tabular-nums"
+				data-testid="wiz-step-of"
+			>
+				{t(`${K}.stepOf`, { step, total: TOTAL_STEPS })}
+			</p>
+		</div>
+	);
+}

@@ -508,6 +508,7 @@ it("rolls the configuration up while alerts are disabled and unrolls on enable",
 		screen.queryByRole("checkbox", { name: "Member went down" }),
 	).toBeNull();
 	expect(screen.queryByRole("button", { name: /send test/i })).toBeNull();
+	expect(screen.queryByTestId("alert-wizard-open")).toBeNull();
 	// Save stays reachable so switching alerts off can be persisted, and a save
 	// while rolled up still carries the stored URL, the stored destinations and
 	// the event selection: hiding the fields must never blank what they held, or
@@ -761,11 +762,10 @@ it.each([
 	}
 });
 
-// The guided button is offered whether or not alerts are switched on, and an
-// unreadable destination list is what greys it out. The reason therefore has to
-// live outside the toggle's block, or a switched-off card shows a disabled
-// button with no explanation anywhere on screen.
-it("shows why the guided button is greyed out even with alerts switched off", async () => {
+// A stored list that cannot be read is the one thing on this card the toggle
+// does nothing about, so it is reported in both states; the guided entry point
+// itself waits for the toggle like the rest of the configuration.
+it("reports an unreadable destination list even with alerts switched off", async () => {
 	baseHandlers({ settings: { ...settings, alert_enabled: false } });
 	server.use(
 		http.get(
@@ -778,8 +778,9 @@ it("shows why the guided button is greyed out even with alerts switched off", as
 	expect(
 		await screen.findByTestId("alert-destinations-error"),
 	).toHaveTextContent(/something went wrong/i);
-	expect(screen.getByTestId("alert-wizard-open")).toBeDisabled();
-	// The configuration itself is still folded away behind the toggle.
+	// The configuration, guided entry point included, is still folded away
+	// behind the toggle.
+	expect(screen.queryByTestId("alert-wizard-open")).toBeNull();
 	expect(screen.queryByTestId("alert-destination-row")).toBeNull();
 });
 

@@ -10,7 +10,7 @@ It does this through [Apprise](https://github.com/caronc/apprise): you run a sma
 
 - [How it works](#how-it-works)
 - [Setup](#setup)
-  - [Guided setup (Front Desk)](#guided-setup-front-desk)
+  - [Guided setup](#guided-setup)
   - [Manual configuration](#manual-configuration)
 - [Choosing which events fire](#choosing-which-events-fire)
 - [Notification targets](#notification-targets)
@@ -44,51 +44,62 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 
    It is not exposed to the host; only Model Hotel needs to reach it on the internal network.
 
-2. **Point your alert surface at it.** [[High Availability]]'s Front Desk has a guided wizard that does the whole job (below). The Model Hotel dashboard keeps its manual Alerts card, and gets the same wizard in a follow-up release.
+2. **Point your alert surface at it.** The Model Hotel dashboard and [[High Availability]]'s Front Desk carry the same guided wizard (below), and both keep the individual fields under a **Manual configuration (advanced)** disclosure for anything the wizard does not cover.
 
-### Guided setup (Front Desk)
+### Guided setup
 
-Front Desk's **Settings → Alerts** card carries exactly one guided button: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Every step verifies its own input against the real container before **Next** unlocks, and nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
+**Settings → Alerts** carries exactly one guided button on either surface once **Enable alerting** is on: **Set up alerts** while nothing is stored, and **Add destination** once a destination is saved. It opens a seven-step wizard (**Add destination** enters at step 2 and skips the Apprise API URL, which is already stored). Steps 1 and 4 verify against the real container before **Next** unlocks; the other steps unlock on their own input (a chosen tile, a valid, not-yet-used destination, a non-empty list). Nothing is written until **Finish**, so **Cancel** at any point leaves your settings exactly as they were.
+
+The two runs differ in two places. Front Desk offers a **Bellhop** tile and Model Hotel does not: [[Bellhop]] notifies from Front Desk's own fleet poll, so the gateway's events never reach it. And on a Model Hotel member whose settings are managed fleet-wide by config sync the events step shows a note in place of the picker, because Front Desk owns the event selection there and there is nothing to choose; that run writes the Apprise API URL and the destinations and leaves the alert switches alone.
+
+![Model Hotel Alerts card](screenshots/settings_alerts.png)
+*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list, the guided button and the manual fields are hidden and the event picker cannot be unrolled; the toggle stays, and so does a warning about a stored destination list that cannot be read. A managed member keeps the delivery settings visible in both states, because it cannot switch alerting on itself.*
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
-*Front Desk Settings - Alerts: the status pill, the plaintext Destinations list with per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)".*
+*Front Desk Settings - Alerts: the same card in Front Desk's styling.*
 
-1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the Front Desk stack in `deploy/ha/docker-compose.yml` (it ships commented out; uncomment it as shown under [Phone push](#phone-push-ntfy-and-bellhop)). Front Desk sends its own fleet and member alerts, so the container belongs beside it rather than in the main gateway's `docker-compose.yml`. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
-2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Bellhop**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**.
-3. **Details.** Plain fields for the tile you picked, with the composed Apprise URL rendered in clear underneath. You never type an Apprise URL yourself.
-4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A failure says which part failed: apprise rejected the destination URL, apprise could not deliver it (check the server and topic, or the bot token), or apprise stopped answering. A Bellhop destination answers the test with a "push test received" notification on the phone (needs Bellhop 0.9.10 or newer); real alerts only wake it.
+1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the stack the surface runs in: the gateway's own `docker-compose.yml` above, or `deploy/ha/docker-compose.yml` for Front Desk (both ship it commented out). Front Desk sends its own fleet and member alerts, so a Front Desk stack gets a container beside it rather than borrowing the gateway's. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
+2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**, plus **Bellhop** on Front Desk.
+3. **Details.** Plain fields for the tile you picked, with the composed Apprise URL rendered in clear underneath. You never type an Apprise URL yourself. A destination that is already stored, or already added earlier in this run, stops here: it cannot be added twice.
+4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A success is required before the wizard moves on. A failure says which part failed: apprise rejected the destination URL, apprise could not deliver it (check the server and topic, or the bot token), or apprise stopped answering. A Bellhop destination answers the test with a "push test received" notification on the phone (needs Bellhop 0.9.10 or newer); real alerts only wake it.
 5. **Destinations.** The destinations this run adds; anything already saved stays as it is. **Add another** returns to step 2. The wizard only appends; it never drops a destination you already had.
-6. **Events.** The event picker. A setup run starts from the recommended set; a run that adds a destination to a configured Front Desk starts from the selection you already saved, including an empty one. **Reset to recommended** is always there to tick the recommended set again.
+6. **Events.** The event picker. A run on a surface with no saved selection starts from the recommended set; a run where you already saved one starts from that selection, including an empty one. **Reset to recommended** is always there to tick the recommended set again. On a managed member the step shows a note instead of the picker, because there is nothing to choose there, and **Next** carries on.
 7. **Finish.** One write covering the API URL, the destinations, the events and the enable toggle, so a failure leaves nothing half-applied. The final screen offers **Send test to everything**.
 
-![Alerts wizard, step 1](screenshots/frontdesk_alerts_wizard_step1.png)
-*Step 1: the Apprise API URL after a successful Check. Next stays locked until the container answers.*
+![Alerts wizard, step 1](screenshots/alerts_wizard_step1.png)
+*Step 1 on the Model Hotel dashboard: the Apprise API URL after a successful Check. Next stays locked until the container answers.*
 
-![Alerts wizard, step 3](screenshots/frontdesk_alerts_wizard_step3_ntfy.png)
-*Step 3 for the Phone (ntfy app) tile: server and topic as plain fields, Generate for a random topic, the subscribe instructions for the phone with copy buttons, and the composed Apprise URL underneath. Whether the server is reachable is settled by step 4, which sends from Front Desk rather than from the browser.*
+![Alerts wizard, step 3](screenshots/alerts_wizard_step3_ntfy.png)
+*Step 3 for the Phone (ntfy app) tile: server and topic as plain fields, Generate for a random topic, the subscribe instructions for the phone with copy buttons, and the composed Apprise URL underneath. Whether the server is reachable is settled by step 4, which sends from the gateway rather than from the browser.*
 
-![Alerts wizard, step 4](screenshots/frontdesk_alerts_wizard_step4_test.png)
+![Alerts wizard, step 4](screenshots/alerts_wizard_step4_test.png)
 *Step 4: one test to the destination being added, through the step-1 container. Still nothing saved.*
+
+![Front Desk alerts wizard, step 1](screenshots/frontdesk_alerts_wizard_step1.png)
+*The same step 1 on Front Desk, against the apprise container of the Front Desk stack.*
+
+![Front Desk alerts wizard, step 3](screenshots/frontdesk_alerts_wizard_step3_ntfy.png)
+*Front Desk step 3 for the Phone (ntfy app) tile.*
+
+![Front Desk alerts wizard, step 4](screenshots/frontdesk_alerts_wizard_step4_test.png)
+*Front Desk step 4: the per-destination test, sent by Front Desk.*
 
 ### Manual configuration
 
-On the Model Hotel dashboard the individual fields are the whole surface. Open **Settings → Alerts**:
+Both surfaces keep the individual fields under **Manual configuration (advanced)**, below the Destinations list, for adjusting a saved setup without walking the wizard again. On the Model Hotel dashboard, under **Settings → Alerts**:
 
 - Turn **Enable alerting** on.
-- Set **Apprise API URL** to `http://apprise:8000` (the service name in the gateway's own compose block above).
-- Paste your **Notification target**: one or more Apprise URLs separated by `;`, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)).
+- Open **Manual configuration (advanced)** and set **Apprise API URL** to `http://apprise:8000` (the service name in the gateway's own compose block above).
+- Paste your **Notification target**: one or more Apprise URLs separated by `;`, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)) and shown back to admins in clear.
 - Click **Send test notification** to verify the whole chain end to end.
 
-Front Desk offers the same fields under its **Manual configuration (advanced)** disclosure, below the Destinations list, for adjusting a saved setup without walking the wizard again.
+Above that disclosure the saved targets render as a readable **Destinations** list, one row per destination with **Copy**, **Test** and **Remove**, so what is stored is legible without picking the joined string apart.
 
-A live **reachability indicator** next to the URL shows whether the gateway can reach the apprise-api container: green (reachable), amber (reachable but the container reports an issue), or red (unreachable, e.g. wrong URL or the container isn't running), so a misconfiguration is visible immediately rather than only when an event later fails to send. Use **Re-check** to re-probe.
-
-![Settings Alerts](screenshots/settings_alerts.png)
-*Model Hotel dashboard - Alerts section with alerting on: the Apprise API URL with its reachability indicator, the notification target, the ntfy helper, and the "Events to notify on" picker unrolled. With alerting off the card rolls up to its toggle.*
+A live **reachability indicator** beside the Destinations list shows whether the surface can reach the apprise-api container: green (reachable), amber (reachable but the container reports an issue), or red (unreachable, e.g. wrong URL or the container isn't running), so a misconfiguration is visible immediately rather than only when an event later fails to send. Use **Re-check** to re-probe.
 
 ## Choosing which events fire
 
-The **Events to notify on** picker (step 6 of the wizard, or under the target field in the manual fields) lists every event you can subscribe to, grouped by category, each with a severity dot. Toggle individual events or whole categories. The list is served by the backend catalog (`GET /api/alert/events`), so it always reflects exactly what the running version can emit.
+The **Events to notify on** picker (step 6 of the wizard, or on the card itself) lists every event you can subscribe to, grouped by category, each with a severity dot. Toggle individual events or whole categories. The list is served by the backend catalog (`GET /api/alert/events`), so it always reflects exactly what the running version can emit.
 
 Current events:
 
@@ -97,10 +108,13 @@ Current events:
 | Provider down (circuit breaker opened) | Failover | ✅ on | a provider's breaker trips |
 | Provider recovered (circuit breaker closed) | Failover | ✅ on | the breaker recovers |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
+| Provider disabled as scheduled | Failover | ✅ on | a provider reaches the disable date you set for it and the background sweep switches it off |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
-| Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
-| SSO identity bound | Security | ⬜ off | an external identity is bound to an admin account for the first time |
-| Quota schema drift | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
+| Model discrepancies left unaddressed | Discovery | ⬜ off | the Models badge has been asking for attention for longer than your threshold |
+| Model disabled (provider no longer serves it) | Discovery | ✅ on | the gateway disables a model because the provider keeps refusing it as retired |
+| Front Desk ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
+| SSO identity bound to an account | Security | ⬜ off | an external identity is bound to an admin account for the first time |
+| Provider changed its quota response shape | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
 
 On first run the default-on events are pre-selected. Deselecting everything means nothing fires.
 
@@ -118,11 +132,13 @@ The target is any [Apprise URL](https://AppriseIt.com/services/). The Alerts sec
 
 Send to multiple destinations at once by separating Apprise URLs with `;`. The wizard composes and appends them for you; the manual field takes the joined string.
 
-On Front Desk the saved targets also appear above the manual fields as a **Destinations** list, one row per destination with its kind, host and secret segment in clear, plus **Copy**, **Test** (sends to that one destination) and **Remove**. The list is admin-only, and it is plaintext on purpose: anyone who can read the page can already change what it holds, so hiding the string behind asterisks only makes it harder to check what is actually stored.
+On both surfaces the saved targets also appear above the manual fields as a **Destinations** list, one row per destination with its kind, host and secret segment in clear, plus **Copy**, **Test** (sends to that one destination) and **Remove**. The list is admin-only, and it is plaintext on purpose: anyone who can read the page can already change what it holds, so hiding the string behind asterisks only makes it harder to check what is actually stored.
 
 ## Phone push (ntfy and Bellhop)
 
 Alerts can reach your phone with no Google services, using [ntfy](https://ntfy.sh) as the delivery channel. This is also what powers real-time push in [[Bellhop]]. It is the same Apprise pipeline as any other target, with two extra pieces: an `apprise-api` container for the sending side to POST to, and an ntfy topic your phone subscribes to.
+
+The steps below set this up from Front Desk, because that is where the fleet and Bellhop alerts come from. The Model Hotel dashboard carries the same **Phone (ntfy app)** tile for the gateway's own events; only the **Bellhop** tile is Front Desk's alone.
 
 You pick the ntfy server. Self-host one (see below) or use the public `ntfy.sh`; neither is assumed, and nothing prefills a server for you. Either way the only container you add is `apprise-api`: `ntfy.sh` is a hosted service, and a self-hosted ntfy is a container of its own. The chain is:
 
@@ -145,7 +161,7 @@ services:
       - "8000"
 ```
 
-**2. Run the wizard for the ntfy app.** In Front Desk → **Settings → Alerts**, press **Set up alerts** (or **Add destination** if alerts are already configured), then:
+**2. Run the wizard for the ntfy app.** In Front Desk → **Settings → Alerts**, switch **Send outbound alert notifications** on and press **Set up alerts** (or **Add destination** if alerts are already configured), then:
    - Step 1: **Apprise API URL** `http://apprise:8000`, then **Check** until it reports the container reachable and healthy.
    - Step 2: pick the **Phone (ntfy app)** tile.
    - Step 3: enter your ntfy server (yours, or `https://ntfy.sh`) and press **Generate** for a random 20-character topic. The topic is the only access control on a public server, so treat it like a password; **Generate** exists so you do not invent a weak one. The step also prints the exact phone-side steps ("Subscribe to topic, Use another server", then the server and topic with copy buttons) and shows the composed `ntfys://<server>/<topic>` underneath.
@@ -160,10 +176,9 @@ services:
 
 ## Security
 
-The notification target typically contains a credential (a bot token, an SMTP password). Both surfaces **encrypt it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys (Front Desk with its own `FRONTDESK_MASTER_KEY`). What they show differs:
+The notification target typically contains a credential (a bot token, an SMTP password). Both surfaces **encrypt it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys (Front Desk with its own `FRONTDESK_MASTER_KEY`), and both show the saved destinations in clear to signed-in admins, for the reason given under [Notification targets](#notification-targets): an admin can already rewrite the targets and fire a test at them, so masking hides nothing from them and only makes it harder to check what is stored.
 
-- On the **Model Hotel dashboard** the field only ever shows a masked placeholder, and the stored value is never returned to the browser. To change it, type a new value; to keep it, leave the field untouched.
-- On **Front Desk** the **Destinations** list shows each saved destination in clear to signed-in admins, for the reason given under [Notification targets](#notification-targets): an admin can already rewrite the targets and fire a test at them, so masking hides nothing from them and only makes it harder to check what is stored. `GET /api/alert/targets` is the one endpoint that decrypts, and it is admin-only.
+`GET /api/alert/targets` is the one endpoint that decrypts, and it is admin-only on both surfaces. It is what the **Destinations** list and the manual **Notification target** field read; the encrypted string itself never leaves the database.
 
 ## Reliability
 

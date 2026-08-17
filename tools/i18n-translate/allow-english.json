@@ -6023,8 +6023,93 @@
 		"sr",
 		"zh"
 	],
+	"settings.alerts.destinations.title": [
+		"fr"
+	],
+	"settings.alerts.kind.bellhop": [
+		"*"
+	],
+	"settings.alerts.kind.discord": [
+		"*"
+	],
+	"settings.alerts.kind.email": [
+		"el",
+		"vi"
+	],
+	"settings.alerts.kind.ntfy": [
+		"*"
+	],
+	"settings.alerts.kind.other": [
+		"hu",
+		"ja",
+		"ko",
+		"sk",
+		"sr",
+		"zh"
+	],
+	"settings.alerts.kind.telegram": [
+		"*"
+	],
 	"settings.alerts.status.reachable": [
 		"ar"
+	],
+	"settings.alerts.testRow": [
+		"da",
+		"no"
+	],
+	"settings.alerts.wizard.apiUrlLabel": [
+		"hu",
+		"ja",
+		"ko",
+		"sk",
+		"sr",
+		"zh"
+	],
+	"settings.alerts.wizard.field.password": [
+		"it"
+	],
+	"settings.alerts.wizard.field.port": [
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"fr",
+		"hu",
+		"no",
+		"pl",
+		"ro",
+		"sk",
+		"sv"
+	],
+	"settings.alerts.wizard.field.token": [
+		"hu"
+	],
+	"settings.alerts.wizard.field.url": [
+		"hu",
+		"ja",
+		"ko",
+		"sk",
+		"sr",
+		"zh"
+	],
+	"settings.alerts.wizard.field.webhook": [
+		"hu",
+		"ja",
+		"zh"
+	],
+	"settings.alerts.wizard.sendTest": [
+		"da",
+		"no"
+	],
+	"settings.alerts.wizard.step1Title": [
+		"*"
+	],
+	"settings.alerts.wizard.step3Title": [
+		"de",
+		"nl"
+	],
+	"settings.alerts.wizard.step5Title": [
+		"fr"
 	],
 	"settings.appearance.uiStyles.cleanSaas": [
 		"ar",

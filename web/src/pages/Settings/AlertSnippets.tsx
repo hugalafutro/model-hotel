@@ -3,6 +3,7 @@ import { ExternalLink } from "@/lib/icons";
 import type { LangIconKey } from "../../components/langIcons";
 import { ShikiCode } from "../../components/ShikiCode";
 import { TerminalPreview } from "../../components/TerminalPreview";
+import { APPRISE_SERVICES_URL } from "./alerts/composers";
 
 /**
  * Example Apprise URL shapes for the most popular services, shown as copyable
@@ -34,14 +35,12 @@ const SERVICES: ReadonlyArray<{
 	{ id: "email", title: "Email", url: "mailto://{user}:{password}@gmail.com" },
 ];
 
-const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
-
 /** Copyable example Apprise URLs for popular services. */
 export function AlertSnippets() {
 	const { t } = useTranslation();
 	return (
 		<div className="space-y-3" data-testid="alert-snippets">
-			<p className="text-gray-400 text-sm">
+			<p className="text-(--text-muted) text-sm">
 				{t("settings.alerts.snippets.description")}
 			</p>
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

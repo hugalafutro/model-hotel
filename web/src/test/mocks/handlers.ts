@@ -420,6 +420,15 @@ export const handlers: RequestHandler[] = [
 		]);
 	}),
 
+	// The decrypted destination list. Empty by default: a test that cares about
+	// the readable list serves its own targets.
+	http.get("/api/alert/targets", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ targets: [] });
+	}),
+
 	http.post("/api/alert/test", ({ request }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });

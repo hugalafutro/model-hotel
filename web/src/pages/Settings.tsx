@@ -27,6 +27,7 @@ import {
 import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
+import { invalidateAlertReads } from "./Settings/useSettingsMutations";
 
 /**
  * Double-confirm dialog for "reset every setting": the operator has to type
@@ -133,6 +134,7 @@ export function Settings() {
 		mutationFn: () => api.settings.reset(),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			invalidateAlertReads(queryClient);
 			toast(t("settings.common.resetAllDone"), "success");
 			setResetAllOpen(false);
 		},
@@ -154,6 +156,7 @@ export function Settings() {
 		mutationFn: (keys: string[]) => api.settings.reset(keys),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			invalidateAlertReads(queryClient);
 			toast(t("settings.common.resetSectionDone"), "success");
 			setResetSection(null);
 		},

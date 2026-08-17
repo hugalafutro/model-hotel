@@ -139,6 +139,53 @@ describe("Modal", () => {
 		await waitFor(() => expect(onCloseOuter).toHaveBeenCalledTimes(1));
 	});
 
+	// A dialog can be mid-write, where walking out would strand the work: it says
+	// so with dismissible={false}, and both quiet exits are withdrawn for as long
+	// as that lasts.
+	it("ignores Escape and disables the close button while not dismissible", () => {
+		vi.useFakeTimers();
+		try {
+			render(
+				<Modal onClose={onClose} dismissible={false}>
+					Content
+				</Modal>,
+			);
+			act(() => {
+				fireEvent.keyDown(document.body, { key: "Escape" });
+			});
+			// Not even the fade started, so the fallback timer has nothing to fire.
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onClose).not.toHaveBeenCalled();
+			expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("closes on Escape again once it becomes dismissible", async () => {
+		function Gated({ locked }: { locked: boolean }) {
+			return (
+				<Modal onClose={onClose} dismissible={!locked}>
+					Content
+				</Modal>
+			);
+		}
+		const { rerender } = render(<Gated locked={true} />);
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		expect(onClose).not.toHaveBeenCalled();
+
+		rerender(<Gated locked={false} />);
+		expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape" });
+		});
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
 	it("closes on the opacity transition end and cancels the fallback timer", () => {
 		vi.useFakeTimers();
 		try {

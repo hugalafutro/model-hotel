@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
-import { api } from "../../api/client";
+import { ApiError, api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
@@ -10,8 +10,27 @@ import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
+import { AlertsWizard } from "./alerts/AlertsWizard";
+import { stripApiHead } from "./alerts/apiText";
+import { DestinationList } from "./alerts/DestinationList";
 import { SETTING_DEFAULTS } from "./defaults";
-import { useSettingsMutations } from "./useSettingsMutations";
+import {
+	invalidateAlertReads,
+	useSettingsMutations,
+} from "./useSettingsMutations";
+
+// The stable failure codes the alert endpoints report: /api/alert/test with a
+// 502 and the reachability probe in AlertStatus.reason. Anything outside this
+// set falls back to a generic error, so no server internals reach the screen.
+const REASON_CODES = new Set([
+	"not_configured",
+	"invalid_url",
+	"unreachable",
+	"unhealthy",
+	"apprise_reject",
+	"deliver_failed",
+	"undecryptable",
+]);
 
 interface AlertsSettingsProps {
 	collapsed: boolean;
@@ -28,26 +47,108 @@ export function AlertsSettings({
 }: AlertsSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const queryClient = useQueryClient();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
 	const enabled = settings?.alert_enabled === "true";
+	// The Apprise address, the destination list and the guided run are this
+	// instance's own, even on a managed member where alerting on/off and the
+	// event routing are decided fleet-wide. They follow the toggle only where
+	// the toggle is this member's to flip: a managed member cannot switch
+	// alerting on itself, so hiding them behind it would leave the member no way
+	// to set up the delivery it is expected to do once the fleet switches on.
+	const showDelivery = enabled || Boolean(managed);
 	const apiUrl = settings?.alert_apprise_api_url ?? "";
 	const targetConfigured = Boolean(settings?.alert_apprise_targets);
 
 	const [apiUrlDraft, setApiUrlDraft] = useState<string | null>(null);
-	const [targetDraft, setTargetDraft] = useState("");
+	// The typed target list while the operator is editing it, or null when the
+	// field just shows what is stored. The settings row only ever carries the
+	// "********" mask, so the readable value comes from the decrypted read below.
+	const [targetDraft, setTargetDraft] = useState<string | null>(null);
 	const [pickerOpen, setPickerOpen] = useState(false);
+	// Which guided run is open, as the step it starts on; null when the dialog is
+	// closed. Nothing is written until its own Finish, so closing it changes
+	// nothing on this card.
+	const [wizardStart, setWizardStart] = useState<1 | 2 | null>(null);
 	// The picker is only "expanded" while alerting is on: when disabled the
 	// panel is not rendered, so aria-expanded and the chevron must follow suit
 	// (otherwise the toggle announces "expanded" with no region in the DOM).
 	const pickerExpanded = pickerOpen && enabled;
 
+	// The saved destinations, decrypted. Read whether or not alerting is on: a
+	// stored value that cannot be read is reported in both states, and the list
+	// is ready the moment the toggle goes on.
+	const targetsQuery = useQuery({
+		queryKey: ["alert-targets"],
+		queryFn: () => api.alert.targets(),
+		refetchOnWindowFocus: false,
+		// A stored value that cannot be decrypted fails the same way every time,
+		// so a retry only delays the message that says so.
+		retry: false,
+	});
+	// The event catalog, read with the card rather than on the click that opens
+	// the wizard: the guided run seeds its recommended selection from it the
+	// moment it mounts. It shares its cache key with the picker below, so the
+	// two never ask for it twice.
+	const eventsQuery = useQuery({
+		queryKey: ["alert-events"],
+		queryFn: () => api.alert.getEvents(),
+		refetchOnWindowFocus: false,
+	});
+	const targets = targetsQuery.data?.targets ?? [];
+	const storedTargets = targets.join("; ");
+	// An unreadable stored value (master key rotated) is a message beside an
+	// empty list, not a card that refuses to render.
+	const targetsError: "" | "undecryptable" | "generic" = !targetsQuery.error
+		? ""
+		: targetsQuery.error instanceof ApiError &&
+				targetsQuery.error.code === "undecryptable"
+			? "undecryptable"
+			: "generic";
+	const targetsErrorText =
+		targetsError === "undecryptable"
+			? t("settings.alerts.destinations.error")
+			: targetsError === "generic"
+				? t("settings.alerts.destinations.readFailed")
+				: "";
+
+	// A validation error (400) carries a safe, user-facing message and a 502 from
+	// the test endpoint carries a machine-readable reason code; anything else
+	// (network, other 5xx, auth) is shown as a generic string so internals do not
+	// leak. The apprise response body is never surfaced: it can echo target URLs.
+	const describeError = (err: unknown) => {
+		if (!(err instanceof ApiError)) return t("common.unknownError");
+		// The toast supplies the "test failed" head itself from the testFailed
+		// string, so the one fetchOK built is stripped off the sentence.
+		if (err.status === 400) {
+			return stripApiHead(err.message, "Test notification failed");
+		}
+		if (err.status === 502 && err.code && REASON_CODES.has(err.code)) {
+			return t(`settings.alerts.reason.${err.code}`);
+		}
+		return t("common.unknownError");
+	};
+
+	const testFailedToast = (err: Error) =>
+		toast(
+			t("settings.alerts.testFailed", { message: describeError(err) }),
+			"error",
+		);
+
 	const testMutation = useMutation({
 		mutationFn: () => api.alert.test(),
 		onSuccess: () => toast(t("settings.alerts.testSent"), "success"),
-		onError: (err: Error) =>
-			toast(t("settings.alerts.testFailed", { message: err.message }), "error"),
+		onError: testFailedToast,
+	});
+
+	// Delivers to one saved destination only, so several phones can be told
+	// apart. It tests what is stored, so nothing on screen is saved first.
+	const rowTestMutation = useMutation({
+		mutationFn: (url: string) => api.alert.test({ targets: [url] }),
+		onSuccess: () => toast(t("settings.alerts.testSent"), "success"),
+		onError: testFailedToast,
 	});
 
 	// Probe apprise-api reachability. Keyed on the saved URL so it re-runs when
@@ -66,18 +167,61 @@ export function AlertsSettings({
 		setApiUrlDraft(null);
 	};
 
+	// The field is the stored list in plain text, so a blur that changed nothing
+	// writes nothing and an emptied field clears the destinations.
 	const commitTarget = () => {
-		const v = targetDraft.trim();
-		if (v !== "") {
-			updateMutation.mutate({ alert_apprise_targets: v });
-			setTargetDraft("");
+		if (targetDraft !== null && targetDraft.trim() !== storedTargets) {
+			updateMutation.mutate({ alert_apprise_targets: targetDraft.trim() });
 		}
+		setTargetDraft(null);
 	};
 
 	const clearTarget = () => {
 		updateMutation.mutate({ alert_apprise_targets: "" });
-		setTargetDraft("");
+		setTargetDraft(null);
 	};
+
+	// Removing one destination persists the rest; an empty remaining list sends
+	// "", which clears the setting.
+	const removeDestination = (url: string) =>
+		updateMutation.mutate({
+			alert_apprise_targets: targets.filter((x) => x !== url).join("; "),
+		});
+
+	const busy =
+		updateMutation.isPending ||
+		testMutation.isPending ||
+		rowTestMutation.isPending;
+
+	// The manual field holds an unsaved edit, so the rows no longer describe what
+	// is stored: testing or removing one would act on the stored list while the
+	// operator is looking at a different one. Both row actions wait for a save.
+	const targetsDirty =
+		targetDraft !== null && targetDraft.trim() !== storedTargets;
+
+	// Why the guided setup cannot be started right now. An unreadable list means
+	// it cannot show what is already configured, and a pending manual edit means
+	// it would show the list from before that edit; both are sorted out on the
+	// card first, which is what the message points at. The event catalog is the
+	// third: the run seeds its recommended selection from it once, when it
+	// mounts, so starting without it would offer an empty preset and a "reset to
+	// recommended" with nothing to reset to. The destination read is the fourth,
+	// for the same reason: the run snapshots the stored list when it opens, so
+	// starting before that read lands would promise a summary missing whatever
+	// is already saved. Waiting is a moment; a failed read is worth saying out
+	// loud, because reloading is what fixes it.
+	const wizardBlocked =
+		targetsError !== ""
+			? targetsErrorText
+			: targetsDirty
+				? t("settings.alerts.destinations.dirty")
+				: targetsQuery.isPending
+					? t("common.loading")
+					: eventsQuery.isPending
+						? t("settings.alerts.wizard.catalogLoading")
+						: eventsQuery.isError
+							? t("settings.alerts.wizard.catalogUnavailable")
+							: undefined;
 
 	const canTest = enabled && apiUrl !== "" && targetConfigured;
 
@@ -120,18 +264,29 @@ export function AlertsSettings({
 				);
 
 	const status = statusQuery.data;
-	const statusDot =
+	const statusDotColor =
 		status?.reachable && status.healthy
-			? "bg-green-500"
+			? "var(--success-text)"
 			: status?.reachable
-				? "bg-amber-500"
-				: "bg-red-500";
+				? "var(--warning-text)"
+				: "var(--error-text)";
 	const statusText =
 		status?.reachable && status.healthy
 			? t("settings.alerts.status.reachable")
 			: status?.reachable
 				? t("settings.alerts.status.issues")
 				: t("settings.alerts.status.unreachable");
+	// The reason code is the translated, actionable half of the probe result; the
+	// detail is raw server text (English, sometimes an HTTP status). The note
+	// therefore carries the reason and keeps the detail as the tooltip, where an
+	// operator who wants the literal answer can still find it.
+	const statusReason =
+		status &&
+		(!status.reachable || !status.healthy) &&
+		status.reason &&
+		REASON_CODES.has(status.reason)
+			? t(`settings.alerts.reason.${status.reason}`)
+			: "";
 
 	return (
 		<SettingsSection
@@ -142,7 +297,7 @@ export function AlertsSettings({
 			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
-				<p className="text-gray-400 text-sm">
+				<p className="text-(--text-muted) text-sm">
 					{t("settings.alerts.description")}
 				</p>
 
@@ -160,7 +315,7 @@ export function AlertsSettings({
 						<div className="flex items-center justify-between gap-3 ui-settings-group">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
+									<p className="text-sm font-medium text-(--text-secondary)">
 										{t("settings.alerts.enable")}
 									</p>
 									<ResetButton
@@ -172,7 +327,7 @@ export function AlertsSettings({
 										disabled={isResetting}
 									/>
 								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
+								<p className="text-(--text-muted) text-xs mt-0.5">
 									{t("settings.alerts.enableDescription")}
 								</p>
 							</div>
@@ -196,7 +351,7 @@ export function AlertsSettings({
 							<div className="flex items-center gap-1.5">
 								<button
 									type="button"
-									className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
+									className="flex items-center gap-1.5 text-sm font-medium text-(--text-secondary)"
 									onClick={() => setPickerOpen((o) => !o)}
 									aria-expanded={pickerExpanded}
 									disabled={!enabled}
@@ -261,33 +416,29 @@ export function AlertsSettings({
 					)}
 				</fieldset>
 
-				{enabled && (
-					<>
-						{/* apprise-api base URL */}
-						<div className="space-y-1.5">
-							<label
-								htmlFor="alert-api-url"
-								className="text-sm font-medium text-gray-300"
-							>
-								{t("settings.alerts.apiUrl")}
-							</label>
-							<input
-								id="alert-api-url"
-								type="text"
-								value={apiUrlDraft ?? apiUrl}
-								placeholder="http://apprise:8000"
-								spellCheck={false}
-								autoComplete="off"
-								onChange={(e) => setApiUrlDraft(e.target.value)}
-								onBlur={commitApiUrl}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") e.currentTarget.blur();
-								}}
-								className="ui-input text-sm w-full"
-								data-testid="alert-api-url-input"
-							/>
-							<p className="text-gray-500 text-xs">
-								{t("settings.alerts.apiUrlDescription")}
+				{/* A stored list that cannot be read (a rotated master key) is worth
+				    saying whether or not alerting is switched on: it is the one
+				    condition on this card the toggle does nothing about, and it also
+				    greys out the guided button below. */}
+				{targetsErrorText !== "" && (
+					<p
+						className="ui-callout ui-callout-warning"
+						data-testid="alert-destinations-error"
+						role="alert"
+					>
+						{targetsErrorText}
+					</p>
+				)}
+
+				{showDelivery && (
+					<div className="space-y-1.5" data-testid="alert-destinations">
+						{/* Whether apprise-api can be reached decides whether any of these
+						    destinations can be delivered to, so the probe sits with the
+						    list it qualifies and stays out of the collapsed manual block
+						    that holds the address itself. */}
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<p className="text-sm font-medium text-(--text-secondary)">
+								{t("settings.alerts.destinations.title")}
 							</p>
 							{apiUrl !== "" && (
 								<div
@@ -295,26 +446,41 @@ export function AlertsSettings({
 									data-testid="alert-status"
 								>
 									{statusQuery.isFetching ? (
-										<span className="inline-flex items-center gap-1.5 text-gray-400">
+										<span className="inline-flex items-center gap-1.5 text-(--text-muted)">
 											<RefreshCw size={12} className="animate-spin" />
 											{t("settings.alerts.status.checking")}
 										</span>
 									) : statusQuery.isError ? (
-										<span className="inline-flex items-center gap-1.5 text-gray-300">
+										<span className="inline-flex items-center gap-1.5 text-(--text-secondary)">
 											<span
-												className="inline-block w-2 h-2 rounded-full bg-red-500"
+												className="inline-block w-2 h-2 rounded-full"
+												style={{ background: "var(--error-text)" }}
 												aria-hidden="true"
 											/>
 											{t("settings.alerts.status.checkFailed")}
 										</span>
 									) : status ? (
-										<span className="inline-flex items-center gap-1.5 text-gray-300">
+										<>
 											<span
-												className={`inline-block w-2 h-2 rounded-full ${statusDot}`}
-												aria-hidden="true"
-											/>
-											{statusText}
-										</span>
+												className="inline-flex items-center gap-1.5 text-(--text-secondary)"
+												title={status.detail}
+											>
+												<span
+													className="inline-block w-2 h-2 rounded-full"
+													style={{ background: statusDotColor }}
+													aria-hidden="true"
+												/>
+												{statusText}
+											</span>
+											{statusReason !== "" && (
+												<span
+													className="text-(--text-secondary)"
+													data-testid="alert-status-note"
+												>
+													{statusReason}
+												</span>
+											)}
+										</>
 									) : null}
 									<button
 										type="button"
@@ -328,81 +494,213 @@ export function AlertsSettings({
 								</div>
 							)}
 						</div>
+						<p className="text-xs text-(--text-muted)">
+							{t("settings.alerts.destinations.note")}
+						</p>
+						{/* An unreadable stored list has already been explained by the
+						    callout above; rendering an empty list here on top of it would
+						    read as "nothing is configured" instead of "cannot be read". */}
+						{targetsError === "" && (
+							<DestinationList
+								targets={targets}
+								onRemove={removeDestination}
+								onTest={(url) => rowTestMutation.mutate(url)}
+								busy={busy}
+								disabledReason={
+									targetsDirty
+										? t("settings.alerts.destinations.dirty")
+										: undefined
+								}
+							/>
+						)}
+					</div>
+				)}
 
-						{/* Apprise target (encrypted secret) */}
-						<div className="space-y-1.5">
-							<label
-								htmlFor="alert-target"
-								className="text-sm font-medium text-gray-300"
+				{/* Exactly one guided entry point, chosen by whether anything is
+				    stored. It sits inside the toggle like everything else that
+				    delivers: a switched-off card shows the toggle alone, so the way
+				    in is the same on every visit (switch on, then set up). A
+				    managed member is the exception, see showDelivery. */}
+				{showDelivery && (
+					<div className="flex flex-wrap items-center gap-3">
+						{targets.length === 0 ? (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="alert-wizard-open"
+								title={wizardBlocked}
+								disabled={busy || wizardBlocked !== undefined}
+								onClick={() => setWizardStart(1)}
 							>
-								{t("settings.alerts.target")}
-							</label>
-							<div className="flex items-center gap-2">
+								{t("settings.alerts.wizard.open")}
+							</button>
+						) : (
+							<button
+								type="button"
+								className="ui-btn ui-btn-primary"
+								data-testid="alert-wizard-add"
+								title={wizardBlocked}
+								disabled={busy || wizardBlocked !== undefined}
+								onClick={() => setWizardStart(2)}
+							>
+								{t("settings.alerts.wizard.addDestination")}
+							</button>
+						)}
+						{/* Nothing to probe yet, so the status line above the list has
+					    nothing to say. The hint takes its place and names both ways in:
+					    it points at the manual block, so it waits until that block is
+					    on screen. */}
+						{showDelivery && apiUrl === "" && (
+							<p
+								className="text-xs text-(--text-muted)"
+								data-testid="alert-status-hint"
+							>
+								{t("settings.alerts.statusNotConfiguredHint")}
+							</p>
+						)}
+					</div>
+				)}
+
+				{/* Everything the guided run writes for you, kept reachable for the
+				    operator who would rather type the Apprise URL themselves. */}
+				{showDelivery && (
+					<details data-testid="alert-manual">
+						<summary className="text-sm font-medium text-(--text-secondary)">
+							{t("settings.alerts.manualTitle")}
+						</summary>
+						<div className="space-y-5 mt-3">
+							{/* apprise-api base URL */}
+							<div className="space-y-1.5">
+								<label
+									htmlFor="alert-api-url"
+									className="text-sm font-medium text-(--text-secondary)"
+								>
+									{t("settings.alerts.apiUrl")}
+								</label>
 								<input
-									id="alert-target"
+									id="alert-api-url"
 									type="text"
-									value={targetDraft}
-									placeholder={
-										targetConfigured
-											? t("settings.alerts.targetConfigured")
-											: "tgram://{bot_token}/{chat_id}"
-									}
+									value={apiUrlDraft ?? apiUrl}
+									placeholder="http://apprise:8000"
 									spellCheck={false}
 									autoComplete="off"
-									onChange={(e) => setTargetDraft(e.target.value)}
-									onBlur={commitTarget}
+									onChange={(e) => setApiUrlDraft(e.target.value)}
+									onBlur={commitApiUrl}
 									onKeyDown={(e) => {
 										if (e.key === "Enter") e.currentTarget.blur();
 									}}
-									className="ui-input text-sm w-full font-mono"
-									data-testid="alert-target-input"
+									className="ui-input text-sm w-full"
+									data-testid="alert-api-url-input"
 								/>
-								{targetConfigured && (
-									<button
-										type="button"
-										className="ui-link-accent text-xs whitespace-nowrap"
-										onClick={clearTarget}
-										data-testid="alert-target-clear"
-									>
-										{t("settings.alerts.clear")}
-									</button>
+								<p className="text-(--text-muted) text-xs">
+									{t("settings.alerts.apiUrlDescription")}
+								</p>
+							</div>
+
+							{/* Apprise target (encrypted secret) */}
+							<div className="space-y-1.5">
+								<label
+									htmlFor="alert-target"
+									className="text-sm font-medium text-(--text-secondary)"
+								>
+									{t("settings.alerts.target")}
+								</label>
+								<div className="flex items-center gap-2">
+									<input
+										id="alert-target"
+										type="text"
+										value={targetDraft ?? storedTargets}
+										placeholder={
+											targetConfigured
+												? t("settings.alerts.targetConfigured")
+												: "tgram://{bot_token}/{chat_id}"
+										}
+										spellCheck={false}
+										autoComplete="off"
+										onChange={(e) => setTargetDraft(e.target.value)}
+										onBlur={commitTarget}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") e.currentTarget.blur();
+										}}
+										className="ui-input text-sm w-full font-mono"
+										data-testid="alert-target-input"
+									/>
+									{targetConfigured && (
+										<button
+											type="button"
+											className="ui-link-accent text-xs whitespace-nowrap"
+											onClick={clearTarget}
+											data-testid="alert-target-clear"
+										>
+											{t("settings.alerts.clear")}
+										</button>
+									)}
+								</div>
+								<p className="text-(--text-muted) text-xs">
+									{/* The ';' separator is rendered as a code token (same effect as
+								    pg_dump in DB settings) so it doesn't read as ' ; ' literal. */}
+									<Trans
+										i18nKey="settings.alerts.targetDescription"
+										components={{
+											code: (
+												<code className="font-mono text-(--text-primary)" />
+											),
+										}}
+									/>
+								</p>
+							</div>
+
+							{/* Test button + inline hint (beside, not below, to save a row) */}
+							<div className="flex items-center gap-3">
+								<button
+									type="button"
+									className="ui-btn ui-btn-secondary shrink-0"
+									disabled={!canTest || testMutation.isPending}
+									onClick={() => testMutation.mutate()}
+									data-testid="alert-test-button"
+								>
+									{testMutation.isPending
+										? t("settings.alerts.testSending")
+										: t("settings.alerts.testButton")}
+								</button>
+								{!canTest && (
+									<p className="text-(--text-muted) text-xs">
+										{t("settings.alerts.testHint")}
+									</p>
 								)}
 							</div>
-							<p className="text-gray-500 text-xs">
-								{/* The ';' separator is rendered as a code token (same effect as
-								    pg_dump in DB settings) so it doesn't read as ' ; ' literal. */}
-								<Trans
-									i18nKey="settings.alerts.targetDescription"
-									components={{
-										code: <code className="font-mono text-(--text-primary)" />,
-									}}
-								/>
-							</p>
-						</div>
 
-						{/* Test button + inline hint (beside, not below, to save a row) */}
-						<div className="flex items-center gap-3">
-							<button
-								type="button"
-								className="ui-btn ui-btn-secondary shrink-0"
-								disabled={!canTest || testMutation.isPending}
-								onClick={() => testMutation.mutate()}
-								data-testid="alert-test-button"
-							>
-								{testMutation.isPending
-									? t("settings.alerts.testSending")
-									: t("settings.alerts.testButton")}
-							</button>
-							{!canTest && (
-								<p className="text-gray-500 text-xs">
-									{t("settings.alerts.testHint")}
-								</p>
-							)}
+							{/* Service example snippets */}
+							<AlertSnippets />
 						</div>
+					</details>
+				)}
 
-						{/* Service example snippets */}
-						<AlertSnippets />
-					</>
+				{wizardStart !== null && (
+					<AlertsWizard
+						initialApiUrl={apiUrl}
+						savedTargets={targets}
+						// An absent alert_events row is "nothing has been decided yet",
+						// which the wizard answers with the recommended preset; a stored
+						// blank is every event deliberately switched off.
+						savedEvents={
+							settings?.alert_events === undefined
+								? null
+								: settings.alert_events
+						}
+						catalog={eventsQuery.data ?? []}
+						startAt={wizardStart}
+						managed={managed}
+						onClose={() => setWizardStart(null)}
+						onFinished={() => {
+							setWizardStart(null);
+							// The run wrote settings behind this card's back, so both its
+							// own copy and the reads derived from it are stale.
+							queryClient.invalidateQueries({ queryKey: ["settings"] });
+							invalidateAlertReads(queryClient);
+							toast(t("settings.common.settingsSaved"), "success");
+						}}
+					/>
 				)}
 			</div>
 		</SettingsSection>

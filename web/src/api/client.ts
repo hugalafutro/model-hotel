@@ -1,6 +1,7 @@
 import type {
 	AlertEventDef,
 	AlertStatus,
+	AlertTargets,
 	AppLogsCursorResponse,
 	AuditListResponse,
 	AuthSession,
@@ -68,13 +69,18 @@ export const API_BASE = "";
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. a 429
 // throttle vs a 401 on the login screen). instanceof Error stays true and the
-// message is unchanged, so existing catch blocks keep working.
+// message is unchanged, so existing catch blocks keep working. `code` is a
+// stable machine-readable failure code parsed from a JSON `{code, error}`
+// error body (see fetchOK below); absent for endpoints that don't send one or
+// for a plain-text error body.
 export class ApiError extends Error {
 	readonly status: number;
-	constructor(message: string, status: number) {
+	readonly code?: string;
+	constructor(message: string, status: number, code?: string) {
 		super(message);
 		this.name = "ApiError";
 		this.status = status;
+		this.code = code;
 	}
 }
 
@@ -113,10 +119,24 @@ async function fetchOK(
 		// to the login screen).
 		if (response.status === 401) clearAuth();
 		const text = await response.text();
-		throw new ApiError(
-			`${errorPrefix}: ${response.status} ${text}`,
-			response.status,
-		);
+		// A coded error body ({code, error}, e.g. from writeCodedError) lets the
+		// caller branch on `code` instead of matching English text; anything else
+		// (plain text, or JSON without a string `code`) falls back to the
+		// unchanged bare-text message.
+		let code: string | undefined;
+		let message = `${errorPrefix}: ${response.status} ${text}`;
+		if (text.startsWith("{")) {
+			try {
+				const body = JSON.parse(text) as { code?: string; error?: string };
+				if (typeof body.code === "string") {
+					code = body.code;
+					message = `${errorPrefix}: ${response.status} ${body.error ?? text}`;
+				}
+			} catch {
+				// Not valid JSON despite the leading brace; keep the raw-text message.
+			}
+		}
+		throw new ApiError(message, response.status, code);
 	}
 	return response;
 }
@@ -898,10 +918,24 @@ export const api = {
 				"Failed to fetch alert events",
 			);
 		},
-		test: async (): Promise<{ ok: boolean }> => {
+		// With no body, tests the saved configuration (the card's Send test) and
+		// sends no request body at all, so no Content-Type header rides along
+		// either. The setup wizard passes an explicit {api_url, targets} to test
+		// values before either is saved; either field may be omitted to fall back
+		// to the saved one.
+		test: async (body?: {
+			api_url?: string;
+			targets?: string[];
+		}): Promise<{ ok: boolean }> => {
+			const headers = getAuthHeaders();
+			if (!body) delete headers["Content-Type"];
 			return fetchJSON<{ ok: boolean }>(
 				`${API_BASE}/api/alert/test`,
-				{ method: "POST", headers: getAuthHeaders() },
+				{
+					method: "POST",
+					headers,
+					...(body ? { body: JSON.stringify(body) } : {}),
+				},
 				"Test notification failed",
 			);
 		},
@@ -910,6 +944,27 @@ export const api = {
 				`${API_BASE}/api/alert/status`,
 				{ headers: getAuthHeaders() },
 				"Failed to fetch alert status",
+			);
+		},
+		// Checks the reachability of an apprise-api URL the operator typed but has
+		// not saved yet; the setup wizard gates its first step on this.
+		probe: async (apiUrl: string): Promise<AlertStatus> => {
+			return fetchJSON<AlertStatus>(
+				`${API_BASE}/api/alert/probe`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ api_url: apiUrl }),
+				},
+				"Failed to probe alert URL",
+			);
+		},
+		// The saved destinations, decrypted for the admin UI's readable list.
+		targets: async (): Promise<AlertTargets> => {
+			return fetchJSON<AlertTargets>(
+				`${API_BASE}/api/alert/targets`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch alert targets",
 			);
 		},
 	},

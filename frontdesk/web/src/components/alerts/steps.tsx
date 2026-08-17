@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import {
 	type Dispatch,
+	Fragment,
 	type ReactNode,
 	useEffect,
 	useMemo,
@@ -240,54 +241,56 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 			<p className="fd-faint fd-step-intro">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
-				<Field
-					key={f.key}
-					def={f}
-					label={t(`${K}.field.${f.key}`)}
-					value={value(f.key)}
-					onChange={(v) => set(f.key, v)}
-				>
-					{kind === "ntfy" && f.key === "topic" && (
-						<button
-							type="button"
-							className="ui-btn"
-							data-testid="wiz-generate-topic"
-							onClick={() => set("topic", generateTopic())}
-						>
-							{t(`${K}.generate`)}
-						</button>
+				<Fragment key={f.key}>
+					<Field
+						def={f}
+						label={t(`${K}.field.${f.key}`)}
+						value={value(f.key)}
+						onChange={(v) => set(f.key, v)}
+					>
+						{kind === "ntfy" && f.key === "topic" && (
+							<button
+								type="button"
+								className="ui-btn"
+								data-testid="wiz-generate-topic"
+								onClick={() => set("topic", generateTopic())}
+							>
+								{t(`${K}.generate`)}
+							</button>
+						)}
+					</Field>
+					{/* The hint belongs under the field it talks about. Nothing here
+					    checks that the ntfy server answers: Front Desk serves
+					    `connect-src 'self'`, so a fetch at the operator's own server is
+					    blocked before it leaves the page and could only ever report
+					    failure. Step 4 sends from Front Desk, which is the side that has
+					    to reach the server anyway. */}
+					{kind === "ntfy" && f.key === "server" && (
+						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
+							{t(`${K}.ntfyServerHint`)}
+						</p>
 					)}
-				</Field>
+				</Fragment>
 			))}
 
-			{/* Nothing here checks that the ntfy server answers: Front Desk serves
-			    `connect-src 'self'`, so a fetch at the operator's own server is
-			    blocked before it leaves the page and could only ever report
-			    failure. Step 4 sends from Front Desk, which is the side that has
-			    to reach the server anyway. */}
 			{kind === "ntfy" && (
-				<>
+				<div className="fd-stack" style={{ gap: "0.3rem" }}>
 					<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
-						{t(`${K}.ntfyServerHint`)}
+						{t(`${K}.ntfySubscribe`)}
 					</p>
-					<div className="fd-stack" style={{ gap: "0.3rem" }}>
-						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>
-							{t(`${K}.ntfySubscribe`)}
-						</p>
-						<CopyRow
-							testId="wiz-copy-server"
-							label={t(`${K}.field.server`)}
-							value={value("server")}
-							t={t}
-						/>
-						<CopyRow
-							testId="wiz-copy-topic"
-							label={t(`${K}.field.topic`)}
-							value={value("topic")}
-							t={t}
-						/>
-					</div>
-				</>
+					<CopyRow
+						testId="wiz-copy-server"
+						label={t(`${K}.field.server`)}
+						value={value("server")}
+						t={t}
+					/>
+					<CopyRow
+						testId="wiz-copy-topic"
+						label={t(`${K}.field.topic`)}
+						value={value("topic")}
+						t={t}
+					/>
+				</div>
 			)}
 
 			{kind === "bellhop" && (
@@ -627,11 +630,13 @@ export function StepFinish({
 			<Summary
 				label={t("settings.alerts.apiUrlLabel")}
 				value={state.apiUrl.trim()}
+				address
 			/>
 			<Summary
 				label={t("settings.alerts.destinationsTitle")}
 				value={targets.join("; ")}
 				testId="wiz-summary-targets"
+				address
 			/>
 			<Summary
 				label={t("settings.alerts.eventsLabel")}
@@ -675,22 +680,30 @@ function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
 }
 
 // One labelled line of the closing summary: what is about to be written, in the
-// operator's own words rather than as the settings keys it becomes.
+// operator's own words rather than as the settings keys it becomes. An address
+// may break anywhere (it has no word boundaries worth keeping); a list of event
+// names wraps between words like any other sentence.
 function Summary({
 	label,
 	value,
 	testId,
+	address,
 }: {
 	label: string;
 	value: string;
 	testId?: string;
+	address?: boolean;
 }) {
 	return (
 		<div className="ui-field">
 			<span className="ui-label">{label}</span>
 			<span
 				data-testid={testId}
-				style={{ fontSize: "0.85rem", wordBreak: "break-all" }}
+				style={{
+					fontSize: "0.85rem",
+					wordBreak: address ? "break-all" : "normal",
+					overflowWrap: "anywhere",
+				}}
 			>
 				{value}
 			</span>

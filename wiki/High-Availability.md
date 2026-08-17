@@ -532,9 +532,10 @@ Saved destinations then sit on the card as a plaintext, admin-only
 the card's guided button becomes **Add destination**, which appends another through the same wizard from step 2. The card carries only one of the two buttons at a time. The individual
 fields stay under **Manual configuration (advanced)** for anything the wizard
 does not cover. Targets are encrypted at rest with `FRONTDESK_MASTER_KEY`. This
-is the same `apprise-api` the main gateway uses, so one container can serve both;
-the main dashboard's own Alerts card keeps its manual fields until the same
-wizard reaches it.
+is the same `apprise-api` image the main gateway uses, and the main dashboard
+runs the same wizard over its own card (without the Bellhop tile: Bellhop
+notifies from Front Desk's fleet poll, so the gateway's events never reach it).
+Each surface needs a container it can reach on its own network.
 
 <p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Add destination button a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
 

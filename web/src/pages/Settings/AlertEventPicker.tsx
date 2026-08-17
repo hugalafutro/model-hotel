@@ -1,16 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckSquare, Square } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { AlertEventDef } from "../../api/types";
 
+// The severity dot's colour, as the theme's own text tokens rather than a
+// fixed palette: the three UI styles each define these, so the dot follows the
+// style the operator is in. "info" has no token of its own and is the quiet
+// end of the scale, so it borrows the muted text colour.
 const SEVERITY_DOT: Record<string, string> = {
-	success: "bg-green-500",
-	info: "bg-sky-500",
-	warning: "bg-amber-500",
-	error: "bg-red-500",
+	success: "var(--success-text)",
+	info: "var(--text-muted)",
+	warning: "var(--warning-text)",
+	error: "var(--error-text)",
 };
+
+// eventLabel names one catalog event. The dots in an event type are not legal
+// in a translation key, so they become underscores; an event the locale does
+// not name yet reads as its own type rather than as a missing key.
+// eslint-disable-next-line react-refresh/only-export-components
+export function eventLabel(t: TFunction, type: string): string {
+	return t(`settings.alerts.event.${type.replace(/\./g, "_")}`, {
+		defaultValue: type,
+	});
+}
 
 interface AlertEventPickerProps {
 	/** Current alert_events value (CSV); undefined when the key is unset (first run). */
@@ -96,7 +111,7 @@ export function AlertEventPicker({
 				return (
 					<div key={category} className="space-y-1.5">
 						<div className="flex items-center justify-between">
-							<span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+							<span className="text-xs font-semibold uppercase tracking-wide text-(--text-muted)">
 								{category}
 							</span>
 							{/* Select-all/none — same icon affordance as the Failover page.
@@ -124,10 +139,7 @@ export function AlertEventPicker({
 							)}
 						</div>
 						{items.map((e) => {
-							const label = t(
-								`settings.alerts.event.${e.type.replace(/\./g, "_")}`,
-								{ defaultValue: e.type },
-							);
+							const label = eventLabel(t, e.type);
 							return (
 								<label
 									key={e.type}
@@ -139,14 +151,18 @@ export function AlertEventPicker({
 										checked={selected.has(e.type)}
 										disabled={disabled}
 										onChange={() => toggle(e.type)}
-										className="rounded border-gray-600 text-(--accent) focus:ring-(--accent) shrink-0"
+										className="rounded border-(--border-default) text-(--accent) focus:ring-(--accent) shrink-0"
 										aria-label={label}
 									/>
 									<span
-										className={`inline-block w-2 h-2 rounded-full ${SEVERITY_DOT[e.severity] ?? "bg-gray-500"}`}
+										className="inline-block w-2 h-2 rounded-full shrink-0"
+										style={{
+											background:
+												SEVERITY_DOT[e.severity] ?? "var(--text-muted)",
+										}}
 										aria-hidden="true"
 									/>
-									<span className="text-gray-300">{label}</span>
+									<span className="text-(--text-secondary)">{label}</span>
 								</label>
 							);
 						})}
