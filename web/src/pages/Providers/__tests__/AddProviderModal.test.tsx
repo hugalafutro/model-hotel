@@ -351,6 +351,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -396,6 +397,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -438,6 +440,7 @@ describe("AddProviderModal", () => {
 										id: "provider-new",
 										name: "New Provider",
 										base_url: "https://api.example.com/v1",
+										provider_type: "custom",
 										masked_key: "sk_test_••••••••",
 										enabled: true,
 										last_discovered_at: null,
@@ -481,6 +484,7 @@ describe("AddProviderModal", () => {
 										id: "provider-new",
 										name: "New Provider",
 										base_url: "https://api.example.com/v1",
+										provider_type: "custom",
 										masked_key: "sk_test_••••••••",
 										enabled: true,
 										last_discovered_at: null,
@@ -673,6 +677,7 @@ describe("AddProviderModal", () => {
 							id: "provider-new",
 							name: "New Provider",
 							base_url: "https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -740,6 +745,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -791,6 +797,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -842,6 +849,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -895,6 +903,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.example.com/v1",
+							provider_type: "custom",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -951,6 +960,7 @@ describe("AddProviderModal", () => {
 				{
 					name: "OpenAI",
 					base_url: "https://api.openai.com/v1",
+					provider_type: "openai",
 					id: "p1",
 					masked_key: "sk_••••",
 					enabled: true,
@@ -977,6 +987,7 @@ describe("AddProviderModal", () => {
 				{
 					name: "OpenAI",
 					base_url: "https://api.openai.com/v1",
+					provider_type: "openai",
 					id: "p1",
 					masked_key: "sk_••••",
 					enabled: true,
@@ -992,6 +1003,7 @@ describe("AddProviderModal", () => {
 				{
 					name: "OpenAI 2",
 					base_url: "https://api.openai.com/v1",
+					provider_type: "openai",
 					id: "p2",
 					masked_key: "sk_••••",
 					enabled: true,
@@ -1042,40 +1054,34 @@ describe("AddProviderModal", () => {
 	});
 
 	describe("local provider types (ollama, lmstudio, koboldcpp)", () => {
-		it("has editable base URL for ollama type", async () => {
+		// Nothing is pre-filled for a self-hosted server: only the operator knows
+		// whether it runs on this machine or another one, and a containerised
+		// Model Hotel cannot reach its own localhost. The field offers an
+		// example address instead.
+		it.each(["ollama", "lmstudio", "koboldcpp"])(
+			"leaves the base URL empty and editable for %s, with an example address",
+			async (type) => {
+				const { user } = renderWithProviders(
+					<AddProviderModal {...defaultProps} />,
+				);
+				await selectType(user, type);
+				const baseUrlInput = screen.getByLabelText("Base URL");
+				expect(baseUrlInput).toHaveValue("");
+				expect(baseUrlInput).not.toHaveAttribute("readonly");
+				const placeholder = baseUrlInput.getAttribute("placeholder") ?? "";
+				expect(placeholder).not.toContain("localhost");
+				expect(placeholder).toMatch(/^http:\/\/\d/);
+			},
+		);
+
+		it("tells the operator the address is checked before saving", async () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
 			await selectType(user, "ollama");
-			const baseUrlInput = screen.getByLabelText("Base URL");
-			// Should have default value
-			expect(baseUrlInput).toHaveValue("http://localhost:11434");
-			// Should NOT be readonly
-			expect(baseUrlInput).not.toHaveAttribute("readonly");
-			// Should show helper text
 			expect(
-				screen.getByText(/Default URL pre-filled; edit if your server/),
+				screen.getByText(/address your server listens on, any port/),
 			).toBeInTheDocument();
-		});
-
-		it("has editable base URL for lmstudio type", async () => {
-			const { user } = renderWithProviders(
-				<AddProviderModal {...defaultProps} />,
-			);
-			await selectType(user, "lmstudio");
-			const baseUrlInput = screen.getByLabelText("Base URL");
-			expect(baseUrlInput).toHaveValue("http://localhost:1234/v1");
-			expect(baseUrlInput).not.toHaveAttribute("readonly");
-		});
-
-		it("has editable base URL for koboldcpp type", async () => {
-			const { user } = renderWithProviders(
-				<AddProviderModal {...defaultProps} />,
-			);
-			await selectType(user, "koboldcpp");
-			const baseUrlInput = screen.getByLabelText("Base URL");
-			expect(baseUrlInput).toHaveValue("http://localhost:5001/v1");
-			expect(baseUrlInput).not.toHaveAttribute("readonly");
 		});
 	});
 
@@ -1138,6 +1144,110 @@ describe("AddProviderModal", () => {
 		});
 	});
 
+	describe("provider type", () => {
+		it("sends the chosen type so the server does not have to guess it", async () => {
+			let sentType: string | undefined;
+			server.use(
+				http.post("/api/providers", async ({ request }) => {
+					const body = (await request.json()) as { provider_type?: string };
+					sentType = body.provider_type;
+					return HttpResponse.json(
+						{
+							id: "provider-new",
+							name: "LM Studio",
+							base_url: "http://192.168.1.163:11234/v1",
+							provider_type: "lmstudio",
+							masked_key: "N/A",
+							enabled: true,
+							last_discovered_at: null,
+							last_used_at: null,
+							created_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+							model_count: 0,
+							total_tokens: 0,
+						},
+						{ status: 201 },
+					);
+				}),
+			);
+			const { user } = renderWithProviders(
+				<AddProviderModal
+					{...defaultProps}
+					settings={{ discovery_on_provider_create: "false" }}
+				/>,
+			);
+			await selectType(user, "lmstudio");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			await user.clear(baseUrlInput);
+			// A port the old heuristics knew nothing about.
+			await user.type(baseUrlInput, "http://192.168.1.163:11234/v1");
+			await user.click(screen.getByRole("button", { name: "Add Provider" }));
+
+			await waitFor(() => {
+				expect(sentType).toBe("lmstudio");
+			});
+		});
+
+		it("names the server that answered when it is not the chosen type", async () => {
+			server.use(
+				http.post("/api/providers", () =>
+					HttpResponse.json(
+						{
+							code: "provider_type_mismatch",
+							error:
+								"the server at this address reports koboldcpp, not lmstudio",
+							expected: "lmstudio",
+							detected: "koboldcpp",
+							detected_version: "1.119",
+						},
+						{ status: 400 },
+					),
+				),
+			);
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await selectType(user, "lmstudio");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			await user.clear(baseUrlInput);
+			await user.type(baseUrlInput, "http://192.168.1.163:5001/v1");
+			await user.click(screen.getByRole("button", { name: "Add Provider" }));
+
+			const banner = await screen.findByTestId("add-provider-error");
+			// The message must identify the real server and its version, not
+			// echo an HTTP status back at the operator.
+			expect(banner.textContent).toContain("KoboldCPP");
+			expect(banner.textContent).toContain("1.119");
+			expect(banner.textContent).toContain("LM Studio");
+			expect(banner.textContent).not.toContain("400");
+		});
+
+		it("explains an address nothing answers on", async () => {
+			server.use(
+				http.post("/api/providers", () =>
+					HttpResponse.json(
+						{
+							code: "provider_unreachable",
+							error: "could not reach a server at this address",
+							expected: "ollama",
+						},
+						{ status: 400 },
+					),
+				),
+			);
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await selectType(user, "ollama");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			await user.type(baseUrlInput, "http://192.168.1.50:11434");
+			await user.click(screen.getByRole("button", { name: "Add Provider" }));
+
+			const banner = await screen.findByTestId("add-provider-error");
+			expect(banner.textContent).toContain("Could not reach");
+		});
+	});
+
 	describe("quota/balance detection", () => {
 		it("shows NanoGPT quota detected toast", async () => {
 			const nanogptUsage = {
@@ -1154,6 +1264,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://nano-gpt.com/api/subscription/v1",
+							provider_type: "nanogpt",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1205,6 +1316,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.z.ai/api/coding/paas/v4",
+							provider_type: "zai-coding",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1259,6 +1371,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.kimi.com/coding/v1",
+							provider_type: "kimi-code",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1316,6 +1429,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.minimax.io/v1",
+							provider_type: "minimax",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1380,6 +1494,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.deepseek.com/v1",
+							provider_type: "deepseek",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1436,6 +1551,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://api.deepseek.com/v1",
+							provider_type: "deepseek",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1492,6 +1608,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://openrouter.ai/api/v1",
+							provider_type: "openrouter",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,
@@ -1546,6 +1663,7 @@ describe("AddProviderModal", () => {
 							base_url:
 								(body as { base_url?: string }).base_url ??
 								"https://ollama.com/v1",
+							provider_type: "ollama-cloud",
 							masked_key: "sk_test_••••••••",
 							enabled: true,
 							last_discovered_at: null,

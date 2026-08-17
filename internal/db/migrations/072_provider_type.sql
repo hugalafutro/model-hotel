@@ -1,0 +1,11 @@
+-- provider_type records which vendor/API family a provider speaks, chosen by
+-- the operator when the provider is added. Before this column the type was
+-- re-derived from the base URL on every read, which forced self-hosted servers
+-- (Ollama, LM Studio, KoboldCPP) onto hardcoded ports: the same server on any
+-- other port was treated as a generic OpenAI endpoint and lost its native
+-- discovery, capabilities and keyless handling.
+--
+-- Empty string marks a row whose type has not been resolved yet: rows that
+-- predate this column, and rows arriving from an older dump or fleet export.
+-- The app backfills those once at startup from the legacy URL rules.
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS provider_type TEXT NOT NULL DEFAULT '';

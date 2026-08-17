@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Sağlayıcı Ekle",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modeller",
 		"add": {
+			"typeMismatch": "Bu adresteki sunucu {{expected}} değil {{detected}} olduğunu bildiriyor. Uygun türü seçin veya adresi düzeltin.",
+			"typeMismatchVersion": "Bu adresteki sunucu {{expected}} değil {{detected}} {{version}} olduğunu bildiriyor. Uygun türü seçin veya adresi düzeltin.",
+			"typeUnconfirmed": "Bu adreste hiçbir {{expected}} API'si yanıt vermedi. Adresi ve sunucunun çalıştığını kontrol edin.",
+			"serverUnreachable": "Bu adreste bir sunucuya ulaşılamadı. Adresi ve sunucunun çalıştığını kontrol edin.",
+			"duplicateAddress": "Bu adres zaten \"{{name}}\" tarafından kullanılıyor. Yalnızca farklı bir API anahtarı kullanıyorsa ikinci bir sağlayıcı ekleyin.",
+			"urlRejected": "Model Hotel bu adresi reddetti: {{detail}}. Özel, geri döngü veya başka şekilde ayrılmış bir adresin ALLOWED_PROVIDER_HOSTS içinde listelenmesi gerekir; kapsayıcıda çalışan bir Model Hotel de localhost üzerinden kendi makinenize ulaşamaz: makinenin ağ adresini kullanın.",
+			"duplicateAddressBlocked": "Bu adres için zaten bir sağlayıcı var (\"{{name}}\"). Kendi sunucunuz iki kez eklenemez: ikinci bir sağlayıcı yalnızca aynı modelleri yeniden bulur.",
 			"providerFallback": "Sağlayıcı",
 			"discoveredModels_one": "Keşfedilen {{count}} modeli…",
 			"discoveredModels_other": "Keşfedilen {{count}} modelleri…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "DeepSeek bakiyesi tespit edildi",
 			"openrouterBalance": "OpenRouter bakiyesi tespit edildi: ${{balance}}",
 			"baseUrl": "Ana URL",
-			"baseUrlHelperDefault": "Varsayılan URL önceden girilmiştir; sunucunuz farklı bir adreste çalışıyorsa bunu düzenleyin. Tür, bağlantı noktası numarasından algılanır.",
+			"baseUrlHelperDefault": "Sunucunuzun dinlediği adresi girin, port fark etmez. Model Hotel kaydetmeden önce sunucunun gerçekten seçtiğiniz tür olduğunu doğrular, bu yüzden sunucu çalışıyor olmalıdır.",
 			"baseUrlHelperFull": "Herhangi bir yol önekini de içeren tam API temel URL'si. Modeller \"<base_url>\"/models adresinden bulunacaktır.",
 			"apiKey": "API Anahtarı"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "Parola politikası",
 			"breachCheckLabel": "Sızdırılmış parolaları reddet",
 			"breachCheckDescription": "Yeni hesap parolalarını bilinen sızdırılmış parolaların herkese açık bir veritabanıyla karşılaştırın ve eşleşen her parolayı reddedin. Yalnızca kısa bir karma öneki gönderilir, parolanın kendisi asla gönderilmez.",
-			"breachCheckInfo": "Bu açıkken, ayarlanan veya değiştirilen bir parola SHA-1 ile özetlenir ve bu özetin yalnızca ilk beş karakteri Have I Been Pwned range API'sine gönderilir; API o ön ekin arkasındaki tüm sızmış son ekleri döndürür (sonuç sayısı kaç gerçek eşleşme olduğunu ele vermesin diye sahte kayıtlarla doldurulmuş olarak) ve eşleştirme burada yapılır, böylece ne parola ne de tam özeti bu örnekten dışarı çıkar. Bir kullanıcı parolasının izinin harici bir hizmete ulaştığı tek yer burasıdır: hesap değişikliklerini tamamen çevrimdışı tutmak için denetimi kapatın ya da PWNED_PASSWORD_API_URL'yi kendi barındırdığınız bir yansıya yönlendirin; PWNED_PASSWORD_CHECK_ENABLED=false denetimi tümüyle devre dışı bırakır ve bu anahtarın artık etkisi olmaz. API'ye ulaşılamazsa ya da hata dönerse değişikliğe yine de izin verilir.",
+			"breachCheckInfo": "Bu açıkken, belirlenen parola Have I Been Pwned ile karşılaştırılır. Yalnızca SHA-1 özetinin ilk beş karakteri gönderilir; karşılaştırmanın geri kalanı bu örnek üzerinde yapılır, dolayısıyla parola buradan hiç çıkmaz. Hizmete ulaşılamazsa parola kabul edilir.",
 			"breachCheckInfoLink": "Aralık araması nasıl çalışır (haveibeenpwned.com)"
 		}
 	},

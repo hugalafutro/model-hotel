@@ -735,6 +735,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Ajouter un fournisseur",
@@ -789,6 +790,13 @@
 		"card_models_many": "Modèles {{count}}",
 		"card_models_other": "Modèles {{count}}",
 		"add": {
+			"typeMismatch": "Le serveur à cette adresse s'annonce comme {{detected}}, pas comme {{expected}}. Choisissez le type correspondant ou corrigez l'adresse.",
+			"typeMismatchVersion": "Le serveur à cette adresse s'annonce comme {{detected}} {{version}}, pas comme {{expected}}. Choisissez le type correspondant ou corrigez l'adresse.",
+			"typeUnconfirmed": "Aucune API {{expected}} n'a répondu à cette adresse. Vérifiez l'adresse et que le serveur est démarré.",
+			"serverUnreachable": "Impossible de joindre un serveur à cette adresse. Vérifiez l'adresse et que le serveur est démarré.",
+			"duplicateAddress": "Cette adresse est déjà utilisée par « {{name}} ». N'ajoutez un second fournisseur pour elle que s'il utilise une autre clé d'API.",
+			"urlRejected": "Model Hotel a refusé cette adresse : {{detail}}. Une adresse privée, de loopback ou réservée doit figurer dans ALLOWED_PROVIDER_HOSTS, et un Model Hotel exécuté en conteneur ne peut pas atteindre votre machine via localhost : utilisez l'adresse réseau de la machine.",
+			"duplicateAddressBlocked": "Un fournisseur existe déjà pour cette adresse (« {{name}} »). Un serveur auto-hébergé ne peut pas être ajouté deux fois : un second fournisseur ne ferait que redécouvrir les mêmes modèles.",
 			"providerFallback": "Fournisseur",
 			"discoveredModels_one": "A découvert le modèle {{count}}…",
 			"discoveredModels_many": "Découvert les modèles {{count}}…",
@@ -797,7 +805,7 @@
 			"deepseekBalanceDetected": "Solde DeepSeek détecté",
 			"openrouterBalance": "Solde OpenRouter détecté : ${{balance}}",
 			"baseUrl": "URL de base",
-			"baseUrlHelperDefault": "URL par défaut pré-remplie ; modifier si votre serveur s'exécute sur une adresse différente. Le type est détecté à partir du numéro de port.",
+			"baseUrlHelperDefault": "Saisissez l'adresse sur laquelle votre serveur écoute, quel que soit le port. Model Hotel vérifie avant l'enregistrement que le serveur est bien du type choisi, il doit donc être démarré.",
 			"baseUrlHelperFull": "URL de base de l'API complète, y compris n'importe quel préfixe de chemin. Les modèles seront découverts dans \"<base_url>\"/models",
 			"apiKey": "Clé API"
 		},
@@ -2324,7 +2332,7 @@
 			"title": "Politique de mots de passe",
 			"breachCheckLabel": "Rejeter les mots de passe compromis",
 			"breachCheckDescription": "Vérifiez les mots de passe des nouveaux comptes par rapport à une base de données publique de mots de passe compromis connus et rejetez toute correspondance. Seul un court préfixe d'empreinte est envoyé, jamais le mot de passe lui-même.",
-			"breachCheckInfo": "Tant que ceci est activé, un mot de passe défini ou modifié est haché en SHA-1 et seuls les cinq premiers caractères de ce hachage sont envoyés à l'API de plages de Have I Been Pwned ; l'API renvoie tous les suffixes compromis derrière ce préfixe (complétés par des leurres, pour que le nombre de résultats ne révèle pas combien de correspondances sont réelles) et la comparaison se fait ici, de sorte que ni le mot de passe ni son hachage complet ne quittent jamais cette instance. C'est le seul endroit où une trace du mot de passe d'un utilisateur atteint un service externe : désactivez la vérification pour garder les changements de compte entièrement hors ligne, ou faites pointer PWNED_PASSWORD_API_URL vers un miroir auto-hébergé ; PWNED_PASSWORD_CHECK_ENABLED=false la désactive complètement et cet interrupteur n'a alors plus d'effet. Si l'API est injoignable ou renvoie une erreur, le changement est tout de même accepté.",
+			"breachCheckInfo": "Lorsque cette option est activée, le mot de passe défini est comparé à Have I Been Pwned. Seuls les cinq premiers caractères de son empreinte SHA-1 sont envoyés ; le reste de la comparaison a lieu sur cette instance, si bien que le mot de passe n'en sort jamais. Si le service est injoignable, le mot de passe est accepté.",
 			"breachCheckInfoLink": "Fonctionnement de la recherche par plage (haveibeenpwned.com)"
 		}
 	},

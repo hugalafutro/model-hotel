@@ -28,7 +28,7 @@ The only information recorded is strictly necessary for routing, metering, and d
 | Data | Column | Purpose |
 |------|--------|---------|
 | Timestamp | `created_at` | Request timing and analytics |
-| Model ID | `model_id` | Usage analytics and cost estimation (e.g. `openai/gpt-4o`, `hotel/gpt-4o`) |
+| Model ID | `model_id` | Usage analytics and cost estimation (e.g. `z-ai/glm-4.6`, `hotel/glm-4.6`) |
 | Provider ID | `provider_id` | Routing analysis and failover tracking (set to `NULL` when a provider is deleted) |
 | Virtual key name | `virtual_key_name` | Usage attribution per client |
 | Virtual key ID | `virtual_key_id` | Stable key reference (persists even if key is revoked) |

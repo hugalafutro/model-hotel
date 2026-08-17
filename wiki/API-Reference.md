@@ -65,7 +65,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "hotel/gpt-4o",
+    "model": "hotel/glm-4.6",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -270,6 +270,7 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 {
   "name": "OpenAI",
   "base_url": "https://api.openai.com/v1",
+  "provider_type": "openai",
   "api_key": "sk-..."
 }
 ```
@@ -278,13 +279,24 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 |-------|------|----------|-------------|
 | `name` | string | Yes | 1-100 characters, unique |
 | `base_url` | string | Yes | 1-500 characters, must use HTTPS unless `ALLOW_HTTP_PROVIDERS=true` |
+| `provider_type` | string | No | One of the known types (see [Model Discovery](Model-Discovery#provider-type)). Omitted, it is derived from the vendor hostname |
 | `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, OpenCode Zen, custom) |
+
+**Self-hosted providers must name their type.** Omitting `provider_type` derives it
+from the hostname only, so `http://box:11434` becomes a generic OpenAI-compatible
+provider rather than an Ollama one: no native discovery, no keyless waiver.
+Scripts that used to rely on the old port detection (11434 / 5001 / 1234) need
+`"provider_type": "ollama" | "koboldcpp" | "lmstudio"` added. When a self-hosted
+type is named, the address is probed before the provider is saved and the
+request fails with `provider_type_mismatch`, `provider_type_unconfirmed` or
+`provider_unreachable` if the server does not answer as that type, so the server
+must be running.
 
 **Response:** `201 Created` with provider object
 
 #### PUT `/api/providers/{id}`
 
-**Request Body:** All fields optional for partial update. Accepts `name`, `base_url`, `api_key`, and `enabled` - unlike POST which does not accept `enabled`.
+**Request Body:** All fields optional for partial update. Accepts `name`, `base_url`, `api_key`, and `enabled` - unlike POST which does not accept `enabled`. `provider_type` is fixed at creation and cannot be changed; changing `base_url` on a self-hosted provider re-runs the same probe against the new address.
 
 #### DELETE `/api/providers/{id}`
 
@@ -566,21 +578,21 @@ On error:
   "groups": [
     {
       "id": "uuid",
-      "display_model": "gpt-4o",
-      "display_name": "GPT-4o Failover",
+      "display_model": "glm-4.6",
+      "display_name": "GLM 4.6 Failover",
       "description": "Primary failover group",
       "group_enabled": true,
       "auto_created": false,
       "entries": [
         {
           "model_uuid": "uuid",
-          "model_id": "gpt-4o",
-          "provider_name": "OpenAI",
-          "display_name": "GPT-4o",
+          "model_id": "z-ai/glm-4.6",
+          "provider_name": "OpenRouter",
+          "display_name": "GLM 4.6",
           "enabled": true,
           "model_enabled": true,
           "provider_enabled": true,
-          "context_length": 128000
+          "context_length": 200000
         }
       ],
       "total_tokens": 123456,
@@ -650,7 +662,7 @@ Find which failover group contains a given model UUID.
 ```json
 {
   "id": "uuid",
-  "display_model": "gpt-4o",
+  "display_model": "glm-4.6",
   "position": 1,
   "total_entries": 3
 }

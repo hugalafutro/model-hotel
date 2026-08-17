@@ -31,7 +31,7 @@ Model Hotel has two related but distinct routing concepts: **transparent failove
 ```sql
 CREATE TABLE model_failover_groups (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    display_model   TEXT NOT NULL UNIQUE,        -- Base model name (e.g. "gpt-4o")
+    display_model   TEXT NOT NULL UNIQUE,        -- Base model name (e.g. "glm-4.6")
     display_name    TEXT,                        -- Human-readable label (optional)
     description     TEXT DEFAULT '',             -- Human-readable description
     priority_order  JSONB NOT NULL,              -- [uuid1, uuid2, uuid3] - ordered list of model UUIDs
@@ -64,7 +64,7 @@ CREATE TABLE model_failover_groups (
 CREATE TABLE models (
     id            UUID PRIMARY KEY,
     provider_id   UUID REFERENCES providers(id) ON DELETE CASCADE,
-    model_id      TEXT NOT NULL,              -- Full model ID (e.g. "openai/gpt-4o")
+    model_id      TEXT NOT NULL,              -- Full model ID (e.g. "z-ai/glm-4.6")
     enabled       BOOLEAN DEFAULT true,
     UNIQUE(provider_id, model_id)
 );
@@ -84,7 +84,7 @@ CREATE TABLE providers (
 
 ## Failover Groups
 
-A **failover group** represents one logical model backed by multiple providers. When you request `hotel/gpt-4o`, the proxy looks up the failover group with `display_model = 'gpt-4o'` and tries providers in the configured priority order.
+A **failover group** represents one logical model backed by multiple providers. When you request `hotel/glm-4.6`, the proxy looks up the failover group with `display_model = 'glm-4.6'` and tries providers in the configured priority order.
 
 ### Bulk Provider Management
 
@@ -119,7 +119,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
     // 2. Strip prefixes and group by base name
     baseToModels := make(map[string][]modelInfo)
     for rows.Next() {
-        base := stripPrefix(modelID)  // "openai/gpt-4o" → "gpt-4o"
+        base := stripPrefix(modelID)  // "z-ai/glm-4.6" → "glm-4.6"
         baseToModels[base] = append(...)
     }
 
@@ -143,9 +143,9 @@ Content-Type: application/json
 Authorization: Bearer $ADMIN_TOKEN
 
 {
-  "display_model": "gpt-4o",
-  "display_name": "GPT-4 Omni",
-  "description": "Multi-provider failover for GPT-4o",
+  "display_model": "glm-4.6",
+  "display_name": "GLM 4.6",
+  "description": "Multi-provider failover for GLM 4.6",
   "entry_ids": [
     "uuid-of-openai-gpt4o-model",
     "uuid-of-deepseek-gpt4o-model",
@@ -230,7 +230,7 @@ Authorization: Bearer $ADMIN_TOKEN
 **Cascade Behavior:**
 - Deleting a failover group does NOT delete underlying models or providers
 - Only the failover configuration is removed
-- Direct provider routing (e.g. `openai/gpt-4o`) continues to work
+- Direct provider routing (e.g. `OpenRouter/z-ai/glm-4.6`) continues to work
 
 ---
 
@@ -247,12 +247,12 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "hotel/gpt-4o",
+    "model": "hotel/glm-4.6",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
 
-This resolves to the failover group named `gpt-4o` and tries providers in priority order.
+This resolves to the failover group named `glm-4.6` and tries providers in priority order.
 
 ### Model Name Resolution
 
@@ -262,9 +262,9 @@ Hotel routing matches **exact base names** after stripping organization prefixes
 
 | Request Model | Strips To | Matches Group |
 |---------------|-----------|---------------|
-| `hotel/gpt-4o` | `gpt-4o` | `display_model = 'gpt-4o'` |
+| `hotel/glm-4.6` | `glm-4.6` | `display_model = 'glm-4.6'` |
 | `hotel/llama-3.1-8b` | `llama-3.1-8b` | `display_model = 'llama-3.1-8b'` |
-| `hotel/gpt-4o-mini` | `gpt-4o-mini` | `display_model = 'gpt-4o-mini'` (different group) |
+| `hotel/glm-4.5-air` | `glm-4.5-air` | `display_model = 'glm-4.5-air'` (different group) |
 
 **Base Name Extraction:**
 
@@ -281,7 +281,7 @@ func normalizeBaseModel(modelID string) string {
 
 This handles any org prefix depth (e.g. `zai-org/glm-5.1`, `zai-org/anthracite-org/magnum-v4-72b`) without needing to enumerate known providers. The SQL in `SyncForModel` uses `SUBSTRING(m.model_id FROM '[^/]+$')` to match on the same leaf segment.
 
-Example: `openai/gpt-4o`, `deepseek/gpt-4o`, and `zai-org/gpt-4o` all map to the same failover group `gpt-4o`.
+Example: `z-ai/glm-4.6`, `zai-org/glm-4.6`, and `glm-4.6` all map to the same failover group `glm-4.6`.
 
 ### Resolution Logic
 
@@ -374,7 +374,7 @@ The diagram below focuses on the streaming safeguards - the **TTFT probe** that 
 
 Failover is **sequential** - providers are tried one at a time, in order:
 
-1. Client requests a model (e.g. `hotel/gpt-4o` or `openai/gpt-4o`)
+1. Client requests a model (e.g. `hotel/glm-4.6` or `OpenRouter/z-ai/glm-4.6`)
 2. The proxy resolves a list of candidate providers
 3. The first candidate is tried
 4. If the upstream returns a retriable error, the proxy moves to the next candidate
@@ -487,7 +487,7 @@ Once streaming begins, a **stall watchdog** monitors for silence in the SSE stre
 
 #### resolved_model_id
 
-The `resolved_model_id` field in request logs records the actual upstream model ID used (e.g. `openai/gpt-4o`), which may differ from the requested `hotel/` name (e.g. `hotel/gpt-4o`). For non-hotel requests where the requested and resolved model are the same, this field is NULL.
+The `resolved_model_id` field in request logs records the actual upstream model ID used (e.g. `z-ai/glm-4.6`), which may differ from the requested `hotel/` name (e.g. `hotel/glm-4.6`). For non-hotel requests where the requested and resolved model are the same, this field is NULL.
 
 ### Failover Attempt Logging
 
@@ -709,35 +709,35 @@ Returns all failover groups with their entries and configuration.
   "groups": [
     {
       "id": "uuid-of-group",
-      "display_model": "gpt-4o",
-      "display_name": "GPT-4 Omni",
+      "display_model": "glm-4.6",
+      "display_name": "GLM 4.6",
       "description": "Multi-provider failover",
       "group_enabled": true,
       "auto_created": true,
       "entries": [
         {
           "model_uuid": "uuid-1",
-          "model_id": "openai/gpt-4o",
+          "model_id": "z-ai/glm-4.6",
           "provider_id": "uuid-prov-1",
-          "provider_name": "OpenAI",
-          "display_name": "GPT-4o",
+          "provider_name": "OpenRouter",
+          "display_name": "GLM 4.6",
           "enabled": true,
           "model_enabled": true,
           "provider_enabled": true,
-          "context_length": 128000,
-          "owned_by": "openai"
+          "context_length": 200000,
+          "owned_by": "z-ai"
         },
         {
           "model_uuid": "uuid-2",
-          "model_id": "deepseek/gpt-4o",
+          "model_id": "zai-org/glm-4.6",
           "provider_id": "uuid-prov-2",
-          "provider_name": "DeepSeek",
-          "display_name": "GPT-4o",
+          "provider_name": "NanoGPT",
+          "display_name": "GLM 4.6",
           "enabled": false,
           "model_enabled": true,
           "provider_enabled": true,
-          "context_length": 64000,
-          "owned_by": "deepseek"
+          "context_length": 200000,
+          "owned_by": "zai-org"
         }
       ],
       "total_tokens": 1234567,
@@ -837,7 +837,7 @@ Manually trigger failover group synchronization with current model discovery sta
 {
   "deleted_groups": [
     {
-      "display_model": "gpt-4o-mini",
+      "display_model": "glm-4.5-air",
       "reason": "only 1 enabled provider (need 2+ for failover)",
       "provider_count": 1,
       "provider_names": ["OpenAI"]
@@ -861,7 +861,7 @@ Returns brief info about the failover group containing a specific model UUID.
 ```json
 {
   "id": "uuid-of-group",
-  "display_model": "gpt-4o",
+  "display_model": "glm-4.6",
   "position": 2,
   "total_entries": 3
 }
@@ -881,10 +881,10 @@ Returns all enabled models that can be added to failover groups.
 [
   {
     "model_uuid": "uuid-1",
-    "model_id": "openai/gpt-4o",
+    "model_id": "z-ai/glm-4.6",
     "provider_id": "uuid-prov-1",
-    "provider_name": "OpenAI",
-    "display_name": "GPT-4o",
+    "provider_name": "OpenRouter",
+    "display_name": "GLM 4.6",
     "context_length": 128000,
     "owned_by": "openai"
   }
@@ -895,9 +895,9 @@ Returns all enabled models that can be added to failover groups.
 
 ## Request Flow Sequence
 
-### Complete Request Flow: `hotel/gpt-4o`
+### Complete Request Flow: `hotel/glm-4.6`
 
-![Complete Request Flow: hotel/gpt-4o](screenshots/complete-request-flow.svg)
+![Complete Request Flow: hotel/glm-4.6](screenshots/complete-request-flow.svg)
 
 ### Circuit Breaker State Transitions
 
@@ -971,7 +971,7 @@ func WarmFailoverCache(groups []*FailoverGroup) {
 
 Transparent failover and hotel routing work together seamlessly:
 
-1. Client requests `hotel/gpt-4o`
+1. Client requests `hotel/glm-4.6`
 2. Hotel routing resolves the failover group and selects the first provider (highest priority)
 3. That provider returns a retriable error (5xx, 429, 401/403, 404, or timeout) → transparent failover kicks in
 4. Proxy tries the next provider in the group's priority order
@@ -1008,17 +1008,17 @@ This means hotel routing provides **ordered preference** (which provider to try 
 
 - Expected behavior: groups need 2+ providers for failover
 - Add another provider with the same base model name
-- Or use direct provider routing (e.g. `openai/gpt-4o`) instead
+- Or use direct provider routing (e.g. `OpenRouter/z-ai/glm-4.6`) instead
 
 ### Debug Logging
 
 Enable debug logging via `DEBUG_LOG=true` environment variable:
 
 ```
-[resolve] failover group found: model=gpt-4o entries=3 enabled=true
-[resolve] building candidates from failover group: model=gpt-4o priority_order_count=3
-[resolve] skipping candidate: circuit breaker open provider=uuid-xyz model=gpt-4o
-[resolve] hotel model resolved: model=gpt-4o candidates=2 decrypt_failures=0
+[resolve] failover group found: model=glm-4.6 entries=3 enabled=true
+[resolve] building candidates from failover group: model=glm-4.6 priority_order_count=3
+[resolve] skipping candidate: circuit breaker open provider=uuid-xyz model=glm-4.6
+[resolve] hotel model resolved: model=glm-4.6 candidates=2 decrypt_failures=0
 [proxy] failover triggered: attempt=1 provider=uuid-abc status=502
 [proxy] failover backoff: backoff=150ms attempt=2
 [circuit-breaker] provider state=closed→open provider=uuid-abc consecutive_failures=5

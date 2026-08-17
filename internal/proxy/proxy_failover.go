@@ -409,7 +409,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	} else {
 		debuglog.Info("proxy: failover attempt", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
 	}
-	debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", totalCandidates)
+	debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.TypeOf(candidate.provider), "attempt", attempt+1, "total_candidates", totalCandidates)
 	h.touchProviderLastUsed(candidate.provider.ID)
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
@@ -457,8 +457,8 @@ func (h *Handler) touchProviderLastUsed(pid uuid.UUID) {
 // and its Content-Type (JSON model rename, or multipart reconstruction).
 func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, candidate modelCandidate) (*http.Request, string, string, error) {
 	logData := st.logData
-	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
-	debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
+	providerType := provider.TypeOf(candidate.provider)
+	debuglog.Debug("proxy: provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
 
 	// Native Anthropic passthrough: an Anthropic-in request resolved to an
 	// Anthropic-family provider forwards the ORIGINAL Messages body to the

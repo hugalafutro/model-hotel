@@ -730,6 +730,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Add Provider",
@@ -781,6 +782,13 @@
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} models",
 		"add": {
+			"typeMismatch": "The server at this address reports {{detected}}, not {{expected}}. Pick the matching type or correct the address.",
+			"typeMismatchVersion": "The server at this address reports {{detected}} {{version}}, not {{expected}}. Pick the matching type or correct the address.",
+			"typeUnconfirmed": "No {{expected}} API answered at this address. Check the address and that the server is running.",
+			"serverUnreachable": "Could not reach a server at this address. Check the address and that the server is running.",
+			"duplicateAddress": "This address is already used by \"{{name}}\". Add a second provider for it only if it uses a different API key.",
+			"urlRejected": "Model Hotel refused this address: {{detail}}. A private, loopback or otherwise reserved address has to be listed in ALLOWED_PROVIDER_HOSTS, and a Model Hotel running in a container cannot reach your own machine through localhost: use the machine's network address.",
+			"duplicateAddressBlocked": "A provider for this address already exists (\"{{name}}\"). A self-hosted server cannot be added twice: a second provider would just discover the same models again.",
 			"providerFallback": "Provider",
 			"discoveredModels_one": "Discovered {{count}} model…",
 			"discoveredModels_other": "Discovered {{count}} models…",
@@ -788,7 +796,7 @@
 			"deepseekBalanceDetected": "DeepSeek balance detected",
 			"openrouterBalance": "OpenRouter balance detected: ${{balance}}",
 			"baseUrl": "Base URL",
-			"baseUrlHelperDefault": "Default URL pre-filled; edit if your server runs on a different address. Type is detected from the port number.",
+			"baseUrlHelperDefault": "Enter the address your server listens on, any port. Model Hotel checks the server really is the type you picked before saving, so it has to be running.",
 			"baseUrlHelperFull": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
 			"apiKey": "API Key"
 		},
@@ -2213,7 +2221,7 @@
 			"title": "Password policy",
 			"breachCheckLabel": "Reject breached passwords",
 			"breachCheckDescription": "Check new account passwords against a public database of known breached passwords and reject any match. Only a short hash prefix is sent, never the password itself.",
-			"breachCheckInfo": "While this is on, a password that is set or changed is hashed with SHA-1 and only the first five characters of that hash go to the Have I Been Pwned range API; the API returns every breached suffix behind that prefix (padded with decoys, so the number of results does not reveal how many real matches there are) and the match happens here, so neither the password nor its full hash ever leaves this instance. This is the one place a trace of a user's password reaches an outside service: turn the check off to keep account changes fully offline, or point PWNED_PASSWORD_API_URL at a self-hosted mirror; PWNED_PASSWORD_CHECK_ENABLED=false disables it outright and this toggle then has no effect. If the API cannot be reached or returns an error, the change is allowed anyway.",
+			"breachCheckInfo": "When this is on, a password being set is compared against Have I Been Pwned. Only the first five characters of its SHA-1 hash are sent; the rest of the comparison happens on this instance, so the password never leaves it. If the service cannot be reached, the password is accepted.",
 			"breachCheckInfoLink": "How the range search works (haveibeenpwned.com)"
 		},
 		"managed": {

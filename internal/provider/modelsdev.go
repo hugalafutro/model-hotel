@@ -44,7 +44,7 @@ type modelsDevCanonical struct {
 }
 
 // modelsDevProviderForType maps Model Hotel provider types (as returned by
-// DetectProviderType) to their canonical models.dev entry. Enrichment consults
+// provider_type) to their canonical models.dev entry. Enrichment consults
 // that entry's models first, so a reseller's price for the same bare model ID
 // (models.dev lists "glm-5.2" under 26 different providers) can never shadow
 // the official one.
@@ -484,7 +484,7 @@ func fillModalities(dst *string, mods []string) bool {
 
 // EnrichModel fills gaps in a model.Model using models.dev data.
 // It only overwrites fields that are empty/zero (never replaces existing data).
-// providerType (a DetectProviderType string) selects the canonical models.dev
+// providerType (a stored provider_type string) selects the canonical models.dev
 // provider entry to consult first; pass "" to use only the cross-provider
 // index. Returns true if at least one field was enriched.
 func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
@@ -553,7 +553,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 }
 
 // EnrichModels enriches a batch of models using models.dev data. providerType
-// is the DetectProviderType string of the provider the models were discovered
+// is the provider_type string of the provider the models were discovered
 // on (see EnrichModel). Returns the number of models that were enriched (had
 // at least one field filled).
 func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string) int {

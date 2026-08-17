@@ -627,9 +627,25 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The dashboard sends the type the operator picked. A client that omits it
+	// gets the vendor-hostname derivation: enough to keep scripted adds of
+	// cloud providers working, without resurrecting the port guessing for
+	// self-hosted servers (which must be named to be added).
+	if req.ProviderType == "" {
+		req.ProviderType = provider.TypeFromHostname(req.BaseURL)
+	}
+	if !provider.IsKnownType(req.ProviderType) {
+		http.Error(w, "unknown provider_type", http.StatusBadRequest)
+		return
+	}
+	// Self-hosted servers serve their OpenAI-compatible API under /v1 and their
+	// native endpoints at the root, so the /v1 half is a convenience the
+	// operator should not have to get right.
+	req.BaseURL = provider.NormalizeLocalBaseURL(req.ProviderType, req.BaseURL)
+
 	// Some providers (e.g. OpenCode Zen) support keyless access for free models.
 	// Allow empty API key only for providers that support it.
-	if req.APIKey == "" && !providerTypeAllowsEmptyKey(req.BaseURL) {
+	if req.APIKey == "" && !providerTypeAllowsEmptyKey(req.ProviderType) {
 		http.Error(w, "api_key is required for this provider type", http.StatusBadRequest)
 		return
 	}
@@ -648,7 +664,12 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.cfg.ValidateProviderURL(req.BaseURL); err != nil {
-		respondBadRequest(w, "invalid provider URL", err)
+		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
+		// and "resolves to a private address" call for different fixes, and a
+		// containerised Model Hotel cannot reach the operator's localhost at
+		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
+		debuglog.Info("provider: base URL rejected", "error", err)
+		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
 		return
 	}
 
@@ -662,6 +683,16 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil {
 		http.Error(w, "a provider with this name already exists", http.StatusConflict)
+		return
+	}
+
+	if !h.rejectDuplicateLocalServer(w, r, req.ProviderType, req.BaseURL, uuid.Nil) {
+		return
+	}
+
+	// Last, because it is the only check that waits on the network: a bad name
+	// or URL should fail immediately rather than after a probe timeout.
+	if !h.confirmLocalServerType(w, r, req.ProviderType, req.BaseURL, req.APIKey) {
 		return
 	}
 
@@ -782,6 +813,73 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, response)
 }
 
+// acceptNewProviderURL validates and normalizes a base URL an update is trying
+// to set, and confirms it still answers as the provider's stored type. It
+// writes the error response and reports false when the address must not be
+// saved.
+func (h *Handler) acceptNewProviderURL(w http.ResponseWriter, r *http.Request, id uuid.UUID, req *provider.UpdateProviderRequest) bool {
+	if !h.cfg.AllowHTTPProviders {
+		parsed, err := url.Parse(strings.TrimSpace(*req.BaseURL))
+		if err != nil || parsed.Scheme != "https" {
+			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
+			return false
+		}
+	}
+	if err := h.cfg.ValidateProviderURL(*req.BaseURL); err != nil {
+		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
+		// and "resolves to a private address" call for different fixes, and a
+		// containerised Model Hotel cannot reach the operator's localhost at
+		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
+		debuglog.Info("provider: base URL rejected", "error", err)
+		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
+		return false
+	}
+
+	// The type is fixed at creation, so a new address has to answer as the
+	// type already stored: pointing an LM Studio provider at a KoboldCPP box
+	// would keep driving LM Studio's native endpoints against it.
+	current, err := h.providerRepo.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "provider not found", http.StatusNotFound)
+			return false
+		}
+		respondError(w, fmt.Sprintf("failed to load provider %s", id), err, http.StatusInternalServerError)
+		return false
+	}
+	storedType := provider.TypeOf(current)
+	normalized := provider.NormalizeLocalBaseURL(storedType, *req.BaseURL)
+	req.BaseURL = &normalized
+	// An address that is not actually changing is not re-confirmed: an update
+	// that only renames the provider must not fail because the server happens
+	// to be down. Both sides are normalized first, so a client that echoes back
+	// a stored URL written before the /v1 form was canonical does not trip it.
+	if normalized == provider.NormalizeLocalBaseURL(storedType, current.BaseURL) {
+		return true
+	}
+
+	if !h.rejectDuplicateLocalServer(w, r, storedType, normalized, id) {
+		return false
+	}
+
+	// The probe needs a key for a password-protected server: the update's own
+	// key when it carries one, otherwise the stored key.
+	apiKey := ""
+	if req.APIKey != nil {
+		apiKey = *req.APIKey
+	} else if len(current.EncryptedKey) > 0 {
+		plain, decErr := auth.Decrypt(current.EncryptedKey, current.KeyNonce, current.KeySalt, h.cfg.MasterKey)
+		if decErr != nil {
+			// Not fatal: the probe simply goes out unauthenticated, and an
+			// unreadable key is the update's problem to report, not this check's.
+			debuglog.Warn("provider: could not decrypt key for the type probe", "provider_id", id, "error", decErr)
+		} else {
+			apiKey = plain
+		}
+	}
+	return h.confirmLocalServerType(w, r, storedType, normalized, apiKey)
+}
+
 // UpdateProvider updates an existing provider by ID.
 func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "provider ID")
@@ -848,18 +946,8 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate new BaseURL if provided
-	if req.BaseURL != nil {
-		if !h.cfg.AllowHTTPProviders {
-			parsed, err := url.Parse(strings.TrimSpace(*req.BaseURL))
-			if err != nil || parsed.Scheme != "https" {
-				http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
-				return
-			}
-		}
-		if err := h.cfg.ValidateProviderURL(*req.BaseURL); err != nil {
-			respondBadRequest(w, "invalid provider URL", err)
-			return
-		}
+	if req.BaseURL != nil && !h.acceptNewProviderURL(w, r, id, &req) {
+		return
 	}
 
 	var encryptedKey []byte
@@ -944,9 +1032,9 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 // providerTypeAllowsEmptyKey returns true for provider types that support keyless
-// access (e.g. OpenCode Zen, Ollama, which allow free models without an API key).
-func providerTypeAllowsEmptyKey(baseURL string) bool {
-	providerType := provider.DetectProviderType(baseURL)
+// access (e.g. OpenCode Zen, and self-hosted servers, which serve their models
+// without an API key).
+func providerTypeAllowsEmptyKey(providerType string) bool {
 	switch providerType {
 	case "opencode-zen", "ollama", "koboldcpp", "lmstudio", "custom":
 		return true

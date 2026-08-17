@@ -30,10 +30,7 @@ import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
-import {
-	getProviderType,
-	providerTypeTranslationKeys,
-} from "./Providers/constants";
+import { providerTypeTranslationKeys } from "./Providers/constants";
 import {
 	type DiscoverySummaryEntry,
 	DiscoverySummaryModal,
@@ -309,7 +306,7 @@ export function Providers() {
 		if (!providers) return [];
 		const typeCounts = new Map<string, number>();
 		for (const p of providers) {
-			const type = getProviderType(p.base_url);
+			const type = p.provider_type;
 			typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
 		}
 		const entries = Array.from(typeCounts.entries());
@@ -328,7 +325,7 @@ export function Providers() {
 	const filteredProviders = useMemo(() => {
 		if (!providers) return providers;
 		const list = typeFilter
-			? providers.filter((p) => getProviderType(p.base_url) === typeFilter)
+			? providers.filter((p) => p.provider_type === typeFilter)
 			: providers;
 		const nameFiltered = nameFilter
 			? list.filter((p) =>
@@ -556,6 +553,7 @@ export function Providers() {
 			{editProvider && (
 				<EditProviderModal
 					provider={editProvider}
+					providers={providers}
 					onClose={() => setEditProvider(null)}
 					onToast={toast}
 				/>

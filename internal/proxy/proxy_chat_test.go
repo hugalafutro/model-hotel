@@ -504,7 +504,7 @@ func TestChatCompletions_DeprecationCacheFirstEntry(t *testing.T) {
 
 	// No pre-existing cache entry — LoadOrStore returns !loaded, storing the
 	// rejected params as the first entry and breaking out of the loop.
-	providerType := provider.DetectProviderType(upstream.URL)
+	providerType := provider.LegacyTypeFromURL(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7, "top_p": 0.9}`

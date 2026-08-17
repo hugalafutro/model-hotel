@@ -53,6 +53,7 @@ func TestScanProvider_Success(t *testing.T) {
 			id,                        // ID
 			"test-provider",           // Name
 			"https://api.example.com", // BaseURL
+			"openai",                  // ProviderType
 			[]byte("encrypted"),       // EncryptedKey
 			[]byte("nonce"),           // KeyNonce
 			[]byte("salt"),            // KeySalt
@@ -77,6 +78,9 @@ func TestScanProvider_Success(t *testing.T) {
 	}
 	if p.Name != "test-provider" {
 		t.Errorf("Name = %q, want %q", p.Name, "test-provider")
+	}
+	if p.ProviderType != "openai" {
+		t.Errorf("ProviderType = %q, want %q", p.ProviderType, "openai")
 	}
 	if p.BaseURL != "https://api.example.com" {
 		t.Errorf("BaseURL = %q, want %q", p.BaseURL, "https://api.example.com")

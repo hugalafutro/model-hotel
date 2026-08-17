@@ -309,7 +309,7 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 	defer upstream.Close()
 
 	// Pre-populate the deprecation cache
-	providerType := provider.DetectProviderType(upstream.URL)
+	providerType := provider.LegacyTypeFromURL(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
 	cacheValue := map[string]bool{"temperature": true, "top_p": true}
 	handler.deprecationCache.Store(cacheKey, &cacheValue)
@@ -922,7 +922,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.DetectProviderType(upstream.URL)
+	providerType := provider.LegacyTypeFromURL(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
 
 	// Phase 1: Upstream returns 400 with param rejection on first request,
@@ -1065,7 +1065,7 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.DetectProviderType(upstream.URL)
+	providerType := provider.LegacyTypeFromURL(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
 
 	// Phase 1: First request gets 400 rejecting "temperature", retry succeeds.
@@ -1216,7 +1216,7 @@ func TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler(t *testing.T) 
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.DetectProviderType(upstream.URL)
+	providerType := provider.LegacyTypeFromURL(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
 
 	// Pre-populate the cache with a wrong type to trigger the !ok branch

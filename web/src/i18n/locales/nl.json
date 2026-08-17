@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Provider toevoegen",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modellen",
 		"add": {
+			"typeMismatch": "De server op dit adres meldt zich als {{detected}}, niet als {{expected}}. Kies het bijbehorende type of corrigeer het adres.",
+			"typeMismatchVersion": "De server op dit adres meldt zich als {{detected}} {{version}}, niet als {{expected}}. Kies het bijbehorende type of corrigeer het adres.",
+			"typeUnconfirmed": "Op dit adres antwoordde geen {{expected}}-API. Controleer het adres en of de server draait.",
+			"serverUnreachable": "Kon geen server bereiken op dit adres. Controleer het adres en of de server draait.",
+			"duplicateAddress": "Dit adres wordt al gebruikt door \"{{name}}\". Voeg er alleen een tweede provider voor toe als die een andere API-sleutel gebruikt.",
+			"urlRejected": "Model Hotel heeft dit adres geweigerd: {{detail}}. Een privé-, loopback- of anderszins gereserveerd adres moet in ALLOWED_PROVIDER_HOSTS staan, en een Model Hotel in een container kan je eigen machine niet via localhost bereiken: gebruik het netwerkadres van die machine.",
+			"duplicateAddressBlocked": "Er bestaat al een provider voor dit adres (\"{{name}}\"). Een zelfgehoste server kan niet twee keer worden toegevoegd: een tweede provider zou alleen dezelfde modellen opnieuw ontdekken.",
 			"providerFallback": "Leverancier",
 			"discoveredModels_one": "Ontdekt {{count}} model…",
 			"discoveredModels_other": "Ontdekte {{count}} modellen…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "DeepSeek saldo gedetecteerd",
 			"openrouterBalance": "OpenRouter-saldo gedetecteerd: ${{balance}}",
 			"baseUrl": "Basis URL",
-			"baseUrlHelperDefault": "Standaard URL vooraf gevuld; bewerken als uw server draait op een ander adres. Type wordt gedetecteerd van het poortnummer.",
+			"baseUrlHelperDefault": "Voer het adres in waarop je server luistert, op welke poort dan ook. Model Hotel controleert vóór het opslaan of de server echt het gekozen type is, dus die moet draaien.",
 			"baseUrlHelperFull": "Volledige API basis-URL inclusief elk pad voorvoegsel. Models worden ontdekt uit \"<base_url>\"/models",
 			"apiKey": "API Sleutel"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "Wachtwoordbeleid",
 			"breachCheckLabel": "Gelekte wachtwoorden weigeren",
 			"breachCheckDescription": "Controleer wachtwoorden van nieuwe accounts aan de hand van een openbare database met bekende gelekte wachtwoorden en weiger elke overeenkomst. Alleen een korte hash-prefix wordt verzonden, nooit het wachtwoord zelf.",
-			"breachCheckInfo": "Zolang dit aanstaat, wordt een ingesteld of gewijzigd wachtwoord met SHA-1 gehasht en gaan alleen de eerste vijf tekens van die hash naar de range-API van Have I Been Pwned; de API geeft elk gelekt achtervoegsel achter dat voorvoegsel terug (aangevuld met lokvermeldingen, zodat het aantal resultaten niet verraadt hoeveel echte treffers er zijn) en de vergelijking gebeurt hier, zodat noch het wachtwoord noch de volledige hash deze instantie ooit verlaat. Dit is de enige plek waar een spoor van een gebruikerswachtwoord een externe dienst bereikt: zet de controle uit om accountwijzigingen volledig offline te houden, of laat PWNED_PASSWORD_API_URL naar een zelfgehoste mirror wijzen; PWNED_PASSWORD_CHECK_ENABLED=false schakelt de controle helemaal uit en deze schakelaar heeft dan geen effect. Is de API niet bereikbaar of geeft die een fout terug, dan wordt de wijziging toch toegestaan.",
+			"breachCheckInfo": "Als dit aanstaat, wordt een wachtwoord dat wordt ingesteld vergeleken met Have I Been Pwned. Alleen de eerste vijf tekens van de SHA-1-hash worden verstuurd; de rest van de vergelijking gebeurt op deze instantie, dus het wachtwoord verlaat die nooit. Als de dienst niet bereikbaar is, wordt het wachtwoord geaccepteerd.",
 			"breachCheckInfoLink": "Zo werkt de range-zoekopdracht (haveibeenpwned.com)"
 		}
 	},

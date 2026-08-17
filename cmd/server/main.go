@@ -160,6 +160,14 @@ func main() {
 	cleanupInterruptedRequests(database.Pool(), serverStartTime)
 
 	providerRepo := provider.NewRepository(database.Pool())
+	// Rows written before provider_type existed, or restored from an older
+	// dump, carry no type. Give them the one the URL rules used to imply
+	// before anything reads it.
+	if backfilled, err := providerRepo.BackfillTypes(ctx); err != nil {
+		debuglog.Error("startup: provider type backfill failed", "error", err)
+	} else if backfilled > 0 {
+		debuglog.Info("startup: provider types backfilled", "count", backfilled)
+	}
 	modelRepo := model.NewRepository(database.Pool())
 	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
 	settingsRepo := settings.NewRepository(database.Pool())

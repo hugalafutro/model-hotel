@@ -11,22 +11,22 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestDetectProviderType_VertexExpress(t *testing.T) {
+func TestLegacyTypeFromURL_VertexExpress(t *testing.T) {
 	for _, u := range []string{
 		"https://aiplatform.googleapis.com",
 		"https://aiplatform.googleapis.com/v1",
 		"https://us-central1-aiplatform.googleapis.com",
 	} {
-		if got := DetectProviderType(u); got != "vertex-express" {
-			t.Errorf("DetectProviderType(%s) = %q, want vertex-express", u, got)
+		if got := LegacyTypeFromURL(u); got != "vertex-express" {
+			t.Errorf("LegacyTypeFromURL(%s) = %q, want vertex-express", u, got)
 		}
 	}
 	// AI Studio stays on the google type (OpenAI-compat surface + own listing).
-	if got := DetectProviderType("https://generativelanguage.googleapis.com/v1beta/openai"); got != "google" {
+	if got := LegacyTypeFromURL("https://generativelanguage.googleapis.com/v1beta/openai"); got != "google" {
 		t.Errorf("generativelanguage = %q, want google", got)
 	}
 	// Lookalike host on an unrelated domain must not match.
-	if got := DetectProviderType("https://aiplatform.googleapis.com.evil.example"); got == "vertex-express" {
+	if got := LegacyTypeFromURL("https://aiplatform.googleapis.com.evil.example"); got == "vertex-express" {
 		t.Error("evil-suffix domain detected as vertex-express")
 	}
 }

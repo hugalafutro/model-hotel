@@ -188,10 +188,9 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 // the Cohere-native /v2/rerank surface. Rerank is not part of Cohere's
 // OpenAI-compatibility API, so the compat base can never serve it.
 //
-// The detected provider type alone is not enough: DetectProviderType only
-// classifies *.cohere.ai/*.cohere.com hosts as "cohere", so a self-hosted
-// Cohere-compatible gateway on a custom domain is seen as a generic "openai"
-// provider. Its base still carries the tell-tale /compatibility/v1 suffix
+// The provider type alone is not enough: an operator pointing at a self-hosted
+// Cohere-compatible gateway adds it as a generic OpenAI-compatible provider,
+// so the type never says "cohere". Its base still carries the tell-tale /compatibility/v1 suffix
 // (a Cohere-specific shape; Jina/Voyage/TEI use a bare /v1), so match on that
 // too — otherwise the default path would build <host>/compatibility/v1/rerank
 // and 404.

@@ -742,6 +742,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Dodaj dostawcę",
@@ -799,6 +800,13 @@
 		"card_models_many": "{{count}} modeli",
 		"card_models_other": "{{count}} modelu",
 		"add": {
+			"typeMismatch": "Serwer pod tym adresem przedstawia się jako {{detected}}, a nie {{expected}}. Wybierz pasujący typ lub popraw adres.",
+			"typeMismatchVersion": "Serwer pod tym adresem przedstawia się jako {{detected}} {{version}}, a nie {{expected}}. Wybierz pasujący typ lub popraw adres.",
+			"typeUnconfirmed": "Pod tym adresem nie odpowiedziało żadne API {{expected}}. Sprawdź adres i to, czy serwer działa.",
+			"serverUnreachable": "Nie udało się połączyć z serwerem pod tym adresem. Sprawdź adres i to, czy serwer działa.",
+			"duplicateAddress": "Tego adresu używa już „{{name}}”. Dodaj dla niego drugiego dostawcę tylko wtedy, gdy korzysta z innego klucza API.",
+			"urlRejected": "Model Hotel odrzucił ten adres: {{detail}}. Adres prywatny, pętli zwrotnej lub w inny sposób zarezerwowany musi znaleźć się na liście ALLOWED_PROVIDER_HOSTS, a Model Hotel działający w kontenerze nie dosięgnie Twojego komputera przez localhost: użyj adresu sieciowego tej maszyny.",
+			"duplicateAddressBlocked": "Dla tego adresu istnieje już dostawca („{{name}}”). Własnego serwera nie można dodać dwa razy: drugi dostawca tylko ponownie wykryłby te same modele.",
 			"providerFallback": "Dostawca",
 			"discoveredModels_one": "Odkryto {{count}} model…",
 			"discoveredModels_few": "Odkryto {{count}} modele…",
@@ -808,7 +816,7 @@
 			"deepseekBalanceDetected": "Wykryto saldo DeepSeek",
 			"openrouterBalance": "Saldo OpenRouter wykryte: ${{balance}}",
 			"baseUrl": "Podstawowy adres URL",
-			"baseUrlHelperDefault": "Domyślny adres URL jest wstępnie wypełniony; edytuj, jeśli Twój serwer działa pod innym adresem. Typ jest wykrywany na podstawie numeru portu.",
+			"baseUrlHelperDefault": "Podaj adres, na którym nasłuchuje Twój serwer, dowolny port. Przed zapisaniem Model Hotel sprawdza, czy serwer naprawdę jest wybranego typu, więc musi być uruchomiony.",
 			"baseUrlHelperFull": "Pełny bazowy adres URL API wraz z dowolnym prefiksem ścieżki. Modele zostaną odkryte od \"<base_url>\"/models",
 			"apiKey": "Klucz API"
 		},
@@ -2377,7 +2385,7 @@
 			"title": "Zasady haseł",
 			"breachCheckLabel": "Odrzucaj wyciekłe hasła",
 			"breachCheckDescription": "Sprawdzaj hasła nowych kont w publicznej bazie znanych wyciekłych haseł i odrzucaj wszelkie dopasowania. Wysyłany jest tylko krótki prefiks skrótu, nigdy samo hasło.",
-			"breachCheckInfo": "Gdy ta opcja jest włączona, ustawiane lub zmieniane hasło jest haszowane algorytmem SHA-1 i tylko pierwsze pięć znaków tego skrótu trafia do range API serwisu Have I Been Pwned; API zwraca wszystkie wyciekłe sufiksy kryjące się za tym prefiksem (dopełnione wpisami-wabikami, aby liczba wyników nie zdradzała, ile jest prawdziwych trafień), a dopasowanie odbywa się tutaj, więc ani hasło, ani jego pełny skrót nigdy nie opuszczają tej instancji. To jedyne miejsce, w którym ślad hasła użytkownika dociera do zewnętrznej usługi: wyłącz sprawdzanie, aby zmiany kont pozostały całkowicie offline, albo skieruj PWNED_PASSWORD_API_URL na własny serwer lustrzany; PWNED_PASSWORD_CHECK_ENABLED=false wyłącza je całkowicie i ten przełącznik przestaje działać. Jeśli API jest nieosiągalne lub zwróci błąd, zmiana i tak zostanie dopuszczona.",
+			"breachCheckInfo": "Gdy ta opcja jest włączona, ustawiane hasło jest porównywane z bazą Have I Been Pwned. Wysyłanych jest tylko pięć pierwszych znaków jego skrótu SHA-1; reszta porównania odbywa się w tej instancji, więc hasło nigdy jej nie opuszcza. Jeśli usługa jest nieosiągalna, hasło zostaje zaakceptowane.",
 			"breachCheckInfoLink": "Jak działa wyszukiwanie zakresowe (haveibeenpwned.com)"
 		}
 	},

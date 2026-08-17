@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "添加提供商",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} 模型",
 		"card_models_other": "{{count}} 模型",
 		"add": {
+			"typeMismatch": "该地址的服务器报告为 {{detected}}，而不是 {{expected}}。请选择匹配的类型或修正地址。",
+			"typeMismatchVersion": "该地址的服务器报告为 {{detected}} {{version}}，而不是 {{expected}}。请选择匹配的类型或修正地址。",
+			"typeUnconfirmed": "该地址没有 {{expected}} 接口作出响应。请检查地址以及服务器是否正在运行。",
+			"serverUnreachable": "无法连接到该地址的服务器。请检查地址以及服务器是否正在运行。",
+			"duplicateAddress": "该地址已被“{{name}}”使用。只有在使用不同的 API 密钥时才为它添加第二个提供方。",
+			"urlRejected": "Model Hotel 拒绝了该地址：{{detail}}。私有、回环或其他保留地址必须列入 ALLOWED_PROVIDER_HOSTS；并且运行在容器中的 Model Hotel 无法通过 localhost 访问你自己的机器，请使用该机器的网络地址。",
+			"duplicateAddressBlocked": "该地址已有提供方（“{{name}}”）。自托管服务器不能重复添加：第二个提供方只会再次发现相同的模型。",
 			"providerFallback": "提供商",
 			"discoveredModels_one": "已发现 {{count}} 个模型…",
 			"discoveredModels_other": "已发现 {{count}} 个模型…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "已检测到 DeepSeek 余额",
 			"openrouterBalance": "检测到 OpenRouter 余额：{{balance}} 美元",
 			"baseUrl": "基本网址",
-			"baseUrlHelperDefault": "默认的 URL 已预填充；如果您的服务器运行在另一个地址上，请编辑。从端口号中检测到类型。",
+			"baseUrlHelperDefault": "填写你的服务器监听的地址，端口任意。保存前 Model Hotel 会核实该服务器确实是你选择的类型，因此它必须处于运行状态。",
 			"baseUrlHelperFull": "完整的 API 基础 URL，包含任何路径前缀。模型将从 \"<base_url>\"/models 发现",
 			"apiKey": "API 密钥"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "密码策略",
 			"breachCheckLabel": "拒绝已泄露的密码",
 			"breachCheckDescription": "对照已知泄露密码的公共数据库检查新账户密码，并拒绝任何匹配项。仅发送哈希值的短前缀，绝不发送密码本身。",
-			"breachCheckInfo": "此项开启时，设置或更改的密码会经过 SHA-1 哈希，只有该哈希的前五个字符会发送到 Have I Been Pwned 的 range API；API 返回该前缀之后的所有已泄露后缀（填充了诱饵条目，因此结果数量不会泄露真实匹配的数目），比对在本地完成，因此密码及其完整哈希都不会离开此实例。这是用户密码的痕迹唯一会到达外部服务的地方：关闭此检查可让账户变更完全离线，或将 PWNED_PASSWORD_API_URL 指向自托管镜像；PWNED_PASSWORD_CHECK_ENABLED=false 会彻底禁用该检查，此开关随之失效。若无法访问该 API 或其返回错误，变更仍会被允许。",
+			"breachCheckInfo": "启用后，设置的密码会与 Have I Been Pwned 进行比对。只发送其 SHA-1 哈希的前五个字符，其余比对在本实例上完成，因此密码不会离开本实例。如果无法访问该服务，密码将被接受。",
 			"breachCheckInfoLink": "range 查询的工作原理 (haveibeenpwned.com)"
 		}
 	},

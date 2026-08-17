@@ -162,7 +162,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 
 	// Enrich models with data from models.dev.
 	if cache := provider.GetModelsDevCache(); cache != nil {
-		if enriched := cache.EnrichModels(models, provider.DetectProviderType(p.BaseURL)); enriched > 0 {
+		if enriched := cache.EnrichModels(models, provider.TypeOf(p)); enriched > 0 {
 			debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
 		}
 	}
@@ -178,7 +178,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	if snapErr != nil {
 		debuglog.Debug("discovery: failed to snapshot models", "provider", p.Name, "error", snapErr)
 	}
-	api.DampenOpenRouterPriceJitter(p.BaseURL, snapshot, models)
+	api.DampenOpenRouterPriceJitter(provider.TypeOf(p), snapshot, models)
 
 	existingModelIDs := make([]string, 0, len(models))
 	upsertedModels := make([]*model.Model, 0, len(models))

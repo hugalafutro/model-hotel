@@ -12,6 +12,8 @@ import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { formatDate } from "../../utils/format";
 import { isKnownProviderUrl } from "./constants";
+import { findProviderAtAddress } from "./duplicateAddress";
+import { providerTypeGateMessage } from "./typeGateError";
 
 // Earliest schedulable day. Today is excluded because a same-day schedule is
 // indistinguishable from disabling the provider outright.
@@ -23,10 +25,13 @@ function tomorrowISO(): string {
 
 export function EditProviderModal({
 	provider,
+	providers,
 	onClose,
 	onToast,
 }: {
 	provider: Provider;
+	/** Every provider, so a URL edit can warn when it collides with another. */
+	providers?: Provider[];
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
@@ -70,11 +75,11 @@ export function EditProviderModal({
 			onClose();
 		},
 		onError: (err: Error) => {
-			setError(err.message);
-			onToast(
-				t("providers.toast_update_failed", { message: err.message }),
-				"error",
-			);
+			// A new address that does not answer as the stored type is rejected;
+			// say which server answered instead of surfacing the HTTP error.
+			const message = providerTypeGateMessage(err, t) ?? err.message;
+			setError(message);
+			onToast(t("providers.toast_update_failed", { message }), "error");
 		},
 		onSettled: () => {
 			// A rejected write can still have landed, so the provider list and the
@@ -84,6 +89,14 @@ export function EditProviderModal({
 			refreshBadge();
 		},
 	});
+
+	// Warns, never blocks: two providers on one address are legitimate when they
+	// carry different API keys.
+	const duplicateOf = findProviderAtAddress(
+		providers,
+		formData.base_url,
+		provider.id,
+	);
 
 	const getChangedFields = (): string[] => {
 		const fields: string[] = [];
@@ -141,7 +154,10 @@ export function EditProviderModal({
 		<>
 			<Modal title={t("providers.edit_modal_title")} onClose={handleClose}>
 				{error && (
-					<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+					<div
+						data-testid="edit-provider-error"
+						className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"
+					>
 						{error}
 					</div>
 				)}
@@ -200,6 +216,16 @@ export function EditProviderModal({
 						{isKnownProviderUrl(provider.base_url) && (
 							<p className="text-gray-500 text-xs mt-1">
 								{t("providers.form_base_url_hint_preset")}
+							</p>
+						)}
+						{duplicateOf && (
+							<p
+								data-testid="duplicate-address-warning"
+								className="text-amber-400 text-xs mt-1"
+							>
+								{t("providers.add.duplicateAddress", {
+									name: duplicateOf.name,
+								})}
 							</p>
 						)}
 					</div>

@@ -32,6 +32,7 @@ const mockProvider: Provider = {
 	id: "provider-001",
 	name: "Test Provider",
 	base_url: "https://api.test-provider.com/v1",
+	provider_type: "custom",
 	masked_key: "sk_test_••••••••••••••••••••••••",
 	enabled: true,
 	autodiscovery_enabled: true,
@@ -249,6 +250,7 @@ describe("ProviderCard", () => {
 							...mockProvider,
 							enabled: false,
 							base_url: "https://api.nano-gpt.com/v1",
+							provider_type: "nanogpt",
 						}}
 					/>,
 					{ wrapper: AllProviders },
@@ -571,6 +573,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.nano-gpt.com/v1",
+						provider_type: "nanogpt",
 					}}
 				/>,
 				{ wrapper: AllProviders },
@@ -596,6 +599,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.nano-gpt.com/v1",
+						provider_type: "nanogpt",
 					}}
 				/>,
 				{ wrapper: AllProviders },
@@ -648,6 +652,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.kimi.com/coding/v1",
+						provider_type: "kimi-code",
 					}}
 				/>,
 				{ wrapper: AllProviders },
@@ -684,6 +689,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.minimax.io/v1",
+						provider_type: "minimax",
 					}}
 				/>,
 				{ wrapper: AllProviders },
@@ -709,6 +715,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.deepseek.com/v1",
+						provider_type: "deepseek",
 					}}
 				/>,
 				{ wrapper: AllProviders },
@@ -741,6 +748,7 @@ describe("ProviderCard", () => {
 					provider={{
 						...mockProvider,
 						base_url: "https://api.deepseek.com/v1",
+						provider_type: "deepseek",
 					}}
 				/>,
 				{ wrapper: AllProviders },

@@ -65,6 +65,7 @@ describe("client cookie auth", () => {
 		await api.providers.create({
 			name: "x",
 			base_url: "https://api.example.com",
+			provider_type: "custom",
 			api_key: "sk-1",
 		}); // POST
 

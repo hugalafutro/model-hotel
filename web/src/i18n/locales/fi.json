@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Lisää Tarjoaja",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} malli",
 		"card_models_other": "{{count}} mallia",
 		"add": {
+			"typeMismatch": "Tässä osoitteessa oleva palvelin ilmoittaa olevansa {{detected}}, ei {{expected}}. Valitse vastaava tyyppi tai korjaa osoite.",
+			"typeMismatchVersion": "Tässä osoitteessa oleva palvelin ilmoittaa olevansa {{detected}} {{version}}, ei {{expected}}. Valitse vastaava tyyppi tai korjaa osoite.",
+			"typeUnconfirmed": "Tässä osoitteessa ei vastannut yksikään {{expected}}-rajapinta. Tarkista osoite ja että palvelin on käynnissä.",
+			"serverUnreachable": "Osoitteesta ei tavoitettu palvelinta. Tarkista osoite ja että palvelin on käynnissä.",
+			"duplicateAddress": "Tämä osoite on jo käytössä palveluntarjoajalla ”{{name}}”. Lisää sille toinen palveluntarjoaja vain, jos se käyttää eri API-avainta.",
+			"urlRejected": "Model Hotel hylkäsi tämän osoitteen: {{detail}}. Yksityisen, loopback- tai muuten varatun osoitteen on oltava ALLOWED_PROVIDER_HOSTS-luettelossa, eikä kontissa toimiva Model Hotel tavoita omaa konettasi localhostin kautta: käytä koneen verkko-osoitetta.",
+			"duplicateAddressBlocked": "Tälle osoitteelle on jo palveluntarjoaja (”{{name}}”). Itse ylläpidettyä palvelinta ei voi lisätä kahdesti: toinen palveluntarjoaja löytäisi vain samat mallit uudelleen.",
 			"providerFallback": "Tarjoaja",
 			"discoveredModels_one": "Löydetty {{count}} malli…",
 			"discoveredModels_other": "Löydetty {{count}} mallia…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "DeepSeek-saldo havaittu",
 			"openrouterBalance": "OpenRouter saldo havaittu: ${{balance}}",
 			"baseUrl": "Base URL",
-			"baseUrlHelperDefault": "Oletus-URL on täytetty valmiiksi; muokkaa, jos palvelimesi toimii eri osoitteessa. Tyyppi tunnistetaan portin numerosta.",
+			"baseUrlHelperDefault": "Anna osoite, jota palvelimesi kuuntelee, missä tahansa portissa. Model Hotel tarkistaa ennen tallennusta, että palvelin todella on valitsemaasi tyyppiä, joten sen on oltava käynnissä.",
 			"baseUrlHelperFull": "Täysi API base URL mukaan lukien mahdollinen polun etuliite. Mallit löydetään osoitteesta \"<base_url>\"/models",
 			"apiKey": "Api Avain"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "Salasanakäytäntö",
 			"breachCheckLabel": "Hylkää vuotaneet salasanat",
 			"breachCheckDescription": "Tarkista uudet tilien salasanat julkista tunnettujen vuotaneiden salasanojen tietokantaa vasten ja hylkää kaikki osumat. Vain lyhyt tiivisteen etuliite lähetetään, ei koskaan itse salasanaa.",
-			"breachCheckInfo": "Kun tämä on käytössä, asetettavasta tai vaihdettavasta salasanasta lasketaan SHA-1-tiiviste ja vain tiivisteen viisi ensimmäistä merkkiä lähetetään Have I Been Pwned -palvelun range-rajapintaan; rajapinta palauttaa kaikki vuotaneet loppuosat kyseisen alkuosan takaa (täytettynä valeriveillä, jotta tulosten määrä ei paljasta todellisten osumien lukumäärää) ja vertailu tehdään täällä, joten salasana tai sen koko tiiviste ei koskaan poistu tästä instanssista. Tämä on ainoa kohta, jossa jälki käyttäjän salasanasta päätyy ulkopuoliseen palveluun: poista tarkistus käytöstä pitääksesi tilimuutokset täysin offline-tilassa tai osoita PWNED_PASSWORD_API_URL itse ylläpidettyyn peilipalvelimeen; PWNED_PASSWORD_CHECK_ENABLED=false poistaa sen kokonaan käytöstä, jolloin tällä kytkimellä ei ole vaikutusta. Jos rajapintaa ei tavoiteta tai se palauttaa virheen, muutos sallitaan joka tapauksessa.",
+			"breachCheckInfo": "Kun tämä on käytössä, asetettavaa salasanaa verrataan Have I Been Pwned -palveluun. Vain sen SHA-1-tiivisteen viisi ensimmäistä merkkiä lähetetään; loput vertailusta tehdään tässä instanssissa, joten salasana ei koskaan poistu siitä. Jos palveluun ei saada yhteyttä, salasana hyväksytään.",
 			"breachCheckInfoLink": "Näin range-haku toimii (haveibeenpwned.com)"
 		}
 	},

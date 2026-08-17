@@ -76,11 +76,20 @@ export const API_BASE = "";
 export class ApiError extends Error {
 	readonly status: number;
 	readonly code?: string;
-	constructor(message: string, status: number, code?: string) {
+	/** Remaining fields of a coded error body, for callers that phrase the
+	 * failure themselves (e.g. which server answered a provider probe). */
+	readonly details?: Record<string, unknown>;
+	constructor(
+		message: string,
+		status: number,
+		code?: string,
+		details?: Record<string, unknown>,
+	) {
 		super(message);
 		this.name = "ApiError";
 		this.status = status;
 		this.code = code;
+		this.details = details;
 	}
 }
 
@@ -124,19 +133,24 @@ async function fetchOK(
 		// (plain text, or JSON without a string `code`) falls back to the
 		// unchanged bare-text message.
 		let code: string | undefined;
+		let details: Record<string, unknown> | undefined;
 		let message = `${errorPrefix}: ${response.status} ${text}`;
 		if (text.startsWith("{")) {
 			try {
-				const body = JSON.parse(text) as { code?: string; error?: string };
+				const body = JSON.parse(text) as {
+					code?: string;
+					error?: string;
+				} & Record<string, unknown>;
 				if (typeof body.code === "string") {
 					code = body.code;
+					details = body;
 					message = `${errorPrefix}: ${response.status} ${body.error ?? text}`;
 				}
 			} catch {
 				// Not valid JSON despite the leading brace; keep the raw-text message.
 			}
 		}
-		throw new ApiError(message, response.status, code);
+		throw new ApiError(message, response.status, code, details);
 	}
 	return response;
 }

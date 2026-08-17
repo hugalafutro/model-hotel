@@ -734,6 +734,17 @@ func (h *ConfigSyncHandler) syncableSettingsToDelete(ctx context.Context, q quer
 	return toDelete, nil
 }
 
+// providerTypeForImport keeps an imported provider's type non-empty. A payload
+// from a member that predates the stored type carries none, and a row without a
+// type would fall back to the URL rules on every read; deriving it once here
+// pins the same answer to the row instead.
+func providerTypeForImport(p ExportProvider) string {
+	if p.ProviderType != "" {
+		return p.ProviderType
+	}
+	return provider.LegacyTypeFromURL(p.BaseURL)
+}
+
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider, validateURL func(string) error) error {
 	for _, p := range providers {
 		// Defense in depth on the import path: a compromised primary must not be
@@ -750,10 +761,11 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 			}
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, now())
+			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, now())
 			ON CONFLICT (name) DO UPDATE SET
 				base_url = EXCLUDED.base_url,
+				provider_type = EXCLUDED.provider_type,
 				encrypted_key = EXCLUDED.encrypted_key,
 				key_nonce = EXCLUDED.key_nonce,
 				key_salt = EXCLUDED.key_salt,
@@ -762,7 +774,7 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				autodiscovery_enabled = EXCLUDED.autodiscovery_enabled,
 				scheduled_disable_on = EXCLUDED.scheduled_disable_on,
 				updated_at = now()`,
-			p.Name, p.BaseURL, p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn)
+			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn)
 		if err != nil {
 			return err
 		}

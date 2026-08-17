@@ -498,7 +498,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "hotel/gpt-4o",
+    "model": "hotel/glm-4.6",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -514,7 +514,7 @@ client = openai.OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="hotel/gpt-4o",
+    model="hotel/glm-4.6",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
@@ -531,7 +531,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: 'hotel/gpt-4o',
+  model: 'hotel/glm-4.6',
   messages: [{ role: 'user', content: 'Hello!' }]
 });
 console.log(response.choices[0].message.content);

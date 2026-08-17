@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Tilføj Udbyder",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modeller",
 		"add": {
+			"typeMismatch": "Serveren på denne adresse melder sig som {{detected}}, ikke {{expected}}. Vælg den rigtige type, eller ret adressen.",
+			"typeMismatchVersion": "Serveren på denne adresse melder sig som {{detected}} {{version}}, ikke {{expected}}. Vælg den rigtige type, eller ret adressen.",
+			"typeUnconfirmed": "Ingen {{expected}}-API svarede på denne adresse. Tjek adressen, og at serveren kører.",
+			"serverUnreachable": "Kunne ikke nå en server på denne adresse. Tjek adressen, og at serveren kører.",
+			"duplicateAddress": "Denne adresse bruges allerede af \"{{name}}\". Tilføj kun en ekstra udbyder for den, hvis den bruger en anden API-nøgle.",
+			"urlRejected": "Model Hotel afviste denne adresse: {{detail}}. En privat, loopback- eller på anden måde reserveret adresse skal stå i ALLOWED_PROVIDER_HOSTS, og et Model Hotel i en container kan ikke nå din egen maskine via localhost: brug maskinens netværksadresse.",
+			"duplicateAddressBlocked": "Der findes allerede en udbyder for denne adresse (\"{{name}}\"). En selvhostet server kan ikke tilføjes to gange: en ekstra udbyder ville blot finde de samme modeller igen.",
 			"providerFallback": "Udbyder",
 			"discoveredModels_one": "Opdaget {{count}} model…",
 			"discoveredModels_other": "Opdagede {{count}} modeller…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "DeepSeek saldo fundet",
 			"openrouterBalance": "OpenRouter saldo fundet: ${{balance}}",
 			"baseUrl": "Base URL",
-			"baseUrlHelperDefault": "Standard URL præ-udfyldt; rediger hvis din server kører på en anden adresse. Type detekteres fra portnummeret.",
+			"baseUrlHelperDefault": "Angiv den adresse, din server lytter på, uanset port. Model Hotel kontrollerer før lagring, at serveren rent faktisk er den valgte type, så den skal køre.",
 			"baseUrlHelperFull": "Fuld API base URL herunder enhver sti prefix. Modeller vil blive opdaget fra \"<base_url>\"/models",
 			"apiKey": "API Nøgle"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "Adgangskodepolitik",
 			"breachCheckLabel": "Afvis lækkede adgangskoder",
 			"breachCheckDescription": "Kontrollér nye kontoadgangskoder mod en offentlig database over kendte lækkede adgangskoder, og afvis ethvert match. Kun et kort hash-præfiks sendes, aldrig selve adgangskoden.",
-			"breachCheckInfo": "Mens dette er slået til, hashes en adgangskode, der sættes eller ændres, med SHA-1, og kun de første fem tegn af hashen sendes til Have I Been Pwneds range-API; API'et returnerer alle lækkede suffikser bag det præfiks (udfyldt med lokke-poster, så antallet af resultater ikke afslører, hvor mange ægte match der er), og sammenligningen sker her, så hverken adgangskoden eller dens fulde hash nogensinde forlader denne instans. Det er det eneste sted, hvor et spor af en brugers adgangskode når en ekstern tjeneste: slå kontrollen fra for at holde kontoændringer helt offline, eller peg PWNED_PASSWORD_API_URL på et selvhostet spejl; PWNED_PASSWORD_CHECK_ENABLED=false slår den helt fra, og denne kontakt har så ingen virkning. Kan API'et ikke nås, eller svarer det med en fejl, tillades ændringen alligevel.",
+			"breachCheckInfo": "Når dette er slået til, sammenlignes en adgangskode, der bliver sat, med Have I Been Pwned. Kun de første fem tegn af dens SHA-1-hash sendes; resten af sammenligningen sker på denne instans, så adgangskoden forlader den aldrig. Hvis tjenesten ikke kan nås, accepteres adgangskoden.",
 			"breachCheckInfoLink": "Sådan fungerer range-opslaget (haveibeenpwned.com)"
 		}
 	},

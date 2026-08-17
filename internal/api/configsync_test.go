@@ -1130,6 +1130,69 @@ func TestUpsertProviders_ProviderURLGuard(t *testing.T) {
 	}
 }
 
+// A fleet payload carries the provider's stored type, and a payload from a
+// member that predates the column still lands with a type rather than an empty
+// string, so no imported row falls back to URL guessing on every read.
+func TestUpsertProviders_CarriesProviderType(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	err = upsertProviders(ctx, tx, []ExportProvider{
+		{Name: "typed", BaseURL: "http://192.168.1.163:5001/v1", ProviderType: "custom", Enabled: true},
+		{Name: "untyped", BaseURL: "https://api.deepseek.com/v1", Enabled: true},
+	}, nil)
+	if err != nil {
+		t.Fatalf("upsertProviders: %v", err)
+	}
+
+	for _, tc := range []struct{ name, want string }{
+		// The payload's type wins over anything the URL suggests.
+		{"typed", "custom"},
+		// No type in the payload: derived once, on import.
+		{"untyped", "deepseek"},
+	} {
+		var got string
+		if err := tx.QueryRow(ctx, `SELECT provider_type FROM providers WHERE name = $1`, tc.name).Scan(&got); err != nil {
+			t.Fatalf("read %s provider_type: %v", tc.name, err)
+		}
+		if got != tc.want {
+			t.Errorf("%s provider_type = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// An export round-trips the type so a member ends up with the same vocabulary
+// the primary stored, not a re-derivation of it.
+func TestExportProviders_IncludesProviderType(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO providers (name, base_url, provider_type, enabled, autodiscovery_enabled)
+		VALUES ('exported', 'http://192.168.1.163:11234/v1', 'lmstudio', true, true)`); err != nil {
+		t.Fatalf("seed provider: %v", err)
+	}
+
+	got, err := exportProviders(ctx, pool)
+	if err != nil {
+		t.Fatalf("exportProviders: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("exported %d providers, want 1", len(got))
+	}
+	if got[0].ProviderType != "lmstudio" {
+		t.Errorf("exported provider_type = %q, want lmstudio", got[0].ProviderType)
+	}
+}
+
 // contains reports whether s is in xs.
 func contains(xs []string, s string) bool {
 	return slices.Contains(xs, s)

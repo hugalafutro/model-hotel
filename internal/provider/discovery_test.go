@@ -20,10 +20,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// DetectProviderType
+// LegacyTypeFromURL
 // ---------------------------------------------------------------------------
 
-func TestDetectProviderType_OpenAI(t *testing.T) {
+func TestLegacyTypeFromURL_OpenAI(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -38,15 +38,15 @@ func TestDetectProviderType_OpenAI(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "openai" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "openai")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "openai")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_Bedrock(t *testing.T) {
+func TestLegacyTypeFromURL_Bedrock(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -56,15 +56,15 @@ func TestDetectProviderType_Bedrock(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "bedrock" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "bedrock")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "bedrock")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_NotBedrock(t *testing.T) {
+func TestLegacyTypeFromURL_NotBedrock(t *testing.T) {
 	// Similar-looking hosts must stay generic: detection requires both the
 	// bedrock service prefix and the AWS domain suffix.
 	tests := []struct {
@@ -82,15 +82,15 @@ func TestDetectProviderType_NotBedrock(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "openai" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "openai")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "openai")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_KimiCode(t *testing.T) {
+func TestLegacyTypeFromURL_KimiCode(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -101,15 +101,15 @@ func TestDetectProviderType_KimiCode(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "kimi-code" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "kimi-code")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "kimi-code")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_Azure(t *testing.T) {
+func TestLegacyTypeFromURL_Azure(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -122,15 +122,15 @@ func TestDetectProviderType_Azure(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "azure" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "azure")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "azure")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_NotAzure(t *testing.T) {
+func TestLegacyTypeFromURL_NotAzure(t *testing.T) {
 	// Azure-looking names on unrelated domains must stay generic: detection
 	// matches the two Azure AI host suffixes only.
 	tests := []struct {
@@ -143,15 +143,15 @@ func TestDetectProviderType_NotAzure(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result == "azure" {
-				t.Errorf("DetectProviderType(%q) = %q, want non-azure", tc.url, result)
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want non-azure", tc.url, result)
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_NanoGPT(t *testing.T) {
+func TestLegacyTypeFromURL_NanoGPT(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -162,15 +162,15 @@ func TestDetectProviderType_NanoGPT(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "nanogpt" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "nanogpt")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "nanogpt")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_ZAICoding(t *testing.T) {
+func TestLegacyTypeFromURL_ZAICoding(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -181,15 +181,15 @@ func TestDetectProviderType_ZAICoding(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "zai-coding" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "zai-coding")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "zai-coding")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_DeepSeek(t *testing.T) {
+func TestLegacyTypeFromURL_DeepSeek(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -200,15 +200,15 @@ func TestDetectProviderType_DeepSeek(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "deepseek" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "deepseek")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "deepseek")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_Anthropic(t *testing.T) {
+func TestLegacyTypeFromURL_Anthropic(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -219,15 +219,15 @@ func TestDetectProviderType_Anthropic(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "anthropic" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "anthropic")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "anthropic")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_OllamaCloud(t *testing.T) {
+func TestLegacyTypeFromURL_OllamaCloud(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -237,15 +237,15 @@ func TestDetectProviderType_OllamaCloud(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "ollama-cloud" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "ollama-cloud")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "ollama-cloud")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_OpenCodeZen(t *testing.T) {
+func TestLegacyTypeFromURL_OpenCodeZen(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -255,15 +255,15 @@ func TestDetectProviderType_OpenCodeZen(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "opencode-zen" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "opencode-zen")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "opencode-zen")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_OpenCodeGo(t *testing.T) {
+func TestLegacyTypeFromURL_OpenCodeGo(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -273,37 +273,37 @@ func TestDetectProviderType_OpenCodeGo(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "opencode-go" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "opencode-go")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "opencode-go")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_OpenCodeGoBeforeZen(t *testing.T) {
+func TestLegacyTypeFromURL_OpenCodeGoBeforeZen(t *testing.T) {
 	// /zen/go/ should match opencode-go, not opencode-zen
-	result := DetectProviderType("https://opencode.ai/zen/go/v1")
+	result := LegacyTypeFromURL("https://opencode.ai/zen/go/v1")
 	if result != "opencode-go" {
-		t.Errorf("DetectProviderType('/zen/go/') should be opencode-go, got %q", result)
+		t.Errorf("LegacyTypeFromURL('/zen/go/') should be opencode-go, got %q", result)
 	}
 }
 
-func TestDetectProviderType_EmptyString(t *testing.T) {
-	result := DetectProviderType("")
+func TestLegacyTypeFromURL_EmptyString(t *testing.T) {
+	result := LegacyTypeFromURL("")
 	if result != "openai" {
-		t.Errorf("DetectProviderType('') = %q, want %q (fallback)", result, "openai")
+		t.Errorf("LegacyTypeFromURL('') = %q, want %q (fallback)", result, "openai")
 	}
 }
 
-func TestDetectProviderType_InvalidURL(t *testing.T) {
-	result := DetectProviderType("://not-a-valid-url")
+func TestLegacyTypeFromURL_InvalidURL(t *testing.T) {
+	result := LegacyTypeFromURL("://not-a-valid-url")
 	if result != "openai" {
-		t.Errorf("DetectProviderType('://invalid') = %q, want %q (fallback)", result, "openai")
+		t.Errorf("LegacyTypeFromURL('://invalid') = %q, want %q (fallback)", result, "openai")
 	}
 }
 
-func TestDetectProviderType_CaseInsensitive(t *testing.T) {
+func TestLegacyTypeFromURL_CaseInsensitive(t *testing.T) {
 	tests := []struct {
 		name     string
 		url      string
@@ -316,15 +316,15 @@ func TestDetectProviderType_CaseInsensitive(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != tc.expected {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, tc.expected)
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, tc.expected)
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_Whitespace(t *testing.T) {
+func TestLegacyTypeFromURL_Whitespace(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -335,20 +335,20 @@ func TestDetectProviderType_Whitespace(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			// Should still detect correctly after trimming
 			if result != "openai" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "openai")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "openai")
 			}
 		})
 	}
 }
 
 // ---------------------------------------------------------------------------
-// DetectProviderType - Additional Provider Types
+// LegacyTypeFromURL - Additional Provider Types
 // ---------------------------------------------------------------------------
 
-func TestDetectProviderType_Cohere(t *testing.T) {
+func TestLegacyTypeFromURL_Cohere(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -360,15 +360,15 @@ func TestDetectProviderType_Cohere(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "cohere" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "cohere")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "cohere")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_XAI(t *testing.T) {
+func TestLegacyTypeFromURL_XAI(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -378,18 +378,18 @@ func TestDetectProviderType_XAI(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "xai" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "xai")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "xai")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_Google(t *testing.T) {
+func TestLegacyTypeFromURL_Google(t *testing.T) {
 	// aiplatform hosts used to detect as "google" too, but the AI Studio
 	// discovery/proxy surfaces never existed there — they now route to the
-	// vertex-express egress adapter (see TestDetectProviderType_VertexExpress).
+	// vertex-express egress adapter (see TestLegacyTypeFromURL_VertexExpress).
 	tests := []struct {
 		name string
 		url  string
@@ -399,43 +399,43 @@ func TestDetectProviderType_Google(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != "google" {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "google")
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, "google")
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_DeepSeekSubdomain(t *testing.T) {
-	result := DetectProviderType("https://api.custom.deepseek.com/v1")
+func TestLegacyTypeFromURL_DeepSeekSubdomain(t *testing.T) {
+	result := LegacyTypeFromURL("https://api.custom.deepseek.com/v1")
 	if result != "deepseek" {
-		t.Errorf("DetectProviderType('https://api.custom.deepseek.com/v1') = %q, want %q", result, "deepseek")
+		t.Errorf("LegacyTypeFromURL('https://api.custom.deepseek.com/v1') = %q, want %q", result, "deepseek")
 	}
 }
 
-func TestDetectProviderType_NanoGPTSubdomain(t *testing.T) {
-	result := DetectProviderType("https://custom.nano-gpt.com/v1")
+func TestLegacyTypeFromURL_NanoGPTSubdomain(t *testing.T) {
+	result := LegacyTypeFromURL("https://custom.nano-gpt.com/v1")
 	if result != "nanogpt" {
-		t.Errorf("DetectProviderType('https://custom.nano-gpt.com/v1') = %q, want %q", result, "nanogpt")
+		t.Errorf("LegacyTypeFromURL('https://custom.nano-gpt.com/v1') = %q, want %q", result, "nanogpt")
 	}
 }
 
-func TestDetectProviderType_OpenRouterSubdomain(t *testing.T) {
-	result := DetectProviderType("https://custom.openrouter.ai/v1")
+func TestLegacyTypeFromURL_OpenRouterSubdomain(t *testing.T) {
+	result := LegacyTypeFromURL("https://custom.openrouter.ai/v1")
 	if result != "openrouter" {
-		t.Errorf("DetectProviderType('https://custom.openrouter.ai/v1') = %q, want %q", result, "openrouter")
+		t.Errorf("LegacyTypeFromURL('https://custom.openrouter.ai/v1') = %q, want %q", result, "openrouter")
 	}
 }
 
-func TestDetectProviderType_OllamaCloudSubdomain(t *testing.T) {
-	result := DetectProviderType("https://custom.ollama.com/v1")
+func TestLegacyTypeFromURL_OllamaCloudSubdomain(t *testing.T) {
+	result := LegacyTypeFromURL("https://custom.ollama.com/v1")
 	if result != "ollama-cloud" {
-		t.Errorf("DetectProviderType('https://custom.ollama.com/v1') = %q, want %q", result, "ollama-cloud")
+		t.Errorf("LegacyTypeFromURL('https://custom.ollama.com/v1') = %q, want %q", result, "ollama-cloud")
 	}
 }
 
-func TestDetectProviderType_OpenCodeZenSubdomain(t *testing.T) {
+func TestLegacyTypeFromURL_OpenCodeZenSubdomain(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -445,19 +445,22 @@ func TestDetectProviderType_OpenCodeZenSubdomain(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			expected := "opencode-zen"
 			if strings.Contains(tc.url, "/zen/go") {
 				expected = "opencode-go"
 			}
 			if result != expected {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, expected)
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, expected)
 			}
 		})
 	}
 }
 
-func TestDetectProviderType_LocalhostWithPorts(t *testing.T) {
+// The default-port rules survive in the legacy derivation because rows created
+// under them are backfilled with it. New providers carry the type the operator
+// picked, so a self-hosted server is no longer tied to a port.
+func TestLegacyTypeFromURL_LocalhostWithPorts(t *testing.T) {
 	tests := []struct {
 		name     string
 		url      string
@@ -479,9 +482,9 @@ func TestDetectProviderType_LocalhostWithPorts(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := DetectProviderType(tc.url)
+			result := LegacyTypeFromURL(tc.url)
 			if result != tc.expected {
-				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, tc.expected)
+				t.Errorf("LegacyTypeFromURL(%q) = %q, want %q", tc.url, result, tc.expected)
 			}
 		})
 	}

@@ -77,7 +77,7 @@ The following provider hosts are **always allowed** as provider `base_url` value
 - `api.neuralwatt.com`
 - `neuralwatt.com`
 
-These correspond to the providers detected by `DetectProviderType` in `internal/provider/discovery.go`.
+These correspond to the vendor hosts recognised by `detectByHost` in `internal/provider/discovery.go`.
 
 ### Notes
 
@@ -88,7 +88,7 @@ These correspond to the providers detected by `DetectProviderType` in `internal/
 - `TRUSTED_PROXIES` controls which reverse proxies are trusted for inbound request metadata (`X-Forwarded-For`). `KNOWN_PROXIES` controls which private CIDRs are allowed for outbound connections to self-hosted LLM providers. They serve opposite directions and should not be confused.
 - `ALLOWED_PROVIDER_HOSTS` bypasses all SSRF protections (both URL validation and SafeDialer IP checks). Use it for specific hostnames.
 - `KNOWN_PROXIES` permits entire CIDR ranges but only bypasses the private-IP block in the SafeDialer (provider URL validation still applies). If your internal LLM server has a stable hostname, use `ALLOWED_PROVIDER_HOSTS`. If it sits on a subnet with dynamic hostnames, use `KNOWN_PROXIES`.
-- Self-hosted providers detected via port heuristics (KoboldCPP on 5001, LMStudio on 1234, local Ollama on 11434) are not in the built-in host allowlist; add them to `ALLOWED_PROVIDER_HOSTS` or `KNOWN_PROXIES` as needed.
+- Self-hosted providers (Ollama, LM Studio, KoboldCPP) run on an address you choose and are not in the built-in host allowlist; add them to `ALLOWED_PROVIDER_HOSTS` or `KNOWN_PROXIES` as needed. The same URL validation applies to the probe that confirms the server type when the provider is added: a host the validation rejects (a private address with `ALLOWED_PROVIDER_HOSTS` unset, for instance) cannot be added at all.
 - Neither variable applies to the **admin-configured** endpoints (OIDC issuer, apprise-api, Front Desk members). Those go through a separate guard that already allows private and loopback addresses and blocks only link-local/metadata ones, so an internal IdP needs no allowlisting at all. It has no env vars; see [netguard](Security#netguard-admin-configured-endpoints).
 - `WEBAUTHN_RP_ID` is empty by default, meaning passkey login is disabled. Set it to your domain to enable FIDO2/WebAuthn passkey authentication. `WEBAUTHN_RP_ORIGINS` falls back to `CORS_ORIGINS` and then to `http://localhost:<port>`.
 - `DATABASE_MAX_CONNS` and `DATABASE_MIN_CONNS` are clamped to the range 1–1000. `DATABASE_MIN_CONNS` cannot exceed `DATABASE_MAX_CONNS`.

@@ -199,7 +199,7 @@ func TestCollapseRoundTrips_DoesNotMutateInput(t *testing.T) {
 }
 
 func TestDampenOpenRouterPriceJitter(t *testing.T) {
-	const orURL = "https://openrouter.ai/api/v1"
+	const orType = "openrouter"
 
 	wantPrice := func(t *testing.T, field string, got *float64, want float64) {
 		t.Helper()
@@ -214,34 +214,34 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 		// upsert then writes — not merely mark it.
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)} // 4% drift, under 7%
-		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.50)
 	})
 
 	t.Run("beyond tolerance passes through", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.49)}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.182)} // 63% drop, real upstream switch
-		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.182)
 	})
 
 	t.Run("non-openrouter provider is a no-op", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
-		DampenOpenRouterPriceJitter("https://api.deepseek.com", snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter("deepseek", snap, []*model.Model{m})
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
 	t.Run("model absent from snapshot is untouched", func(t *testing.T) {
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
-		DampenOpenRouterPriceJitter(orURL, map[string]ModelSnapshot{}, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, map[string]ModelSnapshot{}, []*model.Model{m})
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
 	t.Run("filling a previously-unset price is kept", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: nil}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.48)}
-		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.48)
 	})
 
@@ -258,7 +258,7 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 			OutputPricePerMillion: new(3.00), // 50% drop -> real move
 		}
 
-		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 
 		wantPrice(t, "input_price", m.InputPricePerMillion, 2.00)
 		wantPrice(t, "output_price", m.OutputPricePerMillion, 3.00)
@@ -275,7 +275,7 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 			OutputPricePerMillion: new(5.90),
 		}
 
-		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 
 		wantPrice(t, "input_price", m.InputPricePerMillion, 2.00)
 		wantPrice(t, "output_price", m.OutputPricePerMillion, 6.00)

@@ -424,7 +424,7 @@ func TestGetKimiCodeQuota_UsedSurvivesRoundTrip(t *testing.T) {
 }
 
 // TestDiscoverModels_KimiCodeDispatch exercises the kimi-code arm of the
-// DiscoverModels provider-type switch end-to-end offline: DetectProviderType
+// DiscoverModels provider-type switch end-to-end offline: LegacyTypeFromURL
 // routes the api.kimi.com host to "kimi-code", and a mock transport returns a
 // canned listing so discoverKimiCode runs without a real network call. A
 // keyless provider (nil EncryptedKey) takes the no-decrypt path.

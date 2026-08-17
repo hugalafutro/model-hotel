@@ -160,7 +160,7 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 	// Synced-entity writes are refused across every guarded route. Bodies can be
 	// minimal: the guard middleware runs before the handler parses them.
 	for _, w := range []struct{ name, method, path, body string }{
-		{"POST /providers", http.MethodPost, "/providers", `{"name":"x","base_url":"http://localhost:1234"}`},
+		{"POST /providers", http.MethodPost, "/providers", `{"name":"x","base_url":"http://localhost:1234","api_key":"k"}`},
 		{"POST /virtual-keys", http.MethodPost, "/virtual-keys", `{}`},
 		{"POST /failover-groups", http.MethodPost, "/failover-groups", `{}`},
 		{"POST /users", http.MethodPost, "/users", `{"username":"x","password":"password123","role":"user"}`},
@@ -202,7 +202,7 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 	if err := h.settingsRepo.Set(ctx, keyFleetIsPrimary, "true"); err != nil {
 		t.Fatal(err)
 	}
-	if code, _ := do(http.MethodPost, "/providers", `{"name":"primary-prov","base_url":"http://localhost:1234"}`); code != http.StatusCreated {
+	if code, _ := do(http.MethodPost, "/providers", `{"name":"primary-prov","base_url":"http://localhost:1234","api_key":"k"}`); code != http.StatusCreated {
 		t.Errorf("primary POST /providers: expected 201 Created, got %d", code)
 	}
 	code, body := do(http.MethodGet, "/providers", "")

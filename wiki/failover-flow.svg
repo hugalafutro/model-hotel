@@ -14,7 +14,7 @@
   <!-- Client Request Box -->
   <rect x="110" y="20" width="500" height="60" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
   <text x="360" y="45" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="600">CLIENT REQUEST</text>
-  <text x="360" y="63" text-anchor="middle" fill="#94a3b8" font-size="11">POST /v1/chat/completions  •  model: "hotel/gpt-4o"</text>
+  <text x="360" y="63" text-anchor="middle" fill="#94a3b8" font-size="11">POST /v1/chat/completions  •  model: "hotel/glm-4.6"</text>
 
   <!-- Arrow -->
   <line x1="360" y1="80" x2="360" y2="100" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -27,7 +27,7 @@
   <rect x="80" y="140" width="560" height="70" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="80" y="140" width="560" height="26" rx="8" fill="#f59e0b" opacity="0.15"/>
   <text x="100" y="157" fill="#fbbf24" font-size="12" font-weight="700">1. Model Resolution</text>
-  <text x="100" y="179" fill="#cbd5e1" font-size="11">• Detect "hotel/" prefix  •  Extract base model name (e.g. "gpt-4o")</text>
+  <text x="100" y="179" fill="#cbd5e1" font-size="11">• Detect "hotel/" prefix  •  Extract base model name (e.g. "glm-4.6")</text>
 
   <!-- Arrow -->
   <line x1="360" y1="210" x2="360" y2="230" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -36,7 +36,7 @@
   <rect x="80" y="230" width="560" height="100" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="80" y="230" width="560" height="26" rx="8" fill="#3b82f6" opacity="0.15"/>
   <text x="100" y="247" fill="#60a5fa" font-size="12" font-weight="700">2. Failover Group Lookup (internal/failover)</text>
-  <text x="100" y="267" fill="#cbd5e1" font-size="11">• Query groups WHERE display_model = 'gpt-4o'</text>
+  <text x="100" y="267" fill="#cbd5e1" font-size="11">• Query groups WHERE display_model = 'glm-4.6'</text>
   <text x="100" y="283" fill="#cbd5e1" font-size="11">• Check cache first (5-min TTL)  •  Validate: group_enabled = true</text>
 
   <!-- Arrow -->

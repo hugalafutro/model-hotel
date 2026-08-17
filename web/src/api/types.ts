@@ -10,6 +10,8 @@ export interface Provider {
 	id: string;
 	name: string;
 	base_url: string;
+	/** Vendor/API family chosen when the provider was added. Fixed after that. */
+	provider_type: string;
 	masked_key: string;
 	enabled: boolean;
 	autodiscovery_enabled: boolean;
@@ -25,6 +27,7 @@ export interface Provider {
 export interface CreateProviderRequest {
 	name: string;
 	base_url: string;
+	provider_type: string;
 	api_key: string;
 }
 

@@ -508,7 +508,7 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 // TestGetProviderUsage_KimiCodeError tests that GetProviderUsage handles
 // Kimi Code API errors. Unlike z.ai (hardcoded quota URL), Kimi Code builds
 // its quota URL from the provider's own base_url + "/usages", but
-// DetectProviderType still routes purely by hostname, so the provider row's
+// LegacyTypeFromURL still routes purely by hostname, so the provider row's
 // base_url must be an api.kimi.com URL to select the kimi-code arm.
 func TestGetProviderUsage_KimiCodeError(t *testing.T) {
 	// Override newDiscoveryService with mock transport to avoid real API calls
@@ -1279,7 +1279,7 @@ const kimiCodeUsageSuccessBody = `{
 // TestGetProviderUsage_KimiCodeSuccess exercises the success arm of the
 // kimi-code case in GetProviderUsage: a 200 /usages response is decoded and
 // written back as JSON. The mock transport intercepts the api.kimi.com request
-// so no real network call is made while DetectProviderType still routes by host.
+// so no real network call is made while LegacyTypeFromURL still routes by host.
 func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
@@ -1424,7 +1424,7 @@ func TestRefreshAllQuotas_KimiCodeSuccess(t *testing.T) {
 const minimaxQuotaSuccessBody = `{"model_remains":[{"start_time":1784473200000,"end_time":1784491200000,"remains_time":16420081,"current_interval_total_count":0,"current_interval_usage_count":0,"model_name":"general","current_weekly_total_count":0,"current_weekly_usage_count":0,"weekly_start_time":1783900800000,"weekly_end_time":1784505600000,"weekly_remains_time":30820081,"current_interval_status":1,"current_interval_remaining_percent":100,"current_weekly_status":1,"current_weekly_remaining_percent":100},{"start_time":1784419200000,"end_time":1784505600000,"remains_time":30820081,"current_interval_total_count":0,"current_interval_usage_count":0,"model_name":"video","current_weekly_total_count":0,"current_weekly_usage_count":0,"weekly_start_time":1783900800000,"weekly_end_time":1784505600000,"weekly_remains_time":30820081,"current_interval_status":3,"current_interval_remaining_percent":100,"current_weekly_status":3,"current_weekly_remaining_percent":100}],"base_resp":{"status_code":0,"status_msg":"success"}}`
 
 // TestGetProviderUsage_MiniMaxError tests that GetProviderUsage handles a
-// MiniMax API key rejection. DetectProviderType routes purely by hostname
+// MiniMax API key rejection. LegacyTypeFromURL routes purely by hostname
 // (api.minimax.io), so the provider row's base_url selects the minimax arm;
 // a 401 upstream response is classified by quotaAuthError into the
 // dependency-failure envelope rather than the generic 500 error path.
@@ -1494,7 +1494,7 @@ func TestGetProviderUsage_MiniMaxError(t *testing.T) {
 // minimax case in GetProviderUsage: a 200 /token_plan/remains response is
 // decoded and written back as JSON, passing model_remains through untouched.
 // The mock transport intercepts the api.minimax.io request so no real
-// network call is made while DetectProviderType still routes by host.
+// network call is made while LegacyTypeFromURL still routes by host.
 func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 

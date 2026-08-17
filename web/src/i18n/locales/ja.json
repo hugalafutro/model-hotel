@@ -728,6 +728,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "プロバイダーを追加",
@@ -779,6 +780,13 @@
 		"card_models_one": "{{count}} モデル",
 		"card_models_other": "{{count}} モデル",
 		"add": {
+			"typeMismatch": "このアドレスのサーバーは {{expected}} ではなく {{detected}} と応答しました。一致する種類を選ぶか、アドレスを修正してください。",
+			"typeMismatchVersion": "このアドレスのサーバーは {{expected}} ではなく {{detected}} {{version}} と応答しました。一致する種類を選ぶか、アドレスを修正してください。",
+			"typeUnconfirmed": "このアドレスでは {{expected}} の API が応答しませんでした。アドレスとサーバーが起動しているかを確認してください。",
+			"serverUnreachable": "このアドレスのサーバーに接続できませんでした。アドレスとサーバーが起動しているかを確認してください。",
+			"duplicateAddress": "このアドレスは既に「{{name}}」が使用しています。別の API キーを使う場合にかぎり、2 つ目のプロバイダーを追加してください。",
+			"urlRejected": "Model Hotel はこのアドレスを拒否しました: {{detail}}。プライベート、ループバック、その他の予約アドレスは ALLOWED_PROVIDER_HOSTS に登録する必要があります。またコンテナ内で動作する Model Hotel は localhost からご自身のマシンに到達できません。マシンのネットワークアドレスを使用してください。",
+			"duplicateAddressBlocked": "このアドレスのプロバイダーは既にあります（「{{name}}」）。セルフホストのサーバーは二重に追加できません。2 つ目のプロバイダーは同じモデルを再び検出するだけです。",
 			"providerFallback": "プロバイダー",
 			"discoveredModels_one": "{{count}} 個のモデルを検出中…",
 			"discoveredModels_other": "発見された {{count}} モデル…",
@@ -786,7 +794,7 @@
 			"deepseekBalanceDetected": "DeepSeek残高が検出されました",
 			"openrouterBalance": "OpenRouter の残高が検出されました: ${{balance}}",
 			"baseUrl": "ベースURL",
-			"baseUrlHelperDefault": "デフォルトの URL が事前に入力されています。サーバーが別のアドレスで実行される場合は、編集します。タイプはポート番号から検出されます。",
+			"baseUrlHelperDefault": "サーバーが待ち受けているアドレスを入力してください。ポートは任意です。保存前に Model Hotel がそのサーバーが選んだ種類かどうかを確認するため、サーバーは起動している必要があります。",
 			"baseUrlHelperFull": "すべてのパスプレフィックスを含むフルAPIベースURL。モデルは \"<base_url>\"/modelsから検出されます。",
 			"apiKey": "API キー"
 		},
@@ -2271,7 +2279,7 @@
 			"title": "パスワードポリシー",
 			"breachCheckLabel": "漏洩したパスワードを拒否",
 			"breachCheckDescription": "新しいアカウントのパスワードを、既知の漏洩パスワードの公開データベースと照合し、一致するものを拒否します。送信されるのはハッシュの短い接頭辞のみで、パスワード自体は送信されません。",
-			"breachCheckInfo": "これが有効な間、設定または変更されたパスワードは SHA-1 でハッシュ化され、そのハッシュの先頭 5 文字だけが Have I Been Pwned の range API に送られます。API はそのプレフィックスに続く漏洩済みサフィックスをすべて返し（ダミー行でパディングされるため、結果数から実際の一致数は分かりません）、照合はここで行われるため、パスワードも完全なハッシュもこのインスタンスの外へ出ることはありません。ユーザーのパスワードの痕跡が外部サービスに届く唯一の箇所です。アカウント変更を完全にオフラインに保つにはチェックを無効にするか、PWNED_PASSWORD_API_URL をセルフホストのミラーに向けてください。PWNED_PASSWORD_CHECK_ENABLED=false にするとチェック自体が無効になり、このスイッチは効かなくなります。API に到達できない場合やエラーが返った場合でも変更は許可されます。",
+			"breachCheckInfo": "これを有効にすると、設定されるパスワードが Have I Been Pwned と照合されます。送信されるのは SHA-1 ハッシュの先頭 5 文字だけで、残りの照合はこのインスタンス上で行われるため、パスワードがインスタンスの外に出ることはありません。サービスに接続できない場合、そのパスワードは受け入れられます。",
 			"breachCheckInfoLink": "range 検索の仕組み (haveibeenpwned.com)"
 		}
 	},

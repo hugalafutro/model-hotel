@@ -742,6 +742,7 @@
 		"type_google": "Google AI Studio (Gemini)",
 		"type_cohere": "Cohere",
 		"type_openrouter": "OpenRouter",
+		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"form_modal_title": "Pridať poskytovateľa",
@@ -799,6 +800,13 @@
 		"card_models_many": "{{count}} modelu",
 		"card_models_other": "{{count}} modelov",
 		"add": {
+			"typeMismatch": "Server na tejto adrese sa hlási ako {{detected}}, nie {{expected}}. Vyberte zodpovedajúci typ alebo opravte adresu.",
+			"typeMismatchVersion": "Server na tejto adrese sa hlási ako {{detected}} {{version}}, nie {{expected}}. Vyberte zodpovedajúci typ alebo opravte adresu.",
+			"typeUnconfirmed": "Na tejto adrese neodpovedalo žiadne API {{expected}}. Skontrolujte adresu a to, či server beží.",
+			"serverUnreachable": "Na tejto adrese sa nepodarilo spojiť so serverom. Skontrolujte adresu a to, či server beží.",
+			"duplicateAddress": "Túto adresu už používa „{{name}}“. Druhého poskytovateľa preň pridajte len vtedy, ak používa iný API kľúč.",
+			"urlRejected": "Model Hotel odmietol túto adresu: {{detail}}. Súkromná, loopback alebo inak vyhradená adresa musí byť uvedená v ALLOWED_PROVIDER_HOSTS a Model Hotel bežiaci v kontajneri sa na váš počítač cez localhost nedostane: použite sieťovú adresu stroja.",
+			"duplicateAddressBlocked": "Pre túto adresu už poskytovateľ existuje („{{name}}“). Vlastný server nemožno pridať dvakrát: druhý poskytovateľ by len znova našiel tie isté modely.",
 			"providerFallback": "Poskytovateľ",
 			"discoveredModels_one": "Zistený {{count}} model…",
 			"discoveredModels_few": "Zistené {{count}} modely…",
@@ -808,7 +816,7 @@
 			"deepseekBalanceDetected": "Zistený zostatok DeepSeek",
 			"openrouterBalance": "Zistený zostatok na účte OpenRouter:{{balance}}",
 			"baseUrl": "Základná URL adresa",
-			"baseUrlHelperDefault": "Predvolená adresa URL je už vyplnená; upravte ju, ak váš server beží na inej adrese. Typ sa zistí na základe čísla portu.",
+			"baseUrlHelperDefault": "Zadajte adresu, na ktorej váš server počúva, na ľubovoľnom porte. Model Hotel pred uložením overí, či je server naozaj zvoleného typu, takže musí bežať.",
 			"baseUrlHelperFull": "Úplná základná adresa URL rozhrania API vrátane akejkoľvek predpony cesty. Modely sa vyhľadajú na adrese „<base_url> “/models",
 			"apiKey": "Kľúč API"
 		},
@@ -2377,7 +2385,7 @@
 			"title": "Zásady hesiel",
 			"breachCheckLabel": "Odmietať uniknuté heslá",
 			"breachCheckDescription": "Porovnať nové heslá účtov s verejnou databázou známych uniknutých hesiel a odmietnuť akúkoľvek zhodu. Odosiela sa iba krátka predpona odtlačku, nikdy samotné heslo.",
-			"breachCheckInfo": "Kým je toto zapnuté, nastavované alebo menené heslo sa zahashuje pomocou SHA-1 a do range API služby Have I Been Pwned sa odošle len prvých päť znakov tohto hashu; API vráti všetky uniknuté sufixy za týmto prefixom (doplnené falošnými záznamami, aby počet výsledkov neprezradil, koľko skutočných zhôd existuje) a porovnanie prebehne tu, takže heslo ani jeho úplný hash túto inštanciu nikdy neopustia. Je to jediné miesto, kde stopa používateľského hesla dosiahne externú službu: kontrolu vypnite, aby zmeny účtov zostali úplne offline, alebo nasmerujte PWNED_PASSWORD_API_URL na vlastné zrkadlo; PWNED_PASSWORD_CHECK_ENABLED=false ju vypne úplne a tento prepínač potom nemá žiadny účinok. Ak je API nedostupné alebo vráti chybu, zmena sa aj tak povolí.",
+			"breachCheckInfo": "Keď je toto zapnuté, nastavované heslo sa porovná s databázou Have I Been Pwned. Odosiela sa len prvých päť znakov jeho odtlačku SHA-1; zvyšok porovnania prebehne na tejto inštancii, takže heslo ju nikdy neopustí. Ak služba nie je dostupná, heslo sa prijme.",
 			"breachCheckInfoLink": "Ako funguje vyhľadávanie podľa rozsahu (haveibeenpwned.com)"
 		}
 	},

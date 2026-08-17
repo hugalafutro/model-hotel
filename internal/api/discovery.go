@@ -285,7 +285,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	// Enrich models with data from models.dev (fills gaps for models not
 	// covered by hardcoded catalogs).
 	if cache := provider.GetModelsDevCache(); cache != nil {
-		enriched := cache.EnrichModels(models, provider.DetectProviderType(prov.BaseURL))
+		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
 		if enriched > 0 {
 			events.Publish(events.Event{
 				Type:     "discovery.enriched",
@@ -307,7 +307,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		respondError(w, fmt.Sprintf("failed to snapshot models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
-	DampenOpenRouterPriceJitter(prov.BaseURL, snapshot, models)
+	DampenOpenRouterPriceJitter(provider.TypeOf(prov), snapshot, models)
 
 	existingModelIDs := make([]string, 0, len(models))
 	upsertedModels := make([]*model.Model, 0, len(models))
@@ -386,7 +386,7 @@ func respondQuotaError(w http.ResponseWriter, providerName, resource string, err
 // so a brand-new provider's first view is not blank. The X-Quota-Fetched-At
 // header (RFC3339) carries the snapshot age for the client display.
 func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provider.Provider, expectedKind string) {
-	providerType := provider.DetectProviderType(prov.BaseURL)
+	providerType := provider.TypeOf(prov)
 	kind, ok := quotaKindFor(providerType)
 	if !ok || kind != expectedKind {
 		// Enforce the endpoint contract: /usage, /balance and /account each
@@ -589,7 +589,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 
 		// Enrich models with data from models.dev.
 		if cache := provider.GetModelsDevCache(); cache != nil {
-			enriched := cache.EnrichModels(models, provider.DetectProviderType(prov.BaseURL))
+			enriched := cache.EnrichModels(models, provider.TypeOf(prov))
 			if enriched > 0 {
 				events.Publish(events.Event{
 					Type:     "discovery.enriched",
@@ -608,7 +608,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 		if snapErr != nil {
 			debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
 		}
-		DampenOpenRouterPriceJitter(prov.BaseURL, snapshot, models)
+		DampenOpenRouterPriceJitter(provider.TypeOf(prov), snapshot, models)
 
 		existingModelIDs := make([]string, 0, len(models))
 		upsertedModels := make([]*model.Model, 0, len(models))
@@ -718,7 +718,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 
 		provCtx, provCancel := context.WithTimeout(context.Background(), 30*time.Second)
 
-		providerType := provider.DetectProviderType(prov.BaseURL)
+		providerType := provider.TypeOf(prov)
 		result := QuotaRefreshResult{
 			ProviderName: prov.Name,
 			ProviderType: providerType,

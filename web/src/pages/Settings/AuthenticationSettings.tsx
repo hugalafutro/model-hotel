@@ -138,8 +138,9 @@ export function AuthenticationSettings({
 								/>
 							</div>
 							{/* The one place a trace of a user's password leaves the
-							    instance, so the mechanism is spelled out next to the
-							    toggle rather than left to the wiki. */}
+							    instance, so the k-anonymity mechanism is summarised
+							    next to the toggle. Environment-level configuration
+							    (kill-switch, self-hosted mirror) lives in the wiki. */}
 							<div
 								className="ui-callout ui-callout-info"
 								data-testid="breach-check-info"
