@@ -329,6 +329,13 @@ jobs:
     # if either image needs a rebuild, and without this the other image would be
     # rebuilt and republished alongside it for no reason, handing everyone who
     # pulls it a new digest that fixes nothing.
+    #
+    # format() is not decoration. A bare comparison here yields a BOOLEAN, and
+    # `matrix.triggered == 'true'` then compares a boolean to a string, which
+    # GitHub resolves by casting both to numbers: true becomes 1, 'true' becomes
+    # NaN, and the guard is false forever. That silently skipped every rebuild
+    # step on the first real run. format() makes the value a string, so the
+    # comparison below is string to string.
     strategy:
       fail-fast: false
       matrix:
@@ -336,11 +343,11 @@ jobs:
           - image: model-hotel
             dockerfile: Dockerfile
             smoke: true
-            triggered: ${{ needs.scan.outputs.app_gate == 'failure' || needs.scan.outputs.app_advisory == 'failure' }}
+            triggered: ${{ format('{0}', needs.scan.outputs.app_gate == 'failure' || needs.scan.outputs.app_advisory == 'failure') }}
           - image: model-hotel-frontdesk
             dockerfile: Dockerfile.frontdesk
             smoke: false
-            triggered: ${{ needs.scan.outputs.frontdesk_gate == 'failure' || needs.scan.outputs.frontdesk_advisory == 'failure' }}
+            triggered: ${{ format('{0}', needs.scan.outputs.frontdesk_gate == 'failure' || needs.scan.outputs.frontdesk_advisory == 'failure') }}
     services:
       postgres:
         image: postgres:16-alpine
