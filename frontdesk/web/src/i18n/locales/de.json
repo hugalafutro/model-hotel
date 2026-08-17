@@ -429,7 +429,7 @@
 				"savedNote_other": "{{count}} bereits gespeicherte Ziele bleiben unverändert.",
 				"addAnother": "Weiteres hinzufügen",
 				"step6Title": "Ereignisse",
-				"step6Hint": "Welche Flotten-Ereignisse einen Alert senden. Der empfohlene Satz ist angehakt; passen Sie ihn nach Wunsch an.",
+				"step6Hint": "Welche Flotten-Ereignisse einen Alert senden. Passen Sie die Auswahl nach Wunsch an oder setzen Sie sie auf den empfohlenen Satz zurück.",
 				"resetRecommended": "Auf Empfehlung zurücksetzen",
 				"noneSelected": "Sie erhalten keine Alerts, solange nichts angehakt ist.",
 				"step7Title": "Abschluss",
@@ -441,7 +441,7 @@
 				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
 				"backToList": "Zurück zu den Zielen",
 				"nothingAdded": "In diesem Durchlauf wurde noch nichts hinzugefügt.",
-				"alreadySaved": "Sie haben dieses Ziel bereits hinzugefügt. Es kann nicht zweimal hinzugefügt werden."
+				"alreadySaved": "Dieses Ziel steht bereits auf der Liste. Es kann nicht zweimal hinzugefügt werden."
 			}
 		},
 		"wizard": {

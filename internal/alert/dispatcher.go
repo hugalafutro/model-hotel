@@ -100,6 +100,15 @@ func WithResultHook(hook func(ok bool)) Option {
 	return func(d *Dispatcher) { d.resultHook = hook }
 }
 
+// NewHTTPClient returns the SSRF-guarded client the alert handlers talk to
+// apprise-api through, with this package's own timeout. A caller that serves
+// several requests builds one and reuses it: each client owns a connection
+// pool, so one per request means no keep-alive reuse and a pool of idle
+// connections left behind with nothing to close them.
+func NewHTTPClient() *http.Client {
+	return netguard.NewClient(defaultTimeout)
+}
+
 // New constructs a Dispatcher. A nil client gets a sensible default. With no
 // options it is the main-app dispatcher; pass options to embed it elsewhere.
 func New(cfg ConfigProvider, client *http.Client, opts ...Option) *Dispatcher {
@@ -108,7 +117,7 @@ func New(cfg ConfigProvider, client *http.Client, opts ...Option) *Dispatcher {
 		// hostile value must not reach cloud-metadata/link-local. It allows
 		// private/loopback because apprise-api normally runs on the internal
 		// docker network (e.g. http://apprise:8000).
-		client = netguard.NewClient(defaultTimeout)
+		client = NewHTTPClient()
 	}
 	d := &Dispatcher{
 		cfg:          cfg,

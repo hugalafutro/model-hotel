@@ -77,12 +77,23 @@ export function AlertEventPicker({
 		return [...m.entries()];
 	}, [events]);
 
-	// Emit selection as a CSV in stable catalog order.
+	// Emit selection as a CSV in stable catalog order, followed by any selected
+	// type this build does not know about.
+	//
+	// Those exist: config sync replicates alert_events across a fleet, so a
+	// member running behind the primary holds a selection naming events its own
+	// catalog has not heard of yet (a rollback does the same). Rebuilding the
+	// CSV from the catalog alone would drop them the first time anything is
+	// ticked, quietly rewriting a preference this instance cannot even display,
+	// and config sync would then carry the loss back out to the fleet. They are
+	// kept in the order they were stored in.
 	const emit = (next: Set<string>) => {
+		const known = new Set((events ?? []).map((e) => e.type));
 		const ordered = (events ?? [])
 			.filter((e) => next.has(e.type))
 			.map((e) => e.type);
-		onChange(ordered.join(","));
+		const unknown = [...next].filter((type) => !known.has(type));
+		onChange([...ordered, ...unknown].join(","));
 	};
 
 	const toggle = (type: string) => {

@@ -434,7 +434,7 @@
 				"savedNote_other": "{{count}} destinos ya guardados se mantienen tal cual.",
 				"addAnother": "Añadir otro",
 				"step6Title": "Eventos",
-				"step6Hint": "Qué eventos de flota envían una alerta. El conjunto recomendado está marcado; ajústalo a tu gusto.",
+				"step6Hint": "Qué eventos de flota envían una alerta. Ajusta la selección a tu gusto o vuelve al conjunto recomendado.",
 				"resetRecommended": "Volver a lo recomendado",
 				"noneSelected": "No recibirás ninguna alerta mientras no marques algo.",
 				"step7Title": "Finalizar",
@@ -446,7 +446,7 @@
 				"apiChangedDrops": "Cambiar la dirección elimina los destinos añadidos en esta sesión; se probaron con la dirección anterior.",
 				"backToList": "Volver a los destinos",
 				"nothingAdded": "Todavía no se ha añadido nada en esta sesión.",
-				"alreadySaved": "Ya has añadido este destino. No se puede añadir dos veces."
+				"alreadySaved": "Este destino ya está en la lista. No se puede añadir dos veces."
 			}
 		},
 		"wizard": {
