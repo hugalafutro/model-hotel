@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -218,5 +219,30 @@ func TestRejectDuplicateLocalServer(t *testing.T) {
 				t.Errorf("existing = %q, want %q", body["existing"], existing.Name)
 			}
 		})
+	}
+}
+
+// erroringProviderList fails List, the way a flaky database would.
+type erroringProviderList struct {
+	ProviderStore
+}
+
+func (e *erroringProviderList) List(context.Context) ([]*provider.Provider, error) {
+	return nil, errors.New("database unavailable")
+}
+
+// The duplicate check is a usability guard, not a correctness one: if the
+// provider list cannot be read, the add proceeds rather than being blocked by
+// an unrelated failure.
+func TestRejectDuplicateLocalServer_ListFailureDoesNotBlock(t *testing.T) {
+	h := &Handler{providerRepo: &erroringProviderList{}}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
+
+	if !h.rejectDuplicateLocalServer(rec, req, "koboldcpp", "http://192.168.1.141:5005", uuid.Nil) {
+		t.Fatalf("expected the add to proceed, got %d %s", rec.Code, rec.Body.String())
+	}
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+		t.Errorf("expected no error response, got %d %s", rec.Code, rec.Body.String())
 	}
 }

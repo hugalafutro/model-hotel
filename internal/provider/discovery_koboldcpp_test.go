@@ -485,6 +485,13 @@ func TestKoboldCPPContextLength_RequestCreationError(t *testing.T) {
 	}
 }
 
+func TestKoboldCPPLoadedModel_RequestCreationError(t *testing.T) {
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	if _, err := svc.koboldcppLoadedModel(context.Background(), "http://invalid host with spaces", ""); err == nil {
+		t.Fatal("expected an error for an unbuildable request")
+	}
+}
+
 // A KoboldCPP started with --password rejects its native endpoints too, so
 // discovery has to authenticate against them or a protected server reports no
 // models at all.

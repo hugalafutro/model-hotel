@@ -348,3 +348,57 @@ func TestListingFingerprintsFailClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestSameLocalAddress(t *testing.T) {
+	tests := []struct {
+		name     string
+		a, b     string
+		expected bool
+	}{
+		// The same server however either side spells it.
+		{"identical", "http://box:5001/v1", "http://box:5001/v1", true},
+		{"one side without the mount", "http://box:5001", "http://box:5001/v1", true},
+		{"trailing slash", "http://box:5001/", "http://box:5001/v1", true},
+		{"host case", "http://BOX:5001/v1", "http://box:5001", true},
+		// Different servers.
+		{"different port", "http://box:5001/v1", "http://box:11234/v1", false},
+		{"different host", "http://box-a:5001", "http://box-b:5001", false},
+		{"different path", "http://box:5001/one/v1", "http://box:5001/two/v1", false},
+		// Nothing matches an unusable address, or the comparison would make
+		// every malformed entry a duplicate of every other.
+		{"both empty", "", "", false},
+		{"one empty", "", "http://box:5001", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := SameLocalAddress(tc.a, tc.b); got != tc.expected {
+				t.Errorf("SameLocalAddress(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.expected)
+			}
+		})
+	}
+}
+
+// A base URL too malformed to parse is handed back untouched rather than
+// mangled into something that looks valid.
+func TestLocalURLHelpers_MalformedInput(t *testing.T) {
+	const broken = "http://box:5001:bad]url"
+	if got := NormalizeLocalBaseURL("ollama", broken); got != broken {
+		t.Errorf("NormalizeLocalBaseURL = %q, want it unchanged", got)
+	}
+	if got := localServerOrigin("not a url/v1"); got != "not a url" {
+		t.Errorf("localServerOrigin = %q, want the /v1 mount trimmed off the raw string", got)
+	}
+}
+
+// A request the HTTP client cannot even build counts as "did not reach the
+// server", not as a server that answered.
+func TestIdentifyLocalServer_UnbuildableRequest(t *testing.T) {
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	got, err := svc.IdentifyLocalServer(context.Background(), "http://invalid host with spaces", "")
+	if !errors.Is(err, ErrLocalServerUnreachable) {
+		t.Fatalf("err = %v, want ErrLocalServerUnreachable", err)
+	}
+	if got.Type != "" {
+		t.Errorf("type = %q, want empty", got.Type)
+	}
+}
