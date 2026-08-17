@@ -799,6 +799,7 @@
 			"apiKey": "API-kulcs"
 		},
 		"edit": {
+			"typeHelper": "Csak akkor módosítsa, ha az importáláskor vagy frissítéskor rosszul megtippelt típust kell javítani. A saját üzemeltetésű típust mentés előtt ellenőrizzük a kiszolgálón.",
 			"enabledToggle": "Szolgáltató engedélyezve",
 			"enabledHelper": "Irányítja a proxy-átirányítást és az API-hozzáférést. A letiltott szolgáltatók minden kérést elutasítanak.",
 			"autodiscoveryToggle": "Szolgáltatók automatikus felismerése",

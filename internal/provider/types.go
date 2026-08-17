@@ -77,7 +77,9 @@ func NormalizeLocalBaseURL(providerType, baseURL string) string {
 	// Append to the path, never to the whole string: a base URL carrying a
 	// query would otherwise end up with the mount inside it.
 	u.Path = strings.TrimRight(u.Path, "/")
-	if !strings.HasSuffix(u.Path, "/v1") {
+	// Case-insensitive: a base URL typed as /V1 is the same mount, and adding a
+	// second one would send every request to a path that does not exist.
+	if !strings.EqualFold(pathSuffix(u.Path, len("/v1")), "/v1") {
 		u.Path += "/v1"
 	}
 	return u.String()
@@ -91,12 +93,25 @@ func SameLocalAddress(a, b string) bool {
 	return ka != "" && strings.EqualFold(ka, kb)
 }
 
+// pathSuffix returns the last n characters of p, or all of p when it is
+// shorter.
+func pathSuffix(p string, n int) string {
+	if len(p) < n {
+		return p
+	}
+	return p[len(p)-n:]
+}
+
 // localServerOrigin strips the OpenAI-compatible /v1 mount so the native
 // endpoints (/api/...) can be addressed.
 func localServerOrigin(baseURL string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
-		u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), "/v1")
+		trimmedPath := strings.TrimRight(u.Path, "/")
+		if strings.EqualFold(pathSuffix(trimmedPath, len("/v1")), "/v1") {
+			trimmedPath = trimmedPath[:len(trimmedPath)-len("/v1")]
+		}
+		u.Path = trimmedPath
 		u.RawQuery = ""
 		u.Fragment = ""
 		return strings.TrimRight(u.String(), "/")

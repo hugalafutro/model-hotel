@@ -799,6 +799,7 @@
 			"apiKey": "API Nøgle"
 		},
 		"edit": {
+			"typeHelper": "Ret kun dette for at rette en type, der blev gættet forkert ved import eller opgradering. En selvhostet type kontrolleres mod serveren, før den gemmes.",
 			"enabledToggle": "Udbyder aktiveret",
 			"enabledHelper": "Kontrollerer proxy-routing og API-adgang. Deaktiverede udbydere afviser alle anmodninger.",
 			"autodiscoveryToggle": "Udbyder-autoopdagelse",

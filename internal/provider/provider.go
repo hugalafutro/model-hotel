@@ -44,8 +44,15 @@ type CreateProviderRequest struct {
 
 // UpdateProviderRequest is the request body for updating a provider.
 type UpdateProviderRequest struct {
-	Name                 *string      `json:"name"`
-	BaseURL              *string      `json:"base_url"`
+	Name    *string `json:"name"`
+	BaseURL *string `json:"base_url"`
+	// ProviderType corrects a provider's type. It is not something to change
+	// casually, but a row backfilled from the old URL rules can carry a type
+	// its operator never chose (a self-hosted server on a non-default port was
+	// filed as generic OpenAI), and re-adding the provider would cascade away
+	// its models. A new self-hosted type is confirmed by probing, exactly as on
+	// create.
+	ProviderType         *string      `json:"provider_type"`
 	APIKey               *string      `json:"api_key"`
 	Enabled              *bool        `json:"enabled"`
 	AutodiscoveryEnabled *bool        `json:"autodiscovery_enabled"`
@@ -264,6 +271,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		UPDATE providers
 		SET name = COALESCE($1, name),
 		    base_url = COALESCE($2, base_url),
+		    provider_type = COALESCE($12, provider_type),
 		    encrypted_key = COALESCE($3, encrypted_key),
 		    key_nonce = COALESCE($4, key_nonce),
 		    key_salt = COALESCE($5, key_salt),
@@ -282,7 +290,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	p, err := scanProvider(r.pool.QueryRow(ctx, query,
 		req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey,
 		req.Enabled, req.AutodiscoveryEnabled,
-		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id))
+		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id, req.ProviderType))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err

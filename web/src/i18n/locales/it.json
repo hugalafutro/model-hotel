@@ -810,6 +810,7 @@
 			"apiKey": "Chiave API"
 		},
 		"edit": {
+			"typeHelper": "Modificalo solo per correggere un tipo dedotto male durante l'importazione o l'aggiornamento. Un tipo self-hosted viene verificato con il server prima del salvataggio.",
 			"enabledToggle": "Provider abilitato",
 			"enabledHelper": "Controlla l'instradamento del proxy e l'accesso alle API. I provider disabilitati rifiutano tutte le richieste.",
 			"autodiscoveryToggle": "Scoperta automatica del provider",

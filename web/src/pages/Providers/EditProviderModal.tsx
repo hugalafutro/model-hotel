@@ -7,11 +7,12 @@ import type { Provider } from "../../api/types";
 import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
+import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { formatDate } from "../../utils/format";
-import { isKnownProviderUrl } from "./constants";
+import { isKnownProviderUrl, providerTypeTranslationKeys } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
@@ -43,6 +44,7 @@ export function EditProviderModal({
 	const { t } = useTranslation();
 	const [formData, setFormData] = useState({
 		name: provider.name,
+		provider_type: provider.provider_type,
 		base_url: provider.base_url,
 		api_key: "",
 		enabled: provider.enabled,
@@ -61,6 +63,7 @@ export function EditProviderModal({
 	const updateMutation = useMutation({
 		mutationFn: (data: {
 			name?: string;
+			provider_type?: string;
 			base_url?: string;
 			api_key?: string;
 			enabled?: boolean;
@@ -101,6 +104,8 @@ export function EditProviderModal({
 	const getChangedFields = (): string[] => {
 		const fields: string[] = [];
 		if (formData.name !== provider.name) fields.push("name");
+		if (formData.provider_type !== provider.provider_type)
+			fields.push("provider_type");
 		if (formData.base_url !== provider.base_url) fields.push("base_url");
 		if (formData.api_key !== "") fields.push("api_key");
 		if (formData.enabled !== provider.enabled) fields.push("enabled");
@@ -128,6 +133,7 @@ export function EditProviderModal({
 		setError(null);
 		const payload: {
 			name?: string;
+			provider_type?: string;
 			base_url?: string;
 			api_key?: string;
 			enabled?: boolean;
@@ -135,6 +141,8 @@ export function EditProviderModal({
 			scheduled_disable_on?: string | null;
 		} = {};
 		if (formData.name !== provider.name) payload.name = formData.name.trim();
+		if (formData.provider_type !== provider.provider_type)
+			payload.provider_type = formData.provider_type;
 		if (formData.base_url !== provider.base_url)
 			payload.base_url = formData.base_url;
 		if (formData.api_key !== "") payload.api_key = formData.api_key;
@@ -185,6 +193,36 @@ export function EditProviderModal({
 							className="ui-input"
 							placeholder={t("providers.form_name_placeholder")}
 						/>
+					</div>
+
+					<div>
+						<span className="block text-sm font-medium text-gray-300 mb-1">
+							{t("providers.form_type_label")}
+						</span>
+						<FilterDropdown
+							allowClear={false}
+							className="w-full"
+							placeholder={t("providers.form_type_label")}
+							value={formData.provider_type}
+							onChange={(type) =>
+								setFormData({ ...formData, provider_type: type ?? "" })
+							}
+							options={Object.keys(providerTypeTranslationKeys)
+								.sort((a, b) => {
+									if (a === "custom") return -1;
+									if (b === "custom") return 1;
+									return t(providerTypeTranslationKeys[a]).localeCompare(
+										t(providerTypeTranslationKeys[b]),
+									);
+								})
+								.map((type) => ({
+									value: type,
+									label: t(providerTypeTranslationKeys[type]),
+								}))}
+						/>
+						<p className="text-gray-500 text-xs mt-1">
+							{t("providers.edit.typeHelper")}
+						</p>
 					</div>
 
 					<div>

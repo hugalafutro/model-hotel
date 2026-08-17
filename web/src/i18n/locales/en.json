@@ -801,6 +801,7 @@
 			"apiKey": "API Key"
 		},
 		"edit": {
+			"typeHelper": "Change this only to correct a type that was guessed wrong when the provider was imported or upgraded. A self-hosted type is checked against the server before it is saved.",
 			"enabledToggle": "Provider enabled",
 			"enabledHelper": "Controls proxy routing and API access. Disabled providers reject all requests.",
 			"autodiscoveryToggle": "Provider autodiscovery",

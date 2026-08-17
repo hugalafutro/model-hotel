@@ -799,6 +799,7 @@
 			"apiKey": "Api Avain"
 		},
 		"edit": {
+			"typeHelper": "Muuta tätä vain korjataksesi tyypin, joka arvattiin väärin tuonnin tai päivityksen yhteydessä. Itse ylläpidetty tyyppi tarkistetaan palvelimelta ennen tallennusta.",
 			"enabledToggle": "Tarjoaja käytössä",
 			"enabledHelper": "Hallitsee välityspalvelimen reititystä ja API-pääsyä. Estetyt palveluntarjoajat hylkäävät kaikki pyynnöt.",
 			"autodiscoveryToggle": "Tarjoajan automaattinen etsintä",

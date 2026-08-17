@@ -810,6 +810,7 @@
 			"apiKey": "Clau de l'API"
 		},
 		"edit": {
+			"typeHelper": "Canvia-ho només per corregir un tipus que es va deduir malament en importar o actualitzar el proveïdor. Un tipus autoallotjat es comprova amb el servidor abans de desar-lo.",
 			"enabledToggle": "Proveïdor habilitat",
 			"enabledHelper": "Controla l'encaminament del proxy i l'accés a l'API. Els proveïdors desactivats rebutgen totes les sol·licituds.",
 			"autodiscoveryToggle": "Descobriment automàtic de proveïdors",

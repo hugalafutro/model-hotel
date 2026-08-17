@@ -799,6 +799,7 @@
 			"apiKey": "API Sleutel"
 		},
 		"edit": {
+			"typeHelper": "Wijzig dit alleen om een type te corrigeren dat bij import of upgrade verkeerd is geraden. Een zelfgehost type wordt vóór het opslaan bij de server gecontroleerd.",
 			"enabledToggle": "Provider ingeschakeld",
 			"enabledHelper": "Bepaalt proxyroutering en API-toegang. Uitgeschakelde providers wijzen alle verzoeken af.",
 			"autodiscoveryToggle": "Autodiscovery aanbieder",

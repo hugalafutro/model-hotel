@@ -622,16 +622,12 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.BaseURL) > 500 {
-		http.Error(w, "base_url must be less than 500 characters", http.StatusBadRequest)
-		return
-	}
-
 	// The dashboard sends the type the operator picked. A client that omits it
 	// gets the vendor-hostname derivation: enough to keep scripted adds of
 	// cloud providers working, without resurrecting the port guessing for
 	// self-hosted servers (which must be named to be added).
-	if req.ProviderType == "" {
+	derivedType := req.ProviderType == ""
+	if derivedType {
 		req.ProviderType = provider.TypeFromHostname(req.BaseURL)
 	}
 	if !provider.IsKnownType(req.ProviderType) {
@@ -642,6 +638,22 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	// native endpoints at the root, so the /v1 half is a convenience the
 	// operator should not have to get right.
 	req.BaseURL = provider.NormalizeLocalBaseURL(req.ProviderType, req.BaseURL)
+
+	// Measured after normalization, so the value that is actually stored is the
+	// one that has to fit.
+	if len(req.BaseURL) > 500 {
+		http.Error(w, "base_url must be less than 500 characters", http.StatusBadRequest)
+		return
+	}
+
+	// An address that matches no vendor host and was given no type is a
+	// generic OpenAI endpoint. That is right for a gateway and wrong for a
+	// self-hosted server the caller forgot to name, and the difference is
+	// invisible afterwards, so say so once.
+	if derivedType && req.ProviderType == "openai" {
+		debuglog.Info("provider: no provider_type given, treating as a generic OpenAI-compatible endpoint",
+			"name", req.Name, "hint", "self-hosted servers (ollama, lmstudio, koboldcpp) must name their type to get native discovery")
+	}
 
 	// Some providers (e.g. OpenCode Zen) support keyless access for free models.
 	// Allow empty API key only for providers that support it.
@@ -655,21 +667,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.cfg.AllowHTTPProviders {
-		parsed, err := url.Parse(strings.TrimSpace(req.BaseURL))
-		if err != nil || parsed.Scheme != "https" {
-			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
-			return
-		}
-	}
-
-	if err := h.cfg.ValidateProviderURL(req.BaseURL); err != nil {
-		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
-		// and "resolves to a private address" call for different fixes, and a
-		// containerised Model Hotel cannot reach the operator's localhost at
-		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
-		debuglog.Info("provider: base URL rejected", "error", err)
-		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
+	if !h.acceptProviderURLShape(w, req.BaseURL) {
 		return
 	}
 
@@ -813,31 +811,25 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, response)
 }
 
-// acceptNewProviderURL validates and normalizes a base URL an update is trying
-// to set, and confirms it still answers as the provider's stored type. It
-// writes the error response and reports false when the address must not be
+// acceptProviderIdentity validates the two fields that decide where a provider
+// points and how it is driven: its base URL and its type. Either change has to
+// be confirmed against the server that answers, so they are handled together.
+// It writes the error response and reports false when the change must not be
 // saved.
-func (h *Handler) acceptNewProviderURL(w http.ResponseWriter, r *http.Request, id uuid.UUID, req *provider.UpdateProviderRequest) bool {
-	if !h.cfg.AllowHTTPProviders {
-		parsed, err := url.Parse(strings.TrimSpace(*req.BaseURL))
-		if err != nil || parsed.Scheme != "https" {
-			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
-			return false
-		}
+func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request, id uuid.UUID, req *provider.UpdateProviderRequest) bool {
+	if req.BaseURL == nil && req.ProviderType == nil {
+		return true
 	}
-	if err := h.cfg.ValidateProviderURL(*req.BaseURL); err != nil {
-		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
-		// and "resolves to a private address" call for different fixes, and a
-		// containerised Model Hotel cannot reach the operator's localhost at
-		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
-		debuglog.Info("provider: base URL rejected", "error", err)
-		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
+	if req.ProviderType != nil && !provider.IsKnownType(*req.ProviderType) {
+		http.Error(w, "unknown provider_type", http.StatusBadRequest)
+		return false
+	}
+	// Checked before the provider is even loaded, so a refused address fails
+	// fast and for the right reason.
+	if req.BaseURL != nil && !h.acceptProviderURLShape(w, *req.BaseURL) {
 		return false
 	}
 
-	// The type is fixed at creation, so a new address has to answer as the
-	// type already stored: pointing an LM Studio provider at a KoboldCPP box
-	// would keep driving LM Studio's native endpoints against it.
 	current, err := h.providerRepo.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -847,18 +839,43 @@ func (h *Handler) acceptNewProviderURL(w http.ResponseWriter, r *http.Request, i
 		respondError(w, fmt.Sprintf("failed to load provider %s", id), err, http.StatusInternalServerError)
 		return false
 	}
-	storedType := provider.TypeOf(current)
-	normalized := provider.NormalizeLocalBaseURL(storedType, *req.BaseURL)
-	req.BaseURL = &normalized
-	// An address that is not actually changing is not re-confirmed: an update
+
+	// The type the provider will have once this update lands drives everything
+	// below: a new address must answer as it, and a corrected type must match
+	// the address already stored.
+	effectiveType := provider.TypeOf(current)
+	typeChanged := false
+	if req.ProviderType != nil && *req.ProviderType != effectiveType {
+		effectiveType = *req.ProviderType
+		typeChanged = true
+	}
+
+	address := current.BaseURL
+	if req.BaseURL != nil {
+		address = *req.BaseURL
+	}
+	normalized := provider.NormalizeLocalBaseURL(effectiveType, address)
+	if req.BaseURL != nil {
+		req.BaseURL = &normalized
+	}
+
+	// A type-only change probes the address already stored, which was checked
+	// when it was set. Re-check it: ALLOWED_PROVIDER_HOSTS may have been
+	// narrowed since, and every address this handler probes must be one the
+	// SSRF rules accept right now.
+	if req.BaseURL == nil && !h.acceptProviderURLShape(w, normalized) {
+		return false
+	}
+
+	// Nothing that decides where requests land is actually changing: an update
 	// that only renames the provider must not fail because the server happens
-	// to be down. Both sides are normalized first, so a client that echoes back
-	// a stored URL written before the /v1 form was canonical does not trip it.
-	if normalized == provider.NormalizeLocalBaseURL(storedType, current.BaseURL) {
+	// to be down. Both sides are normalized first, so a client echoing back a
+	// stored URL written before the /v1 form was canonical does not trip it.
+	if !typeChanged && normalized == provider.NormalizeLocalBaseURL(effectiveType, current.BaseURL) {
 		return true
 	}
 
-	if !h.rejectDuplicateLocalServer(w, r, storedType, normalized, id) {
+	if !h.rejectDuplicateLocalServer(w, r, effectiveType, normalized, id) {
 		return false
 	}
 
@@ -877,7 +894,29 @@ func (h *Handler) acceptNewProviderURL(w http.ResponseWriter, r *http.Request, i
 			apiKey = plain
 		}
 	}
-	return h.confirmLocalServerType(w, r, storedType, normalized, apiKey)
+	return h.confirmLocalServerType(w, r, effectiveType, normalized, apiKey)
+}
+
+// acceptProviderURLShape applies the scheme and SSRF rules a base URL must
+// satisfy before anything is done with it.
+func (h *Handler) acceptProviderURLShape(w http.ResponseWriter, baseURL string) bool {
+	if !h.cfg.AllowHTTPProviders {
+		parsed, err := url.Parse(strings.TrimSpace(baseURL))
+		if err != nil || parsed.Scheme != "https" {
+			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
+			return false
+		}
+	}
+	if err := h.cfg.ValidateProviderURL(baseURL); err != nil {
+		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
+		// and "resolves to a private address" call for different fixes, and a
+		// containerised Model Hotel cannot reach the operator's localhost at
+		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
+		debuglog.Info("provider: base URL rejected", "error", err)
+		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
+		return false
+	}
+	return true
 }
 
 // UpdateProvider updates an existing provider by ID.
@@ -945,8 +984,9 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Validate new BaseURL if provided
-	if req.BaseURL != nil && !h.acceptNewProviderURL(w, r, id, &req) {
+	// Validate the address and the type together: either one changing has to
+	// be confirmed against the server that answers.
+	if !h.acceptProviderIdentity(w, r, id, &req) {
 		return
 	}
 

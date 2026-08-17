@@ -1188,6 +1188,70 @@ describe("AddProviderModal", () => {
 			});
 		});
 
+		it("warns about an address another provider already uses", async () => {
+			const existing = {
+				id: "p-existing",
+				name: "KoboldCpp 141",
+				base_url: "http://192.168.1.141:5005/v1",
+				provider_type: "koboldcpp",
+				masked_key: "N/A",
+				enabled: true,
+				autodiscovery_enabled: true,
+				scheduled_disable_on: null,
+				last_discovered_at: null,
+				last_used_at: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				model_count: 1,
+				total_tokens: 0,
+			};
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} providers={[existing]} />,
+			);
+			await selectType(user, "koboldcpp");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			await user.clear(baseUrlInput);
+			// The same box, spelled without the mount the backend stores.
+			await user.type(baseUrlInput, "http://192.168.1.141:5005");
+
+			const warning = await screen.findByTestId("duplicate-address-warning");
+			expect(warning.textContent).toContain("KoboldCpp 141");
+			// Two self-hosted rows on one address: the backend refuses it.
+			expect(warning.textContent).toContain("cannot be added twice");
+		});
+
+		it("does not claim a duplicate is impossible when the backend allows it", async () => {
+			// The existing row is `custom`, so adding a self-hosted provider at
+			// the same address is the supported escape hatch, not a refusal.
+			const existing = {
+				id: "p-existing",
+				name: "Box as custom",
+				base_url: "http://192.168.1.141:5005/v1",
+				provider_type: "custom",
+				masked_key: "N/A",
+				enabled: true,
+				autodiscovery_enabled: true,
+				scheduled_disable_on: null,
+				last_discovered_at: null,
+				last_used_at: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				model_count: 1,
+				total_tokens: 0,
+			};
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} providers={[existing]} />,
+			);
+			await selectType(user, "koboldcpp");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			await user.clear(baseUrlInput);
+			await user.type(baseUrlInput, "http://192.168.1.141:5005");
+
+			const warning = await screen.findByTestId("duplicate-address-warning");
+			expect(warning.textContent).toContain("Box as custom");
+			expect(warning.textContent).not.toContain("cannot be added twice");
+		});
+
 		it("names the server that answered when it is not the chosen type", async () => {
 			server.use(
 				http.post("/api/providers", () =>

@@ -321,7 +321,7 @@ Triggers manual model discovery for a specific provider.
       {"display_model": "o1-preview", "reason": "only 1 enabled provider (need 2+ for failover)", "provider_count": 1, "provider_names": []}
     ],
     "failover_updated_groups": [
-      {"display_model": "gpt-4o", "removed_model_ids": ["uuid-old"], "added_model_ids": ["uuid-new"]}
+      {"display_model": "glm-4.6", "removed_model_ids": ["uuid-old"], "added_model_ids": ["uuid-new"]}
     ]
   }
 }
@@ -611,7 +611,7 @@ On error:
 **Request Body:**
 ```json
 {
-  "display_model": "gpt-4o",
+  "display_model": "glm-4.6",
   "display_name": "GPT-4o Failover",
   "description": "Optional description",
   "entry_ids": ["uuid-1", "uuid-2", "uuid-3"]

@@ -810,6 +810,7 @@
 			"apiKey": "Cheie API"
 		},
 		"edit": {
+			"typeHelper": "Modificați doar pentru a corecta un tip ghicit greșit la import sau la actualizare. Un tip găzduit local este verificat pe server înainte de salvare.",
 			"enabledToggle": "Furnizor activat",
 			"enabledHelper": "Controlează rutarea proxy și accesul API. Furnizorii dezactivați resping toate cererile.",
 			"autodiscoveryToggle": "Furnizor autodescoperire",

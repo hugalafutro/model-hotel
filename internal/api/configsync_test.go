@@ -1175,21 +1175,33 @@ func TestExportProviders_IncludesProviderType(t *testing.T) {
 	ctx := context.Background()
 	pool := apiTestDB.Pool()
 
+	// The second row is what a not-yet-backfilled provider looks like: the
+	// column at its default. Exporting it as an empty string would make a
+	// backfilled member and an unbackfilled primary hash different payloads for
+	// identical providers, and fleet sync would never agree again.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO providers (name, base_url, provider_type, enabled, autodiscovery_enabled)
-		VALUES ('exported', 'http://192.168.1.163:11234/v1', 'lmstudio', true, true)`); err != nil {
-		t.Fatalf("seed provider: %v", err)
+		VALUES ('exported', 'http://192.168.1.163:11234/v1', 'lmstudio', true, true),
+		       ('unbackfilled', 'https://api.deepseek.com/v1', '', true, true)`); err != nil {
+		t.Fatalf("seed providers: %v", err)
 	}
 
 	got, err := exportProviders(ctx, pool)
 	if err != nil {
 		t.Fatalf("exportProviders: %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("exported %d providers, want 1", len(got))
+	if len(got) != 2 {
+		t.Fatalf("exported %d providers, want 2", len(got))
 	}
-	if got[0].ProviderType != "lmstudio" {
-		t.Errorf("exported provider_type = %q, want lmstudio", got[0].ProviderType)
+	byName := map[string]string{}
+	for _, p := range got {
+		byName[p.Name] = p.ProviderType
+	}
+	if byName["exported"] != "lmstudio" {
+		t.Errorf("exported provider_type = %q, want lmstudio", byName["exported"])
+	}
+	if byName["unbackfilled"] != "deepseek" {
+		t.Errorf("unbackfilled provider_type = %q, want it derived to deepseek", byName["unbackfilled"])
 	}
 }
 

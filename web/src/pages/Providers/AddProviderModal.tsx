@@ -204,8 +204,13 @@ export function AddProviderModal({
 	// refusal. A self-hosted server has no such split and the backend refuses
 	// it outright, so the warning says which of the two this is.
 	const duplicateOf = findProviderAtAddress(providers, formData.base_url);
+	// The backend only refuses when BOTH rows are self-hosted: adding a
+	// self-hosted provider alongside a `custom` one at the same address is the
+	// supported escape hatch, so the warning must not claim it is impossible.
 	const duplicateIsBlocked =
-		duplicateOf !== null && isLocalProviderType(formData.provider_type);
+		duplicateOf !== null &&
+		isLocalProviderType(formData.provider_type) &&
+		isLocalProviderType(duplicateOf.provider_type);
 
 	const handleProviderTypeChange = (type: string) => {
 		if (type === "custom") {

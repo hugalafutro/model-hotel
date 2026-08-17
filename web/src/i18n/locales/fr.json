@@ -810,6 +810,7 @@
 			"apiKey": "Clé API"
 		},
 		"edit": {
+			"typeHelper": "Ne le modifiez que pour corriger un type mal deviné lors de l'import ou de la mise à niveau. Un type auto-hébergé est vérifié auprès du serveur avant d'être enregistré.",
 			"enabledToggle": "Fournisseur activé",
 			"enabledHelper": "Contrôle le routage du proxy et l'accès à l'API. Les fournisseurs désactivés rejettent toutes les requêtes.",
 			"autodiscoveryToggle": "Découverte automatique du fournisseur",

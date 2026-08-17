@@ -810,6 +810,7 @@
 			"apiKey": "Clave API"
 		},
 		"edit": {
+			"typeHelper": "Cámbialo solo para corregir un tipo que se dedujo mal al importar o actualizar el proveedor. Un tipo autoalojado se comprueba con el servidor antes de guardarlo.",
 			"enabledToggle": "Proveedor habilitado",
 			"enabledHelper": "Controla la ruta proxy y el acceso de la API. Los proveedores desactivados rechazan todas las solicitudes.",
 			"autodiscoveryToggle": "Auto-descubrimiento del proveedor",

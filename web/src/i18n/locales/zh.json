@@ -799,6 +799,7 @@
 			"apiKey": "API 密钥"
 		},
 		"edit": {
+			"typeHelper": "仅在纠正导入或升级时推断错误的类型时才更改。自托管类型会在保存前与服务器核对。",
 			"enabledToggle": "提供商已启用",
 			"enabledHelper": "控制代理路由和API访问。禁用提供商拒绝所有请求。",
 			"autodiscoveryToggle": "提供者自动发现",

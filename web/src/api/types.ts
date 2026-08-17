@@ -33,6 +33,8 @@ export interface CreateProviderRequest {
 
 export interface UpdateProviderRequest {
 	name?: string;
+	/** Corrects the stored type. A self-hosted type is re-verified by probing. */
+	provider_type?: string;
 	base_url?: string;
 	api_key?: string;
 	enabled?: boolean;

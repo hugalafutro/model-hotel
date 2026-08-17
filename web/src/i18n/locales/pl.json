@@ -821,6 +821,7 @@
 			"apiKey": "Klucz API"
 		},
 		"edit": {
+			"typeHelper": "Zmieniaj to tylko po to, by poprawić typ błędnie odgadnięty przy imporcie lub aktualizacji. Typ własnego serwera jest przed zapisem sprawdzany na serwerze.",
 			"enabledToggle": "Dostawca włączony",
 			"enabledHelper": "Kontroluje routing proxy i dostęp do API. Wyłączone dostawcy odrzucają wszystkie żądania.",
 			"autodiscoveryToggle": "Automatyczne wykrywanie dostawców",

@@ -821,6 +821,7 @@
 			"apiKey": "Kľúč API"
 		},
 		"edit": {
+			"typeHelper": "Meňte len kvôli oprave typu, ktorý bol pri importe alebo aktualizácii odhadnutý zle. Typ vlastného servera sa pred uložením overí voči serveru.",
 			"enabledToggle": "Poskytovateľ je povolený",
 			"enabledHelper": "Riadi smerovanie cez proxy a prístup k API. Vypnuté poskytovateľské služby odmietajú všetky požiadavky.",
 			"autodiscoveryToggle": "Automatické vyhľadávanie modelov poskytovateľa",

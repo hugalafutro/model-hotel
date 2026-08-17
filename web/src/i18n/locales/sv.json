@@ -799,6 +799,7 @@
 			"apiKey": "API nyckel"
 		},
 		"edit": {
+			"typeHelper": "Ändra bara detta för att rätta en typ som gissades fel vid import eller uppgradering. En egen servers typ kontrolleras mot servern innan den sparas.",
 			"enabledToggle": "Leverantör aktiverad",
 			"enabledHelper": "Kontrollerar proxyrouting och API-åtkomst. Inaktiverade leverantörer avvisar alla förfrågningar.",
 			"autodiscoveryToggle": "Autodiscovery för leverantör",

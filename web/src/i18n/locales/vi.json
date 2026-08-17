@@ -799,6 +799,7 @@
 			"apiKey": "Khóa API"
 		},
 		"edit": {
+			"typeHelper": "Chỉ thay đổi để sửa loại bị đoán sai khi nhập hoặc nâng cấp. Loại máy chủ tự vận hành sẽ được đối chiếu với máy chủ trước khi lưu.",
 			"enabledToggle": "Đã kích hoạt nhà cung cấp",
 			"enabledHelper": "Quản lý định tuyến proxy và quyền truy cập API. Các nhà cung cấp bị vô hiệu hóa sẽ từ chối tất cả các yêu cầu.",
 			"autodiscoveryToggle": "Tự động phát hiện nhà cung cấp",

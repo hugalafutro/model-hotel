@@ -799,6 +799,7 @@
 			"apiKey": "API-sleutel"
 		},
 		"edit": {
+			"typeHelper": "Verander dit net om 'n tipe reg te stel wat verkeerd geraai is toe die verskaffer ingevoer of opgegradeer is. 'n Self-gehuisveste tipe word teen die bediener gekontroleer voordat dit gestoor word.",
 			"enabledToggle": "Verskaffer geaktiveer",
 			"enabledHelper": "Beheer proxy-roetering en API-toegang. Geblokkeerde verskaffers verwerp alle versoeke.",
 			"autodiscoveryToggle": "Verskaffer-outodeteksie",

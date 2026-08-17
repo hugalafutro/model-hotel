@@ -799,6 +799,7 @@
 			"apiKey": "API Anahtarı"
 		},
 		"edit": {
+			"typeHelper": "Bunu yalnızca içe aktarma veya yükseltme sırasında yanlış tahmin edilen bir türü düzeltmek için değiştirin. Kendi sunucunuzun türü kaydedilmeden önce sunucuya karşı doğrulanır.",
 			"enabledToggle": "Sağlayıcı etkinleştirildi",
 			"enabledHelper": "Proxy yönlendirmesini ve API erişimini kontrol eder. Devre dışı bırakılmış sağlayıcılar tüm istekleri reddeder.",
 			"autodiscoveryToggle": "Sağlayıcı otomatik algılama",

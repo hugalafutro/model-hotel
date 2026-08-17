@@ -810,6 +810,7 @@
 			"apiKey": "Chave de API"
 		},
 		"edit": {
+			"typeHelper": "Altere isto apenas para corrigir um tipo que foi mal deduzido na importação ou na atualização. Um tipo auto-hospedado é verificado no servidor antes de ser guardado.",
 			"enabledToggle": "Provedor habilitado",
 			"enabledHelper": "Controla o roteamento de proxy e o acesso à API. Provedores desabilitados rejeitam todas as solicitações.",
 			"autodiscoveryToggle": "Descoberta automática do provedor",

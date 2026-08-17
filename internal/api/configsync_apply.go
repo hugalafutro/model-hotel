@@ -739,7 +739,10 @@ func (h *ConfigSyncHandler) syncableSettingsToDelete(ctx context.Context, q quer
 // type would fall back to the URL rules on every read; deriving it once here
 // pins the same answer to the row instead.
 func providerTypeForImport(p ExportProvider) string {
-	if p.ProviderType != "" {
+	// An unknown type would be stored verbatim and then fall through to the
+	// generic path on every read, so a payload from a newer build (or a
+	// tampered one) is derived rather than trusted.
+	if provider.IsKnownType(p.ProviderType) {
 		return p.ProviderType
 	}
 	return provider.LegacyTypeFromURL(p.BaseURL)

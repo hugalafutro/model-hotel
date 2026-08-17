@@ -799,6 +799,7 @@
 			"apiKey": "API-Schlüssel"
 		},
 		"edit": {
+			"typeHelper": "Ändern Sie das nur, um einen Typ zu korrigieren, der beim Import oder Upgrade falsch geraten wurde. Ein selbst gehosteter Typ wird vor dem Speichern gegen den Server geprüft.",
 			"enabledToggle": "Anbieter aktiviert",
 			"enabledHelper": "Steuert Proxy-Routing und API-Zugriff. Deaktivierte Anbieter lehnen alle Anfragen ab.",
 			"autodiscoveryToggle": "Provider-Autoentdeckung",
