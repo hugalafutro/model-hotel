@@ -1,0 +1,12 @@
+parsers:
+- crowdsecurity/syslog-logs
+- crowdsecurity/dateparse-enrich
+- ./parsers/s01-parse/hugalafutro/model-hotel-logs.yaml
+scenarios:
+- ""
+postoverflows:
+- ""
+log_file: model-hotel-logs.log
+log_type: model-hotel
+labels: {}
+ignore_parsers: false

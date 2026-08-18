@@ -1,0 +1,202 @@
+name: hugalafutro/model-hotel-logs
+description: "Parse Model Hotel and Front Desk security logs"
+# Model Hotel emits three shapes of the same records, so the parser normalises
+# all three before classifying anything:
+#   * LOG_FORMAT=json (both binaries): one flat JSON object per line, with the
+#     scope lifted out of the message into "source".
+#   * Model Hotel text: "2006/01/02 15:04:05 level=WARNING scope: message k=v"
+#   * Front Desk text (stdlib slog): 'time=... level=WARN msg="scope: message" k=v'
+#
+# Two rules keep a caller from talking to this parser through a log line. A
+# request path is caller-controlled and is logged as an attribute, so:
+#   1. Classification reads mh_body, which is the scope and message ONLY, taken
+#      from a position-anchored capture. Attribute values are never in it, and
+#      every match is anchored at its start, so an injected copy of a message
+#      further along the line cannot classify anything.
+#   2. The address is read from the FIRST "key=value" token of an address name,
+#      and only then validated as an IP. Taking the first and validating it,
+#      rather than scanning for the first thing that looks like an IP, means a
+#      line whose real address is unparseable yields nothing instead of falling
+#      through to whatever a caller wrote further along.
+# From v0.9.99 Model Hotel also escapes the spaces inside any quoted attribute
+# value, so a caller-controlled value is a single token and cannot present a
+# "key=value" pair at all. Both rules hold without that, so this parser is safe
+# to point at an older instance.
+filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
+pattern_syntax:
+  MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
+  # The client address lands under a different key per call site: remote_addr
+  # (auth lines), remote (access log), client_ip (proxy) and ip (the IP rate
+  # limiter). This captures the whole token; the IP itself is validated after.
+  MH_ADDR: '(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}( |$)'
+nodes:
+  # ---- normalise ------------------------------------------------------------
+
+  # JSON: every field is already discrete, so nothing here can be spoofed by a
+  # value. Rebuild "scope: message" so classification is written once.
+  - filter: 'TrimSpace(evt.Parsed.message) startsWith "{" && UnmarshalJSON(evt.Parsed.message, evt.Unmarshaled, "mh") in ["", nil]'
+    statics:
+      - parsed: mh_body
+        expression: 'Sprintf("%v: %v", evt.Unmarshaled.mh.source ?? "", evt.Unmarshaled.mh.msg ?? "")'
+      - parsed: mh_rawaddr
+        expression: >-
+          Sprintf("%v", evt.Unmarshaled.mh.remote_addr ?? "") != "" ? Sprintf("%v", evt.Unmarshaled.mh.remote_addr) :
+          Sprintf("%v", evt.Unmarshaled.mh.remote ?? "") != "" ? Sprintf("%v", evt.Unmarshaled.mh.remote) :
+          Sprintf("%v", evt.Unmarshaled.mh.client_ip ?? "") != "" ? Sprintf("%v", evt.Unmarshaled.mh.client_ip) :
+          Sprintf("%v", evt.Unmarshaled.mh.ip ?? "")
+      - meta: log_format
+        value: json
+      - target: evt.StrTime
+        expression: 'Sprintf("%v", evt.Unmarshaled.mh.time ?? "")'
+
+  # Model Hotel text: the message runs from just after "level=<LEVEL> " to the
+  # end of the line. Attributes are in it, but only ever after the message, and
+  # classification anchors at the start.
+  - grok:
+      pattern: '^%{MH_TIME:mh_time} level=%{WORD:mh_level} %{GREEDYDATA:mh_body}$'
+      apply_on: message
+    statics:
+      - meta: log_format
+        value: text
+      # Local time with no zone, so dateparse-enrich reads it as UTC. On a
+      # container with a non-UTC TZ, alert times are off by the offset;
+      # LOG_FORMAT=json carries a real timestamp and does not have this problem.
+      - target: evt.StrTime
+        expression: evt.Parsed.mh_time
+
+  # Front Desk text (stdlib slog) quotes the whole "scope: message" into msg=,
+  # so the message is already delimited for us.
+  - grok:
+      pattern: '^time=%{NOTSPACE:fd_time} level=%{WORD:mh_level} msg="%{DATA:mh_body}"'
+      apply_on: message
+    statics:
+      - meta: log_format
+        value: text
+      - target: evt.StrTime
+        expression: evt.Parsed.fd_time
+
+  # ---- classification -------------------------------------------------------
+  # Anchored at the start of the message. Never `contains`, or a caller could
+  # put any of these strings in a request path and pick their own log_type.
+
+  # A request to /v1 with a missing, unknown or disabled virtual key.
+  - filter: 'evt.Parsed.mh_body startsWith "auth: key not found" || evt.Parsed.mh_body startsWith "auth: missing authorization header" || evt.Parsed.mh_body startsWith "auth: key owner disabled"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: vk_invalid
+
+  # A request to the admin API, the metrics endpoint or the restore endpoint
+  # with a missing or wrong admin token.
+  - filter: 'evt.Parsed.mh_body startsWith "auth: admin request with invalid token" || evt.Parsed.mh_body startsWith "auth: admin request missing bearer token" || evt.Parsed.mh_body startsWith "auth: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "auth: metrics scrape missing bearer token" || evt.Parsed.mh_body startsWith "auth: backup restore with invalid admin token" || evt.Parsed.mh_body startsWith "auth: backup restore with missing admin token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape missing bearer token"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: admin_token
+
+  # Dashboard login: wrong password, wrong TOTP code, or a failed admin-token
+  # exchange behind the TOTP gate.
+  - filter: 'evt.Parsed.mh_body startsWith "userlogin: login failed" || evt.Parsed.mh_body startsWith "userlogin: invalid TOTP code" || evt.Parsed.mh_body startsWith "totp: login failed"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: login
+
+  # An SSO callback that did not complete (bad state, nonce mismatch, denied).
+  - filter: 'evt.Parsed.mh_body startsWith "oidc: callback failed" || evt.Parsed.mh_body startsWith "github: callback failed"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: sso
+
+  - filter: 'evt.Parsed.mh_body startsWith "auth: CSRF check failed"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: csrf
+
+  # An authenticated user reaching for something their role does not cover.
+  - filter: 'evt.Parsed.mh_body startsWith "auth: insufficient permissions"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: forbidden
+
+  # A restore attempt whose archive is not signed by this instance.
+  - filter: 'evt.Parsed.mh_body startsWith "backup: restore rejected, signature mismatch"'
+    statics:
+      - meta: log_type
+        value: model-hotel_auth_fail
+      - meta: sub_type
+        value: backup_signature
+
+  # The application's own throttles. These are edge triggered: one line per
+  # throttling episode, not one per rejected request.
+  - filter: 'evt.Parsed.mh_body startsWith "ratelimit-ip: throttling started" || evt.Parsed.mh_body startsWith "userlogin: throttled" || evt.Parsed.mh_body startsWith "userlogin: account throttled" || evt.Parsed.mh_body startsWith "totp: login throttled" || evt.Parsed.mh_body startsWith "oidc: callback throttled" || evt.Parsed.mh_body startsWith "github: callback throttled"'
+    statics:
+      - meta: log_type
+        value: model-hotel_throttled
+
+  # ---- address and context --------------------------------------------------
+
+  # Text: the first address-named token on the line, whatever it holds.
+  - grok:
+      pattern: '%{MH_ADDR}'
+      apply_on: message
+
+  # A genuine record names the address exactly once; none of the call sites
+  # that log one names it twice. A second occurrence therefore means something
+  # wrote a "key=value" pair into a value, so the address cannot be trusted and
+  # the event is left without a source_ip, which keeps it out of every scenario
+  # (they all require one). This holds on a build that predates the attribute
+  # escaping too, where an injected token can still be a token.
+  - grok:
+      pattern: '(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE} .*[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
+      apply_on: message
+
+  # Both shapes end here. Only now is the candidate required to be an address,
+  # so a malformed one drops the event rather than promoting the next thing on
+  # the line that happens to parse. Builds older than the clientip package
+  # (PR #674) still carry the TCP port, so a port and IPv6 brackets are shed.
+  - grok:
+      pattern: '^\[?%{IP:mh_ip}\]?(:%{NUMBER})?$'
+      expression: evt.Parsed.mh_rawaddr
+
+  # Request path, for alert context only. Bare first, then quoted, so a quoted
+  # path (one holding a space) wins over the truncated bare read of itself.
+  - grok:
+      pattern: '(^| )path=%{NOTSPACE:mh_path}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )path="%{DATA:mh_path}"'
+      apply_on: message
+
+  # The role a rejected request was made under, for alert context. Same
+  # bare-then-quoted pair as the path, since usernames may hold a space.
+  - grok:
+      pattern: '(^| )username=%{NOTSPACE:mh_user}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )username="%{DATA:mh_user}"'
+      apply_on: message
+
+  # Only records this parser recognised are worth the rest of the pipeline.
+  - filter: 'evt.Meta.log_type startsWith "model-hotel_"'
+    onsuccess: next_stage
+    statics:
+      - meta: service
+        value: model-hotel
+statics:
+  - meta: source_ip
+    expression: 'evt.Parsed.mh_dupaddr == "" ? evt.Parsed.mh_ip : ""'
+  - meta: http_path
+    expression: 'evt.Parsed.mh_path != "" ? evt.Parsed.mh_path : Sprintf("%v", ("mh" in evt.Unmarshaled) ? (evt.Unmarshaled.mh.path ?? "") : "")'
+  # A static computing to "" is skipped, so this lands only where there is one.
+  - meta: target_user
+    expression: 'evt.Parsed.mh_user != "" ? evt.Parsed.mh_user : Sprintf("%v", ("mh" in evt.Unmarshaled) ? (evt.Unmarshaled.mh.username ?? "") : "")'

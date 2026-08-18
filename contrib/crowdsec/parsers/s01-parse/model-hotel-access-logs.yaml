@@ -1,0 +1,102 @@
+name: hugalafutro/model-hotel-access-logs
+description: "Map Model Hotel access log lines onto the generic HTTP access-log format"
+# OPT-IN, and deliberately not part of the collection. Installing this makes the
+# gateway's own request log feed crowdsecurity/http-logs and every generic
+# http-* scenario. That is what you want when Model Hotel is exposed directly.
+# Behind a reverse proxy whose logs CrowdSec already reads, it is not: the same
+# request then fills two buckets and one visitor earns two alerts.
+#
+# Note that a stock instance only writes 4xx and 5xx lines to the container log
+# (DEBUG_LOG=false drops info level), so scenarios counting successful requests
+# see nothing.
+#
+# The request path is caller-controlled, so this parser follows the same two
+# rules as hugalafutro/model-hotel-logs: the line is recognised by a
+# position-anchored capture rather than by searching it, and every field is read
+# from the first "key=value" token of its name, the address being validated only
+# after it is taken. Model Hotel logs the path last, after every field read
+# here, and from v0.9.99 escapes the spaces inside quoted values so a path
+# cannot present a "key=value" token at all.
+filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
+pattern_syntax:
+  MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
+nodes:
+  # JSON: fields are already discrete and cannot be spoofed by a value.
+  - filter: 'TrimSpace(evt.Parsed.message) startsWith "{" && UnmarshalJSON(evt.Parsed.message, evt.Unmarshaled, "mha") in ["", nil]'
+    statics:
+      - parsed: mha_body
+        expression: 'Sprintf("%v: %v", evt.Unmarshaled.mha.source ?? "", evt.Unmarshaled.mha.msg ?? "")'
+      - parsed: verb
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.method ?? "")'
+      - parsed: request
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.path ?? "")'
+      - parsed: status
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.status ?? "")'
+      - parsed: target_fqdn
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.host ?? "")'
+      - parsed: mha_addr
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.remote ?? "")'
+      - target: evt.StrTime
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.time ?? "")'
+
+  # Text: the message is whatever follows "level=<LEVEL> ", so an injected copy
+  # of it inside an attribute value is never what gets matched below. Replay and
+  # forensic runs discard an event with no evt.StrTime, so the text branch has
+  # to set one too.
+  - grok:
+      pattern: '^%{MH_TIME:mha_time} level=%{WORD:mha_level} %{GREEDYDATA:mha_body}$'
+      apply_on: message
+    statics:
+      - target: evt.StrTime
+        expression: evt.Parsed.mha_time
+  - grok:
+      pattern: '(^| )remote=%{NOTSPACE:mha_addr}( |$)'
+      apply_on: message
+  - grok:
+      pattern: '(^| )method=%{WORD:verb}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )host=%{NOTSPACE:target_fqdn}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )status=%{NUMBER:status}'
+      apply_on: message
+  # As in the main parser: a second address token means one came out of a value,
+  # so the line is not trusted to name its client.
+  - grok:
+      pattern: '(^| )remote=%{NOTSPACE} .*[ ]remote=%{NOTSPACE:mha_dupaddr}'
+      apply_on: message
+
+  # Both shapes end here. Requiring the address only now means a malformed one
+  # drops the event instead of promoting the next parseable thing on the line.
+  # Builds older than the clientip package (PR #674) still carry the TCP port.
+  - grok:
+      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
+      expression: evt.Parsed.mha_addr
+
+  # Bare first, then quoted, so a path holding a space wins over the truncated
+  # bare read of itself.
+  - grok:
+      pattern: '(^| )path=%{NOTSPACE:request}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )path="%{DATA:request}"'
+      apply_on: message
+
+  - filter: 'evt.Parsed.mha_body startsWith "access: request" && evt.Parsed.remote_addr != "" && evt.Parsed.mha_dupaddr == ""'
+    onsuccess: next_stage
+    statics:
+      - meta: service
+        value: http
+      - meta: log_type
+        value: http_access-log
+      - meta: source_ip
+        expression: 'evt.Parsed.mha_dupaddr == "" ? evt.Parsed.remote_addr : ""'
+      - meta: http_status
+        expression: evt.Parsed.status
+      - meta: http_verb
+        expression: evt.Parsed.verb
+      - meta: http_path
+        expression: evt.Parsed.request
+      - meta: target_fqdn
+        expression: evt.Parsed.target_fqdn

@@ -1,0 +1,21 @@
+type: leaky
+name: hugalafutro/model-hotel-throttled
+description: "Detect clients that keep tripping Model Hotel's own rate limits"
+# The gateway logs one line per throttling episode, not per rejected request,
+# so three lines already means three separate bursts that the in-process limiter
+# had to absorb. That limiter is per-process and short-lived; this scenario is
+# what turns a repeat offender into an edge ban.
+filter: "evt.Meta.log_type == 'model-hotel_throttled' && evt.Meta.source_ip != ''"
+groupby: evt.Meta.source_ip
+capacity: 3
+leakspeed: 60s
+blackhole: 10m
+labels:
+  confidence: 2
+  spoofable: 0
+  classification:
+    - attack.T1499
+  behavior: "http:dos"
+  label: "Model Hotel Rate Limit Abuse"
+  service: model-hotel
+  remediation: true

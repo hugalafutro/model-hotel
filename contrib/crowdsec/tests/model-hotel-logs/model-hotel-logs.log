@@ -1,0 +1,25 @@
+2026/08/18 04:15:02 level=WARNING auth: key not found remote_addr=198.51.100.23
+2026/08/18 04:15:03 level=WARNING auth: missing authorization header remote_addr=198.51.100.24
+2026/08/18 04:15:04 level=WARNING auth: key owner disabled key=prod-key remote_addr=198.51.100.25
+2026/08/18 04:15:05 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.7 path=/api/providers
+2026/08/18 04:15:06 level=WARNING userlogin: login failed remote_addr=203.0.113.8
+2026/08/18 04:15:07 level=WARNING userlogin: invalid TOTP code remote_addr=203.0.113.9
+2026/08/18 04:15:08 level=WARNING oidc: callback failed reason="nonce mismatch" remote_addr=203.0.113.10
+2026/08/18 04:15:09 level=WARNING auth: CSRF check failed remote_addr=203.0.113.11 path=/api/providers
+2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice remote_addr=203.0.113.12 path=/api/providers
+2026/08/18 04:15:11 level=ERROR backup: restore rejected, signature mismatch remote_addr=203.0.113.13
+2026/08/18 04:15:12 level=WARNING ratelimit-ip: throttling started ip=192.0.2.44 rps=30 burst=60
+2026/08/18 04:15:13 level=WARNING auth: admin request with invalid token remote_addr=192.0.2.55:53110 path=/api/providers
+{"level":"warning","msg":"key not found","remote_addr":"198.51.100.26","source":"auth","time":"2026-08-18T04:15:14.123456789Z"}
+{"level":"warning","msg":"admin request with invalid token","path":"/api/providers","remote_addr":"203.0.113.14","source":"auth","time":"2026-08-18T04:15:15.123456789Z"}
+{"burst":60,"ip":"192.0.2.45","level":"warning","msg":"throttling started","rps":30,"source":"ratelimit-ip","time":"2026-08-18T04:15:16.123456789Z"}
+time=2026-08-18T04:15:17.123Z level=WARN msg="frontdesk: metrics scrape with invalid token" remote_addr=203.0.113.15
+time=2026-08-18T04:15:18.123Z level=WARN msg="totp: login failed" remote_addr=203.0.113.16
+time=2026-08-18T04:15:19.123Z level=WARN msg="ratelimit-ip: throttling started" ip=192.0.2.46 rps=30 burst=60
+2026/08/18 04:15:20 level=INFO auth: authenticated key=traffic-sim
+2026/08/18 04:15:21 level=WARNING access: request method=GET host=mh.example.com path="/api/zz auth: key not found remote_addr=203.0.113.77" remote=198.51.100.30 status=404 bytes=19
+2026/08/18 04:15:22 level=WARNING access: request method=GET host=mh.example.com path=/api/zz auth: key not found remote_addr=203.0.113.77 remote=198.51.100.31 status=404 bytes=19
+2026/08/18 04:15:23 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.32 path="/api/x\x20remote_addr=203.0.113.77"
+2026/08/18 04:15:24 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.33 path=/api/x remote_addr=203.0.113.77
+2026/08/18 04:15:25 level=WARNING auth: key owner disabled remote_addr=198.51.100.34 key="pwn\x20remote_addr=203.0.113.99\x20x"
+2026/08/18 04:15:26 level=WARNING auth: key owner disabled key=pwn remote_addr=203.0.113.99 x remote_addr=198.51.100.35

@@ -38,6 +38,8 @@ GEMINI.md
 .idea/
 /llm-proxy
 *.log
+# CrowdSec hubtest fixtures are test inputs, not runtime logs
+!contrib/crowdsec/tests/**/*.log
 *.memprofile
 /model-hotel.wiki/
 # Node

@@ -1,0 +1,26 @@
+# Drop this in /etc/crowdsec/acquis.d/ and mount /var/run/docker.sock:ro into
+# the CrowdSec container.
+#
+# Model Hotel writes to the container's stdout and stderr and nowhere else, and
+# the usual log drivers store that in a framing a file acquisition cannot read,
+# so the Docker datasource is the acquisition.
+#
+# Match on a regexp rather than a fixed name or id: recreating the container (a
+# redeploy, an image pull) gives it a new id, and only the regexp form
+# re-attaches on its own. The Docker API reports names with a leading slash,
+# hence the optional `/`.
+#
+# The names below are what the shipped compose files produce (project
+# `model-hotel` service `app`, project `front-desk` service `frontdesk`).
+# Confirm yours with `docker ps --format '{{.Names}}'` and edit accordingly, and
+# keep the regexp tight: a project also owns its database and sidecar
+# containers, whose logs are not ours to parse.
+source: docker
+container_name_regexp:
+  - "^/?model-hotel-app-1$"
+  - "^/?front-desk-frontdesk-1$"
+# `type` is what the parser filters on (via the stock crowdsecurity/non-syslog
+# parser, which copies it to evt.Parsed.program). Changing it silently stops
+# every item in this collection from matching.
+labels:
+  type: model-hotel

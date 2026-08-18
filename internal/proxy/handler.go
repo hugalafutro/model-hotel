@@ -300,7 +300,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			// user must cut their proxy traffic, not just their dashboard
 			// login. The key itself stays intact for when the account
 			// returns.
-			debuglog.Warn("auth: key owner disabled", "key", vk.Name, "remote_addr", clientip.From(r))
+			debuglog.Warn("auth: key owner disabled", "remote_addr", clientip.From(r), "key", vk.Name)
 			writeOpenAIError(w, "virtual key disabled: owner account is disabled", http.StatusUnauthorized)
 			return
 		}

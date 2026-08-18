@@ -1,0 +1,8 @@
+2026/08/18 04:20:01 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.42 path=/api/providers
+2026/08/18 04:20:02 level=WARNING auth: admin request missing bearer token remote_addr=203.0.113.42 path=/api/providers
+2026/08/18 04:20:03 level=WARNING userlogin: login failed remote_addr=203.0.113.42
+2026/08/18 04:20:04 level=WARNING userlogin: invalid TOTP code remote_addr=203.0.113.42
+2026/08/18 04:20:05 level=WARNING auth: CSRF check failed remote_addr=203.0.113.42 path=/api/providers
+2026/08/18 04:20:06 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.42 path=/api/backup
+2026/08/18 04:20:07 level=WARNING userlogin: login failed remote_addr=203.0.113.42
+2026/08/18 04:20:08 level=WARNING auth: CSRF check failed remote_addr=203.0.113.42 path=/api/providers
