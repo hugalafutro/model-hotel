@@ -1,8 +1,8 @@
 len(results) == 4
-len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 19
-len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 19
-len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 19
-len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 18
+len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 22
+len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 22
+len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 22
+len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 19
 len(results["success"][""]) == 0
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][0].Success == true
@@ -79,7 +79,7 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][5].Evt.Meta["sub_type"] == 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][5].Evt.Whitelisted == false
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Success == true
-results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Evt.Parsed["message"] == "2026/08/18 04:15:08 level=WARNING oidc: callback failed reason=nonce mismatch remote_addr=203.0.113.10"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Evt.Parsed["message"] == "2026/08/18 04:15:08 level=WARNING oidc: callback failed reason=\"nonce mismatch\" remote_addr=203.0.113.10"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Evt.Parsed["program"] == "model-hotel"
 basename(results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Evt.Meta["datasource_path"]) == "model-hotel-logs.log"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][6].Evt.Meta["datasource_type"] == "file"
@@ -104,7 +104,7 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][7].Evt.Meta["sub_type"] == 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][7].Evt.Whitelisted == false
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Success == true
-results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Evt.Parsed["message"] == "2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice path=/api/providers remote_addr=203.0.113.12"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Evt.Parsed["message"] == "2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice remote_addr=203.0.113.12 path=/api/providers"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Evt.Parsed["program"] == "model-hotel"
 basename(results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Evt.Meta["datasource_path"]) == "model-hotel-logs.log"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][8].Evt.Meta["datasource_type"] == "file"
@@ -229,3 +229,17 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][18].Success == false
 results["s00-raw"]["crowdsecurity/non-syslog"][18].Success == true
 results["s00-raw"]["crowdsecurity/non-syslog"][18].Evt.Parsed["message"] == "2026/08/18 04:15:20 level=INFO auth: authenticated key=traffic-sim"
 results["s00-raw"]["crowdsecurity/non-syslog"][18].Evt.Parsed["program"] == "model-hotel"
+
+results["s01-parse"]["hugalafutro/model-hotel-logs"][19].Success == false
+results["s01-parse"]["hugalafutro/model-hotel-logs"][19].Evt.Meta["log_type"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-logs"][19].Evt.Meta["source_ip"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-logs"][20].Success == false
+results["s01-parse"]["hugalafutro/model-hotel-logs"][20].Evt.Meta["log_type"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-logs"][20].Evt.Meta["source_ip"] == ""
+
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["log_type"] == "model-hotel_auth_fail"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["sub_type"] == "admin_token"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["source_ip"] == "198.51.100.32"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["http_path"] == "/api/x remote_addr=203.0.113.77"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Whitelisted == false

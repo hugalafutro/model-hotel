@@ -1,0 +1,29 @@
+len(results["s01-parse"]["hugalafutro/model-hotel-access-logs"]) == 5
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["log_type"] == "http_access-log"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["service"] == "http"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["source_ip"] == "198.51.100.99"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_verb"] == "GET"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_status"] == "404"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["target_fqdn"] == "mh.example.com"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_path"] == "/api/zz auth: key not found remote=203.0.113.77"
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Evt.Meta["source_ip"] == "198.51.100.98"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Evt.Meta["http_verb"] == "POST"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Evt.Meta["http_status"] == "401"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Evt.Meta["http_path"] == "/v1/chat/completions"
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][2].Success == false
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][2].Evt.Meta["log_type"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][2].Evt.Meta["source_ip"] == ""
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][3].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][3].Evt.Meta["log_type"] == "http_access-log"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][3].Evt.Meta["source_ip"] == "198.51.100.96"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][3].Evt.Meta["http_path"] == "/api/zz"
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][4].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][4].Evt.Meta["source_ip"] == "192.0.2.55"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][4].Evt.Meta["http_status"] == "403"

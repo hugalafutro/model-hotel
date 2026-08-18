@@ -1,0 +1,5 @@
+2026/08/18 04:15:30 level=WARNING access: request method=GET host=mh.example.com remote=198.51.100.99 path="/api/zz auth: key not found remote=203.0.113.77" status=404 bytes=19
+2026/08/18 04:15:31 level=WARNING access: request method=POST host=mh.example.com remote=198.51.100.98 path=/v1/chat/completions status=401 bytes=19
+2026/08/18 04:15:32 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.97 path="/x access: request remote=203.0.113.77 status=404"
+{"bytes":19,"host":"mh.example.com","level":"warning","method":"GET","msg":"request","path":"/api/zz","remote":"198.51.100.96","source":"access","status":404,"time":"2026-08-18T04:15:33.123456789Z"}
+2026/08/18 04:15:34 level=WARNING access: request method=GET host=mh.example.com remote=192.0.2.55:53110 path=/api/providers status=403 bytes=19

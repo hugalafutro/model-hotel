@@ -4,9 +4,9 @@
 2026/08/18 04:15:05 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.7 path=/api/providers
 2026/08/18 04:15:06 level=WARNING userlogin: login failed remote_addr=203.0.113.8
 2026/08/18 04:15:07 level=WARNING userlogin: invalid TOTP code remote_addr=203.0.113.9
-2026/08/18 04:15:08 level=WARNING oidc: callback failed reason=nonce mismatch remote_addr=203.0.113.10
+2026/08/18 04:15:08 level=WARNING oidc: callback failed reason="nonce mismatch" remote_addr=203.0.113.10
 2026/08/18 04:15:09 level=WARNING auth: CSRF check failed remote_addr=203.0.113.11 path=/api/providers
-2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice path=/api/providers remote_addr=203.0.113.12
+2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice remote_addr=203.0.113.12 path=/api/providers
 2026/08/18 04:15:11 level=ERROR backup: restore rejected, signature mismatch remote_addr=203.0.113.13
 2026/08/18 04:15:12 level=WARNING ratelimit-ip: throttling started ip=192.0.2.44 rps=30 burst=60
 2026/08/18 04:15:13 level=WARNING auth: admin request with invalid token remote_addr=192.0.2.55:53110 path=/api/providers
@@ -17,3 +17,6 @@ time=2026-08-18T04:15:17.123Z level=WARN msg="frontdesk: metrics scrape with inv
 time=2026-08-18T04:15:18.123Z level=WARN msg="totp: login failed" remote_addr=203.0.113.16
 time=2026-08-18T04:15:19.123Z level=WARN msg="ratelimit-ip: throttling started" ip=192.0.2.46 rps=30 burst=60
 2026/08/18 04:15:20 level=INFO auth: authenticated key=traffic-sim
+2026/08/18 04:15:21 level=WARNING access: request method=GET host=mh.example.com path="/api/zz auth: key not found remote_addr=203.0.113.77" remote=198.51.100.30 status=404 bytes=19
+2026/08/18 04:15:22 level=WARNING access: request method=GET host=mh.example.com path=/api/zz auth: key not found remote_addr=203.0.113.77 remote=198.51.100.31 status=404 bytes=19
+2026/08/18 04:15:23 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.32 path="/api/x remote_addr=203.0.113.77"

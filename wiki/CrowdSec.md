@@ -47,6 +47,14 @@ Behind a proxy, Model Hotel resolves the visitor's address only when the proxy's
 
 Verify what the app actually logs before you arm anything, rather than inferring it from config: make one request with a deliberately bad key from a machine whose public address you know, read the resulting line out of `docker logs`, and check whether `remote_addr` holds the visitor's address or the proxy's. Instances older than **v0.9.99** log the peer address with the TCP port attached and without trusted-proxy resolution, so behind a proxy the source address is unusable until they are updated.
 
+## Why a request path cannot ban a stranger
+
+A request path is written by whoever made the request, and it is logged as an attribute. Left alone that is enough to steer a log reader: ask for `/api/x%20auth:%20key%20not%20found%20remote_addr=203.0.113.9` and the line that comes out holds a complete, genuine-looking authentication failure attributed to an address of your choosing. Six of those and a naive setup bans a stranger, with no credentials needed.
+
+Two rules make it inert. Classification reads only the message, captured by position and matched from its start, so a copy of a message sitting inside an attribute value matches nothing. The address is the first bare `key=<ip>` token on the line, and Model Hotel logs the client address before any caller-controlled attribute at every call site, so the first match is always the real one. From **v0.9.99** the gateway also quotes any attribute value holding a space or an `=`, which protects everything else reading these logs; the two parser rules hold without it, so the collection is safe to point at an older instance.
+
+The hubtest fixtures pin all three cases, so a filter rewritten with a plain substring search fails the suite.
+
 ## Limits
 
 - **Only warning and error records reach the container log.** With `DEBUG_LOG=false` (the default) info and debug records go to the App Logs page and Postgres but never to stderr, so CrowdSec cannot see them. Every authentication failure is warn or error, so the security signal is complete; successful requests are invisible. See [[Request Logging]].

@@ -9,31 +9,21 @@ description: "Map Model Hotel access log lines onto the generic HTTP access-log 
 # Note that a stock instance only writes 4xx and 5xx lines to the container log
 # (DEBUG_LOG=false drops info level), so scenarios counting successful requests
 # see nothing.
+#
+# The request path is caller-controlled, so this parser follows the same two
+# rules as hugalafutro/model-hotel-logs: the line is recognised by a
+# position-anchored capture rather than by searching it, and every field is read
+# from the first bare "key=value" token of its name. Model Hotel logs the
+# address before the path for exactly this reason.
 filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
+pattern_syntax:
+  MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
 nodes:
+  # JSON: fields are already discrete and cannot be spoofed by a value.
   - filter: 'TrimSpace(evt.Parsed.message) startsWith "{" && UnmarshalJSON(evt.Parsed.message, evt.Unmarshaled, "mha") in ["", nil]'
     statics:
-      - parsed: mha_event
+      - parsed: mha_body
         expression: 'Sprintf("%v: %v", evt.Unmarshaled.mha.source ?? "", evt.Unmarshaled.mha.msg ?? "")'
-      - target: evt.StrTime
-        expression: 'evt.Unmarshaled.mha.time ?? ""'
-  - filter: 'TrimSpace(evt.Parsed.message) not startsWith "{" && ParseKV(evt.Parsed.message, evt.Unmarshaled, "mha") in ["", nil]'
-    statics:
-      - parsed: mha_event
-        expression: evt.Parsed.message
-  # Builds older than the clientip package (PR #674) still carry the TCP port.
-  - grok:
-      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
-      expression: 'Sprintf("%v", evt.Unmarshaled.mha.remote ?? "")'
-  - filter: 'evt.Parsed.mha_event contains "access: request" && evt.Parsed.remote_addr != ""'
-    onsuccess: next_stage
-    statics:
-      - meta: service
-        value: http
-      - meta: log_type
-        value: http_access-log
-      - meta: source_ip
-        expression: evt.Parsed.remote_addr
       - parsed: verb
         expression: 'Sprintf("%v", evt.Unmarshaled.mha.method ?? "")'
       - parsed: request
@@ -42,11 +32,60 @@ nodes:
         expression: 'Sprintf("%v", evt.Unmarshaled.mha.status ?? "")'
       - parsed: target_fqdn
         expression: 'Sprintf("%v", evt.Unmarshaled.mha.host ?? "")'
+      - parsed: mha_addr
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.remote ?? "")'
+      - target: evt.StrTime
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.time ?? "")'
+  - grok:
+      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
+      expression: evt.Parsed.mha_addr
+
+  # Text: the message is whatever follows "level=<LEVEL> ", so an injected copy
+  # of it inside an attribute value is never what gets matched below. Replay and
+  # forensic runs discard an event with no evt.StrTime, so the text branch has
+  # to set one too.
+  - grok:
+      pattern: '^%{MH_TIME:mha_time} level=%{WORD:mha_level} %{GREEDYDATA:mha_body}$'
+      apply_on: message
+    statics:
+      - target: evt.StrTime
+        expression: evt.Parsed.mha_time
+  # Builds older than the clientip package (PR #674) still carry the TCP port.
+  - grok:
+      pattern: '(^| )remote=\[?%{IP:remote_addr}\]?(:%{NUMBER})?( |$)'
+      apply_on: message
+  - grok:
+      pattern: '(^| )method=%{WORD:verb}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )host=%{NOTSPACE:target_fqdn}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )status=%{NUMBER:status}'
+      apply_on: message
+  # Bare first, then quoted, so a path holding a space wins over the truncated
+  # bare read of itself.
+  - grok:
+      pattern: '(^| )path=%{NOTSPACE:request}'
+      apply_on: message
+  - grok:
+      pattern: '(^| )path="%{DATA:request}"'
+      apply_on: message
+
+  - filter: 'evt.Parsed.mha_body startsWith "access: request" && evt.Parsed.remote_addr != ""'
+    onsuccess: next_stage
+    statics:
+      - meta: service
+        value: http
+      - meta: log_type
+        value: http_access-log
+      - meta: source_ip
+        expression: evt.Parsed.remote_addr
       - meta: http_status
-        expression: 'Sprintf("%v", evt.Unmarshaled.mha.status ?? "")'
+        expression: evt.Parsed.status
       - meta: http_verb
-        expression: 'Sprintf("%v", evt.Unmarshaled.mha.method ?? "")'
+        expression: evt.Parsed.verb
       - meta: http_path
-        expression: 'Sprintf("%v", evt.Unmarshaled.mha.path ?? "")'
+        expression: evt.Parsed.request
       - meta: target_fqdn
-        expression: 'Sprintf("%v", evt.Unmarshaled.mha.host ?? "")'
+        expression: evt.Parsed.target_fqdn

@@ -1,6 +1,6 @@
 # Hubtest fixtures
 
-These four directories are `cscli hubtest` fixtures for the Model Hotel collection that lives one
+These five directories are `cscli hubtest` fixtures for the Model Hotel collection that lives one
 level up. They are the regression suite the CrowdSec hub runs against a submitted parser and its
 scenarios, and they are the fastest way to prove locally that a change to
 `parsers/s01-parse/model-hotel-logs.yaml` or to any of `scenarios/*.yaml` still does what it says.
@@ -20,7 +20,7 @@ overflows, and a scenario test sets `ignore_parsers: true` and asserts nothing a
 
 ## What each test covers
 
-`model-hotel-logs` is the parser test. Its 19 lines carry one example of every `sub_type` the
+`model-hotel-logs` is the parser test. Its 22 lines carry one example of every `sub_type` the
 parser can emit (`vk_invalid`, `admin_token`, `login`, `sso`, `csrf`, `forbidden`,
 `backup_signature`), three throttling lines, all three log shapes Model Hotel and Front Desk emit
 (Model Hotel text, `LOG_FORMAT=json`, Front Desk slog text), one address that still carries a TCP
@@ -29,6 +29,18 @@ asserts pin `log_type`, `sub_type`, `source_ip`, `log_format`, `service`, and wh
 carries them `http_path` and `target_user`, per line. The last line, `auth: authenticated`,
 asserts `Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is
 what keeps successful requests out of the buckets.
+
+The last three lines are the log-injection regression. Two of them are access lines whose request
+path holds a complete copy of an authentication failure plus an attacker-chosen `remote_addr`, one
+quoted the way v0.9.99 logs it and one bare the way older builds do; both must fail to classify.
+The third is a real auth failure whose path holds an injected address, and it must still resolve to
+the real client. Anchored classification is what makes those pass, so if someone rewrites a filter
+with `contains` this test is what stops it.
+
+`model-hotel-access-logs` covers the opt-in parser that is deliberately left out of the collection.
+It pins the mapping onto the generic `http_access-log` contract for both text and JSON, a pre-#674
+address that still carries its TCP port, and the same injection case: an auth line whose path holds
+a fake access record must not become an access log.
 
 `model-hotel-vk-bf`, `model-hotel-admin-bf` and `model-hotel-throttled` are the scenario tests.
 Each pours enough lines from a single source address to overflow its bucket exactly once and
@@ -71,12 +83,12 @@ installed under `/etc/crowdsec` answers the same question in a second:
 
 ```bash
 # does every line classify the way the asserts claim?
-docker exec -i <crowdsec> sh -c 'cat > /work/t.log' < model-hotel-logs/model-hotel-logs.log
-docker exec <crowdsec> cscli explain --file /work/t.log --type model-hotel -v
+docker exec -i <crowdsec> sh -c 'cat > /tmp/t.log' < model-hotel-logs/model-hotel-logs.log
+docker exec <crowdsec> cscli explain --file /tmp/t.log --type model-hotel -v
 
 # does the bucket overflow, once, on the right source?
-docker exec -i <crowdsec> sh -c 'cat > /work/t.log' < model-hotel-vk-bf/model-hotel-vk-bf.log
-docker exec <crowdsec> crowdsec -dsn file:///work/t.log -type model-hotel -no-api
+docker exec -i <crowdsec> sh -c 'cat > /tmp/t.log' < model-hotel-vk-bf/model-hotel-vk-bf.log
+docker exec <crowdsec> crowdsec -dsn file:///tmp/t.log -type model-hotel -no-api
 ```
 
 `cscli explain` prints its lines in a non deterministic order, so match them by content and not by

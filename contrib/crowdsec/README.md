@@ -79,6 +79,18 @@ deployment warrants it.
 - A CrowdSec security engine, **1.7 or newer**. The files here are verified against 1.7.8.
 - The **Docker datasource**, which the official `crowdsecurity/crowdsec` image includes.
 - `/var/run/docker.sock` mounted read-only into the engine container.
+- `crowdsecurity/dateparse-enrich`, which the official image already installs as part of
+  `crowdsecurity/linux`. On a slimmed engine without it, install it explicitly:
+  `cscli parsers install crowdsecurity/dateparse-enrich`. Without it the parser still works while
+  tailing a live container, but nothing overflows in replay, so `cscli explain` and `cscli hubtest`
+  quietly show no alert at all.
+- Model Hotel **v0.9.99 or newer**. Older builds log the reverse proxy's address rather than the
+  visitor's (see `TRUSTED_PROXIES` below) and do not quote attribute values.
+
+`LOG_FORMAT=json` is recommended, though not required. It carries a real timestamp with a zone,
+where the text format writes local time with none, so on a container with a non-UTC `TZ` alert
+times are off by the offset. It also gives every attribute its own field, which is the most robust
+input this parser can get.
 
 The Docker datasource is the only option. Model Hotel writes to the container's stdout and stderr
 and nowhere else, and typical deployments use Docker's `local` log driver, whose on-disk framing a
@@ -110,6 +122,9 @@ The items are not on the CrowdSec hub, so they install as local files.
 cp parsers/s01-parse/model-hotel-logs.yaml  /etc/crowdsec/parsers/s01-parse/
 cp scenarios/model-hotel-*.yaml             /etc/crowdsec/scenarios/
 cp acquis/model-hotel.yaml                  /etc/crowdsec/acquis.d/
+
+# Only needed on an engine without crowdsecurity/linux:
+cscli parsers list | grep dateparse-enrich || cscli parsers install crowdsecurity/dateparse-enrich
 ```
 
 For a containerised engine, bind-mount those directories (as above) or `docker cp` the files in.
@@ -289,6 +304,12 @@ almost always the proxy's, because it sees requests the gateway rejects at the e
 Note also that a stock instance writes only 4xx and 5xx lines to the container log, so any scenario
 that counts successful requests sees nothing through this parser.
 
+It follows the same two rules as the main parser: it recognises an access line by an anchored
+capture rather than by searching the line, and it reads every field from the first bare token of
+that name, so a path cannot forge a method, a status or an address.
+`contrib/crowdsec/tests/model-hotel-access-logs` covers that, including a line whose path holds a
+complete fake access record.
+
 ```bash
 cp parsers/s01-parse/model-hotel-access-logs.yaml /etc/crowdsec/parsers/s01-parse/
 cscli collections install crowdsecurity/base-http-scenarios   # pulls crowdsecurity/http-logs
@@ -345,6 +366,34 @@ one an instance emits.
    time=2026-08-18T04:15:02.123Z level=WARN msg="frontdesk: metrics scrape with invalid token" remote_addr=203.0.113.7
    ```
 
+### Why a request path cannot ban a stranger
+
+A request path is written by whoever made the request, and it is logged as an attribute. Left
+alone, that is enough to drive a log reader: ask for `/api/x%20auth:%20key%20not%20found%20remote_addr=203.0.113.9`
+and the resulting line contains a complete, genuine-looking authentication failure attributed to an
+address of your choosing. Repeat it six times and an unprotected setup bans a stranger, with no
+credentials needed.
+
+Two rules in the parser make that inert, and they are why the classification filters are written
+the way they are:
+
+1. **Classification reads the message only.** `mh_body` is captured by position: it is whatever
+   follows `level=<LEVEL> `, and every filter is anchored to the start of it with `startsWith`.
+   A copy of a message that appears further along the line, inside an attribute value, matches
+   nothing. This is also why you will not find `contains` anywhere in the classification.
+2. **The address is the first bare `key=<ip>` token on the line.** Model Hotel logs the client
+   address before any caller-controlled attribute at every call site, so the first match is always
+   the real one.
+
+From v0.9.99 the gateway also quotes any attribute value holding a space or an `=`, which stops an
+injected token from being a token at all. The two parser rules hold without it, so the collection
+is safe to point at an older instance; the quoting is defence in depth, and it protects everything
+else reading these logs too.
+
+`contrib/crowdsec/tests/model-hotel-logs` pins all of this: it feeds both the quoted and the
+unquoted form of an injected access line and asserts that neither is classified, and that a real
+auth failure carrying an injected address still resolves to the real client.
+
 ### The four names for the client address
 
 The address arrives under a different key depending on the call site. The parser tries them in this
@@ -380,6 +429,28 @@ the pipeline never sees unrelated gateway chatter. A scenario of your own should
 filter: "evt.Meta.log_type == 'model-hotel_auth_fail' && evt.Meta.sub_type == 'sso' && evt.Meta.source_ip != ''"
 groupby: evt.Meta.source_ip
 ```
+
+### Sparing a client you trust
+
+`model-hotel-vk-bf` overflows on the sixth rejected key inside roughly 100 seconds, and the stock
+remediation is a 4 hour ban. An OpenAI-compatible client with a revoked key and a default retry
+policy can reach that in two user actions, so a known-good caller with stale credentials is worth
+excluding outright. A whitelist in `s02-enrich` does it:
+
+```yaml
+# /etc/crowdsec/parsers/s02-enrich/model-hotel-whitelist.yaml
+name: yourname/model-hotel-whitelist
+description: "Never act on the office range or the CI runner"
+whitelist:
+    reason: "trusted Model Hotel clients"
+    ip:
+        - "203.0.113.10"
+    cidr:
+        - "198.51.100.0/24"
+```
+
+Whitelisting beats widening the thresholds: the bucket still fills and the alert still appears in
+`cscli alerts list`, so you keep the visibility and lose only the ban.
 
 ## Submitting to the hub
 
