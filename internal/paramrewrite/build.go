@@ -58,6 +58,7 @@ func BuildUpstreamBody(
 	deprecationCache *sync.Map,
 	renameCache *sync.Map,
 	extraStrip map[string]bool,
+	learnScope string,
 ) []byte {
 	var raw map[string]any
 	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
@@ -82,7 +83,7 @@ func BuildUpstreamBody(
 	// than the param being re-added after the strip phases.
 	InjectProviderParams(raw, providerType, resolvedModelID)
 
-	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
+	cacheKey := LearnedCacheKey(learnScope, resolvedModelID)
 
 	// 4. Learned param renaming (runs before stripping to preserve the value).
 	// Each rename moves old→new only when old is present and new is not already
@@ -149,8 +150,21 @@ func stripEmptyToolCalls(raw map[string]any) {
 	}
 }
 
+// LearnedCacheKey builds the key for the learned reject/rename caches.
+//
+// scope identifies WHOSE 400 taught us this, and must be the individual
+// provider (its id), never the provider TYPE: provider.TypeOf falls back to
+// "openai" for every custom OpenAI-compatible endpoint, so a type-scoped key
+// lets one endpoint's rejection of, say, gpt-4o disable that param for every
+// other openai-typed provider serving the same model id. The curated
+// ProviderUnsupportedParams list stays type-wide on purpose; only what we LEARN
+// at runtime is narrowed to the endpoint that taught it.
+func LearnedCacheKey(scope, modelID string) string {
+	return scope + ":" + modelID
+}
+
 // MergeLearnedParamCache merges newly-learned per-model param metadata into a
-// sync.Map cache keyed by "providerType:modelID", race-free under concurrent
+// sync.Map cache keyed by LearnedCacheKey, race-free under concurrent
 // goroutines via CompareAndSwap. Values are stored as *map[string]V (pointers,
 // because maps are not comparable and CompareAndSwap requires comparable values).
 func MergeLearnedParamCache[V any](cache *sync.Map, key string, learned map[string]V) {

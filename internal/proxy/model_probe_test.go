@@ -652,14 +652,17 @@ func TestProbeModel_LearnedParamRenameIsApplied(t *testing.T) {
 
 	srv, rec := probeServer(t, http.StatusOK, `{"choices":[{"message":{"content":"Hi"}}]}`)
 	h := newProbeHandler(t)
-	// Seeded through the production writer, keyed exactly as
-	// BuildUpstreamBody keys it: "<provider type>:<resolved model id>". An
-	// httptest URL detects as the openai provider type.
-	paramrewrite.MergeLearnedParamCache(&h.paramRenameCache, "openai:gpt-5.6-sol", map[string]string{
-		"max_tokens": "max_completion_tokens",
-	})
+	cand := probeCandidateFor(srv.URL, "gpt-5.6-sol")
+	// Seeded through the production writer, keyed exactly as BuildUpstreamBody
+	// keys it: the learning is scoped to the individual provider, so the seed
+	// must name this candidate's provider rather than its type.
+	paramrewrite.MergeLearnedParamCache(&h.paramRenameCache,
+		paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-5.6-sol"),
+		map[string]string{
+			"max_tokens": "max_completion_tokens",
+		})
 
-	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gpt-5.6-sol"), endpointTypeChat); got != probeServed {
+	if got := runProbe(t, h, cand, endpointTypeChat); got != probeServed {
 		t.Fatalf("verdict = %s, want served", got)
 	}
 

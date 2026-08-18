@@ -26,6 +26,7 @@ of the message kept only as a fallback for legacy NULL rows.
 | `provider_timeout` | TTFT probe / stall watchdog fired | 502 |
 | `failover_timeout` | overall failover deadline expired | **504** |
 | `retry_timeout` | param-strip retry deadline expired | **504** |
+| `hedge_superseded` | gateway abandoned this attempt; a faster hedged candidate won. Appears on the attempt's log line only — the winner serves the client, so it is never a request's terminal kind | 502 if it ever became terminal |
 | `internal` | gateway-internal failure (e.g. request build) | 502 |
 | `validation` | bad client request (malformed body, missing/unknown model) | 400/404 |
 | `auth` | virtual key lacks access | 403 |

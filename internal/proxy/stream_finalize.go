@@ -155,8 +155,11 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// Guard with !sawDone to avoid penalising a provider whose stream completed
 	// normally but whose stall timer fired concurrently with [DONE].
 	if st.stalled && !st.sawDone && !st.clientDisconnected && opts.circuitBreakerOn {
+		// deriveStreamError already warns that the stream stalled; this records
+		// that the breaker was charged for it, which the stall line does not say
+		// and which is otherwise invisible above Debug.
+		debuglog.Warn("proxy: recording circuit breaker failure", "reason", "stream stalled", "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "duration_ms", totalDuration)
 		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
-		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
 	}
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")

@@ -868,6 +868,8 @@ func humanReadableCancelOrigin(origin string) string {
 		return "upstream request timed out"
 	case "retry_timeout":
 		return "param-strip retry timed out"
+	case "hedge_superseded":
+		return "superseded by a faster hedged attempt"
 	default:
 		return origin
 	}

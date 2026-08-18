@@ -38,10 +38,12 @@ func SelfHealChatCompletion(
 ) (*http.Response, error) {
 	// Per-call learned caches. A probe is one-shot, so these start empty and
 	// only carry a rename learned from this call's own first-attempt 400 into
-	// its retry — no cross-request state, unlike the proxy's Handler-scoped caches.
+	// its retry — no cross-request state, unlike the proxy's Handler-scoped
+	// caches. Nothing outside this call reads them, so the scope only has to be
+	// self-consistent; providerType serves.
 	var deprecationCache, renameCache sync.Map
 
-	body := BuildUpstreamBody(baseBody, providerType, modelID, modelID, false, &deprecationCache, &renameCache, nil)
+	body := BuildUpstreamBody(baseBody, providerType, modelID, modelID, false, &deprecationCache, &renameCache, nil, providerType)
 	resp, err := postChatCompletion(ctx, client, targetURL, body, applyHeaders)
 	if err != nil || resp.StatusCode != http.StatusBadRequest {
 		return resp, err
@@ -64,11 +66,11 @@ func SelfHealChatCompletion(
 	}
 
 	if renames != nil {
-		MergeLearnedParamCache(&renameCache, providerType+":"+modelID, renames)
+		MergeLearnedParamCache(&renameCache, LearnedCacheKey(providerType, modelID), renames)
 	}
 	debuglog.Debug("paramrewrite: self-heal retry", "provider_type", providerType, "model", modelID, "rejected", rejected, "renames", renames)
 
-	rebuilt := BuildUpstreamBody(baseBody, providerType, modelID, modelID, false, &deprecationCache, &renameCache, rejected)
+	rebuilt := BuildUpstreamBody(baseBody, providerType, modelID, modelID, false, &deprecationCache, &renameCache, rejected, providerType)
 	return postChatCompletion(ctx, client, targetURL, rebuilt, applyHeaders)
 }
 

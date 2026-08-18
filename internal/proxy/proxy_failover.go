@@ -513,7 +513,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
-			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil)
+			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 		}
 		// Log the actual model name in the upstream body for debugging rewrite
 		// issues. Chat-only: multipart bodies must never reach debug logs.
@@ -531,6 +531,25 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	proxyReq.Header.Set("Content-Type", contentType)
 	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 	return proxyReq, providerType, targetURL, nil
+}
+
+// resolveCancelOrigin names the cause behind a context error on an upstream
+// attempt. A deadline reads the origin the derived context was created with
+// (failover vs retry). A cancellation is the client hanging up UNLESS the
+// hedging orchestrator abandoned this attempt because a faster candidate won —
+// that cancellation is ours, and reporting it as a client disconnect describes
+// a request the client is still happily receiving.
+func resolveCancelOrigin(ctx context.Context, err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		if s, ok := ctx.Value(ctxkeys.CancelOriginKey).(string); ok && s != "" {
+			return s
+		}
+		return "client_disconnect"
+	}
+	if sup, ok := ctx.Value(ctxkeys.HedgeSupersededKey).(*atomic.Bool); ok && sup.Load() {
+		return "hedge_superseded"
+	}
+	return "client_disconnect"
 }
 
 // doUpstream executes the built request against the shared upstream transport
@@ -623,22 +642,13 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 	if err != nil {
 		// Determine the origin of context cancellation for actionable errors.
-		// "context canceled" is opaque — we need to know if the client
-		// disconnected, the failover timeout expired, or the retry timeout expired.
-		// Key insight: context.Canceled means the parent (client) context was
-		// canceled — always a client disconnect. context.DeadlineExceeded means
-		// the derived context's deadline expired — read CancelOriginKey to
-		// distinguish failover_timeout from retry_timeout.
+		// "context canceled" is opaque — we need to know whether the client
+		// disconnected, the hedging orchestrator abandoned this attempt for a
+		// faster one, or a deadline expired. resolveCancelOrigin owns that
+		// classification.
 		isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 		if isContextErr {
-			cancelOrigin := "client_disconnect"
-			if errors.Is(err, context.DeadlineExceeded) {
-				if v := dialCtx.Value(ctxkeys.CancelOriginKey); v != nil {
-					if s, ok := v.(string); ok {
-						cancelOrigin = s
-					}
-				}
-			}
+			cancelOrigin := resolveCancelOrigin(dialCtx, err)
 			// The context error is the terminal cause, but the provider error
 			// that drove the retries (lastTransportErr) is preserved as
 			// Underlying so it survives into the request log and response.
@@ -757,6 +767,10 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 		// See breakerRecordAction for the full status→action mapping.
 		switch breakerRecordAction(statusCode) {
 		case breakerActionFailure:
+			// The hedged probe path reaches this with no other log of the
+			// upstream status, so without this line a breaker opening on
+			// repeated 5xx has no recorded cause anywhere.
+			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 		case breakerActionNoOp:
 			// Model-specific client error (404/499): provider is alive
@@ -790,6 +804,48 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 // the 400 body has been consumed (and again, harmlessly, on the successful-retry
 // path). dialMs is the per-request dial-timing pointer threaded into the retry
 // context so SafeDialer records the retry's DNS time.
+// learnedScopeFor scopes the learned reject/rename caches to one provider. The
+// provider id, not its type: many distinct custom endpoints share the "openai"
+// type, and a type-scoped entry would let one of them disable a param for all
+// the others serving the same model id.
+func learnedScopeFor(candidate modelCandidate) string {
+	if candidate.provider == nil {
+		return ""
+	}
+	return candidate.provider.ID.String()
+}
+
+// candidateModelID reads a candidate's upstream model id for diagnostics.
+// recordBreakerOutcome is reached on paths that only carry the provider, so the
+// model must never be assumed present.
+func candidateModelID(candidate modelCandidate) string {
+	if candidate.model == nil {
+		return ""
+	}
+	return candidate.model.ModelID
+}
+
+// learnRejectedParams caches the params and renames a 400 body names, so later
+// requests to the same provider+model are built without them. It is the
+// learning half of retryWithStrippedParams, split out for callers that cannot
+// retry in place (a hedged probe, which must not spend a second round-trip
+// inside one race slot).
+func (h *Handler) learnRejectedParams(candidate modelCandidate, providerType string, body []byte) {
+	rejected := paramrewrite.ParseProviderParamError(body)
+	renames := paramrewrite.ParseProviderParamRename(body)
+	if rejected == nil && renames == nil {
+		return
+	}
+	cacheKey := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
+	if rejected != nil {
+		paramrewrite.MergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
+	}
+	if renames != nil {
+		paramrewrite.MergeLearnedParamCache(&h.paramRenameCache, cacheKey, renames)
+	}
+	debuglog.Info("proxy: learned rejected params from upstream 400", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "rejected", fmt.Sprintf("%v", rejected), "renames", fmt.Sprintf("%v", renames))
+}
+
 func (h *Handler) retryWithStrippedParams(
 	r *http.Request,
 	st *requestState,
@@ -825,7 +881,7 @@ func (h *Handler) retryWithStrippedParams(
 	// Cache the learned rejections and renames for future preemptive application.
 	// Each cache is merged with any existing entries via CompareAndSwap to avoid
 	// data races from concurrent goroutines mutating the same map.
-	cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
+	cacheKey := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
 	if rejected != nil {
 		paramrewrite.MergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
 	}
@@ -839,7 +895,7 @@ func (h *Handler) retryWithStrippedParams(
 	// from the initial attempt path. The renames just cached are picked up from
 	// paramRenameCache; the freshly-rejected params are also passed as extraStrip
 	// so the immediate retry strips them even before the cache write is observed.
-	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected)
+	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected, learnedScopeFor(candidate))
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)

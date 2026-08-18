@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -15,6 +16,13 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// hedgeAbandonKind classifies why an attempt's context was cancelled. The
+// orchestrator flags the attempts it abandons itself; anything else that
+// cancels the attempt context came from the client going away.
+func hedgeAbandonKind(ctx context.Context) ErrorKind {
+	return cancelOriginToKind(resolveCancelOrigin(ctx, context.Canceled))
+}
 
 // hedgeResult is the outcome of probing one candidate in a hedged streaming race.
 // When won is true the candidate produced a streamable 200 with a confirmed first
@@ -66,6 +74,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	// leaks on a send to an unread channel.
 	results := make(chan hedgeResult, len(candidates))
 	cancels := make([]context.CancelFunc, len(candidates))
+	// Marks an attempt the orchestrator itself abandoned, so the cancellation it
+	// causes is not misread as the client hanging up.
+	superseded := make([]*atomic.Bool, len(candidates))
 	launched := 0
 	inFlight := 0
 
@@ -75,6 +86,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// (request_timeout x10 for streaming).
 		ctx, cancel := context.WithCancel(r.Context())
 		ctx = context.WithValue(ctx, ctxkeys.CancelOriginKey, "failover_timeout")
+		sup := &atomic.Bool{}
+		superseded[idx] = sup
+		ctx = context.WithValue(ctx, ctxkeys.HedgeSupersededKey, sup)
 		ctx, timeoutCancel := context.WithTimeout(ctx, st.failoverTimeout)
 		cancels[idx] = func() { timeoutCancel(); cancel() }
 		launched++
@@ -111,9 +125,18 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
 	}
-	cancelExcept := func(except int) {
+	// superseded is true only when another candidate won the race. The deferred
+	// safety-net call passes false: an attempt still live at the overall deadline,
+	// or when the client hung up, was not beaten by anything, and flagging it
+	// would relabel those causes as a hedge loss.
+	cancelExcept := func(except int, supersede bool) {
 		for i := range cancels {
 			if i != except && cancels[i] != nil {
+				// Flag before cancelling: the attempt goroutine races us to
+				// classify the resulting context.Canceled.
+				if supersede && superseded[i] != nil {
+					superseded[i].Store(true)
+				}
 				cancels[i]()
 			}
 		}
@@ -121,7 +144,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	// Safety net: cancel any still-live attempt context on return. For the winner
 	// this fires only after handleStreamingResponse has finished, so it does not
 	// truncate the served stream.
-	defer cancelExcept(-1)
+	defer cancelExcept(-1, false)
 
 	launch(0)
 	nextIdx := 1
@@ -142,7 +165,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		case res := <-results:
 			inFlight--
 			if res.won {
-				cancelExcept(res.idx)
+				cancelExcept(res.idx, true)
 				// A runner-up that also produced a first token sent a live
 				// *http.Response we will never stream; drain the still-outstanding
 				// attempts in the background and close their bodies so the
@@ -267,6 +290,10 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// still LEARN the /v1/responses requirement from the 400 so every
 			// subsequent request — hedged or sequential — routes preemptively.
 			h.learnResponsesRequirement(st, candidate, providerType, errBody)
+			// Same reasoning for rejected/renamed params: the retry is refused
+			// in-race, but learning here means the next request — hedged or
+			// sequential — is built without the params this model refuses.
+			h.learnRejectedParams(candidate, providerType, errBody)
 		}
 		// A hedged race drops every candidate but the winner here, so without
 		// this a dead model in a hedged group accrued strikes only on the runs it
@@ -313,6 +340,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		elapsed := time.Since(st.startTime)
 		re, recordFailure := classifyProbeFailure(candidate.provider.Name, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
+			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", errString(probeErr))
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 		}
 		res.reqErr = re
@@ -334,7 +362,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 func commitHedgeWin(ctx context.Context, res hedgeResult, resp *http.Response, preReadBuf *bytes.Buffer, trueTtftMs float64, candidate modelCandidate) hedgeResult {
 	if ctx.Err() != nil {
 		_ = resp.Body.Close()
-		res.reqErr = reqError{Kind: KindClientDisconnect, Attempt: res.idx, Provider: candidate.provider.Name}
+		res.reqErr = reqError{Kind: hedgeAbandonKind(ctx), Attempt: res.idx, Provider: candidate.provider.Name}
 		return res
 	}
 	res.won = true
@@ -392,7 +420,9 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",
 	}
-	debuglog.Info("proxy: hedge winner", "provider", candidate.provider.Name, "attempt", res.idx+1, "true_ttft_ms", res.trueTtftMs)
+	// attempt is the 0-based failover_attempt this request is logged and stored
+	// with; it must match the value stream_finalize reports for the same request.
+	debuglog.Info("proxy: hedge winner", "provider", candidate.provider.Name, "attempt", res.idx, "true_ttft_ms", res.trueTtftMs)
 	h.handleStreamingResponse(w, r, logData, res.resp, st.startTime, opts)
 	// Same verdict the sequential dispatch applies: a hedged winner is still a
 	// real stream, so a model reported gone mid-stream must strike here too.

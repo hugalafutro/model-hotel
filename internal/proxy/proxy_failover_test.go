@@ -15,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -177,8 +178,9 @@ func TestRetryWithStrippedParams_ParamErrorRetries(t *testing.T) {
 		t.Errorf("expected the original failoverCancel to have been invoked")
 	}
 	// The rejection must have been learned into the deprecation cache.
-	if _, ok := h.deprecationCache.Load("openai:" + cand.model.ModelID); !ok {
-		t.Errorf("expected deprecation cache to contain learned rejection for openai:%s", cand.model.ModelID)
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if _, ok := h.deprecationCache.Load(learnKey); !ok {
+		t.Errorf("expected deprecation cache to contain learned rejection under %s", learnKey)
 	}
 	if res.resp != nil && res.resp.Body != nil {
 		_ = res.resp.Body.Close()

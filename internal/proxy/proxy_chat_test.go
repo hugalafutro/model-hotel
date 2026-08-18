@@ -17,6 +17,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -504,8 +505,8 @@ func TestChatCompletions_DeprecationCacheFirstEntry(t *testing.T) {
 
 	// No pre-existing cache entry — LoadOrStore returns !loaded, storing the
 	// rejected params as the first entry and breaking out of the loop.
-	providerType := provider.LegacyTypeFromURL(upstream.URL)
-	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+	// Learned rejections are scoped to the provider that taught them.
+	cacheKey := paramrewrite.LearnedCacheKey(env.ProviderID.String(), modelName)
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7, "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
