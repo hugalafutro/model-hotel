@@ -1,8 +1,8 @@
 len(results) == 4
-len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 22
-len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 22
-len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 22
-len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 19
+len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 25
+len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 25
+len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 25
+len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 22
 len(results["success"][""]) == 0
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][0].Success == true
@@ -241,5 +241,13 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["log_type"] == "model-hotel_auth_fail"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["sub_type"] == "admin_token"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["source_ip"] == "198.51.100.32"
-results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["http_path"] == "/api/x remote_addr=203.0.113.77"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["http_path"] == "/api/x\\x20remote_addr=203.0.113.77"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Whitelisted == false
+
+results["s01-parse"]["hugalafutro/model-hotel-logs"][22].Evt.Meta["log_type"] == "model-hotel_auth_fail"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][22].Evt.Meta["sub_type"] == "admin_token"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][22].Evt.Meta["source_ip"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-logs"][23].Evt.Meta["sub_type"] == "vk_invalid"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][23].Evt.Meta["source_ip"] == "198.51.100.34"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][24].Evt.Meta["sub_type"] == "vk_invalid"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][24].Evt.Meta["source_ip"] == ""

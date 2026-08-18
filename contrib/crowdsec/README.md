@@ -374,25 +374,38 @@ and the resulting line contains a complete, genuine-looking authentication failu
 address of your choosing. Repeat it six times and an unprotected setup bans a stranger, with no
 credentials needed.
 
-Two rules in the parser make that inert, and they are why the classification filters are written
-the way they are:
+Three rules make that inert, and they are why the parser is written the way it is:
 
 1. **Classification reads the message only.** `mh_body` is captured by position: it is whatever
    follows `level=<LEVEL> `, and every filter is anchored to the start of it with `startsWith`.
    A copy of a message that appears further along the line, inside an attribute value, matches
    nothing. This is also why you will not find `contains` anywhere in the classification.
-2. **The address is the first bare `key=<ip>` token on the line.** Model Hotel logs the client
-   address before any caller-controlled attribute at every call site, so the first match is always
-   the real one.
+2. **The address is the first token of an address name, and is validated only after it is taken.**
+   Taking the first and then requiring it to parse, rather than scanning for the first thing that
+   looks like an address, means a line whose real address is malformed yields nothing instead of
+   falling through to whatever a caller wrote further along.
+3. **A line that names the address twice is refused.** No call site in the gateway logs the
+   address more than once, so a second occurrence means a `key=value` pair came out of a value.
+   Such an event is left with no `source_ip`, and every scenario requires one, so it cannot reach
+   a bucket.
 
-From v0.9.99 the gateway also quotes any attribute value holding a space or an `=`, which stops an
-injected token from being a token at all. The two parser rules hold without it, so the collection
-is safe to point at an older instance; the quoting is defence in depth, and it protects everything
-else reading these logs too.
+From v0.9.99 the gateway also escapes attribute values, and the important half is that it escapes
+the spaces inside them: a quoted value that still contained ` remote_addr=203.0.113.9 ` would
+remain a `key=value` token to a reader that splits on whitespace before it considers quotes, which
+is what a grok, a fail2ban regex and an awk one-liner all do. Escaped, a value is one token and
+cannot present a pair at all. That protects everything else reading these logs, not just CrowdSec.
 
-`contrib/crowdsec/tests/model-hotel-logs` pins all of this: it feeds both the quoted and the
-unquoted form of an injected access line and asserts that neither is classified, and that a real
-auth failure carrying an injected address still resolves to the real client.
+Rules 1 and 3 hold without the escaping, so the collection is safe to point at an older instance.
+One gap remains there and it is why v0.9.99 is listed as a requirement: on an older build, a value
+logged *before* the address on the same line can still supply the first address token. Rule 3
+catches every case where the real address is also present, which is all of them in current code,
+but a build old enough to log a caller-controlled value ahead of the address is relying on rule 3
+alone rather than on two independent defences.
+
+`contrib/crowdsec/tests/model-hotel-logs` pins all of this. It feeds both the escaped and the bare
+form of an injected access line and asserts neither is classified; a real auth failure carrying an
+injected address in an escaped value and asserts the real client survives; and the same line in the
+bare form and asserts it resolves to no address at all rather than the wrong one.
 
 ### The four names for the client address
 

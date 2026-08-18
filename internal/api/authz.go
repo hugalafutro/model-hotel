@@ -105,7 +105,7 @@ func forbid(w http.ResponseWriter, r *http.Request, id *user.Identity) {
 	}
 	// The address goes before the caller-controlled path, so a log reader
 	// scanning left to right always meets the real client first.
-	debuglog.Warn("auth: insufficient permissions", "username", username, "remote_addr", clientip.From(r), "path", r.URL.Path)
+	debuglog.Warn("auth: insufficient permissions", "remote_addr", clientip.From(r), "username", username, "path", r.URL.Path)
 	http.Error(w, "insufficient permissions", http.StatusForbidden)
 }
 

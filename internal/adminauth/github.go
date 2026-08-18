@@ -554,9 +554,9 @@ func (h *GitHubHandler) build(enabled bool, clientID, clientSecretEnc, baseURL, 
 func (h *GitHubHandler) fail(w http.ResponseWriter, r *http.Request, throttleKey, reason string, err error) {
 	h.loginThrottle.RecordFailure(throttleKey)
 	if err != nil {
-		debuglog.Warn("github: callback failed", "reason", reason, "error", err, "remote_addr", clientip.From(r))
+		debuglog.Warn("github: callback failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
 	} else {
-		debuglog.Warn("github: callback failed", "reason", reason, "remote_addr", clientip.From(r))
+		debuglog.Warn("github: callback failed", "remote_addr", clientip.From(r), "reason", reason)
 	}
 	h.redirectError(w, r, "failed")
 }

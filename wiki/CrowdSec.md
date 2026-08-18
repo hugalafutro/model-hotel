@@ -51,9 +51,11 @@ Verify what the app actually logs before you arm anything, rather than inferring
 
 A request path is written by whoever made the request, and it is logged as an attribute. Left alone that is enough to steer a log reader: ask for `/api/x%20auth:%20key%20not%20found%20remote_addr=203.0.113.9` and the line that comes out holds a complete, genuine-looking authentication failure attributed to an address of your choosing. Six of those and a naive setup bans a stranger, with no credentials needed.
 
-Two rules make it inert. Classification reads only the message, captured by position and matched from its start, so a copy of a message sitting inside an attribute value matches nothing. The address is the first bare `key=<ip>` token on the line, and Model Hotel logs the client address before any caller-controlled attribute at every call site, so the first match is always the real one. From **v0.9.99** the gateway also quotes any attribute value holding a space or an `=`, which protects everything else reading these logs; the two parser rules hold without it, so the collection is safe to point at an older instance.
+Three rules make it inert. Classification reads only the message, captured by position and matched from its start, so a copy of a message sitting inside an attribute value matches nothing. The address is the first token of an address name and is validated only after it is taken, so a malformed real address yields nothing rather than falling through to whatever a caller wrote later on the line. And a line naming the address twice is refused outright, because no call site does that, so a second occurrence means a `key=value` pair came out of a value; the event then carries no `source_ip` and every scenario requires one.
 
-The hubtest fixtures pin all three cases, so a filter rewritten with a plain substring search fails the suite.
+From **v0.9.99** the gateway also escapes attribute values, spaces included. That last part is what matters: a quoted value still containing ` remote_addr=203.0.113.9 ` reads as a `key=value` token to anything that splits on whitespace before it considers quotes, which is what a grok, a fail2ban regex and an awk one-liner all do. It protects every reader of these logs, not only CrowdSec.
+
+The hubtest fixtures pin each case in both the escaped and the bare form, so a filter rewritten with a plain substring search fails the suite.
 
 ## Limits
 

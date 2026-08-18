@@ -13,8 +13,10 @@ description: "Map Model Hotel access log lines onto the generic HTTP access-log 
 # The request path is caller-controlled, so this parser follows the same two
 # rules as hugalafutro/model-hotel-logs: the line is recognised by a
 # position-anchored capture rather than by searching it, and every field is read
-# from the first bare "key=value" token of its name. Model Hotel logs the
-# address before the path for exactly this reason.
+# from the first "key=value" token of its name, the address being validated only
+# after it is taken. Model Hotel logs the path last, after every field read
+# here, and from v0.9.99 escapes the spaces inside quoted values so a path
+# cannot present a "key=value" token at all.
 filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
 pattern_syntax:
   MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
@@ -36,9 +38,6 @@ nodes:
         expression: 'Sprintf("%v", evt.Unmarshaled.mha.remote ?? "")'
       - target: evt.StrTime
         expression: 'Sprintf("%v", evt.Unmarshaled.mha.time ?? "")'
-  - grok:
-      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
-      expression: evt.Parsed.mha_addr
 
   # Text: the message is whatever follows "level=<LEVEL> ", so an injected copy
   # of it inside an attribute value is never what gets matched below. Replay and
@@ -50,9 +49,8 @@ nodes:
     statics:
       - target: evt.StrTime
         expression: evt.Parsed.mha_time
-  # Builds older than the clientip package (PR #674) still carry the TCP port.
   - grok:
-      pattern: '(^| )remote=\[?%{IP:remote_addr}\]?(:%{NUMBER})?( |$)'
+      pattern: '(^| )remote=%{NOTSPACE:mha_addr}( |$)'
       apply_on: message
   - grok:
       pattern: '(^| )method=%{WORD:verb}'
@@ -63,6 +61,19 @@ nodes:
   - grok:
       pattern: '(^| )status=%{NUMBER:status}'
       apply_on: message
+  # As in the main parser: a second address token means one came out of a value,
+  # so the line is not trusted to name its client.
+  - grok:
+      pattern: '(^| )remote=%{NOTSPACE} .*[ ]remote=%{NOTSPACE:mha_dupaddr}'
+      apply_on: message
+
+  # Both shapes end here. Requiring the address only now means a malformed one
+  # drops the event instead of promoting the next parseable thing on the line.
+  # Builds older than the clientip package (PR #674) still carry the TCP port.
+  - grok:
+      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
+      expression: evt.Parsed.mha_addr
+
   # Bare first, then quoted, so a path holding a space wins over the truncated
   # bare read of itself.
   - grok:
@@ -72,7 +83,7 @@ nodes:
       pattern: '(^| )path="%{DATA:request}"'
       apply_on: message
 
-  - filter: 'evt.Parsed.mha_body startsWith "access: request" && evt.Parsed.remote_addr != ""'
+  - filter: 'evt.Parsed.mha_body startsWith "access: request" && evt.Parsed.remote_addr != "" && evt.Parsed.mha_dupaddr == ""'
     onsuccess: next_stage
     statics:
       - meta: service
@@ -80,7 +91,7 @@ nodes:
       - meta: log_type
         value: http_access-log
       - meta: source_ip
-        expression: evt.Parsed.remote_addr
+        expression: 'evt.Parsed.mha_dupaddr == "" ? evt.Parsed.remote_addr : ""'
       - meta: http_status
         expression: evt.Parsed.status
       - meta: http_verb

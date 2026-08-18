@@ -20,7 +20,7 @@ overflows, and a scenario test sets `ignore_parsers: true` and asserts nothing a
 
 ## What each test covers
 
-`model-hotel-logs` is the parser test. Its 22 lines carry one example of every `sub_type` the
+`model-hotel-logs` is the parser test. Its 25 lines carry one example of every `sub_type` the
 parser can emit (`vk_invalid`, `admin_token`, `login`, `sso`, `csrf`, `forbidden`,
 `backup_signature`), three throttling lines, all three log shapes Model Hotel and Front Desk emit
 (Model Hotel text, `LOG_FORMAT=json`, Front Desk slog text), one address that still carries a TCP
@@ -30,12 +30,19 @@ carries them `http_path` and `target_user`, per line. The last line, `auth: auth
 asserts `Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is
 what keeps successful requests out of the buckets.
 
-The last three lines are the log-injection regression. Two of them are access lines whose request
-path holds a complete copy of an authentication failure plus an attacker-chosen `remote_addr`, one
-quoted the way v0.9.99 logs it and one bare the way older builds do; both must fail to classify.
-The third is a real auth failure whose path holds an injected address, and it must still resolve to
-the real client. Anchored classification is what makes those pass, so if someone rewrites a filter
-with `contains` this test is what stops it.
+The last six lines are the log-injection regression, and they come in pairs: the escaped form a
+v0.9.99 instance emits, and the bare form an older build does. Two are access lines whose request
+path holds a complete copy of an authentication failure plus an attacker-chosen `remote_addr`, and
+neither may classify. Two are real auth failures whose path holds an injected address; the escaped
+one must still resolve to the real client, and the bare one must resolve to no address at all
+rather than the wrong one. The last two do the same through a virtual key name, which is
+caller-chosen and permits spaces, and which sits on the one classified line that logs another
+attribute beside the address.
+
+Between them they pin all three defences. Rewrite a filter with `contains` and the access lines
+classify. Scan for the first thing that looks like an address instead of taking the first address
+token and the bare auth line picks the attacker's. Drop the duplicate-address check and the bare
+lines start naming strangers.
 
 `model-hotel-access-logs` covers the opt-in parser that is deliberately left out of the collection.
 It pins the mapping onto the generic `http_access-log` contract for both text and JSON, a pre-#674

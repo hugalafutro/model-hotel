@@ -19,4 +19,7 @@ time=2026-08-18T04:15:19.123Z level=WARN msg="ratelimit-ip: throttling started" 
 2026/08/18 04:15:20 level=INFO auth: authenticated key=traffic-sim
 2026/08/18 04:15:21 level=WARNING access: request method=GET host=mh.example.com path="/api/zz auth: key not found remote_addr=203.0.113.77" remote=198.51.100.30 status=404 bytes=19
 2026/08/18 04:15:22 level=WARNING access: request method=GET host=mh.example.com path=/api/zz auth: key not found remote_addr=203.0.113.77 remote=198.51.100.31 status=404 bytes=19
-2026/08/18 04:15:23 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.32 path="/api/x remote_addr=203.0.113.77"
+2026/08/18 04:15:23 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.32 path="/api/x\x20remote_addr=203.0.113.77"
+2026/08/18 04:15:24 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.33 path=/api/x remote_addr=203.0.113.77
+2026/08/18 04:15:25 level=WARNING auth: key owner disabled remote_addr=198.51.100.34 key="pwn\x20remote_addr=203.0.113.99\x20x"
+2026/08/18 04:15:26 level=WARNING auth: key owner disabled key=pwn remote_addr=203.0.113.99 x remote_addr=198.51.100.35

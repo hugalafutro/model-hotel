@@ -304,44 +304,29 @@ func TestAppSlogHandlerEnabled(t *testing.T) {
 	}
 }
 
-// splitFlatAttrs splits the flattened "k=v k=v" tail of a text log line the way
-// a downstream log reader does, honouring double quotes so a quoted value is
-// one token no matter what it contains.
+// splitFlatAttrs splits the flattened "k=v k=v" tail of a text log line the
+// way the readers this format actually feeds do: on whitespace, with no idea
+// that quotes exist. A CrowdSec grok, a fail2ban regex and an awk one-liner
+// all work this way, so a value is only safe if it survives THIS split as a
+// single token. Deliberately not quote-aware: a quote-aware splitter would
+// pass even when the shipped parsers do not.
 func splitFlatAttrs(line string) map[string]string {
 	attrs := map[string]string{}
-	var tok strings.Builder
-	inQuotes := false
-	flush := func() {
-		if tok.Len() == 0 {
-			return
-		}
-		if k, v, ok := strings.Cut(tok.String(), "="); ok {
+	for _, tok := range strings.Fields(line) {
+		if k, v, ok := strings.Cut(tok, "="); ok {
 			if unq, err := strconv.Unquote(v); err == nil {
 				v = unq
 			}
 			attrs[k] = v
 		}
-		tok.Reset()
 	}
-	for _, r := range line {
-		switch {
-		case r == '"':
-			inQuotes = !inQuotes
-			tok.WriteRune(r)
-		case r == ' ' && !inQuotes:
-			flush()
-		default:
-			tok.WriteRune(r)
-		}
-	}
-	flush()
 	return attrs
 }
 
-// A request path is caller controlled and is logged as an attribute. The
-// flattened text form must not let that value pose as further attributes, or
-// anything reading these logs can be steered onto an attacker's chosen values.
-// A CrowdSec/fail2ban style reader acting on remote_addr would ban a stranger.
+// A request path is caller controlled and is logged as an attribute. It must
+// not be able to introduce a key=value token of its own, or anything acting on
+// these logs can be steered onto an attacker's chosen values. A CrowdSec or
+// fail2ban style reader taking remote_addr would ban a stranger.
 func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
 	savedBuf, savedWriter := appLogBuffer, dbWriter
 	appLogBuffer, dbWriter = nil, nil
@@ -364,7 +349,7 @@ func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
 	attrs := splitFlatAttrs(line)
 
 	if _, injected := attrs["remote_addr"]; injected {
-		t.Errorf("attacker-supplied remote_addr became a top-level attribute\nline: %s", line)
+		t.Errorf("attacker-supplied remote_addr became a token\nline: %s", line)
 	}
 	if got := attrs["remote"]; got != "192.0.2.10" {
 		t.Errorf("remote = %q, want the real client 192.0.2.10\nline: %s", got, line)
@@ -378,8 +363,38 @@ func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
 	}
 }
 
-// The message itself is never caller controlled, but an attribute value that
-// contains a level or a scope marker must not be able to restate either.
+// The same holds for a value that precedes the address on its line. A virtual
+// key name is chosen by whoever created the key and permits spaces, so on
+// "auth: key owner disabled" it sits in front of remote_addr. Reading the
+// first key=<ip> token must still find the real client.
+func TestAppSlogHandlerQuotesValuePrecedingTheAddress(t *testing.T) {
+	savedBuf, savedWriter := appLogBuffer, dbWriter
+	appLogBuffer, dbWriter = nil, nil
+	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+
+	var buf bytes.Buffer
+	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
+
+	rec := slog.NewRecord(time.Now(), slog.LevelWarn, "auth: key owner disabled", 0)
+	rec.AddAttrs(
+		slog.String("key", "pwn remote_addr=203.0.113.99 x"),
+		slog.String("remote_addr", "198.51.100.5"),
+	)
+	if err := h.Handle(context.Background(), rec); err != nil {
+		t.Fatalf("Handle returned %v", err)
+	}
+
+	line := strings.TrimRight(buf.String(), "\n")
+	if got := splitFlatAttrs(line)["remote_addr"]; got != "198.51.100.5" {
+		t.Errorf("remote_addr = %q, want the real client 198.51.100.5\nline: %s", got, line)
+	}
+	if strings.Contains(line, " remote_addr=203.0.113.99") {
+		t.Errorf("injected value produced a bare remote_addr token\nline: %s", line)
+	}
+}
+
+// An attribute value that contains a level or a scope marker must not be able
+// to restate either, and every value has to survive the round trip.
 func TestAppSlogHandlerQuotesValuesWithQuotesAndEquals(t *testing.T) {
 	savedBuf, savedWriter := appLogBuffer, dbWriter
 	appLogBuffer, dbWriter = nil, nil
@@ -392,6 +407,7 @@ func TestAppSlogHandlerQuotesValuesWithQuotesAndEquals(t *testing.T) {
 	rec.AddAttrs(
 		slog.String("error", `dial tcp: connection refused`),
 		slog.String("quoted", `say "hi"`),
+		slog.String("newline", "one\ntwo"),
 		slog.String("empty", ""),
 		slog.String("plain", "ok"),
 	)
@@ -399,14 +415,19 @@ func TestAppSlogHandlerQuotesValuesWithQuotesAndEquals(t *testing.T) {
 		t.Fatalf("Handle returned %v", err)
 	}
 
-	line := strings.TrimRight(buf.String(), "\n")
+	out := buf.String()
+	if strings.Count(strings.TrimRight(out, "\n"), "\n") != 0 {
+		t.Errorf("a value with a newline split the record into several lines:\n%s", out)
+	}
+	line := strings.TrimRight(out, "\n")
 	attrs := splitFlatAttrs(line)
 
 	for key, want := range map[string]string{
-		"error":  "dial tcp: connection refused",
-		"quoted": `say "hi"`,
-		"empty":  "",
-		"plain":  "ok",
+		"error":   "dial tcp: connection refused",
+		"quoted":  `say "hi"`,
+		"newline": "one\ntwo",
+		"empty":   "",
+		"plain":   "ok",
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %q, want %q\nline: %s", key, got, want, line)

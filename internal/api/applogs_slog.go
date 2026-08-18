@@ -44,16 +44,24 @@ type appSlogHandler struct {
 
 // quoteLogValue renders an attribute value for the flattened k=v text form.
 // A value holding a space, an '=', a quote, a backslash or a control character
-// is quoted, so a caller-controlled value cannot pose as further key=value
-// pairs or as a different log message. Request paths reach here by way of the
-// access log and the admin auth failures, and anything reading these lines
-// (the App Logs page, a CrowdSec or fail2ban parser) would otherwise act on
-// whatever the caller wrote into the path. Values with nothing to escape stay
-// bare, so ordinary lines read exactly as before.
+// is quoted, and the spaces inside it are escaped as well, so the result is a
+// single whitespace-delimited token no matter what the caller put in it.
+//
+// Escaping the spaces is the part that matters. Request paths and virtual key
+// names are caller-controlled and are logged as attributes, so a value like
+//
+//	pwn remote_addr=203.0.113.99 x
+//
+// would otherwise still contain a "key=value" token after quoting, and any
+// reader that splits on whitespace before it considers quotes (a CrowdSec
+// grok, a fail2ban regex, an awk one-liner) would read that token as the
+// gateway's own. strconv.Unquote reverses \x20, so the value round-trips.
+//
+// Values with nothing to escape stay bare, so ordinary lines read as before.
 func quoteLogValue(v any) string {
 	s := fmt.Sprintf("%v", v)
 	if s == "" || strings.ContainsAny(s, " =\"\\") || strings.ContainsFunc(s, unicode.IsControl) {
-		return strconv.Quote(s)
+		return strings.ReplaceAll(strconv.Quote(s), " ", `\x20`)
 	}
 	return s
 }

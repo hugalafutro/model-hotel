@@ -13,19 +13,22 @@ description: "Parse Model Hotel and Front Desk security logs"
 #      from a position-anchored capture. Attribute values are never in it, and
 #      every match is anchored at its start, so an injected copy of a message
 #      further along the line cannot classify anything.
-#   2. The address is the FIRST bare "key=<ip>" token on the line. Every call
-#      site logs the address before any caller-controlled attribute, so the
-#      first match is always the real client.
-# Model Hotel quotes any attribute value holding a space or an '=' (v0.9.99 and
-# later), which is what makes an injected token unable to reach either rule.
+#   2. The address is read from the FIRST "key=value" token of an address name,
+#      and only then validated as an IP. Taking the first and validating it,
+#      rather than scanning for the first thing that looks like an IP, means a
+#      line whose real address is unparseable yields nothing instead of falling
+#      through to whatever a caller wrote further along.
+# From v0.9.99 Model Hotel also escapes the spaces inside any quoted attribute
+# value, so a caller-controlled value is a single token and cannot present a
+# "key=value" pair at all. Both rules hold without that, so this parser is safe
+# to point at an older instance.
 filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
 pattern_syntax:
   MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
   # The client address lands under a different key per call site: remote_addr
   # (auth lines), remote (access log), client_ip (proxy) and ip (the IP rate
-  # limiter). Builds older than the clientip package (PR #674) still carry the
-  # TCP port, so an optional port and IPv6 brackets are tolerated.
-  MH_ADDR: '(^| )(remote_addr|remote|client_ip|ip)=\[?%{IP:mh_ip}\]?(:%{NUMBER})?( |$)'
+  # limiter). This captures the whole token; the IP itself is validated after.
+  MH_ADDR: '(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}( |$)'
 nodes:
   # ---- normalise ------------------------------------------------------------
 
@@ -35,7 +38,7 @@ nodes:
     statics:
       - parsed: mh_body
         expression: 'Sprintf("%v: %v", evt.Unmarshaled.mh.source ?? "", evt.Unmarshaled.mh.msg ?? "")'
-      - parsed: mh_addr
+      - parsed: mh_rawaddr
         expression: >-
           Sprintf("%v", evt.Unmarshaled.mh.remote_addr ?? "") != "" ? Sprintf("%v", evt.Unmarshaled.mh.remote_addr) :
           Sprintf("%v", evt.Unmarshaled.mh.remote ?? "") != "" ? Sprintf("%v", evt.Unmarshaled.mh.remote) :
@@ -142,16 +145,28 @@ nodes:
 
   # ---- address and context --------------------------------------------------
 
-  # Text: the first bare key=<ip> token on the line. A quoted value cannot
-  # produce one, and an injected token can only ever sit after the real address.
+  # Text: the first address-named token on the line, whatever it holds.
   - grok:
       pattern: '%{MH_ADDR}'
       apply_on: message
 
-  # JSON: the address came from a discrete field, so only the port needs going.
+  # A genuine record names the address exactly once; none of the call sites
+  # that log one names it twice. A second occurrence therefore means something
+  # wrote a "key=value" pair into a value, so the address cannot be trusted and
+  # the event is left without a source_ip, which keeps it out of every scenario
+  # (they all require one). This holds on a build that predates the attribute
+  # escaping too, where an injected token can still be a token.
+  - grok:
+      pattern: '(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE} .*[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
+      apply_on: message
+
+  # Both shapes end here. Only now is the candidate required to be an address,
+  # so a malformed one drops the event rather than promoting the next thing on
+  # the line that happens to parse. Builds older than the clientip package
+  # (PR #674) still carry the TCP port, so a port and IPv6 brackets are shed.
   - grok:
       pattern: '^\[?%{IP:mh_ip}\]?(:%{NUMBER})?$'
-      expression: evt.Parsed.mh_addr
+      expression: evt.Parsed.mh_rawaddr
 
   # Request path, for alert context only. Bare first, then quoted, so a quoted
   # path (one holding a space) wins over the truncated bare read of itself.
@@ -179,7 +194,7 @@ nodes:
         value: model-hotel
 statics:
   - meta: source_ip
-    expression: evt.Parsed.mh_ip
+    expression: 'evt.Parsed.mh_dupaddr == "" ? evt.Parsed.mh_ip : ""'
   - meta: http_path
     expression: 'evt.Parsed.mh_path != "" ? evt.Parsed.mh_path : Sprintf("%v", ("mh" in evt.Unmarshaled) ? (evt.Unmarshaled.mh.path ?? "") : "")'
   # A static computing to "" is skipped, so this lands only where there is one.
