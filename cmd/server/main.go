@@ -714,14 +714,17 @@ func silentLogger(next http.Handler) http.Handler {
 		if isStatic && ww.Status() < 400 {
 			return
 		}
+		// The address goes before the path in every branch below. The path is
+		// caller-controlled, so a log reader scanning for the client must meet
+		// the real one first; see quoteLogValue in internal/api/applogs_slog.go.
 		status := ww.Status()
 		switch {
 		case status >= 500:
 			debuglog.Error("access: request",
 				"method", r.Method,
 				"host", r.Host,
-				"path", r.URL.Path,
 				"remote", clientip.From(r),
+				"path", r.URL.Path,
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -729,8 +732,8 @@ func silentLogger(next http.Handler) http.Handler {
 			debuglog.Warn("access: request",
 				"method", r.Method,
 				"host", r.Host,
-				"path", r.URL.Path,
 				"remote", clientip.From(r),
+				"path", r.URL.Path,
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -738,8 +741,8 @@ func silentLogger(next http.Handler) http.Handler {
 			debuglog.Debug("access: request",
 				"method", r.Method,
 				"host", r.Host,
-				"path", r.URL.Path,
 				"remote", clientip.From(r),
+				"path", r.URL.Path,
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)
@@ -747,8 +750,8 @@ func silentLogger(next http.Handler) http.Handler {
 			debuglog.Info("access: request",
 				"method", r.Method,
 				"host", r.Host,
-				"path", r.URL.Path,
 				"remote", clientip.From(r),
+				"path", r.URL.Path,
 				"status", status,
 				"bytes", ww.BytesWritten(),
 				"duration", duration)

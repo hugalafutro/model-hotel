@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -300,6 +301,119 @@ func TestAppSlogHandlerEnabled(t *testing.T) {
 				t.Errorf("Enabled(%v) = %v, want %v", tc.level, result, tc.expected)
 			}
 		})
+	}
+}
+
+// splitFlatAttrs splits the flattened "k=v k=v" tail of a text log line the way
+// a downstream log reader does, honouring double quotes so a quoted value is
+// one token no matter what it contains.
+func splitFlatAttrs(line string) map[string]string {
+	attrs := map[string]string{}
+	var tok strings.Builder
+	inQuotes := false
+	flush := func() {
+		if tok.Len() == 0 {
+			return
+		}
+		if k, v, ok := strings.Cut(tok.String(), "="); ok {
+			if unq, err := strconv.Unquote(v); err == nil {
+				v = unq
+			}
+			attrs[k] = v
+		}
+		tok.Reset()
+	}
+	for _, r := range line {
+		switch {
+		case r == '"':
+			inQuotes = !inQuotes
+			tok.WriteRune(r)
+		case r == ' ' && !inQuotes:
+			flush()
+		default:
+			tok.WriteRune(r)
+		}
+	}
+	flush()
+	return attrs
+}
+
+// A request path is caller controlled and is logged as an attribute. The
+// flattened text form must not let that value pose as further attributes, or
+// anything reading these logs can be steered onto an attacker's chosen values.
+// A CrowdSec/fail2ban style reader acting on remote_addr would ban a stranger.
+func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
+	savedBuf, savedWriter := appLogBuffer, dbWriter
+	appLogBuffer, dbWriter = nil, nil
+	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+
+	var buf bytes.Buffer
+	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
+
+	rec := slog.NewRecord(time.Now(), slog.LevelWarn, "access: request", 0)
+	rec.AddAttrs(
+		slog.String("path", "/api/zz auth: key not found remote_addr=203.0.113.77"),
+		slog.String("remote", "192.0.2.10"),
+		slog.Int("status", 404),
+	)
+	if err := h.Handle(context.Background(), rec); err != nil {
+		t.Fatalf("Handle returned %v", err)
+	}
+
+	line := strings.TrimRight(buf.String(), "\n")
+	attrs := splitFlatAttrs(line)
+
+	if _, injected := attrs["remote_addr"]; injected {
+		t.Errorf("attacker-supplied remote_addr became a top-level attribute\nline: %s", line)
+	}
+	if got := attrs["remote"]; got != "192.0.2.10" {
+		t.Errorf("remote = %q, want the real client 192.0.2.10\nline: %s", got, line)
+	}
+	if got := attrs["path"]; got != "/api/zz auth: key not found remote_addr=203.0.113.77" {
+		t.Errorf("path round-tripped as %q, want the value intact\nline: %s", got, line)
+	}
+	// Values with nothing to escape stay bare, so the common line is unchanged.
+	if !strings.Contains(line, "status=404") {
+		t.Errorf("plain values should not be quoted\nline: %s", line)
+	}
+}
+
+// The message itself is never caller controlled, but an attribute value that
+// contains a level or a scope marker must not be able to restate either.
+func TestAppSlogHandlerQuotesValuesWithQuotesAndEquals(t *testing.T) {
+	savedBuf, savedWriter := appLogBuffer, dbWriter
+	appLogBuffer, dbWriter = nil, nil
+	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+
+	var buf bytes.Buffer
+	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
+
+	rec := slog.NewRecord(time.Now(), slog.LevelError, "provider: request failed", 0)
+	rec.AddAttrs(
+		slog.String("error", `dial tcp: connection refused`),
+		slog.String("quoted", `say "hi"`),
+		slog.String("empty", ""),
+		slog.String("plain", "ok"),
+	)
+	if err := h.Handle(context.Background(), rec); err != nil {
+		t.Fatalf("Handle returned %v", err)
+	}
+
+	line := strings.TrimRight(buf.String(), "\n")
+	attrs := splitFlatAttrs(line)
+
+	for key, want := range map[string]string{
+		"error":  "dial tcp: connection refused",
+		"quoted": `say "hi"`,
+		"empty":  "",
+		"plain":  "ok",
+	} {
+		if got := attrs[key]; got != want {
+			t.Errorf("%s = %q, want %q\nline: %s", key, got, want, line)
+		}
+	}
+	if !strings.Contains(line, "plain=ok") {
+		t.Errorf("plain value should stay bare\nline: %s", line)
 	}
 }
 

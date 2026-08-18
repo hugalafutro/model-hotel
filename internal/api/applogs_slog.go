@@ -6,8 +6,10 @@ import (
 	"log/slog"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -40,6 +42,22 @@ type appSlogHandler struct {
 	jsonOutput bool // emit JSON (not k=v text) to stderr for log collectors
 }
 
+// quoteLogValue renders an attribute value for the flattened k=v text form.
+// A value holding a space, an '=', a quote, a backslash or a control character
+// is quoted, so a caller-controlled value cannot pose as further key=value
+// pairs or as a different log message. Request paths reach here by way of the
+// access log and the admin auth failures, and anything reading these lines
+// (the App Logs page, a CrowdSec or fail2ban parser) would otherwise act on
+// whatever the caller wrote into the path. Values with nothing to escape stay
+// bare, so ordinary lines read exactly as before.
+func quoteLogValue(v any) string {
+	s := fmt.Sprintf("%v", v)
+	if s == "" || strings.ContainsAny(s, " =\"\\") || strings.ContainsFunc(s, unicode.IsControl) {
+		return strconv.Quote(s)
+	}
+	return s
+}
+
 func (h *appSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
@@ -57,7 +75,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 
 	fields := make(map[string]any)
 	appendAttr := func(a slog.Attr) {
-		fmt.Fprintf(&msg, " %s=%v", a.Key, a.Value)
+		fmt.Fprintf(&msg, " %s=%s", a.Key, quoteLogValue(a.Value))
 		// Same value rules as every other JSON emitter (debuglog.AddJSONField):
 		// typed where JSON has a type, textual otherwise, nothing dropped.
 		debuglog.AddJSONField(fields, "", a)
