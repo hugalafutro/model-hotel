@@ -1,0 +1,21 @@
+type: leaky
+name: hugalafutro/model-hotel-vk-bf
+description: "Detect brute force on Model Hotel virtual keys"
+# Every line here is one rejected request to /v1: a missing Authorization
+# header, a key the gateway does not know, or a key whose owner is disabled.
+# A client with one stale key retries a handful of times and stops; a scan
+# walks a key list and does not.
+filter: "evt.Meta.log_type == 'model-hotel_auth_fail' && evt.Meta.sub_type == 'vk_invalid' && evt.Meta.source_ip != ''"
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: 20s
+blackhole: 5m
+labels:
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: "http:bruteforce"
+  label: "Model Hotel Virtual Key Bruteforce"
+  service: model-hotel
+  remediation: true

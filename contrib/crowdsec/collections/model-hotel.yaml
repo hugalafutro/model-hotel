@@ -1,0 +1,20 @@
+name: hugalafutro/model-hotel
+description: "Model Hotel and Front Desk support: log parsing, virtual-key and admin bruteforce detection"
+parsers:
+  - hugalafutro/model-hotel-logs
+  # Turns the timestamp this parser lifts out of each line into the event time,
+  # without which replay and forensic runs discard the event.
+  - crowdsecurity/dateparse-enrich
+scenarios:
+  - hugalafutro/model-hotel-vk-bf
+  - hugalafutro/model-hotel-admin-bf
+  - hugalafutro/model-hotel-throttled
+labels:
+  label: "Model Hotel - Bruteforce Protection"
+author: hugalafutro
+tags:
+  - security_engine
+  - linux
+  - bruteforce
+  - model-hotel
+  - ai-gateway

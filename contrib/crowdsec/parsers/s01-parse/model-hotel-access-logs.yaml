@@ -1,0 +1,52 @@
+name: hugalafutro/model-hotel-access-logs
+description: "Map Model Hotel access log lines onto the generic HTTP access-log format"
+# OPT-IN, and deliberately not part of the collection. Installing this makes the
+# gateway's own request log feed crowdsecurity/http-logs and every generic
+# http-* scenario. That is what you want when Model Hotel is exposed directly.
+# Behind a reverse proxy whose logs CrowdSec already reads, it is not: the same
+# request then fills two buckets and one visitor earns two alerts.
+#
+# Note that a stock instance only writes 4xx and 5xx lines to the container log
+# (DEBUG_LOG=false drops info level), so scenarios counting successful requests
+# see nothing.
+filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
+nodes:
+  - filter: 'TrimSpace(evt.Parsed.message) startsWith "{" && UnmarshalJSON(evt.Parsed.message, evt.Unmarshaled, "mha") in ["", nil]'
+    statics:
+      - parsed: mha_event
+        expression: 'Sprintf("%v: %v", evt.Unmarshaled.mha.source ?? "", evt.Unmarshaled.mha.msg ?? "")'
+      - target: evt.StrTime
+        expression: 'evt.Unmarshaled.mha.time ?? ""'
+  - filter: 'TrimSpace(evt.Parsed.message) not startsWith "{" && ParseKV(evt.Parsed.message, evt.Unmarshaled, "mha") in ["", nil]'
+    statics:
+      - parsed: mha_event
+        expression: evt.Parsed.message
+  # Builds older than the clientip package (PR #674) still carry the TCP port.
+  - grok:
+      pattern: '^\[?%{IP:remote_addr}\]?(:%{NUMBER})?$'
+      expression: 'Sprintf("%v", evt.Unmarshaled.mha.remote ?? "")'
+  - filter: 'evt.Parsed.mha_event contains "access: request" && evt.Parsed.remote_addr != ""'
+    onsuccess: next_stage
+    statics:
+      - meta: service
+        value: http
+      - meta: log_type
+        value: http_access-log
+      - meta: source_ip
+        expression: evt.Parsed.remote_addr
+      - parsed: verb
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.method ?? "")'
+      - parsed: request
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.path ?? "")'
+      - parsed: status
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.status ?? "")'
+      - parsed: target_fqdn
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.host ?? "")'
+      - meta: http_status
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.status ?? "")'
+      - meta: http_verb
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.method ?? "")'
+      - meta: http_path
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.path ?? "")'
+      - meta: target_fqdn
+        expression: 'Sprintf("%v", evt.Unmarshaled.mha.host ?? "")'
