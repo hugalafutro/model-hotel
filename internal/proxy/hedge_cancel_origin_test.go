@@ -11,7 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // attrCapture records logged messages together with their attributes, which the
@@ -332,5 +337,91 @@ func TestRunHedgedStreaming_ClientHangupIsNotRelabelled(t *testing.T) {
 	attemptCtx := hh.ctxs[0]
 	if got := resolveCancelOrigin(attemptCtx, context.Canceled); got != "client_disconnect" {
 		t.Errorf("client hangup classified as %q, want client_disconnect", got)
+	}
+}
+
+// TestLearnRejectedParams covers the learning half of the self-heal, which the
+// hedged 400 path uses because it cannot retry inside a race slot.
+func TestLearnRejectedParams(t *testing.T) {
+	newCandidate := func() modelCandidate {
+		return modelCandidate{
+			model:    &model.Model{ModelID: "gpt-4o"},
+			provider: &provider.Provider{ID: uuid.New(), Name: "prov-A"},
+		}
+	}
+
+	t.Run("learns a rejected param under the provider's own scope", func(t *testing.T) {
+		h := &Handler{}
+		cand := newCandidate()
+		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"`+"`top_p`"+` is not supported"}}`))
+
+		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
+		cached, ok := h.deprecationCache.Load(key)
+		if !ok {
+			t.Fatalf("expected a learned entry under %s", key)
+		}
+		got, ok := cached.(*map[string]bool)
+		if !ok {
+			t.Fatalf("cache holds %T, want *map[string]bool", cached)
+		}
+		if !(*got)["top_p"] {
+			t.Errorf("expected top_p to be learned, got %v", *got)
+		}
+	})
+
+	t.Run("learns a rename", func(t *testing.T) {
+		h := &Handler{}
+		cand := newCandidate()
+		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}`))
+
+		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
+		if _, ok := h.paramRenameCache.Load(key); !ok {
+			t.Errorf("expected a learned rename under %s", key)
+		}
+	})
+
+	t.Run("a 400 that names no param teaches nothing", func(t *testing.T) {
+		h := &Handler{}
+		cand := newCandidate()
+		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"context length exceeded"}}`))
+
+		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
+		if _, ok := h.deprecationCache.Load(key); ok {
+			t.Error("a non-param 400 must not populate the deprecation cache")
+		}
+		if _, ok := h.paramRenameCache.Load(key); ok {
+			t.Error("a non-param 400 must not populate the rename cache")
+		}
+	})
+}
+
+// TestLearnedScopeFor covers the nil-provider guard: the scope helper is reached
+// from paths that do not guarantee a provider is attached.
+func TestLearnedScopeFor(t *testing.T) {
+	if got := learnedScopeFor(modelCandidate{}); got != "" {
+		t.Errorf("candidate with no provider should scope to empty, got %q", got)
+	}
+	p := &provider.Provider{ID: uuid.New()}
+	if got := learnedScopeFor(modelCandidate{provider: p}); got != p.ID.String() {
+		t.Errorf("scope = %q, want the provider id %q", got, p.ID.String())
+	}
+}
+
+// TestHedgeSupersededTerminalMessages pins the two renderers that would
+// otherwise describe a superseded attempt as a total failure.
+func TestHedgeSupersededTerminalMessages(t *testing.T) {
+	e := reqError{Kind: KindHedgeSuperseded, Attempt: 1, Provider: "Ollama Cloud"}
+
+	logMsg := e.terminalLogMessage(true, 3)
+	if strings.Contains(logMsg, "all 3 providers failed") {
+		t.Errorf("a superseded attempt must not be logged as a total failure: %q", logMsg)
+	}
+
+	clientMsg := e.terminalClientMessage("hotel/ds4pro", true)
+	if strings.Contains(clientMsg, "all providers failed") {
+		t.Errorf("a superseded attempt must not tell the client every provider failed: %q", clientMsg)
+	}
+	if !strings.Contains(clientMsg, "hotel/ds4pro") {
+		t.Errorf("client message should name the model, got %q", clientMsg)
 	}
 }
