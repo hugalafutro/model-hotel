@@ -123,27 +123,31 @@ func startsWithImageMediaType(b []byte) bool {
 // saw. Nothing in the logs would show it: the request completes, delivers
 // content, and meters normally. The compat endpoint answers the same request
 // with a clean 400, which is the better outcome, so the untranslatable part
-// keeps the compat path. Every check below therefore runs the same helper
-// translateBlocks runs, not a copy of its conditions.
+// keeps the compat path.
+//
+// Every branch below therefore calls the same helper translateBlocks calls and
+// judges the block it produced, never a copy of that helper's conditions. A
+// copied condition is the same drift in miniature: the next change to
+// imageBlock or fileBlock would leave the gate behind while this comment still
+// claimed otherwise.
 func routesNative(p oaiContentPart) bool {
 	switch p.Type {
 	case "file":
 		if p.File == nil {
 			return false
 		}
+		// Every block fileBlock produces is a document.
 		_, ok := fileBlock(p.File)
 		return ok
 	case "image_url":
 		if p.ImageURL == nil || p.ImageURL.URL == "" {
 			return false
 		}
-		du, ok := parseDataURI(p.ImageURL.URL)
-		if !ok || imageMediaTypes[du.mediaType] {
-			// A real image, or a URL the compat endpoint carries itself.
-			return false
-		}
-		_, ok = documentBlock(du)
-		return ok
+		// imageBlock resolves the image slot three ways: a base64 image, a url
+		// image, or the document a client smuggled through it. Only the
+		// document needs the native route.
+		b, ok := imageBlock(p.ImageURL.URL)
+		return ok && b.Type == "document"
 	}
 	return false
 }

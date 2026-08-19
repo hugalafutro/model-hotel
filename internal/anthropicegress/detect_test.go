@@ -190,6 +190,12 @@ func routingCases() []routingCase {
 			want: false,
 		},
 		{
+			name: "malformed percent-encoded image payload",
+			body: `{"messages":[{"role":"user","content":[
+				{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}]}]}`,
+			want: false,
+		},
+		{
 			name: "malformed percent-encoded pdf in the image slot",
 			body: `{"messages":[{"role":"user","content":[
 				{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}]}]}`,
@@ -199,6 +205,24 @@ func routingCases() []routingCase {
 			name: "empty image url",
 			body: `{"messages":[{"role":"user","content":[
 				{"type":"image_url","image_url":{"url":""}}]}]}`,
+			want: false,
+		},
+		// The pre-filter rules out a body whose only payload is an accepted
+		// image, so these pair one with a part that trips the filter. That is
+		// what puts a real image in front of routesNative, where imageBlock has
+		// to resolve it to an image rather than a document.
+		{
+			name: "base64 image beside a dropped file part",
+			body: `{"messages":[{"role":"user","content":[
+				{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0="}},
+				{"type":"file","file":{"file_id":"file-abc"}}]}]}`,
+			want: false,
+		},
+		{
+			name: "http image url beside a dropped file part",
+			body: `{"messages":[{"role":"user","content":[
+				{"type":"image_url","image_url":{"url":"https://example.com/cat.png"}},
+				{"type":"file","file":{"file_id":"file-abc"}}]}]}`,
 			want: false,
 		},
 		// A dropped file part beside a translatable one still routes native:
