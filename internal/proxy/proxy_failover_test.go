@@ -393,6 +393,108 @@ func TestRetryWithStrippedParams_TwoRetryCap(t *testing.T) {
 	}
 }
 
+// TestRetryWithStrippedParams_StopsWhenNoNewParamNamed covers the other half of
+// the termination guard, the one the round cap cannot stand in for: an upstream
+// that keeps naming a param the retry ALREADY applied must not be re-issued at
+// all, because the second request would be byte-identical to the first.
+//
+// Exactly one upstream call is the assertion that carries this. Delete the
+// strict-progress test in retryWithStrippedParams (make it unconditionally true)
+// and the cap alone still permits a second round, so this test — and only this
+// test — turns red.
+func TestRetryWithStrippedParams_StopsWhenNoNewParamNamed(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, temperature400)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	// Seed and retry both name temperature: the retry already stripped it, so a
+	// second round has nothing new to apply.
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("expected the repeated param to stop the loop after one retry, got %d", got)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected the retry's 400 handed back, got %+v", res.resp)
+	}
+	if res.retryCancel != nil {
+		t.Errorf("expected nil retryCancel: the body was buffered and the context released")
+	}
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(body) != temperature400 {
+		t.Errorf("expected the retry's body restored, got %q", string(body))
+	}
+}
+
+// TestRetryWithStrippedParams_LargeRetry400StaysParseable pins the cap chosen
+// for the retry's own 400 body. It is read through a LimitReader, and the limit
+// has to be the parse-sized one: learning json.Unmarshals the document, so a
+// body clipped at the 16 KiB classify cap would parse to nothing and teach
+// nothing. A 32 KiB error body must still be learned from and still reach the
+// caller whole.
+func TestRetryWithStrippedParams_LargeRetry400StaysParseable(t *testing.T) {
+	large := `{"error":{"message":"Unsupported parameter: 'top_p' is not supported with this model.","detail":"` +
+		strings.Repeat("x", 32<<10) + `"}}`
+	if len(large) <= failoverErrorClassifyCap {
+		t.Fatalf("test body must exceed the classify cap to be meaningful, got %d", len(large))
+	}
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, large)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected a 400 handed back, got %+v", res.resp)
+	}
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(body) != large {
+		t.Errorf("expected the oversized body restored whole (%d bytes), got %d", len(large), len(body))
+	}
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if rejected := learnedRejected(t, h, learnKey); !rejected["top_p"] {
+		t.Errorf("a 32 KiB 400 was not parsed for learning: %v", rejected)
+	}
+}
+
 // TestDoUpstream_ProviderErrorCapturesUnderlying verifies that a terminal
 // transport error (here: connection refused, retried then exhausted) is
 // captured into the structured error's Underlying field, classified as a

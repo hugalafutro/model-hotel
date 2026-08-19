@@ -49,16 +49,18 @@ const responsesLearnBodyCap = 1 << 20
 
 // paramRetryResult is the outcome of the 400 param-stripping auto-retry
 // (retryWithStrippedParams). It tells the failover loop how to proceed:
-//   - resp: the response to continue handling with — the retry's response on a
-//     successful retry, otherwise the original 400 response with its body
-//     restored (so normal non-200 handling can read it).
+//   - resp: the response to continue handling with — the last retry's response
+//     once any retry was issued, otherwise the original 400. Every 400 that
+//     leaves here carries a restored body, so normal non-200 handling can read
+//     it whether it is the original or the one a retry earned.
 //   - retryCancel: the retry context's cancel func, non-nil only when a retry
 //     response is live and its body has NOT yet been consumed. The caller must
 //     call it after consuming the body.
 //   - streamCancelOrigin: "retry_timeout" once a retry was issued, otherwise
 //     the caller's original value, unchanged.
-//   - retried: true when a retry request succeeded — the caller must fold the
-//     retry's dial time into the running totals.
+//   - retried: true once a retry request was issued and answered, whatever it
+//     answered with — the caller must fold the retries' dial time into the
+//     running totals.
 //   - lastReqErr: set only when cont is true; the structured cause the caller
 //     records via st.setReqErr before failing over.
 //   - cont: true => the caller should `continue` to the next candidate (a retry
@@ -158,15 +160,18 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		resp = res.resp
 		streamCancelOrigin = res.streamCancelOrigin
 		retryCancel = res.retryCancel
-		if res.cont {
-			st.setReqErr(res.lastReqErr)
-			return outcomeFailover
-		}
-		if res.retried {
-			// Accumulate retry's dial time into total.
+		if res.retried || res.cont {
+			// Accumulate the retries' dial time into the total. The cont path is
+			// included because a transport failure on one round must not discard
+			// what the rounds before it already spent dialling; dialMs is zero
+			// when no round got that far, so the fold is a no-op there.
 			st.timings.dialMs += dialMs
 			dialMs = 0
 			st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
+		}
+		if res.cont {
+			st.setReqErr(res.lastReqErr)
+			return outcomeFailover
 		}
 	}
 
@@ -1075,7 +1080,15 @@ func (h *Handler) retryWithStrippedParams(
 		// The retry was rejected too. Read its body so the params it names are
 		// learned as well, then hand that response on with the body restored: it
 		// is the client's 400 if no further round is issued.
-		body, readErr = io.ReadAll(retryResp.Body)
+		//
+		// Bounded, because this now runs once per round rather than once per
+		// attempt. The cap is the parse-sized one, not failoverErrorClassifyCap:
+		// learnFrom json.Unmarshals the document, so a body cut mid-JSON teaches
+		// nothing at all — responsesLearnBodyCap is sized to sit far past any real
+		// 400 for exactly that reason. Whatever is above it is drained rather than
+		// retained, keeping the connection reusable.
+		body, readErr = io.ReadAll(io.LimitReader(retryResp.Body, responsesLearnBodyCap))
+		_, _ = io.Copy(io.Discard, retryResp.Body)
 		_ = retryResp.Body.Close()
 		rc() // retry body consumed and buffered, context no longer needed
 		retryResp.Body = io.NopCloser(bytes.NewReader(body))
