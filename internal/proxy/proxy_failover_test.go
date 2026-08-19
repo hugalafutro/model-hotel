@@ -302,7 +302,7 @@ func TestDoUpstream_ClientDisconnectPreservesProviderError(t *testing.T) {
 // This is the reachable half of "a non-2xx must never reach the client as a
 // success-shaped body": the chat path sends every non-200 here before
 // handleNonStreamingResponse can see it, and with a candidate still in the group
-// a non-failover-eligible status forwards the provider's body as-is.
+// a non-failover-eligible status answers straight from the provider's body.
 // ---------------------------------------------------------------------------
 
 // runForwardUpstreamError drives one upstream answer through the function and
@@ -344,9 +344,15 @@ func TestForwardUpstreamError_Non2xxWithoutErrorObjectGetsEnvelope(t *testing.T)
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
+	// Every shape whose "error" member leaves a client with nothing to read is
+	// the same case as no error member at all.
 	bodies := map[string]string{
 		"chat completion shape": zenChatShapedBody,
 		"explicit null error":   `{"id":"chatcmpl_u5tt67g6rmf","error":null}`,
+		"empty error object":    `{"id":"chatcmpl_u5tt67g6rmf","error":{}}`,
+		"empty error string":    `{"id":"chatcmpl_u5tt67g6rmf","error":""}`,
+		"blank error string":    `{"id":"chatcmpl_u5tt67g6rmf","error":"   "}`,
+		"empty error list":      `{"id":"chatcmpl_u5tt67g6rmf","error":[]}`,
 		"not an object":         `["upstream said no"]`,
 		"not json at all":       `<html><body>400 Bad Request</body></html>`,
 	}
@@ -415,18 +421,76 @@ func TestForwardUpstreamError_ErrorObjectForwardedVerbatim(t *testing.T) {
 	}
 }
 
+// An error member that carries something is the provider's to describe, whatever
+// shape it chose. Ollama answers with a bare string rather than an object, which
+// is real detail and must survive.
+func TestForwardUpstreamError_NonObjectErrorForwardedVerbatim(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	bodies := map[string]string{
+		"ollama string error": `{"error":"model not found, try pulling it first"}`,
+		"list of errors":      `{"error":[{"message":"first"},{"message":"second"}]}`,
+	}
+
+	for name, upstreamBody := range bodies {
+		t.Run(name, func(t *testing.T) {
+			w, _ := runForwardUpstreamError(t, h, http.StatusNotFound, upstreamBody, true)
+
+			if w.Code != http.StatusNotFound {
+				t.Errorf("expected status 404, got %d", w.Code)
+			}
+			if got := w.Body.String(); got != upstreamBody {
+				t.Errorf("upstream error detail not forwarded byte for byte:\n got: %s\nwant: %s", got, upstreamBody)
+			}
+		})
+	}
+}
+
 // A success status other than a bare 200 reaches this function too (the caller
-// only special-cases 200). It is not an error and must not be rewritten.
+// only special-cases 200). It is not an error and must not be rewritten,
+// whatever its body looks like.
 func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
+	t.Run("json body", func(t *testing.T) {
+		w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
 
-	if w.Code != http.StatusCreated {
-		t.Errorf("expected status 201, got %d", w.Code)
-	}
-	if got := w.Body.String(); got != zenChatShapedBody {
-		t.Errorf("2xx body not forwarded byte for byte:\n got: %s\nwant: %s", got, zenChatShapedBody)
-	}
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected status 201, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != zenChatShapedBody {
+			t.Errorf("2xx body not forwarded byte for byte:\n got: %s\nwant: %s", got, zenChatShapedBody)
+		}
+	})
+
+	// A 204 is the case that makes forwarding rather than wrapping the right
+	// rule for every 2xx: writing an error envelope under a No Content status
+	// would be a body invented by this gateway for a request the provider
+	// considered successful.
+	t.Run("empty 204 body stays empty", func(t *testing.T) {
+		w, _ := runForwardUpstreamError(t, h, http.StatusNoContent, "", true)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("expected status 204, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != "" {
+			t.Errorf("204 answered with a body: %s", got)
+		}
+	})
+
+	// The same rule with a body that is not JSON at all: still a success status,
+	// still the provider's answer, still forwarded untouched.
+	t.Run("non-json body", func(t *testing.T) {
+		const plain = `accepted`
+		w, _ := runForwardUpstreamError(t, h, http.StatusAccepted, plain, true)
+
+		if w.Code != http.StatusAccepted {
+			t.Errorf("expected status 202, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != plain {
+			t.Errorf("non-JSON 2xx body rewritten: %s", got)
+		}
+	})
 }

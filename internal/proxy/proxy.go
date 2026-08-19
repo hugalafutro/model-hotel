@@ -451,14 +451,14 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// The body is read once, up front, because both branches below need the same
-	// bytes: the success branch decodes it, the failure branch records it. A
-	// decoder reading straight off resp.Body would leave nothing for the failure
-	// branch to sanitize into the request log.
-	// json.Decoder rather than json.Unmarshal so the accepted set of bodies is
-	// exactly what it was when the decoder read resp.Body directly: a decoder
-	// stops at the end of the first JSON value, an Unmarshal rejects anything
-	// following it.
+	// The body is read into memory once, up front, because both branches below
+	// want the same bytes: the success branch decodes them, the failure branch
+	// sanitizes them into the request log. resp.Body can only be consumed once,
+	// so whichever branch read it directly would starve the other.
+	//
+	// json.Decoder, not json.Unmarshal: a decoder stops at the end of the first
+	// JSON value, so a completion with trailing bytes after it still decodes,
+	// where an Unmarshal rejects the whole body.
 	body, readErr := io.ReadAll(resp.Body)
 	var chatResp ChatCompletionResponse
 	decodeErr := readErr

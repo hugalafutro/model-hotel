@@ -319,9 +319,6 @@ func TestHandleNonStreamingResponse_ChatShapedNon2xxGetsErrorEnvelope(t *testing
 	if !strings.Contains(logData.errorMessage, "chatcmpl_u5tt67g6rmf") {
 		t.Errorf("upstream body not recoverable from error_message: %q", logData.errorMessage)
 	}
-	if logData.deliveredContent {
-		t.Error("a non-2xx must not count as the model having served content")
-	}
 }
 
 // The same body under a 200 is an ordinary completion and must pass through
@@ -412,5 +409,13 @@ func TestHandleNonStreamingResponse_ChatShapedNon2xxDoesNotMeter(t *testing.T) {
 	}
 	if logData.tokensPerSecond != 0 {
 		t.Errorf("recorded a throughput figure for a failed request: %v", logData.tokensPerSecond)
+	}
+	// The usage block is what makes this assertion bite: chatAnswerCarriesContent
+	// falls back to Usage.CompletionTokens > 0 when no choice carries content, so
+	// a body with completion_tokens 22 is the one shape that would mark a failed
+	// request as having delivered content. deliveredContent feeds producedOutput
+	// at the call site, where it clears a model's gone-strike streak.
+	if logData.deliveredContent {
+		t.Error("a non-2xx must not count as the model having served content")
 	}
 }

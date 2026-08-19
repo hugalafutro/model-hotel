@@ -744,9 +744,13 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// semantic errors (e.g. context_length_exceeded, rate_limit_exceeded).
 		// The upstream's own error object carries detail this gateway cannot
 		// reconstruct — code, type, param, provider-specific fields — so it is
-		// passed through byte for byte. A 2xx that reached this function (any
-		// success status other than a bare 200) is not an error at all and is
-		// likewise left alone.
+		// passed through byte for byte.
+		//
+		// A 2xx that reached this function (any success status other than a bare
+		// 200) is not an error at all and is forwarded whatever its body is,
+		// including a non-JSON or empty one. That is what lets a 204 answer with
+		// no body: an envelope written under a No Content status would be a body
+		// this gateway invented for a request the provider considered successful.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(body)
@@ -762,27 +766,56 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	default:
 		// Body is not JSON (e.g. HTML from a CDN). Wrap in an
 		// OpenAI-compatible envelope so JSON-parsing clients don't crash.
+		//
+		// The sanitized body rides inside the message here, where the case above
+		// hands back only the classified reason. The asymmetry is deliberate: the
+		// full body reaches the request log either way via failRequest, and how
+		// much of a provider's response this gateway echoes to callers is one
+		// decision for all three cases rather than something to widen here.
 		writeOpenAIError(w, errMsg, resp.StatusCode)
 	}
 	return outcomeFatal
 }
 
-// carriesErrorObject reports whether an upstream body is a JSON object with a
-// usable "error" member, which is what decides between forwarding that body
-// verbatim and synthesising an envelope over it.
+// carriesErrorObject reports whether an upstream body is a JSON object with an
+// "error" member that actually carries something, which is what decides between
+// forwarding that body verbatim and synthesising an envelope over it.
 //
-// Presence of the key is the whole test: its contents belong to the provider and
-// are not this gateway's to judge. An explicit null is treated as absent, since
-// `{"error":null}` beside a success-shaped body is the same thing as no error
-// object at all from a client's point of view. A body that is not a JSON object
-// (an array, a bare string, HTML) can carry no member and reports false.
+// The test is emptiness, not shape. What a provider puts inside its error is not
+// this gateway's to judge, so any populated value counts: an object with fields,
+// Ollama's bare string ("model not found"), a list, even a number. What does not
+// count is a member that leaves a client with nothing to read - `null`, `{}`,
+// `""`, `[]` - because a body carrying one of those is, from the caller's side,
+// the same body with no error member at all, which is exactly the case this
+// function exists to catch. A body that is not a JSON object (an array, a bare
+// string, HTML) can carry no member and reports false.
 func carriesErrorObject(body []byte) bool {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
 	raw, present := envelope["error"]
-	return present && len(raw) > 0 && string(raw) != "null"
+	if !present {
+		return false
+	}
+	var content any
+	if err := json.Unmarshal(raw, &content); err != nil {
+		return false
+	}
+	switch v := content.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(v) != ""
+	case map[string]any:
+		return len(v) > 0
+	case []any:
+		return len(v) > 0
+	default:
+		// A number or a bool: peculiar, but the provider put a value there and
+		// a client can render it.
+		return true
+	}
 }
 
 // recordBreakerOutcome records the circuit-breaker result for a completed
