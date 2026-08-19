@@ -83,8 +83,7 @@ fun ReorderableColumn(
                         .testTag("reorderable-row-$index")
                         .graphicsLayer {
                             translationY = if (isDragged) dragOffsetY else 0f
-                        }
-                        .onGloballyPositioned { coordinates ->
+                        }.onGloballyPositioned { coordinates ->
                             if (rowHeightPx == 0) rowHeightPx = coordinates.size.height
                         },
             ) {

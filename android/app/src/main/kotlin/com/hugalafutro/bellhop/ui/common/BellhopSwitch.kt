@@ -72,8 +72,7 @@ fun BellhopSwitch(
                     enabled = enabled,
                     role = Role.Switch,
                     onValueChange = onCheckedChange,
-                )
-                .size(width = TrackWidth, height = TrackHeight)
+                ).size(width = TrackWidth, height = TrackHeight)
                 // Background first, border second: draw modifiers paint in chain
                 // order, so the other way round buries the outline under the fill.
                 .background(color = trackColor, shape = TrackShape)

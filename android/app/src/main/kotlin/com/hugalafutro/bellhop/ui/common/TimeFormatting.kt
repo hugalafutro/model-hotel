@@ -47,7 +47,12 @@ fun timeAndDate(
     val locale = Locale.getDefault()
     val moment = Instant.ofEpochMilli(millis)
     val time = DateTimeFormatter.ofPattern(timePattern(format, context), locale).withZone(zone).format(moment)
-    val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale).withZone(zone).format(moment)
+    val date =
+        DateTimeFormatter
+            .ofLocalizedDate(FormatStyle.SHORT)
+            .withLocale(locale)
+            .withZone(zone)
+            .format(moment)
     return context.getString(R.string.widget_event_stamp, time, date)
 }
 

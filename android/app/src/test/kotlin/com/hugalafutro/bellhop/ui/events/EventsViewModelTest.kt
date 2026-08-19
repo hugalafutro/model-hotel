@@ -14,6 +14,7 @@ import com.hugalafutro.bellhop.ui.common.EventRange
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -84,11 +85,13 @@ class EventsViewModelTest {
         now: () -> Long = System::currentTimeMillis,
     ): EventsViewModel = EventsViewModel(client, linkStore, "http://fd:1", pollIntervalMs, now)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         Dispatchers.setMain(Dispatchers.Unconfined)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDownMain() {
         Dispatchers.resetMain()
@@ -159,7 +162,11 @@ class EventsViewModelTest {
 
             client.result = FetchResult.Failure("boom")
             vm.refreshOnce()
-            assertEquals(listOf("e1"), vm.state.value.events.map { it.id })
+            assertEquals(
+                listOf("e1"),
+                vm.state.value.events
+                    .map { it.id },
+            )
             assertEquals("boom", vm.state.value.error)
 
             client.result = page("e1", total = 1)
@@ -208,7 +215,11 @@ class EventsViewModelTest {
             withTimeout(5_000) {
                 while (vm.state.value.loadingMore || vm.state.value.events.size != 4) delay(10)
             }
-            assertEquals(listOf("e1", "e2", "e3", "e4"), vm.state.value.events.map { it.id })
+            assertEquals(
+                listOf("e1", "e2", "e3", "e4"),
+                vm.state.value.events
+                    .map { it.id },
+            )
             assertEquals(0, client.lastQuery!!.offset)
             assertEquals(2 + EventsViewModel.PAGE_SIZE, client.lastQuery!!.limit)
         }
@@ -346,7 +357,10 @@ class EventsViewModelTest {
             client.gate.complete(page("old1", "old2"))
             inFlight.join()
 
-            assertTrue(vm.state.value.events.isEmpty())
+            assertTrue(
+                vm.state.value.events
+                    .isEmpty(),
+            )
             assertTrue(vm.state.value.loading)
         }
 

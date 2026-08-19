@@ -327,8 +327,7 @@ fun DashboardScreen(
                         snapshotFlow {
                             listState.layoutInfo.visibleItemsInfo
                                 .mapNotNull { liveMembers.value.getOrNull(it.index)?.id }
-                        }
-                            .distinctUntilChanged()
+                        }.distinctUntilChanged()
                             .collect(onVisibleMembers)
                     }
                     // Footer placement: when the list overflows the viewport the

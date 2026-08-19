@@ -30,11 +30,15 @@ import java.util.concurrent.TimeUnit
  * network/host failure (the operator likely mistyped the URL).
  */
 sealed interface PairResult {
-    data class Success(val response: PairResponse) : PairResult
+    data class Success(
+        val response: PairResponse,
+    ) : PairResult
 
     data object InvalidCode : PairResult
 
-    data class Failure(val message: String) : PairResult
+    data class Failure(
+        val message: String,
+    ) : PairResult
 }
 
 /**
@@ -248,7 +252,9 @@ open class FrontDeskClient(
         when (val r = get<QuotaEnvelope>(fdUrl, "/api/quota", token)) {
             is FetchResult.Success ->
                 FetchResult.Success(
-                    r.data.quota.map(::providerQuotaOf).filter { it.type != QuotaType.UNKNOWN },
+                    r.data.quota
+                        .map(::providerQuotaOf)
+                        .filter { it.type != QuotaType.UNKNOWN },
                 )
             FetchResult.Unauthorized -> FetchResult.Unauthorized
             is FetchResult.Failure -> r
@@ -533,7 +539,11 @@ open class FrontDeskClient(
             ?.takeIf { it.isNotBlank() }
             ?.let { return it }
         runCatching {
-            json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+            json
+                .parseToJsonElement(text)
+                .jsonObject["error"]
+                ?.jsonPrimitive
+                ?.contentOrNull
         }.getOrNull()
             ?.takeIf { it.isNotBlank() }
             ?.let { return it }

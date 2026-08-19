@@ -146,8 +146,19 @@ class QuotaModelsTest {
         val data = pq.data as QuotaData.ZaiCoding
         assertTrue(data.success)
         assertEquals("pro", data.data.level)
-        assertEquals(10.0, data.data.limits.single().percentage, 0.0)
-        assertEquals(1234567890L, data.data.limits.single().nextResetTime)
+        assertEquals(
+            10.0,
+            data.data.limits
+                .single()
+                .percentage,
+            0.0,
+        )
+        assertEquals(
+            1234567890L,
+            data.data.limits
+                .single()
+                .nextResetTime,
+        )
     }
 
     @Test
@@ -170,8 +181,18 @@ class QuotaModelsTest {
         assertTrue(pq.available)
         val data = pq.data as QuotaData.KimiCode
         assertEquals("pro", data.user.membership.level)
-        assertEquals(300, data.limits.single().window.duration)
-        assertEquals("40000", data.limits.single().detail.remaining)
+        assertEquals(
+            300,
+            data.limits
+                .single()
+                .window.duration,
+        )
+        assertEquals(
+            "40000",
+            data.limits
+                .single()
+                .detail.remaining,
+        )
         assertEquals("900000", data.totalQuota.remaining)
     }
 

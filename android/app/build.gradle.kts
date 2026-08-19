@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktlint)
@@ -15,7 +14,9 @@ fun gitOutput(vararg args: String): String? =
     try {
         providers
             .exec { commandLine("git", "-C", rootDir.absolutePath, *args) }
-            .standardOutput.asText.get().trim()
+            .standardOutput.asText
+            .get()
+            .trim()
     } catch (e: Exception) {
         null
     }
@@ -31,7 +32,12 @@ fun gitCommit(): String {
 // Release workflow. versionCode is derived from it (major*10000 + minor*100 +
 // patch) so it stays monotonic without a second field to bump; minor and patch
 // must therefore stay below 100.
-val bellhopVersion = rootProject.file(".version").readText().trim().removePrefix("v")
+val bellhopVersion =
+    rootProject
+        .file(".version")
+        .readText()
+        .trim()
+        .removePrefix("v")
 val bellhopVersionCode =
     bellhopVersion.split(".").map { it.toInt() }.let { (major, minor, patch) ->
         require(minor < 100 && patch < 100) { "minor/patch must be < 100 to keep versionCode monotonic" }
@@ -46,12 +52,18 @@ val releaseKeystore: String? = System.getenv("BELLHOP_KEYSTORE")
 
 android {
     namespace = "com.hugalafutro.bellhop"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.hugalafutro.bellhop"
         minSdk = 26
-        targetSdk = 35
+        // compileSdk runs ahead of targetSdk on purpose: the Compose BOM needs
+        // API 37 to compile against, while Robolectric refuses a package whose
+        // targetSdkVersion exceeds the newest framework it ships (36 as of
+        // 4.16.1), so raising this fails every Robolectric test with
+        // "targetSdkVersion=37 > maxSdkVersion=36". Raise it once Robolectric
+        // ships SDK 37.
+        targetSdk = 36
         versionCode = bellhopVersionCode
         versionName = bellhopVersion
         buildConfigField("String", "GIT_COMMIT", "\"${gitCommit()}\"")

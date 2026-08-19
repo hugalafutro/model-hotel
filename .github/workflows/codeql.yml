@@ -82,14 +82,21 @@ jobs:
 
       # Manual build for java-kotlin: compiling the Kotlin is what the CodeQL
       # extractor consumes (via the LD_PRELOAD build tracer set up by init).
-      # The tracer only sees compilation that happens as a child of THIS step, so
-      # the build must run fully in-process with no daemons and no cached outputs:
+      # The tracer follows every descendant of THIS step, but it cannot see a
+      # reused Kotlin daemon, so the build must fork its compiler here and skip
+      # every cache that would let a compile task go up-to-date:
       #   --no-daemon                              Gradle work runs in the traced foreground JVM
       #   --no-build-cache / --no-configuration-cache  override org.gradle.caching /
       #                                            configuration-cache in gradle.properties so
       #                                            compile tasks actually re-run and are traced
-      #   -Pkotlin.compiler.execution.strategy=in-process  run kotlinc inside the Gradle JVM
-      #                                            instead of the (untraced) Kotlin daemon
+      #   -Pkotlin.compiler.execution.strategy=out-of-process  fork kotlinc as a direct child of
+      #                                            the Gradle JVM: traced like the daemon is not,
+      #                                            but with a clean classpath. `in-process` shares
+      #                                            the Gradle JVM's classpath, and Gradle 9.7
+      #                                            embeds Kotlin 2.4.0 while AGP's built-in Kotlin
+      #                                            compiles with 2.2.10, so the Compose plugin dies
+      #                                            on `AbstractMethodError: ComposePluginRegistrar
+      #                                            does not define getPluginId()`.
       # `clean` guarantees a from-scratch compile. Without these, the extractor reports
       # "no source code seen during build" and the analysis fails.
       - if: matrix.language == 'java-kotlin'
@@ -97,7 +104,7 @@ jobs:
         working-directory: android
         run: >-
           ./gradlew --no-daemon --no-build-cache --no-configuration-cache
-          -Pkotlin.compiler.execution.strategy=in-process
+          -Pkotlin.compiler.execution.strategy=out-of-process
           clean assembleDebug
 
       - name: Perform CodeQL Analysis
