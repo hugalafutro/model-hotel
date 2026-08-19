@@ -53,11 +53,13 @@ func DeriveModelClass(input, output []string, modelID string) string {
 	// serve chat like any text model (mirrors isOpenRouterChatModel).
 	if containsModality(output, "text") || containsModality(output, "code") {
 		// Audio-in/text-out is structurally identical for Whisper-style
-		// transcription and audio chat models; only the name can tell.
-		if containsModality(input, "audio") && !containsModality(input, "text") {
-			if inferNonChatModality(modelID) == "stt" {
-				return "stt"
-			}
+		// transcription and audio chat models; only the name can tell. The
+		// rest of the input array cannot break the tie either: models.dev
+		// enrichment hands the gpt-4o transcription models the whole modality
+		// set of their chat namesake (text, image and audio in), so audio
+		// input plus a transcriber's name is the whole signal.
+		if containsModality(input, "audio") && inferNonChatModality(modelID) == "stt" {
+			return "stt"
 		}
 		return "chat"
 	}
@@ -140,8 +142,7 @@ func NormalizeModelClassification(m *model.Model) {
 	caps := parseCapabilityFlags(m.Capabilities)
 	input = unionCapsIntoInput(caps, input)
 
-	inputWasEmpty := len(input) == 0
-	if inputWasEmpty {
+	if len(input) == 0 {
 		input = []string{"text"}
 	}
 
@@ -149,8 +150,14 @@ func NormalizeModelClassification(m *model.Model) {
 	if len(output) == 0 {
 		_, output = classDefaultArrays(class)
 	}
-	if class == "stt" && inputWasEmpty {
+	// A transcription endpoint consumes audio and nothing else, so the input
+	// array is rewritten rather than kept: enrichment routinely hands these
+	// models the text/image input of the chat model they are named after, and
+	// leaving that in place would claim image input on an stt model and light
+	// up its Vision pill.
+	if class == "stt" {
 		input = []string{"audio"}
+		m.Capabilities = clearCapsNotInInput(m.Capabilities, caps, input)
 	}
 
 	input = canonicalizeModalityList(input)
@@ -233,6 +240,36 @@ func syncCapsFromInput(raw string, caps map[string]any, input []string) string {
 			caps = map[string]any{}
 		}
 		caps[flag] = true
+		changed = true
+	}
+	if !changed {
+		return raw
+	}
+	out, err := json.Marshal(caps)
+	if err != nil {
+		return raw
+	}
+	return string(out)
+}
+
+// clearCapsNotInInput turns off input-flavored capability flags that the input
+// array contradicts. Unlike syncCapsFromInput it is not fill-only, so it is
+// used solely where the input array is authoritative rather than accumulated:
+// the stt rewrite, where enrichment has handed a transcription model the
+// vision/pdf flags of the chat model it is named after. Rewriting the input
+// array alone would leave those flags standing, and a stored vision:true on a
+// model whose stored input is ["audio"] is a permanent contradiction that
+// shows the operator a Vision pill on a transcription model.
+func clearCapsNotInInput(raw string, caps map[string]any, input []string) string {
+	changed := false
+	for flag, modality := range capsInputFlags {
+		if containsModality(input, modality) {
+			continue
+		}
+		if truthy, ok := caps[flag].(bool); !ok || !truthy {
+			continue
+		}
+		caps[flag] = false
 		changed = true
 	}
 	if !changed {

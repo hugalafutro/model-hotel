@@ -440,6 +440,57 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	return false
 }
 
+// nonStreamingFailureDetail decides what a response that is not a 2xx
+// completion may say about itself: the message stored in the request log
+// (dashboard-visible), the detail handed to the classifier and the debug log,
+// the error kind and the client-facing reason.
+//
+// It takes every response that is not a 2xx completion — any non-2xx whatever
+// its body decodes as, plus a 2xx that is not a chat completion — and the two
+// are NOT treated the same way. Do not merge them back together:
+//
+//   - A 2xx body is a completion. It failed to decode (a relay answering 200
+//     with "created":"1699…" or "total_tokens":"12" as a string is the usual
+//     cause) but it still holds the model's generated text, and this gateway
+//     logs no prompt or response content, ever. Only non-content diagnostics
+//     are reported: the decode error, the body length, the content type. The
+//     body itself goes nowhere near the request log or the debug log.
+//
+//   - A non-2xx carries no completion. Its body is the provider's error
+//     document, and that text is the whole reason such a row is worth reading,
+//     so it is sanitized and kept.
+func nonStreamingFailureDetail(resp *http.Response, body []byte, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
+			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
+		// Not "upstream provider returned HTTP 200": reporting the status as the
+		// failure sent operators hunting a provider outage that never happened.
+		return detail, detail, KindProviderBadRequest, "the provider returned a response the gateway could not decode"
+	}
+	detail = util.SanitizeLogBody(string(body), 10000)
+	// The prefix names which of the two ways in led here, so the row does not
+	// report a decode failure for a body that decoded perfectly well.
+	logMsg = fmt.Sprintf("upstream HTTP %d: %s", resp.StatusCode, detail)
+	if decodeErr != nil {
+		logMsg = fmt.Sprintf("response decode error: %s", detail)
+	}
+	// Classify from the body so the row is not left with an empty error_kind.
+	kind, reason = classifyUpstreamError(resp.StatusCode, detail, modelID)
+	return logMsg, detail, kind, reason
+}
+
+// nonStreamingBodyCap bounds the non-streaming completion body held in memory
+// for decoding. Unlike the caps on error bodies (failoverErrorClassifyCap,
+// responsesLearnBodyCap, miniMaxEnvelopeCap) this one guards a legitimate
+// payload, so it is set far above any real answer rather than just above any
+// real error message: 128k output tokens of text is well under 1MB, and the
+// outliers are chat completions carrying base64 image parts, several of which
+// still fit. It is 4x the multimodal pass-through's passthroughJSONBufferCap,
+// which can degrade to an unbuffered stream when a body is too large — this
+// path cannot, since it must decode to meter and normalise, so exceeding the
+// cap fails the request and it is set with that much more headroom.
+const nonStreamingBodyCap = 32 << 20 // 32MB
+
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
 	defer func() {
 		if r.Context().Err() == nil {
@@ -450,8 +501,38 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "response_header_ms", responseHeaderMs)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	// The body is read into memory once, up front, because both branches below
+	// want the same bytes: the success branch decodes them, the failure branch
+	// sanitizes them into the request log. resp.Body can only be consumed once,
+	// so whichever branch read it directly would starve the other.
+	//
+	// json.Decoder, not json.Unmarshal: a decoder stops at the end of the first
+	// JSON value, so a completion with trailing bytes after it still decodes,
+	// where an Unmarshal rejects the whole body.
+	//
+	// The read is bounded (nonStreamingBodyCap) so one upstream cannot make the
+	// gateway buffer an arbitrary amount: cap+1 is read, and a body that reaches
+	// cap+1 is refused as oversized rather than decoded, because a truncated
+	// completion re-encoded as a valid one would hand the client silently
+	// mutilated content.
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
+	if readErr == nil && len(body) > nonStreamingBodyCap {
+		readErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap", nonStreamingBodyCap)
+	}
 	var chatResp ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
+	decodeErr := readErr
+	if decodeErr == nil {
+		decodeErr = json.NewDecoder(bytes.NewReader(body)).Decode(&chatResp)
+	}
+
+	// Only a 2xx that decodes is a completion. Some upstreams (OpenCode Zen and
+	// OpenCode Go both do this) answer a failed request with a non-2xx carrying a
+	// complete chat.completion envelope and no error object at all, which decodes
+	// cleanly; forwarding that leaves the caller with a failure status and nothing
+	// to read `.error.message` off. Status decides, the body only says whether the
+	// success shape is even available.
+	if decodeErr == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		var tps float64
 		var reasoningTokens int
@@ -540,8 +621,6 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
-		body, _ := io.ReadAll(resp.Body)
-		errMsg := util.SanitizeLogBody(string(body), 10000)
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
@@ -554,24 +633,14 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
-		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
-		// This branch is reached when the upstream body would not decode, which
-		// happens both for a non-2xx error body and for a 2xx that is not a chat
-		// completion. Classify from the body so the row is not left with an empty
-		// error_kind, and only claim "upstream HTTP n" when n actually was a
-		// failure — reporting "upstream provider returned HTTP 200" for an
-		// undecodable success body sent operators hunting the wrong thing.
-		kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, logData.modelID)
-		if resp.StatusCode < 300 {
-			kind = KindProviderBadRequest
-			reason = "the provider returned a response the gateway could not decode"
-		}
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, decodeErr, logData.modelID)
+		logData.errorMessage = logMsg
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
+		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", detail, "duration_ms", totalDuration)
 		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), resp.StatusCode)
 	}
 }

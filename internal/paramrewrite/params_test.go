@@ -110,3 +110,45 @@ func TestLearnedCacheKey_ScopedPerProviderNotPerType(t *testing.T) {
 			"must not strip it here")
 	}
 }
+
+// OpenAI names the offending parameter in single quotes in its value-validation
+// errors, which the backtick/double-quote anchors missed. Every gpt-5-family
+// request carrying temperature:0 therefore failed with an unhealed 400.
+func TestParseProviderParamError_SingleQuotedParam(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}`)
+
+	rejected := ParseProviderParamError(body)
+	if !rejected["temperature"] {
+		t.Fatalf("expected temperature to be rejected, got %v", rejected)
+	}
+}
+
+func TestParseProviderParamError_SingleQuotedShortParams(t *testing.T) {
+	t.Parallel()
+
+	rejected := ParseProviderParamError([]byte(`{"error":{"message":"Unsupported value: 'n' is not supported with this model."}}`))
+	if !rejected["n"] {
+		t.Fatalf("expected n to be rejected, got %v", rejected)
+	}
+}
+
+func TestParseProviderParamError_SingleQuotedTopVariant(t *testing.T) {
+	t.Parallel()
+
+	rejected := ParseProviderParamError([]byte(`{"error":{"message":"Unsupported value: 'top_k' is not supported with this model."}}`))
+	if !rejected["top_k"] {
+		t.Fatalf("expected top_k to be rejected, got %v", rejected)
+	}
+}
+
+// An apostrophe inside ordinary prose must not be read as a quote pair, or a
+// harmless message would start stripping parameters the model accepts.
+func TestParseProviderParamError_ApostropheIsNotAQuotePair(t *testing.T) {
+	t.Parallel()
+
+	if rejected := ParseProviderParamError([]byte(`{"error":{"message":"The model isn't available in this region and can't serve n requests."}}`)); rejected != nil {
+		t.Fatalf("expected no params rejected from prose, got %v", rejected)
+	}
+}

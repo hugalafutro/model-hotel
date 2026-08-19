@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -228,6 +230,348 @@ func TestRetryWithStrippedParams_NonParamErrorFallsThrough(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Multi-round param self-heal.
+//
+// Upstreams name one offending param per 400, so a request carrying two of them
+// needs the retry's own 400 to be parsed and learned as well.
+// ---------------------------------------------------------------------------
+
+// learnedRejected reads the rejected-param map the deprecation cache holds for
+// one provider+model, or nil when nothing was learned.
+func learnedRejected(t *testing.T, h *Handler, key string) map[string]bool {
+	t.Helper()
+	v, ok := h.deprecationCache.Load(key)
+	if !ok {
+		return nil
+	}
+	m, ok := v.(*map[string]bool)
+	if !ok {
+		t.Fatalf("deprecation cache holds %T under %s, want *map[string]bool", v, key)
+	}
+	return *m
+}
+
+// learnedRenames reads the rename map the rename cache holds for one
+// provider+model, or nil when nothing was learned.
+func learnedRenames(t *testing.T, h *Handler, key string) map[string]string {
+	t.Helper()
+	v, ok := h.paramRenameCache.Load(key)
+	if !ok {
+		return nil
+	}
+	m, ok := v.(*map[string]string)
+	if !ok {
+		t.Fatalf("rename cache holds %T under %s, want *map[string]string", v, key)
+	}
+	return *m
+}
+
+const (
+	// The rename directive OpenAI's gpt-5 family answers max_tokens with.
+	maxTokensRename400 = `{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}`
+	// The value-validation 400 the same models answer temperature:0 with.
+	temperature400 = `{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`
+)
+
+// TestRetryWithStrippedParams_LearnsFromRetry400 is the regression test for the
+// two-param request: the first 400 names max_tokens (a rename), the retry's own
+// 400 names temperature. Before the fix that second 400 went straight to the
+// client with nothing learned from it, so the next identical request re-learned
+// from scratch. Both params must now be learned and the caller must get the 200.
+func TestRetryWithStrippedParams_LearnsFromRetry400(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if calls.Add(1) == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, temperature400)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[]}`)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	st.bodyBytes = []byte(`{"model":"test-model","messages":[{"role":"user","content":"hi"}],"max_tokens":64,"temperature":0}`)
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(maxTokensRename400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if !res.retried {
+		t.Fatalf("expected retried=true")
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected the caller to get the 200, got %+v", res.resp)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected two upstream retries (one per named param), got %d", got)
+	}
+	if res.retryCancel == nil {
+		t.Errorf("expected non-nil retryCancel with a live body")
+	} else {
+		res.retryCancel()
+	}
+	_ = res.resp.Body.Close()
+
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if renames := learnedRenames(t, h, learnKey); renames["max_tokens"] != "max_completion_tokens" {
+		t.Errorf("first 400's rename not learned: %v", renames)
+	}
+	if rejected := learnedRejected(t, h, learnKey); !rejected["temperature"] {
+		t.Errorf("the retry's own 400 was not learned: %v", rejected)
+	}
+}
+
+// TestRetryWithStrippedParams_TwoRetryCap holds the cap: an upstream that 400s
+// forever, naming a fresh param every time, must be re-issued exactly twice.
+// The last 400 is still learned and is handed back with its body restored.
+func TestRetryWithStrippedParams_TwoRetryCap(t *testing.T) {
+	named := []string{"top_p", "top_k", "frequency_penalty"}
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := int(calls.Add(1)) - 1
+		param := "presence_penalty"
+		if n < len(named) {
+			param = named[n]
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, `{"error":{"message":"Unsupported parameter: '%s' is not supported with this model."}}`, param)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected the two-retry cap to hold, got %d upstream retries", got)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected the last 400 handed back, got %+v", res.resp)
+	}
+	if res.retryCancel != nil {
+		t.Errorf("expected nil retryCancel: the body was buffered and the context released")
+	}
+	// The body must be readable by the caller's normal non-200 handling.
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if !strings.Contains(string(body), "top_k") {
+		t.Errorf("expected the last 400's body restored, got %q", string(body))
+	}
+
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	rejected := learnedRejected(t, h, learnKey)
+	for _, p := range []string{"temperature", "top_p", "top_k"} {
+		if !rejected[p] {
+			t.Errorf("expected %q learned from its 400, got %v", p, rejected)
+		}
+	}
+	if rejected["frequency_penalty"] {
+		t.Errorf("frequency_penalty was learned, so a third retry was issued: %v", rejected)
+	}
+}
+
+// TestRetryWithStrippedParams_StopsWhenNoNewParamNamed covers the other half of
+// the termination guard, the one the round cap cannot stand in for: an upstream
+// that keeps naming a param the retry ALREADY applied must not be re-issued at
+// all, because the second request would be byte-identical to the first.
+//
+// Exactly one upstream call is the assertion that carries this. Delete the
+// strict-progress test in retryWithStrippedParams (make it unconditionally true)
+// and the cap alone still permits a second round, so this test — and only this
+// test — turns red.
+func TestRetryWithStrippedParams_StopsWhenNoNewParamNamed(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, temperature400)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	// Seed and retry both name temperature: the retry already stripped it, so a
+	// second round has nothing new to apply.
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("expected the repeated param to stop the loop after one retry, got %d", got)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected the retry's 400 handed back, got %+v", res.resp)
+	}
+	if res.retryCancel != nil {
+		t.Errorf("expected nil retryCancel: the body was buffered and the context released")
+	}
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(body) != temperature400 {
+		t.Errorf("expected the retry's body restored, got %q", string(body))
+	}
+}
+
+// TestRetryWithStrippedParams_LargeRetry400StaysParseable pins the cap chosen
+// for the retry's own 400 body. It is read through a LimitReader, and the limit
+// has to be the parse-sized one: learning json.Unmarshals the document, so a
+// body clipped at the 16 KiB classify cap would parse to nothing and teach
+// nothing. A 32 KiB error body must still be learned from and still reach the
+// caller whole.
+func TestRetryWithStrippedParams_LargeRetry400StaysParseable(t *testing.T) {
+	large := `{"error":{"message":"Unsupported parameter: 'top_p' is not supported with this model.","detail":"` +
+		strings.Repeat("x", 32<<10) + `"}}`
+	if len(large) <= failoverErrorClassifyCap {
+		t.Fatalf("test body must exceed the classify cap to be meaningful, got %d", len(large))
+	}
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, large)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected a 400 handed back, got %+v", res.resp)
+	}
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(body) != large {
+		t.Errorf("expected the oversized body restored whole (%d bytes), got %d", len(large), len(body))
+	}
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if rejected := learnedRejected(t, h, learnKey); !rejected["top_p"] {
+		t.Errorf("a 32 KiB 400 was not parsed for learning: %v", rejected)
+	}
+}
+
+// TestRetryWithStrippedParams_LargeFirst400 pins the same bound on the FIRST
+// 400, which is read through readLearnable400 alongside the retry's. Both
+// halves of that read matter and are asserted separately:
+//
+//   - a body the parser recognises must still be learned from at 32 KiB, i.e.
+//     the cap must not be the 16 KiB classify one;
+//   - a body it does not recognise must still reach the caller byte-identical,
+//     which is the fall-through behaviour the brief pins as unchanged.
+func TestRetryWithStrippedParams_LargeFirst400(t *testing.T) {
+	pad := strings.Repeat("x", 32<<10)
+
+	t.Run("unrecognised body restores intact", func(t *testing.T) {
+		large := `{"error":{"message":"some unrelated validation failure","detail":"` + pad + `"}}`
+		if len(large) <= failoverErrorClassifyCap {
+			t.Fatalf("test body must exceed the classify cap to be meaningful, got %d", len(large))
+		}
+		h := newRetryTestHandler()
+		st := newRetryTestState()
+		cand := newRetryTestCandidate("http://127.0.0.1:0") // never dialled
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+
+		res := h.retryWithStrippedParams(req, st, cand, "openai", "http://127.0.0.1:0",
+			resp400(large), 0, &dialMs, func() {}, "failover_timeout")
+
+		if res.retried || res.cont {
+			t.Fatalf("expected no retry for an unrecognised 400, got retried=%v cont=%v", res.retried, res.cont)
+		}
+		body, err := io.ReadAll(res.resp.Body)
+		if err != nil {
+			t.Fatalf("read restored body: %v", err)
+		}
+		if string(body) != large {
+			t.Errorf("expected the oversized body restored whole (%d bytes), got %d", len(large), len(body))
+		}
+	})
+
+	t.Run("named param still learned", func(t *testing.T) {
+		large := `{"error":{"message":"Unsupported parameter: 'top_k' is not supported with this model.","detail":"` + pad + `"}}`
+		var calls atomic.Int32
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[]}`)
+		}))
+		defer upstream.Close()
+
+		h := newRetryTestHandler()
+		st := newRetryTestState()
+		cand := newRetryTestCandidate(upstream.URL)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+
+		res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+			resp400(large), 0, &dialMs, func() {}, "failover_timeout")
+
+		if !res.retried {
+			t.Fatalf("a 32 KiB first 400 was not parsed, so no retry was issued (cont=%v)", res.cont)
+		}
+		if res.resp == nil || res.resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected the caller to get the 200, got %+v", res.resp)
+		}
+		if res.retryCancel != nil {
+			res.retryCancel()
+		}
+		_ = res.resp.Body.Close()
+		if got := calls.Load(); got != 1 {
+			t.Errorf("expected one upstream retry, got %d", got)
+		}
+		learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+		if rejected := learnedRejected(t, h, learnKey); !rejected["top_k"] {
+			t.Errorf("a 32 KiB first 400 was not parsed for learning: %v", rejected)
+		}
+	})
+}
+
 // TestDoUpstream_ProviderErrorCapturesUnderlying verifies that a terminal
 // transport error (here: connection refused, retried then exhausted) is
 // captured into the structured error's Underlying field, classified as a
@@ -292,4 +636,203 @@ func TestDoUpstream_ClientDisconnectPreservesProviderError(t *testing.T) {
 	if !strings.Contains(st.lastReqErr.Underlying, "connection refused") {
 		t.Errorf("client disconnect DROPPED the real provider error (the bug this fixes): Underlying=%q", st.lastReqErr.Underlying)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// forwardUpstreamError response shape.
+//
+// This is the reachable half of "a non-2xx must never reach the client as a
+// success-shaped body": the chat path sends every non-200 here before
+// handleNonStreamingResponse can see it, and with a candidate still in the group
+// a non-failover-eligible status answers straight from the provider's body.
+// ---------------------------------------------------------------------------
+
+// runForwardUpstreamError drives one upstream answer through the function and
+// returns what the client got plus the log row it left behind.
+func runForwardUpstreamError(t *testing.T, h *Handler, status int, body string, hasMoreCandidates bool) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
+
+	logData := &requestLogData{
+		modelID:        "gpt-5.1-codex",
+		providerName:   "opencode-zen",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "pending",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	candidate := modelCandidate{
+		model:    &model.Model{ModelID: "gpt-5.1-codex"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "opencode-zen"},
+	}
+	resp := &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	if outcome := h.forwardUpstreamError(w, st, candidate, resp, 0, hasMoreCandidates, 1.5); outcome != outcomeFatal {
+		t.Fatalf("expected outcomeFatal, got %v", outcome)
+	}
+	return w, logData
+}
+
+// A non-2xx whose body carries no error object leaves as a synthesised envelope,
+// whether or not candidates remain. zenChatShapedBody is the production shape:
+// OpenCode Zen and OpenCode Go answer some failed requests with a complete
+// chat.completion under an HTTP 400, which is valid JSON with nothing for a
+// client to read `.error.message` off.
+func TestForwardUpstreamError_Non2xxWithoutErrorObjectGetsEnvelope(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Every shape whose "error" member leaves a client with nothing to read is
+	// the same case as no error member at all.
+	bodies := map[string]string{
+		"chat completion shape": zenChatShapedBody,
+		"explicit null error":   `{"id":"chatcmpl_u5tt67g6rmf","error":null}`,
+		"empty error object":    `{"id":"chatcmpl_u5tt67g6rmf","error":{}}`,
+		"empty error string":    `{"id":"chatcmpl_u5tt67g6rmf","error":""}`,
+		"blank error string":    `{"id":"chatcmpl_u5tt67g6rmf","error":"   "}`,
+		"empty error list":      `{"id":"chatcmpl_u5tt67g6rmf","error":[]}`,
+		"not an object":         `["upstream said no"]`,
+		"not json at all":       `<html><body>400 Bad Request</body></html>`,
+	}
+
+	for name, upstreamBody := range bodies {
+		for _, hasMore := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/hasMoreCandidates=%v", name, hasMore), func(t *testing.T) {
+				w, logData := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, hasMore)
+
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("expected upstream status 400 to reach the client, got %d", w.Code)
+				}
+				var got map[string]json.RawMessage
+				if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+					t.Fatalf("client body is not JSON: %v (%s)", err, w.Body.String())
+				}
+				rawErr, present := got["error"]
+				if !present {
+					t.Fatalf("client body has no error object: %s", w.Body.String())
+				}
+				var errObj struct {
+					Message string `json:"message"`
+				}
+				if err := json.Unmarshal(rawErr, &errObj); err != nil {
+					t.Fatalf("re-parse error object: %v", err)
+				}
+				if errObj.Message == "" {
+					t.Errorf("error envelope carries no message: %s", w.Body.String())
+				}
+				if _, present := got["choices"]; present {
+					t.Errorf("success-shaped choices reached the client on a 400: %s", w.Body.String())
+				}
+				if logData.state != "failed" {
+					t.Errorf("expected state=%q, got %q", "failed", logData.state)
+				}
+				if logData.errorMessage == "" {
+					t.Error("upstream body not recoverable from error_message")
+				}
+			})
+		}
+	}
+}
+
+// The upstream's own error object is detail this gateway cannot reconstruct
+// (code, type, param, provider-specific fields), so with a candidate still in
+// the group the body is forwarded byte for byte.
+func TestForwardUpstreamError_ErrorObjectForwardedVerbatim(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const upstreamBody = `{"error":{"message":"custom_validation_error","type":"invalid_request_error","param":"messages[0].content","code":"context_length_exceeded"},"request_id":"req_abc123"}`
+
+	w, logData := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, true)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+	if got := w.Body.String(); got != upstreamBody {
+		t.Errorf("upstream error body not forwarded byte for byte:\n got: %s\nwant: %s", got, upstreamBody)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %q", ct)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+}
+
+// An error member that carries something is the provider's to describe, whatever
+// shape it chose. Ollama answers with a bare string rather than an object, which
+// is real detail and must survive.
+func TestForwardUpstreamError_NonObjectErrorForwardedVerbatim(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	bodies := map[string]string{
+		"ollama string error": `{"error":"model not found, try pulling it first"}`,
+		"list of errors":      `{"error":[{"message":"first"},{"message":"second"}]}`,
+	}
+
+	for name, upstreamBody := range bodies {
+		t.Run(name, func(t *testing.T) {
+			w, _ := runForwardUpstreamError(t, h, http.StatusNotFound, upstreamBody, true)
+
+			if w.Code != http.StatusNotFound {
+				t.Errorf("expected status 404, got %d", w.Code)
+			}
+			if got := w.Body.String(); got != upstreamBody {
+				t.Errorf("upstream error detail not forwarded byte for byte:\n got: %s\nwant: %s", got, upstreamBody)
+			}
+		})
+	}
+}
+
+// A success status other than a bare 200 reaches this function too (the caller
+// only special-cases 200). It is not an error and must not be rewritten,
+// whatever its body looks like.
+func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	t.Run("json body", func(t *testing.T) {
+		w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected status 201, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != zenChatShapedBody {
+			t.Errorf("2xx body not forwarded byte for byte:\n got: %s\nwant: %s", got, zenChatShapedBody)
+		}
+	})
+
+	// A 204 is the case that makes forwarding rather than wrapping the right
+	// rule for every 2xx: writing an error envelope under a No Content status
+	// would be a body invented by this gateway for a request the provider
+	// considered successful.
+	t.Run("empty 204 body stays empty", func(t *testing.T) {
+		w, _ := runForwardUpstreamError(t, h, http.StatusNoContent, "", true)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("expected status 204, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != "" {
+			t.Errorf("204 answered with a body: %s", got)
+		}
+	})
+
+	// The same rule with a body that is not JSON at all: still a success status,
+	// still the provider's answer, still forwarded untouched.
+	t.Run("non-json body", func(t *testing.T) {
+		const plain = `accepted`
+		w, _ := runForwardUpstreamError(t, h, http.StatusAccepted, plain, true)
+
+		if w.Code != http.StatusAccepted {
+			t.Errorf("expected status 202, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != plain {
+			t.Errorf("non-JSON 2xx body rewritten: %s", got)
+		}
+	})
 }

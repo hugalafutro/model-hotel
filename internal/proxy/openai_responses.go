@@ -99,9 +99,17 @@ func (h *Handler) retryWithResponses(
 		return res, false
 	}
 
-	body, readErr := io.ReadAll(resp.Body)
+	// Same bounded read as the param self-heal: this learner also json.Unmarshals
+	// the whole error document and also has to hand the response on with a
+	// readable body. Reading it unbounded here would defeat readLearnable400's
+	// cap entirely, since every openai-type 400 passes through this function
+	// first.
+	body, readErr := readLearnable400(resp)
+	// The helper closed the upstream body and left a buffered reader in its
+	// place, so this close is a no-op — it is here because bodyclose only
+	// recognises a close applied to the response value in the function that
+	// received it, not the one inside readLearnable400.
 	_ = resp.Body.Close()
-	resp.Body = io.NopCloser(bytes.NewReader(body))
 	if readErr != nil || !h.learnResponsesRequirement(st, candidate, providerType, body) {
 		return res, false
 	}

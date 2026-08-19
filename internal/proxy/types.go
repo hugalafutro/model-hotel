@@ -307,14 +307,29 @@ type ChatCompletionResponse struct {
 	Model   string   `json:"model"`
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
+	// Extra carries the top-level fields this struct does not model
+	// (system_fingerprint, OpenRouter's provider, service_tier, ...) so they
+	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // Choice represents a single completion choice in the response.
+//
+// Delta is a pointer so the two response shapes stay distinct. A struct is
+// never empty to encoding/json, so a value field emitted "delta":{"role":"",
+// "content":null} on every non-streaming completion, a key the OpenAI
+// non-streaming schema does not have. Nil omits it; a streaming chunk that
+// carries a delta still round-trips one, even a delta holding nothing but the
+// role.
 type Choice struct {
-	Index        int     `json:"index"`
-	Message      Message `json:"message"`
-	Delta        Message `json:"delta"`
-	FinishReason *string `json:"finish_reason,omitempty"`
+	Index        int      `json:"index"`
+	Message      Message  `json:"message"`
+	Delta        *Message `json:"delta,omitempty"`
+	FinishReason *string  `json:"finish_reason,omitempty"`
+	// Extra carries the per-choice fields this struct does not model (logprobs,
+	// OpenRouter's native_finish_reason, ...) so they survive the non-streaming
+	// decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // Message represents a chat message with role and content.
@@ -330,6 +345,9 @@ type Message struct {
 	ReasoningContent string            `json:"reasoning_content,omitempty"`
 	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
+	// Extra carries the response fields this struct does not model, so they
+	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // ToolCall is an OpenAI function tool call on an assistant message. Preserved
@@ -339,6 +357,11 @@ type ToolCall struct {
 	Type     string       `json:"type"`
 	Index    *int         `json:"index,omitempty"`
 	Function ToolCallFunc `json:"function"`
+	// Extra carries provider fields this struct does not model. Gemini 3 puts
+	// extra_content.google.thought_signature here and rejects the follow-up
+	// turn without it, so dropping it breaks tool use outright. See
+	// jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // ToolCallFunc is the function name + raw JSON arguments of a tool call.
@@ -373,4 +396,8 @@ type Usage struct {
 	CacheCreationInputTokens int                      `json:"cache_creation_input_tokens,omitempty"`
 	PromptTokensDetails      *PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
 	CompletionTokensDetails  *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+	// Extra carries the usage fields this struct does not model (OpenRouter's
+	// cost and is_byok, provider-specific token breakdowns, ...) so they survive
+	// the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
