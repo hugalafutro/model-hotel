@@ -2,6 +2,8 @@ package anthropicegress
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -10,6 +12,12 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// maxSSELineBytes caps the unterminated SSE line the adapter will buffer.
+// Anthropic's deltas are orders of magnitude smaller than this, so an upstream
+// that never emits a newline is a broken peer, not a large response — the
+// stream fails instead of growing the buffer until the process suffers.
+const maxSSELineBytes = 1 << 20
 
 // StreamAdapter wraps an upstream Anthropic /v1/messages SSE body as an
 // io.ReadCloser that yields chat.completion.chunk SSE bytes. Wrapping the
@@ -45,7 +53,8 @@ func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
 }
 
 // Read refills the pending buffer from upstream (translating as it goes) and
-// copies out. On EOF the terminal Finish() bytes are appended before the EOF is
+// copies out. On EOF any residual partial line is flushed through the
+// translator and the terminal Finish() bytes are appended before the EOF is
 // surfaced; other upstream errors surface only after all translated bytes have
 // been drained. A translation failure poisons the stream: already translated
 // bytes drain, then the error surfaces — Finish() is never fabricated over a
@@ -65,12 +74,20 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 		}
 		if err != nil {
 			a.srcErr = err
-			if err == io.EOF && a.transErr == nil {
-				fin, finErr := a.tr.Finish()
-				if finErr != nil {
-					debuglog.Warn("anthropicegress: stream finish failed", "error", finErr)
+			if errors.Is(err, io.EOF) {
+				// io.Copy and io.ReadAll compare the terminating error against
+				// io.EOF with ==, so a wrapped EOF from a reader between the
+				// transport and here would be reported as a broken stream even
+				// though it ended normally. This adapter ends on io.EOF itself.
+				a.srcErr = io.EOF
+				a.flushPartialLine()
+				if a.transErr == nil {
+					fin, finErr := a.tr.Finish()
+					if finErr != nil {
+						debuglog.Warn("anthropicegress: stream finish failed", "error", finErr)
+					}
+					a.pending = append(a.pending, fin...)
 				}
-				a.pending = append(a.pending, fin...)
 			}
 		}
 	}
@@ -87,6 +104,11 @@ func (a *StreamAdapter) consume(p []byte) {
 	for {
 		idx := bytes.IndexByte(a.lineBuf, '\n')
 		if idx < 0 {
+			if len(a.lineBuf) > maxSSELineBytes {
+				a.lineBuf = nil
+				a.transErr = fmt.Errorf("anthropicegress: upstream SSE line exceeds %d bytes", maxSSELineBytes)
+				debuglog.Warn("anthropicegress: stream line exceeds buffer cap", "limit", maxSSELineBytes)
+			}
 			return
 		}
 		line := bytes.TrimRight(a.lineBuf[:idx], "\r")
@@ -109,6 +131,19 @@ func (a *StreamAdapter) consume(p []byte) {
 		}
 		a.pending = append(a.pending, out...)
 	}
+}
+
+// flushPartialLine feeds a residual line to the translator at EOF. An upstream
+// that closes without a trailing newline would otherwise lose its last event
+// entirely — including a final message_delta's stop_reason — while Finish()
+// still emitted a clean terminal chunk, which is exactly the quiet truncation
+// this adapter exists to prevent.
+func (a *StreamAdapter) flushPartialLine() {
+	if len(a.lineBuf) == 0 || a.transErr != nil {
+		return
+	}
+	a.lineBuf = append(a.lineBuf, '\n')
+	a.consume(nil)
 }
 
 // Close closes the upstream body. The stall watchdog calls this to unblock a

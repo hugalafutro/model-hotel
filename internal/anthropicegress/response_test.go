@@ -353,6 +353,22 @@ func TestBuildChatCompletion_InvalidBody(t *testing.T) {
 	}
 }
 
+func TestBuildChatCompletion_InvalidBodyErrorOmitsContent(t *testing.T) {
+	// The decode error describes WHERE the body broke, never what it said:
+	// encoding/json quotes the offending byte and prints an offending literal
+	// verbatim, and a response body is model output.
+	_, err := BuildChatCompletion([]byte(`{"type":"message","content":[{"type":"text","text":"Kohlrabi"`), "resp_1", "claude-x", 1234)
+	if err == nil {
+		t.Fatal("expected an error for a truncated body")
+	}
+	if !strings.HasPrefix(err.Error(), "anthropicegress: invalid upstream response: malformed JSON at byte ") {
+		t.Errorf("error = %q, want the sanitized malformed-JSON form", err)
+	}
+	if strings.Contains(err.Error(), "Kohlrabi") {
+		t.Errorf("error leaked response content: %q", err)
+	}
+}
+
 func TestBuildChatCompletion_ErrorEnvelope(t *testing.T) {
 	_, err := BuildChatCompletion(
 		[]byte(`{"type":"error","error":{"type":"overloaded_error","message":"secret upstream detail"}}`),

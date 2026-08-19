@@ -48,6 +48,21 @@ type antEventDelta struct {
 	StopReason  string `json:"stop_reason"`
 }
 
+// jsonFault describes a JSON decode failure without echoing the document that
+// caused it. encoding/json's own messages embed a fragment of the input — a
+// *json.SyntaxError quotes the offending byte, a *json.UnmarshalTypeError the
+// offending literal — and every document this package decodes carries prompt
+// or response content, which must never reach an error string or a log line.
+// The byte offset and the document length are structure, not content, so they
+// stay: they are what makes a malformed stream diagnosable.
+func jsonFault(err error, size int) string {
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) {
+		return fmt.Sprintf("malformed JSON at byte %d of %d", syntaxErr.Offset, size)
+	}
+	return fmt.Sprintf("undecodable JSON (%d bytes)", size)
+}
+
 // --- Outgoing OpenAI chat.completion.chunk shape ---
 
 type chunk struct {
@@ -106,9 +121,10 @@ type StreamTranslator struct {
 
 	// Anthropic reports input counts on message_start and output tokens on
 	// message_delta, so both halves accumulate here and the terminal chunk
-	// runs them through translateUsage's arithmetic.
-	usage    antRespUsage
-	sawUsage bool
+	// runs them through translateUsage's arithmetic. A usage object carrying
+	// nothing but zeros leaves this zero-valued, and the terminal chunk then
+	// omits usage rather than reporting a fabricated 0/0/0.
+	usage antRespUsage
 
 	// Anthropic's content-block indices count every block; OpenAI's
 	// tool_calls[].index counts only tool calls. This maps one to the other so
@@ -160,7 +176,7 @@ func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta chunkDelta, finis
 func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 	var ev antEvent
 	if err := json.Unmarshal(payload, &ev); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid stream event: %w", err)
+		return nil, fmt.Errorf("anthropicegress: invalid stream event: %s", jsonFault(err, len(payload)))
 	}
 
 	var buf bytes.Buffer
@@ -170,7 +186,6 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 			t.usage.InputTokens = ev.Message.Usage.InputTokens
 			t.usage.CacheCreationInputTokens = ev.Message.Usage.CacheCreationInputTokens
 			t.usage.CacheReadInputTokens = ev.Message.Usage.CacheReadInputTokens
-			t.sawUsage = true
 		}
 		if err := t.writeChunk(&buf, chunkDelta{}, nil, nil); err != nil {
 			return nil, err
@@ -189,7 +204,6 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		}
 		if ev.Usage != nil {
 			t.usage.OutputTokens = ev.Usage.OutputTokens
-			t.sawUsage = true
 		}
 	case "message_stop":
 		return t.Finish()
@@ -284,7 +298,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	var buf bytes.Buffer
 	reason := mapFinishReason(t.stopReason)
 	var usage *antRespUsage
-	if t.sawUsage {
+	if t.usage != (antRespUsage{}) {
 		usage = &t.usage
 	}
 	if err := t.writeChunk(&buf, chunkDelta{}, &reason, translateUsage(usage)); err != nil {

@@ -110,7 +110,7 @@ type completionCacheDetails struct {
 func BuildChatCompletion(anthropicBody []byte, id, model string, created int64) ([]byte, error) {
 	var resp antResponse
 	if err := json.Unmarshal(anthropicBody, &resp); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid upstream response: %w", err)
+		return nil, fmt.Errorf("anthropicegress: invalid upstream response: %s", jsonFault(err, len(anthropicBody)))
 	}
 	if resp.Type == "error" {
 		kind := "unknown"

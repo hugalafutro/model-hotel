@@ -2,6 +2,7 @@ package anthropicegress
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -198,6 +199,74 @@ func TestStreamAdapter_UpstreamDiesMidStream(t *testing.T) {
 	}
 	if strings.Contains(string(out), "[DONE]") {
 		t.Errorf("[DONE] fabricated on a dropped connection:\n%s", out)
+	}
+}
+
+func TestStreamAdapter_WrappedEOFStillFinishes(t *testing.T) {
+	// EOF can arrive wrapped by any reader sitting between the transport and
+	// this adapter; a wrapped EOF must still produce the terminal chunk rather
+	// than leaving the client with no [DONE].
+	body := &dyingBody{
+		data: "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"x\"}}\n\n",
+		err:  fmt.Errorf("transport read: %w", io.EOF),
+	}
+	out, err := io.ReadAll(NewStreamAdapter(body, "m"))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if _, done := parseChunks(t, string(out)); !done {
+		t.Errorf("wrapped EOF skipped the terminal chunk:\n%s", out)
+	}
+}
+
+func TestStreamAdapter_FlushesPartialLineAtEOF(t *testing.T) {
+	// An upstream that closes without a trailing newline must not lose its last
+	// event: dropping a final message_delta would silently downgrade a
+	// max_tokens truncation to a clean "stop" alongside a clean [DONE].
+	upstream := &scriptedBody{script: []string{
+		"data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":2}}}\n\n",
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"tail\"}}\n\n",
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":6}}",
+	}}
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	chunks, done := parseChunks(t, string(out))
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	if got := joinContent(chunks); got != "tail" {
+		t.Errorf("content = %q, want tail", got)
+	}
+	last := chunks[len(chunks)-1]
+	if r := last.Choices[0].FinishReason; r == nil || *r != "length" {
+		t.Errorf("finish_reason = %v, want length from the unterminated message_delta", r)
+	}
+	if last.Usage == nil || last.Usage.CompletionTokens != 6 {
+		t.Errorf("usage = %+v, want completion_tokens 6 from the unterminated message_delta", last.Usage)
+	}
+}
+
+func TestStreamAdapter_OverlongLineFailsStream(t *testing.T) {
+	// An upstream that never emits a newline must fail the stream rather than
+	// grow the line buffer without bound.
+	upstream := &scriptedBody{script: []string{
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" +
+			strings.Repeat("a", maxSSELineBytes+1),
+	}}
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err == nil {
+		t.Fatal("expected an error once the line exceeded the cap")
+	}
+	if !strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("error = %q, want it to name the exceeded cap", err)
+	}
+	if strings.Contains(string(out), "[DONE]") {
+		t.Errorf("[DONE] fabricated over an unterminated line:\n%s", out)
+	}
+	if strings.Contains(err.Error(), "aaaa") {
+		t.Errorf("error leaked the buffered line: %q", err)
 	}
 }
 

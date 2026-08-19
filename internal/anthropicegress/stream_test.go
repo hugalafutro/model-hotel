@@ -448,6 +448,60 @@ func TestStreamTranslator_InvalidEventFails(t *testing.T) {
 	}
 }
 
+func TestStreamTranslator_DecodeErrorOmitsPayload(t *testing.T) {
+	// encoding/json's own messages quote the offending byte and print the
+	// offending literal verbatim, and a stream event's fields are model output.
+	// The error must describe WHERE the document broke, never what it said.
+	cases := []struct {
+		name    string
+		payload string
+		want    string // the sanitized shape the error must take
+		secret  string // a fragment of the payload that must not survive
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"type":"content_block_delta","delta":{"type":"text_delta","text":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"type":"content_block_delta","index":8675309.42}`,
+			want:    "undecodable JSON (",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewStreamTranslator("chatcmpl-12", "m", 1).Translate([]byte(tc.payload))
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "anthropicegress: invalid stream event: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
+	}
+}
+
+func TestStreamTranslator_AllZeroUsageOmitsUsage(t *testing.T) {
+	// A usage object reporting nothing is not usage: emitting 0/0/0 would have
+	// the meter record a real completion as free.
+	tr := NewStreamTranslator("chatcmpl-13", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":0,"output_tokens":0}}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	if u := chunks[len(chunks)-1].Usage; u != nil {
+		t.Errorf("usage = %+v, want none when every count is zero", u)
+	}
+}
+
 func TestStreamTranslator_OrphanToolArgumentsFail(t *testing.T) {
 	// Arguments for a block no content_block_start opened cannot be indexed;
 	// dropping them would hand the client silently truncated arguments.
