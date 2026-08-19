@@ -217,6 +217,15 @@ type requestState struct {
 	// shape the pipeline and client expect.
 	geminiAttempt bool
 
+	// Anthropic egress adapter (zero value = plain chat-completions).
+	// anthropicEgressAttempt is set per failover attempt by
+	// buildCandidateRequest: true when the current candidate is an Anthropic
+	// provider served through the internal/anthropicegress translation (the
+	// request carries a document its OpenAI-compat endpoint cannot express),
+	// read by the response dispatch so it translates the Messages body/stream
+	// back to the chat-completions shape the pipeline and client expect.
+	anthropicEgressAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits

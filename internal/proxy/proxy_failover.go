@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -152,7 +153,10 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// generateContent-shaped, so re-POSTing a rebuilt chat body (or learning
 	// OpenAI param names from Gemini's error text) would be wrong; a Gemini
 	// 400 fails over or is forwarded as-is.
-	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt {
+	// Skipped for the same reason on anthropic egress attempts: that upstream
+	// body is Messages-shaped, so a rebuilt chat body re-POSTed to /v1/messages
+	// would be malformed and Anthropic's param names are not OpenAI's.
+	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt {
 		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if !handled {
 			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
@@ -246,6 +250,17 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateGeminiResponseBody(resp, st.reqModel); err != nil {
 			debuglog.Warn("proxy: gemini translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+			logData.failoverAttempt = attempt
+			return outcomeFailover
+		}
+	}
+	if st.anthropicEgressAttempt {
+		// Same upstream-side trick for the anthropic egress adapter.
+		if st.isStreaming {
+			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
+		} else if err := translateAnthropicEgressResponseBody(resp, st.reqModel); err != nil {
+			debuglog.Warn("proxy: anthropic egress translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
 			return outcomeFailover
@@ -478,6 +493,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// don't, so all dialect flags reset on every candidate.
 	st.responsesAttempt = false
 	st.geminiAttempt = false
+	st.anthropicEgressAttempt = false
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
 	}
@@ -497,6 +513,15 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	if isGeminiEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.geminiAttempt = true
 		return h.buildGeminiRequest(ctx, st, candidate, providerType)
+	}
+
+	// Anthropic egress adapter: a chat request carrying a document is
+	// translated to Anthropic's native Messages shape on the way out and back
+	// on the response side (see anthropic_egress.go). Text and image requests
+	// stay on the cheaper compat endpoint below.
+	if isAnthropicEgressAttempt(st, providerType) {
+		st.anthropicEgressAttempt = true
+		return h.buildAnthropicEgressRequest(ctx, st, candidate, providerType)
 	}
 
 	endpoint := st.endpointPath

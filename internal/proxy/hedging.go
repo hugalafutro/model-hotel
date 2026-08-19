@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -319,6 +320,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// Vertex-express candidate in a hedged race: same upstream-side
 		// translation so the hedged pipeline sees chat-completions SSE.
 		resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
+	}
+	if st.anthropicEgressAttempt {
+		// Anthropic egress candidate in a hedged race: same upstream-side
+		// translation so the hedged pipeline sees chat-completions SSE.
+		resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 
 	if ttftTimeout <= 0 {

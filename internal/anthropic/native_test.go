@@ -44,6 +44,21 @@ func TestParseResponseUsage(t *testing.T) {
 	}
 }
 
+// Anthropic's cache counts are disjoint additions to input_tokens, not a
+// breakdown of it, so a warm-cache request reports a tiny input_tokens beside a
+// huge cache_read_input_tokens. Metering the bare field would under-report the
+// prompt by the whole cached figure.
+func TestParseResponseUsage_SumsCachedInput(t *testing.T) {
+	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
+	in, out := ParseResponseUsage(body)
+	if in != 20034 {
+		t.Errorf("prompt tokens = %d, want 20034 (4 + 20000 + 30)", in)
+	}
+	if out != 50 {
+		t.Errorf("completion tokens = %d, want 50", out)
+	}
+}
+
 // ResponseCarriesContent decides whether a native 200 counts as the model
 // answering, which is what clears its gone-strike streak in the proxy. The
 // distinction that matters is a nonempty body carrying an empty content array:
@@ -131,5 +146,17 @@ func TestInspectStreamEvent(t *testing.T) {
 	// garbage parses to a zero value.
 	if ev := InspectStreamEvent([]byte(`not json`)); ev.Type != "" {
 		t.Errorf("garbage = %+v, want zero StreamEvent", ev)
+	}
+}
+
+// The streamed message_start reports the same summed prompt size the
+// non-streaming path does, so the two native paths meter a cached prompt alike.
+func TestInspectStreamEvent_SumsCachedInput(t *testing.T) {
+	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}}`))
+	if !ev.HasInput || ev.InputTokens != 20034 {
+		t.Errorf("input tokens = %d (has=%v), want 20034 (4 + 20000 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if !ev.HasOutput || ev.OutputTokens != 1 {
+		t.Errorf("output tokens = %d (has=%v), want 1", ev.OutputTokens, ev.HasOutput)
 	}
 }
