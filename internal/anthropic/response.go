@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming OpenAI non-streaming response shape ---
@@ -75,7 +77,7 @@ type oaiRespToolCall struct {
 func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) {
 	var resp oaiResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("anthropic: invalid upstream response: %w", err)
+		return nil, fmt.Errorf("anthropic: invalid upstream response: %s", jsonfault.Describe(err, len(body)))
 	}
 
 	msg := message{

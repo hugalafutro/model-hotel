@@ -204,7 +204,7 @@ func TestStream_DecodeErrorOmitsPayload(t *testing.T) {
 		{
 			name:   "type error",
 			event:  `{"type":"response.output_text.delta","delta":8675309.42}`,
-			want:   "undecodable JSON (",
+			want:   "unexpected JSON value at byte ",
 			secret: "8675309.42",
 		},
 	}

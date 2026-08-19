@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming Anthropic SSE event shapes ---
@@ -46,21 +48,6 @@ type antEventDelta struct {
 	Thinking    string `json:"thinking"`
 	PartialJSON string `json:"partial_json"`
 	StopReason  string `json:"stop_reason"`
-}
-
-// jsonFault describes a JSON decode failure without echoing the document that
-// caused it. encoding/json's own messages embed a fragment of the input — a
-// *json.SyntaxError quotes the offending byte, a *json.UnmarshalTypeError the
-// offending literal — and every document this package decodes carries prompt
-// or response content, which must never reach an error string or a log line.
-// The byte offset and the document length are structure, not content, so they
-// stay: they are what makes a malformed stream diagnosable.
-func jsonFault(err error, size int) string {
-	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) {
-		return fmt.Sprintf("malformed JSON at byte %d of %d", syntaxErr.Offset, size)
-	}
-	return fmt.Sprintf("undecodable JSON (%d bytes)", size)
 }
 
 // --- Outgoing OpenAI chat.completion.chunk shape ---
@@ -176,7 +163,7 @@ func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta chunkDelta, finis
 func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 	var ev antEvent
 	if err := json.Unmarshal(payload, &ev); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid stream event: %s", jsonFault(err, len(payload)))
+		return nil, fmt.Errorf("anthropicegress: invalid stream event: %s", jsonfault.Describe(err, len(payload)))
 	}
 
 	var buf bytes.Buffer

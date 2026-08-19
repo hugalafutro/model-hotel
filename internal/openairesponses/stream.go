@@ -3,7 +3,6 @@ package openairesponses
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // StreamTranslator converts the Responses API typed SSE event stream into the
@@ -64,21 +64,6 @@ type streamEvent struct {
 	Message string `json:"message"`
 }
 
-// jsonFault describes a JSON decode failure without echoing the document that
-// caused it. encoding/json's own messages embed a fragment of the input — a
-// *json.SyntaxError quotes the offending byte, a *json.UnmarshalTypeError the
-// offending literal — and every document this package decodes carries prompt or
-// response content, which must never reach an error string or a log line. The
-// byte offset and the document length are structure, not content, so they stay:
-// they are what makes a malformed stream diagnosable.
-func jsonFault(err error, size int) string {
-	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) {
-		return fmt.Sprintf("malformed JSON at byte %d of %d", syntaxErr.Offset, size)
-	}
-	return fmt.Sprintf("undecodable JSON (%d bytes)", size)
-}
-
 // TranslateEvent processes one Responses SSE data payload and returns the
 // chat-completions SSE bytes to forward (possibly empty). After the terminal
 // response.* event it emits the finish chunk, a usage chunk and [DONE]; any
@@ -89,7 +74,7 @@ func (t *StreamTranslator) TranslateEvent(data []byte) ([]byte, error) {
 	}
 	var ev streamEvent
 	if err := json.Unmarshal(data, &ev); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid stream event: %s", jsonFault(err, len(data)))
+		return nil, fmt.Errorf("openairesponses: invalid stream event: %s", jsonfault.Describe(err, len(data)))
 	}
 
 	switch ev.Type {

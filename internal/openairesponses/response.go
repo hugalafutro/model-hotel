@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // TranslateResponsesToChat converts a non-streaming Responses API response
@@ -18,7 +20,7 @@ import (
 func TranslateResponsesToChat(respBody []byte, model string) ([]byte, error) {
 	var resp Response
 	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid upstream response: %s", jsonFault(err, len(respBody)))
+		return nil, fmt.Errorf("openairesponses: invalid upstream response: %s", jsonfault.Describe(err, len(respBody)))
 	}
 	// A Responses body always carries an object id and a status; a 200 body
 	// without either is not a Responses payload and must not be silently

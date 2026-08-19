@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -68,7 +70,7 @@ type chatContentPart struct {
 func TranslateChatToResponses(chatBody []byte, resolvedModel string) ([]byte, error) {
 	var req chatRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid chat request body: %s", jsonFault(err, len(chatBody)))
+		return nil, fmt.Errorf("openairesponses: invalid chat request body: %s", jsonfault.Describe(err, len(chatBody)))
 	}
 
 	out := Request{
@@ -199,7 +201,7 @@ func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 	}
 	var parts []chatContentPart
 	if err := json.Unmarshal(raw, &parts); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid message content: %w", err)
+		return nil, fmt.Errorf("openairesponses: invalid message content: %s", jsonfault.Describe(err, len(raw)))
 	}
 	var out []contentPart
 	for _, p := range parts {

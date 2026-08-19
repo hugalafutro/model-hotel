@@ -3,24 +3,10 @@ package gemini
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-)
 
-// jsonFault describes a JSON decode failure without echoing the document that
-// caused it. encoding/json's own messages embed a fragment of the input — a
-// *json.SyntaxError quotes the offending byte, a *json.UnmarshalTypeError the
-// offending literal — and every document this package decodes carries prompt or
-// response content, which must never reach an error string or a log line. The
-// byte offset and the document length are structure, not content, so they stay:
-// they are what makes a malformed stream diagnosable.
-func jsonFault(err error, size int) string {
-	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) {
-		return fmt.Sprintf("malformed JSON at byte %d of %d", syntaxErr.Offset, size)
-	}
-	return fmt.Sprintf("undecodable JSON (%d bytes)", size)
-}
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+)
 
 // StreamTranslator converts a Gemini streamGenerateContent SSE stream
 // (alt=sse: each data line is a full generateContent-shaped JSON chunk) into
@@ -114,7 +100,7 @@ func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta oaiChunkDelta, fi
 func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	var chunk genResponse
 	if err := json.Unmarshal(chunkJSON, &chunk); err != nil {
-		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonFault(err, len(chunkJSON)))
+		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonfault.Describe(err, len(chunkJSON)))
 	}
 
 	if chunk.UsageMetadata != nil {

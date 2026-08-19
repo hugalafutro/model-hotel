@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming Gemini generateContent response shape ---
@@ -91,7 +93,7 @@ type oaiUsage struct {
 func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, error) {
 	var resp genResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("gemini: invalid upstream response: %s", jsonFault(err, len(body)))
+		return nil, fmt.Errorf("gemini: invalid upstream response: %s", jsonfault.Describe(err, len(body)))
 	}
 	if len(resp.Candidates) == 0 {
 		reason := "no candidates in response"

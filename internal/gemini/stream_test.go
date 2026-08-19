@@ -258,7 +258,7 @@ func TestStreamTranslator_DecodeErrorOmitsPayload(t *testing.T) {
 		{
 			name:   "type error",
 			chunk:  `{"usageMetadata":{"promptTokenCount":8675309.42}}`,
-			want:   "undecodable JSON (",
+			want:   "unexpected JSON value at byte ",
 			secret: "8675309.42",
 		},
 	}

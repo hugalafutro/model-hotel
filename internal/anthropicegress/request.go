@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // DefaultMaxTokens is the max_tokens supplied when the caller sends none.
@@ -165,7 +167,7 @@ type antThinking struct {
 func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, err error) {
 	var req oaiRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
-		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonFault(err, len(chatBody)))
+		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonfault.Describe(err, len(chatBody)))
 	}
 	if req.Model == "" {
 		return nil, "", false, errors.New("anthropicegress: model is required")
@@ -353,7 +355,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 
 	var parts []oaiContentPart
 	if err := json.Unmarshal(raw, &parts); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid message content: %w", err)
+		return nil, fmt.Errorf("anthropicegress: invalid message content: %s", jsonfault.Describe(err, len(raw)))
 	}
 
 	var blocks []antBlock

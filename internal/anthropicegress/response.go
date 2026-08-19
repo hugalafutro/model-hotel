@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming Anthropic Messages response shape ---
@@ -110,7 +112,7 @@ type completionCacheDetails struct {
 func BuildChatCompletion(anthropicBody []byte, id, model string, created int64) ([]byte, error) {
 	var resp antResponse
 	if err := json.Unmarshal(anthropicBody, &resp); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid upstream response: %s", jsonFault(err, len(anthropicBody)))
+		return nil, fmt.Errorf("anthropicegress: invalid upstream response: %s", jsonfault.Describe(err, len(anthropicBody)))
 	}
 	if resp.Type == "error" {
 		kind := "unknown"
