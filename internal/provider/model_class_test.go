@@ -74,6 +74,34 @@ func TestDeriveModelClass_TranscriptionModels(t *testing.T) {
 	}
 }
 
+// The name heuristic is authoritative once audio input is present: an
+// audio-input model whose ID carries a whole "whisper" or "transcribe" segment
+// is a transcriber even when it also reports text input, because that is the
+// exact shape models.dev enrichment produces. The heuristic reaches no further
+// than that — it is consulted only for text-or-code output, so an audio-output
+// or rerank-output model with the same name in it is decided by its arrays.
+func TestDeriveModelClass_NameHeuristicBoundary(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		output  []string
+		modelID string
+		want    string
+	}{
+		{"text and audio in with transcriber name", []string{"text", "audio"}, []string{"text"}, "some-whisper-chat", "stt"},
+		{"audio output wins over the name", []string{"text"}, []string{"audio"}, "tts-whisper", "tts"},
+		{"rerank output wins over the name", []string{"text"}, []string{"rerank"}, "whisper-reranker-v1", "rerank"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DeriveModelClass(tt.input, tt.output, tt.modelID); got != tt.want {
+				t.Errorf("DeriveModelClass(%v, %v, %q) = %q, want %q",
+					tt.input, tt.output, tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
 // A transcription model reclassified out of "chat" must not keep claiming the
 // image input its chat namesake reported.
 func TestNormalizeModelClassification_EnrichedTranscribeInput(t *testing.T) {

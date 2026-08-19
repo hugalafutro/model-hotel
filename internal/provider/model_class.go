@@ -256,7 +256,10 @@ func syncCapsFromInput(raw string, caps map[string]any, input []string) string {
 // array contradicts. Unlike syncCapsFromInput it is not fill-only, so it is
 // used solely where the input array is authoritative rather than accumulated:
 // the stt rewrite, where enrichment has handed a transcription model the
-// vision/pdf flags of the chat model it is named after.
+// vision/pdf flags of the chat model it is named after. Rewriting the input
+// array alone would leave those flags standing, and a stored vision:true on a
+// model whose stored input is ["audio"] is a permanent contradiction that
+// shows the operator a Vision pill on a transcription model.
 func clearCapsNotInInput(raw string, caps map[string]any, input []string) string {
 	changed := false
 	for flag, modality := range capsInputFlags {
