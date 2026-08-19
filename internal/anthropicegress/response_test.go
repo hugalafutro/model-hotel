@@ -6,14 +6,64 @@ import (
 	"testing"
 )
 
+// The types below mirror the wire shape BuildChatCompletion produces, but are
+// declared independently of completionResponse and friends (the production
+// types) — same pattern as translatedRequest in request_test.go. Decoding the
+// output with the very struct that produced it would make a JSON-tag
+// regression on the production side invisible to these tests.
+
+type translatedCompletion struct {
+	ID      string             `json:"id"`
+	Object  string             `json:"object"`
+	Created int64              `json:"created"`
+	Model   string             `json:"model"`
+	Choices []translatedChoice `json:"choices"`
+	Usage   *translatedUsage   `json:"usage"`
+}
+
+type translatedChoice struct {
+	Index        int                  `json:"index"`
+	FinishReason string               `json:"finish_reason"`
+	Message      translatedMessageOut `json:"message"`
+}
+
+type translatedMessageOut struct {
+	Role             string               `json:"role"`
+	Content          *string              `json:"content"`
+	ReasoningContent string               `json:"reasoning_content"`
+	ToolCalls        []translatedToolCall `json:"tool_calls"`
+}
+
+type translatedToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+type translatedUsage struct {
+	PromptTokens             int                      `json:"prompt_tokens"`
+	CompletionTokens         int                      `json:"completion_tokens"`
+	TotalTokens              int                      `json:"total_tokens"`
+	CacheCreationInputTokens int                      `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int                      `json:"cache_read_input_tokens"`
+	PromptTokensDetails      *translatedPromptDetails `json:"prompt_tokens_details"`
+}
+
+type translatedPromptDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
 // build runs BuildChatCompletion and decodes the result for assertions.
-func build(t *testing.T, body string) completionResponse {
+func build(t *testing.T, body string) translatedCompletion {
 	t.Helper()
 	out, err := BuildChatCompletion([]byte(body), "resp_1", "claude-x", 1234)
 	if err != nil {
 		t.Fatalf("BuildChatCompletion failed: %v", err)
 	}
-	var resp completionResponse
+	var resp translatedCompletion
 	if err := json.Unmarshal(out, &resp); err != nil {
 		t.Fatalf("translated body is not valid JSON: %v", err)
 	}
@@ -117,6 +167,36 @@ func TestBuildChatCompletion_ToolUseBlocksBecomeToolCalls(t *testing.T) {
 	}
 }
 
+// TestBuildChatCompletion_ToolUseInputAbsent covers a realistic zero-argument
+// tool call: Anthropic omits the "input" key entirely rather than sending
+// "input":{}. This is the only live branch of toolArguments' len(trimmed)==0
+// guard (an "input":{} block never reaches it).
+func TestBuildChatCompletion_ToolUseInputAbsent(t *testing.T) {
+	resp := build(t, `{"type":"message","content":[
+		{"type":"tool_use","id":"toolu_3","name":"noop"}
+	],"stop_reason":"tool_use"}`)
+	msg := resp.Choices[0].Message
+	if len(msg.ToolCalls) != 1 {
+		t.Fatalf("ToolCalls = %+v, want 1 entry", msg.ToolCalls)
+	}
+	if got := msg.ToolCalls[0].Function.Arguments; got != "{}" {
+		t.Errorf("Arguments = %q, want {} for an absent input key", got)
+	}
+}
+
+// TestBuildChatCompletion_ToolUseInputNull covers an explicit JSON null
+// input, which is valid JSON but not the object shape a tool-call arguments
+// string is supposed to carry.
+func TestBuildChatCompletion_ToolUseInputNull(t *testing.T) {
+	resp := build(t, `{"type":"message","content":[
+		{"type":"tool_use","id":"toolu_4","name":"noop","input":null}
+	],"stop_reason":"tool_use"}`)
+	msg := resp.Choices[0].Message
+	if got := msg.ToolCalls[0].Function.Arguments; got != "{}" {
+		t.Errorf("Arguments = %q, want {} for an explicit null input", got)
+	}
+}
+
 func TestBuildChatCompletion_ToolCallsOmittedWhenAbsent(t *testing.T) {
 	out, err := BuildChatCompletion(
 		[]byte(`{"type":"message","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn"}`),
@@ -208,6 +288,10 @@ func TestBuildChatCompletion_UsageAbsent(t *testing.T) {
 	}
 }
 
+// TestBuildChatCompletion_UsageCacheFields checks that prompt_tokens is the
+// SUM of input_tokens, cache_creation_input_tokens and cache_read_input_tokens
+// (Anthropic's three counts are disjoint additions), not just input_tokens —
+// and that the cache pair also rides through under their own field names.
 func TestBuildChatCompletion_UsageCacheFields(t *testing.T) {
 	resp := build(t, `{"type":"message","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",
 		"usage":{"input_tokens":100,"output_tokens":20,"cache_creation_input_tokens":30,"cache_read_input_tokens":70}}`)
@@ -223,8 +307,39 @@ func TestBuildChatCompletion_UsageCacheFields(t *testing.T) {
 	if resp.Usage.PromptTokensDetails == nil || resp.Usage.PromptTokensDetails.CachedTokens != 70 {
 		t.Errorf("PromptTokensDetails = %+v, want CachedTokens=70", resp.Usage.PromptTokensDetails)
 	}
-	if resp.Usage.TotalTokens != 120 {
-		t.Errorf("TotalTokens = %d, want 120", resp.Usage.TotalTokens)
+	if resp.Usage.PromptTokens != 200 {
+		t.Errorf("PromptTokens = %d, want 100+30+70=200 (Anthropic's three counts are disjoint additions)", resp.Usage.PromptTokens)
+	}
+	if resp.Usage.TotalTokens != 220 {
+		t.Errorf("TotalTokens = %d, want 220", resp.Usage.TotalTokens)
+	}
+}
+
+// TestBuildChatCompletion_UsageCacheHitInvariant reproduces the case the
+// undercounting bug broke: a heavily cached prompt where input_tokens is tiny
+// relative to cache_read_input_tokens. prompt_tokens must be at least the
+// cached_tokens count, or internal/proxy/helpers.go's extractCacheTokens
+// computes a negative-clamped miss count and hides the vast majority of the
+// prompt from billing.
+func TestBuildChatCompletion_UsageCacheHitInvariant(t *testing.T) {
+	resp := build(t, `{"type":"message","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",
+		"usage":{"input_tokens":4,"output_tokens":50,"cache_read_input_tokens":20000}}`)
+	if resp.Usage == nil {
+		t.Fatal("Usage is nil, want populated")
+	}
+	cached := resp.Usage.PromptTokensDetails
+	if cached == nil {
+		t.Fatal("PromptTokensDetails is nil, want CachedTokens=20000")
+	}
+	if resp.Usage.PromptTokens < cached.CachedTokens {
+		t.Errorf("PromptTokens = %d is less than cached_tokens = %d: cached_tokens must be a subset of prompt_tokens",
+			resp.Usage.PromptTokens, cached.CachedTokens)
+	}
+	if resp.Usage.PromptTokens != 20004 {
+		t.Errorf("PromptTokens = %d, want 4+20000=20004", resp.Usage.PromptTokens)
+	}
+	if resp.Usage.TotalTokens != 20054 {
+		t.Errorf("TotalTokens = %d, want 20004+50=20054", resp.Usage.TotalTokens)
 	}
 }
 
@@ -263,5 +378,27 @@ func TestBuildChatCompletion_ErrorEnvelopeWithoutErrorField(t *testing.T) {
 	}
 	if !strings.HasPrefix(err.Error(), "anthropicegress:") {
 		t.Errorf("error %q not prefixed anthropicegress:", err.Error())
+	}
+}
+
+// TestBuildChatCompletion_NotAMessage covers bodies that parse as valid JSON
+// but are neither a Messages response nor a recognised error envelope: they
+// must not become a synthetic empty success.
+func TestBuildChatCompletion_NotAMessage(t *testing.T) {
+	cases := map[string]string{
+		"empty object":            `{}`,
+		"null":                    `null`,
+		"message-shaped, no type": `{"id":"msg_1","content":[]}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := BuildChatCompletion([]byte(body), "resp_1", "claude-x", 1234)
+			if err == nil {
+				t.Fatalf("expected an error for body %s", body)
+			}
+			if !strings.HasPrefix(err.Error(), "anthropicegress:") {
+				t.Errorf("error %q not prefixed anthropicegress:", err.Error())
+			}
+		})
 	}
 }

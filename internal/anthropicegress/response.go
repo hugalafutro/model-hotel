@@ -3,6 +3,7 @@ package anthropicegress
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -118,6 +119,13 @@ func BuildChatCompletion(anthropicBody []byte, id, model string, created int64) 
 		}
 		return nil, fmt.Errorf("anthropicegress: upstream error: %s", kind)
 	}
+	if resp.Type != "message" {
+		// Anything that is not a Messages response or a recognised error
+		// envelope — null, {}, a truncated body that still parses — must not
+		// become a synthetic empty success. The received type is upstream-
+		// controlled data and is not named here.
+		return nil, errors.New("anthropicegress: unexpected upstream response shape")
+	}
 
 	text, reasoning, toolCalls := translateContent(resp.Content)
 
@@ -172,16 +180,19 @@ func translateContent(blocks []antRespBlock) (text, reasoning string, toolCalls 
 }
 
 // toolArguments re-encodes a tool_use block's input object as the compact
-// JSON string OpenAI's tool_calls[].function.arguments field expects. Empty
-// or malformed input becomes "{}" rather than shipping a broken string.
+// JSON string OpenAI's tool_calls[].function.arguments field expects. Absent
+// input (the key omitted entirely) and an explicit JSON null both become "{}"
+// — a bare "null" is valid JSON but is not the object shape a client's
+// argument parser expects from a zero-argument tool call. Input is decoded
+// from the already-validated response document, so it is always
+// syntactically valid JSON here; Compact cannot fail on it.
 func toolArguments(input json.RawMessage) string {
-	if len(input) == 0 || !json.Valid(input) {
+	trimmed := bytes.TrimSpace(input)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
 		return "{}"
 	}
 	var buf bytes.Buffer
-	if err := json.Compact(&buf, input); err != nil {
-		return "{}"
-	}
+	_ = json.Compact(&buf, trimmed)
 	return buf.String()
 }
 
@@ -200,19 +211,27 @@ func mapFinishReason(stopReason string) string {
 	}
 }
 
-// translateUsage maps Anthropic usage onto OpenAI usage. The cache-creation
-// and cache-read counts, when present, ride through under their Anthropic
-// field names (which proxy.Usage decodes directly) and the read count is
-// additionally restated under prompt_tokens_details.cached_tokens for the
-// OpenAI-shaped nested field.
+// translateUsage maps Anthropic usage onto OpenAI usage. Anthropic's
+// input_tokens, cache_creation_input_tokens and cache_read_input_tokens are
+// disjoint additions, not a breakdown — a cache hit can carry input_tokens: 4
+// alongside cache_read_input_tokens: 20000 for a ~20004-token prompt. OpenAI's
+// convention is the opposite: prompt_tokens_details.cached_tokens is a SUBSET
+// of prompt_tokens. So prompt_tokens here is the sum of all three Anthropic
+// counts (making cached_tokens a genuine subset of it), and the cache pair
+// additionally rides through under their own Anthropic field names, since
+// proxy.Usage decodes those directly too. Getting this wrong undercounts
+// billed prompt tokens and fabricates cache-miss counts downstream (see
+// internal/proxy/helpers.go's extractCacheTokens, which computes
+// missTokens = promptTokens - cacheReadTokens).
 func translateUsage(u *antRespUsage) *completionUsage {
 	if u == nil {
 		return nil
 	}
+	prompt := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	out := &completionUsage{
-		PromptTokens:     u.InputTokens,
+		PromptTokens:     prompt,
 		CompletionTokens: u.OutputTokens,
-		TotalTokens:      u.InputTokens + u.OutputTokens,
+		TotalTokens:      prompt + u.OutputTokens,
 	}
 	if u.CacheCreationInputTokens > 0 {
 		out.CacheCreationInputTokens = u.CacheCreationInputTokens
