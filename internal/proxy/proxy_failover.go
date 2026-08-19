@@ -689,11 +689,12 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 }
 
 // forwardUpstreamError handles a non-200 upstream response that is NOT being
-// failed over (phase G): log + meter the failure via failRequest, then either
-// return a generic OpenAI error when the candidates are exhausted or forward the
-// upstream body (wrapping non-JSON bodies in an OpenAI envelope) so clients can
-// react to semantic errors. Drains/closes resp.Body exactly once and always
-// returns outcomeFatal.
+// failed over (phase G): log + meter the failure via failRequest, then answer the
+// client. Whatever the route through it, a non-2xx leaves this function as an
+// OpenAI error envelope: the classified reason when the candidates are exhausted,
+// the upstream's own body when that body carries an error object worth
+// forwarding, and a synthesised envelope when it does not. Drains/closes
+// resp.Body exactly once and always returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, hasMoreCandidates bool, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
 	// How much of the body is worth holding depends on what happens to it below,
@@ -736,19 +737,52 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		return outcomeFatal
 	}
 
-	// Non-failover-eligible error with remaining candidates — forward
-	// the upstream response so clients can react to semantic errors
-	// (e.g. context_length_exceeded, rate_limit_exceeded).
-	if json.Valid(body) {
+	// Non-failover-eligible error with remaining candidates.
+	switch {
+	case carriesErrorObject(body) || resp.StatusCode/100 == 2:
+		// Forward the upstream response verbatim so clients can react to
+		// semantic errors (e.g. context_length_exceeded, rate_limit_exceeded).
+		// The upstream's own error object carries detail this gateway cannot
+		// reconstruct — code, type, param, provider-specific fields — so it is
+		// passed through byte for byte. A 2xx that reached this function (any
+		// success status other than a bare 200) is not an error at all and is
+		// likewise left alone.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(body)
-	} else {
+	case json.Valid(body):
+		// A non-2xx whose JSON body carries no error object. OpenCode Zen and
+		// OpenCode Go answer some failed requests with a complete
+		// chat.completion envelope under an HTTP 400, which is valid JSON with
+		// nothing for a client to read `.error.message` off. There is no
+		// upstream error detail to preserve here, so the classified reason is
+		// synthesised into an envelope instead; the body itself stays in the
+		// request log via failRequest above.
+		writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, resp.StatusCode, reason), resp.StatusCode)
+	default:
 		// Body is not JSON (e.g. HTML from a CDN). Wrap in an
 		// OpenAI-compatible envelope so JSON-parsing clients don't crash.
 		writeOpenAIError(w, errMsg, resp.StatusCode)
 	}
 	return outcomeFatal
+}
+
+// carriesErrorObject reports whether an upstream body is a JSON object with a
+// usable "error" member, which is what decides between forwarding that body
+// verbatim and synthesising an envelope over it.
+//
+// Presence of the key is the whole test: its contents belong to the provider and
+// are not this gateway's to judge. An explicit null is treated as absent, since
+// `{"error":null}` beside a success-shaped body is the same thing as no error
+// object at all from a client's point of view. A body that is not a JSON object
+// (an array, a bare string, HTML) can carry no member and reports false.
+func carriesErrorObject(body []byte) bool {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return false
+	}
+	raw, present := envelope["error"]
+	return present && len(raw) > 0 && string(raw) != "null"
 }
 
 // recordBreakerOutcome records the circuit-breaker result for a completed

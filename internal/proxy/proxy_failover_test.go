@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -291,5 +293,140 @@ func TestDoUpstream_ClientDisconnectPreservesProviderError(t *testing.T) {
 	}
 	if !strings.Contains(st.lastReqErr.Underlying, "connection refused") {
 		t.Errorf("client disconnect DROPPED the real provider error (the bug this fixes): Underlying=%q", st.lastReqErr.Underlying)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// forwardUpstreamError response shape.
+//
+// This is the reachable half of "a non-2xx must never reach the client as a
+// success-shaped body": the chat path sends every non-200 here before
+// handleNonStreamingResponse can see it, and with a candidate still in the group
+// a non-failover-eligible status forwards the provider's body as-is.
+// ---------------------------------------------------------------------------
+
+// runForwardUpstreamError drives one upstream answer through the function and
+// returns what the client got plus the log row it left behind.
+func runForwardUpstreamError(t *testing.T, h *Handler, status int, body string, hasMoreCandidates bool) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
+
+	logData := &requestLogData{
+		modelID:        "gpt-5.1-codex",
+		providerName:   "opencode-zen",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "pending",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	candidate := modelCandidate{
+		model:    &model.Model{ModelID: "gpt-5.1-codex"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "opencode-zen"},
+	}
+	resp := &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	if outcome := h.forwardUpstreamError(w, st, candidate, resp, 0, hasMoreCandidates, 1.5); outcome != outcomeFatal {
+		t.Fatalf("expected outcomeFatal, got %v", outcome)
+	}
+	return w, logData
+}
+
+// A non-2xx whose body carries no error object leaves as a synthesised envelope,
+// whether or not candidates remain. zenChatShapedBody is the production shape:
+// OpenCode Zen and OpenCode Go answer some failed requests with a complete
+// chat.completion under an HTTP 400, which is valid JSON with nothing for a
+// client to read `.error.message` off.
+func TestForwardUpstreamError_Non2xxWithoutErrorObjectGetsEnvelope(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	bodies := map[string]string{
+		"chat completion shape": zenChatShapedBody,
+		"explicit null error":   `{"id":"chatcmpl_u5tt67g6rmf","error":null}`,
+		"not an object":         `["upstream said no"]`,
+		"not json at all":       `<html><body>400 Bad Request</body></html>`,
+	}
+
+	for name, upstreamBody := range bodies {
+		for _, hasMore := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/hasMoreCandidates=%v", name, hasMore), func(t *testing.T) {
+				w, logData := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, hasMore)
+
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("expected upstream status 400 to reach the client, got %d", w.Code)
+				}
+				var got map[string]json.RawMessage
+				if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+					t.Fatalf("client body is not JSON: %v (%s)", err, w.Body.String())
+				}
+				rawErr, present := got["error"]
+				if !present {
+					t.Fatalf("client body has no error object: %s", w.Body.String())
+				}
+				var errObj struct {
+					Message string `json:"message"`
+				}
+				if err := json.Unmarshal(rawErr, &errObj); err != nil {
+					t.Fatalf("re-parse error object: %v", err)
+				}
+				if errObj.Message == "" {
+					t.Errorf("error envelope carries no message: %s", w.Body.String())
+				}
+				if _, present := got["choices"]; present {
+					t.Errorf("success-shaped choices reached the client on a 400: %s", w.Body.String())
+				}
+				if logData.state != "failed" {
+					t.Errorf("expected state=%q, got %q", "failed", logData.state)
+				}
+				if logData.errorMessage == "" {
+					t.Error("upstream body not recoverable from error_message")
+				}
+			})
+		}
+	}
+}
+
+// The upstream's own error object is detail this gateway cannot reconstruct
+// (code, type, param, provider-specific fields), so with a candidate still in
+// the group the body is forwarded byte for byte.
+func TestForwardUpstreamError_ErrorObjectForwardedVerbatim(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const upstreamBody = `{"error":{"message":"custom_validation_error","type":"invalid_request_error","param":"messages[0].content","code":"context_length_exceeded"},"request_id":"req_abc123"}`
+
+	w, logData := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, true)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+	if got := w.Body.String(); got != upstreamBody {
+		t.Errorf("upstream error body not forwarded byte for byte:\n got: %s\nwant: %s", got, upstreamBody)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %q", ct)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+}
+
+// A success status other than a bare 200 reaches this function too (the caller
+// only special-cases 200). It is not an error and must not be rewritten.
+func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("expected status 201, got %d", w.Code)
+	}
+	if got := w.Body.String(); got != zenChatShapedBody {
+		t.Errorf("2xx body not forwarded byte for byte:\n got: %s\nwant: %s", got, zenChatShapedBody)
 	}
 }
