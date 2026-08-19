@@ -185,8 +185,9 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 }
 
 // TestHandleNonStreamingResponse_Non200Status tests handling of upstream
-// responses with non-200 status codes. The JSON parses successfully but
-// represents an error response from the upstream.
+// responses with non-200 status codes whose body is valid JSON. A non-2xx is a
+// failed request whatever its body parses as, so the caller gets an error
+// envelope and the row is logged as failed.
 func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -224,21 +225,28 @@ func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 	result := w.Result()
 	defer result.Body.Close()
 
-	// The function writes the response as-is when JSON parses successfully
-	assert.Equal(t, http.StatusOK, result.StatusCode)
+	// The upstream status reaches the caller, together with an error envelope.
+	assert.Equal(t, http.StatusBadRequest, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	var decodedResp ChatCompletionResponse
-	err := json.NewDecoder(result.Body).Decode(&decodedResp)
+	var responseBody map[string]any
+	err := json.NewDecoder(result.Body).Decode(&responseBody)
 	require.NoError(t, err)
 
-	// The response will have empty fields since upstream returned error format
-	assert.Equal(t, "", decodedResp.ID)
-	assert.Equal(t, "", decodedResp.Model)
+	errorObj, ok := responseBody["error"].(map[string]any)
+	require.True(t, ok, "Should have error object in response")
+	assert.NotEmpty(t, errorObj["message"])
+	// The message is gateway-authored: the upstream body can quote the request
+	// back at us, so it is recorded in the request log and never forwarded.
+	assert.NotContains(t, errorObj["message"], "Invalid request")
 
-	// Log should show completed state (JSON parsed successfully)
-	assert.Equal(t, "completed", logData.state)
+	assert.Equal(t, "failed", logData.state)
 	assert.Equal(t, http.StatusBadRequest, logData.statusCode)
+	assert.Equal(t, KindProviderBadRequest, logData.errorKind)
+	// The body stays recoverable for diagnostics, labelled by what actually
+	// happened rather than as a decode failure it was not.
+	assert.Contains(t, logData.errorMessage, "upstream HTTP 400")
+	assert.Contains(t, logData.errorMessage, "invalid_request_error")
 }
 
 // TestHandleNonStreamingResponse_InvalidJSON tests handling of 200 status

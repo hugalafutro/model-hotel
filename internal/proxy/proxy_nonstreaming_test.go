@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -247,5 +248,169 @@ func TestHandleNonStreamingResponse_AddTokensError(t *testing.T) {
 	}
 	if logData.tokensPrompt != 5 || logData.tokensCompletion != 7 {
 		t.Errorf("expected tokens 5/7, got %d/%d", logData.tokensPrompt, logData.tokensCompletion)
+	}
+}
+
+// zenChatShapedBody is what OpenCode Zen and OpenCode Go answer some failed
+// requests with: a complete chat.completion envelope, no error object, no
+// content, delivered under a non-2xx status.
+const zenChatShapedBody = `{"id":"chatcmpl_u5tt67g6rmf","object":"chat.completion","created":1787135446,"model":"gpt-5.1-codex","choices":[{"index":0,"message":{"role":"assistant"},"finish_reason":null}]}`
+
+// A non-2xx upstream is a failure whatever its body decodes as. The client must
+// get an OpenAI error envelope it can read `.error.message` off, not the
+// success-shaped body the provider sent.
+func TestHandleNonStreamingResponse_ChatShapedNon2xxGetsErrorEnvelope(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(strings.NewReader(zenChatShapedBody)),
+		Header:     make(http.Header),
+	}
+
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "gpt-5.1-codex",
+		providerName:    "opencode-zen",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if inner.Code != http.StatusBadRequest {
+		t.Errorf("expected upstream status %d to be forwarded, got %d", http.StatusBadRequest, inner.Code)
+	}
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(inner.Body.Bytes(), &body); err != nil {
+		t.Fatalf("client body is not JSON: %v (%s)", err, inner.Body.String())
+	}
+	rawErr, present := body["error"]
+	if !present {
+		t.Fatalf("client body has no error object: %s", inner.Body.String())
+	}
+	var errObj struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(rawErr, &errObj); err != nil {
+		t.Fatalf("re-parse error object: %v", err)
+	}
+	if errObj.Message == "" {
+		t.Errorf("error envelope carries no message: %s", inner.Body.String())
+	}
+	if _, present := body["choices"]; present {
+		t.Errorf("success-shaped choices forwarded on a non-2xx: %s", inner.Body.String())
+	}
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+	if logData.errorKind == "" {
+		t.Error("expected a classified error_kind, got empty")
+	}
+	if !strings.Contains(logData.errorMessage, "chatcmpl_u5tt67g6rmf") {
+		t.Errorf("upstream body not recoverable from error_message: %q", logData.errorMessage)
+	}
+	if logData.deliveredContent {
+		t.Error("a non-2xx must not count as the model having served content")
+	}
+}
+
+// The same body under a 200 is an ordinary completion and must pass through
+// untouched: same choices, same metering, same log state.
+func TestHandleNonStreamingResponse_ChatShaped2xxPassesThrough(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(zenChatShapedBody)),
+		Header:     make(http.Header),
+	}
+
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "gpt-5.1-codex",
+		providerName:    "opencode-zen",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if inner.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(inner.Body.Bytes(), &body); err != nil {
+		t.Fatalf("client body is not JSON: %v (%s)", err, inner.Body.String())
+	}
+	if _, present := body["error"]; present {
+		t.Errorf("2xx completion wrapped in an error envelope: %s", inner.Body.String())
+	}
+	if _, present := body["choices"]; !present {
+		t.Errorf("2xx completion lost its choices: %s", inner.Body.String())
+	}
+	if logData.state != "completed" {
+		t.Errorf("expected state=%q, got %q", "completed", logData.state)
+	}
+}
+
+// Metering is the other half of the contract: a failed request has no
+// completion to charge for, so neither the log counters nor the virtual key's
+// token balance may move even when the upstream attaches a usage block.
+func TestHandleNonStreamingResponse_ChatShapedNon2xxDoesNotMeter(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	const withUsage = `{"id":"chatcmpl_u5tt67g6rmf","object":"chat.completion","created":1787135446,"model":"gpt-5.1-codex","choices":[{"index":0,"message":{"role":"assistant"},"finish_reason":null}],"usage":{"prompt_tokens":11,"completion_tokens":22,"total_tokens":33}}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(strings.NewReader(withUsage)),
+		Header:     make(http.Header),
+	}
+
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:         "gpt-5.1-codex",
+		providerName:    "opencode-zen",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if logData.tokensPrompt != 0 || logData.tokensCompletion != 0 {
+		t.Errorf("metered a failed request: prompt=%d completion=%d", logData.tokensPrompt, logData.tokensCompletion)
+	}
+	if len(vkRepo.addTokensCalls) != 0 {
+		t.Errorf("charged the virtual key for a failed request: %+v", vkRepo.addTokensCalls)
+	}
+	if logData.tokensPerSecond != 0 {
+		t.Errorf("recorded a throughput figure for a failed request: %v", logData.tokensPerSecond)
 	}
 }

@@ -450,8 +450,29 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "response_header_ms", responseHeaderMs)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	// The body is read once, up front, because both branches below need the same
+	// bytes: the success branch decodes it, the failure branch records it. A
+	// decoder reading straight off resp.Body would leave nothing for the failure
+	// branch to sanitize into the request log.
+	// json.Decoder rather than json.Unmarshal so the accepted set of bodies is
+	// exactly what it was when the decoder read resp.Body directly: a decoder
+	// stops at the end of the first JSON value, an Unmarshal rejects anything
+	// following it.
+	body, readErr := io.ReadAll(resp.Body)
 	var chatResp ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err == nil {
+	decodeErr := readErr
+	if decodeErr == nil {
+		decodeErr = json.NewDecoder(bytes.NewReader(body)).Decode(&chatResp)
+	}
+
+	// Only a 2xx that decodes is a completion. Some upstreams (OpenCode Zen and
+	// OpenCode Go both do this) answer a failed request with a non-2xx carrying a
+	// complete chat.completion envelope and no error object at all, which decodes
+	// cleanly; forwarding that leaves the caller with a failure status and nothing
+	// to read `.error.message` off. Status decides, the body only says whether the
+	// success shape is even available.
+	if decodeErr == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		var tps float64
 		var reasoningTokens int
@@ -540,7 +561,6 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
-		body, _ := io.ReadAll(resp.Body)
 		errMsg := util.SanitizeLogBody(string(body), 10000)
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
@@ -554,9 +574,15 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
-		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
-		// This branch is reached when the upstream body would not decode, which
-		// happens both for a non-2xx error body and for a 2xx that is not a chat
+		// The prefix names which of the two ways in led here, so the row does not
+		// report a decode failure for a body that decoded perfectly well.
+		if decodeErr == nil {
+			logData.errorMessage = fmt.Sprintf("upstream HTTP %d: %s", resp.StatusCode, errMsg)
+		} else {
+			logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
+		}
+		// This branch takes every response that is not a 2xx completion: any
+		// non-2xx whatever its body decodes as, plus a 2xx that is not a chat
 		// completion. Classify from the body so the row is not left with an empty
 		// error_kind, and only claim "upstream HTTP n" when n actually was a
 		// failure — reporting "upstream provider returned HTTP 200" for an
