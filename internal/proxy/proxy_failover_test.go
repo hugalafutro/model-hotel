@@ -495,6 +495,83 @@ func TestRetryWithStrippedParams_LargeRetry400StaysParseable(t *testing.T) {
 	}
 }
 
+// TestRetryWithStrippedParams_LargeFirst400 pins the same bound on the FIRST
+// 400, which is read through readLearnable400 alongside the retry's. Both
+// halves of that read matter and are asserted separately:
+//
+//   - a body the parser recognises must still be learned from at 32 KiB, i.e.
+//     the cap must not be the 16 KiB classify one;
+//   - a body it does not recognise must still reach the caller byte-identical,
+//     which is the fall-through behaviour the brief pins as unchanged.
+func TestRetryWithStrippedParams_LargeFirst400(t *testing.T) {
+	pad := strings.Repeat("x", 32<<10)
+
+	t.Run("unrecognised body restores intact", func(t *testing.T) {
+		large := `{"error":{"message":"some unrelated validation failure","detail":"` + pad + `"}}`
+		if len(large) <= failoverErrorClassifyCap {
+			t.Fatalf("test body must exceed the classify cap to be meaningful, got %d", len(large))
+		}
+		h := newRetryTestHandler()
+		st := newRetryTestState()
+		cand := newRetryTestCandidate("http://127.0.0.1:0") // never dialled
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+
+		res := h.retryWithStrippedParams(req, st, cand, "openai", "http://127.0.0.1:0",
+			resp400(large), 0, &dialMs, func() {}, "failover_timeout")
+
+		if res.retried || res.cont {
+			t.Fatalf("expected no retry for an unrecognised 400, got retried=%v cont=%v", res.retried, res.cont)
+		}
+		body, err := io.ReadAll(res.resp.Body)
+		if err != nil {
+			t.Fatalf("read restored body: %v", err)
+		}
+		if string(body) != large {
+			t.Errorf("expected the oversized body restored whole (%d bytes), got %d", len(large), len(body))
+		}
+	})
+
+	t.Run("named param still learned", func(t *testing.T) {
+		large := `{"error":{"message":"Unsupported parameter: 'top_k' is not supported with this model.","detail":"` + pad + `"}}`
+		var calls atomic.Int32
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[]}`)
+		}))
+		defer upstream.Close()
+
+		h := newRetryTestHandler()
+		st := newRetryTestState()
+		cand := newRetryTestCandidate(upstream.URL)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+
+		res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+			resp400(large), 0, &dialMs, func() {}, "failover_timeout")
+
+		if !res.retried {
+			t.Fatalf("a 32 KiB first 400 was not parsed, so no retry was issued (cont=%v)", res.cont)
+		}
+		if res.resp == nil || res.resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected the caller to get the 200, got %+v", res.resp)
+		}
+		if res.retryCancel != nil {
+			res.retryCancel()
+		}
+		_ = res.resp.Body.Close()
+		if got := calls.Load(); got != 1 {
+			t.Errorf("expected one upstream retry, got %d", got)
+		}
+		learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+		if rejected := learnedRejected(t, h, learnKey); !rejected["top_k"] {
+			t.Errorf("a 32 KiB first 400 was not parsed for learning: %v", rejected)
+		}
+	})
+}
+
 // TestDoUpstream_ProviderErrorCapturesUnderlying verifies that a terminal
 // transport error (here: connection refused, retried then exhausted) is
 // captured into the structured error's Underlying field, classified as a

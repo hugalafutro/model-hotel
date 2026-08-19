@@ -973,6 +973,25 @@ func (h *Handler) issueParamRetry(
 	return retryResp, rc, nil
 }
 
+// readLearnable400 consumes a 400 body for the param self-heal: it reads what
+// the learner can parse, drains the rest so the connection stays reusable,
+// closes the original body and restores a readable one in its place — the
+// response is handed on to whoever renders the client's error, so it must never
+// leave here empty.
+//
+// The bound is the parse-sized responsesLearnBodyCap rather than the
+// scan-sized failoverErrorClassifyCap: learning json.Unmarshals the whole
+// document, so a body cut mid-JSON parses to nothing and teaches nothing. The
+// cap sits far past any real provider error, and everything above it is
+// discarded rather than held.
+func readLearnable400(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, responsesLearnBodyCap))
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	return body, err
+}
+
 // retryWithStrippedParams handles a 400 from an upstream: it reads and restores
 // the error body, cancels the original (now-finished) request context, and — if
 // the body is a recognizable param-rejection — learns the rejected params and
@@ -996,13 +1015,11 @@ func (h *Handler) retryWithStrippedParams(
 	failoverCancel context.CancelFunc,
 	streamCancelOrigin string,
 ) paramRetryResult {
-	body, readErr := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
+	// Restored before anything else, so downstream error handling can read the
+	// body on every path that gives up without retrying.
+	body, readErr := readLearnable400(resp)
 	failoverCancel() // 400 body consumed, context no longer needed
 	debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
-	// Restore the body so downstream error handling can read it if we don't
-	// successfully retry. Must be set before any fallthrough.
-	resp.Body = io.NopCloser(bytes.NewReader(body))
 
 	res := paramRetryResult{resp: resp, streamCancelOrigin: streamCancelOrigin}
 	if readErr != nil {
@@ -1080,18 +1097,8 @@ func (h *Handler) retryWithStrippedParams(
 		// The retry was rejected too. Read its body so the params it names are
 		// learned as well, then hand that response on with the body restored: it
 		// is the client's 400 if no further round is issued.
-		//
-		// Bounded, because this now runs once per round rather than once per
-		// attempt. The cap is the parse-sized one, not failoverErrorClassifyCap:
-		// learnFrom json.Unmarshals the document, so a body cut mid-JSON teaches
-		// nothing at all — responsesLearnBodyCap is sized to sit far past any real
-		// 400 for exactly that reason. Whatever is above it is drained rather than
-		// retained, keeping the connection reusable.
-		body, readErr = io.ReadAll(io.LimitReader(retryResp.Body, responsesLearnBodyCap))
-		_, _ = io.Copy(io.Discard, retryResp.Body)
-		_ = retryResp.Body.Close()
+		body, readErr = readLearnable400(retryResp)
 		rc() // retry body consumed and buffered, context no longer needed
-		retryResp.Body = io.NopCloser(bytes.NewReader(body))
 		res.resp = retryResp
 		res.retryCancel = nil
 		res.retried = true
