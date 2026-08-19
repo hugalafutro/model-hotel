@@ -58,12 +58,12 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.21.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.45.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.54.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.55.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.57.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
 | [golang.org/x/sync](https://golang.org/x/sync) | v0.22.0 | Go | BSD-3-Clause |
 | [golang.org/x/sys](https://golang.org/x/sys) | v0.47.0 | Go | BSD-3-Clause |
-| [golang.org/x/text](https://golang.org/x/text) | v0.40.0 | Go | BSD-3-Clause |
+| [golang.org/x/text](https://golang.org/x/text) | v0.41.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
@@ -79,13 +79,13 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.3.0 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
-| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
-| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
+| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
@@ -187,7 +187,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
 | [katex](https://katex.org) | 0.16.47 | npm | MIT |
-| [katex](https://katex.org) | 0.18.1 | npm | MIT |
+| [katex](https://katex.org) | 0.18.4 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
 | [markdown-table](https://github.com/wooorm/markdown-table#readme) | 3.0.4 | npm | MIT |
@@ -274,7 +274,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
 | [scheduler](https://react.dev/) | 0.27.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
-| [shiki](https://github.com/shikijs/shiki#readme) | 4.4.2 | npm | MIT |
+| [shiki](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
 | [string-width](https://github.com/sindresorhus/string-width#readme) | 4.2.3 | npm | MIT |
 | [stringify-entities](https://github.com/wooorm/stringify-entities#readme) | 4.0.4 | npm | MIT |
@@ -727,7 +727,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021 Pine Wu
 
-Applies to: `@shikijs/core@4.4.2`, `@shikijs/engine-javascript@4.4.2`, `@shikijs/engine-oniguruma@4.4.2`, `@shikijs/langs@4.4.2`, `@shikijs/primitive@4.4.2`, `@shikijs/themes@4.4.2`, `@shikijs/types@4.4.2`, `shiki@4.4.2`
+Applies to: `@shikijs/core@4.4.3`, `@shikijs/engine-javascript@4.4.3`, `@shikijs/engine-oniguruma@4.4.3`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.4.3`, `@shikijs/themes@4.4.3`, `@shikijs/types@4.4.3`, `shiki@4.4.3`
 
 ```
 MIT License
@@ -968,7 +968,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.54.0`, `golang.org/x/net@v0.57.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.40.0`, `golang.org/x/time@v0.15.0`
+Applies to: `golang.org/x/crypto@v0.55.0`, `golang.org/x/net@v0.57.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1303,7 +1303,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2013-2020 Khan Academy and other contributors
 
-Applies to: `katex@0.16.47`, `katex@0.18.1`
+Applies to: `katex@0.16.47`, `katex@0.18.4`
 
 ```
 The MIT License (MIT)
