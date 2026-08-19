@@ -310,11 +310,18 @@ type ChatCompletionResponse struct {
 }
 
 // Choice represents a single completion choice in the response.
+//
+// Delta is a pointer so the two response shapes stay distinct. A struct is
+// never empty to encoding/json, so a value field emitted "delta":{"role":"",
+// "content":null} on every non-streaming completion, a key the OpenAI
+// non-streaming schema does not have. Nil omits it; a streaming chunk that
+// carries a delta still round-trips one, even a delta holding nothing but the
+// role.
 type Choice struct {
-	Index        int     `json:"index"`
-	Message      Message `json:"message"`
-	Delta        Message `json:"delta"`
-	FinishReason *string `json:"finish_reason,omitempty"`
+	Index        int      `json:"index"`
+	Message      Message  `json:"message"`
+	Delta        *Message `json:"delta,omitempty"`
+	FinishReason *string  `json:"finish_reason,omitempty"`
 }
 
 // Message represents a chat message with role and content.
