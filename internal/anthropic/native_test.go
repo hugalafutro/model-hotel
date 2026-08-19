@@ -77,17 +77,31 @@ func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
 	}
 }
 
-// Writing a cache entry is cache activity even though nothing was read back, so
-// the split is reported — with the creation tokens on the miss side, where they
-// are billed.
+// Writing a cache entry without reading one reports no cache counts: the
+// translated egress path meters this same response off the cache-READ fields
+// alone and can only ever record (0,0), and one Anthropic path claiming cache
+// data the other cannot is the inconsistency this split exists to remove. The
+// creation tokens still count inside the prompt, which is what is billed.
 func TestParseResponseUsage_CacheCreationOnly(t *testing.T) {
 	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":7,"cache_creation_input_tokens":30}}`)
 	u := ParseResponseUsage(body)
 	if u.PromptTokens != 34 {
 		t.Errorf("prompt tokens = %d, want 34 (4 + 30)", u.PromptTokens)
 	}
-	if u.CacheHitTokens != 0 || u.CacheMissTokens != 34 {
-		t.Errorf("cache split = (%d,%d), want (0,34)", u.CacheHitTokens, u.CacheMissTokens)
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
+		t.Errorf("cache split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
+	}
+}
+
+// The streaming path reads its usage through the same summary(), so
+// message_start reports the creation-only response the same way.
+func TestInspectStreamEvent_CacheCreationOnly(t *testing.T) {
+	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30}}}`))
+	if !ev.HasInput || ev.InputTokens != 34 {
+		t.Errorf("input tokens = %d (has=%v), want 34 (4 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if ev.CacheHitTokens != 0 || ev.CacheMissTokens != 0 {
+		t.Errorf("cache split = (%d,%d), want (0,0)", ev.CacheHitTokens, ev.CacheMissTokens)
 	}
 }
 

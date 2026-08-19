@@ -78,19 +78,24 @@ type antUsage struct {
 // this split prices every cached token at full input rate, which is a different
 // skew from under-counting, not an absence of one.
 //
-// A response with no cache activity at all reports NO cache counts rather than
-// "miss = the whole prompt". The translated egress path cannot express that
-// reading — its usage carries the cache fields only when nonzero, so
-// extractCacheTokens yields (0, 0) — and one Anthropic path claiming cache data
-// the other cannot is exactly the inconsistency this split exists to remove. It
-// is also what every other provider reports for an uncached request, which is
-// what the dashboard's cache panel and the cache-miss stats series assume.
+// The split is reported only when a cache READ occurred. A response that
+// created a cache entry without reading one — and one with no cache activity at
+// all — reports NO cache counts rather than "miss = the whole prompt". The
+// translated egress path cannot express either reading: extractCacheTokens
+// keys off the cache-READ fields alone, so it yields (0, 0) for both, and one
+// Anthropic path claiming cache data the other cannot is exactly the
+// inconsistency this split exists to remove. It is also what every other
+// provider reports for a request that read nothing from cache, which is what
+// the dashboard's cache panel and the cache-miss stats series assume.
+//
+// Creation tokens are never lost either way: they count inside PromptTokens,
+// which is what the request is metered and priced on.
 func (u antUsage) summary() ResponseUsage {
 	out := ResponseUsage{
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
 	}
-	if u.CacheReadInputTokens > 0 || u.CacheCreationInputTokens > 0 {
+	if u.CacheReadInputTokens > 0 {
 		out.CacheHitTokens = u.CacheReadInputTokens
 		out.CacheMissTokens = u.InputTokens + u.CacheCreationInputTokens
 	}
