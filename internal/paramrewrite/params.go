@@ -34,6 +34,7 @@ var ProviderUnsupportedParams = map[string][]string{
 		"min_p",             // not supported on Gemini API
 		"top_k",             // Gemini top_k ≠ OpenAI top_k; causes unexpected behavior
 		"reasoning_effort",  // not supported on Gemini API
+		"reasoning",         // rejected outright: Unknown name "reasoning": Cannot find field
 	},
 	"cohere": {
 		"logprobs",         // not supported
@@ -115,6 +116,36 @@ func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 	return nil
 }
 
+// providerErrorMessage extracts the human-readable message from a provider's
+// error body. Most providers return a bare object ({"error":{"message":...}}),
+// but Google AI Studio wraps the same shape in a one-element array
+// ([{"error":{...}}]). Reading only the object form leaves Google's messages
+// unparsed, so a rejected param it names can never be learned or stripped.
+func providerErrorMessage(body []byte) string {
+	type errEnvelope struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	var obj errEnvelope
+	if json.Unmarshal(body, &obj) == nil {
+		return obj.Error.Message
+	}
+	var arr []errEnvelope
+	if json.Unmarshal(body, &arr) == nil {
+		// Joined, not first-wins: a body naming two rejected fields must teach
+		// both in one pass rather than costing a 400 round-trip each.
+		msgs := make([]string, 0, len(arr))
+		for _, e := range arr {
+			if e.Error.Message != "" {
+				msgs = append(msgs, e.Error.Message)
+			}
+		}
+		return strings.Join(msgs, "; ")
+	}
+	return ""
+}
+
 // ParseProviderParamRename parses 400 error bodies for params the upstream wants
 // renamed rather than dropped. Unlike a rejected param (which we strip), a
 // renamed param carries a value we must preserve under the new name — stripping
@@ -126,15 +157,10 @@ func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 // 'max_completion_tokens' instead."). These reach model-hotel directly via the
 // openai provider and indirectly via passthrough gateways (e.g. OpenCode Zen).
 func ParseProviderParamRename(body []byte) map[string]string {
-	var errResp struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(body, &errResp) != nil {
+	msg := strings.ToLower(providerErrorMessage(body))
+	if msg == "" {
 		return nil
 	}
-	msg := strings.ToLower(errResp.Error.Message)
 	renames := make(map[string]string)
 
 	// max_tokens -> max_completion_tokens (OpenAI gpt-5/o-series deprecation).
@@ -161,15 +187,10 @@ func ParseProviderParamRename(body []byte) map[string]string {
 // to the request parameter — there is no other meaning in this context.
 // This works universally across all providers, not just Anthropic.
 func ParseProviderParamError(body []byte) map[string]bool {
-	var errResp struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(body, &errResp) != nil {
+	msg := providerErrorMessage(body)
+	if msg == "" {
 		return nil
 	}
-	msg := errResp.Error.Message
 	rejected := make(map[string]bool)
 
 	// "cannot both be specified" — strip top_p, keep temperature
@@ -186,6 +207,12 @@ func ParseProviderParamError(body []byte) map[string]bool {
 		"frequency_penalty", "presence_penalty",
 		"logprobs", "top_logprobs",
 		"max_tokens", "stream_options", "reasoning_effort",
+		// "reasoning" is an OpenAI-dialect field callers send that Google AI
+		// Studio rejects outright ("Unknown name \"reasoning\": Cannot find
+		// field."), failing the whole request. The quote/backtick anchoring
+		// below keeps it from matching "reasoning_effort", which is a
+		// separate param with its own entry.
+		"reasoning",
 	}
 	for _, p := range matchParams {
 		// Match backtick-wrapped: `param` or quote-wrapped: "param"

@@ -17,6 +17,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
@@ -309,8 +310,7 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 	defer upstream.Close()
 
 	// Pre-populate the deprecation cache
-	providerType := provider.LegacyTypeFromURL(upstream.URL)
-	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+	cacheKey := paramrewrite.LearnedCacheKey(env.ProviderID.String(), modelName)
 	cacheValue := map[string]bool{"temperature": true, "top_p": true}
 	handler.deprecationCache.Store(cacheKey, &cacheValue)
 
@@ -922,8 +922,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.LegacyTypeFromURL(upstream.URL)
-	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+	cacheKey := paramrewrite.LearnedCacheKey(env.ProviderID.String(), modelName)
 
 	// Phase 1: Upstream returns 400 with param rejection on first request,
 	// then 200 on retry. This simulates learning rejected params from a 400.
@@ -1065,8 +1064,7 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.LegacyTypeFromURL(upstream.URL)
-	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+	cacheKey := paramrewrite.LearnedCacheKey(env.ProviderID.String(), modelName)
 
 	// Phase 1: First request gets 400 rejecting "temperature", retry succeeds.
 	// This triggers LoadOrStore with loaded=false (first write).
@@ -1216,8 +1214,7 @@ func TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler(t *testing.T) 
 	modelName := env.ModelName
 	defer upstream.Close()
 
-	providerType := provider.LegacyTypeFromURL(upstream.URL)
-	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+	cacheKey := paramrewrite.LearnedCacheKey(env.ProviderID.String(), modelName)
 
 	// Pre-populate the cache with a wrong type to trigger the !ok branch
 	handler.deprecationCache.Store(cacheKey, "not-a-map")

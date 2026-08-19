@@ -74,6 +74,7 @@ describe("isCancelled", () => {
 	describe("error_kind (object form)", () => {
 		it("returns true for interruption kinds", () => {
 			expect(isCancelled({ error_kind: "client_disconnect" })).toBe(true);
+			expect(isCancelled({ error_kind: "hedge_superseded" })).toBe(true);
 			expect(isCancelled({ error_kind: "failover_timeout" })).toBe(true);
 			expect(isCancelled({ error_kind: "retry_timeout" })).toBe(true);
 		});

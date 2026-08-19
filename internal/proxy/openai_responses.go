@@ -72,7 +72,7 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 // isStreaming=false so no stream_options is injected — the Responses API has
 // its own streaming usage semantics), then chat -> Responses translation.
 func (h *Handler) translateResponsesRequestBody(st *requestState, candidate modelCandidate, providerType string) ([]byte, error) {
-	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil)
+	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 }
 

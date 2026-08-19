@@ -125,6 +125,18 @@ const UserAllowedProvidersKey contextKey = "user_allowed_providers"
 // Values: "client_disconnect", "failover_timeout", "retry_timeout"
 const CancelOriginKey contextKey = "cancel_origin"
 
+// HedgeSupersededKey is the context key under which the hedging orchestrator
+// stores a *atomic.Bool for each in-flight attempt. It is set to true just
+// before the orchestrator cancels that attempt because another candidate won
+// the race.
+//
+// Cancelling an attempt produces context.Canceled, which is indistinguishable
+// from the client hanging up — so without this flag a hedge loser is reported
+// as a client disconnect even though the client is still connected and gets a
+// 200 from the winner. The origin is read only for context.Canceled; a
+// deadline on the same context still resolves via CancelOriginKey.
+const HedgeSupersededKey contextKey = "hedge_superseded"
+
 // RequestBodyParseMsKey is the context key under which the
 // streamingAwareTimeout middleware stores the time spent reading and
 // parsing the request body (float64, in ms). This covers both the

@@ -40,6 +40,11 @@ const (
 	KindFailoverTimeout ErrorKind = "failover_timeout"
 	// KindRetryTimeout means the param-strip retry's deadline expired.
 	KindRetryTimeout ErrorKind = "retry_timeout"
+	// KindHedgeSuperseded means the gateway itself abandoned this attempt because
+	// another hedged candidate won the race. It is not a failure of the provider
+	// and not a client hangup — the client is still connected and is served by
+	// the winner — so it must never be confused with KindClientDisconnect.
+	KindHedgeSuperseded ErrorKind = "hedge_superseded"
 	// KindInternal is a gateway-internal failure (e.g. could not build the request).
 	KindInternal ErrorKind = "internal"
 	// KindValidation is a bad request from the client (malformed body, missing
@@ -83,6 +88,8 @@ func cancelOriginToKind(origin string) ErrorKind {
 		return KindFailoverTimeout
 	case "retry_timeout":
 		return KindRetryTimeout
+	case "hedge_superseded":
+		return KindHedgeSuperseded
 	default:
 		return KindInternal
 	}
@@ -142,6 +149,8 @@ func (e reqError) render() string {
 		return e.withUnderlying(fmt.Sprintf("%s rejected the request for billing or plan reasons on attempt %d", e.providerLabel(), n))
 	case KindProviderBadRequest:
 		return e.withUnderlying(fmt.Sprintf("%s rejected the request payload on attempt %d", e.providerLabel(), n))
+	case KindHedgeSuperseded:
+		return e.withUnderlying(fmt.Sprintf("attempt %d to %s was superseded by a faster hedged attempt", n, e.providerLabel()))
 	default: // KindProviderError and any unclassified failure
 		if e.Detail != "" {
 			return fmt.Sprintf("%s returned %s on attempt %d", e.providerLabel(), e.Detail, n)
@@ -176,7 +185,7 @@ func (e reqError) terminalStatus() int {
 func (e reqError) terminalLogMessage(isFailover bool, numCandidates int) string {
 	last := e.render()
 	switch e.Kind {
-	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout:
+	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded:
 		return last
 	default:
 		if isFailover && numCandidates > 1 {
@@ -195,6 +204,10 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 		return "client disconnected"
 	case KindFailoverTimeout, KindRetryTimeout:
 		return fmt.Sprintf("request timed out for model %s", reqModel)
+	case KindHedgeSuperseded:
+		// Not reachable today (a superseded attempt is always replaced by the
+		// winner) but it must never render as "all providers failed".
+		return fmt.Sprintf("request superseded for model %s", reqModel)
 	default:
 		if isFailover {
 			return fmt.Sprintf("all providers failed for model %s", reqModel)

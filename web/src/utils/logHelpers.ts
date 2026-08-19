@@ -8,6 +8,10 @@ export const CANCELLED_KINDS = new Set<string>([
 	"client_disconnect",
 	"failover_timeout",
 	"retry_timeout",
+	// The gateway abandoned this attempt because a faster hedged candidate won.
+	// The client was served normally, so it is an interruption of one attempt,
+	// never a provider failure.
+	"hedge_superseded",
 ]);
 
 /**
