@@ -175,7 +175,7 @@ var reasoningBudgets = map[string]int{
 func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool, err error) {
 	var req oaiRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return nil, "", false, fmt.Errorf("gemini: invalid request body: %w", err)
+		return nil, "", false, fmt.Errorf("gemini: invalid request body: %s", jsonFault(err, len(body)))
 	}
 	if req.Model == "" {
 		return nil, "", false, fmt.Errorf("gemini: model is required")

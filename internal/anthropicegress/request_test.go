@@ -797,3 +797,42 @@ func TestTranslateRequest_ErrorsCarryNoRequestContent(t *testing.T) {
 		t.Errorf("error leaks request content: %q", err)
 	}
 }
+
+func TestTranslateRequest_DecodeErrorOmitsPayload(t *testing.T) {
+	// A malformed request body is the user's own prompt: encoding/json quotes the
+	// offending byte and prints an offending literal verbatim, so the error must
+	// say WHERE the body broke and nothing about what it said.
+	cases := []struct {
+		name    string
+		payload string
+		want    string
+		secret  string
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"model":"claude-x","messages":[{"role":"user","content":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"model":8675309.42}`,
+			want:    "undecodable JSON (",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, err := TranslateRequest([]byte(tc.payload))
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "anthropicegress: invalid request body: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
+	}
+}

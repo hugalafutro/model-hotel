@@ -68,7 +68,7 @@ type chatContentPart struct {
 func TranslateChatToResponses(chatBody []byte, resolvedModel string) ([]byte, error) {
 	var req chatRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid chat request body: %w", err)
+		return nil, fmt.Errorf("openairesponses: invalid chat request body: %s", jsonFault(err, len(chatBody)))
 	}
 
 	out := Request{

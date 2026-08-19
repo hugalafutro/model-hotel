@@ -165,7 +165,7 @@ type antThinking struct {
 func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, err error) {
 	var req oaiRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
-		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %w", err)
+		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonFault(err, len(chatBody)))
 	}
 	if req.Model == "" {
 		return nil, "", false, errors.New("anthropicegress: model is required")
