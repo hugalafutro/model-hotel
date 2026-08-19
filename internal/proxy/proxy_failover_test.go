@@ -230,6 +230,169 @@ func TestRetryWithStrippedParams_NonParamErrorFallsThrough(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Multi-round param self-heal.
+//
+// Upstreams name one offending param per 400, so a request carrying two of them
+// needs the retry's own 400 to be parsed and learned as well.
+// ---------------------------------------------------------------------------
+
+// learnedRejected reads the rejected-param map the deprecation cache holds for
+// one provider+model, or nil when nothing was learned.
+func learnedRejected(t *testing.T, h *Handler, key string) map[string]bool {
+	t.Helper()
+	v, ok := h.deprecationCache.Load(key)
+	if !ok {
+		return nil
+	}
+	m, ok := v.(*map[string]bool)
+	if !ok {
+		t.Fatalf("deprecation cache holds %T under %s, want *map[string]bool", v, key)
+	}
+	return *m
+}
+
+// learnedRenames reads the rename map the rename cache holds for one
+// provider+model, or nil when nothing was learned.
+func learnedRenames(t *testing.T, h *Handler, key string) map[string]string {
+	t.Helper()
+	v, ok := h.paramRenameCache.Load(key)
+	if !ok {
+		return nil
+	}
+	m, ok := v.(*map[string]string)
+	if !ok {
+		t.Fatalf("rename cache holds %T under %s, want *map[string]string", v, key)
+	}
+	return *m
+}
+
+const (
+	// The rename directive OpenAI's gpt-5 family answers max_tokens with.
+	maxTokensRename400 = `{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}`
+	// The value-validation 400 the same models answer temperature:0 with.
+	temperature400 = `{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`
+)
+
+// TestRetryWithStrippedParams_LearnsFromRetry400 is the regression test for the
+// two-param request: the first 400 names max_tokens (a rename), the retry's own
+// 400 names temperature. Before the fix that second 400 went straight to the
+// client with nothing learned from it, so the next identical request re-learned
+// from scratch. Both params must now be learned and the caller must get the 200.
+func TestRetryWithStrippedParams_LearnsFromRetry400(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if calls.Add(1) == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, temperature400)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[]}`)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	st.bodyBytes = []byte(`{"model":"test-model","messages":[{"role":"user","content":"hi"}],"max_tokens":64,"temperature":0}`)
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(maxTokensRename400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if !res.retried {
+		t.Fatalf("expected retried=true")
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected the caller to get the 200, got %+v", res.resp)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected two upstream retries (one per named param), got %d", got)
+	}
+	if res.retryCancel == nil {
+		t.Errorf("expected non-nil retryCancel with a live body")
+	} else {
+		res.retryCancel()
+	}
+	_ = res.resp.Body.Close()
+
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if renames := learnedRenames(t, h, learnKey); renames["max_tokens"] != "max_completion_tokens" {
+		t.Errorf("first 400's rename not learned: %v", renames)
+	}
+	if rejected := learnedRejected(t, h, learnKey); !rejected["temperature"] {
+		t.Errorf("the retry's own 400 was not learned: %v", rejected)
+	}
+}
+
+// TestRetryWithStrippedParams_TwoRetryCap holds the cap: an upstream that 400s
+// forever, naming a fresh param every time, must be re-issued exactly twice.
+// The last 400 is still learned and is handed back with its body restored.
+func TestRetryWithStrippedParams_TwoRetryCap(t *testing.T) {
+	named := []string{"top_p", "top_k", "frequency_penalty"}
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := int(calls.Add(1)) - 1
+		param := "presence_penalty"
+		if n < len(named) {
+			param = named[n]
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, `{"error":{"message":"Unsupported parameter: '%s' is not supported with this model."}}`, param)
+	}))
+	defer upstream.Close()
+
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	cand := newRetryTestCandidate(upstream.URL)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	res := h.retryWithStrippedParams(req, st, cand, "openai", upstream.URL,
+		resp400(temperature400), 0, &dialMs, func() {}, "failover_timeout")
+
+	if res.cont {
+		t.Fatalf("expected cont=false, got lastReqErr=%+v", res.lastReqErr)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected the two-retry cap to hold, got %d upstream retries", got)
+	}
+	if res.resp == nil || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected the last 400 handed back, got %+v", res.resp)
+	}
+	if res.retryCancel != nil {
+		t.Errorf("expected nil retryCancel: the body was buffered and the context released")
+	}
+	// The body must be readable by the caller's normal non-200 handling.
+	body, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if !strings.Contains(string(body), "top_k") {
+		t.Errorf("expected the last 400's body restored, got %q", string(body))
+	}
+
+	learnKey := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	rejected := learnedRejected(t, h, learnKey)
+	for _, p := range []string{"temperature", "top_p", "top_k"} {
+		if !rejected[p] {
+			t.Errorf("expected %q learned from its 400, got %v", p, rejected)
+		}
+	}
+	if rejected["frequency_penalty"] {
+		t.Errorf("frequency_penalty was learned, so a third retry was issued: %v", rejected)
+	}
+}
+
 // TestDoUpstream_ProviderErrorCapturesUnderlying verifies that a terminal
 // transport error (here: connection refused, retried then exhausted) is
 // captured into the structured error's Underlying field, classified as a

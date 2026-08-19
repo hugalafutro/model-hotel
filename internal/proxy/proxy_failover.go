@@ -861,16 +861,6 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 	}
 }
 
-// retryWithStrippedParams handles a 400 from an upstream: it reads and restores
-// the error body, cancels the original (now-finished) request context, and — if
-// the body is a recognizable param-rejection — learns the rejected params into
-// the deprecation cache, rebuilds the request with them stripped, and re-issues
-// it once. See paramRetryResult for how the loop interprets the return value.
-//
-// failoverCancel is the original request's cancel func; it is invoked here once
-// the 400 body has been consumed (and again, harmlessly, on the successful-retry
-// path). dialMs is the per-request dial-timing pointer threaded into the retry
-// context so SafeDialer records the retry's DNS time.
 // learnedScopeFor scopes the learned reject/rename caches to one provider. The
 // provider id, not its type: many distinct custom endpoints share the "openai"
 // type, and a type-scoped entry would let one of them disable a param for all
@@ -913,6 +903,83 @@ func (h *Handler) learnRejectedParams(candidate modelCandidate, providerType str
 	debuglog.Info("proxy: learned rejected params from upstream 400", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "rejected", fmt.Sprintf("%v", rejected), "renames", fmt.Sprintf("%v", renames))
 }
 
+// paramRetryRounds caps how many times one candidate is re-issued with newly
+// learned params stripped.
+//
+// Upstreams name a single offending param per 400, so a request carrying two of
+// them needs a second round to get through. Past that the provider is objecting
+// to something this self-heal cannot fix, and the 400 belongs to the client.
+const paramRetryRounds = 2
+
+// issueParamRetry rebuilds the upstream body with strip applied on top of the
+// learned caches and re-POSTs it to targetURL.
+//
+// The returned cancel func belongs to the retry's context: non-nil exactly when
+// a response is returned, whose body the caller must consume before calling it.
+// On failure the context is cancelled here (there is no body to read) and the
+// structured cause is returned for the failover loop to record.
+func (h *Handler) issueParamRetry(
+	r *http.Request,
+	st *requestState,
+	candidate modelCandidate,
+	providerType, targetURL string,
+	strip map[string]bool,
+	attempt int,
+	dialMs *float64,
+) (*http.Response, context.CancelFunc, *reqError) {
+	// Rebuild the request body using the shared rewrite path. This ensures
+	// stream_options injection, provider injection, universal/learned param
+	// stripping, and learned renaming are all applied on retry, preventing drift
+	// from the initial attempt path. The renames just cached are picked up from
+	// paramRenameCache; the rejected params learned so far are also passed as
+	// extraStrip so the retry drops them even before the cache writes are observed.
+	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
+	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
+	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
+	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
+	if retryErr != nil {
+		rc()
+		return nil, nil, &reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
+	}
+	util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
+	retryReq.Header.Set("Content-Type", "application/json")
+	var retryCheckRedirect func(req *http.Request, via []*http.Request) error
+	if h.safeDialer != nil {
+		retryCheckRedirect = h.safeDialer.CheckRedirect
+	}
+	retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
+	//nolint:bodyclose // retryResp.Body is returned to the caller, which consumes and closes it
+	retryResp, retryErr := retryClient.Do(retryReq)
+	if retryErr != nil {
+		rc() // no body to consume on retry error
+		debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
+		if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
+			// Branch like the main failover loop: Canceled = client
+			// disconnect, DeadlineExceeded = retry timeout.
+			origin := "retry_timeout"
+			if errors.Is(retryErr, context.Canceled) {
+				origin = "client_disconnect"
+			}
+			return nil, nil, &reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
+		}
+		return nil, nil, &reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
+	}
+	return retryResp, rc, nil
+}
+
+// retryWithStrippedParams handles a 400 from an upstream: it reads and restores
+// the error body, cancels the original (now-finished) request context, and — if
+// the body is a recognizable param-rejection — learns the rejected params and
+// renames into the deprecation/rename caches, rebuilds the request with them
+// applied, and re-issues it. A retry that is itself rejected with a 400 is read
+// and learned from in exactly the same way, and re-issued once more when it
+// names a param the retry did not already carry. See paramRetryResult for how
+// the loop interprets the return value.
+//
+// failoverCancel is the original request's cancel func; it is invoked here once
+// the 400 body has been consumed. dialMs is the per-request dial-timing pointer
+// threaded into every retry context so SafeDialer records the retries' DNS time.
 func (h *Handler) retryWithStrippedParams(
 	r *http.Request,
 	st *requestState,
@@ -936,77 +1003,89 @@ func (h *Handler) retryWithStrippedParams(
 	if readErr != nil {
 		return res
 	}
+
+	// Everything applied to the outgoing body so far, accumulated across rounds:
+	// strip holds the rejected params (dropped), renamed the moves (value kept
+	// under the new name). They are also the termination guard — a round is only
+	// worth issuing when a 400 names something outside these sets.
+	strip := map[string]bool{}
+	renamed := map[string]string{}
+
 	// A 400 can ask us to drop a param (rejected → strip) and/or move a param to
 	// a new name (rename → preserve value). Both feed the same self-heal: learn,
-	// cache for future preemptive application, and retry once.
-	rejected := paramrewrite.ParseProviderParamError(body)
-	renames := paramrewrite.ParseProviderParamRename(body)
-	if rejected == nil && renames == nil {
-		return res
-	}
-
-	// Cache the learned rejections and renames for future preemptive application.
-	// Each cache is merged with any existing entries via CompareAndSwap to avoid
-	// data races from concurrent goroutines mutating the same map.
-	cacheKey := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
-	if rejected != nil {
-		paramrewrite.MergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
-	}
-	if renames != nil {
-		paramrewrite.MergeLearnedParamCache(&h.paramRenameCache, cacheKey, renames)
-	}
-
-	// Rebuild the request body using the shared rewrite path. This ensures
-	// stream_options injection, provider injection, universal/learned param
-	// stripping, and learned renaming are all applied on retry, preventing drift
-	// from the initial attempt path. The renames just cached are picked up from
-	// paramRenameCache; the freshly-rejected params are also passed as extraStrip
-	// so the immediate retry strips them even before the cache write is observed.
-	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected, learnedScopeFor(candidate))
-	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
-	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
-	res.streamCancelOrigin = "retry_timeout"
-	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-	if retryErr != nil {
-		rc()
-		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
-		res.cont = true
-		return res
-	}
-	util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-	retryReq.Header.Set("Content-Type", "application/json")
-	var retryCheckRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		retryCheckRedirect = h.safeDialer.CheckRedirect
-	}
-	retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
-	//nolint:bodyclose // retryResp.Body is returned to the caller (failover loop), which consumes and closes it after dispatch
-	retryResp, retryErr := retryClient.Do(retryReq)
-	if retryErr != nil {
-		rc() // no body to consume on retry error
-		debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-		if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-			// Branch like the main failover loop: Canceled = client
-			// disconnect, DeadlineExceeded = retry timeout.
-			origin := "retry_timeout"
-			if errors.Is(retryErr, context.Canceled) {
-				origin = "client_disconnect"
-			}
-			res.lastReqErr = reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
-		} else {
-			res.lastReqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
+	// cache for future preemptive application, and retry. learnFrom does the
+	// learning half for one 400 body and reports whether that body named anything
+	// the request does not already carry — i.e. whether re-issuing could help.
+	learnFrom := func(errBody []byte) bool {
+		rejected := paramrewrite.ParseProviderParamError(errBody)
+		renames := paramrewrite.ParseProviderParamRename(errBody)
+		if rejected == nil && renames == nil {
+			return false
 		}
-		res.cont = true
-		return res
+		// Cache the learned rejections and renames for future preemptive
+		// application. Each cache is merged with any existing entries via
+		// CompareAndSwap to avoid data races from concurrent goroutines mutating
+		// the same map.
+		h.learnRejectedParams(candidate, providerType, errBody)
+		progressed := false
+		for p := range rejected {
+			if !strip[p] {
+				progressed = true
+			}
+			strip[p] = true
+		}
+		for oldName, newName := range renames {
+			if _, seen := renamed[oldName]; !seen {
+				progressed = true
+			}
+			renamed[oldName] = newName
+		}
+		return progressed
 	}
-	failoverCancel() // original 400 body already consumed, original context no longer needed
-	// retryCancel must NOT be called here — the retry resp.Body is read by the
-	// caller. It is returned for deferred cleanup after body consumption.
-	res.resp = retryResp
-	res.retryCancel = rc
-	res.retried = true
-	debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected), "renamed_params", renameKeys(renames))
+
+	// Two guards, both required, so the loop always terminates: at most
+	// paramRetryRounds rounds, and a round only when the current 400 names
+	// something the request does not already carry (learnFrom's report), which
+	// makes strip∪renamed grow strictly on every iteration.
+	//
+	// learnFrom runs before the round check on purpose — it is the left operand,
+	// so it is evaluated even on the iteration that ends the loop. That is what
+	// makes the last 400 learned rather than discarded: the round it would have
+	// paid for is refused, but the next request still starts with what it named.
+	//
+	// The first 400 that names nothing recognisable falls straight out here and
+	// is handed back untouched.
+	for round := 0; learnFrom(body) && round < paramRetryRounds; round++ {
+		res.streamCancelOrigin = "retry_timeout"
+		retryResp, rc, retryErr := h.issueParamRetry(r, st, candidate, providerType, targetURL, strip, attempt, dialMs)
+		if retryErr != nil {
+			res.lastReqErr = *retryErr
+			res.cont = true
+			return res
+		}
+		if retryResp.StatusCode != http.StatusBadRequest {
+			// rc must NOT be called here — retryResp.Body is read by the caller.
+			// It is returned for deferred cleanup after body consumption.
+			res.resp = retryResp
+			res.retryCancel = rc
+			res.retried = true
+			debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rounds", round+1, "rejected_params", mapKeys(strip), "renamed_params", renameKeys(renamed))
+			return res
+		}
+		// The retry was rejected too. Read its body so the params it names are
+		// learned as well, then hand that response on with the body restored: it
+		// is the client's 400 if no further round is issued.
+		body, readErr = io.ReadAll(retryResp.Body)
+		_ = retryResp.Body.Close()
+		rc() // retry body consumed and buffered, context no longer needed
+		retryResp.Body = io.NopCloser(bytes.NewReader(body))
+		res.resp = retryResp
+		res.retryCancel = nil
+		res.retried = true
+		if readErr != nil {
+			return res
+		}
+	}
 	return res
 }
 
