@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -418,4 +419,319 @@ func TestHandleNonStreamingResponse_ChatShapedNon2xxDoesNotMeter(t *testing.T) {
 	if logData.deliveredContent {
 		t.Error("a non-2xx must not count as the model having served content")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// What a failed decode may put in the logs
+// ---------------------------------------------------------------------------
+
+// paddingReader is an endless source of one filler byte, so an oversized
+// upstream body can be produced without allocating it test-side.
+type paddingReader struct{}
+
+func (paddingReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 'a'
+	}
+	return len(p), nil
+}
+
+func nonStreamingLogData() *requestLogData {
+	return &requestLogData{
+		modelID:         "test-model",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+}
+
+// A 2xx whose body fails to decode is still a completion: it holds the model's
+// generated text. No prompt or response content is ever logged, so the row may
+// carry only the decode diagnostics. errorMessage is dashboard-visible and
+// stored, and it is the same string handed to the debug log, so asserting on it
+// covers both sinks.
+func TestHandleNonStreamingResponse_Undecodable2xxDoesNotLogContent(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// A real shape from a relay: valid completion, "created" sent as a string.
+	// The decode fails on the type; the assistant's answer is right beside it.
+	const secret = "the-user-private-answer-text"
+	body := `{"id":"chatcmpl-1","object":"chat.completion","created":"1699999999","model":"m",` +
+		`"choices":[{"index":0,"message":{"role":"assistant","content":"` + secret + `"},"finish_reason":"stop"}],` +
+		`"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	if logData.state != "failed" {
+		t.Fatalf("state = %q, want failed", logData.state)
+	}
+	if strings.Contains(logData.errorMessage, secret) {
+		t.Fatalf("response content leaked into the request log: %q", logData.errorMessage)
+	}
+	if strings.Contains(logData.errorMessage, "chatcmpl-1") {
+		t.Fatalf("response body leaked into the request log: %q", logData.errorMessage)
+	}
+	for _, want := range []string{"response decode error", fmt.Sprintf("body_bytes=%d", len(body)), "application/json"} {
+		if !strings.Contains(logData.errorMessage, want) {
+			t.Errorf("errorMessage missing diagnostic %q: %q", want, logData.errorMessage)
+		}
+	}
+	if logData.errorKind != KindProviderBadRequest {
+		t.Errorf("error kind = %v, want %v", logData.errorKind, KindProviderBadRequest)
+	}
+}
+
+// The other half of the same rule: a non-2xx carries no completion, so its
+// body is the provider's error text and that text is what makes the row worth
+// reading. It must keep landing in the log.
+func TestHandleNonStreamingResponse_Non2xxKeepsUpstreamErrorText(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const upstreamText = "model overloaded, try again shortly"
+	resp := &http.Response{
+		StatusCode: http.StatusBadGateway,
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"` + upstreamText + `"}}`)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	if logData.state != "failed" {
+		t.Fatalf("state = %q, want failed", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, upstreamText) {
+		t.Fatalf("upstream error text lost from the request log: %q", logData.errorMessage)
+	}
+}
+
+// A non-2xx that fails to decode as well (an HTML error page from a proxy in
+// front of the provider) keeps its text too — it is still an error document.
+func TestHandleNonStreamingResponse_UndecodableNon2xxKeepsBody(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const page = "<html><body>504 Gateway Time-out (nginx)</body></html>"
+	resp := &http.Response{
+		StatusCode: http.StatusGatewayTimeout,
+		Body:       io.NopCloser(strings.NewReader(page)),
+		Header:     http.Header{"Content-Type": []string{"text/html"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	if !strings.Contains(logData.errorMessage, "504 Gateway Time-out") {
+		t.Fatalf("upstream error page lost from the request log: %q", logData.errorMessage)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The non-streaming body read is bounded
+// ---------------------------------------------------------------------------
+
+// Past the cap the request fails instead of buffering the whole body — and it
+// fails rather than silently forwarding a truncated completion.
+func TestHandleNonStreamingResponse_OversizedBodyRefused(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const head = `{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(head),
+			io.LimitReader(paddingReader{}, nonStreamingBodyCap),
+		)),
+		Header: http.Header{"Content-Type": []string{"application/json"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+	rec := httptest.NewRecorder()
+
+	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	if logData.state != "failed" {
+		t.Fatalf("state = %q, want failed for an oversized body", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "non-streaming body cap") {
+		t.Fatalf("errorMessage does not name the cap: %q", logData.errorMessage)
+	}
+	if strings.Contains(rec.Body.String(), "aaaa") {
+		t.Fatalf("truncated body forwarded to the client: %.200q", rec.Body.String())
+	}
+	if rec.Body.Len() > 4096 {
+		t.Fatalf("oversized body echoed to the client (%d bytes)", rec.Body.Len())
+	}
+}
+
+// A body of exactly the cap is legitimate and must still decode and reach the
+// client whole: the read takes cap+1 bytes precisely so the boundary case is
+// not mistaken for an overflow.
+func TestHandleNonStreamingResponse_BodyAtCapDecodesIntact(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const head = `{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"`
+	const tail = `"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
+	pad := nonStreamingBodyCap - len(head) - len(tail)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(head),
+			io.LimitReader(paddingReader{}, int64(pad)),
+			strings.NewReader(tail),
+		)),
+		Header: http.Header{"Content-Type": []string{"application/json"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+	rec := httptest.NewRecorder()
+
+	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	if logData.state != "completed" {
+		t.Fatalf("state = %q (%s), want completed for a body exactly at the cap", logData.state, logData.errorMessage)
+	}
+	var got ChatCompletionResponse
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("client response did not decode: %v", err)
+	}
+	content, _ := got.Choices[0].Message.Content.(string)
+	if len(content) != pad {
+		t.Fatalf("content forwarded truncated: %d bytes, want %d", len(content), pad)
+	}
+}
+
+// Everything unmodelled in a completion has to reach the client: a client that
+// asked for logprobs gets them, aggregator routing/cost fields survive, and the
+// normalisation this package does still wins over the raw copy.
+func TestHandleNonStreamingResponse_PreservesUnmodelledFields(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const body = `{"id":"chatcmpl-1","object":"chat.completion","created":1,"model":"m",
+		"system_fingerprint":"fp_abc","provider":"Together",
+		"choices":[{"index":0,"logprobs":{"content":[{"token":"hi","logprob":-0.25}]},
+		  "native_finish_reason":"STOP",
+		  "message":{"role":"assistant","content":"hi","reasoning":"pondered"},"finish_reason":"stop"}],
+		"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3,"cost":0.000123}}`
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	rec := httptest.NewRecorder()
+
+	h.handleNonStreamingResponse(rec, req, nonStreamingLogData(), resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("client response did not decode: %v (%s)", err, rec.Body.String())
+	}
+	if got["system_fingerprint"] != "fp_abc" || got["provider"] != "Together" {
+		t.Errorf("top-level provider fields dropped: %s", rec.Body.String())
+	}
+	choice, ok := got["choices"].([]any)[0].(map[string]any)
+	if !ok {
+		t.Fatalf("no choice in response: %s", rec.Body.String())
+	}
+	if _, has := choice["logprobs"]; !has {
+		t.Errorf("logprobs dropped: %s", rec.Body.String())
+	}
+	if choice["native_finish_reason"] != "STOP" {
+		t.Errorf("native_finish_reason dropped: %s", rec.Body.String())
+	}
+	usage, ok := got["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("no usage in response: %s", rec.Body.String())
+	}
+	if usage["cost"] != 0.000123 {
+		t.Errorf("usage.cost dropped: %s", rec.Body.String())
+	}
+	if usage["total_tokens"] != float64(3) {
+		t.Errorf("modelled usage field lost: %s", rec.Body.String())
+	}
+	msg := choice["message"].(map[string]any)
+	if msg["reasoning_content"] != "pondered" {
+		t.Errorf("reasoning normalisation lost: %s", rec.Body.String())
+	}
+}
+
+// The content rule at the unit level, both directions at once.
+func TestNonStreamingFailureDetail(t *testing.T) {
+	t.Parallel()
+
+	jsonHeader := http.Header{"Content-Type": []string{"application/json"}}
+	decodeErr := errors.New("json: cannot unmarshal string into Go struct field ChatCompletionResponse.created of type int64")
+
+	t.Run("2xx keeps the completion out of the logs", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"choices":[{"message":{"role":"assistant","content":"private answer"}}],"created":"1"}`)
+		resp := &http.Response{StatusCode: http.StatusOK, Header: jsonHeader}
+
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, decodeErr, "m")
+
+		for _, s := range []string{logMsg, detail} {
+			if strings.Contains(s, "private answer") || strings.Contains(s, "choices") {
+				t.Fatalf("body content leaked: %q", s)
+			}
+			if !strings.Contains(s, fmt.Sprintf("body_bytes=%d", len(body))) || !strings.Contains(s, "application/json") {
+				t.Errorf("diagnostics missing: %q", s)
+			}
+		}
+		if kind != KindProviderBadRequest {
+			t.Errorf("kind = %v, want %v", kind, KindProviderBadRequest)
+		}
+		if !strings.Contains(reason, "could not decode") || strings.Contains(reason, "200") {
+			t.Errorf("reason = %q", reason)
+		}
+	})
+
+	t.Run("non-2xx keeps the upstream error text", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"error":{"message":"rate limit reached for gpt-4o"}}`)
+		resp := &http.Response{StatusCode: http.StatusTooManyRequests, Header: jsonHeader}
+
+		logMsg, detail, kind, _ := nonStreamingFailureDetail(resp, body, nil, "gpt-4o")
+
+		if !strings.Contains(logMsg, "upstream HTTP 429") || !strings.Contains(logMsg, "rate limit reached") {
+			t.Errorf("logMsg = %q", logMsg)
+		}
+		if !strings.Contains(detail, "rate limit reached") {
+			t.Errorf("detail = %q", detail)
+		}
+		if kind == "" {
+			t.Error("non-2xx must be classified")
+		}
+	})
+
+	t.Run("non-2xx that also fails to decode is named as such", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`<html>502 Bad Gateway</html>`)
+		resp := &http.Response{StatusCode: http.StatusBadGateway, Header: http.Header{"Content-Type": []string{"text/html"}}}
+
+		logMsg, _, _, _ := nonStreamingFailureDetail(resp, body, decodeErr, "m")
+
+		if !strings.Contains(logMsg, "response decode error") || !strings.Contains(logMsg, "502 Bad Gateway") {
+			t.Errorf("logMsg = %q", logMsg)
+		}
+	})
 }
