@@ -10,6 +10,7 @@ package anthropicegress
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -167,7 +168,7 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %w", err)
 	}
 	if req.Model == "" {
-		return nil, "", false, fmt.Errorf("anthropicegress: model is required")
+		return nil, "", false, errors.New("anthropicegress: model is required")
 	}
 
 	out := antRequest{
@@ -184,7 +185,7 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 		return nil, "", false, err
 	}
 	if len(messages) == 0 {
-		return nil, "", false, fmt.Errorf("anthropicegress: at least one user or assistant message with content is required")
+		return nil, "", false, errors.New("anthropicegress: at least one user or assistant message with content is required")
 	}
 	out.System = system
 	out.Messages = messages
@@ -199,12 +200,13 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 	}
 
 	// max_completion_tokens is the modern OpenAI field and wins over the
-	// deprecated max_tokens when both are present.
+	// deprecated max_tokens when both are present. A non-positive value is no
+	// budget at all — Anthropic 400s on it — so it falls through to the default.
 	out.MaxTokens = req.MaxCompletionTokens
-	if out.MaxTokens == 0 {
+	if out.MaxTokens <= 0 {
 		out.MaxTokens = req.MaxTokens
 	}
-	if out.MaxTokens == 0 {
+	if out.MaxTokens <= 0 {
 		out.MaxTokens = DefaultMaxTokens
 	}
 
@@ -228,18 +230,19 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 
 // translateMessages converts the OpenAI message list into the Anthropic system
 // prompt plus the conversation turns. system/developer messages lift out of the
-// turn list (Anthropic has no such role), and a run of role:"tool" messages
-// coalesces into one user turn.
+// turn list (Anthropic has no such role), a run of role:"tool" messages
+// coalesces into one user turn, and adjacent same-role turns merge.
 func translateMessages(in []oaiMessage) (string, []antMessage, error) {
 	var systemParts []string
 	var out []antMessage
-	// Open run of tool_result blocks: Anthropic rejects a sequence of user
-	// turns each holding a single result, so consecutive tool messages
-	// accumulate here and flush as one turn when the run ends.
+	// Open run of tool_result blocks: Anthropic's turns must alternate and it
+	// rejects a sequence of user turns each holding a single result, so
+	// consecutive tool messages accumulate here and flush as one turn when the
+	// run ends.
 	var toolRun []antBlock
 	flushToolRun := func() {
 		if len(toolRun) > 0 {
-			out = append(out, antMessage{Role: "user", Content: toolRun})
+			out = appendTurn(out, antMessage{Role: "user", Content: toolRun})
 			toolRun = nil
 		}
 	}
@@ -255,32 +258,52 @@ func translateMessages(in []oaiMessage) (string, []antMessage, error) {
 		}
 		flushToolRun()
 
-		switch m.Role {
-		case "system", "developer":
+		if m.Role == "system" || m.Role == "developer" {
 			if text := flattenText(m.Content); text != "" {
 				systemParts = append(systemParts, text)
 			}
-		case "assistant":
-			msg, err := translateTurn("assistant", m)
-			if err != nil {
-				return "", nil, err
-			}
-			if msg != nil {
-				out = append(out, *msg)
-			}
-		default: // "user" and anything unrecognised
-			msg, err := translateTurn("user", m)
-			if err != nil {
-				return "", nil, err
-			}
-			if msg != nil {
-				out = append(out, *msg)
-			}
+			continue
+		}
+
+		role := "user" // anything unrecognised is a user turn
+		if m.Role == "assistant" {
+			role = "assistant"
+		}
+		msg, err := translateTurn(role, m)
+		if err != nil {
+			return "", nil, err
+		}
+		if msg != nil {
+			out = appendTurn(out, *msg)
 		}
 	}
 	flushToolRun()
 
 	return strings.Join(systemParts, "\n\n"), out, nil
+}
+
+// appendTurn adds a turn to the conversation, merging its content into the
+// previous turn when the roles match. Anthropic's turns must alternate, and
+// OpenAI accepts (and clients send) adjacent same-role messages.
+func appendTurn(out []antMessage, m antMessage) []antMessage {
+	if len(out) == 0 || out[len(out)-1].Role != m.Role {
+		return append(out, m)
+	}
+	prev := &out[len(out)-1]
+	prev.Content = append(contentBlocks(prev.Content), contentBlocks(m.Content)...)
+	return out
+}
+
+// contentBlocks normalises a turn's content to blocks so two turns can merge:
+// a plain string is promoted to a single text block.
+func contentBlocks(content any) []antBlock {
+	switch c := content.(type) {
+	case []antBlock:
+		return c
+	case string:
+		return []antBlock{{Type: "text", Text: c}}
+	}
+	return nil
 }
 
 // translateTurn builds one Anthropic turn from an OpenAI message. It returns
@@ -372,6 +395,11 @@ func imageBlock(u string) (antBlock, bool) {
 		return antBlock{Type: "image", Source: &antSource{Type: "url", URL: u}}, true
 	}
 	if imageMediaTypes[du.mediaType] {
+		// A payload without the ";base64" marker is percent-encoded bytes, not
+		// base64; forwarding it under a base64 source would ship garbage.
+		if !du.base64 {
+			return antBlock{}, false
+		}
 		return antBlock{Type: "image", Source: &antSource{
 			Type:      "base64",
 			MediaType: du.mediaType,
@@ -411,6 +439,11 @@ func documentBlock(du dataURI) (antBlock, bool) {
 			Data:      text,
 		}}, true
 	}
+	// Same rule as an image source: without the ";base64" marker the payload is
+	// percent-encoded bytes and cannot be passed off as base64.
+	if !du.base64 {
+		return antBlock{}, false
+	}
 	return antBlock{Type: "document", Source: &antSource{
 		Type:      "base64",
 		MediaType: documentMediaType,
@@ -436,8 +469,9 @@ func decodePayload(du dataURI) (string, bool) {
 }
 
 // translateTools maps OpenAI function tools onto Anthropic tools. Anthropic
-// requires an input_schema, so a tool that declares no parameters gets an empty
-// object schema instead of a missing field.
+// requires an input_schema and reads it as a JSON object, so a tool whose
+// parameters are absent, null or any other non-object gets an empty object
+// schema instead of a field the upstream rejects.
 func translateTools(in []oaiTool) []antTool {
 	if len(in) == 0 {
 		return nil
@@ -445,7 +479,7 @@ func translateTools(in []oaiTool) []antTool {
 	out := make([]antTool, 0, len(in))
 	for _, t := range in {
 		schema := t.Function.Parameters
-		if len(schema) == 0 || string(schema) == "null" {
+		if len(schema) == 0 || schema[0] != '{' {
 			schema = json.RawMessage(`{"type":"object","properties":{}}`)
 		}
 		out = append(out, antTool{
@@ -500,9 +534,11 @@ func toolInput(arguments string) json.RawMessage {
 	return raw
 }
 
-// asJSONString returns the value when raw is a JSON string literal, ok=false
-// otherwise (including arrays and objects). Used to tell plain-string message
-// content from a content-part array.
+// asJSONString returns the value when raw is a JSON string literal, and
+// ok=false for arrays, objects and an absent field. JSON null decodes into a
+// string without error, so it yields ("", true) — which every caller wants,
+// since a null content field carries nothing either way. Used to tell
+// plain-string message content from a content-part array.
 func asJSONString(raw json.RawMessage) (string, bool) {
 	if len(raw) == 0 {
 		return "", false
