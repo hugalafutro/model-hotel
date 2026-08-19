@@ -1,27 +1,27 @@
 [versions]
-agp = "8.7.3"
-kotlin = "2.1.0"
-ktlint = "12.1.2"
-coreKtx = "1.15.0"
-activityCompose = "1.9.3"
-lifecycle = "2.8.7"
-composeBom = "2024.12.01"
+agp = "9.3.1"
+# AGP 9 supplies the Kotlin compiler itself (built-in Kotlin), so this only
+# versions the compose and serialization compiler plugins. Keep it equal to the
+# Kotlin Gradle plugin AGP bundles (see the agp POM's kotlin-gradle-plugin
+# dependency) or the plugins and the compiler disagree.
+kotlin = "2.2.10"
+ktlint = "14.2.0"
+coreKtx = "1.19.0"
+activityCompose = "1.13.0"
+lifecycle = "2.11.0"
+composeBom = "2026.08.00"
 junit = "4.13.2"
-robolectric = "4.14.1"
-okhttp = "4.12.0"
-kotlinxSerialization = "1.7.3"
-datastore = "1.1.1"
-coroutines = "1.9.0"
+robolectric = "4.16.1"
+okhttp = "5.5.0"
+kotlinxSerialization = "1.11.0"
+datastore = "1.2.1"
+coroutines = "1.11.0"
 zxingEmbedded = "4.3.0"
 biometric = "1.1.0"
-fragment = "1.8.5"
-work = "2.9.1"
-# Pinned to the newest 3.x built with Kotlin <= 2.1.0 (this project's compiler):
-# 3.1.0+ ship Kotlin 2.2/2.3 metadata the 2.1.0 compiler can't read. 3.0.10 has
-# the full PushService API we use and stdlib 2.0.21, which resolves cleanly here.
-unifiedpush = "3.0.10"
-# Last stable Glance; built against Compose runtime 1.7.x / pre-2.2 Kotlin
-# metadata, so it resolves cleanly under this project's Kotlin 2.1.0.
+fragment = "1.9.0"
+work = "2.11.2"
+unifiedpush = "3.3.3"
+# Last stable Glance.
 glance = "1.1.1"
 
 [libraries]
@@ -56,7 +56,6 @@ unifiedpush-connector = { group = "org.unifiedpush.android", name = "connector",
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }

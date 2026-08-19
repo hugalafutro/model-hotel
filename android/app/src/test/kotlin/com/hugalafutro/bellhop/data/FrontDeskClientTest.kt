@@ -300,7 +300,11 @@ class FrontDeskClientTest {
             val result = client.events(server.url("/").toString(), "tok-1")
             assertTrue(result is FetchResult.Success)
             result as FetchResult.Success
-            assertTrue(result.data.events.orEmpty().isEmpty())
+            assertTrue(
+                result.data.events
+                    .orEmpty()
+                    .isEmpty(),
+            )
         }
 
     @Test

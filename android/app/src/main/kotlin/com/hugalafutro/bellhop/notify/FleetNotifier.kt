@@ -177,12 +177,10 @@ object FleetNotifier {
                 .setSmallIcon(R.drawable.ic_stat_bellhop)
                 .setContentTitle(
                     context.getString(R.string.notif_push_test_title, sender ?: DEFAULT_TEST_SENDER),
-                )
-                .setContentText(context.getString(R.string.notif_push_test_body))
+                ).setContentText(context.getString(R.string.notif_push_test_body))
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_push_test_body)),
-                )
-                .setContentIntent(openAppIntent(context))
+                ).setContentIntent(openAppIntent(context))
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .build()

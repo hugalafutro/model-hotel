@@ -60,8 +60,7 @@ fun SeverityRailRow(
                         onClick != null -> Modifier.clickable(onClick = onClick)
                         else -> Modifier
                     },
-                )
-                .background(accent.copy(alpha = 0.06f))
+                ).background(accent.copy(alpha = 0.06f))
                 .testTag(rowTag),
     ) {
         // Full-row overlay that only paints the left rail. matchParentSize keeps it
@@ -74,8 +73,7 @@ fun SeverityRailRow(
                     .matchParentSize()
                     .drawBehind {
                         drawRect(color = accent, size = Size(RAIL_WIDTH.toPx(), size.height))
-                    }
-                    .testTag(railTag),
+                    }.testTag(railTag),
         )
         // start clears the rail (was a 3.dp rail + 12.dp content padding = 15.dp).
         Column(

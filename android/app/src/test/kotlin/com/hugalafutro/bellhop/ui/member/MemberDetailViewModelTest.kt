@@ -20,6 +20,7 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -129,11 +130,13 @@ class MemberDetailViewModelTest {
     val tmp = TemporaryFolder()
 
     // viewModelScope launches on Main; run it inline in tests.
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUpMain() {
         Dispatchers.setMain(Dispatchers.Unconfined)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDownMain() {
         Dispatchers.resetMain()
@@ -216,7 +219,11 @@ class MemberDetailViewModelTest {
 
             vm.refreshOnce()
 
-            assertEquals(listOf("e1"), vm.state.value.events.map { it.id })
+            assertEquals(
+                listOf("e1"),
+                vm.state.value.events
+                    .map { it.id },
+            )
             // The events read is scoped to this member so the detail shows only
             // its own history, not the whole fleet's log.
             assertEquals("m1", client.lastEventQuery?.memberId)
@@ -235,7 +242,9 @@ class MemberDetailViewModelTest {
 
             assertEquals(EventRange.H24, vm.state.value.range)
             assertEquals(
-                java.time.Instant.ofEpochMilli(nowMs - EventRange.H24.ms).toString(),
+                java.time.Instant
+                    .ofEpochMilli(nowMs - EventRange.H24.ms)
+                    .toString(),
                 client.lastEventQuery?.since,
             )
             assertEquals("", client.lastEventQuery?.until)

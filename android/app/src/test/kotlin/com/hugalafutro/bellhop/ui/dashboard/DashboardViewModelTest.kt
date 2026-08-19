@@ -28,6 +28,7 @@ import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -191,11 +192,13 @@ class DashboardViewModelTest {
     val tmp = TemporaryFolder()
 
     // viewModelScope dispatches on Main; run it inline for tests.
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUpMain() {
         Dispatchers.setMain(Dispatchers.Unconfined)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDownMain() {
         Dispatchers.resetMain()
@@ -268,7 +271,14 @@ class DashboardViewModelTest {
 
             vm.refreshOnce()
             assertEquals(1, signals)
-            assertEquals("hotel-1", widget.read()?.members?.single()?.name)
+            assertEquals(
+                "hotel-1",
+                widget
+                    .read()
+                    ?.members
+                    ?.single()
+                    ?.name,
+            )
 
             // The same data again inside the stamp window: no write, no re-render signal.
             vm.refreshOnce()
@@ -339,7 +349,10 @@ class DashboardViewModelTest {
 
             vm.refreshOnce()
 
-            assertTrue(vm.state.value.recentEvents.isEmpty())
+            assertTrue(
+                vm.state.value.recentEvents
+                    .isEmpty(),
+            )
         }
 
     @Test
@@ -384,7 +397,11 @@ class DashboardViewModelTest {
 
             vm.refreshOnce()
 
-            assertEquals("fetched m1", vm.state.value.recentEvents["m1"]?.message)
+            assertEquals(
+                "fetched m1",
+                vm.state.value.recentEvents["m1"]
+                    ?.message,
+            )
             assertTrue(client.eventsCalls.get() > 0)
         }
 
@@ -986,7 +1003,11 @@ class DashboardViewModelTest {
 
             vm.refreshOnce()
 
-            assertEquals(listOf("b", "a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("b", "a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
         }
 
     @Test
@@ -997,12 +1018,20 @@ class DashboardViewModelTest {
             val vm = viewModel(client)
 
             vm.refreshOnce()
-            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
 
             // A transient quota read failure must not blank the already-good list.
             client.quotaResult = FetchResult.Failure("nope")
             vm.refreshOnce()
-            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
             // The deep-link resolver is kept alongside the row: a widget badge
             // tapped while the quota read is failing must still find its entry
             // instead of opening onto nothing.
@@ -1016,7 +1045,11 @@ class DashboardViewModelTest {
             client.quotaResult = FetchResult.Success(listOf(quota("a")))
             val vm = viewModel(client)
             vm.refreshOnce()
-            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
 
             // Front Desk can't reach the primary, so both the re-poll and the
             // read behind it fail. The row keeps its last-good badge either way,
@@ -1048,7 +1081,11 @@ class DashboardViewModelTest {
             client.quotaResult = FetchResult.Success(listOf(quota("a")))
             val vm = viewModel(client)
             vm.refreshOnce()
-            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
 
             // The manual refresh's re-read must see fresh data, not the stale
             // snapshot from before the POST /api/quota/refresh call.
@@ -1058,7 +1095,11 @@ class DashboardViewModelTest {
             withTimeout(5_000) { vm.state.first { !it.refreshing && it.quota.size == 2 } }
 
             assertEquals(1, client.refreshQuotaCalls.get())
-            assertEquals(listOf("a", "b"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a", "b"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
             assertFalse(vm.state.value.refreshing)
         }
 
@@ -1101,9 +1142,17 @@ class DashboardViewModelTest {
             vm.refreshOnce()
 
             // Dashboard row excludes the hidden "b"...
-            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            assertEquals(
+                listOf("a"),
+                vm.state.value.quota
+                    .map { it.providerName },
+            )
             // ...but the deep-link resolver still carries it.
-            assertEquals("b", vm.state.value.quotaByName["b"]?.providerName)
+            assertEquals(
+                "b",
+                vm.state.value.quotaByName["b"]
+                    ?.providerName,
+            )
             assertEquals(setOf("a", "b"), vm.state.value.quotaByName.keys)
         }
 

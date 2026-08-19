@@ -494,7 +494,9 @@ class DashboardViewModel(
                         for (m in result.data) {
                             when (val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))) {
                                 is FetchResult.Success ->
-                                    res.data.events?.firstOrNull()?.let { fallback[m.id] = it }
+                                    res.data.events
+                                        ?.firstOrNull()
+                                        ?.let { fallback[m.id] = it }
                                 // A token revoked mid-refresh (members succeeded, then
                                 // this authenticated call is rejected) must land in the
                                 // same revoked-unlink recovery state as a members 401,

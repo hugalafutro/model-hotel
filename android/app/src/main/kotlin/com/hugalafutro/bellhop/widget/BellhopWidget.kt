@@ -477,9 +477,10 @@ private fun WidgetContent(
                         }
                     Row(
                         modifier =
-                            GlanceModifier.background(
-                                ImageProvider(R.drawable.widget_pill_bg),
-                            ).padding(horizontal = 7.dp, vertical = 2.dp),
+                            GlanceModifier
+                                .background(
+                                    ImageProvider(R.drawable.widget_pill_bg),
+                                ).padding(horizontal = 7.dp, vertical = 2.dp),
                     ) {
                         Text(
                             "${c.up}/${state.members.size}",

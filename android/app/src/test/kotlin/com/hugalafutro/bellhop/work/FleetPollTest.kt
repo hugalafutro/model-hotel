@@ -264,9 +264,10 @@ class FleetPollTest {
 
             pollFleet(
                 client,
-                server.url(
-                    "/",
-                ).toString(),
+                server
+                    .url(
+                        "/",
+                    ).toString(),
                 "tok-1",
                 store,
                 widget,
@@ -277,7 +278,14 @@ class FleetPollTest {
                 },
             )
 
-            assertEquals(listOf(1, 5), widget.read()?.members?.single()?.traffic)
+            assertEquals(
+                listOf(1, 5),
+                widget
+                    .read()
+                    ?.members
+                    ?.single()
+                    ?.traffic,
+            )
             // members + autosync + quota + one traffic call for the one member.
             assertEquals(4, server.requestCount)
         }
@@ -292,7 +300,14 @@ class FleetPollTest {
 
             poll(store, widget)
 
-            assertEquals(emptyList<Int>(), widget.read()?.members?.single()?.traffic)
+            assertEquals(
+                emptyList<Int>(),
+                widget
+                    .read()
+                    ?.members
+                    ?.single()
+                    ?.traffic,
+            )
             // The exact request count the battery baseline was measured against.
             assertEquals(3, server.requestCount)
         }
@@ -315,9 +330,10 @@ class FleetPollTest {
 
             pollFleet(
                 client,
-                server.url(
-                    "/",
-                ).toString(),
+                server
+                    .url(
+                        "/",
+                    ).toString(),
                 "tok-1",
                 store,
                 widget,
@@ -330,7 +346,14 @@ class FleetPollTest {
 
             // A failed series read keeps the member's previous bars: stale beats
             // blank, and a blip must not blank the whole hour.
-            assertEquals(listOf(7, 8), widget.read()?.members?.single()?.traffic)
+            assertEquals(
+                listOf(7, 8),
+                widget
+                    .read()
+                    ?.members
+                    ?.single()
+                    ?.traffic,
+            )
         }
 
     @Test

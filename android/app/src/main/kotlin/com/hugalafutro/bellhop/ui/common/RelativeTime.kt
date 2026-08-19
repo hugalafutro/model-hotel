@@ -9,11 +9,17 @@ import com.hugalafutro.bellhop.R
 sealed interface Ago {
     data object JustNow : Ago
 
-    data class Minutes(val n: Int) : Ago
+    data class Minutes(
+        val n: Int,
+    ) : Ago
 
-    data class Hours(val n: Int) : Ago
+    data class Hours(
+        val n: Int,
+    ) : Ago
 
-    data class Days(val n: Int) : Ago
+    data class Days(
+        val n: Int,
+    ) : Ago
 }
 
 // agoBucket picks the coarse unit for an elapsed span (millis): "just now" under a

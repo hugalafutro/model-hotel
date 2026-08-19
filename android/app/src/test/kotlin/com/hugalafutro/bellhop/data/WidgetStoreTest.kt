@@ -41,7 +41,14 @@ class WidgetStoreTest {
             save(store, state(health = "UP", at = 1_000L))
             // Content changed one tick later: must write regardless of stamp age.
             assertTrue(save(store, state(health = "DOWN", at = 1_001L)))
-            assertEquals("DOWN", store.read()?.members?.single()?.state)
+            assertEquals(
+                "DOWN",
+                store
+                    .read()
+                    ?.members
+                    ?.single()
+                    ?.state,
+            )
         }
 
     @Test

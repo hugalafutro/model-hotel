@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.PairResult
 import com.hugalafutro.bellhop.data.PairedDevice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -51,11 +52,13 @@ class PairingViewModelTest {
 
     // viewModelScope dispatches on Main; Unconfined runs launched work inline so
     // runBlocking assertions see the result without a test scheduler to pump.
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         Dispatchers.setMain(Dispatchers.Unconfined)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDown() {
         Dispatchers.resetMain()

@@ -43,7 +43,9 @@ import java.util.Locale
  * EventRange is the relative "since" presets offered as time filters,
  * mirroring the Front Desk web Events page (0 = no lower bound).
  */
-enum class EventRange(val ms: Long) {
+enum class EventRange(
+    val ms: Long,
+) {
     ALL(0),
     H1(3_600_000),
     H24(86_400_000),

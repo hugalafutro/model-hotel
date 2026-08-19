@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.InMemoryPreferencesDataStore
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.PairedDevice
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -79,11 +80,13 @@ class AlertsViewModelTest {
         linkStore: LinkStore,
     ): AlertsViewModel = AlertsViewModel(client, linkStore, "http://fd:1")
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Before
     fun setUp() {
         Dispatchers.setMain(Dispatchers.Unconfined)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @After
     fun tearDownMain() {
         Dispatchers.resetMain()
@@ -157,7 +160,10 @@ class AlertsViewModelTest {
 
             assertEquals(okStatus, vm.state.value.status)
             assertEquals("cat down", vm.state.value.error)
-            assertTrue(vm.state.value.catalog.isEmpty())
+            assertTrue(
+                vm.state.value.catalog
+                    .isEmpty(),
+            )
         }
 
     @Test

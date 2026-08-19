@@ -914,7 +914,12 @@ private fun LanguageRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp).testTag(tag),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp)
+                .testTag(tag),
     ) {
         RadioButton(selected = selected, onClick = onClick)
         Text(
