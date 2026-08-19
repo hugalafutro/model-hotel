@@ -1,6 +1,7 @@
 package anthropicegress
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -217,11 +218,11 @@ func TestTranslateRequest_UnusableFileAndImagePartsAreDropped(t *testing.T) {
 		{name: "file part with an empty file object", part: `{"type":"file","file":{}}`},
 		{name: "file_data that is not a data uri", part: `{"type":"file","file":{"file_data":"JVBERi0="}}`},
 		{name: "undecodable base64 text payload", part: `{"type":"file","file":{"file_data":"data:text/plain;base64,!!not-base64!!"}}`},
-		// A payload with no ";base64" marker is percent-encoded bytes: passing
-		// it off as a base64 source would ship garbage Anthropic rejects.
-		{name: "percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%89PNG%0D%0A"}}`},
-		{name: "percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
-		{name: "percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
+		// Malformed percent-encoding is unrecoverable: "%PD" and "%ZZ" are not
+		// escapes, so there are no bytes to re-encode as base64.
+		{name: "malformed percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}`},
+		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
+		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
 	}
 
 	for _, tt := range tests {
@@ -247,6 +248,67 @@ func TestTranslateRequest_PlainTextDataURIIsPercentDecoded(t *testing.T) {
 	}
 	if src := sourceOf(t, blocks[0]); src.Type != "text" || src.Data != "hello world" {
 		t.Errorf("source = %+v, want a text source carrying the decoded text", src)
+	}
+}
+
+func TestTranslateRequest_PercentEncodedPayloadIsReEncodedAsBase64(t *testing.T) {
+	// A data: URI with no ";base64" marker carries percent-encoded bytes. The
+	// conversion is lossless, so the bytes are re-encoded rather than dropped:
+	// dropping would leave the request asking about a document that is not
+	// attached, and the model would answer confidently about nothing.
+	tests := []struct {
+		name          string
+		part          string
+		wantType      string
+		wantMediaType string
+		wantBytes     string
+	}{
+		{
+			name:          "image slot",
+			part:          `{"type":"image_url","image_url":{"url":"data:image/png,%89PNG%0D%0A"}}`,
+			wantType:      "image",
+			wantMediaType: "image/png",
+			wantBytes:     "\x89PNG\r\n",
+		},
+		{
+			name:          "pdf in the image slot",
+			part:          `{"type":"image_url","image_url":{"url":"data:application/pdf,%25PDF-1.4"}}`,
+			wantType:      "document",
+			wantMediaType: "application/pdf",
+			wantBytes:     "%PDF-1.4",
+		},
+		{
+			name:          "pdf file part",
+			part:          `{"type":"file","file":{"file_data":"data:application/pdf,%25PDF-1.4%0A%25%E2%E3%CF%D3"}}`,
+			wantType:      "document",
+			wantMediaType: "application/pdf",
+			wantBytes:     "%PDF-1.4\n%\xe2\xe3\xcf\xd3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := translate(t, `{"model":"m","messages":[{"role":"user","content":[`+tt.part+`]}]}`)
+
+			blocks := blocksOf(t, req.Messages[0])
+			if len(blocks) != 1 {
+				t.Fatalf("got %d blocks, want 1: %+v", len(blocks), blocks)
+			}
+			if blocks[0].Type != tt.wantType {
+				t.Errorf("block type = %q, want %q", blocks[0].Type, tt.wantType)
+			}
+			src := sourceOf(t, blocks[0])
+			if src.Type != "base64" || src.MediaType != tt.wantMediaType {
+				t.Errorf("source = %+v, want a base64 %s source", src, tt.wantMediaType)
+			}
+			decoded, err := base64.StdEncoding.DecodeString(src.Data)
+			if err != nil {
+				t.Fatalf("source data is not valid base64: %v", err)
+			}
+			if string(decoded) != tt.wantBytes {
+				t.Errorf("decoded data = %q, want the original bytes %q", decoded, tt.wantBytes)
+			}
+		})
 	}
 }
 

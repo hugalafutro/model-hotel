@@ -395,15 +395,14 @@ func imageBlock(u string) (antBlock, bool) {
 		return antBlock{Type: "image", Source: &antSource{Type: "url", URL: u}}, true
 	}
 	if imageMediaTypes[du.mediaType] {
-		// A payload without the ";base64" marker is percent-encoded bytes, not
-		// base64; forwarding it under a base64 source would ship garbage.
-		if !du.base64 {
+		data, ok := base64Payload(du)
+		if !ok {
 			return antBlock{}, false
 		}
 		return antBlock{Type: "image", Source: &antSource{
 			Type:      "base64",
 			MediaType: du.mediaType,
-			Data:      du.payload,
+			Data:      data,
 		}}, true
 	}
 	return documentBlock(du)
@@ -439,16 +438,31 @@ func documentBlock(du dataURI) (antBlock, bool) {
 			Data:      text,
 		}}, true
 	}
-	// Same rule as an image source: without the ";base64" marker the payload is
-	// percent-encoded bytes and cannot be passed off as base64.
-	if !du.base64 {
+	data, ok := base64Payload(du)
+	if !ok {
 		return antBlock{}, false
 	}
 	return antBlock{Type: "document", Source: &antSource{
 		Type:      "base64",
 		MediaType: documentMediaType,
-		Data:      du.payload,
+		Data:      data,
 	}}, true
+}
+
+// base64Payload returns a data: URI payload in the base64 an Anthropic base64
+// source expects. A ";base64" payload is already there; anything else is
+// percent-encoded bytes, which re-encode losslessly. ok is false when the
+// percent-decode fails — malformed input is unrecoverable, and forwarding it
+// under a base64 label would ship garbage.
+func base64Payload(du dataURI) (string, bool) {
+	if du.base64 {
+		return du.payload, true
+	}
+	raw, err := url.PathUnescape(du.payload)
+	if err != nil {
+		return "", false
+	}
+	return base64.StdEncoding.EncodeToString([]byte(raw)), true
 }
 
 // decodePayload returns the plain-text bytes of a data: URI payload: base64 for
