@@ -28,30 +28,40 @@ func RewriteModel(body []byte, model string) []byte {
 	return out
 }
 
-// ParseResponseUsage extracts input/output token counts from a non-streaming
-// Anthropic Messages response (top-level usage{...}) for metering.
-// Missing/unparseable usage yields zeros.
+// ResponseUsage is the metering summary of one Anthropic Messages response,
+// produced from a single parse. PromptTokens is the whole prompt; CacheHit and
+// CacheMiss split it by how the tokens were billed, and always sum back to it.
+type ResponseUsage struct {
+	PromptTokens     int
+	CompletionTokens int
+	CacheHitTokens   int
+	CacheMissTokens  int
+}
+
+// ParseResponseUsage extracts the token counts from a non-streaming Anthropic
+// Messages response (top-level usage{...}) for metering. A missing or
+// unparseable usage block yields a zero ResponseUsage.
 //
-// inputTokens is the SUM of input_tokens, cache_read_input_tokens and
+// PromptTokens is the SUM of input_tokens, cache_read_input_tokens and
 // cache_creation_input_tokens: Anthropic's three counts are disjoint additions,
 // not a breakdown, so a cache hit reports input_tokens: 4 alongside
 // cache_read_input_tokens: 20000 for a ~20004-token prompt. Metering the bare
 // input_tokens under-reports a warm-cache request by the whole cached figure.
 // The egress adapter does the same arithmetic (see
 // internal/anthropicegress.translateUsage), so both Anthropic paths agree.
-func ParseResponseUsage(body []byte) (inputTokens, outputTokens int) {
+func ParseResponseUsage(body []byte) ResponseUsage {
 	var resp struct {
 		Usage antUsage `json:"usage"`
 	}
 	if json.Unmarshal(body, &resp) != nil {
-		return 0, 0
+		return ResponseUsage{}
 	}
-	return resp.Usage.promptTokens(), resp.Usage.OutputTokens
+	return resp.Usage.summary()
 }
 
 // antUsage is an Anthropic usage block. The cache fields are absent from
-// responses that use no cache, which decodes to zero and leaves the sum equal
-// to input_tokens.
+// responses that use no cache, which decodes to zero and leaves the whole
+// prompt counted as a miss.
 type antUsage struct {
 	InputTokens              int `json:"input_tokens"`
 	OutputTokens             int `json:"output_tokens"`
@@ -59,9 +69,20 @@ type antUsage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
-// promptTokens is the full prompt size: the three disjoint input counts summed.
-func (u antUsage) promptTokens() int {
-	return u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
+// summary splits the block into the counts the proxy meters. The whole prompt
+// is the three disjoint input counts summed; of those, only
+// cache_read_input_tokens was served from cache and billed at the cache-hit
+// rate. Cache CREATION is a miss: those tokens are processed (and surcharged)
+// on this request and only pay off on the next one. Reporting the sum without
+// this split prices every cached token at full input rate, which is a different
+// skew from under-counting, not an absence of one.
+func (u antUsage) summary() ResponseUsage {
+	return ResponseUsage{
+		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
+		CompletionTokens: u.OutputTokens,
+		CacheHitTokens:   u.CacheReadInputTokens,
+		CacheMissTokens:  u.InputTokens + u.CacheCreationInputTokens,
+	}
 }
 
 // ResponseCarriesContent reports whether a non-streaming Messages response holds
@@ -88,12 +109,14 @@ func ResponseCarriesContent(body []byte) bool {
 // the error message on an "error" event (so a provider-sent error is recorded,
 // not just forwarded blind).
 type StreamEvent struct {
-	Type         string
-	InputTokens  int
-	HasInput     bool
-	OutputTokens int
-	HasOutput    bool
-	ErrorMessage string // set only when Type == "error"
+	Type            string
+	InputTokens     int
+	CacheHitTokens  int // the cache-served share of InputTokens
+	CacheMissTokens int // the rest of InputTokens, billed at full input rate
+	HasInput        bool
+	OutputTokens    int
+	HasOutput       bool
+	ErrorMessage    string // set only when Type == "error"
 }
 
 // InspectStreamEvent decodes one Anthropic stream event payload (the JSON after
@@ -101,9 +124,9 @@ type StreamEvent struct {
 // cumulative usage.output_tokens; an "error" event carries error.message. A
 // payload that does not parse yields a zero StreamEvent (Type == "").
 //
-// InputTokens is the sum of the three disjoint Anthropic input counts, the same
-// arithmetic ParseResponseUsage does, so a streamed warm-cache request meters
-// its full prompt rather than the uncached remainder.
+// InputTokens and its cache split come from the same arithmetic
+// ParseResponseUsage does, so a streamed warm-cache request meters its full
+// prompt — and prices it — exactly as the non-streaming path would.
 func InspectStreamEvent(payload []byte) StreamEvent {
 	var ev struct {
 		Type    string `json:"type"`
@@ -122,7 +145,9 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	switch ev.Type {
 	case "message_start":
 		if ev.Message != nil && ev.Message.Usage != nil {
-			info.InputTokens, info.HasInput = ev.Message.Usage.promptTokens(), true
+			u := ev.Message.Usage.summary()
+			info.InputTokens, info.HasInput = u.PromptTokens, true
+			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
 			if ev.Message.Usage.OutputTokens > 0 {
 				info.OutputTokens, info.HasOutput = ev.Message.Usage.OutputTokens, true
 			}

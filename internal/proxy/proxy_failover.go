@@ -139,24 +139,18 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// Works universally — any LLM API mentioning "temperature" or "top_p"
 	// in a 400 error can only mean the sampling parameter.
 	//
-	// Skipped for native Anthropic passthrough: this self-heal rebuilds the
-	// OpenAI-shaped st.bodyBytes via paramrewrite.BuildUpstreamBody and re-POSTs it, but a
-	// native attempt's targetURL is the provider's /v1/messages (Anthropic wire
-	// format). Stripping OpenAI params off the wrong body and sending it to the
-	// native endpoint would be malformed; a native 400 is forwarded as-is.
-	// Also skipped when the attempt already went to /v1/responses: rebuilding
-	// a chat-completions body and re-POSTing it there would be malformed, and
-	// a Responses-required 400 must run BEFORE the param retry — its error
-	// message names reasoning_effort, which the param parser would otherwise
-	// learn as a strip (useless on reason-by-default models).
-	// Also skipped for gemini egress attempts: the upstream body is
-	// generateContent-shaped, so re-POSTing a rebuilt chat body (or learning
-	// OpenAI param names from Gemini's error text) would be wrong; a Gemini
-	// 400 fails over or is forwarded as-is.
-	// Skipped for the same reason on anthropic egress attempts: that upstream
-	// body is Messages-shaped, so a rebuilt chat body re-POSTed to /v1/messages
-	// would be malformed and Anthropic's param names are not OpenAI's.
-	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt {
+	// Skipped on every dialect attempt (see sentChatCompletionsBody): this
+	// self-heal rebuilds the OpenAI-shaped st.bodyBytes via
+	// paramrewrite.BuildUpstreamBody and re-POSTs it to the same targetURL, which
+	// for a native /v1/messages, /v1/responses or generateContent route is a
+	// malformed request — and those endpoints' 400s name their own fields, not
+	// OpenAI's. A dialect 400 fails over or is forwarded as-is.
+	//
+	// Ordering, for the chat-completions case: retryWithResponses runs BEFORE the
+	// param retry because a Responses-required 400 names reasoning_effort, which
+	// the param parser would otherwise learn as a strip (useless on
+	// reason-by-default models).
+	if resp.StatusCode == 400 && st.sentChatCompletionsBody() {
 		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if !handled {
 			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)

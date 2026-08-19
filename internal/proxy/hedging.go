@@ -285,7 +285,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, readCap))
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
-		if resp.StatusCode == http.StatusBadRequest {
+		if resp.StatusCode == http.StatusBadRequest && st.sentChatCompletionsBody() {
 			// A hedged probe cannot retry in-race (a second upstream round-trip
 			// inside one race slot would skew the TTFT contest), but it can
 			// still LEARN the /v1/responses requirement from the 400 so every
@@ -295,6 +295,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// in-race, but learning here means the next request — hedged or
 			// sequential — is built without the params this model refuses.
 			h.learnRejectedParams(candidate, providerType, errBody)
+			// Both readings are only valid on a chat-completions attempt: a
+			// dialect 400 names that dialect's fields, and a strip mislearned
+			// from one poisons the compat path for this model on every later
+			// request. The sequential path gates its own 400 handling the same
+			// way.
 		}
 		// A hedged race drops every candidate but the winner here, so without
 		// this a dead model in a hedged group accrued strikes only on the runs it

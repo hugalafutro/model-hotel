@@ -61,7 +61,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		return outcomeFatal
 	}
 
-	inputTokens, outputTokens := anthropic.ParseResponseUsage(body)
+	usage := anthropic.ParseResponseUsage(body)
+	inputTokens, outputTokens := usage.PromptTokens, usage.CompletionTokens
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
 	logData.statusCode = http.StatusOK
@@ -77,6 +78,11 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.responseHeaderMs = responseHeaderMs
 	logData.tokensPrompt = inputTokens
 	logData.tokensCompletion = outputTokens
+	// The cache split, not just the total: metering the cache-inclusive prompt
+	// without it prices every cached token at full input rate. The translated
+	// path reaches the same two fields through extractCacheTokens.
+	logData.tokensPromptCacheHit = usage.CacheHitTokens
+	logData.tokensPromptCacheMiss = usage.CacheMissTokens
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	// What clears the model's gone-strike streak (see attemptCandidate), so the
@@ -111,6 +117,12 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
 	if info.HasInput {
 		st.promptTokens = info.InputTokens
+		// Guarded like the translated path's observer: a later usage event
+		// without cache fields must not zero a split an earlier one reported.
+		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
+			st.promptCacheHitTokens = info.CacheHitTokens
+			st.promptCacheMissTokens = info.CacheMissTokens
+		}
 	}
 	if info.HasOutput {
 		st.completionTokens = info.OutputTokens

@@ -16,10 +16,28 @@ var imageMediaTypes = map[string]bool{
 	"image/webp": true,
 }
 
+// carriesDocuments reports whether a message role's non-text content survives
+// translation to Anthropic's Messages shape. Only conversation turns do:
+// system and developer content is lifted into the top-level system prompt and
+// a tool message becomes a tool_result, and Anthropic types both as text, so
+// translateMessages flattens them and any document there is dropped. Routing a
+// request native for a document that cannot be carried would ask the model
+// about a file it never received, where the compat endpoint returns a clean
+// 400 instead.
+func carriesDocuments(role string) bool {
+	switch role {
+	case "system", "developer", "tool":
+		return false
+	default: // "user", "assistant", and anything unrecognised (a user turn)
+		return true
+	}
+}
+
 // NeedsNativeRouting reports whether a chat-completions request body carries a
 // content part Anthropic's OpenAI-compat endpoint cannot express and that
 // therefore has to go to the native /v1/messages route: an OpenAI file part, or
-// an image part whose data: URI holds a non-image media type.
+// an image part whose data: URI holds a non-image media type, on a message role
+// whose documents survive translation.
 //
 // Detection is conservative by construction: an unparseable body, string
 // message content, or a request holding only text and real images returns false
@@ -27,6 +45,7 @@ var imageMediaTypes = map[string]bool{
 func NeedsNativeRouting(chatBody []byte) bool {
 	var probe struct {
 		Messages []struct {
+			Role    string          `json:"role"`
 			Content json.RawMessage `json:"content"`
 		} `json:"messages"`
 	}
@@ -35,6 +54,9 @@ func NeedsNativeRouting(chatBody []byte) bool {
 	}
 
 	for _, m := range probe.Messages {
+		if !carriesDocuments(m.Role) {
+			continue
+		}
 		var parts []oaiContentPart
 		// String content (and null content) fails this decode; only part arrays
 		// can carry a file or an image source.

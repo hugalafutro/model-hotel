@@ -34,28 +34,44 @@ func TestRewriteModel_InvalidBodyUnchanged(t *testing.T) {
 
 func TestParseResponseUsage(t *testing.T) {
 	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":42,"output_tokens":7}}`)
-	in, out := ParseResponseUsage(body)
-	if in != 42 || out != 7 {
-		t.Errorf("usage = (%d,%d), want (42,7)", in, out)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 42 || u.CompletionTokens != 7 {
+		t.Errorf("usage = %+v, want prompt=42 completion=7", u)
+	}
+	// No cache fields: the whole prompt is a miss, and nothing is a hit.
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 42 {
+		t.Errorf("cache split = (%d,%d), want (0,42)", u.CacheHitTokens, u.CacheMissTokens)
 	}
 	// Invalid body yields zeros.
-	if in, out := ParseResponseUsage([]byte(`not json`)); in != 0 || out != 0 {
-		t.Errorf("invalid usage = (%d,%d), want (0,0)", in, out)
+	if u := ParseResponseUsage([]byte(`not json`)); u != (ResponseUsage{}) {
+		t.Errorf("invalid usage = %+v, want a zero ResponseUsage", u)
 	}
 }
 
 // Anthropic's cache counts are disjoint additions to input_tokens, not a
 // breakdown of it, so a warm-cache request reports a tiny input_tokens beside a
-// huge cache_read_input_tokens. Metering the bare field would under-report the
-// prompt by the whole cached figure.
-func TestParseResponseUsage_SumsCachedInput(t *testing.T) {
+// huge cache_read_input_tokens. Metering the bare field under-reports the
+// prompt by the whole cached figure; metering the sum alone then prices every
+// cached token at the full input rate. Both halves have to be right.
+func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
 	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
-	in, out := ParseResponseUsage(body)
-	if in != 20034 {
-		t.Errorf("prompt tokens = %d, want 20034 (4 + 20000 + 30)", in)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 20034 {
+		t.Errorf("prompt tokens = %d, want 20034 (4 + 20000 + 30)", u.PromptTokens)
 	}
-	if out != 50 {
-		t.Errorf("completion tokens = %d, want 50", out)
+	if u.CompletionTokens != 50 {
+		t.Errorf("completion tokens = %d, want 50", u.CompletionTokens)
+	}
+	// Only the cache READ is a hit. Cache creation is processed on this
+	// request and surcharged, so it belongs on the miss side.
+	if u.CacheHitTokens != 20000 {
+		t.Errorf("cache hit tokens = %d, want 20000", u.CacheHitTokens)
+	}
+	if u.CacheMissTokens != 34 {
+		t.Errorf("cache miss tokens = %d, want 34 (4 + 30)", u.CacheMissTokens)
+	}
+	if u.CacheHitTokens+u.CacheMissTokens != u.PromptTokens {
+		t.Errorf("split %d+%d does not sum back to the prompt %d", u.CacheHitTokens, u.CacheMissTokens, u.PromptTokens)
 	}
 }
 
@@ -149,14 +165,25 @@ func TestInspectStreamEvent(t *testing.T) {
 	}
 }
 
-// The streamed message_start reports the same summed prompt size the
-// non-streaming path does, so the two native paths meter a cached prompt alike.
-func TestInspectStreamEvent_SumsCachedInput(t *testing.T) {
+// The streamed message_start reports the same prompt size AND the same cache
+// split the non-streaming path does, so the two native paths meter and price a
+// cached prompt alike.
+func TestInspectStreamEvent_SplitsCachedInput(t *testing.T) {
 	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}}`))
 	if !ev.HasInput || ev.InputTokens != 20034 {
 		t.Errorf("input tokens = %d (has=%v), want 20034 (4 + 20000 + 30)", ev.InputTokens, ev.HasInput)
 	}
+	if ev.CacheHitTokens != 20000 || ev.CacheMissTokens != 34 {
+		t.Errorf("cache split = (%d,%d), want (20000,34)", ev.CacheHitTokens, ev.CacheMissTokens)
+	}
 	if !ev.HasOutput || ev.OutputTokens != 1 {
 		t.Errorf("output tokens = %d (has=%v), want 1", ev.OutputTokens, ev.HasOutput)
+	}
+
+	// An uncached stream reports no hit, so the proxy's (hit>0||miss>0) guard
+	// still records the miss rather than leaving the split empty.
+	plain := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":15,"output_tokens":0}}}`))
+	if plain.CacheHitTokens != 0 || plain.CacheMissTokens != 15 {
+		t.Errorf("uncached split = (%d,%d), want (0,15)", plain.CacheHitTokens, plain.CacheMissTokens)
 	}
 }

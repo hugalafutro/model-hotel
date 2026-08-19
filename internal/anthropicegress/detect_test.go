@@ -42,6 +42,49 @@ func TestNeedsNativeRouting(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "file part on an assistant turn",
+			body: `{"messages":[{"role":"assistant","content":[
+				{"type":"file","file":{"file_url":"https://example.com/a.pdf"}}]}]}`,
+			want: true,
+		},
+		// The roles below drop their documents in translation (system and
+		// developer content is flattened into the system prompt, a tool message
+		// into a text tool_result). Routing native for one would ask the model
+		// about a file that never arrived; the compat endpoint 400s instead.
+		{
+			name: "file part on a system turn",
+			body: `{"messages":[
+				{"role":"system","content":[{"type":"file","file":{"file_url":"https://example.com/a.pdf"}}]},
+				{"role":"user","content":"summarise it"}]}`,
+			want: false,
+		},
+		{
+			name: "file part on a developer turn",
+			body: `{"messages":[
+				{"role":"developer","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]},
+				{"role":"user","content":"summarise it"}]}`,
+			want: false,
+		},
+		{
+			name: "file part on a tool turn",
+			body: `{"messages":[
+				{"role":"tool","tool_call_id":"call_1","content":[{"type":"file","file":{"file_url":"https://example.com/a.pdf"}}]}]}`,
+			want: false,
+		},
+		{
+			name: "smuggled pdf on a system turn",
+			body: `{"messages":[
+				{"role":"system","content":[{"type":"image_url","image_url":{"url":"data:application/pdf;base64,JVBERi0="}}]}]}`,
+			want: false,
+		},
+		{
+			name: "system document beside a user document still routes native",
+			body: `{"messages":[
+				{"role":"system","content":[{"type":"file","file":{"file_url":"https://example.com/ignored.pdf"}}]},
+				{"role":"user","content":[{"type":"file","file":{"file_url":"https://example.com/a.pdf"}}]}]}`,
+			want: true,
+		},
+		{
 			name: "base64 image data uri",
 			body: `{"messages":[{"role":"user","content":[
 				{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0="}}]}]}`,

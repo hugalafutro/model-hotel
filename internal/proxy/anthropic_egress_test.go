@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -130,6 +132,34 @@ type anthropicUpstreamCall struct {
 	body map[string]any
 }
 
+// upstreamCallLog collects those records across goroutines: the httptest
+// handler appends from the server goroutine while the test goroutine reads and
+// resets between phases.
+type upstreamCallLog struct {
+	mu    sync.Mutex
+	calls []anthropicUpstreamCall
+}
+
+func (l *upstreamCallLog) record(c anthropicUpstreamCall) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.calls = append(l.calls, c)
+}
+
+// takeOne returns the single call of the phase just run and clears the log for
+// the next one, failing when the count is anything but one.
+func (l *upstreamCallLog) takeOne(t *testing.T, phase string) anthropicUpstreamCall {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	got := l.calls
+	l.calls = nil
+	if len(got) != 1 {
+		t.Fatalf("%s: upstream calls = %d, want 1", phase, len(got))
+	}
+	return got[0]
+}
+
 // TestChatCompletions_AnthropicEgress drives chat requests through the real
 // ChatCompletions pipeline against a fake Anthropic upstream. It proves the
 // whole adapter chain: a document-bearing request is translated to a Messages
@@ -137,7 +167,7 @@ type anthropicUpstreamCall struct {
 // chunks ending in [DONE]), while a text-only request to the same provider
 // stays on the untouched compat route.
 func TestChatCompletions_AnthropicEgress(t *testing.T) {
-	var calls []anthropicUpstreamCall
+	var log upstreamCallLog
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("x-api-key") != "test-api-key" {
 			t.Errorf("x-api-key = %q", r.Header.Get("x-api-key"))
@@ -149,7 +179,7 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 		}
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		calls = append(calls, anthropicUpstreamCall{path: r.URL.Path, body: body})
+		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
 
 		if r.URL.Path != "/v1/messages" {
 			// The compat route: answer in OpenAI shape, as Anthropic does.
@@ -199,22 +229,20 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("non-streaming: %d\n%s", w.Code, w.Body.String())
 	}
-	if len(calls) != 1 {
-		t.Fatalf("upstream calls = %d, want 1", len(calls))
+	call := log.takeOne(t, "non-streaming document")
+	if call.path != "/v1/messages" {
+		t.Fatalf("document request went to %s, want /v1/messages", call.path)
 	}
-	if calls[0].path != "/v1/messages" {
-		t.Fatalf("document request went to %s, want /v1/messages", calls[0].path)
+	if _, hasMessages := call.body["messages"]; !hasMessages {
+		t.Errorf("translated body has no messages: %v", call.body)
 	}
-	if _, hasMessages := calls[0].body["messages"]; !hasMessages {
-		t.Errorf("translated body has no messages: %v", calls[0].body)
+	if call.body["model"] != env.ModelName {
+		t.Errorf("upstream model = %v, want the resolved id %q", call.body["model"], env.ModelName)
 	}
-	if calls[0].body["model"] != env.ModelName {
-		t.Errorf("upstream model = %v, want the resolved id %q", calls[0].body["model"], env.ModelName)
+	if _, hasMaxTokens := call.body["max_tokens"]; !hasMaxTokens {
+		t.Errorf("Messages body missing the required max_tokens: %v", call.body)
 	}
-	if _, hasMaxTokens := calls[0].body["max_tokens"]; !hasMaxTokens {
-		t.Errorf("Messages body missing the required max_tokens: %v", calls[0].body)
-	}
-	assertDocumentBlockPresent(t, calls[0].body)
+	assertDocumentBlockPresent(t, call.body)
 
 	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
@@ -235,19 +263,16 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	}
 
 	// Text-only: the gate keeps it on the untouched compat route.
-	calls = nil
 	w = send(false, `"just text"`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("text-only: %d\n%s", w.Code, w.Body.String())
 	}
-	if len(calls) != 1 {
-		t.Fatalf("upstream calls = %d, want 1", len(calls))
+	call = log.takeOne(t, "text-only")
+	if call.path != "/v1/chat/completions" {
+		t.Errorf("text-only request went to %s, want /v1/chat/completions", call.path)
 	}
-	if calls[0].path != "/v1/chat/completions" {
-		t.Errorf("text-only request went to %s, want /v1/chat/completions", calls[0].path)
-	}
-	if _, translated := calls[0].body["max_tokens"]; translated {
-		t.Errorf("text-only body was translated: %v", calls[0].body)
+	if _, translated := call.body["max_tokens"]; translated {
+		t.Errorf("text-only body was translated: %v", call.body)
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("text-only response not JSON: %v\n%s", err, w.Body.String())
@@ -258,16 +283,16 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	}
 
 	// Streaming document: translated chunk stream ending in [DONE].
-	calls = nil
 	w = send(true, documentContent)
 	if w.Code != http.StatusOK {
 		t.Fatalf("streaming: %d\n%s", w.Code, w.Body.String())
 	}
-	if len(calls) != 1 || calls[0].path != "/v1/messages" {
-		t.Fatalf("streaming document calls = %+v, want one /v1/messages", calls)
+	call = log.takeOne(t, "streaming document")
+	if call.path != "/v1/messages" {
+		t.Fatalf("streaming document request went to %s, want /v1/messages", call.path)
 	}
-	if stream, _ := calls[0].body["stream"].(bool); !stream {
-		t.Errorf("streaming request lost its stream flag: %v", calls[0].body)
+	if stream, _ := call.body["stream"].(bool); !stream {
+		t.Errorf("streaming request lost its stream flag: %v", call.body)
 	}
 	sse := w.Body.String()
 	if !strings.Contains(sse, `"object":"chat.completion.chunk"`) {
@@ -345,5 +370,101 @@ func TestMessages_AnthropicProviderStaysNative(t *testing.T) {
 	}
 	if resp["type"] != "message" {
 		t.Errorf("response envelope = %v, want a verbatim Anthropic message", resp)
+	}
+}
+
+// A hedged streaming race builds its own request through buildCandidateRequest,
+// so a document-bearing candidate takes the egress route inside the race too —
+// and the hedged pipeline must see chat-completions SSE, not Anthropic events,
+// because the TTFT probe and everything after it only understand the former.
+func TestProbeStreamingCandidate_AnthropicEgress(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		for _, ev := range []string{
+			`{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":9,"output_tokens":1}}}`,
+			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hedged"}}`,
+			`{"type":"content_block_stop","index":0}`,
+			`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":3}}`,
+			`{"type":"message_stop"}`,
+		} {
+			_, _ = io.WriteString(w, "data: "+ev+"\n\n")
+		}
+	}))
+	defer srv.Close()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"` + pdfDataURI + `"}}]}]}`)
+	// An Anthropic base URL with the dialer pinned to the test server, so the
+	// candidate detects as anthropic while the bytes still land here.
+	cand.provider.BaseURL = "http://api.anthropic.com"
+	target := srv.Listener.Addr().String()
+	h.upstreamTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target)
+		},
+	}
+
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if !res.won {
+		t.Fatalf("expected a win, got reqErr=%+v", res.reqErr)
+	}
+	defer func() { _ = res.resp.Body.Close() }()
+
+	if gotPath != "/v1/messages" {
+		t.Errorf("hedged document probe went to %s, want /v1/messages", gotPath)
+	}
+	if !st.anthropicEgressAttempt {
+		t.Error("buildCandidateRequest did not mark the hedged attempt as egress")
+	}
+
+	// The probe holds back the bytes it already read; the stream is both halves.
+	var sse strings.Builder
+	if res.preReadBuf != nil {
+		sse.Write(res.preReadBuf.Bytes())
+	}
+	rest, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("reading hedged stream: %v", err)
+	}
+	sse.Write(rest)
+	out := sse.String()
+
+	if !strings.Contains(out, `"object":"chat.completion.chunk"`) {
+		t.Errorf("hedged stream not translated to chat chunks:\n%s", out)
+	}
+	if !strings.Contains(out, `"content":"hedged"`) {
+		t.Errorf("content delta missing:\n%s", out)
+	}
+	if !strings.Contains(out, `"finish_reason":"stop"`) || !strings.Contains(out, "data: [DONE]") {
+		t.Errorf("terminal chunks missing:\n%s", out)
+	}
+}
+
+// A 400 is only readable as OpenAI when the attempt actually sent an OpenAI
+// body. Both 400 paths — sequential and hedged — gate on this one predicate, so
+// a dialect added later is covered at both sites by extending it.
+func TestSentChatCompletionsBody(t *testing.T) {
+	if !(&requestState{}).sentChatCompletionsBody() {
+		t.Error("a plain chat attempt must read as a chat-completions body")
+	}
+	tests := map[string]*requestState{
+		"native anthropic": {anthropicNativeAttempt: true},
+		"responses":        {responsesAttempt: true},
+		"gemini egress":    {geminiAttempt: true},
+		"anthropic egress": {anthropicEgressAttempt: true},
+	}
+	for name, st := range tests {
+		t.Run(name, func(t *testing.T) {
+			if st.sentChatCompletionsBody() {
+				t.Error("a dialect attempt must not read as a chat-completions body")
+			}
+		})
 	}
 }
