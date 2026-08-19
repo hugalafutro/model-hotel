@@ -348,14 +348,14 @@ func TestNativeStream_RecordsCacheSplit(t *testing.T) {
 	}
 }
 
-// Same split on the non-streaming native path, so the two agree.
-func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
+// runNativeNonStreaming serves one native Anthropic 200 body through
+// handleNativeNonStreaming and returns the finalized log row.
+func runNativeNonStreaming(t *testing.T, anthropicBody string) *requestLogData {
+	t.Helper()
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 
-	anthropicBody := `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(anthropicBody)), Header: make(http.Header)}
-
 	rec := httptest.NewRecorder()
 	native := true
 	aw := newAnthropicResponseWriter(rec, "msg_ignored", "m")
@@ -377,6 +377,12 @@ func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
+	return logData
+}
+
+// Same split on the non-streaming native path, so the two agree.
+func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
+	logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
 
 	if logData.tokensPrompt != 20034 || logData.tokensCompletion != 50 {
 		t.Errorf("usage = (%d,%d), want (20034,50)", logData.tokensPrompt, logData.tokensCompletion)
@@ -384,4 +390,45 @@ func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
 	if logData.tokensPromptCacheHit != 20000 || logData.tokensPromptCacheMiss != 34 {
 		t.Errorf("cache split = (%d,%d), want (20000,34)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
 	}
+}
+
+// Writing a cache entry counts as cache activity, so the split is recorded —
+// with the creation tokens on the miss side, which is where they are billed.
+func TestHandleNativeNonStreaming_CacheCreationOnly(t *testing.T) {
+	logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":7,"cache_creation_input_tokens":30}}`)
+
+	if logData.tokensPrompt != 34 {
+		t.Errorf("tokensPrompt = %d, want 34 (4 + 30)", logData.tokensPrompt)
+	}
+	if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 34 {
+		t.Errorf("cache split = (%d,%d), want (0,34)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+	}
+}
+
+// An uncached response records NO cache counts on either native path. The
+// translated egress path cannot express "miss = the whole prompt" — its usage
+// omits the cache fields when they are zero — so recording it here would make
+// every uncached Anthropic-in request show a cache panel the identical request
+// through any other path does not, and feed a cache-miss stats series only
+// native Anthropic traffic contributes to.
+func TestNative_UncachedRecordsNoCacheSplit(t *testing.T) {
+	t.Run("non-streaming", func(t *testing.T) {
+		logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":9,"output_tokens":3}}`)
+		if logData.tokensPrompt != 9 {
+			t.Errorf("tokensPrompt = %d, want 9", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
+
+	t.Run("streaming", func(t *testing.T) {
+		_, logData := runNativeStream(t, nativeStreamHead+"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+		if logData.tokensPrompt != 12 {
+			t.Errorf("tokensPrompt = %d, want 12", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
 }

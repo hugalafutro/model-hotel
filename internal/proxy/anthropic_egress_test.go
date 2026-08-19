@@ -381,9 +381,9 @@ func TestProbeStreamingCandidate_AnthropicEgress(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	var gotPath string
+	var log upstreamCallLog
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
+		log.record(anthropicUpstreamCall{path: r.URL.Path})
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		for _, ev := range []string{
@@ -417,8 +417,8 @@ func TestProbeStreamingCandidate_AnthropicEgress(t *testing.T) {
 	}
 	defer func() { _ = res.resp.Body.Close() }()
 
-	if gotPath != "/v1/messages" {
-		t.Errorf("hedged document probe went to %s, want /v1/messages", gotPath)
+	if call := log.takeOne(t, "hedged document probe"); call.path != "/v1/messages" {
+		t.Errorf("hedged document probe went to %s, want /v1/messages", call.path)
 	}
 	if !st.anthropicEgressAttempt {
 		t.Error("buildCandidateRequest did not mark the hedged attempt as egress")

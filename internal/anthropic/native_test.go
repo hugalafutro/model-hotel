@@ -38,9 +38,11 @@ func TestParseResponseUsage(t *testing.T) {
 	if u.PromptTokens != 42 || u.CompletionTokens != 7 {
 		t.Errorf("usage = %+v, want prompt=42 completion=7", u)
 	}
-	// No cache fields: the whole prompt is a miss, and nothing is a hit.
-	if u.CacheHitTokens != 0 || u.CacheMissTokens != 42 {
-		t.Errorf("cache split = (%d,%d), want (0,42)", u.CacheHitTokens, u.CacheMissTokens)
+	// No cache fields: no cache information at all. Calling the whole prompt a
+	// miss is a claim the translated egress path cannot make, and would light up
+	// the dashboard's cache panel for every uncached Anthropic request.
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
+		t.Errorf("uncached split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
 	}
 	// Invalid body yields zeros.
 	if u := ParseResponseUsage([]byte(`not json`)); u != (ResponseUsage{}) {
@@ -72,6 +74,20 @@ func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
 	}
 	if u.CacheHitTokens+u.CacheMissTokens != u.PromptTokens {
 		t.Errorf("split %d+%d does not sum back to the prompt %d", u.CacheHitTokens, u.CacheMissTokens, u.PromptTokens)
+	}
+}
+
+// Writing a cache entry is cache activity even though nothing was read back, so
+// the split is reported — with the creation tokens on the miss side, where they
+// are billed.
+func TestParseResponseUsage_CacheCreationOnly(t *testing.T) {
+	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":7,"cache_creation_input_tokens":30}}`)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 34 {
+		t.Errorf("prompt tokens = %d, want 34 (4 + 30)", u.PromptTokens)
+	}
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 34 {
+		t.Errorf("cache split = (%d,%d), want (0,34)", u.CacheHitTokens, u.CacheMissTokens)
 	}
 }
 
@@ -180,10 +196,14 @@ func TestInspectStreamEvent_SplitsCachedInput(t *testing.T) {
 		t.Errorf("output tokens = %d (has=%v), want 1", ev.OutputTokens, ev.HasOutput)
 	}
 
-	// An uncached stream reports no hit, so the proxy's (hit>0||miss>0) guard
-	// still records the miss rather than leaving the split empty.
+	// An uncached stream reports no cache counts, so the proxy's
+	// (hit>0||miss>0) guard leaves the log row's cache fields untouched — the
+	// same thing every other provider's uncached request produces.
 	plain := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":15,"output_tokens":0}}}`))
-	if plain.CacheHitTokens != 0 || plain.CacheMissTokens != 15 {
-		t.Errorf("uncached split = (%d,%d), want (0,15)", plain.CacheHitTokens, plain.CacheMissTokens)
+	if plain.InputTokens != 15 {
+		t.Errorf("uncached input tokens = %d, want 15", plain.InputTokens)
+	}
+	if plain.CacheHitTokens != 0 || plain.CacheMissTokens != 0 {
+		t.Errorf("uncached split = (%d,%d), want (0,0)", plain.CacheHitTokens, plain.CacheMissTokens)
 	}
 }

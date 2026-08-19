@@ -29,8 +29,10 @@ func RewriteModel(body []byte, model string) []byte {
 }
 
 // ResponseUsage is the metering summary of one Anthropic Messages response,
-// produced from a single parse. PromptTokens is the whole prompt; CacheHit and
-// CacheMiss split it by how the tokens were billed, and always sum back to it.
+// produced from a single parse. PromptTokens is the whole prompt. CacheHit and
+// CacheMiss split it by how the tokens were billed and sum back to it, but only
+// when the response reports cache activity at all; an uncached response leaves
+// both zero rather than calling the whole prompt a miss (see summary).
 type ResponseUsage struct {
 	PromptTokens     int
 	CompletionTokens int
@@ -60,8 +62,7 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 }
 
 // antUsage is an Anthropic usage block. The cache fields are absent from
-// responses that use no cache, which decodes to zero and leaves the whole
-// prompt counted as a miss.
+// responses that use no cache, which decodes to zero.
 type antUsage struct {
 	InputTokens              int `json:"input_tokens"`
 	OutputTokens             int `json:"output_tokens"`
@@ -76,13 +77,24 @@ type antUsage struct {
 // on this request and only pay off on the next one. Reporting the sum without
 // this split prices every cached token at full input rate, which is a different
 // skew from under-counting, not an absence of one.
+//
+// A response with no cache activity at all reports NO cache counts rather than
+// "miss = the whole prompt". The translated egress path cannot express that
+// reading — its usage carries the cache fields only when nonzero, so
+// extractCacheTokens yields (0, 0) — and one Anthropic path claiming cache data
+// the other cannot is exactly the inconsistency this split exists to remove. It
+// is also what every other provider reports for an uncached request, which is
+// what the dashboard's cache panel and the cache-miss stats series assume.
 func (u antUsage) summary() ResponseUsage {
-	return ResponseUsage{
+	out := ResponseUsage{
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
-		CacheHitTokens:   u.CacheReadInputTokens,
-		CacheMissTokens:  u.InputTokens + u.CacheCreationInputTokens,
 	}
+	if u.CacheReadInputTokens > 0 || u.CacheCreationInputTokens > 0 {
+		out.CacheHitTokens = u.CacheReadInputTokens
+		out.CacheMissTokens = u.InputTokens + u.CacheCreationInputTokens
+	}
+	return out
 }
 
 // ResponseCarriesContent reports whether a non-streaming Messages response holds
@@ -111,8 +123,8 @@ func ResponseCarriesContent(body []byte) bool {
 type StreamEvent struct {
 	Type            string
 	InputTokens     int
-	CacheHitTokens  int // the cache-served share of InputTokens
-	CacheMissTokens int // the rest of InputTokens, billed at full input rate
+	CacheHitTokens  int // the cache-served share of InputTokens; 0 when uncached
+	CacheMissTokens int // the rest of InputTokens; 0 when uncached, not the whole prompt
 	HasInput        bool
 	OutputTokens    int
 	HasOutput       bool
