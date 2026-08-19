@@ -50,6 +50,21 @@ func TestInferNonChatModality(t *testing.T) {
 		{"gemma3:4b", ""},
 		{"deepseek-r1", ""},
 		{"", ""},
+		// Audio chat models are not named as transcribers, so the modality
+		// arrays alone decide their class.
+		{"gpt-4o-audio-preview", ""},
+		{"gpt-4o-mini-audio-preview", ""},
+		{"gpt-audio", ""},
+		{"qwen2-audio-7b-instruct", ""},
+
+		// Speech endpoints.
+		{"whisper-1", "stt"},
+		{"whisper-large-v3-turbo", "stt"},
+		{"gpt-4o-transcribe", "stt"},
+		{"gpt-4o-mini-transcribe", "stt"},
+		{"gpt-4o-transcribe-diarize", "stt"},
+		{"tts-1", "tts"},
+		{"gpt-4o-mini-tts", "tts"},
 		// "gte"/"e5"/"bge" only match as whole segments, not substrings.
 		{"together-large", ""},
 		{"the5th-model", ""},

@@ -29,6 +29,7 @@ func TestDeriveModelClass(t *testing.T) {
 		{"whisper stt tiebreak", []string{"audio"}, []string{"text"}, "whisper-large-v3", "stt"},
 		{"transcribe segment stt", []string{"audio"}, []string{"text"}, "gpt-4o-transcribe", "stt"},
 		{"audio-input chat is not stt", []string{"text", "audio"}, []string{"text"}, "gpt-4o-audio-preview", "chat"},
+		{"enriched audio chat is not stt", []string{"text", "image", "audio"}, []string{"text"}, "gpt-4o-audio-preview", "chat"},
 		{"empty arrays embed name", nil, nil, "nomic-embed-text", "embedding"},
 		{"empty arrays rerank name", nil, nil, "bge-reranker-v2-m3", "rerank"},
 		{"empty arrays dall-e name", nil, nil, "dall-e-3", "image"},
@@ -44,6 +45,61 @@ func TestDeriveModelClass(t *testing.T) {
 					tt.input, tt.output, tt.modelID, got, tt.want)
 			}
 		})
+	}
+}
+
+// The gpt-4o transcription models inherit the full modality set of their chat
+// namesakes from models.dev enrichment, so their input arrays are
+// indistinguishable from an audio chat model's. Only the ID names them as
+// transcribers. Rows mirror the live catalogue of one provider.
+func TestDeriveModelClass_TranscriptionModels(t *testing.T) {
+	tests := []struct {
+		modelID string
+		input   []string
+		want    string
+	}{
+		{"gpt-4o-mini-transcribe", []string{"text", "image", "audio"}, "stt"},
+		{"gpt-4o-transcribe", []string{"text", "image", "audio"}, "stt"},
+		{"gpt-4o-transcribe-diarize", []string{"audio"}, "stt"},
+		{"whisper-1", []string{"audio"}, "stt"},
+		{"gpt-4o-audio-preview", []string{"text", "image", "audio"}, "chat"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.modelID, func(t *testing.T) {
+			if got := DeriveModelClass(tt.input, []string{"text"}, tt.modelID); got != tt.want {
+				t.Errorf("DeriveModelClass(%v, [text], %q) = %q, want %q",
+					tt.input, tt.modelID, got, tt.want)
+			}
+		})
+	}
+}
+
+// A transcription model reclassified out of "chat" must not keep claiming the
+// image input its chat namesake reported.
+func TestNormalizeModelClassification_EnrichedTranscribeInput(t *testing.T) {
+	m := model.Model{
+		ModelID:          "gpt-4o-transcribe",
+		InputModalities:  `["text","image","audio"]`,
+		OutputModalities: `["text"]`,
+		Capabilities:     `{"streaming":true,"vision":true}`,
+	}
+	NormalizeModelClassification(&m)
+	if m.Modality != "stt" {
+		t.Errorf("Modality = %q, want stt", m.Modality)
+	}
+	if m.InputModalities != `["audio"]` {
+		t.Errorf("InputModalities = %q, want [\"audio\"]", m.InputModalities)
+	}
+	if m.OutputModalities != `["text"]` {
+		t.Errorf("OutputModalities = %q, want [\"text\"]", m.OutputModalities)
+	}
+	if !containsSubstring(m.Capabilities, `"vision":false`) {
+		t.Errorf("Capabilities = %s, want the inherited vision flag cleared", m.Capabilities)
+	}
+	for _, want := range []string{`"audio_input":true`, `"streaming":true`} {
+		if !containsSubstring(m.Capabilities, want) {
+			t.Errorf("Capabilities = %s, missing %s", m.Capabilities, want)
+		}
 	}
 }
 
