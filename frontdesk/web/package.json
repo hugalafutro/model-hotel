@@ -10,7 +10,8 @@
 		"build:docker": "vite build",
 		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
 		"lint": "eslint --no-warn-ignored ${@:-.}",
-		"format": "biome check --write src",
+		"format": "biome check .",
+		"format:fix": "biome check --write",
 		"test": "vitest run"
 	},
 	"dependencies": {
