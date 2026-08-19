@@ -381,6 +381,33 @@ func TestStreamTranslator_FinishIdempotentAfterMessageStop(t *testing.T) {
 	}
 }
 
+func TestStreamTranslator_EventsAfterMessageStopIgnored(t *testing.T) {
+	// [DONE] has already gone out. A late event must not append content behind
+	// the sentinel, and a truncated one must not fail a stream that completed.
+	tr := NewStreamTranslator("chatcmpl-14", "m", 1)
+	feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":2}}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}`,
+		`{"type":"message_stop"}`,
+	)
+
+	late := []string{
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"late"}}`,
+		`{"type":"message_stop"}`,
+		`{"type":"error","error":{"type":"overloaded_error"}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_del`,
+	}
+	for _, ev := range late {
+		out, err := tr.Translate([]byte(ev))
+		if err != nil {
+			t.Errorf("Translate(%s) after message_stop: %v", ev, err)
+		}
+		if len(out) != 0 {
+			t.Errorf("Translate(%s) emitted %q after [DONE]", ev, out)
+		}
+	}
+}
+
 func TestStreamTranslator_FinishWithoutMessageStop(t *testing.T) {
 	// An upstream that dies after message_delta still owes the client a
 	// terminal chunk; Finish supplies it, carrying the role when no chunk did.

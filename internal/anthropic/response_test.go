@@ -182,7 +182,8 @@ func TestBuildErrorResponse_RawBodyFallback(t *testing.T) {
 }
 
 func TestBuildMessageResponse_DecodeErrorOmitsPayload(t *testing.T) {
-	// A malformed response body is model output; the decode error reports the\n\t// offset, never the content.
+	// A malformed response body is model output; the decode error reports the
+	// offset, never the content.
 	cases := []struct {
 		name    string
 		payload string

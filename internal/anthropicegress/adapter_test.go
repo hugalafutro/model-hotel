@@ -248,6 +248,32 @@ func TestStreamAdapter_FlushesPartialLineAtEOF(t *testing.T) {
 	}
 }
 
+func TestStreamAdapter_TruncatedResidualAfterMessageStopIgnored(t *testing.T) {
+	// The stream already completed on message_stop; the connection then drops
+	// mid-line. Flushing that residual must not poison a finished stream or
+	// append anything behind the sentinel.
+	upstream := &scriptedBody{script: []string{
+		"data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":2}}}\n\n",
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\n",
+		"data: {\"type\":\"message_stop\"}\n\n",
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_del",
+	}}
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err != nil {
+		t.Fatalf("a truncated line after message_stop poisoned a finished stream: %v", err)
+	}
+	s := string(out)
+	if n := strings.Count(s, "data: [DONE]"); n != 1 {
+		t.Errorf("[DONE] count = %d, want 1:\n%s", n, s)
+	}
+	if n := strings.Count(s, `"finish_reason":"stop"`); n != 1 {
+		t.Errorf("terminal chunks = %d, want 1:\n%s", n, s)
+	}
+	if !strings.HasSuffix(s, "data: [DONE]\n\n") {
+		t.Errorf("bytes emitted after the sentinel:\n%s", s)
+	}
+}
+
 func TestStreamAdapter_OverlongLineFailsStream(t *testing.T) {
 	// An upstream that never emits a newline must fail the stream rather than
 	// grow the line buffer without bound.

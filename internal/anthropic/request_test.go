@@ -311,7 +311,9 @@ func TestTranslateRequest_MessageContentErrorOmitsPayload(t *testing.T) {
 }
 
 func TestTranslateRequest_DecodeErrorOmitsPayload(t *testing.T) {
-	// A malformed request body is the user's own prompt: encoding/json quotes the\n\t// offending byte and prints an offending literal verbatim, so the error must\n\t// say WHERE the body broke and nothing about what it said.
+	// A malformed request body is the user's own prompt: encoding/json quotes the
+	// offending byte and prints an offending literal verbatim, so the error must
+	// say WHERE the body broke and nothing about what it said.
 	cases := []struct {
 		name    string
 		payload string

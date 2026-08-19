@@ -159,8 +159,14 @@ func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta chunkDelta, finis
 // Translate processes one Anthropic SSE data payload and returns the chunk
 // bytes to forward to the client (often empty: ping, content_block_stop and
 // message_delta update state silently). message_stop produces the terminal
-// chunk plus "data: [DONE]", after which Finish is a no-op.
+// chunk plus "data: [DONE]", after which Finish is a no-op and further payloads
+// are ignored: nothing may be emitted after the sentinel, and a truncated line
+// trailing a completed stream must not poison it.
 func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
+	if t.finished {
+		return nil, nil
+	}
+
 	var ev antEvent
 	if err := json.Unmarshal(payload, &ev); err != nil {
 		return nil, fmt.Errorf("anthropicegress: invalid stream event: %s", jsonfault.Describe(err, len(payload)))
