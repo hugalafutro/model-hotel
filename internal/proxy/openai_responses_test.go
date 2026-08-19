@@ -394,3 +394,32 @@ func TestTranslateResponsesResponseBody(t *testing.T) {
 		t.Error("non-Responses 200 body must error (failover)")
 	}
 }
+
+// Every openai-type 400 reaches retryWithResponses before the param self-heal
+// sees it, so an unbounded read here would defeat readLearnable400's cap on the
+// same body. The 400 that is not a Responses rejection is handed straight on,
+// with at most the learner's cap buffered.
+func TestRetryWithResponses_BoundsThe400Read(t *testing.T) {
+	h := &Handler{}
+	st := &requestState{bodyBytes: []byte(toolsReasoningBody), failoverTimeout: time.Second}
+	cand := responsesTestCandidate("https://api.openai.com/v1")
+
+	// Twice the learner's cap of junk: not a Responses rejection, so the call
+	// returns handled=false and the body is restored for the next reader.
+	oversized := `{"error":{"message":"` + strings.Repeat("z", 2*responsesLearnBodyCap) + `"}}`
+	resp := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(oversized))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+	var dialMs float64
+	res, handled := h.retryWithResponses(r, st, cand, "openai", resp, 0, &dialMs, func() {}, "")
+	if handled {
+		t.Fatal("a junk 400 must not be handled by the responses retry")
+	}
+	restored, err := io.ReadAll(res.resp.Body)
+	if err != nil {
+		t.Fatalf("restored body: %v", err)
+	}
+	if len(restored) > responsesLearnBodyCap {
+		t.Fatalf("buffered %d bytes of a %d-byte 400, cap is %d", len(restored), len(oversized), responsesLearnBodyCap)
+	}
+}
