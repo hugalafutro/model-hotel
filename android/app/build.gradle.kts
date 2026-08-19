@@ -54,11 +54,6 @@ android {
     namespace = "com.hugalafutro.bellhop"
     compileSdk = 37
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-
     defaultConfig {
         applicationId = "com.hugalafutro.bellhop"
         minSdk = 26
@@ -149,9 +144,7 @@ androidComponents {
 }
 
 kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
-    }
+    jvmToolchain(21)
 }
 
 dependencies {

@@ -19,7 +19,9 @@ background check makes that block's extra read at all.
 ## Stack
 
 - Kotlin + Jetpack Compose (Material 3), single module, MVVM.
-- minSdk 26 (Android 8), target/compile SDK 35.
+- minSdk 26 (Android 8), targetSdk 36, compileSdk 37. The split is deliberate:
+  the Compose BOM refuses to compile against anything below API 37, and Robolectric
+  rejects a package whose targetSdkVersion exceeds the newest framework it ships.
 - Brand theming (plan section 5.5), no Material You dynamic color: dark "night lobby"
   (ink blue + brass, matching Model Hotel's copper theme) and light "day shift" (warm
   paper), following the system setting. A green-phosphor terminal theme is planned for
@@ -31,8 +33,9 @@ background check makes that block's extra read at all.
 
 ## Building (CLI only, no Android Studio)
 
-Prerequisites: JDK 21 and the Android SDK (`ANDROID_HOME`, platform 35,
-build-tools 35.0.0). Gradle itself comes from the checked-in wrapper.
+Prerequisites: JDK 21 and the Android SDK (`ANDROID_HOME`, platform 37,
+build-tools 36.0.0 — the version AGP 9 selects). Gradle itself comes from the
+checked-in wrapper.
 
 Gradle requires JDK 21; if your system default `java` is newer, builds fail.
 The repo Makefile targets pin `JAVA_HOME` for you:
