@@ -330,6 +330,9 @@ type Message struct {
 	ReasoningContent string            `json:"reasoning_content,omitempty"`
 	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
+	// Extra carries the response fields this struct does not model, so they
+	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // ToolCall is an OpenAI function tool call on an assistant message. Preserved
@@ -339,6 +342,11 @@ type ToolCall struct {
 	Type     string       `json:"type"`
 	Index    *int         `json:"index,omitempty"`
 	Function ToolCallFunc `json:"function"`
+	// Extra carries provider fields this struct does not model. Gemini 3 puts
+	// extra_content.google.thought_signature here and rejects the follow-up
+	// turn without it, so dropping it breaks tool use outright. See
+	// jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // ToolCallFunc is the function name + raw JSON arguments of a tool call.

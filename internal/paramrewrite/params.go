@@ -182,6 +182,28 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	return renames
 }
 
+// paramQuoteChars are the quote styles providers wrap a parameter name in when
+// they name it in a 400. Anchoring on a quote is what keeps short names like
+// "n" and "stop" from matching unrelated prose.
+//
+// The single quote was the gap: OpenAI names the offending param that way in
+// its value-validation errors ("Unsupported value: 'temperature' does not
+// support 0 with this model. Only the default (1) value is supported."), so
+// every gpt-5-family request carrying temperature:0 failed with a 400 that
+// model-hotel could have healed by stripping the param and retrying.
+var paramQuoteChars = []byte{'`', '"', '\''}
+
+// paramIsQuoted reports whether the error message names param inside one of the
+// recognised quote styles.
+func paramIsQuoted(msg, param string) bool {
+	for _, q := range paramQuoteChars {
+		if strings.Contains(msg, string(q)+param+string(q)) {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseProviderParamError parses 400 error bodies for rejected sampling/param names.
 // Any LLM API mentioning these param names in a 400 error can only be referring
 // to the request parameter — there is no other meaning in this context.
@@ -215,15 +237,14 @@ func ParseProviderParamError(body []byte) map[string]bool {
 		"reasoning",
 	}
 	for _, p := range matchParams {
-		// Match backtick-wrapped: `param` or quote-wrapped: "param"
-		if strings.Contains(msg, "`"+p+"`") || strings.Contains(msg, "\""+p+"\"") {
+		if paramIsQuoted(msg, p) {
 			rejected[p] = true
 		}
 	}
 	// "stop", "n", "seed" are too common as substrings — only match when
 	// explicitly quoted or backticked in the error message.
 	for _, p := range []string{"stop", "n", "seed"} {
-		if strings.Contains(msg, "`"+p+"`") || strings.Contains(msg, "\""+p+"\"") {
+		if paramIsQuoted(msg, p) {
 			rejected[p] = true
 		}
 	}
@@ -238,17 +259,13 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if strings.Contains(msg, "chat_template_args") {
 		rejected["chat_template_args"] = true
 	}
-	// Also catch any top_{single_letter} variant when backtick/quote-wrapped
-	if idx := strings.Index(msg, "`top_"); idx >= 0 && idx+7 <= len(msg) {
-		c := msg[idx+5]
-		if c >= 'a' && c <= 'z' && msg[idx+6] == '`' {
-			rejected[msg[idx+1:idx+6]] = true
-		}
-	}
-	if idx := strings.Index(msg, "\"top_"); idx >= 0 && idx+7 <= len(msg) {
-		c := msg[idx+5]
-		if c >= 'a' && c <= 'z' && msg[idx+6] == '"' {
-			rejected[msg[idx+1:idx+6]] = true
+	// Also catch any top_{single_letter} variant when quoted in any style.
+	for _, q := range paramQuoteChars {
+		if idx := strings.Index(msg, string(q)+"top_"); idx >= 0 && idx+7 <= len(msg) {
+			c := msg[idx+5]
+			if c >= 'a' && c <= 'z' && msg[idx+6] == q {
+				rejected[msg[idx+1:idx+6]] = true
+			}
 		}
 	}
 	if len(rejected) == 0 {
