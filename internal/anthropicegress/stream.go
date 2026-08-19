@@ -210,8 +210,17 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 			kind = ev.Error.Type
 		}
 		return nil, fmt.Errorf("anthropicegress: upstream error: %s", kind)
+	case "ping":
+		// Anthropic's keepalive across a generation gap, and the gap is longest
+		// exactly where this adapter earns its keep: prompt processing after
+		// message_start on a large document, and server-side tool pauses. The
+		// proxy's stall watchdog is pinged per line of THIS stream, so
+		// swallowing the keepalive would let a healthy stream be closed and
+		// logged as a provider stall. An SSE comment frame pings it and is
+		// ignored by every SSE client, so nothing reaches the caller as a chunk.
+		buf.WriteString(": ping\n\n")
 	}
-	// content_block_stop, ping and any unrecognised event type carry nothing a
+	// content_block_stop and any unrecognised event type carry nothing a
 	// chat.completion.chunk stream represents.
 	return buf.Bytes(), nil
 }

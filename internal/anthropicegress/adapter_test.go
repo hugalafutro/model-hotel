@@ -79,6 +79,11 @@ func TestStreamAdapter_TranslatesFullStream(t *testing.T) {
 	if got := joinContent(chunks); got != "Hello" {
 		t.Errorf("content = %q, want Hello (payload split across reads)", got)
 	}
+	// The upstream ping reaches the proxy as a keepalive comment, which is what
+	// resets the stall watchdog across a long generation gap.
+	if !strings.Contains(string(out), ": ping\n\n") {
+		t.Errorf("adapter dropped the upstream ping keepalive:\n%s", out)
+	}
 	for _, c := range chunks {
 		if c.Model != "claude-sonnet-4-5" {
 			t.Errorf("model = %q, want the model the client requested", c.Model)

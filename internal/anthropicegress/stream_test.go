@@ -46,13 +46,19 @@ type streamedToolCall struct {
 }
 
 // parseChunks decodes an emitted SSE stream into its chunks and reports whether
-// it ended with the [DONE] sentinel. Every frame must be a "data: " frame: the
-// adapter generates its own framing, so anything else is a defect.
+// it ended with the [DONE] sentinel. Every frame is either a "data: " frame or
+// a comment: the adapter generates its own framing, so anything else is a
+// defect.
 func parseChunks(t *testing.T, sse string) (chunks []streamedChunk, done bool) {
 	t.Helper()
 	for _, frame := range strings.Split(sse, "\n\n") {
 		frame = strings.TrimSpace(frame)
 		if frame == "" {
+			continue
+		}
+		// A comment frame is a keepalive: it pings the proxy's stall watchdog
+		// and no SSE client sees it as an event.
+		if strings.HasPrefix(frame, ":") {
 			continue
 		}
 		payload, ok := strings.CutPrefix(frame, "data: ")
@@ -539,5 +545,84 @@ func TestStreamTranslator_OrphanToolArgumentsFail(t *testing.T) {
 	}
 	if !strings.HasPrefix(err.Error(), "anthropicegress:") {
 		t.Errorf("error = %q, want an anthropicegress: prefix", err)
+	}
+}
+
+// The proxy's stall watchdog is pinged per scanned line of the ADAPTER's
+// output, so an event that emits nothing does not reset it. Anthropic's ping is
+// the keepalive across a generation gap — prompt processing on a large
+// document, a server-side tool pause — and swallowing it would let a healthy
+// stream be closed and logged as a provider stall. It becomes an SSE comment:
+// output bytes for the watchdog, and nothing an SSE client reads as an event.
+func TestStreamTranslator_PingEmitsAKeepaliveFrame(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-ping", "m", 1)
+	out, err := tr.Translate([]byte(`{"type":"ping"}`))
+	if err != nil {
+		t.Fatalf("Translate(ping): %v", err)
+	}
+	if len(out) == 0 {
+		t.Fatal("ping emitted no bytes: the stall watchdog is only pinged per output line")
+	}
+	if strings.Contains(string(out), "data:") {
+		t.Errorf("ping emitted a data frame %q, want an SSE comment", out)
+	}
+	if !strings.HasPrefix(string(out), ":") {
+		t.Errorf("ping frame = %q, want an SSE comment starting with ':'", out)
+	}
+	if !strings.HasSuffix(string(out), "\n\n") {
+		t.Errorf("ping frame = %q, want a frame terminated by a blank line", out)
+	}
+}
+
+// Pings interleaved through a stream must not disturb its shape: still exactly
+// one terminal chunk and one [DONE].
+func TestStreamTranslator_PingsDoNotDisturbTheStream(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-ping2", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":11,"output_tokens":1}}}`,
+		`{"type":"ping"}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`{"type":"ping"}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi"}}`,
+		`{"type":"ping"}`,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":4}}`,
+		`{"type":"message_stop"}`,
+	)
+
+	if got := strings.Count(out, ": ping\n\n"); got != 3 {
+		t.Errorf("keepalive frames = %d, want 3:\n%s", got, out)
+	}
+	if got := strings.Count(out, "data: [DONE]"); got != 1 {
+		t.Errorf("[DONE] sentinels = %d, want exactly 1:\n%s", got, out)
+	}
+
+	chunks, done := parseChunks(t, out)
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	if got := joinContent(chunks); got != "Hi" {
+		t.Errorf("content = %q, want Hi", got)
+	}
+	terminal := 0
+	for _, c := range chunks {
+		if c.Choices[0].FinishReason != nil {
+			terminal++
+		}
+	}
+	if terminal != 1 {
+		t.Errorf("chunks carrying a finish_reason = %d, want exactly 1:\n%s", terminal, out)
+	}
+}
+
+// A ping arriving after the sentinel stays silent: nothing may follow [DONE].
+func TestStreamTranslator_PingAfterDoneEmitsNothing(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-ping3", "m", 1)
+	feed(t, tr, `{"type":"message_stop"}`)
+	out, err := tr.Translate([]byte(`{"type":"ping"}`))
+	if err != nil {
+		t.Fatalf("Translate(ping): %v", err)
+	}
+	if len(out) != 0 {
+		t.Errorf("ping after [DONE] emitted %q, want nothing", out)
 	}
 }
