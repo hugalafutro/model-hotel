@@ -101,6 +101,9 @@ func encodeWithExtras(base any, extras jsonExtras) ([]byte, error) {
 var (
 	messageJSONFields  = jsonFieldNames(Message{})
 	toolCallJSONFields = jsonFieldNames(ToolCall{})
+	choiceJSONFields   = jsonFieldNames(Choice{})
+	responseJSONFields = jsonFieldNames(ChatCompletionResponse{})
+	usageJSONFields    = jsonFieldNames(Usage{})
 )
 
 // UnmarshalJSON decodes a message and retains any provider fields this package
@@ -140,4 +143,63 @@ func (t *ToolCall) UnmarshalJSON(data []byte) error {
 func (t ToolCall) MarshalJSON() ([]byte, error) {
 	type alias ToolCall
 	return encodeWithExtras(alias(t), t.Extra)
+}
+
+// UnmarshalJSON decodes a choice and retains the per-choice fields this package
+// does not model, above all logprobs — a client that asked for them gets
+// nothing back without this — and OpenRouter's native_finish_reason.
+func (c *Choice) UnmarshalJSON(data []byte) error {
+	type alias Choice
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*c = Choice(a)
+	c.Extra = decodeExtras(data, choiceJSONFields)
+	return nil
+}
+
+// MarshalJSON re-emits the choice with its unmodelled fields restored.
+func (c Choice) MarshalJSON() ([]byte, error) {
+	type alias Choice
+	return encodeWithExtras(alias(c), c.Extra)
+}
+
+// UnmarshalJSON decodes a completion and retains the top-level fields this
+// package does not model (system_fingerprint, the routing provider an
+// aggregator reports, service_tier, ...).
+func (c *ChatCompletionResponse) UnmarshalJSON(data []byte) error {
+	type alias ChatCompletionResponse
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*c = ChatCompletionResponse(a)
+	c.Extra = decodeExtras(data, responseJSONFields)
+	return nil
+}
+
+// MarshalJSON re-emits the completion with its unmodelled fields restored.
+func (c ChatCompletionResponse) MarshalJSON() ([]byte, error) {
+	type alias ChatCompletionResponse
+	return encodeWithExtras(alias(c), c.Extra)
+}
+
+// UnmarshalJSON decodes usage and retains the accounting fields this package
+// does not model, above all the per-request cost aggregators report.
+func (u *Usage) UnmarshalJSON(data []byte) error {
+	type alias Usage
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*u = Usage(a)
+	u.Extra = decodeExtras(data, usageJSONFields)
+	return nil
+}
+
+// MarshalJSON re-emits usage with its unmodelled fields restored.
+func (u Usage) MarshalJSON() ([]byte, error) {
+	type alias Usage
+	return encodeWithExtras(alias(u), u.Extra)
 }

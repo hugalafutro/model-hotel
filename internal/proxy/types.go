@@ -307,6 +307,10 @@ type ChatCompletionResponse struct {
 	Model   string   `json:"model"`
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
+	// Extra carries the top-level fields this struct does not model
+	// (system_fingerprint, OpenRouter's provider, service_tier, ...) so they
+	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // Choice represents a single completion choice in the response.
@@ -322,6 +326,10 @@ type Choice struct {
 	Message      Message  `json:"message"`
 	Delta        *Message `json:"delta,omitempty"`
 	FinishReason *string  `json:"finish_reason,omitempty"`
+	// Extra carries the per-choice fields this struct does not model (logprobs,
+	// OpenRouter's native_finish_reason, ...) so they survive the non-streaming
+	// decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }
 
 // Message represents a chat message with role and content.
@@ -388,4 +396,8 @@ type Usage struct {
 	CacheCreationInputTokens int                      `json:"cache_creation_input_tokens,omitempty"`
 	PromptTokensDetails      *PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
 	CompletionTokensDetails  *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+	// Extra carries the usage fields this struct does not model (OpenRouter's
+	// cost and is_byok, provider-specific token breakdowns, ...) so they survive
+	// the non-streaming decode + re-encode. See jsonextras.go.
+	Extra jsonExtras `json:"-"`
 }

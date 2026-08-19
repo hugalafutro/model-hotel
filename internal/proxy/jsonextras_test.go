@@ -185,3 +185,144 @@ func TestJSONFieldNames_CoversTaggedFieldsAndSkipsIgnored(t *testing.T) {
 		t.Fatal("expected ToolCall to model a function field")
 	}
 }
+
+// The overflow has to cover every level the non-streaming path decodes and
+// re-encodes, not just the message: a client that asked for logprobs was
+// handed a choice without them, and the aggregator fields operators route and
+// bill on (system_fingerprint, provider, usage.cost) were dropped on the floor.
+func TestChatCompletionResponse_PreservesUnmodelledFieldsAtEveryLevel(t *testing.T) {
+	t.Parallel()
+
+	const upstream = `{
+		"id": "chatcmpl-1", "object": "chat.completion", "created": 1, "model": "llama-3.3-70b",
+		"system_fingerprint": "fp_abc123", "provider": "Together", "service_tier": "default",
+		"choices": [{
+			"index": 0,
+			"message": {"role": "assistant", "content": "hi"},
+			"finish_reason": "stop",
+			"native_finish_reason": "STOP",
+			"logprobs": {"content": [{"token": "hi", "logprob": -0.25}]}
+		}],
+		"usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3, "cost": 0.000123, "is_byok": false}
+	}`
+
+	var resp ChatCompletionResponse
+	if err := json.Unmarshal([]byte(upstream), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.ID != "chatcmpl-1" || resp.Usage.TotalTokens != 3 || len(resp.Choices) != 1 {
+		t.Fatalf("modelled fields lost: %+v", resp)
+	}
+
+	out, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("re-parse: %v", err)
+	}
+	for k, want := range map[string]any{"system_fingerprint": "fp_abc123", "provider": "Together", "service_tier": "default"} {
+		if got[k] != want {
+			t.Errorf("top-level %q = %v, want %v: %s", k, got[k], want, out)
+		}
+	}
+	choice, ok := got["choices"].([]any)[0].(map[string]any)
+	if !ok {
+		t.Fatalf("choice lost: %s", out)
+	}
+	if _, has := choice["logprobs"]; !has {
+		t.Errorf("choice logprobs dropped: %s", out)
+	}
+	if choice["native_finish_reason"] != "STOP" {
+		t.Errorf("choice native_finish_reason dropped: %s", out)
+	}
+	usage, ok := got["usage"].(map[string]any)
+	if !ok {
+		t.Fatalf("usage lost: %s", out)
+	}
+	if usage["cost"] != 0.000123 {
+		t.Errorf("usage cost dropped: %s", out)
+	}
+	if _, has := usage["is_byok"]; !has {
+		t.Errorf("usage is_byok dropped: %s", out)
+	}
+	if usage["total_tokens"] != float64(3) {
+		t.Errorf("modelled usage field lost: %s", out)
+	}
+}
+
+// The invariant the overflow must never break: a field this package models wins
+// over the raw copy at every level, so nothing it rewrote is undone.
+func TestChatCompletionResponse_ModelledFieldsWinOverExtras(t *testing.T) {
+	t.Parallel()
+
+	var resp ChatCompletionResponse
+	if err := json.Unmarshal([]byte(`{"id":"a","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"x"}}],"usage":{"total_tokens":7}}`), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	// Stand-ins for what handleNonStreamingResponse rewrites before re-encoding.
+	resp.Model = "hotel/rewritten"
+	resp.Usage.TotalTokens = 9
+	resp.Choices[0].Index = 1
+
+	out, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("re-parse: %v", err)
+	}
+	if got["model"] != "hotel/rewritten" {
+		t.Errorf("modelled model overwritten by extras: %s", out)
+	}
+	if got["usage"].(map[string]any)["total_tokens"] != float64(9) {
+		t.Errorf("modelled usage overwritten by extras: %s", out)
+	}
+	if got["choices"].([]any)[0].(map[string]any)["index"] != float64(1) {
+		t.Errorf("modelled choice index overwritten by extras: %s", out)
+	}
+}
+
+// Nothing unmodelled must mean byte-identical output, so an ordinary
+// completion is not reshaped just because the overflow exists.
+func TestChatCompletionResponse_NoExtrasIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const plain = `{"id":"a","object":"chat.completion","created":1,"model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
+	var resp ChatCompletionResponse
+	if err := json.Unmarshal([]byte(plain), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.Extra != nil || resp.Usage.Extra != nil || resp.Choices[0].Extra != nil {
+		t.Fatalf("plain completion produced extras: %+v", resp)
+	}
+	out, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(out) != plain {
+		t.Fatalf("plain completion re-encoded differently:\n got %s\nwant %s", out, plain)
+	}
+}
+
+// The custom marshalers alias their own type; a missed alias would recurse
+// until the stack died rather than fail a comparison, so pin it.
+func TestExtrasMarshalersDoNotRecurse(t *testing.T) {
+	t.Parallel()
+
+	resp := ChatCompletionResponse{
+		Model:   "m",
+		Choices: []Choice{{Message: Message{Role: "assistant", Content: "hi"}, Extra: jsonExtras{"logprobs": json.RawMessage(`null`)}}},
+		Usage:   Usage{TotalTokens: 3, Extra: jsonExtras{"cost": json.RawMessage(`0.5`)}},
+		Extra:   jsonExtras{"provider": json.RawMessage(`"Together"`)},
+	}
+	out, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"cost":0.5`) || !strings.Contains(string(out), `"provider":"Together"`) {
+		t.Fatalf("extras missing from re-encode: %s", out)
+	}
+}
