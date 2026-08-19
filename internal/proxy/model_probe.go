@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -462,9 +464,9 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 	case st.responsesAttempt:
 		return translateResponsesResponseBody(resp, modelID)
 	case st.geminiAttempt:
-		return translateGeminiResponseBody(resp, modelID)
+		return translateEgressResponseBody(resp, modelID, gemini.BuildChatCompletion)
 	case st.anthropicEgressAttempt:
-		return translateAnthropicEgressResponseBody(resp, modelID)
+		return translateEgressResponseBody(resp, modelID, anthropicegress.BuildChatCompletion)
 	default:
 		return nil
 	}

@@ -3,12 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"io"
 	"net/http"
-	"strings"
-	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -68,24 +63,4 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
-}
-
-// translateAnthropicEgressResponseBody swaps a non-streaming Messages 200 body
-// for its chat.completion translation so handleNonStreamingResponse can meter
-// and forward it unchanged.
-func translateAnthropicEgressResponseBody(resp *http.Response, model string) error {
-	body, err := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	translated, err := anthropicegress.BuildChatCompletion(body, id, model, time.Now().Unix())
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(translated))
-	return nil
 }

@@ -242,7 +242,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// Same upstream-side trick for the gemini egress adapter.
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
-		} else if err := translateGeminiResponseBody(resp, st.reqModel); err != nil {
+		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
 			debuglog.Warn("proxy: gemini translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
@@ -253,7 +253,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// Same upstream-side trick for the anthropic egress adapter.
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
-		} else if err := translateAnthropicEgressResponseBody(resp, st.reqModel); err != nil {
+		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
 			debuglog.Warn("proxy: anthropic egress translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt

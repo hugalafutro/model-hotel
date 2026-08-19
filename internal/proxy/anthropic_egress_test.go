@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -56,13 +57,13 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 	}
 }
 
-// translateAnthropicEgressResponseBody swaps a Messages 200 body for its chat
+// translateEgressResponseBody swaps a Messages 200 body for its chat
 // translation in place, and errors on anything that is not a Messages response
 // so the caller fails over instead of forwarding garbage.
 func TestTranslateAnthropicEgressResponseBody(t *testing.T) {
 	resp := &http.Response{Body: newBodyReader(`{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":3,"output_tokens":2}}`)}
-	if err := translateAnthropicEgressResponseBody(resp, "claude-sonnet-4-5"); err != nil {
-		t.Fatalf("translateAnthropicEgressResponseBody: %v", err)
+	if err := translateEgressResponseBody(resp, "claude-sonnet-4-5", anthropicegress.BuildChatCompletion); err != nil {
+		t.Fatalf("translateEgressResponseBody: %v", err)
 	}
 	var out map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -77,11 +78,11 @@ func TestTranslateAnthropicEgressResponseBody(t *testing.T) {
 
 	// An Anthropic error envelope must not become a synthetic empty success.
 	resp = &http.Response{Body: newBodyReader(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`)}
-	if err := translateAnthropicEgressResponseBody(resp, "m"); err == nil {
+	if err := translateEgressResponseBody(resp, "m", anthropicegress.BuildChatCompletion); err == nil {
 		t.Error("expected error for an error envelope")
 	}
 	resp = &http.Response{Body: newBodyReader(`not json`)}
-	if err := translateAnthropicEgressResponseBody(resp, "m"); err == nil {
+	if err := translateEgressResponseBody(resp, "m", anthropicegress.BuildChatCompletion); err == nil {
 		t.Error("expected error for invalid JSON body")
 	}
 }

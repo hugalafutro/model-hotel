@@ -1466,7 +1466,7 @@ func TestAttemptCandidate_ATranslationFailureKeepsTheStreak(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	// A 200 that is not a Gemini answer, so translateGeminiResponseBody fails.
+	// A 200 that is not a Gemini answer, so translateEgressResponseBody fails.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `<html>502 Bad Gateway</html>`)
