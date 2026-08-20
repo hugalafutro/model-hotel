@@ -134,9 +134,10 @@ func TestDiscoverOpenCodeGo_UnknownModel_MinimalEntry(t *testing.T) {
 	}
 }
 
-// Catalog-entry backfill onto a live model is covered by catalog_merge_test.go
-// and the OpenCode Zen discovery tests; the Go catalog is an override channel
-// that is normally empty, so there is no shipped row to assert against here.
+// Catalog-entry backfill onto a live model is covered at unit level by
+// TestMergeLiveAndCatalog_LiveWinsCatalogBackfills in catalog_merge_test.go;
+// the Go catalog is an override channel that is normally empty, so there is
+// no shipped row to assert against through the discoverer here.
 
 func TestDiscoverOpenCodeGo_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

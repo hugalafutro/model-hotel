@@ -62,7 +62,7 @@
     "streaming": true,
     "reasoning": true,
     "tool_calling": true,
-    "structured_output": true,
+    "structured_output": false,
     "vision": false,
     "input_price_per_million": 0,
     "output_price_per_million": 0
