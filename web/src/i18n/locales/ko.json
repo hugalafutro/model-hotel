@@ -796,7 +796,8 @@
 			"baseUrl": "기본 URL",
 			"baseUrlHelperDefault": "서버가 수신 대기하는 주소를 입력하세요. 포트는 무엇이든 됩니다. 저장하기 전에 Model Hotel이 서버가 실제로 선택한 종류인지 확인하므로 서버가 실행 중이어야 합니다.",
 			"baseUrlHelperFull": "경로 접두사를 포함한 전체 API 기본 URL. 모델은 \"<base_url>\"/models 에서 검색됩니다.",
-			"apiKey": "API 키"
+			"apiKey": "API 키",
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API를 사용하는 엔드포인트의 기본 URL입니다. 요청은 \"<base_url>\"/v1/messages로 전송되고 모델은 \"<base_url>\"/v1/models에서 검색됩니다"
 		},
 		"edit": {
 			"typeHelper": "가져오기나 업그레이드 과정에서 잘못 추정된 종류를 바로잡을 때만 변경하세요. 자체 호스팅 종류는 저장 전에 서버와 대조합니다.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "비활성화 예약",
 		"schedule_disable_hint": "서버 날짜가 선택한 날에 도달하는 즉시 제공자가 비활성화됩니다.",
 		"schedule_disable_cancel": "예약 취소",
-		"scheduled_disable_card_tooltip": "{{date}}에 비활성화 예정"
+		"scheduled_disable_card_tooltip": "{{date}}에 비활성화 예정",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "모델",

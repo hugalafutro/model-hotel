@@ -15,7 +15,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 )
 
 func TestListModels(t *testing.T) {
@@ -326,29 +328,134 @@ func TestTestModel_VertexExpress(t *testing.T) {
 	}
 }
 
-// doTestModelGeminiRequest error paths: an untranslatable probe body errors
-// locally, and a non-200 upstream response passes through untranslated for the
-// caller's normal error handling.
-func TestDoTestModelGeminiRequest_Errors(t *testing.T) {
-	h := newTestHandler(t)
+// TestTestModel_AnthropicMessages proves the Test button routes an
+// anthropic-messages model through the Anthropic egress translation. Without
+// it the probe would go to /v1/chat/completions, which this provider type does
+// not serve, and the button would report a 404 for a model that answers live
+// traffic perfectly well.
+func TestTestModel_AnthropicMessages(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
 
-	if _, err := h.doTestModelGeminiRequest(context.Background(), &http.Client{}, "http://unused", "vertex-express", "m", "k", []byte(`{not json`)); err == nil {
-		t.Error("expected error for untranslatable body")
-	}
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, `{"error":{"code":401}}`, http.StatusUnauthorized)
+	mockServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/messages" {
+			t.Errorf("probe went to %s, want /v1/messages", req.URL.Path)
+			http.NotFound(w, req)
+			return
+		}
+		if req.Header.Get("x-api-key") == "" {
+			t.Error("missing x-api-key header")
+		}
+		if req.Header.Get("Authorization") != "" {
+			t.Errorf("Authorization = %q, want none for a Messages endpoint", req.Header.Get("Authorization"))
+		}
+		body, _ := io.ReadAll(req.Body)
+		// A Messages body carries max_tokens; an untranslated chat body would
+		// still carry the OpenAI-only fields the translator drops.
+		if !strings.Contains(string(body), `"max_tokens"`) {
+			t.Errorf("upstream got untranslated body: %s", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-5","content":[{"type":"text","text":"Hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":1}}`))
 	}))
 	defer mockServer.Close()
 
-	body := []byte(`{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hi"}],"max_tokens":10}`)
-	resp, err := h.doTestModelGeminiRequest(context.Background(), mockServer.Client(), mockServer.URL, "vertex-express", "gemini-2.5-flash", "k", body)
-	if err != nil {
-		t.Fatalf("doTestModelGeminiRequest: %v", err)
+	target := mockServer.Listener.Addr().String()
+	origTransport := h.testModelTransport
+	h.testModelTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target)
+		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test-only mock server
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status = %d, want 401 passed through", resp.StatusCode)
+	defer func() { h.testModelTransport = origTransport }()
+
+	// Anthropic's own host, deliberately: it is the one address that DETECTS as
+	// the sibling type, so the probe reaching /v1/messages proves the stored
+	// provider_type decides the route and host detection does not. (It is also
+	// allowlisted by default, unlike an arbitrary custom host, which a real
+	// operator must add to ALLOWED_PROVIDER_HOSTS.) Nothing leaves the process:
+	// the transport's dialer is pinned to the mock server above.
+	providerData := fmt.Sprintf(`{"name": "ant-messages-test-%s", "base_url": "https://api.anthropic.com", "provider_type": "anthropic-messages", "api_key": "sk-ant-test"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	pool := h.Pool().Pool()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "claude-sonnet-5", "Claude Sonnet 5", true); err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success {
+		t.Fatalf("test failed: %+v", testResp)
+	}
+	if testResp.Response != "Hi" {
+		t.Errorf("response = %q, want Hi (translated content)", testResp.Response)
+	}
+}
+
+// doTestModelEgressRequest error paths, once per adapter it serves: an
+// untranslatable probe body errors locally, and a non-200 upstream response
+// passes through untranslated for the caller's normal error handling.
+func TestDoTestModelEgressRequest_Errors(t *testing.T) {
+	h := newTestHandler(t)
+
+	adapters := map[string]struct {
+		providerType        string
+		modelID             string
+		translateRequest    func([]byte) ([]byte, string, bool, error)
+		buildChatCompletion func([]byte, string, string, int64) ([]byte, error)
+	}{
+		"gemini":             {"vertex-express", "gemini-2.5-flash", gemini.TranslateRequest, gemini.BuildChatCompletion},
+		"anthropic-messages": {"anthropic-messages", "claude-sonnet-4-5", anthropicegress.TranslateRequest, anthropicegress.BuildChatCompletion},
+	}
+
+	for name, a := range adapters {
+		t.Run(name, func(t *testing.T) {
+			if _, err := h.doTestModelEgressRequest(context.Background(), &http.Client{}, "http://unused", a.providerType, "m", "k", []byte(`{not json`), a.translateRequest, a.buildChatCompletion); err == nil {
+				t.Error("expected error for untranslatable body")
+			}
+
+			mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, `{"error":{"code":401}}`, http.StatusUnauthorized)
+			}))
+			defer mockServer.Close()
+
+			body := []byte(`{"model":"` + a.modelID + `","messages":[{"role":"user","content":"hi"}],"max_tokens":10}`)
+			resp, err := h.doTestModelEgressRequest(context.Background(), mockServer.Client(), mockServer.URL, a.providerType, a.modelID, "k", body, a.translateRequest, a.buildChatCompletion)
+			if err != nil {
+				t.Fatalf("doTestModelEgressRequest: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusUnauthorized {
+				t.Errorf("status = %d, want 401 passed through", resp.StatusCode)
+			}
+		})
 	}
 }
 

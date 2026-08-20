@@ -159,13 +159,14 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 			return u.Scheme + "://" + u.Host + "/openai/v1" + endpoint
 		}
 		return sanitized + endpoint
-	case "anthropic", "ollama", "lmstudio", "koboldcpp":
-		// These providers expose their OpenAI-compatible API under /v1: Ollama,
-		// LM Studio and KoboldCPP all serve /v1/chat/completions, and Anthropic's
-		// compatibility layer lives under /v1. Auto-add the prefix when the
-		// configured base URL omits it (e.g. a bare http://host:11434, which
-		// discovery accepts but proxying would otherwise 404), and avoid a double
-		// /v1 when the user already included it.
+	case "anthropic", "anthropic-messages", "ollama", "lmstudio", "koboldcpp":
+		// These providers expose their API under /v1: Ollama, LM Studio and
+		// KoboldCPP all serve /v1/chat/completions, and both Anthropic types serve
+		// /v1/messages (Anthropic's compatibility layer lives under /v1 too).
+		// Auto-add the prefix when the configured base URL omits it (e.g. a bare
+		// http://host:11434, which discovery accepts but proxying would otherwise
+		// 404, or the https://api.anthropic.com Anthropic itself documents), and
+		// avoid a double /v1 when the user already included it.
 		//
 		// SanitizeBaseURL only strips a single trailing slash, so normalize any
 		// remaining ones here before the suffix check; otherwise an input like
@@ -234,14 +235,14 @@ func CohereNativeBaseURL(sanitized string) string {
 }
 
 // SetProviderAuthHeaders sets the correct authentication headers for each provider type.
-// - Anthropic: x-api-key + anthropic-version (no Bearer auth)
+// - Anthropic (both types): x-api-key + anthropic-version (no Bearer auth)
 // - All others: standard Authorization: Bearer header
 func SetProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
 	if apiKey == "" {
 		return
 	}
 	switch providerType {
-	case "anthropic":
+	case "anthropic", "anthropic-messages":
 		req.Header.Set("x-api-key", apiKey)
 		req.Header.Set("anthropic-version", "2023-06-01")
 	case "vertex-express":

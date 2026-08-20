@@ -38,6 +38,21 @@ export function isLocalProviderType(type: string): boolean {
 	return localProviderTypes.has(type);
 }
 
+/** Provider types the operator addresses themselves, so the add dialog leaves
+ * the base URL field editable and pre-fills nothing. Every other type is a
+ * hosted API at a known address, which the dialog fills in and locks.
+ *
+ * `custom` and `anthropic-messages` are the two hand-entered dialects (OpenAI
+ * /v1/chat/completions and Anthropic /v1/messages); the rest are self-hosted
+ * servers, which additionally get a placeholder rather than a real default. */
+export function hasEditableBaseUrl(type: string): boolean {
+	return (
+		type === "custom" ||
+		type === "anthropic-messages" ||
+		isLocalProviderType(type)
+	);
+}
+
 export function isKnownProviderUrl(url: string): boolean {
 	return Object.values(baseUrls).includes(url);
 }
@@ -51,6 +66,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	minimax: "MiniMax",
 	openai: "OpenAI",
 	anthropic: "Anthropic",
+	"anthropic-messages": "Anthropic (Messages API)",
 	deepseek: "DeepSeek",
 	"ollama-cloud": "Ollama Cloud",
 	ollama: "Ollama",
@@ -77,6 +93,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	minimax: "providers.type_minimax",
 	openai: "providers.type_openai",
 	anthropic: "providers.type_anthropic",
+	"anthropic-messages": "providers.type_anthropic_messages",
 	deepseek: "providers.type_deepseek",
 	"ollama-cloud": "providers.type_ollama_cloud",
 	ollama: "providers.type_ollama",

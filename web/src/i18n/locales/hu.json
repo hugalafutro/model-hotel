@@ -796,7 +796,8 @@
 			"baseUrl": "Alap-URL",
 			"baseUrlHelperDefault": "Adja meg a címet, amelyen a kiszolgálója figyel, bármelyik porton. A Model Hotel mentés előtt ellenőrzi, hogy a kiszolgáló tényleg a választott típusú-e, ezért futnia kell.",
 			"baseUrlHelperFull": "A teljes API-alap-URL, beleértve az esetleges elérési út előtagokat is. A modellek a „<base_url> ”/models alatt lesznek elérhetők.",
-			"apiKey": "API-kulcs"
+			"apiKey": "API-kulcs",
+			"baseUrlHelperAnthropicMessages": "Egy olyan végpont alap-URL-je, amely az Anthropic Messages API-t beszéli. A kérések a \"<base_url>\"/v1/messages címre mennek, a modellek pedig a \"<base_url>\"/v1/models címről derülnek ki"
 		},
 		"edit": {
 			"typeHelper": "Csak akkor módosítsa, ha az importáláskor vagy frissítéskor rosszul megtippelt típust kell javítani. A saját üzemeltetésű típust mentés előtt ellenőrizzük a kiszolgálón.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Letiltás ütemezése",
 		"schedule_disable_hint": "A rendszer letiltja a szolgáltatót, amint a szerver dátuma eléri a kiválasztott napot.",
 		"schedule_disable_cancel": "Ütemezés törlése",
-		"scheduled_disable_card_tooltip": "Letiltás ütemezve erre a napra: {{date}}"
+		"scheduled_disable_card_tooltip": "Letiltás ütemezve erre a napra: {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Modell",

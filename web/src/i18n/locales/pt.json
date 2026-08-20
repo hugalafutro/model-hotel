@@ -807,7 +807,8 @@
 			"baseUrl": "URL Base",
 			"baseUrlHelperDefault": "Introduza o endereço onde o seu servidor está à escuta, em qualquer porta. Antes de guardar, o Model Hotel verifica se o servidor é mesmo do tipo escolhido, por isso tem de estar em execução.",
 			"baseUrlHelperFull": "URL base completa da API, incluindo qualquer prefixo de caminho. Modelos serão descobertos de \"<base_url>\"/models",
-			"apiKey": "Chave de API"
+			"apiKey": "Chave de API",
+			"baseUrlHelperAnthropicMessages": "URL base de um endpoint que fala a API Anthropic Messages. As requisições vão para \"<base_url>\"/v1/messages e os modelos são descobertos em \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Altere isto apenas para corrigir um tipo que foi mal deduzido na importação ou na atualização. Um tipo auto-hospedado é verificado no servidor antes de ser guardado.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "Agendar desativação",
 		"schedule_disable_hint": "O provedor será desativado assim que a data do servidor chegar ao dia escolhido.",
 		"schedule_disable_cancel": "Cancelar agendamento",
-		"scheduled_disable_card_tooltip": "Desativação agendada para {{date}}"
+		"scheduled_disable_card_tooltip": "Desativação agendada para {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Modelo",

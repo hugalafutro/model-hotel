@@ -816,7 +816,8 @@
 			"discoveredModels_two": "تم اكتشاف {{count}} نموذجين…",
 			"discoveredModels_few": "تم اكتشاف {{count}} نماذج…",
 			"discoveredModels_many": "تم اكتشاف {{count}} نموذجًا…",
-			"discoveredModels_other": "تم اكتشاف {{count}} نموذج…"
+			"discoveredModels_other": "تم اكتشاف {{count}} نموذج…",
+			"baseUrlHelperAnthropicMessages": "عنوان URL الأساسي لنقطة نهاية تتحدث بواجهة Anthropic Messages API. تُرسل الطلبات إلى \"<base_url>\"/v1/messages ويتم اكتشاف النماذج من \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "غيّر هذا فقط لتصحيح نوع خُمِّن خطأً عند استيراد المزوّد أو ترقيته. ويُتحقَّق من النوع الذاتي الاستضافة لدى الخادم قبل الحفظ.",
@@ -1077,7 +1078,8 @@
 		"schedule_disable_tooltip": "جدولة التعطيل",
 		"schedule_disable_hint": "سيتم تعطيل المزود بمجرد أن يصل تاريخ الخادم إلى اليوم المحدد.",
 		"schedule_disable_cancel": "إلغاء الجدولة",
-		"scheduled_disable_card_tooltip": "مجدول للتعطيل في {{date}}"
+		"scheduled_disable_card_tooltip": "مجدول للتعطيل في {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",

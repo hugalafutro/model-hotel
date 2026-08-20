@@ -292,6 +292,17 @@ request fails with `provider_type_mismatch`, `provider_type_unconfirmed` or
 `provider_unreachable` if the server does not answer as that type, so the server
 must be running.
 
+**An Anthropic Messages endpoint must name its type too**, for the same reason:
+`anthropic-messages` describes a wire format, not a vendor, so no hostname
+implies it. Named, the provider's chat traffic is translated to Anthropic's
+`/v1/messages` instead of being sent to `/v1/chat/completions`, and models are
+discovered from `<base_url>/v1/models` in Anthropic's shape. Omitted, the same
+base URL becomes a generic OpenAI-compatible provider whose every request would
+go to an endpoint that is not there. `api.anthropic.com` still derives
+`anthropic`, which serves the OpenAI-compatible route by default. As with any
+host that is not a known vendor's, a restricted install has to list the endpoint
+in `ALLOWED_PROVIDER_HOSTS` before the provider can be created.
+
 **Response:** `201 Created` with provider object
 
 #### PUT `/api/providers/{id}`

@@ -15,6 +15,11 @@ import (
 // take the same discovery and proxying path, and are kept apart only so the
 // dashboard can label a hand-entered endpoint as custom rather than claiming
 // it is OpenAI.
+//
+// "anthropic-messages" is the Messages-API twin of "custom": a hand-entered
+// endpoint that speaks Anthropic's native /v1/messages instead of OpenAI's
+// /v1/chat/completions. It carries no host rule, because the operator picks it
+// for an address nothing can infer the dialect from.
 var KnownTypes = []string{
 	"custom",
 	"openai",
@@ -23,6 +28,7 @@ var KnownTypes = []string{
 	"kimi-code",
 	"minimax",
 	"anthropic",
+	"anthropic-messages",
 	"deepseek",
 	"ollama",
 	"ollama-cloud",

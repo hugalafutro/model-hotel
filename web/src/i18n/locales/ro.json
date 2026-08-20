@@ -807,7 +807,8 @@
 			"baseUrl": "URL de bază",
 			"baseUrlHelperDefault": "Introduceți adresa pe care ascultă serverul dumneavoastră, pe orice port. Înainte de salvare, Model Hotel verifică dacă serverul chiar este tipul ales, deci trebuie să ruleze.",
 			"baseUrlHelperFull": "URL de bază API complet, inclusiv orice prefix de cale. Modelele vor fi descoperite de la \"<base_url>\"/models",
-			"apiKey": "Cheie API"
+			"apiKey": "Cheie API",
+			"baseUrlHelperAnthropicMessages": "URL-ul de bază al unui endpoint care vorbește API-ul Anthropic Messages. Cererile merg către \"<base_url>\"/v1/messages, iar modelele sunt descoperite din \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Modificați doar pentru a corecta un tip ghicit greșit la import sau la actualizare. Un tip găzduit local este verificat pe server înainte de salvare.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "Programează dezactivarea",
 		"schedule_disable_hint": "Furnizorul va fi dezactivat imediat ce data serverului ajunge la ziua aleasă.",
 		"schedule_disable_cancel": "Anulează programarea",
-		"scheduled_disable_card_tooltip": "Dezactivare programată pentru {{date}}"
+		"scheduled_disable_card_tooltip": "Dezactivare programată pentru {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

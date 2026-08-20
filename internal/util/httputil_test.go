@@ -982,6 +982,23 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/chat/completions",
 		},
 		{
+			// The endpoint that matters for this type is /messages, but the /v1
+			// mount is added the same way for any path, and an operator quoting a
+			// base with or without it must land in the same place.
+			name:         "Anthropic Messages custom endpoint",
+			baseURL:      "https://gateway.example.com/anthropic",
+			providerType: "anthropic-messages",
+			expected:     "https://gateway.example.com/anthropic/v1/messages",
+			endpoint:     "/messages",
+		},
+		{
+			name:         "Anthropic Messages custom endpoint with /v1 already",
+			baseURL:      "https://gateway.example.com/anthropic/v1",
+			providerType: "anthropic-messages",
+			expected:     "https://gateway.example.com/anthropic/v1/messages",
+			endpoint:     "/messages",
+		},
+		{
 			name:         "DeepSeek with /v1 in base URL",
 			baseURL:      "https://api.deepseek.com/v1",
 			providerType: "deepseek",
@@ -1132,6 +1149,16 @@ func TestSetProviderAuthHeaders(t *testing.T) {
 			providerType:     "anthropic",
 			apiKey:           "sk-ant-12345",
 			expectXAPIKey:    "sk-ant-12345",
+			expectVersion:    "2023-06-01",
+			expectAuthHeader: "",
+		},
+		{
+			// An operator-entered Messages endpoint authenticates the same way
+			// Anthropic's does, because that is the API it serves.
+			name:             "Anthropic Messages custom endpoint",
+			providerType:     "anthropic-messages",
+			apiKey:           "sk-ant-custom",
+			expectXAPIKey:    "sk-ant-custom",
 			expectVersion:    "2023-06-01",
 			expectAuthHeader: "",
 		},

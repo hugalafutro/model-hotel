@@ -9,6 +9,7 @@ import { Modal } from "../../components/Modal";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import {
 	baseUrls,
+	hasEditableBaseUrl,
 	isLocalProviderType,
 	localProviderPlaceholders,
 	providerTypeAllowsEmptyKey,
@@ -341,27 +342,22 @@ export function AddProviderModal({
 								base_url: e.target.value,
 							})
 						}
-						readOnly={
-							formData.provider_type !== "custom" &&
-							!isLocalProviderType(formData.provider_type)
-						}
+						readOnly={!hasEditableBaseUrl(formData.provider_type)}
 						className={
-							formData.provider_type !== "custom" &&
-							!isLocalProviderType(formData.provider_type)
-								? "ui-input opacity-60 cursor-not-allowed"
-								: "ui-input"
+							hasEditableBaseUrl(formData.provider_type)
+								? "ui-input"
+								: "ui-input opacity-60 cursor-not-allowed"
 						}
 						placeholder={
 							localProviderPlaceholders[formData.provider_type] ??
 							t("providers.form_base_url_placeholder")
 						}
 					/>
-					{formData.provider_type !== "custom" &&
-						!isLocalProviderType(formData.provider_type) && (
-							<p className="text-gray-500 text-xs mt-1">
-								{t("providers.form_base_url_hint_preset")}
-							</p>
-						)}
+					{!hasEditableBaseUrl(formData.provider_type) && (
+						<p className="text-gray-500 text-xs mt-1">
+							{t("providers.form_base_url_hint_preset")}
+						</p>
+					)}
 					{isLocalProviderType(formData.provider_type) && (
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.add.baseUrlHelperDefault")}
@@ -384,6 +380,11 @@ export function AddProviderModal({
 					{formData.provider_type === "custom" && (
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.add.baseUrlHelperFull")}
+						</p>
+					)}
+					{formData.provider_type === "anthropic-messages" && (
+						<p className="text-gray-500 text-xs mt-1">
+							{t("providers.add.baseUrlHelperAnthropicMessages")}
 						</p>
 					)}
 				</div>

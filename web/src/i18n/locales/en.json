@@ -798,7 +798,8 @@
 			"baseUrl": "Base URL",
 			"baseUrlHelperDefault": "Enter the address your server listens on, any port. Model Hotel checks the server really is the type you picked before saving, so it has to be running.",
 			"baseUrlHelperFull": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
-			"apiKey": "API Key"
+			"apiKey": "API Key",
+			"baseUrlHelperAnthropicMessages": "Base URL of an endpoint that speaks the Anthropic Messages API. Requests go to \"<base_url>\"/v1/messages and models are discovered from \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Change this only to correct a type that was guessed wrong when the provider was imported or upgraded. A self-hosted type is checked against the server before it is saved.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Schedule disable",
 		"schedule_disable_hint": "The provider will be disabled as soon as the server's date reaches the chosen day.",
 		"schedule_disable_cancel": "Cancel schedule",
-		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}"
+		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

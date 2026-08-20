@@ -796,7 +796,8 @@
 			"baseUrl": "Βασικό URL",
 			"baseUrlHelperDefault": "Δώστε τη διεύθυνση στην οποία ακούει ο διακομιστής σας, σε οποιαδήποτε θύρα. Το Model Hotel ελέγχει πριν την αποθήκευση ότι ο διακομιστής είναι όντως ο τύπος που επιλέξατε, οπότε πρέπει να εκτελείται.",
 			"baseUrlHelperFull": "Πλήρης API base URL συμπεριλαμβανομένου οποιουδήποτε προθέματος διαδρομής. Τα μοντέλα θα ανακαλυφθούν από το \"<base_url>\"/models",
-			"apiKey": "Κλειδί API"
+			"apiKey": "Κλειδί API",
+			"baseUrlHelperAnthropicMessages": "Βασική διεύθυνση URL ενός endpoint που μιλάει το Anthropic Messages API. Τα αιτήματα πηγαίνουν στο \"<base_url>\"/v1/messages και τα μοντέλα ανακαλύπτονται από το \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Αλλάξτε το μόνο για να διορθώσετε τύπο που μαντεύτηκε λάθος κατά την εισαγωγή ή την αναβάθμιση. Ένας αυτοφιλοξενούμενος τύπος ελέγχεται με τον διακομιστή πριν αποθηκευτεί.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Προγραμματισμός απενεργοποίησης",
 		"schedule_disable_hint": "Ο πάροχος θα απενεργοποιηθεί μόλις η ημερομηνία του διακομιστή φτάσει στην επιλεγμένη ημέρα.",
 		"schedule_disable_cancel": "Ακύρωση προγραμματισμού",
-		"scheduled_disable_card_tooltip": "Προγραμματισμένη απενεργοποίηση στις {{date}}"
+		"scheduled_disable_card_tooltip": "Προγραμματισμένη απενεργοποίηση στις {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Μοντέλο",

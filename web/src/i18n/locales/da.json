@@ -796,7 +796,8 @@
 			"baseUrl": "Base URL",
 			"baseUrlHelperDefault": "Angiv den adresse, din server lytter på, uanset port. Model Hotel kontrollerer før lagring, at serveren rent faktisk er den valgte type, så den skal køre.",
 			"baseUrlHelperFull": "Fuld API base URL herunder enhver sti prefix. Modeller vil blive opdaget fra \"<base_url>\"/models",
-			"apiKey": "API Nøgle"
+			"apiKey": "API Nøgle",
+			"baseUrlHelperAnthropicMessages": "Basis-URL for et endpoint, der taler Anthropic Messages API. Forespørgsler går til \"<base_url>\"/v1/messages, og modeller opdages fra \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Ret kun dette for at rette en type, der blev gættet forkert ved import eller opgradering. En selvhostet type kontrolleres mod serveren, før den gemmes.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Planlæg deaktivering",
 		"schedule_disable_hint": "Udbyderen deaktiveres, så snart serverens dato når den valgte dag.",
 		"schedule_disable_cancel": "Annuller planlægning",
-		"scheduled_disable_card_tooltip": "Planlagt til deaktivering den {{date}}"
+		"scheduled_disable_card_tooltip": "Planlagt til deaktivering den {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

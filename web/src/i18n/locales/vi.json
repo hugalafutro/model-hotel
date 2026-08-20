@@ -796,7 +796,8 @@
 			"baseUrl": "URL gốc",
 			"baseUrlHelperDefault": "Nhập địa chỉ mà máy chủ của bạn đang lắng nghe, cổng nào cũng được. Trước khi lưu, Model Hotel kiểm tra máy chủ có đúng là loại bạn chọn hay không, nên máy chủ phải đang chạy.",
 			"baseUrlHelperFull": "URL gốc của API đầy đủ, bao gồm cả tiền tố đường dẫn. Các mô hình sẽ được tìm thấy tại \"<base_url>\"/models",
-			"apiKey": "Khóa API"
+			"apiKey": "Khóa API",
+			"baseUrlHelperAnthropicMessages": "URL cơ sở của một điểm cuối nói Anthropic Messages API. Yêu cầu được gửi tới \"<base_url>\"/v1/messages và các mô hình được phát hiện từ \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Chỉ thay đổi để sửa loại bị đoán sai khi nhập hoặc nâng cấp. Loại máy chủ tự vận hành sẽ được đối chiếu với máy chủ trước khi lưu.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Lên lịch tắt",
 		"schedule_disable_hint": "Nhà cung cấp sẽ bị tắt ngay khi ngày trên máy chủ đến ngày đã chọn.",
 		"schedule_disable_cancel": "Hủy lịch",
-		"scheduled_disable_card_tooltip": "Đã lên lịch tắt vào {{date}}"
+		"scheduled_disable_card_tooltip": "Đã lên lịch tắt vào {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Mô hình",

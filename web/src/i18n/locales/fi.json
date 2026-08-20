@@ -796,7 +796,8 @@
 			"baseUrl": "Base URL",
 			"baseUrlHelperDefault": "Anna osoite, jota palvelimesi kuuntelee, missä tahansa portissa. Model Hotel tarkistaa ennen tallennusta, että palvelin todella on valitsemaasi tyyppiä, joten sen on oltava käynnissä.",
 			"baseUrlHelperFull": "Täysi API base URL mukaan lukien mahdollinen polun etuliite. Mallit löydetään osoitteesta \"<base_url>\"/models",
-			"apiKey": "Api Avain"
+			"apiKey": "Api Avain",
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API:a puhuvan päätepisteen perus-URL. Pyynnöt menevät osoitteeseen \"<base_url>\"/v1/messages ja mallit haetaan osoitteesta \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Muuta tätä vain korjataksesi tyypin, joka arvattiin väärin tuonnin tai päivityksen yhteydessä. Itse ylläpidetty tyyppi tarkistetaan palvelimelta ennen tallennusta.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Ajasta käytöstä poistaminen",
 		"schedule_disable_hint": "Palveluntarjoaja poistetaan käytöstä heti, kun palvelimen päivämäärä saavuttaa valitun päivän.",
 		"schedule_disable_cancel": "Peruuta ajastus",
-		"scheduled_disable_card_tooltip": "Ajastettu poistettavaksi käytöstä {{date}}"
+		"scheduled_disable_card_tooltip": "Ajastettu poistettavaksi käytöstä {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Malli",

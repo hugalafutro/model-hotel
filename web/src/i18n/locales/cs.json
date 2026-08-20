@@ -818,7 +818,8 @@
 			"baseUrl": "Základní adresa URL",
 			"baseUrlHelperDefault": "Zadejte adresu, na které váš server naslouchá, na libovolném portu. Model Hotel před uložením ověří, že server je opravdu zvoleného typu, takže musí běžet.",
 			"baseUrlHelperFull": "Úplná základní adresa URL rozhraní API včetně případného předpony cesty. Modely budou vyhledány na adrese „<base_url>“/models",
-			"apiKey": "API klíč"
+			"apiKey": "API klíč",
+			"baseUrlHelperAnthropicMessages": "Základní URL koncového bodu, který mluví Anthropic Messages API. Požadavky míří na \"<base_url>\"/v1/messages a modely se zjišťují z \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Měňte jen kvůli opravě typu, který byl při importu nebo upgradu odhadnut špatně. Typ vlastního serveru se před uložením ověří proti serveru.",
@@ -1019,7 +1020,8 @@
 		"schedule_disable_tooltip": "Naplánovat deaktivaci",
 		"schedule_disable_hint": "Poskytovatel bude deaktivován, jakmile datum serveru dosáhne zvoleného dne.",
 		"schedule_disable_cancel": "Zrušit plán",
-		"scheduled_disable_card_tooltip": "Naplánováno k deaktivaci dne {{date}}"
+		"scheduled_disable_card_tooltip": "Naplánováno k deaktivaci dne {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

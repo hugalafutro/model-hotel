@@ -796,7 +796,8 @@
 			"baseUrl": "Bas URL",
 			"baseUrlHelperDefault": "Ange adressen som din server lyssnar på, valfri port. Model Hotel kontrollerar före sparandet att servern verkligen är den typ du valde, så den måste vara igång.",
 			"baseUrlHelperFull": "Fullständig API-bas-URL inklusive sökvägsprefix. Modeller kommer att upptäckas från \"<base_url>\"/models",
-			"apiKey": "API nyckel"
+			"apiKey": "API nyckel",
+			"baseUrlHelperAnthropicMessages": "Bas-URL för en endpoint som talar Anthropic Messages API. Förfrågningar går till \"<base_url>\"/v1/messages och modeller upptäcks från \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Ändra bara detta för att rätta en typ som gissades fel vid import eller uppgradering. En egen servers typ kontrolleras mot servern innan den sparas.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Schemalägg inaktivering",
 		"schedule_disable_hint": "Leverantören inaktiveras så snart serverns datum når den valda dagen.",
 		"schedule_disable_cancel": "Avbryt schemaläggning",
-		"scheduled_disable_card_tooltip": "Schemalagd för inaktivering den {{date}}"
+		"scheduled_disable_card_tooltip": "Schemalagd för inaktivering den {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Modell",
