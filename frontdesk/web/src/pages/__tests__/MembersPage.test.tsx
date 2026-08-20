@@ -605,6 +605,122 @@ describe("MembersPage", () => {
 		expect(within(bodyRows[1]).getByText("hotel-2")).toBeInTheDocument();
 	});
 
+	it("shows the commit instead of the shared 'dev' placeholder", async () => {
+		const health = {
+			known: true,
+			healthy: true,
+			latency_ms: 9,
+			checked_at: "",
+		};
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({
+						id: "1",
+						name: "hotel-1",
+						status: { health, version: "dev", commit: "b80c04d4494f" },
+					}),
+					// A release tag identifies itself, so it stays the label.
+					member({
+						id: "2",
+						name: "hotel-2",
+						status: { health, version: "v1.2.3", commit: "aaaaaaaaaaaa" },
+					}),
+					// Nothing to show but the version: a member that reports no commit.
+					member({
+						id: "3",
+						name: "hotel-3",
+						status: { health, version: "dev", commit: "unknown" },
+					}),
+				]),
+			),
+		);
+		renderPage();
+
+		const row1 = (await screen.findByText("hotel-1")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row1).getByText("b80c04d4494f")).toBeInTheDocument();
+		expect(within(row1).queryByText("dev")).toBeNull();
+		// The version is not lost, it moves to the hover detail.
+		expect(within(row1).getByTitle("dev · b80c04d4494f")).toBeInTheDocument();
+
+		const row2 = (await screen.findByText("hotel-2")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row2).getByText("v1.2.3")).toBeInTheDocument();
+
+		const row3 = (await screen.findByText("hotel-3")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row3).getByText("dev")).toBeInTheDocument();
+		expect(within(row3).queryByText("unknown")).toBeNull();
+	});
+
+	it("badges a commit-only skew as sync held, where the versions match", async () => {
+		// The case the version cannot see, and the one the backend gate now holds
+		// on: both members report "dev", and only the commit separates them. A
+		// badge that compared versions would call this member in sync while sync
+		// is refusing it.
+		const health = {
+			known: true,
+			healthy: true,
+			latency_ms: 9,
+			checked_at: "",
+		};
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({
+						id: "1",
+						name: "hotel-1",
+						has_token: true,
+						status: { health, version: "dev", commit: "aaaaaaaaaaaa" },
+					}),
+					member({
+						id: "2",
+						name: "hotel-2",
+						has_token: true,
+						status: { health, version: "dev", commit: "bbbbbbbbbbbb" },
+					}),
+					member({
+						id: "3",
+						name: "hotel-3",
+						has_token: true,
+						status: { health, version: "dev", commit: "aaaaaaaaaaaa" },
+					}),
+					// Reports no commit: the gate falls back to the version and syncs
+					// it, so the badge must stay off rather than invent a difference.
+					member({
+						id: "4",
+						name: "hotel-4",
+						has_token: true,
+						status: { health, version: "dev", commit: "unknown" },
+					}),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+		);
+		renderPage();
+
+		const row2 = (await screen.findByText("hotel-2")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row2).getByTestId("member-sync-held")).toBeInTheDocument();
+
+		const row3 = (await screen.findByText("hotel-3")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row3).queryByTestId("member-sync-held")).toBeNull();
+
+		const row4 = (await screen.findByText("hotel-4")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row4).queryByTestId("member-sync-held")).toBeNull();
+	});
+
 	it("badges a member whose version differs from the primary's as sync held", async () => {
 		const health = {
 			known: true,

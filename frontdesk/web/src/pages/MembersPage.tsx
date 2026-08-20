@@ -13,22 +13,49 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { Notice } from "../components/Notice";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
+import type { Build } from "../utils/build";
+import {
+	buildLabel,
+	buildsDiffer,
+	buildTitle,
+	stampedCommit,
+} from "../utils/build";
 import { formatRelative, formatTimeOfDay } from "../utils/time";
 
-// majorityVersion returns the most common non-empty version across members, used
-// to flag the odd one(s) out only when the group actually disagrees.
-function majorityVersion(members: MemberView[]): string | null {
-	const counts = new Map<string, number>();
+// memberBuild reads a member's build identity off its polled status. Front Desk
+// clears both halves together when a read fails, so an empty version means "not
+// confirmed" rather than "no version".
+function memberBuild(m: MemberView): Build {
+	return { version: m.status.version ?? "", commit: m.status.commit ?? "" };
+}
+
+// buildKey identifies a build for counting. The commit joins the key only when
+// it names a real build, so members that cannot report one still group by their
+// version instead of each landing in a bucket of its own.
+function buildKey(b: Build): string {
+	return stampedCommit(b.commit) ? `${b.version}@${b.commit}` : b.version;
+}
+
+// majorityBuild returns the most common known build across members, used to flag
+// the odd one(s) out only when the group actually disagrees. Keyed on the build
+// rather than the version: on a fleet of "dev" images every version matches, so
+// a version-keyed count can never see a disagreement.
+function majorityBuild(members: MemberView[]): Build | null {
+	const counts = new Map<string, { build: Build; n: number }>();
 	for (const m of members) {
-		const v = m.status.version;
-		if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+		const b = memberBuild(m);
+		if (!b.version) continue;
+		const k = buildKey(b);
+		const cur = counts.get(k);
+		if (cur) cur.n += 1;
+		else counts.set(k, { build: b, n: 1 });
 	}
 	if (counts.size <= 1) return null;
-	let best: string | null = null;
+	let best: Build | null = null;
 	let bestN = 0;
-	for (const [v, n] of counts) {
+	for (const { build, n } of counts.values()) {
 		if (n > bestN) {
-			best = v;
+			best = build;
 			bestN = n;
 		}
 	}
@@ -108,13 +135,14 @@ export function MembersPage() {
 	const [removing, setRemoving] = useState<MemberView | null>(null);
 	useEffect(refreshPrimary, [refreshPrimary]);
 
-	const groupVersion = majorityVersion(members);
+	const groupBuild = majorityBuild(members);
 	// With a designated primary, version divergence is anchored to it (that is
 	// what holds config sync); the majority "odd one out" flag only fills in
 	// when no primary is set and there is nothing else to anchor to.
-	const primaryVersion = primaryId
-		? (members.find((m) => m.id === primaryId)?.status.version ?? null)
-		: null;
+	const primaryMember = primaryId
+		? members.find((m) => m.id === primaryId)
+		: undefined;
+	const primaryBuild = primaryMember ? memberBuild(primaryMember) : null;
 	// Pin the fleet primary to the top; every other member keeps its order.
 	const orderedMembers = primaryId
 		? [
@@ -239,8 +267,8 @@ export function MembersPage() {
 								<MemberRow
 									key={m.id}
 									member={m}
-									groupVersion={primaryId ? null : groupVersion}
-									primaryVersion={primaryVersion}
+									groupBuild={primaryId ? null : groupBuild}
+									primaryBuild={primaryBuild}
 									isPrimary={m.id === primaryId}
 									soleActive={soleActive}
 									disbandOnRemove={disbandOnRemove}
@@ -299,8 +327,8 @@ export function MembersPage() {
 
 function MemberRow({
 	member: m,
-	groupVersion,
-	primaryVersion,
+	groupBuild,
+	primaryBuild,
 	isPrimary,
 	soleActive,
 	disbandOnRemove,
@@ -309,10 +337,11 @@ function MemberRow({
 	onRemove,
 }: {
 	member: MemberView;
-	groupVersion: string | null;
-	// The designated primary's version, or null when no primary is set (or its
-	// version is unknown). Non-null anchors the "sync held" badge.
-	primaryVersion: string | null;
+	groupBuild: Build | null;
+	// The designated primary's build, or null when no primary is set. A build
+	// with an empty version means the primary's is unknown, which anchors
+	// nothing: the badge needs something confirmed to compare against.
+	primaryBuild: Build | null;
 	isPrimary: boolean;
 	// True when the fleet has at most one active member. The drain control is
 	// disabled for the active member in that case: draining the last active member
@@ -330,17 +359,20 @@ function MemberRow({
 }) {
 	const { t } = useTranslation();
 	const health = m.status.health;
+	const build = memberBuild(m);
 	const mismatch =
-		!!m.status.version && !!groupVersion && m.status.version !== groupVersion;
+		!!build.version && !!groupBuild && buildsDiffer(build, groupBuild);
 	// Mirrors the backend gate: config sync (autosync and the wizard) holds a
-	// tokened member while its version differs from the primary's, including an
-	// unknown version (the gate fails closed). Tokenless members are skipped by
-	// sync entirely, never held.
+	// tokened member while its BUILD differs from the primary's, including an
+	// unknown version (the gate fails closed). Comparing versions alone would
+	// leave this badge silent on a "dev" fleet held for a commit difference,
+	// telling the operator a member is in sync while sync is refusing it.
+	// Tokenless members are skipped by sync entirely, never held.
 	const heldForSkew =
 		!isPrimary &&
 		m.has_token &&
-		!!primaryVersion &&
-		m.status.version !== primaryVersion;
+		!!primaryBuild?.version &&
+		buildsDiffer(build, primaryBuild);
 
 	return (
 		<tr className={isPrimary ? "fd-row-primary" : undefined}>
@@ -400,8 +432,10 @@ function MemberRow({
 			</td>
 			<td>
 				<span className="fd-row">
-					{m.status.version ? (
-						<span className="fd-mono">{m.status.version}</span>
+					{build.version ? (
+						<span className="fd-mono" title={buildTitle(build)}>
+							{buildLabel(build)}
+						</span>
 					) : (
 						<span className="fd-faint">
 							{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
