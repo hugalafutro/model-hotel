@@ -165,35 +165,8 @@ func TestDiscoverNanoGPT(t *testing.T) {
 	}
 }
 
-// Test discoverOpenCodeGo with mock server
-// Test discoverOpenCodeGo with 404 fallback to catalog
-func TestDiscoverOpenCodeGo_404Fallback(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/models" {
-			http.NotFound(w, r)
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-
-	svc := &DiscoveryService{httpClient: server.Client()}
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	ctx := context.Background()
-	models, err := svc.discoverOpenCodeGo(ctx, provider, "test-key")
-	if err != nil {
-		t.Fatalf("discoverOpenCodeGo should not fail on 404 (should fallback to catalog): %v", err)
-	}
-
-	// Should return catalog models on 404
-	if len(models) == 0 {
-		t.Error("expected catalog models on 404, got 0")
-	}
-}
+// The 404-falls-back-to-catalog path is covered by
+// TestDiscoverOpenCodeGo_404FallsBackToCatalog in discovery_opencode_go_test.go.
 
 // Test discoverOpenCodeGo with non-200 status
 func TestDiscoverOpenCodeGo_Non200Status(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 // TestLoadCatalog_ValidJSON verifies that loadCatalog successfully parses
 // a known embedded JSON file into the expected Go type.
 func TestLoadCatalog_ValidJSON(t *testing.T) {
-	catalog := loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")
+	catalog := loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")
 	if len(catalog) == 0 {
-		t.Error("opencode_go.json should contain at least one entry")
+		t.Error("opencode_zen.json should contain at least one entry")
 	}
 	first := catalog[0]
 	if first.ModelID == "" {
@@ -38,13 +38,17 @@ func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 	}
 	cases := []testCase{
 		// Union / probe catalogs: emptying these would lose models outright.
-		{"opencode_go", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")) }, true},
+		// opencode_zen must keep its zero-priced free-model rows — the keyless
+		// discovery path can only surface free models the catalog identifies.
 		{"opencode_zen", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")) }, true},
 		{"xai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("xai.json")) }, true},
 		{"zai", func() int { return len(loadCatalog[[]ZAICodingModelSpec]("zai.json")) }, true},
 		{"deepseek", func() int { return len(loadCatalog[[]DeepSeekModelSpec]("deepseek.json")) }, true},
 		{"openai", func() int { return len(loadCatalog[[]OpenAIModelSpec]("openai.json")) }, true},
 		// Pricing overrides: legitimately empty.
+		// opencode_go has a live /models listing and full models.dev coverage;
+		// its rows exist only to override either of those when they drift.
+		{"opencode_go", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")) }, false},
 		{"anthropic", func() int { return len(loadCatalog[[]AnthropicPricingSpec]("anthropic.json")) }, false},
 		{"google", func() int { return len(loadCatalog[[]GoogleModelPricing]("google.json")) }, false},
 		{"cohere", func() int { return len(loadCatalog[[]CoherePricingEntry]("cohere.json")) }, false},

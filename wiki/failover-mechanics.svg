@@ -84,12 +84,13 @@
   <text x="616" y="255" fill="#fb7185" font-size="12" font-weight="700">Retriable failures</text>
   <text x="616" y="283" fill="#cbd5e1" font-size="11">&#8226; Server errors (5xx)</text>
   <text x="616" y="303" fill="#cbd5e1" font-size="11">&#8226; Rate limits (429)</text>
-  <text x="616" y="323" fill="#cbd5e1" font-size="11">&#8226; Auth issues (401 / 403)</text>
+  <text x="616" y="323" fill="#cbd5e1" font-size="11">&#8226; Auth / credit (401/403/402)</text>
   <text x="616" y="343" fill="#cbd5e1" font-size="11">&#8226; Model not found (404)</text>
   <text x="616" y="363" fill="#cbd5e1" font-size="11">&#8226; Request timeouts</text>
   <text x="616" y="383" fill="#cbd5e1" font-size="11">&#8226; TTFT probe timeouts</text>
-  <text x="616" y="411" fill="#94a3b8" font-size="10" font-style="italic">each one fails over to</text>
-  <text x="616" y="425" fill="#94a3b8" font-size="10" font-style="italic">the next provider (left)</text>
+  <text x="616" y="403" fill="#cbd5e1" font-size="11">&#8226; Client closed (499)</text>
+  <text x="616" y="423" fill="#94a3b8" font-size="10" font-style="italic">each one fails over to</text>
+  <text x="616" y="437" fill="#94a3b8" font-size="10" font-style="italic">the next provider (left)</text>
 
   <!-- healthy stream completes -> served -->
   <line x1="410" y1="476" x2="410" y2="560" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>

@@ -534,25 +534,9 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 **Source files:** `discovery_opencode_go.go`, `opencode_go_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge) - catalog backfills the metadata below, and newer models the catalog doesn't cover yet surface from live + models.dev. A `404` (endpoint gone / over-quota historically) falls back to the full catalog; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog is an **override channel that is normally empty**: every live model's metadata and per-token prices come from models.dev's `opencode-go` entry (with the cross-provider index as gap coverage). Those prices are not what a Go subscriber pays per request - they are the shadow cost that Go's dollar-based quotas ($/5h, $/week, $/month) burn, the same convention used for the Z.AI and Kimi coding plans. A `404` (endpoint gone) falls back to the catalog - normally empty, so the scan yields no models and nothing gets disabled; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
 
-**Catalog provides (full `OpenCodeModelSpec`):**
-
-| Field | Source |
-|-------|--------|
-| Display name | Catalog |
-| Description | Catalog |
-| Context length | Catalog |
-| Max output tokens | Catalog |
-| Modality | Catalog |
-| Input modalities | Catalog |
-| Output modalities | Catalog |
-| Streaming | Catalog |
-| Reasoning | Catalog |
-| Tool calling | Catalog |
-| Structured output | Catalog |
-| Vision | Catalog |
-| Input price / cache-hit price / output price | Catalog (all zero - subscription-based) |
+**Catalog rows, when present, are overrides:** a row wins over models.dev for every field it sets, and `OpenCodeCatalogToModel` always materializes the price fields - so an override row **must state real prices**, because omitting them pins the model's price at $0 and it meters free.
 
 ### OpenCode Zen
 
@@ -560,7 +544,7 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 **Method:** For **keyed** providers, same as OpenCode Go - `GET /models` merged with the catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). For **keyless** providers (no API key), the merge is bypassed: only free (zero-priced) catalog models the live listing includes are returned, with no union, since a keyless caller must not be shown models it cannot reach.
 
-The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
+The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog carries **only the zero-priced free-model rows** - they are load-bearing for the keyless path above, which can only surface free models the catalog identifies. Paid models take their metadata and pricing from live + models.dev (`opencode` entry). (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
 
 ### xAI (Grok)
 
