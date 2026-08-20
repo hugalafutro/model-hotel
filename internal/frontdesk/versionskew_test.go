@@ -1,6 +1,9 @@
 package frontdesk
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBuildSkew(t *testing.T) {
 	cases := []struct {
@@ -103,4 +106,61 @@ func TestMemberBuildDescribe(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestWarnIfBuildGateDegraded: an unstamped primary silently turns the build
+// gate back into the version-only comparison it replaces, and auto-sync never
+// prompts, so the one thing it can do is say so. Once per transition, because a
+// pass runs every tick.
+func TestWarnIfBuildGateDegraded(t *testing.T) {
+	const msg = "frontdesk: auto-sync: primary reports no build commit, " +
+		"config sync is gated on the app version alone"
+
+	count := func(h *recordingHandler) int {
+		n := 0
+		for _, r := range h.snapshot() {
+			if strings.Contains(r.msg, "no build commit") {
+				n++
+			}
+		}
+		return n
+	}
+
+	t.Run("a stamped primary says nothing", func(t *testing.T) {
+		h := captureLogs(t)
+		srv, _ := newTestServer(t)
+		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: "d18a96d1f84d"})
+		if got := count(h); got != 0 {
+			t.Errorf("warnings = %d, want 0: the gate is comparing commits", got)
+		}
+	})
+
+	t.Run("warns once, then stays quiet", func(t *testing.T) {
+		h := captureLogs(t)
+		srv, _ := newTestServer(t)
+		for range 3 {
+			srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: unstampedCommit})
+		}
+		if got := count(h); got != 1 {
+			t.Fatalf("warnings = %d, want exactly 1 across repeated passes", got)
+		}
+		rec, ok := h.find(msg)
+		if !ok {
+			t.Fatalf("no warning matched %q; got %+v", msg, h.snapshot())
+		}
+		if rec.attrs["primary_version"] != "dev" {
+			t.Errorf("primary_version attr = %v, want dev", rec.attrs["primary_version"])
+		}
+	})
+
+	t.Run("re-arms once the primary is stamped again", func(t *testing.T) {
+		h := captureLogs(t)
+		srv, _ := newTestServer(t)
+		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: ""})
+		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: "d18a96d1f84d"})
+		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: ""})
+		if got := count(h); got != 2 {
+			t.Errorf("warnings = %d, want 2: the condition cleared and returned", got)
+		}
+	})
 }

@@ -632,6 +632,66 @@ describe("FleetSyncWizard", () => {
 		expect(autosyncPuts).toEqual([]);
 	});
 
+	it("names the commit when only the build differs", async () => {
+		// The case the version cannot describe: both members report "dev", so the
+		// row would be indistinguishable from an aligned one without the commit,
+		// and the operator has nothing to act on.
+		server.use(
+			convergedStatus(),
+			http.post("/api/fleet/version-check", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_version: "dev",
+					primary_commit: "aaaaaaaaaaaa",
+					commit_vouched: true,
+					skewed: [
+						{
+							member_id: "2",
+							name: "hotel-2",
+							version: "dev",
+							commit: "bbbbbbbbbbbb",
+						},
+					],
+				}),
+			),
+		);
+		await walkToStep3();
+
+		const block = await screen.findByTestId("version-skew-block");
+		expect(block).toHaveTextContent("hotel-2");
+		expect(block).toHaveTextContent("bbbbbbbbbbbb");
+		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+	});
+
+	it("shows no commit for a member that reports none", async () => {
+		// "unknown" identifies no build, so printing it beside the version would
+		// dress a member we cannot place as one we can.
+		server.use(
+			convergedStatus(),
+			http.post("/api/fleet/version-check", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_version: "v1.2.4",
+					primary_commit: "aaaaaaaaaaaa",
+					commit_vouched: false,
+					skewed: [
+						{
+							member_id: "2",
+							name: "hotel-2",
+							version: "v1.2.3",
+							commit: "unknown",
+						},
+					],
+				}),
+			),
+		);
+		await walkToStep3();
+
+		const block = await screen.findByTestId("version-skew-block");
+		expect(block).toHaveTextContent("v1.2.3");
+		expect(block).not.toHaveTextContent("unknown");
+	});
+
 	it("clears the block when Refresh finds the versions aligned again", async () => {
 		let checks = 0;
 		server.use(

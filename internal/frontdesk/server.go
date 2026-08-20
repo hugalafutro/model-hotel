@@ -97,6 +97,11 @@ type Server struct {
 	// not re-alerted.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
+	// ungatedCommitWarned records that this process already warned that the
+	// primary reports no usable commit, so the warning fires once per transition
+	// rather than every pass. Guarded by syncHeldMu, alongside the hold state it
+	// qualifies. See warnIfBuildGateDegraded.
+	ungatedCommitWarned bool
 	// holdLogChecked marks members whose persisted hold state this process has
 	// already reconciled, so heldPerLog reads the event log at most once per
 	// member. Guarded by syncHeldMu; in-memory and bounded by fleet size.

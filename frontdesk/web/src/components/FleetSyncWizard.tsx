@@ -891,7 +891,12 @@ function StepConfig({
 						<ul className="fd-mono" style={{ margin: "0.4rem 0 0.5rem" }}>
 							{skew.skewed.map((m) => (
 								<li key={m.member_id}>
-									{m.name} ({m.version || t("members.versionUnknown")})
+									{m.name} ({m.version || t("members.versionUnknown")}
+									{/* The commit is what names the difference on a fleet whose
+									    members all report "dev": without it these rows read
+									    identical to an aligned one. Shown only when it is a real
+									    commit, since "unknown" identifies nothing. */}
+									{m.commit && m.commit !== "unknown" ? ` · ${m.commit}` : ""})
 								</li>
 							))}
 						</ul>

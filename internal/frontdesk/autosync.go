@@ -409,6 +409,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	}
 
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
+	s.warnIfBuildGateDegraded(primaryBuild)
 	for _, m := range members {
 		if m.ID == primary.ID {
 			// The source is never written to, but a hold announced before this
@@ -627,6 +628,36 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		s.markMemberIncomplete(ctx, m)
 	}
 	return false, true, differingSections(primarySections, memberSections)
+}
+
+// warnIfBuildGateDegraded says so, once, when the primary reports no usable
+// commit.
+//
+// buildSkew falls back to comparing versions alone when either side's commit is
+// missing or "unknown", and an unstamped PRIMARY degrades every verdict in the
+// fleet at once: with all members on the "dev" placeholder, that fallback passes
+// everything, which is the behaviour this gate exists to replace. The wizard
+// surfaces the same condition as commit_vouched and asks the operator to
+// acknowledge it, but auto-sync never prompts, so without this line the loop
+// would quietly push on the old, blind comparison.
+//
+// A build reaches this state by skipping the Makefile: the Dockerfile defaults
+// COMMIT to "unknown", and only the Makefile and CI pass the real SHA.
+//
+// Edge-triggered like the hold state it sits beside, because a pass runs on
+// every tick and a per-pass warning would bury itself.
+func (s *Server) warnIfBuildGateDegraded(primary memberBuild) {
+	degraded := !stampedCommit(primary.Commit)
+	s.syncHeldMu.Lock()
+	repeat := degraded == s.ungatedCommitWarned
+	s.ungatedCommitWarned = degraded
+	s.syncHeldMu.Unlock()
+	if repeat || !degraded {
+		return
+	}
+	debuglog.Warn("frontdesk: auto-sync: primary reports no build commit, "+
+		"config sync is gated on the app version alone",
+		"primary_version", primary.Version)
 }
 
 // holdMemberForSkew marks a member as held for version skew and emits
