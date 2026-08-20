@@ -321,7 +321,33 @@ Model metadata, `owned_by` included, is produced exactly as for `anthropic`: the
 
 The one real difference from `anthropic`: **every chat request is translated**, not just the ones carrying a document. An `anthropic` provider defaults to Anthropic's OpenAI-compat `/v1/chat/completions` and only re-routes through `internal/anthropicegress` for content that endpoint cannot express; an `anthropic-messages` provider has no compat endpoint at all, so all of its chat traffic goes to `/v1/messages` through the same adapter. A client that speaks Anthropic natively (`/v1/messages` in, see `anthropic_native.go`) is forwarded verbatim in both directions, so `cache_control` and thinking blocks survive.
 
+Because everything is translated, `reasoning_effort` is honoured on this type (and only this type: `anthropic` strips it, since its default route has no thinking control and honouring it on document requests alone would make one request reason and the next not). See **Extended thinking** below.
+
 Discovery fails loudly if the endpoint does not serve the listing, rather than adding a provider whose models were never confirmed to exist.
+
+#### Extended thinking
+
+An OpenAI client asks for reasoning with `reasoning_effort`, and Anthropic takes that request in one of two mutually exclusive shapes:
+
+| Shape | Request | Models |
+|-------|---------|--------|
+| adaptive | `thinking: {type: "adaptive"}` + `output_config: {effort}` | the newer ones; the model chooses how much to think under the ceiling |
+| budget | `thinking: {type: "enabled", budget_tokens}` | the older ones; a fixed token allowance |
+
+Nothing in a model id says which it takes, and the split is not generational. Measured live on 2026-08-20: `claude-opus-5` and `claude-sonnet-5` accept adaptive **only**, `claude-opus-4-5` and `claude-haiku-4-5` accept budget **only**, and `claude-sonnet-4-6` accepts **both**. A third-party Messages endpoint may serve model ids that follow no Anthropic naming convention at all.
+
+So the dialect is learned rather than guessed. MH asks in the adaptive shape (what current models want), and if the upstream refuses with the 400 that names the other shape, it records the dialect for that provider+model and re-issues the request once. The caller sees the answer, not the 400, and no later request to that model pays the extra round-trip. The cache is in memory and per instance, like the learned param caches: relearning after a restart costs one 400, and the alternative is a stored fact that goes stale when Anthropic moves a model between dialects. See `internal/proxy/anthropic_thinking_retry.go`.
+
+The same self-heal covers the other per-model fact no id reveals: **a param the model has retired.** `claude-sonnet-5` and `claude-opus-5` answer `` `temperature` is deprecated for this model `` while every 4.x model accepts it, and OpenAI clients send `temperature` as a matter of course, so this is the more common of the two. A Messages 400 naming a rejected param is learned into the same `deprecationCache` the compat path uses and the request re-issued without it. Learning is deliberately restricted to `anthropic-messages` providers, whose only route is Messages: the cache is keyed by provider+model, so learning a strip from a Messages 400 on an `anthropic` provider could remove a param from that model's compat traffic, which accepts it.
+
+One retry covers both, because they cannot co-occur: a thinking request has already had its sampling params dropped, and a request without thinking cannot earn a dialect complaint.
+
+Two consequences worth knowing:
+
+- **Sampling params are dropped from a thinking request.** Anthropic rejects any `temperature` but 1 when thinking is on, in either shape, and treats `top_p`/`top_k` the same way. A caller who asks to think is asking about reasoning depth, so the reasoning request wins and the sampling knobs go.
+- **A small `max_tokens` is raised.** Thinking tokens come out of the same allowance as the answer, so a tight budget can be spent entirely on thinking: a live `claude-sonnet-5` given `max_tokens: 30` returned 29 thinking tokens, no text, and `finish_reason: "length"`. An adaptive request with a smaller allowance is raised to the default, and a budget request is raised above its budget.
+
+Effort maps across directly: `low`/`medium`/`high` are common to both scales, OpenAI's `minimal` floors to Anthropic's `low`, and Anthropic's two extra levels (`xhigh`, `max`) are honoured if a client names them. Anything else (`none`, absent) leaves thinking off and the sampling params intact.
 
 ### AWS Bedrock
 

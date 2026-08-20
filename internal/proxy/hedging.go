@@ -301,6 +301,16 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// request. The sequential path gates its own 400 handling the same
 			// way.
 		}
+		if resp.StatusCode == http.StatusBadRequest && st.anthropicEgressAttempt {
+			// The Messages route's own learnable 400, gated the opposite way: a
+			// thinking-dialect complaint only arrives on an egress attempt, and
+			// naming a dialect is the whole content of it. Learning here spares
+			// every later request to this model the refusal, even though this
+			// race slot cannot re-issue to recover the current one.
+			if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
+				h.learnThinkingDialect(candidate, dialect)
+			}
+		}
 		// A hedged race drops every candidate but the winner here, so without
 		// this a dead model in a hedged group accrued strikes only on the runs it
 		// happened to win — almost never, since a model answering 404 loses the

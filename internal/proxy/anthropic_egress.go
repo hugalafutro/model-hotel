@@ -73,11 +73,13 @@ func isAnthropicEgressAttempt(st *requestState, providerType string) bool {
 // One route serves both modes: Anthropic streams from /v1/messages too, with
 // the body's "stream" field making the difference.
 func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
-	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
-	body, model, stream, err := anthropicegress.TranslateRequest(cleaned)
+	body, model, stream, err := h.anthropicEgressBody(st, candidate, providerType, h.thinkingDialectFor(candidate))
 	if err != nil {
 		return nil, providerType, "", err
 	}
+	// Kept for the self-heal to compare a rebuild against (see
+	// learnAndRebuildMessages400); overwritten per attempt, like the dialect flags.
+	st.lastMessagesBody = body
 
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 	debuglog.Info("proxy: routing via anthropic egress adapter", "target_url", targetURL, "model", model, "provider", candidate.provider.Name, "stream", stream)
@@ -91,4 +93,36 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
+}
+
+// anthropicEgressBody builds the Messages body for one egress attempt: the
+// shared chat rewrite (model rename, learned strips) followed by translation in
+// the given thinking dialect. The initial attempt and the dialect retry both go
+// through here so a change to either half cannot apply to only one of them.
+func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate, providerType string, dialect anthropicegress.ThinkingDialect) (body []byte, model string, stream bool, err error) {
+	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
+	return anthropicegress.TranslateRequestWithDialect(cleaned, dialect)
+}
+
+// thinkingDialectFor returns the extended-thinking shape to ask this candidate's
+// model for: whatever a previous 400 taught, else the adaptive default. The key
+// is the provider scope plus the upstream model id, the same one the learned
+// param caches use, because the fact is per model AND per provider — the same
+// model id behind two Messages endpoints need not be the same build.
+func (h *Handler) thinkingDialectFor(candidate modelCandidate) anthropicegress.ThinkingDialect {
+	key := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
+	if v, ok := h.thinkingDialectCache.Load(key); ok {
+		if dialect, isDialect := v.(anthropicegress.ThinkingDialect); isDialect {
+			return dialect
+		}
+	}
+	return anthropicegress.ThinkingAdaptive
+}
+
+// learnThinkingDialect records the shape an upstream 400 asked for, so later
+// requests to the same provider+model are built with it from the start.
+func (h *Handler) learnThinkingDialect(candidate modelCandidate, dialect anthropicegress.ThinkingDialect) {
+	key := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
+	h.thinkingDialectCache.Store(key, dialect)
+	debuglog.Info("proxy: learned anthropic thinking dialect from upstream 400", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "dialect", dialect.String())
 }

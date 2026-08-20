@@ -27,6 +27,9 @@ type translatedRequest struct {
 		Type         string `json:"type"`
 		BudgetTokens int    `json:"budget_tokens"`
 	} `json:"thinking"`
+	OutputConfig *struct {
+		Effort string `json:"effort"`
+	} `json:"output_config"`
 }
 
 type translatedMessage struct {
@@ -61,9 +64,16 @@ type translatedSource struct {
 // translate runs TranslateRequest and decodes the result for assertions.
 func translate(t *testing.T, body string) translatedRequest {
 	t.Helper()
-	out, _, _, err := TranslateRequest([]byte(body))
+	return translateWith(t, body, ThinkingAdaptive)
+}
+
+// translateWith is translate with the thinking dialect named, for the tests that
+// are about the dialects themselves.
+func translateWith(t *testing.T, body string, dialect ThinkingDialect) translatedRequest {
+	t.Helper()
+	out, _, _, err := TranslateRequestWithDialect([]byte(body), dialect)
 	if err != nil {
-		t.Fatalf("TranslateRequest failed: %v", err)
+		t.Fatalf("TranslateRequestWithDialect failed: %v", err)
 	}
 	var req translatedRequest
 	if err := json.Unmarshal(out, &req); err != nil {
@@ -687,12 +697,13 @@ func TestTranslateRequest_EmptyTurnsAreDropped(t *testing.T) {
 	}
 }
 
-func TestTranslateRequest_Thinking(t *testing.T) {
+func TestTranslateRequest_ThinkingBudgetDialect(t *testing.T) {
 	tests := []struct {
 		name       string
 		effort     string
 		wantBudget int // 0 means no thinking block
 	}{
+		{name: "minimal floors to the smallest budget", effort: "minimal", wantBudget: 1024},
 		{name: "low", effort: "low", wantBudget: 1024},
 		{name: "medium", effort: "medium", wantBudget: 4096},
 		{name: "high", effort: "high", wantBudget: 8192},
@@ -707,7 +718,7 @@ func TestTranslateRequest_Thinking(t *testing.T) {
 			if tt.effort != "" {
 				body += `,"reasoning_effort":"` + tt.effort + `"`
 			}
-			req := translate(t, body+"}")
+			req := translateWith(t, body+"}", ThinkingBudget)
 
 			if tt.wantBudget == 0 {
 				if req.Thinking != nil {
@@ -725,12 +736,93 @@ func TestTranslateRequest_Thinking(t *testing.T) {
 			if req.Thinking.Type != "enabled" || req.Thinking.BudgetTokens != tt.wantBudget {
 				t.Errorf("thinking = %+v, want enabled with budget %d", req.Thinking, tt.wantBudget)
 			}
+			// The budget dialect carries no effort field; sending one would be
+			// harmless but meaningless.
+			if req.OutputConfig != nil {
+				t.Errorf("output_config = %+v, want it omitted on the budget dialect", req.OutputConfig)
+			}
 			// Anthropic rejects sampling params alongside thinking.
 			if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
 				t.Errorf("sampling params survived thinking: temperature=%v top_p=%v top_k=%v",
 					req.Temperature, req.TopP, req.TopK)
 			}
 		})
+	}
+}
+
+// The adaptive dialect is the default and what current models require: a
+// type:"adaptive" thinking block plus an effort ceiling, and no budget at all
+// (the model decides how much to spend beneath the ceiling).
+func TestTranslateRequest_ThinkingAdaptiveDialect(t *testing.T) {
+	tests := []struct {
+		name       string
+		effort     string
+		wantEffort string // "" means no thinking block
+	}{
+		{name: "minimal floors to low", effort: "minimal", wantEffort: "low"},
+		{name: "low", effort: "low", wantEffort: "low"},
+		{name: "medium", effort: "medium", wantEffort: "medium"},
+		{name: "high", effort: "high", wantEffort: "high"},
+		// Anthropic has two levels above high; a client that names one gets it.
+		{name: "xhigh", effort: "xhigh", wantEffort: "xhigh"},
+		{name: "max", effort: "max", wantEffort: "max"},
+		{name: "uppercase is normalised", effort: "HIGH", wantEffort: "high"},
+		{name: "none", effort: "none", wantEffort: ""},
+		{name: "absent", effort: "", wantEffort: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],
+				"max_tokens":16000,"temperature":0.5,"top_p":0.9,"top_k":40`
+			if tt.effort != "" {
+				body += `,"reasoning_effort":"` + tt.effort + `"`
+			}
+			req := translateWith(t, body+"}", ThinkingAdaptive)
+
+			if tt.wantEffort == "" {
+				if req.Thinking != nil || req.OutputConfig != nil {
+					t.Errorf("thinking = %+v, output_config = %+v, want both omitted", req.Thinking, req.OutputConfig)
+				}
+				if req.Temperature == nil || req.TopP == nil || req.TopK == nil {
+					t.Error("sampling params dropped without a thinking block")
+				}
+				return
+			}
+
+			if req.Thinking == nil || req.Thinking.Type != "adaptive" {
+				t.Fatalf("thinking = %+v, want type adaptive", req.Thinking)
+			}
+			// A budget on an adaptive request is what the newest models reject.
+			if req.Thinking.BudgetTokens != 0 {
+				t.Errorf("budget_tokens = %d, want it absent on the adaptive dialect", req.Thinking.BudgetTokens)
+			}
+			if req.OutputConfig == nil || req.OutputConfig.Effort != tt.wantEffort {
+				t.Errorf("output_config = %+v, want effort %q", req.OutputConfig, tt.wantEffort)
+			}
+			// The same constraint as the budget dialect: `temperature may only be
+			// set to 1 when thinking is enabled or in adaptive mode`.
+			if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
+				t.Errorf("sampling params survived thinking: temperature=%v top_p=%v top_k=%v",
+					req.Temperature, req.TopP, req.TopK)
+			}
+		})
+	}
+}
+
+// TranslateRequest is the adaptive dialect, so a caller that names no dialect
+// gets the shape current models accept.
+func TestTranslateRequest_DefaultsToAdaptive(t *testing.T) {
+	out, _, _, err := TranslateRequest([]byte(`{"model":"m","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low"}`))
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	var req translatedRequest
+	if err := json.Unmarshal(out, &req); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if req.Thinking == nil || req.Thinking.Type != "adaptive" {
+		t.Errorf("thinking = %+v, want the adaptive default", req.Thinking)
 	}
 }
 
@@ -747,8 +839,8 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := translate(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],
-				"reasoning_effort":"high"`+tt.maxTokens+`}`)
+			req := translateWith(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],
+				"reasoning_effort":"high"`+tt.maxTokens+`}`, ThinkingBudget)
 
 			if req.MaxTokens != tt.want {
 				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
@@ -760,6 +852,41 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 				t.Errorf("max_tokens %d is not above the thinking budget %d", req.MaxTokens, req.Thinking.BudgetTokens)
 			}
 		})
+	}
+}
+
+// An adaptive request has no budget to clear, but it still needs room for
+// thinking AND an answer. A small max_tokens is raised, because the alternative
+// is what a live claude-sonnet-5 did with max_tokens 30: spend 29 tokens
+// thinking, hit the cap, and return no text at all.
+func TestTranslateRequest_AdaptiveThinkingRaisesASmallMaxTokens(t *testing.T) {
+	tests := []struct {
+		name      string
+		maxTokens string
+		want      int
+	}{
+		{name: "tiny allowance is raised", maxTokens: `,"max_tokens":30`, want: minAdaptiveMaxTokens},
+		{name: "absent allowance gets the default", maxTokens: "", want: minAdaptiveMaxTokens},
+		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := translateWith(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],
+				"reasoning_effort":"high"`+tt.maxTokens+`}`, ThinkingAdaptive)
+			if req.MaxTokens != tt.want {
+				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
+			}
+		})
+	}
+}
+
+// Without a thinking request, a small max_tokens is the caller's business and
+// stays exactly as sent.
+func TestTranslateRequest_MaxTokensUntouchedWithoutThinking(t *testing.T) {
+	req := translateWith(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],"max_tokens":30}`, ThinkingAdaptive)
+	if req.MaxTokens != 30 {
+		t.Errorf("max_tokens = %d, want the caller's 30", req.MaxTokens)
 	}
 }
 

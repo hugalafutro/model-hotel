@@ -160,6 +160,16 @@ func (l *upstreamCallLog) record(c anthropicUpstreamCall) {
 	l.calls = append(l.calls, c)
 }
 
+// takeAll returns the calls recorded since the last take and clears the log, for
+// phases whose expected count is the thing under test.
+func (l *upstreamCallLog) takeAll() []anthropicUpstreamCall {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	got := l.calls
+	l.calls = nil
+	return got
+}
+
 // takeOne returns the single call of the phase just run and clears the log for
 // the next one, failing when the count is anything but one.
 func (l *upstreamCallLog) takeOne(t *testing.T, phase string) anthropicUpstreamCall {
@@ -426,17 +436,22 @@ func TestChatCompletions_AnthropicMessagesProvider(t *testing.T) {
 		t.Errorf("usage = %v, want the Messages usage block metered", resp["usage"])
 	}
 
-	// reasoning_effort is stripped before translation, so no thinking budget is
-	// requested: the shape the translator emits for one is rejected by current
-	// models, and an egress attempt cannot learn from that 400. It must not
-	// reach the Messages body in either form.
+	// reasoning_effort becomes an Anthropic thinking request rather than being
+	// stripped or forwarded as itself: the adaptive shape by default, with the
+	// effort carried on output_config. (The dialect self-heal that recovers when
+	// a model wants the older shape lives in anthropic_thinking_retry_test.go.)
 	w = send(false, `,"reasoning_effort":"low"`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("reasoning_effort request: %d\n%s", w.Code, w.Body.String())
 	}
 	call = log.takeOne(t, "reasoning_effort")
-	if _, thinking := call.body["thinking"]; thinking {
-		t.Errorf("thinking budget requested from reasoning_effort: %v", call.body["thinking"])
+	thinking, ok := call.body["thinking"].(map[string]any)
+	if !ok || thinking["type"] != "adaptive" {
+		t.Errorf("thinking = %v, want the adaptive shape translated from reasoning_effort", call.body["thinking"])
+	}
+	outputConfig, ok := call.body["output_config"].(map[string]any)
+	if !ok || outputConfig["effort"] != "low" {
+		t.Errorf("output_config = %v, want effort low", call.body["output_config"])
 	}
 	if _, leaked := call.body["reasoning_effort"]; leaked {
 		t.Errorf("reasoning_effort reached the Messages body verbatim: %v", call.body)
