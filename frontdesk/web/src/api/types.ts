@@ -57,6 +57,11 @@ export interface MemberStatus {
 	health: HealthStatus;
 	traefik_status?: string; // "UP" | "DOWN" | ""
 	version?: string;
+	// The commit this member's binary was built from. It is what distinguishes
+	// two builds on a fleet whose images all report the "dev" placeholder
+	// version, so it is what the Members table shows and what the skew badges
+	// compare. Absent on a member too old to report app_commit.
+	commit?: string;
 	// Live "auto-sync is running" heartbeat: the last time the auto-syncer
 	// confirmed this member matches the primary (a real write, a self-converged
 	// empty diff, or a quiet verify tick). RFC3339; absent until first verified,

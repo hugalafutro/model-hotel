@@ -60,6 +60,7 @@ import com.hugalafutro.bellhop.data.MemberState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
+import com.hugalafutro.bellhop.data.buildDetail
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
@@ -354,10 +355,12 @@ private fun MetaLedger(
         }
         if (member.status.version.isNotBlank()) {
             // Build the member reports running — the dashboard card shows it, so the
-            // detail screen carries it too. Static identity, no age suffix.
+            // detail screen carries it too. Static identity, no age suffix. Both
+            // halves here, unlike the card: "dev" alone identifies no build, and
+            // the commit alone does not say which release line it came from.
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_version),
-                value = member.status.version,
+                value = buildDetail(member.status.version, member.status.commit),
                 tag = "member-detail-version",
             )
         }
