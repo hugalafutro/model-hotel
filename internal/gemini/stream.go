@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // StreamTranslator converts a Gemini streamGenerateContent SSE stream
@@ -98,7 +100,7 @@ func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta oaiChunkDelta, fi
 func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	var chunk genResponse
 	if err := json.Unmarshal(chunkJSON, &chunk); err != nil {
-		return nil, fmt.Errorf("gemini: invalid stream chunk: %w", err)
+		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonfault.Describe(err, len(chunkJSON)))
 	}
 
 	if chunk.UsageMetadata != nil {

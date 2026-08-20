@@ -184,6 +184,46 @@ func TestStream_UnknownEventsAndTruncation(t *testing.T) {
 	}
 }
 
+func TestStream_DecodeErrorOmitsPayload(t *testing.T) {
+	// encoding/json quotes the offending byte and prints an offending literal
+	// verbatim; a stream event carries model output, which must never reach an
+	// error string or a log line. The error says WHERE the event broke, not
+	// what it said.
+	cases := []struct {
+		name   string
+		event  string
+		want   string
+		secret string
+	}{
+		{
+			name:   "syntax error",
+			event:  `{"type":"response.output_text.delta","delta":"Kohlrabi"`,
+			want:   "malformed JSON at byte ",
+			secret: "Kohlrabi",
+		},
+		{
+			name:   "type error",
+			event:  `{"type":"response.output_text.delta","delta":8675309.42}`,
+			want:   "unexpected JSON value at byte ",
+			secret: "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewStreamTranslator("m").TranslateEvent([]byte(tc.event))
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "openairesponses: invalid stream event: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the event: %q", err)
+			}
+		})
+	}
+}
+
 // A failed response surfaces as an OpenAI-style error frame so the streaming
 // pipeline records the provider's message, then the stream ends.
 func TestStream_FailedResponse(t *testing.T) {

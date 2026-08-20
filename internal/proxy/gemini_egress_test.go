@@ -13,16 +13,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// translateGeminiResponseBody swaps a generateContent 200 body for its chat
+// translateEgressResponseBody swaps a generateContent 200 body for its chat
 // translation in place, and errors on a non-Gemini body so the caller can
 // fail over instead of forwarding garbage.
 func TestTranslateGeminiResponseBody(t *testing.T) {
 	resp := &http.Response{Body: newBodyReader(`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"finishReason":"STOP"}]}`)}
-	if err := translateGeminiResponseBody(resp, "gemini-2.5-flash"); err != nil {
-		t.Fatalf("translateGeminiResponseBody: %v", err)
+	if err := translateEgressResponseBody(resp, "gemini-2.5-flash", gemini.BuildChatCompletion); err != nil {
+		t.Fatalf("translateEgressResponseBody: %v", err)
 	}
 	var out map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -34,11 +35,11 @@ func TestTranslateGeminiResponseBody(t *testing.T) {
 
 	// Zero-candidate body (e.g. blocked prompt) must error, not forward.
 	resp = &http.Response{Body: newBodyReader(`{"promptFeedback":{"blockReason":"SAFETY"}}`)}
-	if err := translateGeminiResponseBody(resp, "m"); err == nil {
+	if err := translateEgressResponseBody(resp, "m", gemini.BuildChatCompletion); err == nil {
 		t.Error("expected error for candidate-less body")
 	}
 	resp = &http.Response{Body: newBodyReader(`not json`)}
-	if err := translateGeminiResponseBody(resp, "m"); err == nil {
+	if err := translateEgressResponseBody(resp, "m", gemini.BuildChatCompletion); err == nil {
 		t.Error("expected error for invalid JSON body")
 	}
 }

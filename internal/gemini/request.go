@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -175,7 +177,7 @@ var reasoningBudgets = map[string]int{
 func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool, err error) {
 	var req oaiRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return nil, "", false, fmt.Errorf("gemini: invalid request body: %w", err)
+		return nil, "", false, fmt.Errorf("gemini: invalid request body: %s", jsonfault.Describe(err, len(body)))
 	}
 	if req.Model == "" {
 		return nil, "", false, fmt.Errorf("gemini: model is required")
@@ -333,7 +335,7 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 
 	var oaiParts []oaiContentPart
 	if err := json.Unmarshal(raw, &oaiParts); err != nil {
-		return nil, fmt.Errorf("gemini: invalid message content: %w", err)
+		return nil, fmt.Errorf("gemini: invalid message content: %s", jsonfault.Describe(err, len(raw)))
 	}
 	var parts []genPart
 	for _, p := range oaiParts {

@@ -3,13 +3,9 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -104,24 +100,4 @@ func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, cand
 	setGeminiEgressAuth(proxyReq, providerType, candidate.apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
-}
-
-// translateGeminiResponseBody swaps a non-streaming generateContent 200 body
-// for its chat.completion translation so handleNonStreamingResponse can meter
-// and forward it unchanged.
-func translateGeminiResponseBody(resp *http.Response, model string) error {
-	body, err := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	translated, err := gemini.BuildChatCompletion(body, id, model, time.Now().Unix())
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(translated))
-	return nil
 }

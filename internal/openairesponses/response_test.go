@@ -158,3 +158,41 @@ func TestTranslateResponses_NotAResponsesBody(t *testing.T) {
 		t.Error("want error for invalid JSON")
 	}
 }
+
+func TestTranslateResponsesToChat_DecodeErrorOmitsPayload(t *testing.T) {
+	// A malformed response body is model output; the decode error reports the
+	// offset, never the content.
+	cases := []struct {
+		name    string
+		payload string
+		want    string
+		secret  string
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"id":"resp_1","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"id":8675309.42}`,
+			want:    "unexpected JSON value at byte ",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := TranslateResponsesToChat([]byte(tc.payload), "m")
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "openairesponses: invalid upstream response: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
+	}
+}

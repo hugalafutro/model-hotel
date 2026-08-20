@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // StreamTranslator converts the Responses API typed SSE event stream into the
@@ -73,7 +74,7 @@ func (t *StreamTranslator) TranslateEvent(data []byte) ([]byte, error) {
 	}
 	var ev streamEvent
 	if err := json.Unmarshal(data, &ev); err != nil {
-		return nil, fmt.Errorf("openairesponses: invalid stream event: %w", err)
+		return nil, fmt.Errorf("openairesponses: invalid stream event: %s", jsonfault.Describe(err, len(data)))
 	}
 
 	switch ev.Type {

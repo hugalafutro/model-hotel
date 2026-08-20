@@ -310,3 +310,158 @@ func TestNativeStream_ProviderErrorEvent(t *testing.T) {
 		t.Errorf("error frame not forwarded to client:\n%s", w.Body.String())
 	}
 }
+
+// warmCacheStream is a native stream whose message_start reports a warm cache:
+// a tiny uncached remainder beside a large cache read and a cache write.
+const warmCacheStream = `event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`
+
+// The native passthrough meters the cache-inclusive prompt, so it must record
+// the hit/miss split too — without it every cached token is priced at the full
+// input rate, which is a different skew from under-counting, not a fixed one.
+// The translated path reaches these same fields via extractCacheTokens.
+func TestNativeStream_RecordsCacheSplit(t *testing.T) {
+	_, logData := runNativeStream(t, warmCacheStream)
+
+	if logData.state != "completed" {
+		t.Fatalf("state = %q, want completed (err: %s)", logData.state, logData.errorMessage)
+	}
+	if logData.tokensPrompt != 20034 {
+		t.Errorf("tokensPrompt = %d, want 20034 (4 + 20000 + 30)", logData.tokensPrompt)
+	}
+	if logData.tokensPromptCacheHit != 20000 {
+		t.Errorf("tokensPromptCacheHit = %d, want 20000", logData.tokensPromptCacheHit)
+	}
+	if logData.tokensPromptCacheMiss != 34 {
+		t.Errorf("tokensPromptCacheMiss = %d, want 34 (4 + 30)", logData.tokensPromptCacheMiss)
+	}
+}
+
+// runNativeNonStreaming serves one native Anthropic 200 body through
+// handleNativeNonStreaming and returns the finalized log row.
+func runNativeNonStreaming(t *testing.T, anthropicBody string) *requestLogData {
+	t.Helper()
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(anthropicBody)), Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_ignored", "m")
+	aw.bindNativeFlag(&native)
+
+	req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "claude-x",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	if outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); outcome != outcomeServed {
+		t.Fatalf("outcome = %v, want outcomeServed", outcome)
+	}
+	aw.Finalize()
+	return logData
+}
+
+// Same split on the non-streaming native path, so the two agree.
+func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
+	logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
+
+	if logData.tokensPrompt != 20034 || logData.tokensCompletion != 50 {
+		t.Errorf("usage = (%d,%d), want (20034,50)", logData.tokensPrompt, logData.tokensCompletion)
+	}
+	if logData.tokensPromptCacheHit != 20000 || logData.tokensPromptCacheMiss != 34 {
+		t.Errorf("cache split = (%d,%d), want (20000,34)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+	}
+}
+
+// creationOnlyStream is a native stream whose message_start reports a cache
+// WRITE and no read.
+const creationOnlyStream = `event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`
+
+// Writing a cache entry without reading one records NO cache split, on both
+// native paths. The translated egress path meters the identical response
+// through extractCacheTokens, which keys off the cache-READ fields alone and
+// can only ever record (0,0) here — so recording a split would put the two
+// Anthropic paths back into disagreement. The creation tokens are not lost:
+// they count inside tokensPrompt, which is what the request is priced on.
+func TestNative_CacheCreationOnlyRecordsNoCacheSplit(t *testing.T) {
+	t.Run("non-streaming", func(t *testing.T) {
+		logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":7,"cache_creation_input_tokens":30}}`)
+
+		if logData.tokensPrompt != 34 {
+			t.Errorf("tokensPrompt = %d, want 34 (4 + 30)", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
+
+	t.Run("streaming", func(t *testing.T) {
+		_, logData := runNativeStream(t, creationOnlyStream)
+
+		if logData.tokensPrompt != 34 {
+			t.Errorf("tokensPrompt = %d, want 34 (4 + 30)", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
+}
+
+// An uncached response records NO cache counts on either native path. The
+// translated egress path cannot express "miss = the whole prompt" — its usage
+// omits the cache fields when they are zero — so recording it here would make
+// every uncached Anthropic-in request show a cache panel the identical request
+// through any other path does not, and feed a cache-miss stats series only
+// native Anthropic traffic contributes to.
+func TestNative_UncachedRecordsNoCacheSplit(t *testing.T) {
+	t.Run("non-streaming", func(t *testing.T) {
+		logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":9,"output_tokens":3}}`)
+		if logData.tokensPrompt != 9 {
+			t.Errorf("tokensPrompt = %d, want 9", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
+
+	t.Run("streaming", func(t *testing.T) {
+		_, logData := runNativeStream(t, nativeStreamHead+"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+		if logData.tokensPrompt != 12 {
+			t.Errorf("tokensPrompt = %d, want 12", logData.tokensPrompt)
+		}
+		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
+			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+	})
+}

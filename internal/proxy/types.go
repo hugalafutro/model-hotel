@@ -217,6 +217,15 @@ type requestState struct {
 	// shape the pipeline and client expect.
 	geminiAttempt bool
 
+	// Anthropic egress adapter (zero value = plain chat-completions).
+	// anthropicEgressAttempt is set per failover attempt by
+	// buildCandidateRequest: true when the current candidate is an Anthropic
+	// provider served through the internal/anthropicegress translation (the
+	// request carries a document its OpenAI-compat endpoint cannot express),
+	// read by the response dispatch so it translates the Messages body/stream
+	// back to the chat-completions shape the pipeline and client expect.
+	anthropicEgressAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits
@@ -249,6 +258,26 @@ type requestState struct {
 func (st *requestState) setReqErr(e reqError) {
 	st.lastReqErr = e
 	st.lastErr = e.render()
+}
+
+// sentChatCompletionsBody reports whether the current attempt POSTed an OpenAI
+// chat-completions body to a chat-completions route — that is, no dialect flag
+// is set for it.
+//
+// Everything that interprets a 400 as OpenAI gates on this: the param
+// self-heal's rebuild-and-re-POST, and learning a rejected param or a
+// /v1/responses requirement from the error text. On a dialect attempt both are
+// wrong — another dialect's error names another dialect's fields, so a strip
+// learned there poisons the compat path for that model, and a rebuilt chat body
+// re-POSTed to a native endpoint would be malformed. The sequential and hedged
+// 400 paths share this predicate, so a dialect added later is covered at both
+// sites by extending it here.
+//
+// It reads the attempt's own state: the hedged path holds a private snapshot
+// whose flags its own buildCandidateRequest set, so there is no shared-state
+// race.
+func (st *requestState) sentChatCompletionsBody() bool {
+	return !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt
 }
 
 // candidateOutcome is the result of a single failover attempt

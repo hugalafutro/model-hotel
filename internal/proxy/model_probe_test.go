@@ -809,7 +809,7 @@ func TestProbeModel_DialectAnswerIsBounded(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// A vertex-express candidate, so the answer goes through
-	// translateGeminiResponseBody rather than through this file's own reads.
+	// translateEgressResponseBody rather than through this file's own reads.
 	h := &Handler{upstreamTransport: dialToTestServer(t, srv)}
 	candidate := probeCandidateFor("http://us-central1-aiplatform.googleapis.com/v1", "gemini-2.0-flash")
 

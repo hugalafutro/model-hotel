@@ -34,13 +34,74 @@ func TestRewriteModel_InvalidBodyUnchanged(t *testing.T) {
 
 func TestParseResponseUsage(t *testing.T) {
 	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":42,"output_tokens":7}}`)
-	in, out := ParseResponseUsage(body)
-	if in != 42 || out != 7 {
-		t.Errorf("usage = (%d,%d), want (42,7)", in, out)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 42 || u.CompletionTokens != 7 {
+		t.Errorf("usage = %+v, want prompt=42 completion=7", u)
+	}
+	// No cache fields: no cache information at all. Calling the whole prompt a
+	// miss is a claim the translated egress path cannot make, and would light up
+	// the dashboard's cache panel for every uncached Anthropic request.
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
+		t.Errorf("uncached split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
 	}
 	// Invalid body yields zeros.
-	if in, out := ParseResponseUsage([]byte(`not json`)); in != 0 || out != 0 {
-		t.Errorf("invalid usage = (%d,%d), want (0,0)", in, out)
+	if u := ParseResponseUsage([]byte(`not json`)); u != (ResponseUsage{}) {
+		t.Errorf("invalid usage = %+v, want a zero ResponseUsage", u)
+	}
+}
+
+// Anthropic's cache counts are disjoint additions to input_tokens, not a
+// breakdown of it, so a warm-cache request reports a tiny input_tokens beside a
+// huge cache_read_input_tokens. Metering the bare field under-reports the
+// prompt by the whole cached figure; metering the sum alone then prices every
+// cached token at the full input rate. Both halves have to be right.
+func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
+	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 20034 {
+		t.Errorf("prompt tokens = %d, want 20034 (4 + 20000 + 30)", u.PromptTokens)
+	}
+	if u.CompletionTokens != 50 {
+		t.Errorf("completion tokens = %d, want 50", u.CompletionTokens)
+	}
+	// Only the cache READ is a hit. Cache creation is processed on this
+	// request and surcharged, so it belongs on the miss side.
+	if u.CacheHitTokens != 20000 {
+		t.Errorf("cache hit tokens = %d, want 20000", u.CacheHitTokens)
+	}
+	if u.CacheMissTokens != 34 {
+		t.Errorf("cache miss tokens = %d, want 34 (4 + 30)", u.CacheMissTokens)
+	}
+	if u.CacheHitTokens+u.CacheMissTokens != u.PromptTokens {
+		t.Errorf("split %d+%d does not sum back to the prompt %d", u.CacheHitTokens, u.CacheMissTokens, u.PromptTokens)
+	}
+}
+
+// Writing a cache entry without reading one reports no cache counts: the
+// translated egress path meters this same response off the cache-READ fields
+// alone and can only ever record (0,0), and one Anthropic path claiming cache
+// data the other cannot is the inconsistency this split exists to remove. The
+// creation tokens still count inside the prompt, which is what is billed.
+func TestParseResponseUsage_CacheCreationOnly(t *testing.T) {
+	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":4,"output_tokens":7,"cache_creation_input_tokens":30}}`)
+	u := ParseResponseUsage(body)
+	if u.PromptTokens != 34 {
+		t.Errorf("prompt tokens = %d, want 34 (4 + 30)", u.PromptTokens)
+	}
+	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
+		t.Errorf("cache split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
+	}
+}
+
+// The streaming path reads its usage through the same summary(), so
+// message_start reports the creation-only response the same way.
+func TestInspectStreamEvent_CacheCreationOnly(t *testing.T) {
+	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30}}}`))
+	if !ev.HasInput || ev.InputTokens != 34 {
+		t.Errorf("input tokens = %d (has=%v), want 34 (4 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if ev.CacheHitTokens != 0 || ev.CacheMissTokens != 0 {
+		t.Errorf("cache split = (%d,%d), want (0,0)", ev.CacheHitTokens, ev.CacheMissTokens)
 	}
 }
 
@@ -131,5 +192,32 @@ func TestInspectStreamEvent(t *testing.T) {
 	// garbage parses to a zero value.
 	if ev := InspectStreamEvent([]byte(`not json`)); ev.Type != "" {
 		t.Errorf("garbage = %+v, want zero StreamEvent", ev)
+	}
+}
+
+// The streamed message_start reports the same prompt size AND the same cache
+// split the non-streaming path does, so the two native paths meter and price a
+// cached prompt alike.
+func TestInspectStreamEvent_SplitsCachedInput(t *testing.T) {
+	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}}`))
+	if !ev.HasInput || ev.InputTokens != 20034 {
+		t.Errorf("input tokens = %d (has=%v), want 20034 (4 + 20000 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if ev.CacheHitTokens != 20000 || ev.CacheMissTokens != 34 {
+		t.Errorf("cache split = (%d,%d), want (20000,34)", ev.CacheHitTokens, ev.CacheMissTokens)
+	}
+	if !ev.HasOutput || ev.OutputTokens != 1 {
+		t.Errorf("output tokens = %d (has=%v), want 1", ev.OutputTokens, ev.HasOutput)
+	}
+
+	// An uncached stream reports no cache counts, so the proxy's
+	// (hit>0||miss>0) guard leaves the log row's cache fields untouched — the
+	// same thing every other provider's uncached request produces.
+	plain := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":15,"output_tokens":0}}}`))
+	if plain.InputTokens != 15 {
+		t.Errorf("uncached input tokens = %d, want 15", plain.InputTokens)
+	}
+	if plain.CacheHitTokens != 0 || plain.CacheMissTokens != 0 {
+		t.Errorf("uncached split = (%d,%d), want (0,0)", plain.CacheHitTokens, plain.CacheMissTokens)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // --- Incoming Anthropic Messages request shape ---
@@ -131,7 +133,7 @@ type oaiToolFunc struct {
 func TranslateRequest(body []byte) (openaiBody []byte, model string, stream bool, err error) {
 	var req Request
 	if err := json.Unmarshal(body, &req); err != nil {
-		return nil, "", false, fmt.Errorf("anthropic: invalid request body: %w", err)
+		return nil, "", false, fmt.Errorf("anthropic: invalid request body: %s", jsonfault.Describe(err, len(body)))
 	}
 	if req.Model == "" {
 		return nil, "", false, fmt.Errorf("anthropic: model is required")
@@ -201,7 +203,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 
 	var blocks []reqBlock
 	if err := json.Unmarshal(m.Content, &blocks); err != nil {
-		return nil, fmt.Errorf("anthropic: invalid message content: %w", err)
+		return nil, fmt.Errorf("anthropic: invalid message content: %s", jsonfault.Describe(err, len(m.Content)))
 	}
 
 	var out []oaiMessage

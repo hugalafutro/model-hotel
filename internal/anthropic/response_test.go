@@ -2,6 +2,7 @@ package anthropic
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -177,5 +178,43 @@ func TestBuildErrorResponse_RawBodyFallback(t *testing.T) {
 	e := m["error"].(map[string]any)
 	if e["message"] != "not json" {
 		t.Errorf("message = %v, want raw body fallback", e["message"])
+	}
+}
+
+func TestBuildMessageResponse_DecodeErrorOmitsPayload(t *testing.T) {
+	// A malformed response body is model output; the decode error reports the
+	// offset, never the content.
+	cases := []struct {
+		name    string
+		payload string
+		want    string
+		secret  string
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"choices":[{"message":{"role":"assistant","content":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"id":8675309.42}`,
+			want:    "unexpected JSON value at byte ",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := BuildMessageResponse([]byte(tc.payload), "msg_1", "m")
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "anthropic: invalid upstream response: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
 	}
 }

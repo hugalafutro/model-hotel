@@ -564,3 +564,59 @@ func TestTranslateRequest_NoTranslatableMessages(t *testing.T) {
 		}
 	}
 }
+
+func TestTranslateRequest_DecodeErrorOmitsPayload(t *testing.T) {
+	// A malformed request body is the user's own prompt: encoding/json quotes the
+	// offending byte and prints an offending literal verbatim, so the error must
+	// say WHERE the body broke and nothing about what it said.
+	cases := []struct {
+		name    string
+		payload string
+		want    string
+		secret  string
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"model":"gemini-x","messages":[{"role":"user","content":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"model":8675309.42}`,
+			want:    "unexpected JSON value at byte ",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, err := TranslateRequest([]byte(tc.payload))
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "gemini: invalid request body: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
+	}
+}
+
+func TestTranslateRequest_MessageContentErrorOmitsPayload(t *testing.T) {
+	// The per-message content decoder sees the user's own prompt. A syntax
+	// error cannot reach it (the outer body parse fails first), but a type
+	// error can, and *json.UnmarshalTypeError prints the offending literal
+	// verbatim — so that is what must not survive into the error.
+	_, _, _, err := TranslateRequest([]byte(`{"model":"m","messages":[{"role":"user","content":[8675309.42]}]}`))
+	if err == nil {
+		t.Fatal("expected an error for undecodable message content")
+	}
+	if !strings.HasPrefix(err.Error(), "gemini: invalid message content: unexpected JSON value at byte ") {
+		t.Errorf("error = %q, want the sanitized unexpected-value form", err)
+	}
+	if strings.Contains(err.Error(), "8675309.42") {
+		t.Errorf("error leaked the message content: %q", err)
+	}
+}

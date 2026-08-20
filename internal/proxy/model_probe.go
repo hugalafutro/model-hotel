@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -448,10 +450,12 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 //
 // Only the non-streaming translators are reachable: the probe never asks for a
 // stream. The Responses case cannot fire as the probe body stands — that
-// re-route also requires tools in the request — but it is kept because the flag
-// is set by buildCandidateRequest and not by anything here. If the re-route rules
-// widen, a probe that skipped the translation would read a Responses object as
-// an empty chat completion and postpone those retirements forever, silently.
+// re-route also requires tools in the request — and neither can the Anthropic
+// egress case, whose re-route requires a document part the probe body has no
+// reason to carry. Both are kept because the flag is set by
+// buildCandidateRequest and not by anything here. If the re-route rules widen, a
+// probe that skipped the translation would read a dialect object as an empty
+// chat completion and postpone those retirements forever, silently.
 func translateProbeDialect(resp *http.Response, st *requestState, modelID string) error {
 	// The upstream model id, NOT st.reqModel: the served path passes the name the
 	// client asked for, and a probe has no client (st.reqModel is empty by design,
@@ -460,7 +464,9 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 	case st.responsesAttempt:
 		return translateResponsesResponseBody(resp, modelID)
 	case st.geminiAttempt:
-		return translateGeminiResponseBody(resp, modelID)
+		return translateEgressResponseBody(resp, modelID, gemini.BuildChatCompletion)
+	case st.anthropicEgressAttempt:
+		return translateEgressResponseBody(resp, modelID, anthropicegress.BuildChatCompletion)
 	default:
 		return nil
 	}

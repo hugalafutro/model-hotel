@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -150,5 +151,43 @@ func TestBuildChatCompletion_SafetyAndErrors(t *testing.T) {
 	// Prompt blocked: no candidates at all.
 	if _, err := BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "SAFETY"}}`), "id", "m", 0); err == nil {
 		t.Error("expected error for zero candidates")
+	}
+}
+
+func TestBuildChatCompletion_DecodeErrorOmitsPayload(t *testing.T) {
+	// A malformed response body is model output; the decode error reports the
+	// offset, never the content.
+	cases := []struct {
+		name    string
+		payload string
+		want    string
+		secret  string
+	}{
+		{
+			name:    "syntax error",
+			payload: `{"candidates":[{"content":{"parts":[{"text":"Kohlrabi"`,
+			want:    "malformed JSON at byte ",
+			secret:  "Kohlrabi",
+		},
+		{
+			name:    "type error",
+			payload: `{"usageMetadata":{"promptTokenCount":8675309.42}}`,
+			want:    "unexpected JSON value at byte ",
+			secret:  "8675309.42",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := BuildChatCompletion([]byte(tc.payload), "id", "m", 0)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if !strings.HasPrefix(err.Error(), "gemini: invalid upstream response: "+tc.want) {
+				t.Errorf("error = %q, want the sanitized %q form", err, tc.want)
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("error leaked the payload: %q", err)
+			}
+		})
 	}
 }
