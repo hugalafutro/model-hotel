@@ -657,6 +657,95 @@ describe("MembersPage", () => {
 		expect(within(row3).queryByText("unknown")).toBeNull();
 	});
 
+	it("flags the odd build out when no primary is set", async () => {
+		// No primary designated, so the majority tally is what flags divergence.
+		// Every member reports "dev": a version-keyed tally sees one bucket and
+		// flags nothing, which is the whole reason it counts builds.
+		const health = {
+			known: true,
+			healthy: true,
+			latency_ms: 9,
+			checked_at: "",
+		};
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({
+						id: "1",
+						name: "hotel-1",
+						status: { health, version: "dev", commit: "aaaaaaaaaaaa" },
+					}),
+					member({
+						id: "2",
+						name: "hotel-2",
+						status: { health, version: "dev", commit: "aaaaaaaaaaaa" },
+					}),
+					member({
+						id: "3",
+						name: "hotel-3",
+						status: { health, version: "dev", commit: "bbbbbbbbbbbb" },
+					}),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: false, primary_id: "" }),
+			),
+		);
+		renderPage();
+
+		const row3 = (await screen.findByText("hotel-3")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(
+			within(row3).getByTitle(/differs from the group/i),
+		).toBeInTheDocument();
+
+		const row1 = (await screen.findByText("hotel-1")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row1).queryByTitle(/differs from the group/i)).toBeNull();
+	});
+
+	it("badges every member as held when the primary's own build is unread", async () => {
+		// The gate fails closed on an unreadable version, and the primary's counts:
+		// with nothing confirmed to push from, sync is refused fleet-wide. A badge
+		// that stayed silent here would report the fleet in sync at the one moment
+		// none of it is.
+		const health = {
+			known: true,
+			healthy: true,
+			latency_ms: 9,
+			checked_at: "",
+		};
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({
+						id: "1",
+						name: "hotel-1",
+						has_token: true,
+						status: { health },
+					}),
+					member({
+						id: "2",
+						name: "hotel-2",
+						has_token: true,
+						status: { health, version: "dev", commit: "aaaaaaaaaaaa" },
+					}),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+		);
+		renderPage();
+
+		const row2 = (await screen.findByText("hotel-2")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row2).getByTestId("member-sync-held")).toBeInTheDocument();
+	});
+
 	it("badges a commit-only skew as sync held, where the versions match", async () => {
 		// The case the version cannot see, and the one the backend gate now holds
 		// on: both members report "dev", and only the commit separates them. A

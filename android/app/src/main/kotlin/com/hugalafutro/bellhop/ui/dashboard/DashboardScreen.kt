@@ -73,6 +73,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.data.buildLabel
 import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.LockFab
@@ -745,8 +746,12 @@ private fun MemberCard(
                     )
                 }
                 if (member.status.version.isNotBlank()) {
+                    // The commit, not the version, on a "dev" fleet: every card
+                    // would otherwise read the same placeholder. The card has room
+                    // for one line, so it carries the identifying half only; the
+                    // detail screen shows both.
                     Text(
-                        text = member.status.version,
+                        text = buildLabel(member.status.version, member.status.commit),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

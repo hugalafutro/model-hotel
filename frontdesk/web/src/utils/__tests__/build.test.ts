@@ -88,6 +88,21 @@ describe("buildsDiffer", () => {
 		).toBe(false);
 	});
 
+	it("fails closed when either version is unreadable", () => {
+		// Mirrors the gate: an unread version on EITHER side is skew, so a primary
+		// whose own build is unconfirmed holds the whole fleet rather than
+		// silently passing it.
+		expect(
+			buildsDiffer({ version: "", commit: "" }, { version: "dev", commit: "" }),
+		).toBe(true);
+		expect(
+			buildsDiffer({ version: "dev", commit: "" }, { version: "", commit: "" }),
+		).toBe(true);
+		expect(
+			buildsDiffer({ version: "", commit: "" }, { version: "", commit: "" }),
+		).toBe(true);
+	});
+
 	it("falls back to the version when either commit names no build", () => {
 		expect(
 			buildsDiffer(

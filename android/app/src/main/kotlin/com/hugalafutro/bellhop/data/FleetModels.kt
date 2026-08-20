@@ -40,6 +40,10 @@ data class MemberStatus(
     val health: HealthStatus = HealthStatus(),
     @SerialName("traefik_status") val traefikStatus: String = "",
     val version: String = "",
+    // The commit this member's binary was built from. On a fleet of self-built
+    // images every version reads "dev", so this is the half that says which
+    // build a member runs; empty on a member too old to report app_commit.
+    val commit: String = "",
     // The auto-syncer's "still in sync with the primary" heartbeat: advances
     // ~every tick while the member is reachable, distinct from lastConfigSyncAt
     // (which only moves on a real config write). Empty until first verified.

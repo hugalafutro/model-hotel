@@ -338,9 +338,10 @@ function MemberRow({
 }: {
 	member: MemberView;
 	groupBuild: Build | null;
-	// The designated primary's build, or null when no primary is set. A build
-	// with an empty version means the primary's is unknown, which anchors
-	// nothing: the badge needs something confirmed to compare against.
+	// The designated primary's build, or null when no primary is set. A build with
+	// an empty version means the primary's own build is unconfirmed, which the
+	// gate treats as skew against every member rather than as "nothing to
+	// compare" - so it anchors the badge too.
 	primaryBuild: Build | null;
 	isPrimary: boolean;
 	// True when the fleet has at most one active member. The drain control is
@@ -364,14 +365,15 @@ function MemberRow({
 		!!build.version && !!groupBuild && buildsDiffer(build, groupBuild);
 	// Mirrors the backend gate: config sync (autosync and the wizard) holds a
 	// tokened member while its BUILD differs from the primary's, including an
-	// unknown version (the gate fails closed). Comparing versions alone would
+	// unknown version on EITHER side (the gate fails closed, so a primary whose
+	// own version is unread holds the whole fleet). Comparing versions alone would
 	// leave this badge silent on a "dev" fleet held for a commit difference,
 	// telling the operator a member is in sync while sync is refusing it.
 	// Tokenless members are skipped by sync entirely, never held.
 	const heldForSkew =
 		!isPrimary &&
 		m.has_token &&
-		!!primaryBuild?.version &&
+		!!primaryBuild &&
 		buildsDiffer(build, primaryBuild);
 
 	return (

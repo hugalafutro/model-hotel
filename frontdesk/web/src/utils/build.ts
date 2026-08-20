@@ -51,6 +51,11 @@ export function buildTitle(build: Build): string | undefined {
 // sides report a real one: an unanswerable commit falls back to the version
 // verdict rather than manufacturing a difference.
 export function buildsDiffer(a: Build, b: Build): boolean {
+	// Fail closed on a version we could not read, exactly as the gate does. This
+	// covers the primary's own version being unread: the backend then holds every
+	// member in the fleet, and a badge that stayed silent would report the whole
+	// fleet in sync at the moment sync is refusing all of it.
+	if (a.version === "" || b.version === "") return true;
 	if (a.version !== b.version) return true;
 	if (!stampedCommit(a.commit) || !stampedCommit(b.commit)) return false;
 	return a.commit !== b.commit;
