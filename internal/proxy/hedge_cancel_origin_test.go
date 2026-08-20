@@ -353,7 +353,7 @@ func TestLearnRejectedParams(t *testing.T) {
 	t.Run("learns a rejected param under the provider's own scope", func(t *testing.T) {
 		h := &Handler{}
 		cand := newCandidate()
-		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"`+"`top_p`"+` is not supported"}}`))
+		h.learnRejectedParams(cand, []byte(`{"error":{"message":"`+"`top_p`"+` is not supported"}}`))
 
 		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
 		cached, ok := h.deprecationCache.Load(key)
@@ -372,7 +372,7 @@ func TestLearnRejectedParams(t *testing.T) {
 	t.Run("learns a rename", func(t *testing.T) {
 		h := &Handler{}
 		cand := newCandidate()
-		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}`))
+		h.learnRejectedParams(cand, []byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}`))
 
 		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
 		if _, ok := h.paramRenameCache.Load(key); !ok {
@@ -383,7 +383,7 @@ func TestLearnRejectedParams(t *testing.T) {
 	t.Run("a 400 that names no param teaches nothing", func(t *testing.T) {
 		h := &Handler{}
 		cand := newCandidate()
-		h.learnRejectedParams(cand, "openai", []byte(`{"error":{"message":"context length exceeded"}}`))
+		h.learnRejectedParams(cand, []byte(`{"error":{"message":"context length exceeded"}}`))
 
 		key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), "gpt-4o")
 		if _, ok := h.deprecationCache.Load(key); ok {

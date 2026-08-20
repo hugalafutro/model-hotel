@@ -294,7 +294,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// Same reasoning for rejected/renamed params: the retry is refused
 			// in-race, but learning here means the next request — hedged or
 			// sequential — is built without the params this model refuses.
-			h.learnRejectedParams(candidate, providerType, errBody)
+			h.learnRejectedParams(candidate, errBody)
 			// Both readings are only valid on a chat-completions attempt: a
 			// dialect 400 names that dialect's fields, and a strip mislearned
 			// from one poisons the compat path for this model on every later

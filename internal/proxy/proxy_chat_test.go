@@ -1332,7 +1332,7 @@ func TestChatCompletions_AllowedProviders_EmptySliceDeniesAll(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
-	t.Run("failover exhausted returns generic error", func(t *testing.T) {
+	t.Run("payload error on the last candidate forwards upstream body", func(t *testing.T) {
 		pool := testDB.Pool()
 		ctx := context.Background()
 
@@ -1397,18 +1397,17 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 		w := httptest.NewRecorder()
 		handler.ChatCompletions(w, req)
 
-		// Single provider (no failover candidates) with 400 → generic error
+		// Single provider (no failover candidates) with 400: a payload-class
+		// refusal is about this caller's own request, so the provider's error
+		// object is forwarded even on the last candidate — the same body the
+		// same error gets when it arrives through a hotel/ group.
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("expected status 400, got %d", w.Code)
 		}
 
 		bodyStr := w.Body.String()
-		// Classified reason plus the upstream status, never the provider's body.
-		if !strings.Contains(bodyStr, "upstream HTTP 400") {
-			t.Errorf("expected classified error naming the upstream status, got: %s", bodyStr)
-		}
-		if strings.Contains(bodyStr, "context_length_exceeded") {
-			t.Errorf("should NOT forward upstream JSON details, got: %s", bodyStr)
+		if !strings.Contains(bodyStr, "context_length_exceeded") {
+			t.Errorf("expected the upstream error object to be forwarded, got: %s", bodyStr)
 		}
 	})
 
