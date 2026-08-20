@@ -62,6 +62,101 @@ func TestFleetVersionCheck(t *testing.T) {
 	}
 }
 
+// TestFleetVersionCheckCommitVouched: on a fleet whose members all report the
+// "dev" placeholder version, the check is only meaningful if the commits were
+// compared. commit_vouched says whether they were, which is what decides
+// whether the wizard asks the operator to acknowledge an unvouchable fleet.
+func TestFleetVersionCheckCommitVouched(t *testing.T) {
+	fake := func(t *testing.T, version, commit, token string) *httptest.Server {
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer "+token {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			if r.Method == http.MethodGet && r.URL.Path == "/api/settings" {
+				body := map[string]string{"app_version": version}
+				if commit != "" {
+					body["app_commit"] = commit
+				}
+				_ = json.NewEncoder(w).Encode(body)
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		t.Cleanup(s.Close)
+		return s
+	}
+
+	t.Run("every member reports a commit", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		primary := fake(t, "dev", "d18a96d1f84d", "ptoken")
+		aligned := fake(t, "dev", "d18a96d1f84d", "atoken")
+		pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+		_, _ = store.CreateMember(t.Context(), "aligned", aligned.URL, "atoken")
+
+		resp := doVersionCheck(t, srv, pm.ID)
+		if len(resp.Skewed) != 0 {
+			t.Fatalf("skewed = %+v, want none: the fleet shares a commit", resp.Skewed)
+		}
+		if !resp.CommitVouched {
+			t.Error("commit_vouched = false; the whole fleet named the same real commit")
+		}
+		if resp.PrimaryCommit != "d18a96d1f84d" {
+			t.Errorf("primary_commit = %q, want d18a96d1f84d", resp.PrimaryCommit)
+		}
+	})
+
+	t.Run("one aligned member names no commit", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		primary := fake(t, "dev", "d18a96d1f84d", "ptoken")
+		silent := fake(t, "dev", "", "atoken")
+		pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+		_, _ = store.CreateMember(t.Context(), "silent", silent.URL, "atoken")
+
+		resp := doVersionCheck(t, srv, pm.ID)
+		// It aligns on its version, so it is not skewed - but nothing vouched for
+		// the build behind that version, and the operator is blessing the fleet.
+		if len(resp.Skewed) != 0 {
+			t.Fatalf("skewed = %+v, want none: an unreadable commit falls back to the version", resp.Skewed)
+		}
+		if resp.CommitVouched {
+			t.Error("commit_vouched = true, but one member's build was never compared")
+		}
+	})
+
+	t.Run("commit skew is reported with the commit", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		primary := fake(t, "dev", "d18a96d1f84d", "ptoken")
+		other := fake(t, "dev", "321f9c86aa10", "stoken")
+		pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+		sm, _ := store.CreateMember(t.Context(), "other", other.URL, "stoken")
+
+		resp := doVersionCheck(t, srv, pm.ID)
+		if len(resp.Skewed) != 1 || resp.Skewed[0].MemberID != sm.ID {
+			t.Fatalf("skewed = %+v, want the member on the other commit", resp.Skewed)
+		}
+		// The version says "dev" on both sides, so the commit is the only field
+		// that tells the operator what actually differs.
+		if got := resp.Skewed[0].Commit; got != "321f9c86aa10" {
+			t.Errorf("skewed[0].commit = %q, want 321f9c86aa10", got)
+		}
+	})
+}
+
+// doVersionCheck posts the wizard's build-alignment check and decodes it.
+func doVersionCheck(t *testing.T, srv *Server, primaryID string) versionCheckResponse {
+	t.Helper()
+	rec := do(t, srv, http.MethodPost, "/api/fleet/version-check", `{"primary_id":"`+primaryID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("version-check = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp versionCheckResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	return resp
+}
+
 // TestFleetVersionCheckUnknownPrimary: an unknown primary is a client error,
 // not an empty aligned response.
 func TestFleetVersionCheckUnknownPrimary(t *testing.T) {

@@ -668,6 +668,8 @@ describe("FleetSyncWizard", () => {
 				HttpResponse.json({
 					primary_id: "1",
 					primary_version: "dev",
+					primary_commit: "",
+					commit_vouched: false,
 					skewed: [],
 				}),
 			),
@@ -690,6 +692,35 @@ describe("FleetSyncWizard", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
 		await screen.findByTestId("dev-sync-ack-modal");
 		await userEvent.click(screen.getByRole("button", { name: "Proceed" }));
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
+		);
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
+	});
+
+	it("shows no dev acknowledgment when a commit vouched for the dev fleet", async () => {
+		// Every member reports "dev", but each also reported the commit it was
+		// built from and they matched, so the builds were compared rather than
+		// assumed. There is nothing left for the operator to acknowledge.
+		server.use(
+			convergedStatus(),
+			http.post("/api/fleet/version-check", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_version: "dev",
+					primary_commit: "d18a96d1f84d",
+					commit_vouched: true,
+					skewed: [],
+				}),
+			),
+		);
+		await walkToStep3();
+
+		const proceed = screen.getByRole("button", { name: "Continue" });
+		await waitFor(() => expect(proceed).toBeEnabled());
+		await userEvent.click(proceed);
+
+		expect(screen.queryByTestId("dev-sync-ack-modal")).toBeNull();
 		await waitFor(() =>
 			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
 		);

@@ -304,12 +304,12 @@ func TestPollTraefikOnceMapsByURL(t *testing.T) {
 	}
 }
 
-func TestFetchMemberVersion(t *testing.T) {
+func TestFetchMemberBuild(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		if r.URL.Path == memberSettingsPath {
-			_, _ = w.Write([]byte(`{"app_version":"0.9.80","other":"x"}`))
+			_, _ = w.Write([]byte(`{"app_version":"0.9.80","app_commit":"d18a96d1f84d","other":"x"}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -317,12 +317,15 @@ func TestFetchMemberVersion(t *testing.T) {
 	defer srv.Close()
 
 	p, _, _ := newTestPoller(t, "")
-	v, err := p.fetchMemberVersion(context.Background(), srv.URL, "tok123")
+	b, err := p.fetchMemberBuild(context.Background(), srv.URL, "tok123")
 	if err != nil {
-		t.Fatalf("fetchMemberVersion: %v", err)
+		t.Fatalf("fetchMemberBuild: %v", err)
 	}
-	if v != "0.9.80" {
-		t.Errorf("version = %q, want 0.9.80", v)
+	if b.Version != "0.9.80" {
+		t.Errorf("version = %q, want 0.9.80", b.Version)
+	}
+	if b.Commit != "d18a96d1f84d" {
+		t.Errorf("commit = %q, want d18a96d1f84d", b.Commit)
 	}
 	if gotAuth != "Bearer tok123" {
 		t.Errorf("auth header = %q", gotAuth)
@@ -458,33 +461,35 @@ func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		_, _ = w.Write([]byte(`{"app_version":"v1.2.3"}`))
+		_, _ = w.Write([]byte(`{"app_version":"v1.2.3","app_commit":"d18a96d1f84d"}`))
 	}))
 	defer srv.Close()
 
 	m, _ := store.CreateMember(ctx, "m", srv.URL, "tok")
 	p.PollVersionsOnce(ctx)
-	if v := p.MemberVersion(m.ID); v != "v1.2.3" {
-		t.Fatalf("seed version = %q, want v1.2.3", v)
+	if b := p.memberBuildOf(m.ID); b.Version != "v1.2.3" || b.Commit != "d18a96d1f84d" {
+		t.Fatalf("seed build = %+v, want v1.2.3 / d18a96d1f84d", b)
 	}
 
 	fail.Store(true)
 	p.PollVersionsOnce(ctx)
-	if v := p.MemberVersion(m.ID); v != "" {
-		t.Errorf("version after a failed fetch = %q, want empty (fail closed)", v)
+	// The commit is cleared with the version: kept on its own it would outlive
+	// the read that vouched for it, and read as a build we can still confirm.
+	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
+		t.Errorf("build after a failed fetch = %+v, want zero (fail closed)", b)
 	}
 }
 
-func TestMemberVersion(t *testing.T) {
+func TestMemberBuildOf(t *testing.T) {
 	p := NewPoller(nil, nil, "")
-	if v := p.MemberVersion("m1"); v != "" {
-		t.Errorf("unpolled member version = %q, want empty", v)
+	if b := p.memberBuildOf("m1"); b != (memberBuild{}) {
+		t.Errorf("unpolled member build = %+v, want zero", b)
 	}
 	p.mu.Lock()
-	p.statuses["m1"] = MemberStatus{Version: "v1.2.3"}
+	p.statuses["m1"] = MemberStatus{Version: "v1.2.3", Commit: "d18a96d1f84d"}
 	p.mu.Unlock()
-	if v := p.MemberVersion("m1"); v != "v1.2.3" {
-		t.Errorf("MemberVersion = %q, want v1.2.3", v)
+	if b := p.memberBuildOf("m1"); b.Version != "v1.2.3" || b.Commit != "d18a96d1f84d" {
+		t.Errorf("memberBuildOf = %+v, want v1.2.3 / d18a96d1f84d", b)
 	}
 }
 

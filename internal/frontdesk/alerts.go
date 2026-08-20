@@ -38,9 +38,11 @@ var fdCatalog = []alert.EventDef{
 	// Auto-sync is off and the fleet has not been synced in a day: the replicas
 	// are drifting silently, with nothing pushing the primary's config out.
 	{Type: "config.autosync_stale", Category: "Config Sync", Severity: "warning", DefaultOn: true},
-	// A config sync was withheld because the member's app version differs from
-	// the primary's: pushing an older primary's config could delete settings the
-	// newer member legitimately has, so autosync holds the member until versions align.
+	// A config sync was withheld because the member runs a different build than
+	// the primary: pushing an older primary's config could delete settings the
+	// newer member legitimately has, so autosync holds the member until the
+	// builds align. The version decides it where the versions differ; where they
+	// match, as they always do on a self-built "dev" fleet, the commit does.
 	{Type: "config.sync_held", Category: "Config Sync", Severity: "warning", DefaultOn: true},
 	// A member committed a config sync but could not build every custom failover
 	// group, so it serves 404 for those hotel/<group> models until it converges.

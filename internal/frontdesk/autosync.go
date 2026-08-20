@@ -408,7 +408,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return nil
 	}
 
-	primaryVer := s.poller.MemberVersion(primary.ID)
+	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	for _, m := range members {
 		if m.ID == primary.ID {
 			// The source is never written to, but a hold announced before this
@@ -424,24 +424,26 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", len(applied))
 			break
 		}
-		// Version gate: never push onto a member running a different app version. An
-		// older primary's export omits settings the newer member legitimately has, and
-		// the member-side converge-delete would drop them. Fails closed on an unknown
-		// version, and is re-evaluated every pass, so it resumes automatically.
+		// Build gate: never push onto a member running a different build. An older
+		// primary's export omits settings the newer member legitimately has, and
+		// the member-side converge-delete would drop them. The version decides it
+		// where the versions differ; where they match (as they always do on a
+		// self-built "dev" fleet) the commit does. Fails closed on an unknown
+		// build, and is re-evaluated every pass, so it resumes automatically.
 		//
 		// Decided before the token guards, because the verdict comes from the poller,
 		// not the token: a held member whose token was cleared must still close its
 		// hold once versions realign, or the "held" story outlives the skew. Entering
 		// a hold stays behind the guards: sync to a tokenless member is not held, it
 		// is impossible, and holds on unsyncable members would be noise.
-		memberVer := s.poller.MemberVersion(m.ID)
-		skewed := versionSkew(primaryVer, memberVer)
+		build := s.poller.memberBuildOf(m.ID)
+		skewed := buildSkew(primaryBuild, build)
 		if !skewed {
 			// "Resumed" is only claimed when a token exists to resume with; for a
-			// tokenless member the versions realigned but sync stays impossible.
-			message := fmt.Sprintf("%s is no longer held for sync: its app version matches the primary's again", m.Name)
+			// tokenless member the builds realigned but sync stays impossible.
+			message := fmt.Sprintf("%s is no longer held for sync: its build matches the primary's again", m.Name)
 			if m.HasToken {
-				message = fmt.Sprintf("Resumed sync to %s: its app version matches the primary's again", m.Name)
+				message = fmt.Sprintf("Resumed sync to %s: its build matches the primary's again", m.Name)
 			}
 			s.closeSyncHold(ctx, m, message)
 		}
@@ -460,7 +462,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			continue
 		}
 		if skewed {
-			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
+			s.holdMemberForSkew(ctx, m, primaryBuild, build)
 			continue
 		}
 		converged, measured, differing := s.measureMember(ctx, passCtx, m, token, hash, primarySections)
@@ -632,7 +634,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 // the poller's versionFailures pattern), so a member that stays skewed does not
 // re-alert every pass. The hold itself is enforced by the caller skipping the
 // push; this only tracks and reports it.
-func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, memberVer string) {
+func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primary, member memberBuild) {
 	s.syncHeldMu.Lock()
 	already := s.syncHeld[m.ID]
 	s.syncHeld[m.ID] = true
@@ -646,13 +648,19 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, m
 		// config.sync_held would duplicate the alert after every restart.
 		return
 	}
-	debuglog.Debug("frontdesk: auto-sync: holding member for version skew",
-		"member", m.Name, "primary_version", primaryVer, "member_version", memberVer)
+	debuglog.Debug("frontdesk: auto-sync: holding member for build skew",
+		"member", m.Name, "primary_build", primary.describe(), "member_build", member.describe())
 	s.emit(ctx, Event{
 		Type: "config.sync_held", Severity: "warning", Source: "frontdesk",
-		Message:  fmt.Sprintf("Held sync to %s: its app version differs from the primary's", m.Name),
+		Message:  fmt.Sprintf("Held sync to %s: its build differs from the primary's", m.Name),
 		MemberID: m.ID,
-		Metadata: map[string]any{"primary_version": primaryVer, "member_version": memberVer},
+		// Both halves of each build ride in the metadata: on a fleet where every
+		// version reads "dev", the commit is the only field that says what
+		// differed, and an operator reading the event needs to see it.
+		Metadata: map[string]any{
+			"primary_version": primary.Version, "member_version": member.Version,
+			"primary_commit": primary.Commit, "member_commit": member.Commit,
+		},
 	})
 }
 

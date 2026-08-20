@@ -658,8 +658,8 @@ func TestConfigSyncHoldsVersionSkew(t *testing.T) {
 	if item.OK {
 		t.Error("version-skewed member reported ok; want refused")
 	}
-	if !strings.Contains(item.Error, "version") {
-		t.Errorf("error = %q, want it to name the version skew", item.Error)
+	if !strings.Contains(item.Error, "build") {
+		t.Errorf("error = %q, want it to name the build skew", item.Error)
 	}
 	if replica.gotImport || replica.gotBackup {
 		t.Error("version-skewed member was contacted for import/backup; want held")

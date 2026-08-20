@@ -158,10 +158,13 @@ export function FleetSyncWizard({
 	);
 
 	const hasSkew = (skew?.skewed.length ?? 0) > 0;
-	// The whole aligned fleet reports the "dev" placeholder version: string
-	// equality cannot vouch for the actual builds, so syncing needs an explicit
-	// operator acknowledgment (wizard-only; autosync never prompts).
-	const isDevFleet = !hasSkew && skew?.primary_version === "dev";
+	// The whole aligned fleet reports the "dev" placeholder version and no commit
+	// vouched for the alignment: string equality cannot speak for the actual
+	// builds, so syncing needs an explicit operator acknowledgment (wizard-only;
+	// autosync never prompts). A dev fleet whose members all reported a commit
+	// was compared build to build, so it is aligned in fact and prompts nothing.
+	const isDevFleet =
+		!hasSkew && skew?.primary_version === "dev" && !skew?.commit_vouched;
 
 	// On mount, decide which face to show from the persisted designation. A set
 	// primary lands on the resting screen and probes once for the usage details
