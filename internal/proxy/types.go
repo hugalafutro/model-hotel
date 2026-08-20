@@ -219,12 +219,23 @@ type requestState struct {
 
 	// Anthropic egress adapter (zero value = plain chat-completions).
 	// anthropicEgressAttempt is set per failover attempt by
-	// buildCandidateRequest: true when the current candidate is an Anthropic
-	// provider served through the internal/anthropicegress translation (the
-	// request carries a document its OpenAI-compat endpoint cannot express),
-	// read by the response dispatch so it translates the Messages body/stream
-	// back to the chat-completions shape the pipeline and client expect.
+	// buildCandidateRequest: true when the current candidate is served through
+	// the internal/anthropicegress translation (every chat request to an
+	// anthropic-messages provider, and an anthropic one carrying a document its
+	// OpenAI-compat endpoint cannot express), read by the response dispatch so
+	// it translates the Messages body/stream back to the chat-completions shape
+	// the pipeline and client expect.
 	anthropicEgressAttempt bool
+	// messagesRetried marks that this candidate's request has already been
+	// re-issued once by the Messages-route self-heal (see
+	// anthropic_thinking_retry.go). A 400 after that is about something the
+	// self-heal cannot fix, so the attempt ends rather than asking a third time.
+	// Reset per candidate with the dialect flags above.
+	messagesRetried bool
+	// lastMessagesBody is the Messages body of the current egress attempt, kept
+	// so the self-heal can tell whether a rebuild actually changed anything.
+	// Re-issuing an identical body would earn an identical 400.
+	lastMessagesBody []byte
 
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings

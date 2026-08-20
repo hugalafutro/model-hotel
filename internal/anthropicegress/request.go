@@ -30,13 +30,63 @@ const DefaultMaxTokens = 4096
 const documentMediaType = "application/pdf"
 
 // thinkingBudgets maps OpenAI reasoning_effort to an Anthropic thinking budget
-// (tokens). An effort outside this map — "none", "minimal", absent — leaves the
-// thinking block off entirely; Anthropic's minimum budget is 1024, so there is
-// no budget that expresses "reason a little".
+// (tokens), for models on the budget dialect. An effort outside this map —
+// "none", absent — leaves the thinking block off entirely; Anthropic's minimum
+// budget is 1024, so there is no budget that expresses "reason a little".
+// "minimal" is OpenAI's floor and maps to Anthropic's.
 var thinkingBudgets = map[string]int{
-	"low":    1024,
-	"medium": 4096,
-	"high":   8192,
+	"minimal": 1024,
+	"low":     1024,
+	"medium":  4096,
+	"high":    8192,
+}
+
+// thinkingEfforts maps OpenAI reasoning_effort to Anthropic's own effort scale,
+// for models on the adaptive dialect. Anthropic accepts low, medium, high,
+// xhigh and max; the three shared words pass through unchanged, OpenAI's
+// "minimal" floors to "low", and Anthropic's two extra levels are honoured for a
+// client that asks for them by name. An effort outside this map leaves thinking
+// off, matching thinkingBudgets.
+var thinkingEfforts = map[string]string{
+	"minimal": "low",
+	"low":     "low",
+	"medium":  "medium",
+	"high":    "high",
+	"xhigh":   "xhigh",
+	"max":     "max",
+}
+
+// ThinkingDialect is how a model wants extended thinking asked for. The two
+// shapes are mutually exclusive and a model accepts one, the other, or both,
+// with no way to tell from the model id — Anthropic moved from one to the other
+// mid-generation, and a Messages endpoint that is not Anthropic's may serve
+// anything. Live behaviour, 2026-08-20:
+//
+//	claude-opus-5, claude-sonnet-5    adaptive only
+//	claude-sonnet-4-6                 both
+//	claude-opus-4-5, claude-haiku-4-5 budget only
+//
+// So the dialect is a per-model fact to be learned from the upstream's own 400,
+// not derived. See DialectFromError.
+type ThinkingDialect int
+
+const (
+	// ThinkingAdaptive asks with `thinking: {type: "adaptive"}` plus
+	// `output_config: {effort}`, letting the model choose how much to think
+	// within the effort ceiling. The default: it is what current models take,
+	// and the only shape the newest ones accept.
+	ThinkingAdaptive ThinkingDialect = iota
+	// ThinkingBudget asks with `thinking: {type: "enabled", budget_tokens}`,
+	// the older shape, which the newest models reject outright.
+	ThinkingBudget
+)
+
+// String names the dialect for logs.
+func (d ThinkingDialect) String() string {
+	if d == ThinkingBudget {
+		return "budget"
+	}
+	return "adaptive"
 }
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -100,18 +150,26 @@ type oaiTool struct {
 // --- Outgoing Anthropic Messages request shape ---
 
 type antRequest struct {
-	Model         string         `json:"model"`
-	MaxTokens     int            `json:"max_tokens"`
-	Messages      []antMessage   `json:"messages"`
-	System        string         `json:"system,omitempty"`
-	Stream        bool           `json:"stream,omitempty"`
-	Temperature   *float64       `json:"temperature,omitempty"`
-	TopP          *float64       `json:"top_p,omitempty"`
-	TopK          *int           `json:"top_k,omitempty"`
-	StopSequences []string       `json:"stop_sequences,omitempty"`
-	Tools         []antTool      `json:"tools,omitempty"`
-	ToolChoice    *antToolChoice `json:"tool_choice,omitempty"`
-	Thinking      *antThinking   `json:"thinking,omitempty"`
+	Model         string           `json:"model"`
+	MaxTokens     int              `json:"max_tokens"`
+	Messages      []antMessage     `json:"messages"`
+	System        string           `json:"system,omitempty"`
+	Stream        bool             `json:"stream,omitempty"`
+	Temperature   *float64         `json:"temperature,omitempty"`
+	TopP          *float64         `json:"top_p,omitempty"`
+	TopK          *int             `json:"top_k,omitempty"`
+	StopSequences []string         `json:"stop_sequences,omitempty"`
+	Tools         []antTool        `json:"tools,omitempty"`
+	ToolChoice    *antToolChoice   `json:"tool_choice,omitempty"`
+	Thinking      *antThinking     `json:"thinking,omitempty"`
+	OutputConfig  *antOutputConfig `json:"output_config,omitempty"`
+}
+
+// antOutputConfig carries the effort ceiling that accompanies adaptive
+// thinking. A model on the budget dialect ignores it rather than rejecting it,
+// so it rides along harmlessly if the dialects are ever confused.
+type antOutputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 // antMessage carries Content as any because Anthropic accepts either a plain
@@ -156,15 +214,25 @@ type antToolChoice struct {
 }
 
 type antThinking struct {
-	Type         string `json:"type"` // "enabled"
-	BudgetTokens int    `json:"budget_tokens"`
+	Type         string `json:"type"`                    // "enabled" | "adaptive"
+	BudgetTokens int    `json:"budget_tokens,omitempty"` // budget dialect only
 }
 
 // TranslateRequest converts an OpenAI chat-completions request body into an
-// Anthropic Messages request body. It returns the Anthropic JSON, the model
-// string (verbatim — the body carries it, and the caller keeps it for routing
-// and metering) and the stream flag.
+// Anthropic Messages request body, asking for extended thinking in the default
+// adaptive dialect. It returns the Anthropic JSON, the model string (verbatim —
+// the body carries it, and the caller keeps it for routing and metering) and the
+// stream flag.
+//
+// Callers that know a model wants the older budget dialect (the proxy learns
+// this from a 400, see DialectFromError) use TranslateRequestWithDialect.
 func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, err error) {
+	return TranslateRequestWithDialect(chatBody, ThinkingAdaptive)
+}
+
+// TranslateRequestWithDialect is TranslateRequest with the thinking dialect
+// chosen by the caller.
+func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body []byte, model string, stream bool, err error) {
 	var req oaiRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
 		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonfault.Describe(err, len(chatBody)))
@@ -212,16 +280,7 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 		out.MaxTokens = DefaultMaxTokens
 	}
 
-	if budget, ok := thinkingBudgets[strings.ToLower(req.ReasoningEffort)]; ok {
-		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
-		// Anthropic rejects sampling knobs alongside thinking, and requires
-		// max_tokens strictly greater than the budget — the remainder is the
-		// visible answer's allowance, so it gets a full default budget.
-		out.Temperature, out.TopP, out.TopK = nil, nil, nil
-		if out.MaxTokens <= budget {
-			out.MaxTokens = budget + DefaultMaxTokens
-		}
-	}
+	applyThinking(&out, req.ReasoningEffort, dialect)
 
 	body, err = json.Marshal(out)
 	if err != nil {
@@ -229,6 +288,59 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 	}
 	return body, req.Model, req.Stream, nil
 }
+
+// applyThinking turns an OpenAI reasoning_effort into the Anthropic thinking
+// request the given dialect expects, and makes the rest of the body consistent
+// with it. An effort the dialect has no mapping for leaves the request
+// untouched, thinking off — the same outcome as sending no effort at all.
+//
+// Both dialects share one hard constraint, which is why this is not two
+// unrelated branches: Anthropic rejects a temperature other than 1 whenever
+// thinking is on, in either shape (`temperature may only be set to 1 when
+// thinking is enabled or in adaptive mode`), and treats top_p/top_k the same
+// way. Dropping the sampling knobs is the only way to honour the caller's
+// reasoning request at all, and it is the lesser loss: a caller who asks to
+// think is asking about reasoning depth, not sampling.
+func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect) {
+	effort := strings.ToLower(strings.TrimSpace(reasoningEffort))
+
+	switch dialect {
+	case ThinkingBudget:
+		budget, ok := thinkingBudgets[effort]
+		if !ok {
+			return
+		}
+		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
+		// Anthropic requires max_tokens strictly greater than the budget: the
+		// remainder is the visible answer's allowance, so it gets a full default.
+		if out.MaxTokens <= budget {
+			out.MaxTokens = budget + DefaultMaxTokens
+		}
+	default: // ThinkingAdaptive
+		level, ok := thinkingEfforts[effort]
+		if !ok {
+			return
+		}
+		// The model decides how much to think, up to this ceiling, so there is no
+		// budget to keep max_tokens clear of. It still needs room for thinking AND
+		// an answer, and a caller who sent a small max_tokens with a big effort
+		// gets a stream of pure thinking cut off before any text (observed live:
+		// max_tokens 30 spent 29 thinking tokens and returned no content). Raising
+		// a too-small allowance is the difference between an answer and nothing.
+		out.Thinking = &antThinking{Type: "adaptive"}
+		out.OutputConfig = &antOutputConfig{Effort: level}
+		if out.MaxTokens < minAdaptiveMaxTokens {
+			out.MaxTokens = minAdaptiveMaxTokens
+		}
+	}
+	out.Temperature, out.TopP, out.TopK = nil, nil, nil
+}
+
+// minAdaptiveMaxTokens is the allowance an adaptive-thinking request is raised
+// to when the caller asked for less. It is DefaultMaxTokens, the same figure a
+// caller who named no budget gets: enough that thinking cannot consume the whole
+// allowance before the answer starts.
+const minAdaptiveMaxTokens = DefaultMaxTokens
 
 // translateMessages converts the OpenAI message list into the Anthropic system
 // prompt plus the conversation turns. system/developer messages lift out of the

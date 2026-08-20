@@ -53,6 +53,17 @@ type Handler struct {
 	// max_completion_tokens for OpenAI gpt-5/o-series), keyed by
 	// "providerType:modelID". Value: map[string]string of old->new param names.
 	paramRenameCache sync.Map
+	// thinkingDialectCache caches which extended-thinking shape a model wants,
+	// learned from an upstream 400, keyed by the same "providerScope:modelID" the
+	// param caches use. Value: anthropicegress.ThinkingDialect.
+	//
+	// Only models that answered a 400 appear here; everything else takes the
+	// adaptive default. In-memory and per-instance on purpose, like the param
+	// caches: the cost of relearning after a restart is one 400 on the first
+	// thinking request to a budget-dialect model, and the alternative is a
+	// persisted fact that goes stale the next time Anthropic moves a model
+	// between dialects.
+	thinkingDialectCache sync.Map
 	// goneStrikes counts consecutive KindProviderModelGone responses per model
 	// UUID, so a model the provider has retired is probed and then disabled
 	// after goneStrikeThreshold refusals. Deliberately in-memory and

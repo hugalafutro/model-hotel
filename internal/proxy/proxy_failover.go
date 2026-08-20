@@ -130,47 +130,40 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	}()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 
+	// The response is owned by the dispatch at the end of this function, which
+	// closes it on every outcome. On a learnable 400 that ownership passes
+	// through retryLearnable400: the learner consumes and closes the body it
+	// reads, and either hands back a retry response to be closed in its place or
+	// returns this one untouched. bodyclose cannot follow a handover through a
+	// function boundary, so without this it reads the original as leaked.
+	//nolint:bodyclose // closed by the dispatch below, or by retryLearnable400's handover
 	resp, providerType, targetURL, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
 	if !ok {
 		return outcomeFailover
 	}
 
-	// Auto-retry param-rejection 400s: parse the error, learn which params
-	// are rejected for this model, strip them, and retry once.
-	// Works universally — any LLM API mentioning "temperature" or "top_p"
-	// in a 400 error can only mean the sampling parameter.
-	//
-	// Skipped on every dialect attempt (see sentChatCompletionsBody): this
-	// self-heal rebuilds the OpenAI-shaped st.bodyBytes via
-	// paramrewrite.BuildUpstreamBody and re-POSTs it to the same targetURL, which
-	// for a native /v1/messages, /v1/responses or generateContent route is a
-	// malformed request — and those endpoints' 400s name their own fields, not
-	// OpenAI's. A dialect 400 fails over or is forwarded as-is.
-	//
-	// Ordering, for the chat-completions case: retryWithResponses runs BEFORE the
-	// param retry because a Responses-required 400 names reasoning_effort, which
-	// the param parser would otherwise learn as a strip (useless on
-	// reason-by-default models).
-	if resp.StatusCode == 400 && st.sentChatCompletionsBody() {
-		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
-		if !handled {
-			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
-		}
-		resp = res.resp
-		streamCancelOrigin = res.streamCancelOrigin
-		retryCancel = res.retryCancel
-		if res.retried || res.cont {
-			// Accumulate the retries' dial time into the total. The cont path is
-			// included because a transport failure on one round must not discard
-			// what the rounds before it already spent dialling; dialMs is zero
-			// when no round got that far, so the fold is a no-op there.
-			st.timings.dialMs += dialMs
-			dialMs = 0
-			st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
-		}
-		if res.cont {
-			st.setReqErr(res.lastReqErr)
-			return outcomeFailover
+	// Auto-retry learnable 400s (see retryLearnable400 for which are learnable in
+	// which dialect). A 400 nothing can learn from is left exactly as it arrived,
+	// to fail over or be forwarded to the client.
+	if resp.StatusCode == 400 {
+		res, handled := h.retryLearnable400(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
+		if handled {
+			resp = res.resp
+			streamCancelOrigin = res.streamCancelOrigin
+			retryCancel = res.retryCancel
+			if res.retried || res.cont {
+				// Accumulate the retries' dial time into the total. The cont path is
+				// included because a transport failure on one round must not discard
+				// what the rounds before it already spent dialling; dialMs is zero
+				// when no round got that far, so the fold is a no-op there.
+				st.timings.dialMs += dialMs
+				dialMs = 0
+				st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
+			}
+			if res.cont {
+				st.setReqErr(res.lastReqErr)
+				return outcomeFailover
+			}
 		}
 	}
 
@@ -489,6 +482,14 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	st.responsesAttempt = false
 	st.geminiAttempt = false
 	st.anthropicEgressAttempt = false
+	// The Messages self-heal is per candidate too. Within one attempt it cannot
+	// fire twice — attemptCandidate consults it from a single branch, not a loop
+	// — so carrying the flag forward would only deny the NEXT candidate a
+	// self-heal it has not used yet, which is precisely the multi-provider case
+	// a failover group exists for. Each candidate is a different model behind a
+	// different endpoint, with its own facts to learn.
+	st.messagesRetried = false
+	st.lastMessagesBody = nil
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
 	}
@@ -995,6 +996,49 @@ func candidateModelID(candidate modelCandidate) string {
 		return ""
 	}
 	return candidate.model.ModelID
+}
+
+// retryLearnable400 picks the self-heal that fits what this attempt actually
+// sent, and reports handled=false when none does. Each family can only read the
+// dialect it speaks: a 400 names the fields of the request that earned it, so a
+// reading taken from the wrong dialect is not merely useless but harmful — a
+// param mislearned from a Messages 400 would poison the compat path for that
+// model on every later request.
+//
+// Chat-completions attempts get two, in this order: retryWithResponses runs
+// BEFORE the param retry because a Responses-required 400 names
+// reasoning_effort, which the param parser would otherwise learn as a strip
+// (useless on reason-by-default models). The param retry itself works
+// universally — any LLM API naming "temperature" or "top_p" in a 400 can only
+// mean the sampling parameter — but it rebuilds the OpenAI-shaped st.bodyBytes
+// and re-POSTs it to the same targetURL, which for a native /v1/messages,
+// /v1/responses or generateContent route would be a malformed request.
+//
+// Anthropic egress attempts get the one 400 that route can fix by asking
+// differently: a model refusing the extended-thinking shape it was asked in
+// (anthropic_thinking_retry.go). Every other Messages 400 is left alone.
+func (h *Handler) retryLearnable400(
+	r *http.Request,
+	st *requestState,
+	candidate modelCandidate,
+	providerType, targetURL string,
+	resp *http.Response,
+	attempt int,
+	dialMs *float64,
+	failoverCancel context.CancelFunc,
+	streamCancelOrigin string,
+) (paramRetryResult, bool) {
+	switch {
+	case st.anthropicEgressAttempt:
+		return h.retryLearnableMessages400(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
+	case st.sentChatCompletionsBody():
+		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
+		if !handled {
+			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
+		}
+		return res, true
+	}
+	return paramRetryResult{resp: resp, streamCancelOrigin: streamCancelOrigin}, false
 }
 
 // learnRejectedParams caches the params and renames a 400 body names, so later
