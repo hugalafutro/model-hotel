@@ -796,7 +796,8 @@
 			"baseUrl": "Basis-URL",
 			"baseUrlHelperDefault": "Voer die adres in waarop jou bediener luister, enige poort. Model Hotel kontroleer dat die bediener werklik die tipe is wat jy gekies het voordat dit gestoor word, dus moet dit loop.",
 			"baseUrlHelperFull": "Volledige API-basis-URL, insluitend enige padvoorsetsel. Modele sal ontdek word vanaf \"<base_url>\"/models",
-			"apiKey": "API-sleutel"
+			"apiKey": "API-sleutel",
+			"baseUrlHelperAnthropicMessages": "Basis-URL van 'n eindpunt wat die Anthropic Messages API praat. Versoeke gaan na \"<base_url>\"/v1/messages en modelle word vanaf \"<base_url>\"/v1/models ontdek"
 		},
 		"edit": {
 			"typeHelper": "Verander dit net om 'n tipe reg te stel wat verkeerd geraai is toe die verskaffer ingevoer of opgegradeer is. 'n Self-gehuisveste tipe word teen die bediener gekontroleer voordat dit gestoor word.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Skeduleer deaktivering",
 		"schedule_disable_hint": "Die verskaffer word gedeaktiveer sodra die bediener se datum die gekose dag bereik.",
 		"schedule_disable_cancel": "Kanselleer skedule",
-		"scheduled_disable_card_tooltip": "Geskeduleer om op {{date}} gedeaktiveer te word"
+		"scheduled_disable_card_tooltip": "Geskeduleer om op {{date}} gedeaktiveer te word",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

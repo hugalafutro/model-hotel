@@ -449,13 +449,15 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 // stays correct as the re-route rules move.
 //
 // Only the non-streaming translators are reachable: the probe never asks for a
-// stream. The Responses case cannot fire as the probe body stands — that
-// re-route also requires tools in the request — and neither can the Anthropic
-// egress case, whose re-route requires a document part the probe body has no
-// reason to carry. Both are kept because the flag is set by
-// buildCandidateRequest and not by anything here. If the re-route rules widen, a
-// probe that skipped the translation would read a dialect object as an empty
-// chat completion and postpone those retirements forever, silently.
+// stream. The Anthropic egress case fires for every probe of an
+// anthropic-messages model, since that provider type routes all of its chat
+// traffic through the adapter, and for no probe of an "anthropic" one, whose
+// re-route requires a document part the probe body has no reason to carry. The
+// Responses case cannot fire as the probe body stands — that re-route also
+// requires tools in the request — and is kept because the flag is set by
+// buildCandidateRequest and not by anything here. A probe that skipped the
+// translation would read a dialect object as an empty chat completion and
+// postpone those retirements forever, silently.
 func translateProbeDialect(resp *http.Response, st *requestState, modelID string) error {
 	// The upstream model id, NOT st.reqModel: the served path passes the name the
 	// client asked for, and a probe has no client (st.reqModel is empty by design,

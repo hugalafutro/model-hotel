@@ -796,7 +796,8 @@
 			"baseUrl": "ベースURL",
 			"baseUrlHelperDefault": "サーバーが待ち受けているアドレスを入力してください。ポートは任意です。保存前に Model Hotel がそのサーバーが選んだ種類かどうかを確認するため、サーバーは起動している必要があります。",
 			"baseUrlHelperFull": "すべてのパスプレフィックスを含むフルAPIベースURL。モデルは \"<base_url>\"/modelsから検出されます。",
-			"apiKey": "API キー"
+			"apiKey": "API キー",
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API を話すエンドポイントのベース URL。リクエストは \"<base_url>\"/v1/messages に送信され、モデルは \"<base_url>\"/v1/models から検出されます"
 		},
 		"edit": {
 			"typeHelper": "インポートやアップグレードの際に誤って推測された種類を修正する場合にのみ変更してください。セルフホストの種類は保存前にサーバーと照合されます。",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "無効化をスケジュール",
 		"schedule_disable_hint": "サーバーの日付が選択した日に達すると、プロバイダーは無効化されます。",
 		"schedule_disable_cancel": "スケジュールをキャンセル",
-		"scheduled_disable_card_tooltip": "{{date}} に無効化予定"
+		"scheduled_disable_card_tooltip": "{{date}} に無効化予定",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "モデル",

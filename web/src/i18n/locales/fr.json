@@ -807,7 +807,8 @@
 			"baseUrl": "URL de base",
 			"baseUrlHelperDefault": "Saisissez l'adresse sur laquelle votre serveur écoute, quel que soit le port. Model Hotel vérifie avant l'enregistrement que le serveur est bien du type choisi, il doit donc être démarré.",
 			"baseUrlHelperFull": "URL de base de l'API complète, y compris n'importe quel préfixe de chemin. Les modèles seront découverts dans \"<base_url>\"/models",
-			"apiKey": "Clé API"
+			"apiKey": "Clé API",
+			"baseUrlHelperAnthropicMessages": "URL de base d'un point de terminaison qui parle l'API Anthropic Messages. Les requêtes vont vers \"<base_url>\"/v1/messages et les modèles sont découverts depuis \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Ne le modifiez que pour corriger un type mal deviné lors de l'import ou de la mise à niveau. Un type auto-hébergé est vérifié auprès du serveur avant d'être enregistré.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "Planifier la désactivation",
 		"schedule_disable_hint": "Le fournisseur sera désactivé dès que la date du serveur atteindra le jour choisi.",
 		"schedule_disable_cancel": "Annuler la planification",
-		"scheduled_disable_card_tooltip": "Désactivation planifiée le {{date}}"
+		"scheduled_disable_card_tooltip": "Désactivation planifiée le {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Modèle",

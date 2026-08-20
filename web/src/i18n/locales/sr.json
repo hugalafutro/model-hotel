@@ -807,7 +807,8 @@
 			"baseUrl": "Основни УРЛ",
 			"baseUrlHelperDefault": "Унесите адресу на којој ваш сервер слуша, на било ком порту. Model Hotel пре чувања проверава да ли је сервер заиста изабраног типа, па мора бити покренут.",
 			"baseUrlHelperFull": "Цео API основни URL, укључујући било који префикс путање. Модели ће бити откривени на \"<base_url>\"/models",
-			"apiKey": "АПИ кључ"
+			"apiKey": "АПИ кључ",
+			"baseUrlHelperAnthropicMessages": "Основни URL крајње тачке која говори Anthropic Messages API. Захтеви иду на \"<base_url>\"/v1/messages, а модели се откривају са \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Мењајте ово само да бисте исправили тип који је при увозу или надоградњи погрешно погођен. Тип сопственог сервера се пре чувања проверава на серверу.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "Закажи онемогућавање",
 		"schedule_disable_hint": "Провајдер ће бити онемогућен чим датум сервера достигне изабрани дан.",
 		"schedule_disable_cancel": "Откажи заказивање",
-		"scheduled_disable_card_tooltip": "Заказано онемогућавање: {{date}}"
+		"scheduled_disable_card_tooltip": "Заказано онемогућавање: {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Модел",

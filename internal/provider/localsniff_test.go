@@ -266,7 +266,7 @@ func TestTypeOf(t *testing.T) {
 }
 
 func TestIsKnownType(t *testing.T) {
-	for _, typ := range []string{"custom", "openai", "koboldcpp", "lmstudio", "ollama", "vertex-express"} {
+	for _, typ := range []string{"custom", "openai", "koboldcpp", "lmstudio", "ollama", "vertex-express", "anthropic-messages"} {
 		if !IsKnownType(typ) {
 			t.Errorf("IsKnownType(%q) = false, want true", typ)
 		}

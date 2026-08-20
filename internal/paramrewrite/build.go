@@ -15,7 +15,7 @@ import (
 // strict-validate unknown fields should return false to avoid 400 errors.
 func ProviderSupportsStreamOptions(providerType string) bool {
 	switch providerType {
-	case "anthropic", "google", "cohere", "opencode-go", "opencode-zen":
+	case "anthropic", "anthropic-messages", "google", "cohere", "opencode-go", "opencode-zen":
 		return false
 	default:
 		// All OpenAI-compatible providers (openai, deepseek, xai, openrouter,

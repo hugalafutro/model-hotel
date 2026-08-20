@@ -134,6 +134,27 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	}
 
 	t.Logf("Anthropic mock server test passed - %d models discovered", len(models))
+
+	// The same listing behind an operator-entered Messages endpoint parses
+	// identically, owner included. Leaving OwnedBy empty for this type was tried
+	// and reverted: models.dev enrichment fills an empty OwnedBy from the model
+	// FAMILY, so claude-fable-5 reported owned_by "anthropic" under an anthropic
+	// provider and "claude-fable" under an anthropic-messages one. A consistent
+	// owner beats a per-provider-type one.
+	custom := &Provider{ID: uuid.New(), BaseURL: server.URL, ProviderType: "anthropic-messages"}
+	customModels, err := svc.discoverAnthropic(ctx, custom, "test-key")
+	if err != nil {
+		t.Fatalf("discoverAnthropic for anthropic-messages failed: %v", err)
+	}
+	if len(customModels) != 2 {
+		t.Fatalf("expected 2 models from the custom endpoint, got %d", len(customModels))
+	}
+	if customModels[0].OwnedBy != "anthropic" {
+		t.Errorf("owned_by = %q, want the same owner both types report", customModels[0].OwnedBy)
+	}
+	if customModels[0].ModelID != "claude-opus-4-7" {
+		t.Errorf("custom endpoint model = %q, want the listing parsed the same way", customModels[0].ModelID)
+	}
 }
 
 func TestAnthropicDiscoverypagination(t *testing.T) {

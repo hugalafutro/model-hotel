@@ -818,7 +818,8 @@
 			"baseUrl": "Podstawowy adres URL",
 			"baseUrlHelperDefault": "Podaj adres, na którym nasłuchuje Twój serwer, dowolny port. Przed zapisaniem Model Hotel sprawdza, czy serwer naprawdę jest wybranego typu, więc musi być uruchomiony.",
 			"baseUrlHelperFull": "Pełny bazowy adres URL API wraz z dowolnym prefiksem ścieżki. Modele zostaną odkryte od \"<base_url>\"/models",
-			"apiKey": "Klucz API"
+			"apiKey": "Klucz API",
+			"baseUrlHelperAnthropicMessages": "Bazowy adres URL punktu końcowego, który mówi w Anthropic Messages API. Żądania trafiają do \"<base_url>\"/v1/messages, a modele są wykrywane z \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Zmieniaj to tylko po to, by poprawić typ błędnie odgadnięty przy imporcie lub aktualizacji. Typ własnego serwera jest przed zapisem sprawdzany na serwerze.",
@@ -1019,7 +1020,8 @@
 		"schedule_disable_tooltip": "Zaplanuj wyłączenie",
 		"schedule_disable_hint": "Dostawca zostanie wyłączony, gdy tylko data serwera osiągnie wybrany dzień.",
 		"schedule_disable_cancel": "Anuluj zaplanowane wyłączenie",
-		"scheduled_disable_card_tooltip": "Zaplanowane wyłączenie: {{date}}"
+		"scheduled_disable_card_tooltip": "Zaplanowane wyłączenie: {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

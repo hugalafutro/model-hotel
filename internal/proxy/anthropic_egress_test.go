@@ -47,6 +47,19 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 			bodyBytes:        docBody,
 			makeUpstreamBody: func(string) ([]byte, string, error) { return nil, "", nil },
 		}, "anthropic", false},
+		// The Messages type has no compat endpoint to fall back to, so plain
+		// text routes native there where it would not for "anthropic".
+		{"text to anthropic-messages", &requestState{bodyBytes: textBody}, "anthropic-messages", true},
+		{"document to anthropic-messages", &requestState{bodyBytes: docBody}, "anthropic-messages", true},
+		// The disqualifiers still disqualify: an Anthropic-in request has the
+		// verbatim path, and neither a non-chat surface nor a multipart body has
+		// a Messages translation at all.
+		{"anthropic-in to anthropic-messages", &requestState{bodyBytes: textBody, anthropicIn: true}, "anthropic-messages", false},
+		{"endpoint override to anthropic-messages", &requestState{bodyBytes: textBody, endpointPath: "/embeddings"}, "anthropic-messages", false},
+		{"multimodal body builder to anthropic-messages", &requestState{
+			bodyBytes:        textBody,
+			makeUpstreamBody: func(string) ([]byte, string, error) { return nil, "", nil },
+		}, "anthropic-messages", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -307,6 +320,186 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	}
 	if !strings.Contains(sse, `"prompt_tokens":9`) {
 		t.Errorf("usage missing:\n%s", sse)
+	}
+}
+
+// newAnthropicMessagesEnv builds a test env whose provider is stored as the
+// operator-entered Messages type: an address that says nothing about its dialect
+// (the upstream's own URL, not Anthropic's), with the stored provider_type as
+// the only thing routing it to /v1/messages.
+func newAnthropicMessagesEnv(t *testing.T, upstream *httptest.Server) *testProxyEnv {
+	t.Helper()
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	pool := testDB.Pool()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE providers SET provider_type = 'anthropic-messages' WHERE id = $1`, env.ProviderID); err != nil {
+		t.Fatalf("failed to set provider type: %v", err)
+	}
+	provider.InvalidateProviderCache()
+	return env
+}
+
+// TestChatCompletions_AnthropicMessagesProvider is the whole point of the type:
+// an ordinary text chat request — no document, nothing the compat endpoint could
+// not have carried — is translated to Messages and sent to /v1/messages, because
+// that is the only chat route the provider serves. The answer comes back as a
+// chat.completion, so the client never learns which dialect was spoken.
+func TestChatCompletions_AnthropicMessagesProvider(t *testing.T) {
+	var log upstreamCallLog
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-api-key") != "test-api-key" {
+			t.Errorf("x-api-key = %q, want the provider key (Messages auth, not Bearer)", r.Header.Get("x-api-key"))
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Errorf("Authorization = %q, want none: Messages endpoints authenticate by x-api-key", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("anthropic-version") == "" {
+			t.Error("anthropic-version header missing")
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
+
+		if stream, _ := body["stream"].(bool); stream {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+			for _, ev := range []string{
+				`{"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":7,"output_tokens":1}}}`,
+				`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"FIG"}}`,
+				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"-2208"}}`,
+				`{"type":"content_block_stop","index":0}`,
+				`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`,
+				`{"type":"message_stop"}`,
+			} {
+				fmt.Fprint(w, "data: "+ev+"\n\n")
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"FIG-2208"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":5}}`))
+	}))
+	defer upstream.Close()
+
+	env := newAnthropicMessagesEnv(t, upstream)
+
+	send := func(stream bool, extra string) *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"model":"%s/%s","stream":%v%s,"messages":[{"role":"user","content":"just text"}]}`,
+			env.ProviderName, env.ModelName, stream, extra)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+		ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+		ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+		env.Handler.ChatCompletions(w, req)
+		return w
+	}
+
+	// Non-streaming text: translated out, translated back.
+	w := send(false, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("non-streaming: %d\n%s", w.Code, w.Body.String())
+	}
+	call := log.takeOne(t, "non-streaming text")
+	if call.path != "/v1/messages" {
+		t.Fatalf("text request went to %s, want /v1/messages", call.path)
+	}
+	if _, hasMaxTokens := call.body["max_tokens"]; !hasMaxTokens {
+		t.Errorf("Messages body missing the required max_tokens: %v", call.body)
+	}
+	if call.body["model"] != env.ModelName {
+		t.Errorf("upstream model = %v, want the resolved id %q", call.body["model"], env.ModelName)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response not JSON: %v\n%s", err, w.Body.String())
+	}
+	if resp["object"] != "chat.completion" {
+		t.Errorf("object = %v, want a chat.completion the client can read", resp["object"])
+	}
+	choice := resp["choices"].([]any)[0].(map[string]any)
+	if choice["message"].(map[string]any)["content"] != "FIG-2208" {
+		t.Errorf("content = %v", choice["message"])
+	}
+	if resp["usage"].(map[string]any)["prompt_tokens"] != float64(7) {
+		t.Errorf("usage = %v, want the Messages usage block metered", resp["usage"])
+	}
+
+	// reasoning_effort is stripped before translation, so no thinking budget is
+	// requested: the shape the translator emits for one is rejected by current
+	// models, and an egress attempt cannot learn from that 400. It must not
+	// reach the Messages body in either form.
+	w = send(false, `,"reasoning_effort":"low"`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("reasoning_effort request: %d\n%s", w.Code, w.Body.String())
+	}
+	call = log.takeOne(t, "reasoning_effort")
+	if _, thinking := call.body["thinking"]; thinking {
+		t.Errorf("thinking budget requested from reasoning_effort: %v", call.body["thinking"])
+	}
+	if _, leaked := call.body["reasoning_effort"]; leaked {
+		t.Errorf("reasoning_effort reached the Messages body verbatim: %v", call.body)
+	}
+
+	// Streaming text: chat chunks ending in [DONE].
+	w = send(true, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("streaming: %d\n%s", w.Code, w.Body.String())
+	}
+	if call = log.takeOne(t, "streaming text"); call.path != "/v1/messages" {
+		t.Fatalf("streaming text request went to %s, want /v1/messages", call.path)
+	}
+	sse := w.Body.String()
+	if !strings.Contains(sse, `"object":"chat.completion.chunk"`) {
+		t.Errorf("chunks not in chat shape:\n%s", sse)
+	}
+	if !strings.Contains(sse, `"content":"FIG"`) || !strings.Contains(sse, `"content":"-2208"`) {
+		t.Errorf("content deltas missing:\n%s", sse)
+	}
+	if !strings.Contains(sse, `"finish_reason":"stop"`) || !strings.Contains(sse, "data: [DONE]") {
+		t.Errorf("terminal chunks missing:\n%s", sse)
+	}
+}
+
+// An Anthropic-in request to an anthropic-messages provider is the one case
+// needing no translation at all: Messages in, Messages out, forwarded verbatim
+// so cache_control and thinking blocks survive in both directions.
+func TestMessages_AnthropicMessagesProviderStaysNative(t *testing.T) {
+	var gotPath string
+	var gotBody map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"native answer"}],"stop_reason":"end_turn","usage":{"input_tokens":3,"output_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	env := newAnthropicMessagesEnv(t, upstream)
+	body := fmt.Sprintf(`{"model":"%s/%s","max_tokens":64,"system":[{"type":"text","text":"be brief","cache_control":{"type":"ephemeral"}}],"messages":[{"role":"user","content":"hi"}]}`,
+		env.ProviderName, env.ModelName)
+	w := doMessagesRequest(env, body)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", w.Code, w.Body.String())
+	}
+	if gotPath != "/v1/messages" {
+		t.Fatalf("anthropic-in request went to %s, want /v1/messages", gotPath)
+	}
+	if gotBody["max_tokens"] != float64(64) {
+		t.Errorf("max_tokens = %v, want the caller's 64 (verbatim passthrough)", gotBody["max_tokens"])
+	}
+	system, _ := gotBody["system"].([]any)
+	if len(system) != 1 || system[0].(map[string]any)["cache_control"] == nil {
+		t.Errorf("system = %v, want the caller's cache_control breakpoint intact", gotBody["system"])
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("response not JSON: %v\n%s", err, w.Body.String())
+	}
+	if resp["type"] != "message" {
+		t.Errorf("response envelope = %v, want a verbatim Anthropic message", resp)
 	}
 }
 

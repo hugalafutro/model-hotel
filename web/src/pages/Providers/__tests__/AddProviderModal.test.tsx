@@ -1085,6 +1085,39 @@ describe("AddProviderModal", () => {
 		});
 	});
 
+	describe("anthropic-messages (custom Messages API endpoint)", () => {
+		// The whole point of the type is an address only the operator knows, so
+		// it behaves like `custom` here and not like its locked sibling
+		// `anthropic`, whose one official URL the dialog fills in.
+		it("leaves the base URL editable and pre-fills nothing", async () => {
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await selectType(user, "anthropic-messages");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			expect(baseUrlInput).toHaveValue("");
+			expect(baseUrlInput).not.toHaveAttribute("readonly");
+		});
+
+		it("locks the base URL for the official anthropic type", async () => {
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await selectType(user, "anthropic");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			expect(baseUrlInput).toHaveValue("https://api.anthropic.com");
+			expect(baseUrlInput).toHaveAttribute("readonly");
+		});
+
+		it("says where requests and discovery will go", async () => {
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await selectType(user, "anthropic-messages");
+			expect(screen.getByText(/v1\/messages/)).toBeInTheDocument();
+		});
+	});
+
 	describe("provider types with free models", () => {
 		it("shows 'Optional - free models available' placeholder for opencode-zen", async () => {
 			const { user } = renderWithProviders(

@@ -14,18 +14,33 @@ import (
 	"sync"
 )
 
+// anthropicUnsupportedParams is shared by both Anthropic provider types, which
+// reject the same params whether the request reaches them over the
+// OpenAI-compat endpoint or as a translated Messages body.
+var anthropicUnsupportedParams = []string{
+	"top_p",             // deprecated on all current Anthropic models
+	"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
+	"presence_penalty",  // Anthropic uses a single penalties param, not separate freq/presence
+	"min_p",             // not part of Anthropic API
+	"reasoning_effort",  // not supported by Anthropic API
+}
+
 // ProviderUnsupportedParams lists OpenAI Chat Completions parameters that are
 // universally unsupported (cause 400 errors) per provider type. These are
 // preemptively stripped from requests to avoid a wasted round-trip.
 // Sources: official provider docs + empirical testing.
 var ProviderUnsupportedParams = map[string][]string{
-	"anthropic": {
-		"top_p",             // deprecated on all current Anthropic models
-		"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
-		"presence_penalty",  // Anthropic uses a single penalties param, not separate freq/presence
-		"min_p",             // not part of Anthropic API
-		"reasoning_effort",  // not supported by Anthropic API
-	},
+	"anthropic": anthropicUnsupportedParams,
+	// Identical to "anthropic", deliberately. Keeping reasoning_effort here was
+	// tried, so the egress translator could turn it into Anthropic's thinking
+	// budget, and it fails against current models: claude-sonnet-5 answers
+	// `"thinking.type.enabled" is not supported for this model. Use
+	// "thinking.type.adaptive" and "output_config.effort"`. Nothing recovers from
+	// that 400 either, because an egress attempt never parses one as an OpenAI
+	// error (sentChatCompletionsBody), so the param has to go before it is sent.
+	// Plumbing thinking control through the adapter needs the newer request
+	// shape, and is a feature in its own right.
+	"anthropic-messages": anthropicUnsupportedParams,
 	"google": {
 		"frequency_penalty", // not supported on Gemini OpenAI-compat endpoint
 		"presence_penalty",  // not supported on Gemini OpenAI-compat endpoint

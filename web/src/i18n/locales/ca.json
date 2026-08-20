@@ -807,7 +807,8 @@
 			"baseUrl": "URL base",
 			"baseUrlHelperDefault": "Introdueix l'adreça on escolta el teu servidor, amb qualsevol port. Model Hotel comprova que el servidor sigui realment del tipus que has triat abans de desar-lo, així que ha d'estar en marxa.",
 			"baseUrlHelperFull": "URL base completa de l'API, incloent-hi qualsevol prefix de ruta. Els models es descobriran a \"<base_url>/models\"",
-			"apiKey": "Clau de l'API"
+			"apiKey": "Clau de l'API",
+			"baseUrlHelperAnthropicMessages": "URL base d'un extrem que parla l'API Anthropic Messages. Les sol·licituds van a \"<base_url>\"/v1/messages i els models es descobreixen des de \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Canvia-ho només per corregir un tipus que es va deduir malament en importar o actualitzar el proveïdor. Un tipus autoallotjat es comprova amb el servidor abans de desar-lo.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "Programa la desactivació",
 		"schedule_disable_hint": "El proveïdor es desactivarà tan bon punt la data del servidor arribi al dia escollit.",
 		"schedule_disable_cancel": "Cancel·la la programació",
-		"scheduled_disable_card_tooltip": "Programat per desactivar-se el {{date}}"
+		"scheduled_disable_card_tooltip": "Programat per desactivar-se el {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

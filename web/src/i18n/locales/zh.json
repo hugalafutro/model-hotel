@@ -796,7 +796,8 @@
 			"baseUrl": "基本网址",
 			"baseUrlHelperDefault": "填写你的服务器监听的地址，端口任意。保存前 Model Hotel 会核实该服务器确实是你选择的类型，因此它必须处于运行状态。",
 			"baseUrlHelperFull": "完整的 API 基础 URL，包含任何路径前缀。模型将从 \"<base_url>\"/models 发现",
-			"apiKey": "API 密钥"
+			"apiKey": "API 密钥",
+			"baseUrlHelperAnthropicMessages": "使用 Anthropic Messages API 的端点的基础 URL。请求将发送到 \"<base_url>\"/v1/messages，模型将从 \"<base_url>\"/v1/models 中发现"
 		},
 		"edit": {
 			"typeHelper": "仅在纠正导入或升级时推断错误的类型时才更改。自托管类型会在保存前与服务器核对。",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "计划禁用",
 		"schedule_disable_hint": "当服务器日期到达所选日期时，提供商将立即被禁用。",
 		"schedule_disable_cancel": "取消计划",
-		"scheduled_disable_card_tooltip": "计划于 {{date}} 禁用"
+		"scheduled_disable_card_tooltip": "计划于 {{date}} 禁用",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "模型",

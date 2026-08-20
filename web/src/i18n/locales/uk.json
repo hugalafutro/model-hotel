@@ -818,7 +818,8 @@
 			"baseUrl": "Базова URL-адреса",
 			"baseUrlHelperDefault": "Укажіть адресу, яку слухає ваш сервер, будь-який порт. Перед збереженням Model Hotel перевіряє, що сервер справді обраного типу, тож він має бути запущений.",
 			"baseUrlHelperFull": "Повний API базовий URL включно з будь-яким префіксом шляху. Моделі будуть виявлені з \"<base_url>\"/models",
-			"apiKey": "API ключ"
+			"apiKey": "API ключ",
+			"baseUrlHelperAnthropicMessages": "Базова URL-адреса кінцевої точки, яка говорить Anthropic Messages API. Запити йдуть на \"<base_url>\"/v1/messages, а моделі виявляються з \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "Змінюйте це лише щоб виправити тип, неправильно визначений під час імпорту чи оновлення. Тип власного сервера перед збереженням перевіряється на самому сервері.",
@@ -1019,7 +1020,8 @@
 		"schedule_disable_tooltip": "Запланувати вимкнення",
 		"schedule_disable_hint": "Постачальника буде вимкнено, щойно дата сервера досягне обраного дня.",
 		"schedule_disable_cancel": "Скасувати заплановане вимкнення",
-		"scheduled_disable_card_tooltip": "Вимкнення заплановано на {{date}}"
+		"scheduled_disable_card_tooltip": "Вимкнення заплановано на {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Модель",

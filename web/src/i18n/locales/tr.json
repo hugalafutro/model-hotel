@@ -796,7 +796,8 @@
 			"baseUrl": "Ana URL",
 			"baseUrlHelperDefault": "Sunucunuzun dinlediği adresi girin, port fark etmez. Model Hotel kaydetmeden önce sunucunun gerçekten seçtiğiniz tür olduğunu doğrular, bu yüzden sunucu çalışıyor olmalıdır.",
 			"baseUrlHelperFull": "Herhangi bir yol önekini de içeren tam API temel URL'si. Modeller \"<base_url>\"/models adresinden bulunacaktır.",
-			"apiKey": "API Anahtarı"
+			"apiKey": "API Anahtarı",
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API konuşan bir uç noktanın temel URL'si. İstekler \"<base_url>\"/v1/messages adresine gider ve modeller \"<base_url>\"/v1/models adresinden keşfedilir"
 		},
 		"edit": {
 			"typeHelper": "Bunu yalnızca içe aktarma veya yükseltme sırasında yanlış tahmin edilen bir türü düzeltmek için değiştirin. Kendi sunucunuzun türü kaydedilmeden önce sunucuya karşı doğrulanır.",
@@ -961,7 +962,8 @@
 		"schedule_disable_tooltip": "Devre dışı bırakmayı zamanla",
 		"schedule_disable_hint": "Sunucunun tarihi seçilen güne ulaştığı anda sağlayıcı devre dışı bırakılacak.",
 		"schedule_disable_cancel": "Zamanlamayı iptal et",
-		"scheduled_disable_card_tooltip": "{{date}} tarihinde devre dışı bırakılmak üzere zamanlandı"
+		"scheduled_disable_card_tooltip": "{{date}} tarihinde devre dışı bırakılmak üzere zamanlandı",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "Model",

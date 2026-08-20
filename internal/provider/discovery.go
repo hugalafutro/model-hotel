@@ -333,7 +333,12 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverAzure(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
-		case "anthropic":
+		case "anthropic", "anthropic-messages":
+			// Anthropic's models listing is part of the Messages API surface
+			// (GET /v1/models, x-api-key), so any endpoint serving that API
+			// answers it in the same shape. An operator-entered one that does
+			// not fails discovery loudly rather than adding a provider whose
+			// models were never confirmed to exist.
 			return d.discoverAnthropic(ctx, provider, apiKey)
 		case "ollama":
 			return d.discoverOllama(ctx, provider, apiKey)

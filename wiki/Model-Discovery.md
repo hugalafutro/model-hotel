@@ -238,6 +238,9 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 
 Self-hosted servers have no entry here: `ollama`, `lmstudio` and `koboldcpp`
 are chosen, not matched, and run on whatever address and port the operator gave.
+`anthropic-messages` has none either, and for the same reason: it names a wire
+format rather than a vendor, so no host implies it. `api.anthropic.com` resolves
+to `anthropic` as it always has.
 
 **Identifying endpoints used to verify a self-hosted choice:**
 
@@ -307,6 +310,18 @@ would identify it as whichever family was probed first.
 | Input price per million | Pricing catalog |
 | Input price cache-hit per million | Pricing catalog |
 | Output price per million | Pricing catalog |
+
+### Anthropic (Messages API) - `anthropic-messages`
+
+**Source files:** `discovery_anthropic.go` (shared with `anthropic`)
+
+**Method:** Identical to Anthropic above, and deliberately so: the models listing is part of the Messages API surface, so any endpoint serving that API answers `GET /v1/models` in the same shape. The type exists for an endpoint that speaks Anthropic's Messages API but is not Anthropic's own: an operator types the base URL, nothing is inferred from the host, and no host rule ever resolves to this type.
+
+Model metadata, `owned_by` included, is produced exactly as for `anthropic`: the listing carries no ownership field, and reporting a different owner per provider type would make the same model look like two different things. (Leaving it empty for this type was tried and reverted, because models.dev enrichment then fills `owned_by` from the model *family*: `claude-fable-5` came back owned by `anthropic` under one provider and `claude-fable` under the other.) The Anthropic pricing catalog still applies to any `claude-*` ID that matches, and models.dev enrichment covers the rest.
+
+The one real difference from `anthropic`: **every chat request is translated**, not just the ones carrying a document. An `anthropic` provider defaults to Anthropic's OpenAI-compat `/v1/chat/completions` and only re-routes through `internal/anthropicegress` for content that endpoint cannot express; an `anthropic-messages` provider has no compat endpoint at all, so all of its chat traffic goes to `/v1/messages` through the same adapter. A client that speaks Anthropic natively (`/v1/messages` in, see `anthropic_native.go`) is forwarded verbatim in both directions, so `cache_control` and thinking blocks survive.
+
+Discovery fails loudly if the endpoint does not serve the listing, rather than adding a provider whose models were never confirmed to exist.
 
 ### AWS Bedrock
 

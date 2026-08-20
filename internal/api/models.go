@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -533,11 +534,15 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 
 	providerType = provider.TypeOf(prov)
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
-	if providerType == "vertex-express" {
+	switch providerType {
+	case "vertex-express":
 		// Vertex express serves chat only on the native generateContent route;
 		// doTestModelRequest translates the probe body to match.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType,
 			"/publishers/google/models/"+url.PathEscape(m.ModelID)+":generateContent")
+	case "anthropic-messages":
+		// The Messages API is the only chat route this type serves.
+		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/messages")
 	}
 
 	reqHashBytes := make([]byte, 8)
@@ -560,8 +565,13 @@ func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetUR
 	if h.testModelCheckRedirect != nil {
 		testClient.CheckRedirect = h.testModelCheckRedirect
 	}
-	if providerType == "vertex-express" {
-		return h.doTestModelGeminiRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody)
+	switch providerType {
+	case "vertex-express":
+		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
+			gemini.TranslateRequest, gemini.BuildChatCompletion)
+	case "anthropic-messages":
+		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
+			anthropicegress.TranslateRequest, anthropicegress.BuildChatCompletion)
 	}
 	return paramrewrite.SelfHealChatCompletion(ctx, testClient, targetURL, providerType, modelID, baseBody, func(req *http.Request) {
 		util.SetProviderAuthHeaders(req, providerType, apiKey)
@@ -569,13 +579,21 @@ func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetUR
 	})
 }
 
-// doTestModelGeminiRequest sends the probe through the gemini egress
-// translation instead of the chat-completions self-heal (whose 400 param
-// retry rewrites chat bodies, meaningless against generateContent). A 200
-// body is swapped for its chat.completion translation so
-// parseTestModelResponse reads it unchanged.
-func (h *Handler) doTestModelGeminiRequest(ctx context.Context, client *http.Client, targetURL, providerType, modelID, apiKey string, baseBody []byte) (*http.Response, error) {
-	body, _, _, err := gemini.TranslateRequest(baseBody)
+// doTestModelEgressRequest sends the probe through an egress adapter's
+// translation instead of the chat-completions self-heal (whose 400 param retry
+// rewrites chat bodies, meaningless against a route that never sees one). A 200
+// body is swapped for its chat.completion translation so parseTestModelResponse
+// reads it unchanged.
+//
+// It serves every provider type whose chat traffic the proxy translates rather
+// than forwards, and must keep serving all of them: a type routed through an
+// adapter in the pipeline but through the self-heal here would have its Test
+// button report a 404 for a model that answers live traffic perfectly well.
+func (h *Handler) doTestModelEgressRequest(ctx context.Context, client *http.Client, targetURL, providerType, modelID, apiKey string, baseBody []byte,
+	translateRequest func([]byte) ([]byte, string, bool, error),
+	buildChatCompletion func([]byte, string, string, int64) ([]byte, error),
+) (*http.Response, error) {
+	body, _, _, err := translateRequest(baseBody)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +615,7 @@ func (h *Handler) doTestModelGeminiRequest(ctx context.Context, client *http.Cli
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return resp, err
 	}
-	translated, err := gemini.BuildChatCompletion(upstream, "chatcmpl-test-"+modelID, modelID, time.Now().Unix())
+	translated, err := buildChatCompletion(upstream, "chatcmpl-test-"+modelID, modelID, time.Now().Unix())
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return resp, err

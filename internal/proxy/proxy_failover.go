@@ -482,7 +482,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// candidate in the same failover group still goes through translation, so a
 	// single hotel/claude-* request can fail over from native to translated
 	// seamlessly. The flag is read by the response dispatch + writer.
-	st.anthropicNativeAttempt = st.anthropicIn && providerType == "anthropic"
+	st.anthropicNativeAttempt = st.anthropicIn && isAnthropicFamily(providerType)
 	// Per-attempt flags: a failover group can mix an OpenAI candidate that
 	// needs /v1/responses (or a vertex-express one) with providers that
 	// don't, so all dialect flags reset on every candidate.
@@ -510,10 +510,12 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		return h.buildGeminiRequest(ctx, st, candidate, providerType)
 	}
 
-	// Anthropic egress adapter: a chat request carrying a document is
-	// translated to Anthropic's native Messages shape on the way out and back
-	// on the response side (see anthropic_egress.go). Text and image requests
-	// stay on the cheaper compat endpoint below.
+	// Anthropic egress adapter: a chat request is translated to Anthropic's
+	// native Messages shape on the way out and back on the response side (see
+	// anthropic_egress.go). Every chat request to an anthropic-messages
+	// provider takes this route; for anthropic, only one carrying a document
+	// does, and text and image requests stay on the cheaper compat endpoint
+	// below.
 	if isAnthropicEgressAttempt(st, providerType) {
 		st.anthropicEgressAttempt = true
 		return h.buildAnthropicEgressRequest(ctx, st, candidate, providerType)
@@ -535,7 +537,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			return nil, providerType, targetURL, err
 		}
 	} else {
-		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
+		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))

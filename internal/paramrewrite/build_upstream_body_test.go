@@ -6,6 +6,38 @@ import (
 	"testing"
 )
 
+// Both Anthropic types strip the same params. The Messages type is the one that
+// invites an exception, since its requests are always translated and the
+// translator can turn reasoning_effort into a thinking budget: that was tried
+// and reverted, because current models reject the budget shape the translator
+// emits (`"thinking.type.enabled" is not supported for this model`) and an
+// egress attempt never parses that 400 as an OpenAI error to learn from. The
+// params must be gone before the body is translated, not after.
+func TestBuildUpstreamBody_BothAnthropicTypesStripTheSameParams(t *testing.T) {
+	t.Parallel()
+
+	body := `{"model":"m","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low","top_p":0.9,"min_p":0.1,"frequency_penalty":0.2,"temperature":0.5}`
+
+	for _, providerType := range []string{"anthropic", "anthropic-messages"} {
+		t.Run(providerType, func(t *testing.T) {
+			out := BuildUpstreamBody([]byte(body), providerType, "m", "m", false, &sync.Map{}, &sync.Map{}, nil, providerType)
+			var raw map[string]any
+			if err := json.Unmarshal(out, &raw); err != nil {
+				t.Fatalf("result is not valid JSON: %v", err)
+			}
+			for _, gone := range []string{"reasoning_effort", "top_p", "min_p", "frequency_penalty"} {
+				if _, kept := raw[gone]; kept {
+					t.Errorf("%s survived for %s: %s", gone, providerType, out)
+				}
+			}
+			// Everything Anthropic does accept still rides through.
+			if _, kept := raw["temperature"]; !kept {
+				t.Errorf("temperature was stripped for %s: %s", providerType, out)
+			}
+		})
+	}
+}
+
 func TestBuildUpstreamBody(t *testing.T) {
 	t.Parallel()
 

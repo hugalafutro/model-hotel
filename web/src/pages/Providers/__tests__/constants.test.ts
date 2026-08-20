@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	baseUrls,
+	hasEditableBaseUrl,
 	isKnownProviderUrl,
 	isLocalProviderType,
 	localProviderPlaceholders,
@@ -135,6 +136,32 @@ describe("isLocalProviderType", () => {
 	});
 });
 
+describe("hasEditableBaseUrl", () => {
+	// The two hand-entered dialects and the self-hosted servers: an operator
+	// types the address, so the field must not be locked or pre-filled.
+	it.each(["custom", "anthropic-messages", "ollama", "koboldcpp", "lmstudio"])(
+		"leaves the base URL editable for %s",
+		(type) => {
+			expect(hasEditableBaseUrl(type)).toBe(true);
+		},
+	);
+
+	// Hosted APIs live at one known address, which the dialog fills in and locks
+	// so it cannot be mistyped. "anthropic" is the pointed case: its Messages
+	// sibling is editable, and confusing the two would unlock the official one.
+	it.each(["anthropic", "openai", "deepseek", "vertex-express", "openrouter"])(
+		"locks the base URL for %s",
+		(type) => {
+			expect(hasEditableBaseUrl(type)).toBe(false);
+		},
+	);
+
+	it("locks an unknown type rather than assuming it is hand-entered", () => {
+		expect(hasEditableBaseUrl("")).toBe(false);
+		expect(hasEditableBaseUrl("not-a-type")).toBe(false);
+	});
+});
+
 describe("isKnownProviderUrl", () => {
 	it("returns true for openai url", () => {
 		expect(isKnownProviderUrl("https://api.openai.com/v1")).toBe(true);
@@ -198,6 +225,12 @@ describe("providerTypeTranslationKeys", () => {
 	it("has translation key for anthropic", () => {
 		expect(providerTypeTranslationKeys.anthropic).toBe(
 			"providers.type_anthropic",
+		);
+	});
+
+	it("has translation key for anthropic-messages", () => {
+		expect(providerTypeTranslationKeys["anthropic-messages"]).toBe(
+			"providers.type_anthropic_messages",
 		);
 	});
 
@@ -307,6 +340,12 @@ describe("providerTypeAllowsEmptyKey", () => {
 
 	it("returns false for anthropic", () => {
 		expect(providerTypeAllowsEmptyKey("anthropic")).toBe(false);
+	});
+
+	// A remote Messages endpoint authenticates by key like any other hosted API;
+	// only self-hosted servers and keyless tiers may be added without one.
+	it("returns false for anthropic-messages", () => {
+		expect(providerTypeAllowsEmptyKey("anthropic-messages")).toBe(false);
 	});
 
 	it("returns false for deepseek", () => {

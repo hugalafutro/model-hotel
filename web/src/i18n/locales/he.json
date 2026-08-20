@@ -807,7 +807,8 @@
 			"baseUrl": "כתובת URL בסיסית",
 			"baseUrlHelperDefault": "הזינו את הכתובת שבה השרת שלכם מאזין, בכל פורט. לפני השמירה Model Hotel בודק שהשרת אכן מהסוג שבחרתם, ולכן הוא חייב לפעול.",
 			"baseUrlHelperFull": "כתובת ה-URL הבסיסית המלאה של ה-API, כולל כל קידומת נתיב. הדגמים יאותרו בכתובת \"<base_url>\"/models",
-			"apiKey": "מפתח API"
+			"apiKey": "מפתח API",
+			"baseUrlHelperAnthropicMessages": "כתובת URL בסיסית של נקודת קצה שמדברת ב-Anthropic Messages API. הבקשות נשלחות אל \"<base_url>\"/v1/messages והמודלים מתגלים מתוך \"<base_url>\"/v1/models"
 		},
 		"edit": {
 			"typeHelper": "שנו זאת רק כדי לתקן סוג שנוחש שגוי בעת ייבוא או שדרוג של הספק. סוג של שרת מקומי נבדק מול השרת לפני השמירה.",
@@ -990,7 +991,8 @@
 		"schedule_disable_tooltip": "תזמון השבתה",
 		"schedule_disable_hint": "הספק יושבת ברגע שתאריך השרת יגיע ליום שנבחר.",
 		"schedule_disable_cancel": "ביטול התזמון",
-		"scheduled_disable_card_tooltip": "מתוזמן להשבתה בתאריך {{date}}"
+		"scheduled_disable_card_tooltip": "מתוזמן להשבתה בתאריך {{date}}",
+		"type_anthropic_messages": "Anthropic (Messages API)"
 	},
 	"models": {
 		"page_title_one": "מודל",

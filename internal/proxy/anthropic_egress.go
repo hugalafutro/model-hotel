@@ -11,29 +11,57 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// The Anthropic egress adapter. Anthropic's OpenAI-compat
+// The Anthropic egress adapter. A chat request is translated to Anthropic's
+// native /v1/messages shape on the way out (internal/anthropicegress) and the
+// answer translated back on the upstream side of the pipeline — the same trick
+// as the gemini egress adapter and the /v1/responses re-route, so the TTFT
+// probe, stall watchdog, transforms and metering all run unchanged.
+//
+// Two provider types need it, for opposite reasons. Anthropic's own OpenAI-compat
 // /v1/chat/completions cannot express a document: an OpenAI {"type":"file"}
 // content part is rejected with `messages.0.user.content.str: Input should be
-// a valid string`. Such a request is translated to Anthropic's native
-// /v1/messages shape on the way out (internal/anthropicegress) and the answer
-// translated back on the upstream side of the pipeline — the same trick as the
-// gemini egress adapter and the /v1/responses re-route, so the TTFT probe,
-// stall watchdog, transforms and metering all run unchanged.
+// a valid string`, so those requests alone are translated. An
+// "anthropic-messages" provider has no compat endpoint at all, so all of its
+// chat traffic is.
+
+// isAnthropicFamily reports whether a provider type speaks Anthropic's native
+// Messages API. Both members serve /v1/messages with x-api-key; they differ in
+// what else they serve. "anthropic" is Anthropic's own API, which also fronts an
+// OpenAI-compatible /v1/chat/completions, so the compat endpoint remains its
+// default route. "anthropic-messages" is an operator-entered endpoint that
+// speaks Messages and nothing else, so every chat request there is translated.
+func isAnthropicFamily(providerType string) bool {
+	return providerType == "anthropic" || providerType == "anthropic-messages"
+}
 
 // isAnthropicEgressAttempt reports whether this candidate is served through the
 // Anthropic egress adapter: a plain chat-completions request (no explicit
-// endpoint override, no multipart body) bound for an Anthropic provider and
-// carrying a content part the compat endpoint cannot express.
+// endpoint override, no multipart body) bound for an Anthropic-family provider
+// that has to be spoken to in Messages.
 //
-// An Anthropic-in request is excluded: it already has a better path
+// The two types reach that conclusion differently. For "anthropic-messages"
+// every chat request qualifies: the compat endpoint the untranslated body would
+// go to does not exist there. For "anthropic" only a request carrying a content
+// part the compat endpoint cannot express does, because that endpoint does exist
+// and forwarding an untranslated body to it is both cheaper and more faithful
+// than a round trip through the translator.
+//
+// An Anthropic-in request is excluded for both: it already has a better path
 // (buildNativeAnthropicRequest forwards its original Messages body verbatim),
 // and translating a body that is already Anthropic-shaped would corrupt it.
 func isAnthropicEgressAttempt(st *requestState, providerType string) bool {
-	if providerType != "anthropic" || st.anthropicIn {
+	if !isAnthropicFamily(providerType) || st.anthropicIn {
 		return false
 	}
+	// A non-chat surface (embeddings, audio, images) and a multipart body both
+	// carry shapes the Messages API has no equivalent for, so neither can be
+	// translated. They keep the direct route, which answers with the upstream's
+	// own 404 for a surface it does not serve.
 	if st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
+	}
+	if providerType == "anthropic-messages" {
+		return true
 	}
 	return anthropicegress.NeedsNativeRouting(st.bodyBytes)
 }

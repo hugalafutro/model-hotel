@@ -108,8 +108,15 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			OutputModalities: `["text"]`,
 			ContextLength:    m.MaxInputTokens,
 			MaxOutputTokens:  m.MaxTokens,
-			OwnedBy:          "anthropic",
-			Enabled:          true,
+			// Both provider types served by this discoverer report the same owner.
+			// An anthropic-messages endpoint may front someone else's models, but
+			// the Anthropic listing carries no ownership field to learn the truth
+			// from, and leaving this empty is worse than a wrong-but-consistent
+			// value: models.dev enrichment then fills OwnedBy from the model
+			// FAMILY ("claude-opus"), so the same model would report a different
+			// owner depending on which provider discovered it.
+			OwnedBy: "anthropic",
+			Enabled: true,
 		}
 
 		if pricing := LookupAnthropicPricing(pricingCatalog, m.ID); pricing != nil {
