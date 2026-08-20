@@ -475,7 +475,7 @@ Two background states are written by the stale-log sweep in `cmd/server/main.go`
 
 For SSE events, error messages are truncated to 200 characters with a `…` suffix:
 
-For **failover non-200 responses**, the upstream error body is truncated to **2000 characters** (with `…` suffix) before logging and forwarding to the client. This prevents excessively large error responses from consuming memory or log space.
+For **failover non-200 responses**, the upstream error body is sanitized and truncated to **10,000 characters** before it is written to the request log. What the *client* receives depends on the error class: a payload-class 4xx (a plain `400` and its kin — not `401`/`402`/`403`/`404`/`407`/`429`) forwards the provider's own error body with credential-looking tokens masked, read under a 1 MiB cap; anything else — auth, billing, rate-limit, not-found and server-fault classes, or a body over the cap — gets a synthesized OpenAI-style envelope carrying the classified reason, because those upstream bodies can quote the operator's provider credentials or account details.
 
 ```go
 msg = fmt.Sprintf("Request failed: %s - %s", logEntry.modelID, logEntry.errorMessage)
@@ -483,8 +483,6 @@ if len(msg) > 200 {
     msg = msg[:200] + "…"
 }
 ```
-
-The full error message is stored in the database without truncation.
 
 ### Client Disconnect Handling
 

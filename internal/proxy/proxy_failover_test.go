@@ -744,7 +744,9 @@ func TestForwardUpstreamError_Non2xxWithoutErrorObjectGetsEnvelope(t *testing.T)
 // (code, type, param, provider-specific fields), so a payload-class error
 // forwards it byte for byte. The eligibility verdict is what decides, not how
 // many candidates remain: a direct single-provider request gets the same body
-// a hotel/ group request does.
+// a sequentially failing-over hotel/ group request does. (A hedged race is the
+// exception - its orchestrator writes the terminal error without this
+// function.)
 func TestForwardUpstreamError_ErrorObjectForwardedVerbatim(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -845,6 +847,90 @@ func TestForwardUpstreamError_EligibleClassGetsEnvelopeNotBody(t *testing.T) {
 	}
 }
 
+// The forward-deny status class is static. shouldFailover's 429 verdict
+// follows the failover_on_rate_limit setting, so with that toggle off a 429
+// arrives here as NOT failover-eligible - and its body is still the operator's
+// account state (OpenAI's insufficient_quota text, MiniMax's "insufficient
+// balance" remapped onto 429 by remapMiniMaxBusinessError). What a client may
+// see must not move with a routing knob, so these stay enveloped even when
+// ineligible.
+func TestForwardUpstreamError_StaticDenyClassIgnoresEligibility(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota"}}`
+
+	for _, status := range []int{
+		http.StatusTooManyRequests,
+		http.StatusUnauthorized,
+		http.StatusPaymentRequired,
+		http.StatusNotFound,
+		http.StatusBadGateway,
+	} {
+		t.Run(fmt.Sprintf("status=%d", status), func(t *testing.T) {
+			w, _ := runForwardUpstreamError(t, h, status, upstreamBody, false)
+
+			if w.Code != status {
+				t.Errorf("expected status %d to reach the client, got %d", status, w.Code)
+			}
+			body := w.Body.String()
+			if strings.Contains(body, "insufficient_quota") || strings.Contains(body, "billing details") {
+				t.Errorf("operator account detail reached the client on a denied status: %s", body)
+			}
+			var got struct {
+				Error struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Error.Message == "" {
+				t.Errorf("expected a classified envelope, got: %s", body)
+			}
+		})
+	}
+}
+
+// A forwardable body that overflows its cap is demoted to the envelope rather
+// than forwarded truncated: a client must never receive invalid JSON where the
+// provider sent something complete.
+func TestForwardUpstreamError_OversizedPayloadBodyGetsEnvelope(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	upstreamBody := `{"error":{"message":"` + strings.Repeat("a", forwardableErrorBodyCap) + `"}}`
+
+	w, _ := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, false)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+	if !json.Valid(w.Body.Bytes()) {
+		t.Fatalf("client received invalid JSON (%d bytes)", w.Body.Len())
+	}
+	if w.Body.Len() > 32<<10 {
+		t.Errorf("oversized upstream body reached the client: %d bytes", w.Body.Len())
+	}
+}
+
+// The non-JSON default branch echoes the sanitized body inside an envelope, so
+// it needs the same credential scrub as the verbatim branch.
+func TestForwardUpstreamError_NonJSONBodyMasksKeyShapedTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const secret = "sk-live-0123456789abcdef0123456789abcdef"
+	upstreamBody := `upstream proxy rejected key ` + secret + ` (not json)`
+
+	w, _ := runForwardUpstreamError(t, h, http.StatusBadRequest, upstreamBody, false)
+
+	body := w.Body.String()
+	if strings.Contains(body, secret) {
+		t.Errorf("key-shaped token reached the client via the non-JSON branch: %s", body)
+	}
+	if !strings.Contains(body, "[redacted]") {
+		t.Errorf("non-JSON branch did not mask: %s", body)
+	}
+}
+
 // A forwarded payload-class body is the provider's text, and providers have
 // been known to quote credentials in it. Key-shaped tokens are masked on the
 // way to the client; everything else is untouched.
@@ -884,13 +970,16 @@ func TestForwardUpstreamError_ForwardedBodyMasksKeyShapedTokens(t *testing.T) {
 // shapes it eats and, just as much, which prose it leaves alone.
 func TestMaskKeyShapedTokens(t *testing.T) {
 	masked := map[string]string{
-		"openai key":     `key sk-0123456789abcdef0123 rejected`,
-		"openai project": `key sk-proj-0123456789abcdef0123 rejected`,
-		"anthropic key":  `key sk-ant-api03-0123456789abcdef rejected`,
-		"groq key":       `key gsk_0123456789abcdef0123 rejected`,
-		"xai key":        `key xai-0123456789abcdef0123 rejected`,
-		"google key":     `key AIzaSyA0123456789abcdef0123456789abcde rejected`,
-		"bearer token":   `header "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig" invalid`,
+		"openai key":      `key sk-0123456789abcdef0123 rejected`,
+		"openai project":  `key sk-proj-0123456789abcdef0123 rejected`,
+		"anthropic key":   `key sk-ant-api03-0123456789abcdef rejected`,
+		"groq key":        `key gsk_0123456789abcdef0123 rejected`,
+		"xai key":         `key xai-0123456789abcdef0123 rejected`,
+		"google key":      `key AIzaSyA0123456789abcdef0123456789abcde rejected`,
+		"huggingface key": `key hf_0123456789abcdefABCDEF rejected`,
+		"aws access key":  `credential AKIAIOSFODNN7EXAMPLE not authorized`,
+		"bare jwt":        `key eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N in body`,
+		"bearer token":    `header "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig" invalid`,
 	}
 	for name, in := range masked {
 		t.Run("masks/"+name, func(t *testing.T) {
@@ -905,12 +994,14 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 	}
 
 	untouched := map[string]string{
-		"short sk prefix":  `the sk-abc field is required`,
-		"prose with sk":    `risk-based checks and task-level errors`,
-		"request id":       `request req_abc123 failed`,
-		"embedded in word": `whisk-0123456789abcdef0123`,
-		"plain json error": `{"error":{"message":"custom_validation_error","param":"messages[0].content"}}`,
-		"bare word bearer": `the bearer of this token`,
+		"short sk prefix":       `the sk-abc field is required`,
+		"prose with sk":         `risk-based checks and task-level errors`,
+		"request id":            `request req_abc123 failed`,
+		"embedded in word":      `whisk-0123456789abcdef0123`,
+		"plain json error":      `{"error":{"message":"custom_validation_error","param":"messages[0].content"}}`,
+		"bare word bearer":      `the bearer of this token`,
+		"snake_case identifier": `param 'sk_business_unit_identifier' unknown`,
+		"digitless bearer tail": `Bearer authentication-required for this endpoint`,
 	}
 	for name, in := range untouched {
 		t.Run("leaves/"+name, func(t *testing.T) {
@@ -951,6 +1042,19 @@ func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
 		}
 		if got := w.Body.String(); got != "" {
 			t.Errorf("204 answered with a body: %s", got)
+		}
+	})
+
+	// The 2xx check sits before the eligibility gate on purpose: whatever the
+	// caller's verdict claims, a success is never rewritten into an envelope.
+	t.Run("forwarded even when marked eligible", func(t *testing.T) {
+		w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected status 201, got %d", w.Code)
+		}
+		if got := w.Body.String(); got != zenChatShapedBody {
+			t.Errorf("2xx body rewritten under an eligible verdict:\n got: %s\nwant: %s", got, zenChatShapedBody)
 		}
 	})
 

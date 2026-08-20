@@ -713,29 +713,71 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	return resp, true
 }
 
+// forwardableErrorStatus reports whether a status is in the payload class a
+// client may see the provider's body for: a 4xx that judged the caller's own
+// request. Deliberately static where shouldFailover is dynamic: its 429
+// verdict follows the failover_on_rate_limit setting, but a quota body is the
+// operator's account state whichever way that toggle points, and what can
+// reach a client must not be a side effect of a routing knob. The denied 4xx
+// are the auth, billing, quota and routing classes whose bodies can carry
+// operator account detail; 1xx/3xx are not payload errors and 5xx bodies are
+// the provider talking about itself, so none of those forward either.
+func forwardableErrorStatus(status int) bool {
+	if status < 400 || status >= 500 {
+		return false
+	}
+	switch status {
+	case http.StatusUnauthorized, http.StatusPaymentRequired, http.StatusForbidden,
+		http.StatusNotFound, http.StatusProxyAuthRequired, http.StatusTooManyRequests, 499:
+		return false
+	}
+	return true
+}
+
+// forwardableErrorBodyCap bounds a payload-class error body that may be
+// forwarded to the client. Reading it whole keeps forwarded JSON intact, but
+// "whole" needs a ceiling: the multimodal endpoints have no upstream pre-cap,
+// so a broken or hostile custom endpoint could answer an error status with
+// anything. A megabyte is far past any real error document; a body over it is
+// answered with the synthesised envelope instead.
+const forwardableErrorBodyCap = 1 << 20
+
 // forwardUpstreamError handles a non-200 upstream response that is NOT being
 // failed over (phase G): log + meter the failure via failRequest, then answer the
-// client. isFailoverEligible carries the caller's shouldFailover verdict and
-// decides what the client may see. A payload-class refusal (a plain 400 and its
+// client. isFailoverEligible carries the caller's shouldFailover verdict; what
+// the client may see is decided by it together with the static
+// forwardableErrorStatus class. A payload-class refusal (a plain 400 and its
 // kin) judged this caller's own request, so the upstream's error object is
-// forwarded with key-shaped tokens masked. An eligible class (auth, billing,
-// rate limit, server fault) only reaches here with the candidates exhausted,
-// and those are the bodies that can quote the operator's provider credentials
-// or account details, so the client gets a synthesised envelope with the
-// classified reason and the body stays in the request log. Drains/closes
+// forwarded with key-shaped tokens masked. Everything else - auth, billing,
+// rate limit, not-found, server faults, whether classed by eligibility or by
+// status - gets a synthesised envelope with the classified reason, because
+// those bodies can quote the operator's provider credentials or account
+// details; the body stays in the request log either way. Drains/closes
 // resp.Body exactly once and always returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, isFailoverEligible bool, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
-	// How much of the body is worth holding depends on what happens to it below,
-	// which isFailoverEligible already decides. Forwarded, it is read whole:
-	// truncating on the way to the client would hand them invalid JSON where the
-	// provider sent something complete. Discarded, it is read under the same cap
-	// as the two drain sites, since all that is left to take from it is a
-	// classification and the first 10 000 bytes of request log.
+	mayForwardError := !isFailoverEligible && forwardableErrorStatus(resp.StatusCode)
+	// How much of the body is worth holding depends on what happens to it
+	// below. A 2xx is forwarded whole - truncating a success would corrupt it.
+	// A forwardable error is read under its own cap, and one that overflows it
+	// is demoted to the envelope rather than forwarded truncated, so a client
+	// never receives invalid JSON where the provider sent something complete.
+	// A discarded body is read under the same cap as the two drain sites,
+	// since all that is left to take from it is a classification and the first
+	// 10 000 bytes of request log.
 	var body []byte
-	if !isFailoverEligible {
+	oversized := false
+	switch {
+	case resp.StatusCode/100 == 2:
 		body, _ = io.ReadAll(resp.Body)
-	} else {
+	case mayForwardError:
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, forwardableErrorBodyCap+1))
+		if len(body) > forwardableErrorBodyCap {
+			oversized = true
+			body = body[:forwardableErrorBodyCap]
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+	default:
 		body, _ = io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 		_, _ = io.Copy(io.Discard, resp.Body)
 	}
@@ -768,11 +810,11 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		return outcomeFatal
 	}
 
-	if isFailoverEligible {
-		// Auth, billing, rate-limit, not-found and server-fault classes reach
-		// here only with the candidates exhausted (with one still in hand the
-		// caller fails over instead). Their bodies are the ones that can quote
-		// the operator's provider credentials ("Incorrect API key provided:
+	if !mayForwardError {
+		// Auth, billing, rate-limit, not-found and server-fault classes -
+		// whether ruled out by the caller's eligibility verdict or by the
+		// static status class. Their bodies are the ones that can quote the
+		// operator's provider credentials ("Incorrect API key provided:
 		// sk-...") or account details a virtual-key holder must not see, so the
 		// body stays in the DB request log via failRequest and the caller gets
 		// the classified reason: enough to tell "this model is gone" from "top
@@ -785,7 +827,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	// the caller is entitled to the detail, whether or not this was the last
 	// candidate.
 	switch {
-	case carriesErrorObject(body):
+	case carriesErrorObject(body) && !oversized:
 		// Forward the upstream response so clients can react to semantic errors
 		// (e.g. context_length_exceeded). The upstream's own error object
 		// carries detail this gateway cannot reconstruct — code, type, param,
@@ -819,20 +861,33 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 }
 
 // keyShapedToken matches credential-looking substrings a provider may quote
-// inside an error body: prefixed secret keys (sk-..., which also covers
-// sk-ant-, sk-or- and sk-proj-, plus gsk_ and xai-), Google API keys (AIza...)
-// and bare bearer tokens. The minimum tail lengths keep prose like "sk-abc" or
-// "risk-based" out of scope.
-var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai)[-_][A-Za-z0-9_-]{16,}|\bAIza[0-9A-Za-z_-]{30,}|(?i:\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}`)
+// inside an error body: prefixed secret keys (sk- also covers sk-ant-, sk-or-
+// and sk-proj-; hf_, fw_, r8_, gsk_, xai- cover HuggingFace, Fireworks,
+// Replicate, Groq and xAI), Google API keys (AIza...), AWS access key ids
+// (AKIA...), bare JWTs (the MiniMax API key format), and bearer tokens. The
+// minimum tail lengths keep prose like "sk-abc" out of scope; matches without
+// a digit are prose too and are dropped by maskKeyShapedTokens. A prefix list
+// necessarily trails the provider roster - it is the second layer, not the
+// control, which is the status-class gate above.
+var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z0-9_-]{16,}|\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|(?i:\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}`)
 
 // maskKeyShapedTokens scrubs credential-looking substrings from an upstream
 // body before it is forwarded to a client. Auth-class errors never forward at
 // all; this is the second layer, for a provider quoting a credential inside an
-// otherwise forwardable payload error. The replacement carries no JSON
-// metacharacters, so a valid body stays valid. Client-side only: the request
+// otherwise forwardable payload error. A match with no digit in it is an
+// identifier or prose ("sk_business_unit_identifier", "Bearer
+// authentication-required") rather than a credential, and stays - real keys
+// carry digits. The replacement carries no JSON metacharacters, so a valid
+// body stays valid. This covers the buffered error paths; in-stream SSE error
+// frames ride the streaming pipeline untouched. Client-side only: the request
 // log keeps the original body for the operator.
 func maskKeyShapedTokens(body []byte) []byte {
-	return keyShapedToken.ReplaceAll(body, []byte("[redacted]"))
+	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
+		if !bytes.ContainsAny(m, "0123456789") {
+			return m
+		}
+		return []byte("[redacted]")
+	})
 }
 
 // carriesErrorObject reports whether an upstream body is a JSON object with an
