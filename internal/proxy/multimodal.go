@@ -409,7 +409,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		if !isFailoverEligible && st.circuitBreakerEnabled {
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
-		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
+		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
 
 	// Breaker success for 2xx is recorded inside servePassthroughResponse at

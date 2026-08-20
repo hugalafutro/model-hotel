@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -218,7 +219,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
+		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -714,21 +715,25 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 
 // forwardUpstreamError handles a non-200 upstream response that is NOT being
 // failed over (phase G): log + meter the failure via failRequest, then answer the
-// client. Whatever the route through it, a non-2xx leaves this function as an
-// OpenAI error envelope: the classified reason when the candidates are exhausted,
-// the upstream's own body when that body carries an error object worth
-// forwarding, and a synthesised envelope when it does not. Drains/closes
+// client. isFailoverEligible carries the caller's shouldFailover verdict and
+// decides what the client may see. A payload-class refusal (a plain 400 and its
+// kin) judged this caller's own request, so the upstream's error object is
+// forwarded with key-shaped tokens masked. An eligible class (auth, billing,
+// rate limit, server fault) only reaches here with the candidates exhausted,
+// and those are the bodies that can quote the operator's provider credentials
+// or account details, so the client gets a synthesised envelope with the
+// classified reason and the body stays in the request log. Drains/closes
 // resp.Body exactly once and always returns outcomeFatal.
-func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, hasMoreCandidates bool, responseHeaderMs float64) candidateOutcome {
+func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, isFailoverEligible bool, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
 	// How much of the body is worth holding depends on what happens to it below,
-	// which hasMoreCandidates already decides. Forwarded, it is read whole:
+	// which isFailoverEligible already decides. Forwarded, it is read whole:
 	// truncating on the way to the client would hand them invalid JSON where the
 	// provider sent something complete. Discarded, it is read under the same cap
 	// as the two drain sites, since all that is left to take from it is a
 	// classification and the first 10 000 bytes of request log.
 	var body []byte
-	if hasMoreCandidates {
+	if !isFailoverEligible {
 		body, _ = io.ReadAll(resp.Body)
 	} else {
 		body, _ = io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
@@ -737,7 +742,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
 	// Classify for the request log and metrics only — routing is unaffected,
-	// hasMoreCandidates was already decided from the status code.
+	// the caller already decided it from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
 	if kind == KindProviderModelGone {
 		// Same as the drain path above: the candidate carries what the
@@ -750,34 +755,46 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	logData.responseHeaderMs = responseHeaderMs
 	h.failRequest(logData, resp.StatusCode, kind, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
-	if !hasMoreCandidates {
-		// All failover candidates exhausted. The upstream body is recorded to the
-		// DB request log via failRequest (not the structured server log) and is
-		// never forwarded to the client, as it may echo the request back. The
-		// caller gets the classified reason instead of a bare status, which is
-		// enough to tell "this model is gone" from "top up your account" from
-		// "try again shortly".
+	// A 2xx that reached this function (any success status other than a bare
+	// 200) is not an error at all and is forwarded whatever its body is,
+	// including a non-JSON or empty one. That is what lets a 204 answer with
+	// no body: an envelope written under a No Content status would be a body
+	// this gateway invented for a request the provider considered successful.
+	// Checked before eligibility so a success can never be rewritten.
+	if resp.StatusCode/100 == 2 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(body)
+		return outcomeFatal
+	}
+
+	if isFailoverEligible {
+		// Auth, billing, rate-limit, not-found and server-fault classes reach
+		// here only with the candidates exhausted (with one still in hand the
+		// caller fails over instead). Their bodies are the ones that can quote
+		// the operator's provider credentials ("Incorrect API key provided:
+		// sk-...") or account details a virtual-key holder must not see, so the
+		// body stays in the DB request log via failRequest and the caller gets
+		// the classified reason: enough to tell "this model is gone" from "top
+		// up your account" from "try again shortly".
 		writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, resp.StatusCode, reason), resp.StatusCode)
 		return outcomeFatal
 	}
 
-	// Non-failover-eligible error with remaining candidates.
+	// Payload-class refusal: the provider judged this caller's own request, so
+	// the caller is entitled to the detail, whether or not this was the last
+	// candidate.
 	switch {
-	case carriesErrorObject(body) || resp.StatusCode/100 == 2:
-		// Forward the upstream response verbatim so clients can react to
-		// semantic errors (e.g. context_length_exceeded, rate_limit_exceeded).
-		// The upstream's own error object carries detail this gateway cannot
-		// reconstruct — code, type, param, provider-specific fields — so it is
-		// passed through byte for byte.
-		//
-		// A 2xx that reached this function (any success status other than a bare
-		// 200) is not an error at all and is forwarded whatever its body is,
-		// including a non-JSON or empty one. That is what lets a 204 answer with
-		// no body: an envelope written under a No Content status would be a body
-		// this gateway invented for a request the provider considered successful.
+	case carriesErrorObject(body):
+		// Forward the upstream response so clients can react to semantic errors
+		// (e.g. context_length_exceeded). The upstream's own error object
+		// carries detail this gateway cannot reconstruct — code, type, param,
+		// provider-specific fields — so it is passed through byte for byte
+		// apart from masking key-shaped tokens, since even a payload error is
+		// provider-authored free text.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		_, _ = w.Write(body)
+		_, _ = w.Write(maskKeyShapedTokens(body))
 	case json.Valid(body):
 		// A non-2xx whose JSON body carries no error object. OpenCode Zen and
 		// OpenCode Go answer some failed requests with a complete
@@ -796,9 +813,26 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// full body reaches the request log either way via failRequest, and how
 		// much of a provider's response this gateway echoes to callers is one
 		// decision for all three cases rather than something to widen here.
-		writeOpenAIError(w, errMsg, resp.StatusCode)
+		writeOpenAIError(w, string(maskKeyShapedTokens([]byte(errMsg))), resp.StatusCode)
 	}
 	return outcomeFatal
+}
+
+// keyShapedToken matches credential-looking substrings a provider may quote
+// inside an error body: prefixed secret keys (sk-..., which also covers
+// sk-ant-, sk-or- and sk-proj-, plus gsk_ and xai-), Google API keys (AIza...)
+// and bare bearer tokens. The minimum tail lengths keep prose like "sk-abc" or
+// "risk-based" out of scope.
+var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai)[-_][A-Za-z0-9_-]{16,}|\bAIza[0-9A-Za-z_-]{30,}|(?i:\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}`)
+
+// maskKeyShapedTokens scrubs credential-looking substrings from an upstream
+// body before it is forwarded to a client. Auth-class errors never forward at
+// all; this is the second layer, for a provider quoting a credential inside an
+// otherwise forwardable payload error. The replacement carries no JSON
+// metacharacters, so a valid body stays valid. Client-side only: the request
+// log keeps the original body for the operator.
+func maskKeyShapedTokens(body []byte) []byte {
+	return keyShapedToken.ReplaceAll(body, []byte("[redacted]"))
 }
 
 // carriesErrorObject reports whether an upstream body is a JSON object with an
@@ -911,7 +945,7 @@ func candidateModelID(candidate modelCandidate) string {
 // learning half of retryWithStrippedParams, split out for callers that cannot
 // retry in place (a hedged probe, which must not spend a second round-trip
 // inside one race slot).
-func (h *Handler) learnRejectedParams(candidate modelCandidate, providerType string, body []byte) {
+func (h *Handler) learnRejectedParams(candidate modelCandidate, body []byte) {
 	rejected := paramrewrite.ParseProviderParamError(body)
 	renames := paramrewrite.ParseProviderParamRename(body)
 	if rejected == nil && renames == nil {
@@ -1067,7 +1101,7 @@ func (h *Handler) retryWithStrippedParams(
 		// application. Each cache is merged with any existing entries via
 		// CompareAndSwap to avoid data races from concurrent goroutines mutating
 		// the same map.
-		h.learnRejectedParams(candidate, providerType, errBody)
+		h.learnRejectedParams(candidate, errBody)
 		progressed := false
 		for p := range rejected {
 			if !strip[p] {
