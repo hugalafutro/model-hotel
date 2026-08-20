@@ -95,6 +95,20 @@ jobs:
         if: steps.version.outputs.skip_existing == 'false'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
+      - name: Assert the runtime stage the cache filter targets exists
+        if: steps.version.outputs.skip_existing == 'false'
+        run: |
+          set -euo pipefail
+          # buildx ignores --no-cache-filter for a stage name it cannot find, so
+          # renaming the runtime stage would silently restore the stale-package
+          # bug the filter below exists to prevent.
+          for f in Dockerfile Dockerfile.frontdesk; do
+            if ! grep -qE '^FROM .+ AS runtime$' "$f"; then
+              echo "::error::$f declares no 'AS runtime' stage; no-cache-filters: runtime would be a no-op"
+              exit 1
+            fi
+          done
+
       - name: Build and push
         if: steps.version.outputs.skip_existing == 'false'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -108,6 +122,12 @@ jobs:
             COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # The layer cache is for the builder stages only. Serving the
+          # runtime stage from it would reuse the Dockerfile's apk upgrade from
+          # whenever that layer was first built, so a release would ship OS
+          # packages frozen in the past and image-scan.yml would file the Alpine
+          # CVEs a fresh build of the same commit never has.
+          no-cache-filters: runtime
           platforms: linux/amd64
           provenance: false
 
@@ -144,6 +164,12 @@ jobs:
             COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=frontdesk
           cache-to: type=gha,mode=max,scope=frontdesk
+          # The layer cache is for the builder stages only. Serving the
+          # runtime stage from it would reuse the Dockerfile's apk upgrade from
+          # whenever that layer was first built, so a release would ship OS
+          # packages frozen in the past and image-scan.yml would file the Alpine
+          # CVEs a fresh build of the same commit never has.
+          no-cache-filters: runtime
           platforms: linux/amd64
           provenance: false
 
