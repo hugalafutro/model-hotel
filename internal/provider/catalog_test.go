@@ -176,14 +176,10 @@ func TestLookupGooglePricing_EmptyCatalog(t *testing.T) {
 	}
 }
 
-// Test GetOpenCodeGoCatalog
-func TestGetOpenCodeGoCatalog_NonEmpty(t *testing.T) {
-	catalog := GetOpenCodeGoCatalog()
-	if len(catalog) == 0 {
-		t.Error("GetOpenCodeGoCatalog should return non-empty catalog")
-	}
-}
-
+// GetOpenCodeGoCatalog is an override channel that is legitimately empty
+// while the live listing and models.dev are correct about every Go model, so
+// there is no non-empty assertion; this validates the shape of whatever
+// override rows exist.
 func TestGetOpenCodeGoCatalog_AllFieldsValid(t *testing.T) {
 	catalog := GetOpenCodeGoCatalog()
 	for i, spec := range catalog {

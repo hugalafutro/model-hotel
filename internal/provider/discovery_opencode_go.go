@@ -31,9 +31,11 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 
 	catalog := opencodeCatalogModels(GetOpenCodeGoCatalog(), provider.ID, "opencode")
 
-	// If the /models endpoint is gone (404), fall back to the full catalog.
-	// Other non-200s return an error so a transient outage aborts the scan
-	// instead of disabling live-only models that the catalog doesn't list.
+	// If the /models endpoint is gone (404), fall back to the catalog. The
+	// catalog is an override channel that is normally empty, so this usually
+	// yields no models — which keeps RecordMissingModels a no-op rather than
+	// disabling anything. Other non-200s return an error so a transient outage
+	// aborts the scan instead of disabling live-only models.
 	if resp.StatusCode == http.StatusNotFound {
 		debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID)
 		return catalog, nil

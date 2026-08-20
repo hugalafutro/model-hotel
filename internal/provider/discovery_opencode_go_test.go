@@ -41,12 +41,13 @@ func TestDiscoverOpenCodeGo_404FallsBackToCatalog(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	// Should get catalog models via fallback
-	if len(models) == 0 {
-		t.Error("Expected catalog models from fallback after 404")
+	// A 404 listing falls back to the catalog without erroring. The catalog is
+	// an override channel that is normally empty, so this is exactly its
+	// current (possibly zero) row count — never an aborted scan.
+	if len(models) != len(GetOpenCodeGoCatalog()) {
+		t.Errorf("Expected the catalog rows from fallback after 404, got %d models", len(models))
 	}
 
-	// Verify models have catalog data
 	for _, m := range models {
 		if m.ProviderID != provider.ID {
 			t.Errorf("ProviderID = %v, want %v", m.ProviderID, provider.ID)
@@ -133,62 +134,9 @@ func TestDiscoverOpenCodeGo_UnknownModel_MinimalEntry(t *testing.T) {
 	}
 }
 
-func TestDiscoverOpenCodeGo_CatalogModelPopulated(t *testing.T) {
-	// Verify that a model in the catalog gets the full catalog treatment
-	catalog := GetOpenCodeGoCatalog()
-	if len(catalog) == 0 {
-		t.Fatal("No models in OpenCode Go catalog")
-	}
-	firstCatalogModel := catalog[0].ModelID
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := OpenAIModelsResponse{
-			Object: "list",
-			Data: []OpenAIModel{
-				{ID: firstCatalogModel, Object: "model", OwnedBy: "opencode"},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		Name:    "test-opencode-go",
-		BaseURL: server.URL,
-	}
-
-	models, err := service.discoverOpenCodeGo(context.Background(), provider, "test-api-key")
-	if err != nil {
-		t.Fatalf("discoverOpenCodeGo failed: %v", err)
-	}
-	// The live catalog model merges with its catalog entry (no new union member).
-	if len(models) != len(GetOpenCodeGoCatalog()) {
-		t.Fatalf("Expected catalog-count merged models, got %d", len(models))
-	}
-
-	var m *model.Model
-	for _, mm := range models {
-		if mm.ModelID == firstCatalogModel {
-			m = mm
-		}
-	}
-	if m == nil {
-		t.Fatalf("expected %q present in merged results", firstCatalogModel)
-	}
-	// Catalog model should have ContextLength + MaxOutputTokens backfilled.
-	if m.ContextLength == nil {
-		t.Error("Expected ContextLength to be set from catalog")
-	}
-	if m.MaxOutputTokens == nil {
-		t.Error("Expected MaxOutputTokens to be set from catalog")
-	}
-}
+// Catalog-entry backfill onto a live model is covered by catalog_merge_test.go
+// and the OpenCode Zen discovery tests; the Go catalog is an override channel
+// that is normally empty, so there is no shipped row to assert against here.
 
 func TestDiscoverOpenCodeGo_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
