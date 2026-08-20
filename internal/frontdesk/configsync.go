@@ -193,7 +193,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		pushedHash = ""
 	}
 
-	primaryVer := s.poller.MemberVersion(primary.ID)
+	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	results := make([]syncResultItem, 0)
 	for _, m := range members {
 		if m.ID == primary.ID || !m.HasToken {
@@ -203,13 +203,13 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		if err != nil || !ok {
 			continue
 		}
-		if versionSkew(primaryVer, s.poller.MemberVersion(m.ID)) {
-			// This member runs a different app version than the primary; pushing
-			// could delete settings it legitimately has. Refuse here even though the
+		if buildSkew(primaryBuild, s.poller.memberBuildOf(m.ID)) {
+			// This member runs a different build than the primary; pushing could
+			// delete settings it legitimately has. Refuse here even though the
 			// wizard gates first, so a bypassed UI cannot force a mismatched sync.
 			results = append(results, syncResultItem{
 				MemberID: m.ID, Name: m.Name,
-				Error: "held: member's app version differs from the primary's",
+				Error: "held: member's build differs from the primary's",
 			})
 			continue
 		}

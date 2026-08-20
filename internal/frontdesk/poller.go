@@ -60,6 +60,12 @@ type MemberStatus struct {
 	Health        HealthStatus `json:"health"`
 	TraefikStatus string       `json:"traefik_status,omitempty"` // "UP" / "DOWN" / "" (unknown)
 	Version       string       `json:"version,omitempty"`
+	// Commit is the source commit the member's binary was built from, read from
+	// the same settings response as Version. It is what distinguishes two builds
+	// on a fleet whose images all report the "dev" placeholder version, so it is
+	// serialized as well as gated on: an operator looking at a held sync can see
+	// which build each side runs without a second call.
+	Commit string `json:"commit,omitempty"`
 	// AutoSyncVerifiedAt is the last time the auto-syncer confirmed this member
 	// matches the primary (a real write, a self-converged empty diff, or a quiet
 	// verify tick on an already-converged fleet). It is the live "auto-sync is
@@ -142,14 +148,18 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 	return out
 }
 
-// MemberVersion returns the last successfully polled app_version for a member,
-// or "" when the member has never been polled or its last version fetch failed.
-// It is the read the config-sync version gate consults; an empty result means
-// "cannot confirm", which the gate treats as skewed (fail closed).
-func (p *Poller) MemberVersion(id string) string {
+// memberBuildOf returns the last successfully polled build for a member: its
+// app_version and the commit that version was built from. Both are zero when
+// the member has never been polled or its last fetch failed. It is the read the
+// config-sync gates consult; an empty version means "cannot confirm", which
+// they treat as skewed (fail closed). Unexported along with memberBuild itself:
+// every caller is a gate in this package, and nothing outside it has ever asked
+// a Poller for a version.
+func (p *Poller) memberBuildOf(id string) memberBuild {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.statuses[id].Version
+	st := p.statuses[id]
+	return memberBuild{Version: st.Version, Commit: st.Commit}
 }
 
 // SetAutoSyncVerified records that the auto-syncer just confirmed the member is
@@ -671,17 +681,20 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		if err != nil || !ok {
 			continue
 		}
-		version, err := p.fetchMemberVersion(ctx, m.URL, token)
+		build, err := p.fetchMemberBuild(ctx, m.URL, token)
 		if err != nil {
 			p.noteVersionFetchFailure(ctx, m, err)
-			// A version we can no longer read is unknown, and the config-sync
+			// A build we can no longer read is unknown, and the config-sync
 			// gates treat unknown as skewed (fail closed). Keeping the last good
 			// value would let a sync proceed on stale data while the member is
-			// mid-upgrade, which is exactly the window the gate exists for.
+			// mid-upgrade, which is exactly the window the gate exists for. The
+			// commit is cleared with the version: a commit kept beside a blank
+			// version would outlive the read that vouched for it.
 			p.mu.Lock()
 			cur := p.statuses[m.ID]
 			hadVersion := cur.Version != ""
 			cur.Version = ""
+			cur.Commit = ""
 			p.statuses[m.ID] = cur
 			p.mu.Unlock()
 			if hadVersion {
@@ -691,15 +704,18 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		}
 		p.mu.Lock()
 		cur := p.statuses[m.ID]
-		versionChanged := cur.Version != version
-		cur.Version = version
+		versionChanged := cur.Version != build.Version || cur.Commit != build.Commit
+		cur.Version = build.Version
+		cur.Commit = build.Commit
 		p.statuses[m.ID] = cur
 		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
 		delete(p.versionFailures, m.ID)
 		p.mu.Unlock()
 		if versionChanged {
-			// First successful read (or a version bump) for this member: refresh
-			// the UI so the Version column populates without a manual reload.
+			// First successful read (or a build change) for this member: refresh
+			// the UI so the Version column populates without a manual reload. A
+			// commit-only move counts: on a "dev" fleet it is the whole of what
+			// a rebuild changes.
 			p.publishMemberStatus(m.ID)
 		}
 		if wasAlerting {
@@ -745,34 +761,41 @@ func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchEr
 	debuglog.Debug("frontdesk: fetch member version", "member", m.Name, "error", fetchErr)
 }
 
-// fetchMemberVersion reads app_version from the member's admin settings API.
-func (p *Poller) fetchMemberVersion(ctx context.Context, baseURL, token string) (string, error) {
+// fetchMemberBuild reads app_version and app_commit from the member's admin
+// settings API. Both ride in one response, so the commit costs no extra call.
+func (p *Poller) fetchMemberBuild(ctx context.Context, baseURL, token string) (memberBuild, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberSettingsPath, http.NoBody)
 	if err != nil {
-		return "", err
+		return memberBuild{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return "", err
+		return memberBuild{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("settings api returned %d", resp.StatusCode)
+		return memberBuild{}, fmt.Errorf("settings api returned %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return "", err
+		return memberBuild{}, err
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
 		// Don't wrap the decoder error: it can echo a fragment of the response.
-		return "", errors.New("frontdesk: parse settings response")
+		return memberBuild{}, errors.New("frontdesk: parse settings response")
 	}
+	var out memberBuild
 	if v, ok := payload["app_version"].(string); ok {
-		return v, nil
+		out.Version = v
 	}
-	return "", nil
+	// A member too old to report app_commit leaves it empty, which buildSkew
+	// reads as "cannot vouch" and falls back to the version comparison.
+	if c, ok := payload["app_commit"].(string); ok {
+		out.Commit = c
+	}
+	return out, nil
 }
 
 // checkConfigStaleness emits a single warning when Traefik has not polled the

@@ -268,19 +268,25 @@ export interface FleetStatus {
 	lb_port?: string;
 }
 
-// Version-alignment check (POST /api/fleet/version-check). Re-polls member
-// versions on demand and reports the ones that differ from the chosen
-// primary's. Drives the Fleet Sync wizard's pre-sync gate and Refresh button.
+// Build-alignment check (POST /api/fleet/version-check). Re-polls member builds
+// on demand and reports the ones that differ from the chosen primary's. Drives
+// the Fleet Sync wizard's pre-sync gate and Refresh button.
 export interface FleetVersionSkewMember {
 	member_id: string;
 	name: string;
 	version: string; // "" when unknown / unreadable
+	commit: string; // "" when unknown, or the member predates app_commit
 }
 
 export interface FleetVersionCheck {
 	primary_id: string;
 	primary_version: string;
+	primary_commit: string;
 	skewed: FleetVersionSkewMember[];
+	// True when a real commit backed every alignment verdict. False means at
+	// least one rested on the version alone, which on a fleet of "dev" images
+	// means it rested on nothing - the case the acknowledgment covers.
+	commit_vouched: boolean;
 }
 
 // Last successful fleet-sync wizard run (GET /api/fleet/last-sync). Absent

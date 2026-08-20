@@ -697,6 +697,18 @@ func setMemberVersion(srv *Server, memberID, version string) {
 	srv.poller.mu.Unlock()
 }
 
+// setMemberBuild seeds both halves of a member's polled build, for the fleet the
+// version alone cannot describe: every self-built image reports "dev", so the
+// commit is the only field that distinguishes one build from another.
+func setMemberBuild(srv *Server, memberID, version, commit string) {
+	srv.poller.mu.Lock()
+	st := srv.poller.statuses[memberID]
+	st.Version = version
+	st.Commit = commit
+	srv.poller.statuses[memberID] = st
+	srv.poller.mu.Unlock()
+}
+
 // alignFleetVersions stamps every current member's polled app version to ver,
 // so the auto-sync version gate sees an aligned fleet and the push paths under
 // test are actually reached (the gate fails closed on unknown versions).
@@ -4158,5 +4170,85 @@ func TestAutoSync_UnmeasuredUpgradesToAMeasuredDivergence(t *testing.T) {
 	}
 	if n := countEventsOfType(t, f.store, "config.sync_incomplete"); n != 2 {
 		t.Errorf("events = %d after further ticks, want the original 2", n)
+	}
+}
+
+// TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
+// self-built fleet reports the "dev" placeholder on every member (the
+// Dockerfile's ARG VERSION default), so version equality vouches for nothing;
+// mid-rolling-rebuild, the halves run different code while reading identical.
+// The commit is what separates them, and a member whose commit differs must be
+// held exactly like a version-skewed one, then sync itself once it is rebuilt.
+func TestAutoSyncHoldsCommitSkewOnDevFleet(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B" // changed vs the recorded last hash
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // this member needs the new config
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	// Identical versions, different commits: the fleet the old gate called aligned.
+	setMemberBuild(srv, pm.ID, "dev", "d18a96d1f84d")
+	setMemberBuild(srv, rm.ID, "dev", "321f9c86aa10")
+
+	srv.forceAutoSyncNow(t.Context())
+
+	if replica.didBackup() || replica.didRealSync() {
+		t.Fatal("member running a different commit was pushed to; want held")
+	}
+	if memberVerified(srv, rm.ID) {
+		t.Error("a commit-skewed member was recorded verified in sync; it was never measured")
+	}
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_held events = %d, want 1", len(evs))
+	}
+	// The operator reads this event on a fleet where both versions say "dev":
+	// without the commits in the metadata, it names no difference at all.
+	if got := evs[0].Metadata["member_commit"]; got != "321f9c86aa10" {
+		t.Errorf("member_commit metadata = %v, want 321f9c86aa10", got)
+	}
+	if got := evs[0].Metadata["primary_commit"]; got != "d18a96d1f84d" {
+		t.Errorf("primary_commit metadata = %v, want d18a96d1f84d", got)
+	}
+
+	// The member is rebuilt onto the primary's commit: the hold clears itself.
+	setMemberBuild(srv, rm.ID, "dev", "d18a96d1f84d")
+	srv.forceAutoSyncNow(t.Context())
+	if !replica.didRealSync() {
+		t.Error("member was not synced once its commit matched the primary's")
+	}
+}
+
+// TestAutoSyncSyncsWhenCommitUnreadable: a member too old to report app_commit,
+// or built without the ldflag, answers "" or "unknown". Holding sync forever on
+// a member that cannot answer would be a worse gate than the version-only one,
+// so an unanswerable commit falls back to the version verdict and the sync runs.
+func TestAutoSyncSyncsWhenCommitUnreadable(t *testing.T) {
+	for _, commit := range []string{"", unstampedCommit} {
+		t.Run("commit="+commit, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			primary := newStubAutoMember(t, "ptoken")
+			primary.versionHash = "hash-B"
+			replica := newStubAutoMember(t, "rtoken")
+			replica.dryDiff = driftDiff
+
+			pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+			rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+			enableAutoSync(t, store, pm.ID)
+			setMemberBuild(srv, pm.ID, "dev", "d18a96d1f84d")
+			setMemberBuild(srv, rm.ID, "dev", commit)
+
+			srv.forceAutoSyncNow(t.Context())
+
+			if !replica.didRealSync() {
+				t.Error("member with an unreadable commit was held; want synced on the version verdict")
+			}
+		})
 	}
 }
