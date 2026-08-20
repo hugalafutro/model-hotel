@@ -44,8 +44,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -ldflags "-X main.version=$VERSION -X github.com/hugalafutro/model-hotel/internal/api.buildCommit=$COMMIT" -o server ./cmd/server/
 
-# Stage 3: Minimal runtime image
-FROM alpine:3.24
+# Stage 3: Minimal runtime image.
+# Named so cached builds can exclude it with buildx --no-cache-filter=runtime:
+# a reused layer cache would otherwise serve the apk upgrade below from whenever
+# it first ran, freezing the image's package set while the builder stages stay
+# cheaply cached.
+FROM alpine:3.24 AS runtime
 
 # Upgrade base packages so security patches in the 3.24 line (e.g. OpenSSL)
 # land even when the alpine:3.24 tag itself lags behind.

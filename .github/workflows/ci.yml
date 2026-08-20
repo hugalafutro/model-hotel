@@ -827,6 +827,20 @@ jobs:
       # that gets scanned is the image that gets pushed (same digest). Scanning
       # docker-build's separate artifact would not cover base-image/Alpine drift
       # between that job and this rebuild.
+      - name: Assert the runtime stage the cache filter targets exists
+        if: steps.changes.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          # buildx ignores --no-cache-filter for a stage name it cannot find, so
+          # renaming the runtime stage would silently restore the stale-package
+          # bug the filter below exists to prevent.
+          for f in Dockerfile Dockerfile.frontdesk; do
+            if ! grep -qE '^FROM .+ AS runtime$' "$f"; then
+              echo "::error::$f declares no 'AS runtime' stage; no-cache-filters: runtime would be a no-op"
+              exit 1
+            fi
+          done
+
       - name: Build :dev candidate (load for scan)
         if: steps.changes.outputs.skip == 'false'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -839,6 +853,13 @@ jobs:
           build-args: COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # The layer cache is for the builder stages only. Serving the
+          # runtime stage from it would reuse the Dockerfile's apk upgrade from
+          # whenever that layer was first built, publishing an image whose OS
+          # packages are frozen in the past — the fixable-HIGH Alpine CVEs the
+          # scan below then fails on, while an uncached build of the same commit
+          # is clean.
+          no-cache-filters: runtime
           platforms: linux/amd64
           provenance: false
 
@@ -869,6 +890,13 @@ jobs:
           build-args: COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=frontdesk
           cache-to: type=gha,mode=max,scope=frontdesk
+          # The layer cache is for the builder stages only. Serving the
+          # runtime stage from it would reuse the Dockerfile's apk upgrade from
+          # whenever that layer was first built, publishing an image whose OS
+          # packages are frozen in the past — the fixable-HIGH Alpine CVEs the
+          # scan below then fails on, while an uncached build of the same commit
+          # is clean.
+          no-cache-filters: runtime
           platforms: linux/amd64
           provenance: false
 

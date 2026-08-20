@@ -54,8 +54,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -ldflags "-X main.version=$VERSION -X github.com/hugalafutro/model-hotel/internal/frontdesk.buildCommit=$COMMIT" -o frontdesk ./cmd/frontdesk/
 
-# Stage 3: Minimal runtime image
-FROM alpine:3.24
+# Stage 3: Minimal runtime image.
+# Named so cached builds can exclude it with buildx --no-cache-filter=runtime,
+# the same as the main image: a reused layer cache would otherwise freeze the
+# package set at whenever the apk upgrade below first ran.
+FROM alpine:3.24 AS runtime
 
 # Upgrade base packages so security patches in the 3.24 line land even when the
 # alpine:3.24 tag itself lags. Same deliberate trade-off as the main image:
