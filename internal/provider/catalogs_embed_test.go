@@ -1,7 +1,12 @@
 package provider
 
 import (
+	"encoding/json"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // TestLoadCatalog_ValidJSON verifies that loadCatalog successfully parses
@@ -90,6 +95,48 @@ func TestLoadCatalog_DeepSeekCatalog(t *testing.T) {
 	}
 	if first.ContextLength <= 0 {
 		t.Errorf("first entry (%s): ContextLength = %d, want > 0", first.ModelID, first.ContextLength)
+	}
+}
+
+// TestDeepSeekCatalog_VisionModel covers the one DeepSeek model models.dev has
+// never heard of. Without a row here it discovers as a bare stub: no price (so
+// it meters at zero), no context window, and no vision flag despite being the
+// only DeepSeek model that accepts an image.
+func TestDeepSeekCatalog_VisionModel(t *testing.T) {
+	spec := GetDeepSeekModelSpec("deepseek-v4-flash-vision-exp")
+	if spec == nil {
+		t.Fatal("deepseek.json must carry deepseek-v4-flash-vision-exp: models.dev has no entry for it")
+	}
+	if !spec.Vision {
+		t.Error("the vision model must declare Vision")
+	}
+	if spec.InputPricePerMillionCacheMiss <= 0 || spec.OutputPricePerMillion <= 0 {
+		t.Error("the vision model must carry prices, or it meters at zero")
+	}
+
+	m := deepseekSpecToModel(spec, uuid.New())
+	if m.InputModalities != `["text","image"]` {
+		t.Errorf("InputModalities = %s, want [\"text\",\"image\"]", m.InputModalities)
+	}
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+		t.Fatalf("unmarshal capabilities: %v", err)
+	}
+	if !caps.Vision {
+		t.Error("Vision capability should reach the model")
+	}
+}
+
+// TestDeepSeekCatalog_DefaultsToTextOnly guards the other side of that field:
+// every other DeepSeek model omits input_modalities and must stay text-only.
+func TestDeepSeekCatalog_DefaultsToTextOnly(t *testing.T) {
+	spec := GetDeepSeekModelSpec("deepseek-chat")
+	if spec == nil {
+		t.Fatal("deepseek.json must keep deepseek-chat: the live listing does not return it")
+	}
+	m := deepseekSpecToModel(spec, uuid.New())
+	if m.InputModalities != `["text"]` {
+		t.Errorf("InputModalities = %s, want [\"text\"]", m.InputModalities)
 	}
 }
 

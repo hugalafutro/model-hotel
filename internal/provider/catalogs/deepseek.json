@@ -4,35 +4,46 @@
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": false,
-    "input_price_per_million_cache_hit": 0.0028,
-    "input_price_per_million_cache_miss": 0.14,
-    "output_price_per_million": 0.28
+    "input_price_per_million_cache_hit": 0.007,
+    "input_price_per_million_cache_miss": 0.22,
+    "output_price_per_million": 0.66
   },
   {
     "model_id": "deepseek-reasoner",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
-    "input_price_per_million_cache_hit": 0.0028,
-    "input_price_per_million_cache_miss": 0.14,
-    "output_price_per_million": 0.28
+    "input_price_per_million_cache_hit": 0.007,
+    "input_price_per_million_cache_miss": 0.22,
+    "output_price_per_million": 0.66
   },
   {
     "model_id": "deepseek-v4-flash",
     "context_length": 1000000,
     "max_output_tokens": 384000,
-    "reasoning": false,
-    "input_price_per_million_cache_hit": 0.0028,
-    "input_price_per_million_cache_miss": 0.14,
-    "output_price_per_million": 0.28
+    "reasoning": true,
+    "input_price_per_million_cache_hit": 0.007,
+    "input_price_per_million_cache_miss": 0.22,
+    "output_price_per_million": 0.66
   },
   {
     "model_id": "deepseek-v4-pro",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
-    "input_price_per_million_cache_hit": 0.003625,
-    "input_price_per_million_cache_miss": 0.435,
-    "output_price_per_million": 0.87
+    "input_price_per_million_cache_hit": 0.022,
+    "input_price_per_million_cache_miss": 0.66,
+    "output_price_per_million": 1.98
+  },
+  {
+    "model_id": "deepseek-v4-flash-vision-exp",
+    "context_length": 1000000,
+    "max_output_tokens": 384000,
+    "reasoning": true,
+    "vision": true,
+    "input_modalities": "[\"text\",\"image\"]",
+    "input_price_per_million_cache_hit": 0.007,
+    "input_price_per_million_cache_miss": 0.22,
+    "output_price_per_million": 0.66
   }
 ]
