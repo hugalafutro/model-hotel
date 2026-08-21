@@ -127,6 +127,73 @@ func TestDeepSeekCatalog_VisionModel(t *testing.T) {
 	}
 }
 
+// TestDeepSeekCatalog_Prices pins DeepSeek's published off-peak rates. Nothing
+// else can catch a typo here: models.dev still carries the pre-V4 figures, so a
+// diff against it reports every one of these rows as diverging by design.
+func TestDeepSeekCatalog_Prices(t *testing.T) {
+	// cache-hit / cache-miss / output, dollars per million tokens.
+	want := map[string][3]float64{
+		"deepseek-chat":                {0.007, 0.22, 0.66},
+		"deepseek-reasoner":            {0.007, 0.22, 0.66},
+		"deepseek-v4-flash":            {0.007, 0.22, 0.66},
+		"deepseek-v4-flash-vision-exp": {0.007, 0.22, 0.66},
+		"deepseek-v4-pro":              {0.022, 0.66, 1.98},
+	}
+	catalog := GetDeepSeekModels()
+	if len(catalog) != len(want) {
+		t.Errorf("catalog has %d rows, want %d", len(catalog), len(want))
+	}
+	for id, w := range want {
+		spec := GetDeepSeekModelSpec(id)
+		if spec == nil {
+			t.Errorf("deepseek.json is missing %q", id)
+			continue
+		}
+		got := [3]float64{
+			spec.InputPricePerMillionCacheHit,
+			spec.InputPricePerMillionCacheMiss,
+			spec.OutputPricePerMillion,
+		}
+		if got != w {
+			t.Errorf("%s prices = %v, want %v (cache-hit/cache-miss/output)", id, got, w)
+		}
+	}
+}
+
+// TestDeepSeekCatalog_ThinkingModes pins which rows report reasoning. DeepSeek
+// V4 models default to thinking mode, and deepseek-chat is the one alias that
+// selects the non-thinking preset on the same underlying deepseek-v4-flash.
+// Verified against the live API: a bare "say hi" to deepseek-v4-flash returns
+// reasoning_content with 16 reasoning tokens, the same call to deepseek-chat
+// returns none.
+func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
+	want := map[string]bool{
+		"deepseek-chat":                false,
+		"deepseek-reasoner":            true,
+		"deepseek-v4-flash":            true,
+		"deepseek-v4-pro":              true,
+		"deepseek-v4-flash-vision-exp": true,
+	}
+	for id, reasoning := range want {
+		spec := GetDeepSeekModelSpec(id)
+		if spec == nil {
+			t.Errorf("deepseek.json is missing %q", id)
+			continue
+		}
+		if spec.Reasoning != reasoning {
+			t.Errorf("%s: Reasoning = %v, want %v", id, spec.Reasoning, reasoning)
+		}
+		m := deepseekSpecToModel(spec, uuid.New())
+		var caps model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+			t.Fatalf("%s: unmarshal capabilities: %v", id, err)
+		}
+		if caps.Reasoning != reasoning {
+			t.Errorf("%s: capability Reasoning = %v, want %v", id, caps.Reasoning, reasoning)
+		}
+	}
+}
+
 // TestDeepSeekCatalog_DefaultsToTextOnly guards the other side of that field:
 // every other DeepSeek model omits input_modalities and must stay text-only.
 func TestDeepSeekCatalog_DefaultsToTextOnly(t *testing.T) {
