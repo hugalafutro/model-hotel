@@ -925,44 +925,61 @@ func TestModelsDevCacheEnrichModel_Capabilities(t *testing.T) {
 		t.Error("expected structured output capability to be set")
 	}
 	if !caps.Vision {
-		t.Error("expected vision capability to be set (from attachment)")
+		t.Error("expected vision capability to be set (from attachment plus an image input modality)")
 	}
 }
 
-// TestModelsDevCacheEnrichModel_AttachmentWithoutMediaModality pins the rule
-// that an attachment flag alone does not make a model multimodal. models.dev
-// sets attachment on deepseek-chat and deepseek-reasoner while declaring their
-// only input modality as text, and DeepSeek answers an image on either with
-// HTTP 400 "This model does not support image" — so trusting attachment on its
-// own advertises a capability the provider refuses.
-func TestModelsDevCacheEnrichModel_AttachmentWithoutMediaModality(t *testing.T) {
-	spec := &ModelsDevModelSpec{
-		ID:         "text-only-model",
-		Name:       "Text Only Model",
-		Attachment: true,
-		Modalities: ModelsDevModalities{
-			Input:  []string{"text"},
-			Output: []string{"text"},
-		},
-		Cost:  ModelsDevCost{Input: 1, Output: 2},
-		Limit: ModelsDevLimit{Context: 100, Output: 50},
+// TestModelsDevCacheEnrichModel_AttachmentNeedsImageInput pins the rule that an
+// attachment flag only implies vision when the input modalities name an image.
+//
+// models.dev sets attachment on deepseek-chat and deepseek-reasoner while
+// declaring their only input as text, and DeepSeek answers an image on either
+// with HTTP 400 "This model does not support image". A further 71 entries pair
+// attachment with audio, video or pdf but no image; granting those vision would
+// be the same error, and unionCapsIntoInput would then append "image" to their
+// stored input array. An entry with no modality data at all is no evidence
+// either way, so the attachment flag still stands there.
+func TestModelsDevCacheEnrichModel_AttachmentNeedsImageInput(t *testing.T) {
+	cases := []struct {
+		name       string
+		input      []string
+		wantVision bool
+	}{
+		{"text only", []string{"text"}, false},
+		{"pdf but no image", []string{"text", "pdf"}, false},
+		{"audio but no image", []string{"text", "audio"}, false},
+		{"video but no image", []string{"video"}, false},
+		{"image present", []string{"text", "image"}, true},
+		{"no modality data", nil, true},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec := &ModelsDevModelSpec{
+				ID:         "probe-model",
+				Name:       "Probe Model",
+				Attachment: true,
+				Modalities: ModelsDevModalities{Input: tc.input, Output: []string{"text"}},
+				Cost:       ModelsDevCost{Input: 1, Output: 2},
+				Limit:      ModelsDevLimit{Context: 100, Output: 50},
+			}
 
-	cache := &ModelsDevCache{}
-	cache.mu.Lock()
-	cache.byID = map[string]*ModelsDevModelSpec{"text-only-model": spec}
-	cache.loaded = true
-	cache.mu.Unlock()
+			cache := &ModelsDevCache{}
+			cache.mu.Lock()
+			cache.byID = map[string]*ModelsDevModelSpec{"probe-model": spec}
+			cache.loaded = true
+			cache.mu.Unlock()
 
-	m := &model.Model{ModelID: "text-only-model", Capabilities: "{}", Modality: "text"}
-	cache.EnrichModel(m, "")
+			m := &model.Model{ModelID: "probe-model", Capabilities: "{}", Modality: "text"}
+			cache.EnrichModel(m, "")
 
-	var caps model.Capability
-	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
-		t.Fatalf("unmarshal capabilities: %v", err)
-	}
-	if caps.Vision {
-		t.Error("attachment on a text-only model must not set vision")
+			var caps model.Capability
+			if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+				t.Fatalf("unmarshal capabilities: %v", err)
+			}
+			if caps.Vision != tc.wantVision {
+				t.Errorf("input %v: Vision = %v, want %v", tc.input, caps.Vision, tc.wantVision)
+			}
+		})
 	}
 }
 

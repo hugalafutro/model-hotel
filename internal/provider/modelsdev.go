@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -464,26 +465,34 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 		merged = true
 	}
 	// Attachment → Vision mapping, corroborated by the declared input
-	// modalities. models.dev sets attachment on 109 models whose only input
-	// modality is text, including deepseek-chat and deepseek-reasoner, which
-	// answer an image with HTTP 400 "This model does not support image".
+	// modalities. models.dev sets attachment on a number of models whose only
+	// input modality is text, among them deepseek-chat and deepseek-reasoner,
+	// which answer an image with HTTP 400 "This model does not support image".
 	// Attachment alone therefore advertises vision the provider will refuse.
-	if spec.Attachment && hasMediaInput(spec.Modalities.Input) && !caps.Vision {
+	if spec.Attachment && attachmentImpliesVision(spec.Modalities.Input) && !caps.Vision {
 		caps.Vision = true
 		merged = true
 	}
 	return merged
 }
 
-// hasMediaInput reports whether any declared input modality is something other
-// than text, which is what makes an attachment claim believable.
-func hasMediaInput(input []string) bool {
-	for _, mod := range input {
-		if mod != "" && mod != "text" {
-			return true
-		}
+// attachmentImpliesVision reports whether an attachment claim is corroborated
+// by the declared input modalities.
+//
+// Vision means image specifically (capsInputFlags maps it that way), so audio,
+// video and pdf inputs are not evidence for it. Accepting them would grant
+// vision to models that take a document but refuse a picture, and because
+// unionCapsIntoInput derives modalities back out of the flags, it would also
+// append "image" to their stored input array.
+//
+// An absent input list is no evidence either way, so the attachment flag stands
+// alone there rather than silently losing vision on a models.dev entry that
+// simply carries no modality data.
+func attachmentImpliesVision(input []string) bool {
+	if len(input) == 0 {
+		return true
 	}
-	return false
+	return slices.Contains(input, "image")
 }
 
 // fillModalities marshals mods into *dst when *dst is currently empty,
