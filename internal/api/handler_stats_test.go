@@ -1086,7 +1086,7 @@ func TestStats_StatTotalsWithExcludeDeleted(t *testing.T) {
 	err := handler.statTotals(context.Background(), stats,
 		" LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id",
 		" AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)",
-		24*time.Hour, since, now)
+		nil, 24*time.Hour, since, now)
 	if err != nil {
 		t.Fatalf("statTotals with excludeDeleted: %v", err)
 	}
@@ -1138,7 +1138,7 @@ func TestStats_StatTotalsWith7dPeriod(t *testing.T) {
 	since := now.Add(-7 * 24 * time.Hour)
 
 	err := handler.statTotals(context.Background(), stats, "", "",
-		7*24*time.Hour, since, now)
+		nil, 7*24*time.Hour, since, now)
 	if err != nil {
 		t.Fatalf("statTotals with 7d period: %v", err)
 	}
