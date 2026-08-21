@@ -61,10 +61,27 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 		}
 
 	case "deepseek":
-		// DeepSeek V4 and R1 require reasoning_content on every assistant message.
-		// If any assistant message lacks reasoning_content, the API rejects the request.
+		// Backfills reasoning_content onto assistant messages. DeepSeek used to
+		// reject a request when any assistant message lacked the field, which is
+		// why this exists.
+		//
+		// That requirement no longer holds: on 2026-08-21 every current model
+		// (deepseek-v4-flash, -pro, -flash-vision-exp and the aliases) accepted
+		// assistant turns with no reasoning_content, including the shapes most
+		// likely to trip it — a turn carrying tool_calls, and two assistant
+		// turns in a row. The backfill is kept as insurance rather than removed
+		// on the strength of one afternoon's probing, since re-adding it after a
+		// silent upstream change would mean debugging it from a 400 first.
+		//
+		// deepseek-reasoner is matched by name because it names no version: it
+		// is a permanent alias onto deepseek-v4-flash with thinking on, so it
+		// reaches the same backend as an id the substring test already covers.
+		// deepseek-chat stays out on purpose — it is the same model with
+		// thinking off, and returns no reasoning_content to echo back.
 		modelLower := strings.ToLower(modelID)
-		isReasoningModel := strings.Contains(modelLower, "v4") || strings.Contains(modelLower, "r1")
+		isReasoningModel := strings.Contains(modelLower, "v4") ||
+			strings.Contains(modelLower, "r1") ||
+			modelLower == "deepseek-reasoner"
 		if isReasoningModel {
 			if backfillDeepSeekReasoning(raw) {
 				modified = true
@@ -77,8 +94,8 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 }
 
 // backfillDeepSeekReasoning ensures every assistant message in the messages
-// array has a reasoning_content field. DeepSeek V4/R1 reject requests where
-// any assistant message is missing this field.
+// array has a reasoning_content field. See the "deepseek" case above for why
+// this is kept now that the API accepts messages without it.
 func backfillDeepSeekReasoning(raw map[string]any) bool {
 	messages, ok := raw["messages"].([]any)
 	if !ok {

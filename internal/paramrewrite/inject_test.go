@@ -178,6 +178,49 @@ func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
 	}
 }
 
+// TestInjectProviderParams_DeepSeekReasonerAlias covers the alias whose name
+// carries no version. deepseek-reasoner is absent from DeepSeek's /models
+// listing and resolves to deepseek-v4-flash with thinking on, so it needs the
+// same backfill as the versioned id, which the v4/r1 substring test misses.
+func TestInjectProviderParams_DeepSeekReasonerAlias(t *testing.T) {
+	raw := map[string]any{
+		"model": "deepseek-reasoner",
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Q1"},
+			map[string]any{"role": "assistant", "content": "A1"},
+			map[string]any{"role": "user", "content": "Q2"},
+		},
+	}
+	if !InjectProviderParams(raw, "deepseek", "deepseek-reasoner") {
+		t.Fatal("expected reasoning_content backfill for deepseek-reasoner")
+	}
+	assistant := raw["messages"].([]any)[1].(map[string]any)
+	if _, exists := assistant["reasoning_content"]; !exists {
+		t.Error("assistant message missing reasoning_content")
+	}
+}
+
+// TestInjectProviderParams_DeepSeekChatAliasSkipped is the other half: chat is
+// the non-thinking preset on the same model and returns no reasoning_content,
+// so it must stay out of the backfill.
+func TestInjectProviderParams_DeepSeekChatAliasSkipped(t *testing.T) {
+	raw := map[string]any{
+		"model": "deepseek-chat",
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Q1"},
+			map[string]any{"role": "assistant", "content": "A1"},
+			map[string]any{"role": "user", "content": "Q2"},
+		},
+	}
+	if InjectProviderParams(raw, "deepseek", "deepseek-chat") {
+		t.Error("deepseek-chat is non-thinking and must not be backfilled")
+	}
+	assistant := raw["messages"].([]any)[1].(map[string]any)
+	if _, exists := assistant["reasoning_content"]; exists {
+		t.Error("deepseek-chat assistant message should not gain reasoning_content")
+	}
+}
+
 func TestInjectProviderParams_DeepSeekV4_AllAssistantBackfilled(t *testing.T) {
 	raw := map[string]any{
 		"model": "deepseek-v4-pro",
