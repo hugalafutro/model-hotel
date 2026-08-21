@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Prahy zlyhania zdravia",
 		"healthFailThresholdHint": "Počet po sebe idúcich neúspešných kontrol zdravia, kým sa člen neoznámi ako nedostupný a nespustí sa alert. Vyššia hodnota toleruje dlhšie rebuildy bez flapania. Obnova je okamžitá.",
 		"sessionTimeout": "Časový limit karty (minúty)",
-		"sessionTimeoutHint": "Odhlási zabudnutú otvorenú kartu po tomto počte minút bez aktivity. Zatvorených kariet sa to netýka: každé prihlásenie samo vyprší po 3 dňoch bez použitia, najneskôr však po 30 dňoch. 0 ponechá otvorené karty prihlásené.",
+		"sessionTimeoutHint": "Odhlási zabudnutú otvorenú kartu po tomto počte minút bez aktivity, najviac 240 (4 hodiny). 0 ponechá otvorené karty prihlásené. Nezávisle od tohto nastavenia každé prihlásenie samo vyprší po 3 dňoch bez použitia, najneskôr však po 30 dňoch.",
 		"configSyncConfirmTitle_one": "Nahradiť konfiguráciu u {{count}} člena?",
 		"configSyncConfirmTitle_few": "Nahradiť konfiguráciu u {{count}} členov?",
 		"configSyncConfirmTitle_many": "Nahradiť konfiguráciu u {{count}} člena?",

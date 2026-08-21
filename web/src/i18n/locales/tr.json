@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Sekme zaman aşımı",
 			"label": "Boştaki sekmenin oturumunu şu süre sonra kapat",
-			"hint": "Unutulmuş açık bir sekmenin oturumunu bu süre boyunca etkinlik olmazsa kapatır. Kapalı sekmeler etkilenmez: her oturum açma kullanılmadan 3 gün geçince kendiliğinden sona erer, en geç de 30 gün sonra. Açık sekmeler oturumda kalsın diye ∞ olarak ayarlayın."
+			"hint": "Unutulmuş açık bir sekmenin oturumunu bu süre boyunca etkinlik olmazsa kapatır, en fazla 4 saat. Açık sekmeler oturumda kalsın diye ∞ olarak ayarlayın. Bu ayardan bağımsız olarak her oturum açma kullanılmadan 3 gün geçince kendiliğinden sona erer, en geç de 30 gün sonra."
 		},
 		"oidc": {
 			"title": "Çoklu oturum açma (SSO)",

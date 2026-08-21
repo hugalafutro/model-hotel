@@ -263,7 +263,7 @@
 		"healthFailThreshold": "健康失败阈值",
 		"healthFailThresholdHint": "成员被报告为离线并告警前的连续健康检查失败次数。数值越高越能容忍更长的重建过程而不抖动。恢复是即时的。",
 		"sessionTimeout": "标签页超时（分钟）",
-		"sessionTimeoutHint": "在无操作达到设定分钟数后，登出被遗忘的打开标签页。已关闭的标签页不受影响：每次登录在 3 天未使用后会自动过期，最长 30 天后过期。0 表示打开的标签页保持登录。",
+		"sessionTimeoutHint": "在无操作达到设定分钟数后，登出被遗忘的打开标签页，最多 240（4 小时）。0 表示打开的标签页保持登录。与此设置无关，每次登录在 3 天未使用后会自动过期，最长 30 天后过期。",
 		"configSyncConfirmTitle_one": "替换 {{count}} 个成员上的配置？",
 		"configSyncConfirmTitle_other": "替换 {{count}} 个成员上的配置？",
 		"configSyncConfirmBody": "此操作使下方每个成员与主节点的提供商、虚拟密钥和设置保持一致。主节点没有的项目将从成员中移除；请求日志和计量数据不受影响。",

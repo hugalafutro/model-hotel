@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Oortjie-uitteltyd",
 			"label": "Meld 'n onaktiewe oortjie af ná",
-			"hint": "Meld 'n vergete oop oortjie af ná hierdie tydperk sonder aktiwiteit. Geslote oortjies word nie geraak nie: elke aanmelding verval vanself ná 3 dae sonder gebruik, en ná hoogstens 30 dae. Stel op ∞ om oop oortjies aangemeld te laat bly."
+			"hint": "Meld 'n vergete oop oortjie af ná hierdie tydperk sonder aktiwiteit, tot hoogstens 4 uur. Stel op ∞ om oop oortjies aangemeld te laat bly. Los van hierdie instelling verval elke aanmelding vanself ná 3 dae sonder gebruik, en ná hoogstens 30 dae."
 		},
 		"oidc": {
 			"title": "Enkelaanmelding (SSO)",

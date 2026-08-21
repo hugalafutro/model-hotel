@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Flik-timeout",
 			"label": "Logga ut en inaktiv flik efter",
-			"hint": "Loggar ut en bortglömd öppen flik efter denna tid utan aktivitet. Stängda flikar påverkas inte: varje inloggning går ut av sig själv efter 3 dagar utan användning, och senast efter 30 dagar. Ställ in på ∞ för att hålla öppna flikar inloggade."
+			"hint": "Loggar ut en bortglömd öppen flik efter denna tid utan aktivitet, högst 4 timmar. Ställ in på ∞ för att hålla öppna flikar inloggade. Oberoende av den här inställningen går varje inloggning ut av sig själv efter 3 dagar utan användning, och senast efter 30 dagar."
 		},
 		"oidc": {
 			"title": "Enkel inloggning (SSO)",

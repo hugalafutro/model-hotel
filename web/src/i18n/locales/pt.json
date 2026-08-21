@@ -2276,7 +2276,7 @@
 		"sessionTimeout": {
 			"title": "Tempo limite da aba",
 			"label": "Encerrar sessão de uma aba inativa após",
-			"hint": "Encerra a sessão de uma aba aberta e esquecida após este período sem atividade. Abas fechadas não são afetadas: cada login expira sozinho após 3 dias sem uso, e no máximo após 30 dias. Defina como ∞ para manter as abas abertas conectadas."
+			"hint": "Encerra a sessão de uma aba aberta e esquecida após este período sem atividade, no máximo 4 horas. Defina como ∞ para manter as abas abertas conectadas. Independentemente desta configuração, cada login expira sozinho após 3 dias sem uso, e no máximo após 30 dias."
 		},
 		"oidc": {
 			"title": "Logon único (SSO)",

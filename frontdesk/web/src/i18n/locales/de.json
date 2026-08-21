@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Health-Fehlschlag-Schwellenwert",
 		"healthFailThresholdHint": "Aufeinanderfolgende fehlgeschlagene Health-Checks, bevor ein Mitglied als ausgefallen gemeldet und alarmiert wird. Höhere Werte tolerieren längere Rebuilds ohne Flapping. Die Wiederherstellung erfolgt sofort.",
 		"sessionTimeout": "Tab-Timeout (Minuten)",
-		"sessionTimeoutHint": "Meldet einen vergessenen offenen Tab nach so vielen Minuten ohne Aktivität ab. Geschlossene Tabs sind nicht betroffen: Jede Anmeldung läuft von selbst nach 3 Tagen ohne Nutzung ab, spätestens aber nach 30 Tagen. 0 lässt offene Tabs angemeldet.",
+		"sessionTimeoutHint": "Meldet einen vergessenen offenen Tab nach so vielen Minuten ohne Aktivität ab, höchstens 240 (4 Stunden). 0 lässt offene Tabs angemeldet. Unabhängig von dieser Einstellung läuft jede Anmeldung von selbst nach 3 Tagen ohne Nutzung ab, spätestens aber nach 30 Tagen.",
 		"configSyncConfirmTitle_one": "Konfiguration auf {{count}} Mitglied ersetzen?",
 		"configSyncConfirmTitle_other": "Konfiguration auf {{count}} Mitgliedern ersetzen?",
 		"configSyncConfirmBody": "Dadurch wird jedes untenstehende Mitglied an die Provider, virtuellen Schlüssel und Einstellungen des Primärs angeglichen. Einträge, die der Primär nicht hat, werden vom Mitglied entfernt; dessen Anfrage-Logs und Messdaten bleiben unangetastet.",

@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Fane-timeout",
 			"label": "Log en inaktiv fane ud efter",
-			"hint": "Logger en glemt åben fane ud efter denne periode uden aktivitet. Lukkede faner påvirkes ikke: ethvert login udløber af sig selv efter 3 dage uden brug, og senest efter 30 dage. Sæt til ∞ for at holde åbne faner logget ind."
+			"hint": "Logger en glemt åben fane ud efter denne periode uden aktivitet, højst 4 timer. Sæt til ∞ for at holde åbne faner logget ind. Uafhængigt af denne indstilling udløber ethvert login af sig selv efter 3 dage uden brug, og senest efter 30 dage."
 		},
 		"oidc": {
 			"title": "Enkeltlogin (SSO)",

@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Próg błędów health",
 		"healthFailThresholdHint": "Liczba kolejnych nieudanych sprawdzeń health, zanim członek zostanie zgłoszony jako niedziałający i wywoła alert. Wyższa wartość toleruje dłuższe przebudowy bez false-fail. Powrót do sprawności jest natychmiastowy.",
 		"sessionTimeout": "Limit czasu karty (minuty)",
-		"sessionTimeoutHint": "Wylogowuje zapomnianą otwartą kartę po tylu minutach bez aktywności. Zamkniętych kart to nie dotyczy: każde logowanie samo wygasa po 3 dniach bez użycia, a najpóźniej po 30 dniach. 0 pozostawia otwarte karty zalogowane.",
+		"sessionTimeoutHint": "Wylogowuje zapomnianą otwartą kartę po tylu minutach bez aktywności, maksymalnie 240 (4 godziny). 0 pozostawia otwarte karty zalogowane. Niezależnie od tego ustawienia każde logowanie samo wygasa po 3 dniach bez użycia, a najpóźniej po 30 dniach.",
 		"configSyncConfirmTitle_one": "Zastąpić konfigurację na {{count}} członku?",
 		"configSyncConfirmTitle_few": "Zastąpić konfigurację na {{count}} członkach?",
 		"configSyncConfirmTitle_many": "Zastąpić konfigurację na {{count}} członkach?",

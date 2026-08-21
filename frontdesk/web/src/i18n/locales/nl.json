@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Health-faaldrempel",
 		"healthFailThresholdHint": "Aaneengesloten mislukte health-checks voordat een member als down wordt gerapporteerd en een Alert krijgt. Een hogere waarde verdraagt langere rebuilds zonder flapping. Herstel is direct.",
 		"sessionTimeout": "Tabblad-time-out (minuten)",
-		"sessionTimeoutHint": "Meldt een vergeten open tabblad af na dit aantal minuten zonder activiteit. Gesloten tabbladen worden niet beïnvloed: elke aanmelding verloopt vanzelf na 3 dagen zonder gebruik, en uiterlijk na 30 dagen. 0 houdt open tabbladen aangemeld.",
+		"sessionTimeoutHint": "Meldt een vergeten open tabblad af na dit aantal minuten zonder activiteit, maximaal 240 (4 uur). 0 houdt open tabbladen aangemeld. Los van deze instelling verloopt elke aanmelding vanzelf na 3 dagen zonder gebruik, en uiterlijk na 30 dagen.",
 		"configSyncConfirmTitle_one": "Configuratie vervangen op {{count}} member?",
 		"configSyncConfirmTitle_other": "Configuratie vervangen op {{count}} members?",
 		"configSyncConfirmBody": "Dit zorgt ervoor dat elke member hieronder overeenkomt met de providers, virtuele sleutels en instellingen van de primaire. Items die de primaire niet heeft worden van de member verwijderd; diens request-logs en metering worden niet aangeraakt.",

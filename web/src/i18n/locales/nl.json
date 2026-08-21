@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Tabblad-time-out",
 			"label": "Inactief tabblad afmelden na",
-			"hint": "Meldt een vergeten open tabblad af na deze periode zonder activiteit. Gesloten tabbladen worden niet beïnvloed: elke aanmelding verloopt vanzelf na 3 dagen zonder gebruik, en uiterlijk na 30 dagen. Stel in op ∞ om open tabbladen aangemeld te houden."
+			"hint": "Meldt een vergeten open tabblad af na deze periode zonder activiteit, maximaal 4 uur. Stel in op ∞ om open tabbladen aangemeld te houden. Los van deze instelling verloopt elke aanmelding vanzelf na 3 dagen zonder gebruik, en uiterlijk na 30 dagen."
 		},
 		"oidc": {
 			"title": "Eenmalige aanmelding (SSO)",

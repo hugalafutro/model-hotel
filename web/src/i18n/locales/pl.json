@@ -2329,7 +2329,7 @@
 		"sessionTimeout": {
 			"title": "Limit czasu karty",
 			"label": "Wyloguj bezczynną kartę po",
-			"hint": "Wylogowuje zapomnianą otwartą kartę po tym czasie bez aktywności. Zamkniętych kart to nie dotyczy: każde logowanie samo wygasa po 3 dniach bez użycia, a najpóźniej po 30 dniach. Ustaw na ∞, aby otwarte karty pozostały zalogowane."
+			"hint": "Wylogowuje zapomnianą otwartą kartę po tym czasie bez aktywności, maksymalnie po 4 godzinach. Ustaw na ∞, aby otwarte karty pozostały zalogowane. Niezależnie od tego ustawienia każde logowanie samo wygasa po 3 dniach bez użycia, a najpóźniej po 30 dniach."
 		},
 		"oidc": {
 			"title": "Logowanie jednokrotne (SSO)",
