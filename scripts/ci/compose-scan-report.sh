@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 #
-# Turn the weekly scan + rebuild results into the tracking issue's body, then
-# file it via report-image-scan-issue.sh.
+# Turn the scan + rebuild results into the tracking issue's body, then file it
+# via report-image-scan-issue.sh.
+#
+# Detection runs daily; the rebuild that clears below-gate findings runs weekly.
+# AUTOFIX says which kind of run this is, so a report from a detect-only day can
+# say the rebuild is waiting rather than implying one failed.
 #
 # The point of the wording here is to answer "what do you want from me" without
 # a log dig. A rebuild can only clear OS-level CVEs, because it rebuilds the
@@ -26,6 +30,9 @@ DIGEST_FILE=${DIGEST_FILE:-}
 POSTGRES_LINE=${POSTGRES_LINE:-}
 RUN_URL=${RUN_URL:-}
 STATUS_DIR=${STATUS_DIR:-refresh-status}
+# Defaults true so a caller that does not set it keeps the old wording: every
+# other entry point to this script rebuilds when it finds something fixable.
+AUTOFIX=${AUTOFIX:-true}
 
 body=$(mktemp)
 trap 'rm -f "$body"' EXIT
@@ -157,6 +164,13 @@ done
     echo "The scan found fixable vulnerabilities, but the rebuild did not get as far as"
     echo "republishing \`:latest\`, so nothing has been fixed automatically. Check the run below"
     echo "to see whether the rebuild failed or never started."
+  elif [ "$AUTOFIX" != true ]; then
+    echo "### Below the gate, queued for the weekly rebuild"
+    echo
+    echo "Nothing here is HIGH or CRITICAL, so the run is green and no release is needed. These are"
+    echo "fixable though, meaning the fix already exists upstream and a rebuild would apply it."
+    echo "This run only looks; the rebuild that applies below-gate fixes runs on Mondays, so there"
+    echo "is nothing to chase here. Dispatch this workflow to bring it forward."
   else
     echo "### Below the gate, and still unfixed"
     echo
@@ -208,13 +222,13 @@ if [ "$vulnerable" != true ] && [ "$backlog" != true ]; then
 fi
 
 if [ "$vulnerable" = true ]; then
-  header="The weekly scan of the published images found fixable HIGH/CRITICAL vulnerabilities."
+  header="The scan of the published images found fixable HIGH/CRITICAL vulnerabilities."
   title="Published images: fixable vulnerabilities found"
   if [ "$needs_release" = true ]; then
     title="Published images need a patch release"
   fi
 else
-  header="The weekly scan found fixable vulnerabilities on the published images, all below the CRITICAL/HIGH gate."
+  header="The scan found fixable vulnerabilities on the published images, all below the CRITICAL/HIGH gate."
   title="Published images: fixable vulnerabilities below the gate"
 fi
 

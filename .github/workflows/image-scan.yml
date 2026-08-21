@@ -43,13 +43,24 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  # Detection runs daily, the below-gate auto-fix stays weekly, and the two crons
+  # exist so a run can tell which it is (github.event.schedule).
+  #
+  # Detection wants to be daily: a fixable finding lands when the distro ships the
+  # patch, which has no relationship to when we build. The 28 fixable PostgreSQL
+  # client CVEs that reached :latest on 2026-08-18 were unfixed at build time and
+  # became fixable days later, so nothing but this workflow could notice, and the
+  # cron interval IS the detection latency. A clean day costs one pull, one scan.
+  #
+  # The rebuild does NOT want to be daily. It republishes :latest on the
+  # CRITICAL/HIGH rescan alone, deliberately (see the publish step), so a fixable
+  # below-gate finding that a rebuild cannot shift — a go.mod CVE, say — makes
+  # every run rebuild, change nothing, and push a fresh :latest digest anyway.
+  # Weekly that is one wasted digest; daily it is one every day until a human
+  # lands a code fix. The below-gate tier keeps the cadence it already had.
   schedule:
-    # Daily, not weekly. A fixable finding lands when the distro ships the patch,
-    # which has no relationship to when we build: the 28 fixable PostgreSQL client
-    # CVEs that reached :latest on 2026-08-18 were unfixed at build time and became
-    # fixable days later. Nothing but this workflow notices that, so the cron
-    # interval IS the detection latency. A clean day costs one pull and one scan.
-    - cron: '17 6 * * *' # daily 06:17 UTC
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC: detect, and auto-fix below-gate findings
+    - cron: '17 6 * * 0,2-6' # other days 06:17 UTC: detect and report only
   # A release moves :latest, so scan the thing that was just published instead of
   # waiting up to a day for the cron. This covers the other half of the same gap:
   # the cron catches the world changing under a static image, this catches the
@@ -90,6 +101,12 @@ jobs:
       app_sarif: ${{ steps.upload_app.outputs.sarif-id }}
       frontdesk_sarif: ${{ steps.upload_frontdesk.outputs.sarif-id }}
       postgres_line: ${{ steps.postgres_summary.outputs.line }}
+      # Defined once here and read by both the refresh job's `if` and its matrix,
+      # which have to agree: the job gate can let the job start for one image
+      # while a matrix leg still decides to rebuild the other. Every trigger that
+      # is not the detect-only cron may auto-fix, so a manual dispatch still
+      # rebuilds on demand.
+      autofix: ${{ github.event.schedule != '17 6 * * 0,2-6' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -340,9 +357,17 @@ jobs:
   # The trigger is fixable-at-any-severity, not the CRITICAL/HIGH gate. Keying it
   # to the gate left findings that this job could have fixed in one step sitting
   # on the published image indefinitely: nothing else rebuilds :latest, so a
-  # below-gate finding had no path to ever being fixed or noticed. Widening the
-  # trigger costs a rebuild on the days something fixable exists and nothing on
-  # the days it does not.
+  # below-gate finding had no path to ever being fixed or noticed.
+  #
+  # The two tiers run on different cadences, which is what `autofix` decides. A
+  # CRITICAL/HIGH gate failure rebuilds on any run, because waiting a week to ship
+  # a fix we already have is the thing this job exists to prevent. A below-gate
+  # finding rebuilds only on the weekly slot or a manual dispatch. That asymmetry
+  # is not tidiness: the publish step below ships on the CRITICAL/HIGH rescan
+  # alone, so a below-gate finding a rebuild cannot shift makes every triggered
+  # run push a fresh :latest digest that fixes nothing, and daily detection would
+  # otherwise turn one wasted digest a week into one a day for as long as the
+  # finding stands.
   #
   # Skipped on the release trigger. The rebuild's whole value is picking up
   # Alpine patches published since the image was built, and on that trigger the
@@ -358,8 +383,9 @@ jobs:
       always() && github.event_name != 'workflow_run'
       && (needs.scan.outputs.app_gate == 'failure'
       || needs.scan.outputs.frontdesk_gate == 'failure'
-      || needs.scan.outputs.app_advisory == 'failure'
-      || needs.scan.outputs.frontdesk_advisory == 'failure')
+      || (needs.scan.outputs.autofix == 'true'
+      && (needs.scan.outputs.app_advisory == 'failure'
+      || needs.scan.outputs.frontdesk_advisory == 'failure')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -383,11 +409,11 @@ jobs:
           - image: model-hotel
             dockerfile: Dockerfile
             smoke: true
-            triggered: ${{ format('{0}', needs.scan.outputs.app_gate == 'failure' || needs.scan.outputs.app_advisory == 'failure') }}
+            triggered: ${{ format('{0}', needs.scan.outputs.app_gate == 'failure' || (needs.scan.outputs.autofix == 'true' && needs.scan.outputs.app_advisory == 'failure')) }}
           - image: model-hotel-frontdesk
             dockerfile: Dockerfile.frontdesk
             smoke: false
-            triggered: ${{ format('{0}', needs.scan.outputs.frontdesk_gate == 'failure' || needs.scan.outputs.frontdesk_advisory == 'failure') }}
+            triggered: ${{ format('{0}', needs.scan.outputs.frontdesk_gate == 'failure' || (needs.scan.outputs.autofix == 'true' && needs.scan.outputs.frontdesk_advisory == 'failure')) }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -604,5 +630,9 @@ jobs:
           BACKLOG: ${{ steps.digest.outputs.fixable_backlog }}
           DIGEST_FILE: code-scanning.md
           POSTGRES_LINE: ${{ needs.scan.outputs.postgres_line }}
+          # Lets the report tell "the rebuild is not due yet" apart from "the
+          # rebuild tried and did not get there", which read identically before
+          # the below-gate tier had a cadence of its own.
+          AUTOFIX: ${{ needs.scan.outputs.autofix }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: scripts/ci/compose-scan-report.sh
