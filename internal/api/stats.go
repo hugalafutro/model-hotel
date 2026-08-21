@@ -309,6 +309,9 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 
 	// Queries 4b/4c only make sense unscoped: deleted-key rows cannot be
 	// attributed to an owner anymore, and chat/arena rows are admin traffic.
+	// This early return is also what keeps Q4c's own $2 (keyName) from
+	// colliding with the owner fragment's $2 — anything that lets a scoped
+	// caller reach Q4c must renumber it first.
 	if ownerID != "" {
 		return nil
 	}

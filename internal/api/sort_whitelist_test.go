@@ -60,6 +60,36 @@ func TestLogsSortDef_Whitelist(t *testing.T) {
 		validSet[k] = true
 	}
 
+	// Pin the expressions too, not just the key set: a future sort key wired to
+	// a dynamically built expression would otherwise slip through.
+	allowedExprs := map[string]bool{
+		"": true, "rl.created_at": true, "rl.model_id": true, "rl.status_code": true,
+		"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END":                   true,
+		"CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END": true,
+		"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END": true,
+		"rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)": true,
+		"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END":                                  true,
+		"rl.tokens_per_second":                       true,
+		"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END": true,
+		"rl.ttft_ms": true,
+		"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END": true,
+		"rl.response_header_ms":                                 true,
+		"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END":        true,
+		"rl.duration_ms":                                        true,
+		"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END":  true,
+		"rl.proxy_overhead_ms":                                  true,
+		"CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END": true,
+	}
+	for _, in := range append(append([]string{}, valid...), hostileSortInputs...) {
+		_, def := logsSortDef(in)
+		if !allowedExprs[def.tierExpr] {
+			t.Errorf("logsSortDef(%q) tier expression %q not in the whitelist", in, def.tierExpr)
+		}
+		if !allowedExprs[def.valueExpr] {
+			t.Errorf("logsSortDef(%q) value expression %q not in the whitelist", in, def.valueExpr)
+		}
+	}
+
 	for _, in := range valid {
 		if key, _ := logsSortDef(in); key != in {
 			t.Errorf("logsSortDef(%q) normalized to %q, want identity", in, key)

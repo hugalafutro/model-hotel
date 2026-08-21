@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -288,6 +289,88 @@ func TestStats_OwnerScope(t *testing.T) {
 	}
 	if s := getStats("/stats?period=7d&owner_user_id="+fx.bobID, envAdminToken); s.TotalRequestsLast7d != 2 {
 		t.Errorf("admin owner-filtered total7d = %d, want 2", s.TotalRequestsLast7d)
+	}
+}
+
+// TestStats_OwnerScope_ScalarsAndLatency covers the two owner-scoped stats
+// helpers whose failures are silent: statScalars and statLatencyBreakdown both
+// log and zero their fields rather than returning an error, so a wrong bind
+// index in either would hand scoped users an empty latency chart and zeroed
+// scalars while every other assertion stayed green.
+func TestStats_OwnerScope_ScalarsAndLatency(t *testing.T) {
+	router, loginAs, mkUser := setupOwnershipTest(t)
+	pool := apiTestDB.Pool()
+	if _, err := pool.Exec(context.Background(), `TRUNCATE request_logs`); err != nil {
+		t.Fatalf("truncate request_logs: %v", err)
+	}
+	globalLogsCache.clear()
+
+	aliceID := mkUser("latency-alice", []string{string(user.GrantLogs), string(user.GrantUsage)})
+	aliceToken := loginAs(aliceID)
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "latency-provider", "https://api.example.com/v1")
+
+	// The per-provider breakdown needs at least 3 rows per provider (HAVING
+	// COUNT(*) >= 3), so give alice exactly 3 and leave 3 unowned: scoped to
+	// alice the provider still clears the bar, so an empty result means the
+	// scoped query broke rather than the threshold filtering it out.
+	insertOwned := func(model string, owner any) {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, owner_user_id, created_at)
+			 VALUES ($1, $2, 200, 500, 20, 100, 50, $3, NOW())`, providerID, model, owner)
+		if err != nil {
+			t.Fatalf("insert log: %v", err)
+		}
+	}
+	for i := range 3 {
+		insertOwned(fmt.Sprintf("alice-model-%d", i), aliceID)
+		insertOwned(fmt.Sprintf("unowned-model-%d", i), nil)
+	}
+
+	getStats := func(token string) StatsResponse {
+		w := doJSON(t, router, http.MethodGet, "/stats?period=7d&include_latency=true", token, "")
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET stats: %d %s", w.Code, w.Body.String())
+		}
+		var s StatsResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil {
+			t.Fatalf("decode stats: %v", err)
+		}
+		return s
+	}
+
+	alice := getStats(aliceToken)
+	// statScalars, scoped: the 1h count builds its own arg list, separate from
+	// the other scalar queries, so it is asserted explicitly.
+	if alice.RequestsLast1h != 3 {
+		t.Errorf("alice requests_last_1h = %d, want 3", alice.RequestsLast1h)
+	}
+	if alice.TotalTokensPrompt != 300 || alice.TotalTokensCompletion != 150 {
+		t.Errorf("alice tokens = %d/%d, want 300/150",
+			alice.TotalTokensPrompt, alice.TotalTokensCompletion)
+	}
+	if alice.AvgLatencyMs != 500 {
+		t.Errorf("alice avg_latency_ms = %v, want 500", alice.AvgLatencyMs)
+	}
+	if alice.AvgOverheadMs != 20 {
+		t.Errorf("alice avg_overhead_ms = %v, want 20", alice.AvgOverheadMs)
+	}
+	// statLatencyBreakdown, scoped.
+	if len(alice.ByProviderLatency) != 1 {
+		t.Fatalf("alice by_provider_latency = %d entries, want 1", len(alice.ByProviderLatency))
+	}
+	if got := alice.ByProviderLatency[0]; got.ProviderName != "latency-provider" || got.RequestCount != 3 {
+		t.Errorf("alice latency entry = %s/%d, want latency-provider/3", got.ProviderName, got.RequestCount)
+	}
+
+	// Admin is unscoped and sees all six rows through the same helpers.
+	admin := getStats(envAdminToken)
+	if admin.RequestsLast1h != 6 {
+		t.Errorf("admin requests_last_1h = %d, want 6", admin.RequestsLast1h)
+	}
+	if len(admin.ByProviderLatency) != 1 || admin.ByProviderLatency[0].RequestCount != 6 {
+		t.Errorf("admin latency entry = %+v, want one entry counting 6", admin.ByProviderLatency)
 	}
 }
 

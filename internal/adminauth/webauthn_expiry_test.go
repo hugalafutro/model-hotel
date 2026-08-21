@@ -70,8 +70,13 @@ func TestWebAuthnHandler_RegisterFinish_ExpiredSession(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "session expired") {
-		t.Errorf("expected 'session expired' error, got: %s", w.Body.String())
+	// The body is deliberately the generic "session not found" (no expired-vs-
+	// unknown oracle). Without the guard the handler would fall through to
+	// credential parsing and answer "invalid credential response" instead, so
+	// this assertion still pins the guard: the session exists and its delete
+	// succeeds, leaving the expiry check as the only path to this response.
+	if !strings.Contains(w.Body.String(), "session not found") {
+		t.Errorf("expected 'session not found' error, got: %s", w.Body.String())
 	}
 	// The expired session must be consumed, not left claimable.
 	if _, err := repo.GetSession(context.Background(), sessionID); !errors.Is(err, webauthn.ErrNotFound) {
@@ -98,8 +103,13 @@ func TestWebAuthnHandler_LoginFinish_ExpiredSession(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "session expired") {
-		t.Errorf("expected 'session expired' error, got: %s", w.Body.String())
+	// The body is deliberately the generic "session not found" (no expired-vs-
+	// unknown oracle). Without the guard the handler would fall through to
+	// credential parsing and answer "invalid credential response" instead, so
+	// this assertion still pins the guard: the session exists and its delete
+	// succeeds, leaving the expiry check as the only path to this response.
+	if !strings.Contains(w.Body.String(), "session not found") {
+		t.Errorf("expected 'session not found' error, got: %s", w.Body.String())
 	}
 	// The expired session must be consumed, not left claimable.
 	if _, err := repo.GetSession(context.Background(), sessionID); !errors.Is(err, webauthn.ErrNotFound) {

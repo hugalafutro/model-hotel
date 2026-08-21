@@ -240,13 +240,16 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Enforce the ceremony TTL at consume time: the hourly cleanup sweep is the
-	// only other thing that removes stale rows, and the go-webauthn library only
-	// checks SessionData.Expires when Timeouts.*.Enforce is configured — mirrors
-	// webauthn.SessionManager.ConsumeLoginState.
+	// Enforce the ceremony TTL at consume time, as
+	// webauthn.SessionManager.ConsumeLoginState does: the hourly cleanup sweep is
+	// the only other thing that removes stale rows, and the go-webauthn library
+	// only checks SessionData.Expires when Timeouts.*.Enforce is configured.
+	// The response stays the generic "session not found" so a probing caller
+	// cannot tell an expired ceremony from an unknown one; the reason is kept in
+	// the log line.
 	if sessionRec.ExpiresAt.Before(time.Now()) {
 		debuglog.Info("webauthn: registration session expired", "session_id", sessionID)
-		http.Error(w, "session expired", http.StatusBadRequest)
+		http.Error(w, "session not found", http.StatusBadRequest)
 		return
 	}
 
@@ -386,13 +389,16 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforce the ceremony TTL at consume time: the hourly cleanup sweep is the
-	// only other thing that removes stale rows, and the go-webauthn library only
-	// checks SessionData.Expires when Timeouts.*.Enforce is configured — mirrors
-	// webauthn.SessionManager.ConsumeLoginState.
+	// Enforce the ceremony TTL at consume time, as
+	// webauthn.SessionManager.ConsumeLoginState does: the hourly cleanup sweep is
+	// the only other thing that removes stale rows, and the go-webauthn library
+	// only checks SessionData.Expires when Timeouts.*.Enforce is configured.
+	// The response stays the generic "session not found" so a probing caller
+	// cannot tell an expired ceremony from an unknown one; the reason is kept in
+	// the log line.
 	if sessionRec.ExpiresAt.Before(time.Now()) {
 		debuglog.Info("webauthn: login session expired", "session_id", sessionID)
-		http.Error(w, "session expired", http.StatusBadRequest)
+		http.Error(w, "session not found", http.StatusBadRequest)
 		return
 	}
 
