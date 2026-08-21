@@ -27,6 +27,11 @@ type DeepSeekModelSpec struct {
 	Vision          bool   `json:"vision,omitempty"`
 	// InputModalities is a JSON array literal, e.g. `["text","image"]`. Empty
 	// defaults to text-only, which is every DeepSeek model but the vision one.
+	//
+	// It overlaps with Vision rather than complementing it: NormalizeModels
+	// derives "image" from the flag and the flag back from the array, so
+	// setting either alone reaches the same end state. Set both, so a reader of
+	// the row does not have to know that.
 	InputModalities               string  `json:"input_modalities,omitempty"`
 	InputPricePerMillionCacheHit  float64 `json:"input_price_per_million_cache_hit,omitempty"`
 	InputPricePerMillionCacheMiss float64 `json:"input_price_per_million_cache_miss"`
