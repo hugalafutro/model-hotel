@@ -1,4 +1,4 @@
-# Weekly vulnerability scan of the published images (app + Front Desk).
+# Daily vulnerability scan of the published images (app + Front Desk).
 #
 # The CI gate only runs when a PR is open, but CVEs land in already-published
 # images (this is exactly how the OpenSSL 3.5.6 flags appeared on the published
@@ -17,9 +17,10 @@
 #
 # The scan pulls from GHCR: every publish path (release, :dev, and the refresh
 # job below) pushes the same digest to GHCR and Docker Hub, so scanning one
-# registry covers both, and GHCR is the one our own stacks pull from. Note it
-# scans :latest specifically — a :dev publish does not move :latest, and no
-# publish of any kind re-runs this workflow, so nothing here reacts to a merge.
+# registry covers both, and GHCR is the one our own stacks pull from. It scans
+# :latest specifically, which is why a release is the only publish wired to the
+# workflow_run trigger: ci.yml publishes :dev, and :dev does not move :latest,
+# so a plain merge still has nothing here to react to.
 #
 # Findings come in two tiers. Fixable CRITICAL/HIGH decides red or green, as it
 # always has. Below that sits everything else fixable, which for a long time was
@@ -31,9 +32,34 @@
 # turns anything red.
 name: Scan Published Image
 
+# Serialise runs. With a weekly cron and manual dispatch, overlap was hard to
+# arrange; a daily cron plus a per-release trigger makes it routine, and two
+# refresh jobs rebuilding and pushing :latest at once would race to decide which
+# digest wins. Queue rather than cancel: a cancelled run can drop a SARIF upload
+# or interrupt a push, and the two-dispatch trick for closing alerts in one
+# sitting still works, just one after the other.
+concurrency:
+  group: image-scan
+  cancel-in-progress: false
+
 on:
   schedule:
-    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+    # Daily, not weekly. A fixable finding lands when the distro ships the patch,
+    # which has no relationship to when we build: the 28 fixable PostgreSQL client
+    # CVEs that reached :latest on 2026-08-18 were unfixed at build time and became
+    # fixable days later. Nothing but this workflow notices that, so the cron
+    # interval IS the detection latency. A clean day costs one pull and one scan.
+    - cron: '17 6 * * *' # daily 06:17 UTC
+  # A release moves :latest, so scan the thing that was just published instead of
+  # waiting up to a day for the cron. This covers the other half of the same gap:
+  # the cron catches the world changing under a static image, this catches the
+  # image changing. Only "Publish Docker Image" is listed because it is the only
+  # workflow that moves :latest — ci.yml publishes :dev, which this never scans,
+  # and the refresh job below republishes :latest directly rather than through the
+  # publish workflow, so neither can loop back into here.
+  workflow_run:
+    workflows: ['Publish Docker Image']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -50,6 +76,11 @@ env:
 jobs:
   scan:
     name: Trivy Scan (latest)
+    # A failed publish leaves :latest where it was, so scanning on that event
+    # reports the picture the previous run already reported. The first clause
+    # carries the cron and dispatch runs, where there is no workflow_run context
+    # and the conclusion would be empty.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       app_gate: ${{ steps.gate_app.outcome }}
@@ -308,15 +339,24 @@ jobs:
   #
   # The trigger is fixable-at-any-severity, not the CRITICAL/HIGH gate. Keying it
   # to the gate left findings that this job could have fixed in one step sitting
-  # on the published image indefinitely: nothing else rebuilds :latest, and no
-  # image publish re-runs this scan, so a below-gate finding had no path to ever
-  # being fixed or noticed. Widening the trigger costs a rebuild in the weeks
-  # something fixable exists and nothing in the weeks it does not.
+  # on the published image indefinitely: nothing else rebuilds :latest, so a
+  # below-gate finding had no path to ever being fixed or noticed. Widening the
+  # trigger costs a rebuild on the days something fixable exists and nothing on
+  # the days it does not.
+  #
+  # Skipped on the release trigger. The rebuild's whole value is picking up
+  # Alpine patches published since the image was built, and on that trigger the
+  # image was built minutes ago by a runtime stage that buildx is forbidden to
+  # cache (no-cache-filters: runtime), so its apk upgrade already pulled the
+  # current patch level. Rebuilding would produce the same packages and republish
+  # :latest at a new digest, splitting it from the release tag it was cut from,
+  # in exchange for nothing. On that trigger this workflow only reports.
   refresh:
     name: Rebuild ${{ matrix.image }} from the current release
     needs: scan
     if: >-
-      always() && (needs.scan.outputs.app_gate == 'failure'
+      always() && github.event_name != 'workflow_run'
+      && (needs.scan.outputs.app_gate == 'failure'
       || needs.scan.outputs.frontdesk_gate == 'failure'
       || needs.scan.outputs.app_advisory == 'failure'
       || needs.scan.outputs.frontdesk_advisory == 'failure')
@@ -500,13 +540,19 @@ jobs:
           name: refresh-status-${{ matrix.image }}
           path: refresh-status/
 
-  # One issue, reused, that says what it wants from you. The weekly scan's only
-  # previous output was a failure email, and an email that says "network error"
-  # on the one week that mattered is how a real finding went unnoticed.
+  # One issue, reused, that says what it wants from you. This scan's only output
+  # used to be a failure email, and an email that says "network error" on the one
+  # run that mattered is how a real finding went unnoticed.
+  #
+  # A skipped scan is not a clean scan. The scan job skips when a failed release
+  # triggers this workflow, and reporting on its empty outputs would read as
+  # nothing-found and close a tracking issue that is still legitimately open.
   report:
     name: Report scan result
     needs: [scan, refresh]
-    if: always() && needs.scan.result != 'cancelled'
+    if: >-
+      always() && needs.scan.result != 'cancelled'
+      && needs.scan.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
