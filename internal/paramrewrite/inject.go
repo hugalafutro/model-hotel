@@ -63,8 +63,16 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 	case "deepseek":
 		// DeepSeek V4 and R1 require reasoning_content on every assistant message.
 		// If any assistant message lacks reasoning_content, the API rejects the request.
+		//
+		// deepseek-reasoner is matched by name because it names no version: it
+		// is a permanent alias onto deepseek-v4-flash with thinking on, so it
+		// reaches the same backend as an id the substring test already covers.
+		// deepseek-chat stays out on purpose — it is the same model with
+		// thinking off, and returns no reasoning_content to echo back.
 		modelLower := strings.ToLower(modelID)
-		isReasoningModel := strings.Contains(modelLower, "v4") || strings.Contains(modelLower, "r1")
+		isReasoningModel := strings.Contains(modelLower, "v4") ||
+			strings.Contains(modelLower, "r1") ||
+			modelLower == "deepseek-reasoner"
 		if isReasoningModel {
 			if backfillDeepSeekReasoning(raw) {
 				modified = true

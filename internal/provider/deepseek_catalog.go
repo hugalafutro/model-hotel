@@ -17,7 +17,10 @@ import (
 // conditional surcharge (openai.json carries gpt-5.x-pro at its standard rate,
 // not the >200K-context tier).
 type DeepSeekModelSpec struct {
-	ModelID         string `json:"model_id"`
+	ModelID string `json:"model_id"`
+	// Description reaches the dashboard, and is the only place an operator can
+	// find out that the listed price is the off-peak one.
+	Description     string `json:"description,omitempty"`
 	ContextLength   int    `json:"context_length"`
 	MaxOutputTokens int    `json:"max_output_tokens"`
 	Reasoning       bool   `json:"reasoning"`
@@ -83,6 +86,7 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 		ModelID:                      spec.ModelID,
 		Name:                         spec.ModelID,
 		DisplayName:                  spec.ModelID,
+		Description:                  spec.Description,
 		Capabilities:                 string(capJSON),
 		Params:                       "{}",
 		InputModalities:              inputModalities,

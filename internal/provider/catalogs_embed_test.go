@@ -68,6 +68,39 @@ func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 	}
 }
 
+// TestLoadCatalog_ModalityStringsParse checks every embedded catalog row whose
+// modalities are carried as an embedded JSON-array string.
+//
+// Nothing validates those at load time: loadCatalog only unmarshals the outer
+// struct, so `[text,image]` survives all the way to NormalizeModels, where
+// parseModalityList fails silently and the row degrades to text-only. No crash,
+// no log, no failing test — which is why this asserts the shape directly.
+func TestLoadCatalog_ModalityStringsParse(t *testing.T) {
+	check := func(t *testing.T, id, field, raw string) {
+		t.Helper()
+		if raw == "" {
+			return
+		}
+		var mods []string
+		if err := json.Unmarshal([]byte(raw), &mods); err != nil {
+			t.Errorf("%s %s = %q, which is not a JSON string array: %v", id, field, raw, err)
+		}
+	}
+	for _, file := range []string{"opencode_zen.json", "opencode_go.json", "xai.json"} {
+		for _, e := range loadCatalog[[]OpenCodeModelSpec](file) {
+			check(t, file+"/"+e.ModelID, "input_modalities", e.InputModalities)
+			check(t, file+"/"+e.ModelID, "output_modalities", e.OutputModalities)
+		}
+	}
+	for _, e := range loadCatalog[[]OpenAIModelSpec]("openai.json") {
+		check(t, "openai.json/"+e.ModelID, "input_modalities", e.InputModalities)
+		check(t, "openai.json/"+e.ModelID, "output_modalities", e.OutputModalities)
+	}
+	for _, e := range loadCatalog[[]DeepSeekModelSpec]("deepseek.json") {
+		check(t, "deepseek.json/"+e.ModelID, "input_modalities", e.InputModalities)
+	}
+}
+
 // TestLoadCatalog_InvalidPath panics on missing file.
 func TestLoadCatalog_InvalidPath(t *testing.T) {
 	defer func() {

@@ -1,6 +1,7 @@
 [
   {
     "model_id": "deepseek-chat",
+    "description": "Alias for deepseek-v4-flash with thinking off. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": false,
@@ -10,6 +11,7 @@
   },
   {
     "model_id": "deepseek-reasoner",
+    "description": "Alias for deepseek-v4-flash with thinking on. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
@@ -19,6 +21,7 @@
   },
   {
     "model_id": "deepseek-v4-flash",
+    "description": "DeepSeek V4 Flash. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
@@ -28,6 +31,7 @@
   },
   {
     "model_id": "deepseek-v4-pro",
+    "description": "DeepSeek V4 Pro. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
@@ -37,6 +41,7 @@
   },
   {
     "model_id": "deepseek-v4-flash-vision-exp",
+    "description": "DeepSeek V4 Flash Vision (experimental); accepts image input. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
