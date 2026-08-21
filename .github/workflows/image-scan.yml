@@ -1,4 +1,4 @@
-# Weekly vulnerability scan of the published images (app + Front Desk).
+# Daily vulnerability scan of the published images (app + Front Desk).
 #
 # The CI gate only runs when a PR is open, but CVEs land in already-published
 # images (this is exactly how the OpenSSL 3.5.6 flags appeared on the published
@@ -17,9 +17,10 @@
 #
 # The scan pulls from GHCR: every publish path (release, :dev, and the refresh
 # job below) pushes the same digest to GHCR and Docker Hub, so scanning one
-# registry covers both, and GHCR is the one our own stacks pull from. Note it
-# scans :latest specifically — a :dev publish does not move :latest, and no
-# publish of any kind re-runs this workflow, so nothing here reacts to a merge.
+# registry covers both, and GHCR is the one our own stacks pull from. It scans
+# :latest specifically, which is why a release is the only publish wired to the
+# workflow_run trigger: ci.yml publishes :dev, and :dev does not move :latest,
+# so a plain merge still has nothing here to react to.
 #
 # Findings come in two tiers. Fixable CRITICAL/HIGH decides red or green, as it
 # always has. Below that sits everything else fixable, which for a long time was
@@ -31,9 +32,45 @@
 # turns anything red.
 name: Scan Published Image
 
+# Serialise runs. With a weekly cron and manual dispatch, overlap was hard to
+# arrange; a daily cron plus a per-release trigger makes it routine, and two
+# refresh jobs rebuilding and pushing :latest at once would race to decide which
+# digest wins. Queue rather than cancel: a cancelled run can drop a SARIF upload
+# or interrupt a push, and the two-dispatch trick for closing alerts in one
+# sitting still works, just one after the other.
+concurrency:
+  group: image-scan
+  cancel-in-progress: false
+
 on:
+  # Detection runs daily, the below-gate auto-fix stays weekly, and the two crons
+  # exist so a run can tell which it is (github.event.schedule).
+  #
+  # Detection wants to be daily: a fixable finding lands when the distro ships the
+  # patch, which has no relationship to when we build. The 28 fixable PostgreSQL
+  # client CVEs that reached :latest on 2026-08-18 were unfixed at build time and
+  # became fixable days later, so nothing but this workflow could notice, and the
+  # cron interval IS the detection latency. A clean day costs one pull, one scan.
+  #
+  # The rebuild does NOT want to be daily. It republishes :latest on the
+  # CRITICAL/HIGH rescan alone, deliberately (see the publish step), so a fixable
+  # below-gate finding that a rebuild cannot shift — a go.mod CVE, say — makes
+  # every run rebuild, change nothing, and push a fresh :latest digest anyway.
+  # Weekly that is one wasted digest; daily it is one every day until a human
+  # lands a code fix. The below-gate tier keeps the cadence it already had.
   schedule:
-    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC: detect, and auto-fix below-gate findings
+    - cron: '17 6 * * 0,2-6' # other days 06:17 UTC: detect and report only
+  # A release moves :latest, so scan the thing that was just published instead of
+  # waiting up to a day for the cron. This covers the other half of the same gap:
+  # the cron catches the world changing under a static image, this catches the
+  # image changing. Only "Publish Docker Image" is listed because it is the only
+  # workflow that moves :latest — ci.yml publishes :dev, which this never scans,
+  # and the refresh job below republishes :latest directly rather than through the
+  # publish workflow, so neither can loop back into here.
+  workflow_run:
+    workflows: ['Publish Docker Image']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -50,6 +87,11 @@ env:
 jobs:
   scan:
     name: Trivy Scan (latest)
+    # A failed publish leaves :latest where it was, so scanning on that event
+    # reports the picture the previous run already reported. The first clause
+    # carries the cron and dispatch runs, where there is no workflow_run context
+    # and the conclusion would be empty.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       app_gate: ${{ steps.gate_app.outcome }}
@@ -59,6 +101,12 @@ jobs:
       app_sarif: ${{ steps.upload_app.outputs.sarif-id }}
       frontdesk_sarif: ${{ steps.upload_frontdesk.outputs.sarif-id }}
       postgres_line: ${{ steps.postgres_summary.outputs.line }}
+      # Defined once here and read by both the refresh job's `if` and its matrix,
+      # which have to agree: the job gate can let the job start for one image
+      # while a matrix leg still decides to rebuild the other. Every trigger that
+      # is not the detect-only cron may auto-fix, so a manual dispatch still
+      # rebuilds on demand.
+      autofix: ${{ github.event.schedule != '17 6 * * 0,2-6' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -308,18 +356,36 @@ jobs:
   #
   # The trigger is fixable-at-any-severity, not the CRITICAL/HIGH gate. Keying it
   # to the gate left findings that this job could have fixed in one step sitting
-  # on the published image indefinitely: nothing else rebuilds :latest, and no
-  # image publish re-runs this scan, so a below-gate finding had no path to ever
-  # being fixed or noticed. Widening the trigger costs a rebuild in the weeks
-  # something fixable exists and nothing in the weeks it does not.
+  # on the published image indefinitely: nothing else rebuilds :latest, so a
+  # below-gate finding had no path to ever being fixed or noticed.
+  #
+  # The two tiers run on different cadences, which is what `autofix` decides. A
+  # CRITICAL/HIGH gate failure rebuilds on any run, because waiting a week to ship
+  # a fix we already have is the thing this job exists to prevent. A below-gate
+  # finding rebuilds only on the weekly slot or a manual dispatch. That asymmetry
+  # is not tidiness: the publish step below ships on the CRITICAL/HIGH rescan
+  # alone, so a below-gate finding a rebuild cannot shift makes every triggered
+  # run push a fresh :latest digest that fixes nothing, and daily detection would
+  # otherwise turn one wasted digest a week into one a day for as long as the
+  # finding stands.
+  #
+  # Skipped on the release trigger. The rebuild's whole value is picking up
+  # Alpine patches published since the image was built, and on that trigger the
+  # image was built minutes ago by a runtime stage that buildx is forbidden to
+  # cache (no-cache-filters: runtime), so its apk upgrade already pulled the
+  # current patch level. Rebuilding would produce the same packages and republish
+  # :latest at a new digest, splitting it from the release tag it was cut from,
+  # in exchange for nothing. On that trigger this workflow only reports.
   refresh:
     name: Rebuild ${{ matrix.image }} from the current release
     needs: scan
     if: >-
-      always() && (needs.scan.outputs.app_gate == 'failure'
+      always() && github.event_name != 'workflow_run'
+      && (needs.scan.outputs.app_gate == 'failure'
       || needs.scan.outputs.frontdesk_gate == 'failure'
-      || needs.scan.outputs.app_advisory == 'failure'
-      || needs.scan.outputs.frontdesk_advisory == 'failure')
+      || (needs.scan.outputs.autofix == 'true'
+      && (needs.scan.outputs.app_advisory == 'failure'
+      || needs.scan.outputs.frontdesk_advisory == 'failure')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -343,11 +409,11 @@ jobs:
           - image: model-hotel
             dockerfile: Dockerfile
             smoke: true
-            triggered: ${{ format('{0}', needs.scan.outputs.app_gate == 'failure' || needs.scan.outputs.app_advisory == 'failure') }}
+            triggered: ${{ format('{0}', needs.scan.outputs.app_gate == 'failure' || (needs.scan.outputs.autofix == 'true' && needs.scan.outputs.app_advisory == 'failure')) }}
           - image: model-hotel-frontdesk
             dockerfile: Dockerfile.frontdesk
             smoke: false
-            triggered: ${{ format('{0}', needs.scan.outputs.frontdesk_gate == 'failure' || needs.scan.outputs.frontdesk_advisory == 'failure') }}
+            triggered: ${{ format('{0}', needs.scan.outputs.frontdesk_gate == 'failure' || (needs.scan.outputs.autofix == 'true' && needs.scan.outputs.frontdesk_advisory == 'failure')) }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -500,13 +566,19 @@ jobs:
           name: refresh-status-${{ matrix.image }}
           path: refresh-status/
 
-  # One issue, reused, that says what it wants from you. The weekly scan's only
-  # previous output was a failure email, and an email that says "network error"
-  # on the one week that mattered is how a real finding went unnoticed.
+  # One issue, reused, that says what it wants from you. This scan's only output
+  # used to be a failure email, and an email that says "network error" on the one
+  # run that mattered is how a real finding went unnoticed.
+  #
+  # A skipped scan is not a clean scan. The scan job skips when a failed release
+  # triggers this workflow, and reporting on its empty outputs would read as
+  # nothing-found and close a tracking issue that is still legitimately open.
   report:
     name: Report scan result
     needs: [scan, refresh]
-    if: always() && needs.scan.result != 'cancelled'
+    if: >-
+      always() && needs.scan.result != 'cancelled'
+      && needs.scan.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -558,5 +630,9 @@ jobs:
           BACKLOG: ${{ steps.digest.outputs.fixable_backlog }}
           DIGEST_FILE: code-scanning.md
           POSTGRES_LINE: ${{ needs.scan.outputs.postgres_line }}
+          # Lets the report tell "the rebuild is not due yet" apart from "the
+          # rebuild tried and did not get there", which read identically before
+          # the below-gate tier had a cadence of its own.
+          AUTOFIX: ${{ needs.scan.outputs.autofix }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: scripts/ci/compose-scan-report.sh
