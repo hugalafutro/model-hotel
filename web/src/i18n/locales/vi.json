@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Thời gian chờ của thẻ",
 			"label": "Đăng xuất thẻ không hoạt động sau",
-			"hint": "Đăng xuất một thẻ đang mở bị bỏ quên sau khoảng thời gian không hoạt động này. Thẻ đã đóng không bị ảnh hưởng: mỗi lần đăng nhập tự hết hạn sau 3 ngày không sử dụng, và tối đa sau 30 ngày. Đặt thành ∞ để các thẻ đang mở luôn đăng nhập."
+			"hint": "Đăng xuất một thẻ đang mở bị bỏ quên sau khoảng thời gian không hoạt động này, tối đa 4 giờ. Đặt thành ∞ để các thẻ đang mở luôn đăng nhập. Không phụ thuộc vào cài đặt này, mỗi lần đăng nhập tự hết hạn sau 3 ngày không sử dụng, và tối đa sau 30 ngày."
 		},
 		"oidc": {
 			"title": "Đăng nhập một lần (SSO)",

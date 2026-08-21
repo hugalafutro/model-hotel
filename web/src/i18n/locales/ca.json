@@ -2276,7 +2276,7 @@
 		"sessionTimeout": {
 			"title": "Temps d'espera de la pestanya",
 			"label": "Tanca la sessió d'una pestanya inactiva després de",
-			"hint": "Tanca la sessió d'una pestanya oberta i oblidada després d'aquest període sense activitat. Les pestanyes tancades no es veuen afectades: cada inici de sessió caduca per si sol al cap de 3 dies sense ús, i com a màxim al cap de 30 dies. Estableix-ho a ∞ per mantenir les pestanyes obertes amb la sessió iniciada."
+			"hint": "Tanca la sessió d'una pestanya oberta i oblidada després d'aquest període sense activitat, fins a un màxim de 4 hores. Estableix-ho a ∞ per mantenir les pestanyes obertes amb la sessió iniciada. Al marge d'aquesta configuració, cada inici de sessió caduca per si sol al cap de 3 dies sense ús, i com a màxim al cap de 30 dies."
 		},
 		"oidc": {
 			"title": "Inici de sessió únic (SSO)",

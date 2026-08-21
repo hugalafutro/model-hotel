@@ -2276,7 +2276,7 @@
 		"sessionTimeout": {
 			"title": "Timeout della scheda",
 			"label": "Disconnetti una scheda inattiva dopo",
-			"hint": "Disconnette una scheda aperta e dimenticata dopo questo periodo di inattività. Le schede chiuse non sono interessate: ogni accesso scade da solo dopo 3 giorni senza utilizzo, e al massimo dopo 30 giorni. Imposta su ∞ per mantenere connesse le schede aperte."
+			"hint": "Disconnette una scheda aperta e dimenticata dopo questo periodo di inattività, fino a un massimo di 4 ore. Imposta su ∞ per mantenere connesse le schede aperte. Indipendentemente da questa impostazione, ogni accesso scade da solo dopo 3 giorni senza utilizzo, e al massimo dopo 30 giorni."
 		},
 		"oidc": {
 			"title": "Accesso unico (SSO)",

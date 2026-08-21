@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Välilehden aikakatkaisu",
 			"label": "Kirjaa toimeton välilehti ulos",
-			"hint": "Kirjaa unohtuneen avoimen välilehden ulos, kun se on ollut näin kauan käyttämättä. Suljettuihin välilehtiin tämä ei vaikuta: jokainen kirjautuminen vanhenee itsestään 3 päivän käyttämättömyyden jälkeen ja viimeistään 30 päivässä. Aseta arvoon ∞, jos haluat pitää avoimet välilehdet kirjautuneina."
+			"hint": "Kirjaa unohtuneen avoimen välilehden ulos, kun se on ollut näin kauan käyttämättä, enintään 4 tunnin kuluttua. Aseta arvoon ∞, jos haluat pitää avoimet välilehdet kirjautuneina. Tästä asetuksesta riippumatta jokainen kirjautuminen vanhenee itsestään 3 päivän käyttämättömyyden jälkeen ja viimeistään 30 päivässä."
 		},
 		"oidc": {
 			"title": "Kertakirjautuminen (SSO)",

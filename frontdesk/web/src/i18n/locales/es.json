@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Umbral de fallo de salud",
 		"healthFailThresholdHint": "Chequeos de salud fallidos consecutivos antes de que un miembro se marque como caído y se alerte. Un valor más alto tolera reconstrucciones más largas sin flapping. La recuperación es inmediata.",
 		"sessionTimeout": "Tiempo de espera de la pestaña (minutos)",
-		"sessionTimeoutHint": "Cierra la sesión de una pestaña abierta y olvidada tras estos minutos sin actividad. Las pestañas cerradas no se ven afectadas: cada inicio de sesión caduca por sí solo al cabo de 3 días sin uso, y como máximo al cabo de 30 días. 0 mantiene las pestañas abiertas con la sesión iniciada.",
+		"sessionTimeoutHint": "Cierra la sesión de una pestaña abierta y olvidada tras estos minutos sin actividad, hasta 240 (4 horas). 0 mantiene las pestañas abiertas con la sesión iniciada. Al margen de este ajuste, cada inicio de sesión caduca por sí solo al cabo de 3 días sin uso, y como máximo al cabo de 30 días.",
 		"configSyncConfirmTitle_one": "¿Reemplazar la configuración en {{count}} miembro?",
 		"configSyncConfirmTitle_many": "¿Reemplazar la configuración en {{count}} miembros?",
 		"configSyncConfirmTitle_other": "¿Reemplazar la configuración en {{count}} miembros?",

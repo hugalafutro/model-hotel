@@ -263,7 +263,7 @@
 		"healthFailThreshold": "Seuil d'échec de santé",
 		"healthFailThresholdHint": "Nombre d'échecs de sondage de santé consécutifs avant qu'un membre soit signalé hors ligne et alerté.Une valeur plus élevée tolère des reconstructions plus longues sans basculement intempestif. La récupération est immédiate.",
 		"sessionTimeout": "Expiration de l'onglet (minutes)",
-		"sessionTimeoutHint": "Déconnecte un onglet ouvert oublié après ce nombre de minutes d'inactivité. Les onglets fermés ne sont pas concernés : chaque connexion expire d'elle-même au bout de 3 jours sans utilisation, et au plus tard au bout de 30 jours. 0 garde les onglets ouverts connectés.",
+		"sessionTimeoutHint": "Déconnecte un onglet ouvert oublié après ce nombre de minutes d'inactivité, jusqu'à 240 (4 heures). 0 garde les onglets ouverts connectés. Indépendamment de ce réglage, chaque connexion expire d'elle-même au bout de 3 jours sans utilisation, et au plus tard au bout de 30 jours.",
 		"configSyncConfirmTitle_one": "Remplacer la configuration sur {{count}} membre ?",
 		"configSyncConfirmTitle_many": "Remplacer la configuration sur {{count}} membres ?",
 		"configSyncConfirmTitle_other": "Remplacer la configuration sur {{count}} membres ?",

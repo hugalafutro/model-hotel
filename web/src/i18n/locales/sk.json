@@ -2329,7 +2329,7 @@
 		"sessionTimeout": {
 			"title": "Časový limit karty",
 			"label": "Odhlásiť neaktívnu kartu po",
-			"hint": "Odhlási zabudnutú otvorenú kartu po tomto čase bez aktivity. Zatvorených kariet sa to netýka: každé prihlásenie samo vyprší po 3 dňoch bez použitia, najneskôr však po 30 dňoch. Nastavením na ∞ zostanú otvorené karty prihlásené."
+			"hint": "Odhlási zabudnutú otvorenú kartu po tomto čase bez aktivity, najviac po 4 hodinách. Nastavením na ∞ zostanú otvorené karty prihlásené. Nezávisle od tohto nastavenia každé prihlásenie samo vyprší po 3 dňoch bez použitia, najneskôr však po 30 dňoch."
 		},
 		"oidc": {
 			"title": "Jednotné prihlásenie (SSO)",

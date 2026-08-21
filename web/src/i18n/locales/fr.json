@@ -2276,7 +2276,7 @@
 		"sessionTimeout": {
 			"title": "Expiration de l'onglet",
 			"label": "Déconnecter un onglet inactif après",
-			"hint": "Déconnecte un onglet ouvert oublié après cette période d'inactivité. Les onglets fermés ne sont pas concernés : chaque connexion expire d'elle-même au bout de 3 jours sans utilisation, et au plus tard au bout de 30 jours. Réglez sur ∞ pour garder les onglets ouverts connectés."
+			"hint": "Déconnecte un onglet ouvert oublié après cette période d'inactivité, jusqu'à 4 heures au maximum. Réglez sur ∞ pour garder les onglets ouverts connectés. Indépendamment de ce réglage, chaque connexion expire d'elle-même au bout de 3 jours sans utilisation, et au plus tard au bout de 30 jours."
 		},
 		"oidc": {
 			"title": "Authentification unique (SSO)",

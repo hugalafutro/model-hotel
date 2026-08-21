@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Lap időkorlátja",
 			"label": "Tétlen lap kijelentkeztetése ennyi után",
-			"hint": "Ennyi tétlenség után kijelentkezteti az ottfelejtett nyitott lapot. A bezárt lapokat nem érinti: minden bejelentkezés magától lejár 3 nap használat nélkül, de legkésőbb 30 nap után. Állítsa ∞ értékre, hogy a nyitott lapok bejelentkezve maradjanak."
+			"hint": "Ennyi tétlenség után kijelentkezteti az ottfelejtett nyitott lapot, legfeljebb 4 óra után. Állítsa ∞ értékre, hogy a nyitott lapok bejelentkezve maradjanak. Ettől a beállítástól függetlenül minden bejelentkezés magától lejár 3 nap használat nélkül, de legkésőbb 30 nap után."
 		},
 		"oidc": {
 			"title": "Egyszeri bejelentkezés (SSO)",

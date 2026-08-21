@@ -2276,7 +2276,7 @@
 		"sessionTimeout": {
 			"title": "Limita de timp a filei",
 			"label": "Deconectează o filă inactivă după",
-			"hint": "Deconectează o filă deschisă și uitată după această perioadă fără activitate. Filele închise nu sunt afectate: fiecare autentificare expiră de la sine după 3 zile fără utilizare, și cel târziu după 30 de zile. Setați la ∞ pentru ca filele deschise să rămână conectate."
+			"hint": "Deconectează o filă deschisă și uitată după această perioadă fără activitate, cel mult 4 ore. Setați la ∞ pentru ca filele deschise să rămână conectate. Indiferent de această setare, fiecare autentificare expiră de la sine după 3 zile fără utilizare, și cel târziu după 30 de zile."
 		},
 		"oidc": {
 			"title": "Autentificare unică (SSO)",

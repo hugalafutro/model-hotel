@@ -2223,7 +2223,7 @@
 		"sessionTimeout": {
 			"title": "Tab-Timeout",
 			"label": "Inaktiven Tab abmelden nach",
-			"hint": "Meldet einen vergessenen offenen Tab nach dieser Zeit ohne Aktivität ab. Geschlossene Tabs sind nicht betroffen: Jede Anmeldung läuft von selbst nach 3 Tagen ohne Nutzung ab, spätestens aber nach 30 Tagen. Auf ∞ setzen, um offene Tabs angemeldet zu lassen."
+			"hint": "Meldet einen vergessenen offenen Tab nach dieser Zeit ohne Aktivität ab, höchstens nach 4 Stunden. Auf ∞ setzen, um offene Tabs angemeldet zu lassen. Unabhängig von dieser Einstellung läuft jede Anmeldung von selbst nach 3 Tagen ohne Nutzung ab, spätestens aber nach 30 Tagen."
 		},
 		"oidc": {
 			"title": "Single Sign-on (SSO)",
