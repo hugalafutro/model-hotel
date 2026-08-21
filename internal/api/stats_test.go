@@ -676,27 +676,34 @@ func TestNewStatsHandler_Constructor(t *testing.T) {
 }
 
 // TestOwnerFilterFragment covers the SQL-injection-defense hardening of the
-// owner scope fragment: empty scope stays unscoped, a valid UUID is inlined in
-// canonical form, and a non-empty-but-invalid id fails CLOSED to a no-match
-// fragment (never to unscoped, which would leak every owner's rows).
+// owner scope fragment: empty scope stays unscoped, a valid UUID rides a bound
+// placeholder (never string-interpolated SQL), and a non-empty-but-invalid id
+// fails CLOSED to a no-match fragment (never to unscoped, which would leak
+// every owner's rows).
 func TestOwnerFilterFragment(t *testing.T) {
-	if got := ownerFilterFragment(""); got != "" {
-		t.Errorf("empty owner should be unscoped, got %q", got)
+	if frag, args := ownerFilterFragment("", 2); frag != "" || len(args) != 0 {
+		t.Errorf("empty owner should be unscoped, got %q with args %v", frag, args)
 	}
 
-	id := uuid.New().String()
-	got := ownerFilterFragment(id)
-	if !strings.Contains(got, "'"+id+"'") {
-		t.Errorf("valid owner id not inlined: %q", got)
+	id := uuid.New()
+	frag, args := ownerFilterFragment(id.String(), 2)
+	if !strings.Contains(frag, "$2") {
+		t.Errorf("valid owner id must bind through the given placeholder, got %q", frag)
 	}
-	if strings.Contains(got, " AND 1=0") {
-		t.Errorf("valid owner id must not fail closed: %q", got)
+	if strings.Contains(frag, id.String()) {
+		t.Errorf("owner id must not be inlined into the SQL: %q", frag)
+	}
+	if strings.Contains(frag, " AND 1=0") {
+		t.Errorf("valid owner id must not fail closed: %q", frag)
+	}
+	if len(args) != 1 || args[0] != id {
+		t.Errorf("expected the parsed UUID as the single bind arg, got %v", args)
 	}
 
 	for _, bad := range []string{"' OR '1'='1", "not-a-uuid", "123"} {
-		got := ownerFilterFragment(bad)
-		if got != " AND 1=0" {
-			t.Errorf("invalid owner id %q must fail closed to no-match, got %q", bad, got)
+		frag, args := ownerFilterFragment(bad, 2)
+		if frag != " AND 1=0" || len(args) != 0 {
+			t.Errorf("invalid owner id %q must fail closed to no-match, got %q with args %v", bad, frag, args)
 		}
 	}
 }

@@ -240,6 +240,16 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Enforce the ceremony TTL at consume time: the hourly cleanup sweep is the
+	// only other thing that removes stale rows, and the go-webauthn library only
+	// checks SessionData.Expires when Timeouts.*.Enforce is configured — mirrors
+	// webauthn.SessionManager.ConsumeLoginState.
+	if sessionRec.ExpiresAt.Before(time.Now()) {
+		debuglog.Info("webauthn: registration session expired", "session_id", sessionID)
+		http.Error(w, "session expired", http.StatusBadRequest)
+		return
+	}
+
 	var session webauthnx.SessionData
 	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
 		debuglog.Error("webauthn: failed to unmarshal session data", "session_id", sessionID, "error", err)
@@ -373,6 +383,16 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
 		debuglog.Info("webauthn: login session already consumed", "session_id", sessionID, "error", err)
 		respondError(w, "session not found", err, http.StatusBadRequest)
+		return
+	}
+
+	// Enforce the ceremony TTL at consume time: the hourly cleanup sweep is the
+	// only other thing that removes stale rows, and the go-webauthn library only
+	// checks SessionData.Expires when Timeouts.*.Enforce is configured — mirrors
+	// webauthn.SessionManager.ConsumeLoginState.
+	if sessionRec.ExpiresAt.Before(time.Now()) {
+		debuglog.Info("webauthn: login session expired", "session_id", sessionID)
+		http.Error(w, "session expired", http.StatusBadRequest)
 		return
 	}
 

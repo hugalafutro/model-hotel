@@ -30,13 +30,13 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	since := now.Add(-24 * time.Hour)
 
 	// Fatal helpers must surface the error.
-	if err := handler.statTotals(ctx, newStats(), "", "", 24*time.Hour, since, now); err == nil {
+	if err := handler.statTotals(ctx, newStats(), "", "", nil, 24*time.Hour, since, now); err == nil {
 		t.Error("statTotals: expected error on cancelled context")
 	}
-	if err := handler.statByModel(ctx, newStats(), "", "", "requests", since); err == nil {
+	if err := handler.statByModel(ctx, newStats(), "", "", nil, "requests", since); err == nil {
 		t.Error("statByModel: expected error on cancelled context")
 	}
-	if err := handler.statByProvider(ctx, newStats(), "", "", "requests", since); err == nil {
+	if err := handler.statByProvider(ctx, newStats(), "", "", nil, "requests", since); err == nil {
 		t.Error("statByProvider: expected error on cancelled context")
 	}
 	if err := handler.statByVirtualKey(ctx, newStats(), "requests", since, false, ""); err == nil {
@@ -45,7 +45,7 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 
 	// Best-effort helpers must not panic and must leave their fields zeroed.
 	s := newStats()
-	handler.statScalars(ctx, s, "", "", since, now)
+	handler.statScalars(ctx, s, "", "", nil, since, now)
 	if s.AvgLatencyMs != 0 || s.ErrorRate != 0 || s.AvgOverheadMs != 0 ||
 		s.TotalTokensPrompt != 0 || s.TotalTokensCompletion != 0 || s.TotalTokensCacheHit != 0 ||
 		s.AvgTokensPerRequest != 0 || s.RateLimitHits != 0 || s.AvgTTFTMs != 0 || s.RequestsLast1h != 0 {
@@ -53,7 +53,7 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	}
 
 	s2 := newStats()
-	handler.statLatencyBreakdown(ctx, s2, "", "", since)
+	handler.statLatencyBreakdown(ctx, s2, "", "", nil, since)
 	if len(s2.ByProviderLatency) != 0 {
 		t.Errorf("statLatencyBreakdown on error: expected empty slice, got %d",
 			len(s2.ByProviderLatency))
@@ -82,7 +82,7 @@ func TestStats_StatTotals7DayPeriod(t *testing.T) {
 		ByVirtualKey: make(map[string]int64),
 	}
 
-	err := handler.statTotals(ctx, stats, "", "", 7*24*time.Hour, since, now)
+	err := handler.statTotals(ctx, stats, "", "", nil, 7*24*time.Hour, since, now)
 	if err != nil {
 		t.Fatalf("statTotals with 7-day period: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestStats_StatTotals7DayErrorPath(t *testing.T) {
 	now := time.Now().UTC()
 	since := now.Add(-7 * 24 * time.Hour)
 
-	if err := handler.statTotals(ctx, stats, "", "", 7*24*time.Hour, since, now); err == nil {
+	if err := handler.statTotals(ctx, stats, "", "", nil, 7*24*time.Hour, since, now); err == nil {
 		t.Error("statTotals with 7-day period: expected error on cancelled context")
 	}
 }

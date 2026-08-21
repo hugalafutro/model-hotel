@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // StatsHandler provides statistics and analytics API endpoints.
@@ -144,30 +145,29 @@ func vkScope(excludeDeleted bool) (join, filter string) {
 }
 
 // ownerFilterFragment returns a WHERE fragment restricting rows to traffic
-// belonging to ownerID, or "" when unscoped (empty ownerID). It matches the two
-// disjoint row shapes the same way appendLogFilters does: keyed rows through the
-// key's CURRENT owner (so reassigning a key moves its history), keyless rows
-// (dashboard chat/arena) through the request-time owner_user_id stamped on the
-// row itself; see migration 067. The id is inlined
-// as a literal because threading an extra bind arg through every stats query
-// would touch a dozen call sites, so this is the one place that must guarantee
-// the value can never carry SQL. Today the only caller feeds logOwnerScope,
-// which is already uuid.Parse-validated, but this function re-parses defensively
-// so a future caller cannot reintroduce an injection: a non-empty id that is not
-// a valid UUID fails CLOSED to a no-match fragment (" AND 1=0"), never to "" —
-// dropping the filter there would silently widen a scoped query to every owner's
-// rows, an authorization leak. The canonical uuid.String() form is inlined, so
-// only the 36-char hex/hyphen shape ever reaches the query.
-func ownerFilterFragment(ownerID string) string {
+// belonging to ownerID, plus the bind args it needs, or ("", nil) when unscoped
+// (empty ownerID). It matches the two disjoint row shapes the same way
+// appendLogFilters does: keyed rows through the key's CURRENT owner (so
+// reassigning a key moves its history), keyless rows (dashboard chat/arena)
+// through the request-time owner_user_id stamped on the row itself; see
+// migration 067. The id binds through the $argIdx placeholder, so the caller
+// must state how many args the consuming query already carries; every stats
+// query takes a single timestamp, hence argIdx 2 everywhere today. The parse
+// stays as defense in depth: a non-empty id that is not a valid UUID fails
+// CLOSED to a no-match fragment (" AND 1=0"), never to "" — dropping the
+// filter there would silently widen a scoped query to every owner's rows, an
+// authorization leak.
+func ownerFilterFragment(ownerID string, argIdx int) (string, []any) {
 	if ownerID == "" {
-		return ""
+		return "", nil
 	}
 	u, err := uuid.Parse(ownerID)
 	if err != nil {
-		return " AND 1=0"
+		return " AND 1=0", nil
 	}
-	return " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + u.String() + "')" +
-		" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = '" + u.String() + "'))"
+	ph := "$" + util.IntToStr(argIdx)
+	return " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = " + ph + ")" +
+		" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = " + ph + "))", []any{u}
 }
 
 // metricValueSelect returns the aggregate column expression (aliased "val") for
@@ -215,7 +215,7 @@ const modelKeySQL = `
 // statByModel fills stats.ByModel with the top-10 models by the requested
 // metric (Q2). A query failure is fatal (returned); a per-row scan error skips
 // the row, matching the original loop.
-func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
+func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, metric string, since time.Time) error {
 	query := `
 		SELECT
 			` + modelKeySQL + ` as model_id,
@@ -227,7 +227,7 @@ func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vk
 		ORDER BY val DESC
 		LIMIT 10`
 
-	rows, err := h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, append([]any{since}, filterArgs...)...)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
 		return err
@@ -247,7 +247,7 @@ func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vk
 
 // statByProvider fills stats.ByProvider with the top-10 providers by the
 // requested metric (Q3). Query failure fatal; per-row scan error skips the row.
-func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
+func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, metric string, since time.Time) error {
 	query := `
 		SELECT p.name, ` + metricValueSelect(metric) + `
 		FROM request_logs rl
@@ -257,7 +257,7 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 		ORDER BY val DESC
 		LIMIT 10`
 
-	rows, err := h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, append([]any{since}, filterArgs...)...)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
 		return err
@@ -281,16 +281,17 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 // virtual_key_name (Q4c). The main query failure is fatal; the two aggregates
 // are best-effort (logged via their nil-error guards, never abort).
 func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsResponse, metric string, since time.Time, excludeDeleted bool, ownerID string) error {
+	ownerFrag, ownerArgs := ownerFilterFragment(ownerID, 2)
 	virtualKeyQuery := `
 		SELECT vk.name, ` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE rl.created_at >= $1` + ownerFilterFragment(ownerID) + `
+		WHERE rl.created_at >= $1` + ownerFrag + `
 		GROUP BY vk.name
 		ORDER BY val DESC
 		LIMIT 10`
 
-	rows, err := h.dbPool.Query(ctx, virtualKeyQuery, since)
+	rows, err := h.dbPool.Query(ctx, virtualKeyQuery, append([]any{since}, ownerArgs...)...)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
 		return err
@@ -356,14 +357,16 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 // hits (Q10), avg TTFT (Q11), and the always-fresh requests-in-last-1h count.
 // Every query is best-effort: on error it logs and leaves the field(s) zeroed,
 // never aborting — matching the original inline behavior.
-func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since, now time.Time) {
+func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since, now time.Time) {
+	sinceArgs := append([]any{since}, filterArgs...)
+
 	// Query 5: Avg latency
 	query := `
 		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
-	err := h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
+	err := h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.AvgLatencyMs)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_latency", "error", err)
 		stats.AvgLatencyMs = 0
@@ -379,7 +382,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.ErrorRate)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.ErrorRate)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "error_rate", "error", err)
 		stats.ErrorRate = 0
@@ -391,7 +394,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.proxy_overhead_ms > 0` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgOverheadMs)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.AvgOverheadMs)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_overhead", "error", err)
 		stats.AvgOverheadMs = 0
@@ -403,7 +406,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion, &stats.TotalTokensCacheHit)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion, &stats.TotalTokensCacheHit)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "total_tokens", "error", err)
 		stats.TotalTokensPrompt = 0
@@ -420,7 +423,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTokensPerRequest)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.AvgTokensPerRequest)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_tokens_per_request", "error", err)
 		stats.AvgTokensPerRequest = 0
@@ -432,7 +435,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.RateLimitHits)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.RateLimitHits)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "rate_limit_hits", "error", err)
 		stats.RateLimitHits = 0
@@ -444,7 +447,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgTTFTMs)
+	err = h.dbPool.QueryRow(ctx, query, sinceArgs...).Scan(&stats.AvgTTFTMs)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_ttft", "error", err)
 		stats.AvgTTFTMs = 0
@@ -457,7 +460,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 	err = h.dbPool.QueryRow(ctx, `
 		SELECT COUNT(*) as count
 		FROM request_logs rl`+vkJoin+`
-		WHERE rl.created_at >= $1`+vkFilter, _1hAgo).Scan(&requests1h)
+		WHERE rl.created_at >= $1`+vkFilter, append([]any{_1hAgo}, filterArgs...)...).Scan(&requests1h)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "requests_last_1h", "error", err)
 		requests1h = 0
@@ -469,7 +472,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 // requested period plus the cross-fill of the other window (a 24h request also
 // fills the 7d total and vice-versa). A query failure here is fatal — returned
 // so calculateStats aborts.
-func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, period time.Duration, since, now time.Time) error {
+func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, period time.Duration, since, now time.Time) error {
 	switch period {
 	case 7 * 24 * time.Hour:
 		stats.TotalRequestsLast7d = 0
@@ -484,7 +487,7 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 		WHERE rl.created_at >= $1` + vkFilter
 
 	var count int
-	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
+	err := h.dbPool.QueryRow(ctx, query, append([]any{since}, filterArgs...)...).Scan(&count)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
 		return err
@@ -499,7 +502,7 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 
 	if period == 24*time.Hour {
 		_7dAgo := now.Add(-7 * 24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
+		err = h.dbPool.QueryRow(ctx, query, append([]any{_7dAgo}, filterArgs...)...).Scan(&count)
 		if err != nil {
 			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
 			return err
@@ -507,7 +510,7 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 		stats.TotalRequestsLast7d = count
 	} else {
 		_24hAgo := now.Add(-24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
+		err = h.dbPool.QueryRow(ctx, query, append([]any{_24hAgo}, filterArgs...)...).Scan(&count)
 		if err != nil {
 			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
 			return err
@@ -521,7 +524,7 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 // latency breakdown. Best-effort: a query failure logs and leaves the slice
 // empty; a per-row scan error skips the row. Only invoked when the caller
 // requested latency data.
-func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since time.Time) {
+func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {
 	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
 	query := `
 			WITH provider_latency AS (
@@ -542,7 +545,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
 			FROM provider_latency`
 
-	rows, err := h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, append([]any{since}, filterArgs...)...)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
 	} else {
@@ -567,22 +570,24 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	vkJoin, vkFilter := vkScope(excludeDeleted)
 	// Owner scope rides the same filter seam as the deleted-key toggle: for
 	// non-admins it is mandatory row-level security, for admins an optional
-	// dashboard filter.
-	vkFilter += ownerFilterFragment(ownerID)
+	// dashboard filter. Every consuming query binds $1 = timestamp, so the
+	// owner id rides $2.
+	ownerFrag, filterArgs := ownerFilterFragment(ownerID, 2)
+	vkFilter += ownerFrag
 
 	now := time.Now().UTC()
 	since := now.Add(-period)
 
 	// Query 1 + cross-fill: total request counts (fatal on error).
-	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, period, since, now); err != nil {
+	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, filterArgs, period, since, now); err != nil {
 		return nil, err
 	}
 
 	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
-	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, filterArgs, metric, since); err != nil {
 		return nil, err
 	}
-	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, filterArgs, metric, since); err != nil {
 		return nil, err
 	}
 	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted, ownerID); err != nil {
@@ -590,12 +595,12 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	// Queries 5–11 + requests-in-last-1h: scalar aggregates (best-effort).
-	h.statScalars(ctx, stats, vkJoin, vkFilter, since, now)
+	h.statScalars(ctx, stats, vkJoin, vkFilter, filterArgs, since, now)
 
 	// Queries 12–13: per-model / per-provider latency breakdown (best-effort,
 	// only when the caller requested latency data).
 	if includeLatency {
-		h.statLatencyBreakdown(ctx, stats, vkJoin, vkFilter, since)
+		h.statLatencyBreakdown(ctx, stats, vkJoin, vkFilter, filterArgs, since)
 	}
 
 	return stats, nil
@@ -613,7 +618,8 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
-	vkFilter += ownerFilterFragment(logOwnerScope(r))
+	ownerFrag, ownerArgs := ownerFilterFragment(logOwnerScope(r), 2)
+	vkFilter += ownerFrag
 
 	bucketSize := "5min"
 	expectedBuckets := 288
@@ -671,7 +677,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		ORDER BY 1`
 	}
 
-	rows, err := h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, append([]any{since}, ownerArgs...)...)
 	if err != nil {
 		respondError(w, "failed to query time series", err, http.StatusInternalServerError)
 		return
@@ -762,7 +768,8 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
-	vkFilter += ownerFilterFragment(logOwnerScope(r))
+	ownerFrag, ownerArgs := ownerFilterFragment(logOwnerScope(r), 2)
+	vkFilter += ownerFrag
 
 	var selectCol string
 	var havingClause string
@@ -782,7 +789,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		ORDER BY val DESC
 		LIMIT 5`
 
-	rows, err := h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, append([]any{since}, ownerArgs...)...)
 	if err != nil {
 		respondError(w, "failed to query provider distribution", err, http.StatusInternalServerError)
 		return

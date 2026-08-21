@@ -666,6 +666,36 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// logsSortDef resolves a user-supplied sort_by value to its ORDER BY
+// expressions, normalizing anything outside the whitelist to "time". Every
+// expression is a fixed compile-time constant; user input only ever selects a
+// map key, never reaches the SQL.
+func logsSortDef(sortBy string) (string, logSortDef) {
+	sortColumns := map[string]logSortDef{
+		"time":               {"", "rl.created_at"},
+		"model":              {"", "rl.model_id"},
+		"provider":           {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
+		"status":             {"", "rl.status_code"},
+		"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
+		"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
+		"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
+		"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
+		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
+		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
+		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
+	}
+	if _, ok := sortColumns[sortBy]; !ok {
+		sortBy = "time"
+	}
+	return sortBy, sortColumns[sortBy]
+}
+
+// logSortDef holds the tier and value ORDER BY expressions for one sort key.
+type logSortDef struct {
+	tierExpr  string
+	valueExpr string
+}
+
 // ListLogs returns paginated request logs with filtering and sorting.
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	page := max(util.GetIntQueryParam(r, "page", 1), 1)
@@ -681,31 +711,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
 	endpointType := r.URL.Query().Get("endpoint_type")
-	sortBy := r.URL.Query().Get("sort_by")
+	sortBy, sd := logsSortDef(r.URL.Query().Get("sort_by"))
 	sortDir := r.URL.Query().Get("sort_dir")
-
-	type sortDef struct {
-		tierExpr  string
-		valueExpr string
-	}
-
-	sortColumns := map[string]sortDef{
-		"time":               {"", "rl.created_at"},
-		"model":              {"", "rl.model_id"},
-		"provider":           {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
-		"status":             {"", "rl.status_code"},
-		"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
-		"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
-		"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
-		"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
-		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
-		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
-		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
-	}
-
-	if _, ok := sortColumns[sortBy]; !ok {
-		sortBy = "time"
-	}
 	if sortDir != "asc" && sortDir != "desc" {
 		sortDir = "desc"
 	}
@@ -725,7 +732,6 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	argIndex := 1
 	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
 
-	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {
 		orderClause += sd.tierExpr + " ASC, "
