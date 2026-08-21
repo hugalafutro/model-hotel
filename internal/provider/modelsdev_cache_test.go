@@ -886,7 +886,9 @@ func TestModelsDevCacheEnrichModel_Capabilities(t *testing.T) {
 		StructuredOutput: &structuredOutput,
 		Attachment:       true,
 		Modalities: ModelsDevModalities{
-			Input:  []string{"text"},
+			// An attachment claim only yields vision when the input modalities
+			// corroborate it; see TestModelsDevCacheEnrichModel_AttachmentWithoutMediaModality.
+			Input:  []string{"text", "image"},
 			Output: []string{"text"},
 		},
 		Cost:  ModelsDevCost{Input: 1, Output: 2},
@@ -924,6 +926,43 @@ func TestModelsDevCacheEnrichModel_Capabilities(t *testing.T) {
 	}
 	if !caps.Vision {
 		t.Error("expected vision capability to be set (from attachment)")
+	}
+}
+
+// TestModelsDevCacheEnrichModel_AttachmentWithoutMediaModality pins the rule
+// that an attachment flag alone does not make a model multimodal. models.dev
+// sets attachment on deepseek-chat and deepseek-reasoner while declaring their
+// only input modality as text, and DeepSeek answers an image on either with
+// HTTP 400 "This model does not support image" — so trusting attachment on its
+// own advertises a capability the provider refuses.
+func TestModelsDevCacheEnrichModel_AttachmentWithoutMediaModality(t *testing.T) {
+	spec := &ModelsDevModelSpec{
+		ID:         "text-only-model",
+		Name:       "Text Only Model",
+		Attachment: true,
+		Modalities: ModelsDevModalities{
+			Input:  []string{"text"},
+			Output: []string{"text"},
+		},
+		Cost:  ModelsDevCost{Input: 1, Output: 2},
+		Limit: ModelsDevLimit{Context: 100, Output: 50},
+	}
+
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{"text-only-model": spec}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	m := &model.Model{ModelID: "text-only-model", Capabilities: "{}", Modality: "text"}
+	cache.EnrichModel(m, "")
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+		t.Fatalf("unmarshal capabilities: %v", err)
+	}
+	if caps.Vision {
+		t.Error("attachment on a text-only model must not set vision")
 	}
 }
 

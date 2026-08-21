@@ -463,12 +463,27 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 		caps.StructuredOutput = true
 		merged = true
 	}
-	// Attachment → Vision mapping.
-	if spec.Attachment && !caps.Vision {
+	// Attachment → Vision mapping, corroborated by the declared input
+	// modalities. models.dev sets attachment on 109 models whose only input
+	// modality is text, including deepseek-chat and deepseek-reasoner, which
+	// answer an image with HTTP 400 "This model does not support image".
+	// Attachment alone therefore advertises vision the provider will refuse.
+	if spec.Attachment && hasMediaInput(spec.Modalities.Input) && !caps.Vision {
 		caps.Vision = true
 		merged = true
 	}
 	return merged
+}
+
+// hasMediaInput reports whether any declared input modality is something other
+// than text, which is what makes an attachment claim believable.
+func hasMediaInput(input []string) bool {
+	for _, mod := range input {
+		if mod != "" && mod != "text" {
+			return true
+		}
+	}
+	return false
 }
 
 // fillModalities marshals mods into *dst when *dst is currently empty,
