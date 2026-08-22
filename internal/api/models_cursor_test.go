@@ -1447,9 +1447,13 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 		pid, mid string
 		enabled  bool
 	}{{onID, "cpe-served", true}, {onID, "cpe-switched-off", false}, {offID, "cpe-parked", true}} {
+		caps := `{}`
+		if row.mid == "cpe-switched-off" {
+			caps = `{"vision": true}`
+		}
 		if _, err := pool.Exec(context.Background(),
-			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-			uuid.New(), row.pid, row.mid, row.mid, row.enabled); err != nil {
+			`INSERT INTO models (id, provider_id, model_id, name, enabled, capabilities) VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.New(), row.pid, row.mid, row.mid, row.enabled, caps); err != nil {
 			t.Fatalf("insert model: %v", err)
 		}
 	}
@@ -1460,11 +1464,17 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 		name, query  string
 		wantIDs      []string
 		wantEnabled  int
+		wantParked   int
 		wantProvider map[string]bool
 	}{
-		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
-		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, map[string]bool{"cpe-parked": false}},
-		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
+		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, 0, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
+		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
+		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
+		// The flag composes with the other filters: search narrows to one
+		// model and the scope decides whether it is visible at all.
+		{"served + search", "&provider_enabled=true&search=cpe-park", nil, 0, 0, nil},
+		{"parked + search", "&provider_enabled=false&search=cpe-park", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
+		{"served + capabilities", "&provider_enabled=true&capabilities=vision", []string{"cpe-switched-off"}, 0, 0, map[string]bool{"cpe-switched-off": true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_id="+both+tc.query, http.NoBody)
@@ -1484,6 +1494,9 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 			if resp.EnabledTotal != tc.wantEnabled {
 				t.Errorf("enabled_total: got %d, want %d", resp.EnabledTotal, tc.wantEnabled)
 			}
+			if resp.ParkedTotal != tc.wantParked {
+				t.Errorf("parked_total: got %d, want %d", resp.ParkedTotal, tc.wantParked)
+			}
 			if len(resp.Entries) != len(tc.wantIDs) {
 				t.Fatalf("entries: got %d, want %d", len(resp.Entries), len(tc.wantIDs))
 			}
@@ -1497,6 +1510,38 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("counts are filter-wide, not page-wide", func(t *testing.T) {
+		// Page 1 of 1 row, then the page after it: both carry the same totals,
+		// so the keyset predicate provably stays out of the count query.
+		get := func(path string) ModelsCursorResponse {
+			t.Helper()
+			req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			var resp ModelsCursorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			return resp
+		}
+		first := get("/models/cursor?limit=1&provider_id=" + both)
+		if !first.HasAfter || len(first.Entries) != 1 {
+			t.Fatalf("expected one row with more after it, got %d rows has_after=%v", len(first.Entries), first.HasAfter)
+		}
+		cursor := modelCursor{ID: first.Entries[0].ID, Name: first.Entries[0].Name, ModelID: first.Entries[0].ModelID, SortBy: "name"}
+		second := get("/models/cursor?limit=1&provider_id=" + both + "&cursor=" + url.QueryEscape(cursor.encode()))
+		if second.Total != 3 || second.EnabledTotal != 1 || second.ParkedTotal != 1 {
+			t.Errorf("page 2 counts = %d/%d/%d, want 3/1/1", second.Total, second.EnabledTotal, second.ParkedTotal)
+		}
+		if first.Total != second.Total || first.EnabledTotal != second.EnabledTotal || first.ParkedTotal != second.ParkedTotal {
+			t.Errorf("counts drift between pages: %+v vs %+v", first, second)
+		}
+	})
 
 	t.Run("rejects garbage", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_enabled=maybe", http.NoBody)

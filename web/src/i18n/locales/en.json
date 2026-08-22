@@ -969,7 +969,6 @@
 		"page_title_one": "Model",
 		"page_title_other": "Models",
 		"page_description": "Discovered models from your providers",
-		"badge_enabled": "{{count}} enabled",
 		"badge_disabled": "{{count}} disabled",
 		"view_mode_pages": "⬡ Pages",
 		"view_mode_scroll": "⇊ Scroll",
@@ -1055,7 +1054,10 @@
 		},
 		"scope_active": "Active providers",
 		"scope_disabled": "Disabled providers",
-		"scope_all": "All providers"
+		"scope_all": "All providers",
+		"badge_parked": "{{count}} parked",
+		"status_parked": "Parked",
+		"status_parked_hint": "The provider is disabled; this model stays listed but is not served until the provider is enabled again."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revert to discovered value",

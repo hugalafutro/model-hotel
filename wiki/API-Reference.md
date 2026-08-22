@@ -470,8 +470,8 @@ Refreshes quota/balance information for all providers that support it.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/models` | GET | List all models (optional `?provider_id=` and `?provider_enabled=true|false` filters; the latter scopes to rows whose provider is enabled, i.e. what `/v1/models` advertises) |
-| `/api/models/cursor` | GET | Cursor-paginated model listing (keyset pagination for large catalogs; accepts the same `provider_enabled` filter) |
+| `/api/models` | GET | List all models (optional `?provider_id=` and `?provider_enabled=true\|false` filters; the latter scopes to rows whose provider is enabled, i.e. what `/v1/models` advertises) |
+| `/api/models/cursor` | GET | Cursor-paginated model listing (keyset pagination for large catalogs; accepts the same `provider_enabled` filter and reports filter-wide `total`, `enabled_total` and `parked_total`) |
 | `/api/models/{id}` | PATCH | Update model (enable/disable, edit metadata) |
 | `/api/models/{id}` | DELETE | Delete model permanently |
 | `/api/models/{id}/test` | POST | Test a model by sending a minimal prompt |
@@ -483,6 +483,7 @@ Refreshes quota/balance information for all providers that support it.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `provider_id` | UUID | Filter by provider UUID |
+| `provider_enabled` | `true` / `false` | Filter on the owning provider's enabled flag. `true` returns the rows the proxy can list on `/v1/models` (subject to the model's own `enabled`); `false` returns rows parked under a disabled provider. Any other value is a `400`. Omit for both. |
 
 **Response:**
 ```json
@@ -494,6 +495,7 @@ Refreshes quota/balance information for all providers that support it.
     "display_name": "GPT-4o",
     "provider_id": "uuid",
     "provider_name": "OpenAI",
+    "provider_enabled": true,
     "capabilities": "{\"streaming\":true,\"vision\":true,\"reasoning\":false,\"audio_input\":false}",
     "context_length": 128000,
     "max_output_tokens": 16384,

@@ -129,10 +129,13 @@ type ModelsCursorResponse struct {
 	// subset the proxy can serve (model enabled AND provider enabled), the same
 	// rule /v1/models applies, so the page title can report usable models even
 	// though only one page of rows is loaded.
-	Total        int  `json:"total"`
-	EnabledTotal int  `json:"enabled_total"`
-	HasBefore    bool `json:"has_before"`
-	HasAfter     bool `json:"has_after"`
+	Total        int `json:"total"`
+	EnabledTotal int `json:"enabled_total"`
+	// ParkedTotal counts rows whose provider is disabled: listed, kept, but not
+	// served until the provider is enabled again.
+	ParkedTotal int  `json:"parked_total"`
+	HasBefore   bool `json:"has_before"`
+	HasAfter    bool `json:"has_after"`
 }
 
 // RegisterModels mounts model management routes.
@@ -158,7 +161,7 @@ func (h *Handler) RegisterModels(r chi.Router) {
 
 // parseProviderEnabledParam reads the optional provider_enabled query value:
 // "" means no filter, "true"/"false" filter on the owning provider's enabled
-// flag, anything else is a 400. Shared by the list and cursor endpoints so both
+// flag (NULL counts as false, matching the proxy), anything else is a 400. Shared by the list and cursor endpoints so both
 // views of the Models page agree on what "available on the proxy" means.
 func parseProviderEnabledParam(w http.ResponseWriter, raw string) (*bool, bool) {
 	switch raw {

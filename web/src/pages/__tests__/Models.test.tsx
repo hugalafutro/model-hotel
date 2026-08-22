@@ -227,8 +227,9 @@ describe("Models", () => {
 			// A parked row is listed but not usable: no count in the title, the
 			// badge says why.
 			await waitFor(() => {
-				expect(screen.getByText("1 disabled")).toBeInTheDocument();
+				expect(screen.getByText("1 parked")).toBeInTheDocument();
 			});
+			expect(screen.queryByText(/\d+ disabled/)).not.toBeInTheDocument();
 			expect(
 				screen.getByRole("heading", { name: "Models" }),
 			).toBeInTheDocument();
@@ -245,7 +246,7 @@ describe("Models", () => {
 			});
 			expect(requested).toContain("none");
 			expect(screen.getByText("1 Model")).toBeInTheDocument();
-			expect(screen.getByText("1 disabled")).toBeInTheDocument();
+			expect(screen.getByText("1 parked")).toBeInTheDocument();
 		});
 
 		it("titles scroll mode with the server's usable count, not the row total", async () => {
@@ -256,6 +257,7 @@ describe("Models", () => {
 						entries: [],
 						total: 1000,
 						enabled_total: 950,
+						parked_total: 30,
 						has_before: false,
 						has_after: false,
 					});
@@ -270,7 +272,9 @@ describe("Models", () => {
 			await waitFor(() => {
 				expect(screen.getByText("950 Models")).toBeInTheDocument();
 			});
-			expect(screen.getByText("50 disabled")).toBeInTheDocument();
+			// 1000 rows = 950 usable + 20 switched off + 30 parked.
+			expect(screen.getByText("20 disabled")).toBeInTheDocument();
+			expect(screen.getByText("30 parked")).toBeInTheDocument();
 		});
 
 		it("drops a picked provider that falls outside the new scope", async () => {

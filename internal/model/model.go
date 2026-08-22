@@ -244,7 +244,7 @@ func (r *Repository) ListFiltered(ctx context.Context, providerID *uuid.UUID, pr
 	}
 	if providerEnabled != nil {
 		args = append(args, *providerEnabled)
-		conditions = append(conditions, fmt.Sprintf("p.enabled = $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("COALESCE(p.enabled, false) = $%d", len(args)))
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")

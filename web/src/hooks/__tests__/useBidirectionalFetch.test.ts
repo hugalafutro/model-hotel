@@ -300,6 +300,58 @@ describe("useBidirectionalFetch", () => {
 			// Should have fresh entry, not stale one
 			expect(result.current.entries[0].id).toBe("fresh");
 		});
+
+		it("exposes only an accepted response as lastResponse, and none after a reset", async () => {
+			let resolveFirst: (value: typeof defaultResponse) => void;
+			const firstPromise = new Promise<typeof defaultResponse>((resolve) => {
+				resolveFirst = resolve;
+			});
+			const stale = { ...defaultResponse, total: 99 };
+			const fresh = {
+				entries: [{ id: "fresh", name: "fresh-item" }] as TestEntry[],
+				total: 1,
+				has_before: false,
+				has_after: false,
+			};
+			const mockFetchFn = vi
+				.fn()
+				.mockReturnValueOnce(firstPromise)
+				.mockResolvedValueOnce(fresh);
+
+			const { result, rerender } = renderHook(
+				({ filters }) =>
+					useBidirectionalFetch<TestEntry>({
+						fetchFn: mockFetchFn,
+						filters,
+						sortDir: "asc",
+						getCursor: (e) => e.id,
+						getId: (e) => e.id,
+					}),
+				{ initialProps: { filters: {} } },
+			);
+			expect(result.current.lastResponse).toBeNull();
+
+			await waitFor(() => {
+				expect(mockFetchFn).toHaveBeenCalledTimes(1);
+			});
+			rerender({ filters: { status: "new" } });
+			await waitFor(() => {
+				expect(mockFetchFn).toHaveBeenCalledTimes(2);
+			});
+			// The reset cleared whatever was there before the refetch.
+			expect(result.current.lastResponse).toBeNull();
+
+			act(() => {
+				resolveFirst?.(stale);
+			});
+			await waitFor(() => {
+				expect(result.current.entries[0]?.id).toBe("fresh");
+			});
+
+			// The stale reply's extras never landed; the accepted one did.
+			expect(result.current.lastResponse).toBe(fresh);
+			expect(result.current.lastResponse?.total).not.toBe(99);
+		});
 	});
 
 	describe("fetchNewer", () => {

@@ -969,7 +969,6 @@
 		"page_title_one": "Μοντέλο",
 		"page_title_other": "Μοντέλα",
 		"page_description": "Ανακαλύφθηκαν μοντέλα από τους παρόχους σας",
-		"badge_enabled": "{{count}} ενεργοποιημένο",
 		"badge_disabled": "{{count}} απενεργοποιημένα",
 		"view_mode_pages": "⬡ Σελίδες",
 		"view_mode_scroll": "⇊ Κύλιση",
@@ -1055,7 +1054,10 @@
 		},
 		"scope_active": "Ενεργοί πάροχοι",
 		"scope_disabled": "Απενεργοποιημένοι πάροχοι",
-		"scope_all": "Όλοι οι πάροχοι"
+		"scope_all": "Όλοι οι πάροχοι",
+		"badge_parked": "{{count}} σε αναμονή",
+		"status_parked": "Σε αναμονή",
+		"status_parked_hint": "Ο πάροχος είναι απενεργοποιημένος· το μοντέλο παραμένει στη λίστα αλλά δεν εξυπηρετείται μέχρι να ενεργοποιηθεί ξανά ο πάροχος."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Επαναφορά στην τιμή που ανακαλύφθηκε",

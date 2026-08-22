@@ -18,6 +18,18 @@ describe("ModelTable", () => {
 	};
 
 	describe("Rendering", () => {
+		it("shows a parked pill for a model whose provider is disabled", () => {
+			renderWithProviders(
+				<ModelTable
+					models={[{ ...mockModel, enabled: true, provider_enabled: false }]}
+					providers={[mockProvider]}
+				/>,
+			);
+
+			expect(screen.getByText("Parked")).toBeInTheDocument();
+			expect(screen.queryByText("Enabled")).not.toBeInTheDocument();
+		});
+
 		it("renders table headers", () => {
 			renderWithProviders(<ModelTable {...defaultProps} />);
 

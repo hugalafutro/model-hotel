@@ -969,7 +969,6 @@
 		"page_title_one": "Modell",
 		"page_title_other": "Modelle",
 		"page_description": "Entdeckte Modelle von Ihren Anbietern",
-		"badge_enabled": "{{count}} aktiviert",
 		"badge_disabled": "{{count}} deaktiviert",
 		"view_mode_pages": "⬡ Seiten",
 		"view_mode_scroll": "⇊ Scrollen",
@@ -1055,7 +1054,10 @@
 		},
 		"scope_active": "Aktive Anbieter",
 		"scope_disabled": "Deaktivierte Anbieter",
-		"scope_all": "Alle Anbieter"
+		"scope_all": "Alle Anbieter",
+		"badge_parked": "{{count}} geparkt",
+		"status_parked": "Geparkt",
+		"status_parked_hint": "Der Anbieter ist deaktiviert; dieses Modell bleibt gelistet, wird aber erst wieder bedient, wenn der Anbieter aktiviert wird."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	keepPreviousData,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot } from "@/lib/icons";
@@ -8,7 +13,10 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelTable } from "../components/ModelTable";
 import { PageHeader } from "../components/PageHeader";
-import { VirtualModelTable } from "../components/VirtualModelTable";
+import {
+	type ModelCounts,
+	VirtualModelTable,
+} from "../components/VirtualModelTable";
 import { useToast } from "../context/ToastContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
@@ -47,12 +55,9 @@ export function Models() {
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
 	// Scroll mode only has one page of rows, so the usable count comes from the
 	// server alongside the row total (see VirtualModelTable.onTotalChange).
-	const [scrollCounts, setScrollCounts] = useState<
-		{ total: number; enabled: number } | undefined
-	>(undefined);
-	const handleScrollTotal = useCallback((total: number, enabled: number) => {
-		setScrollCounts({ total, enabled });
-	}, []);
+	const [scrollCounts, setScrollCounts] = useState<ModelCounts | undefined>(
+		undefined,
+	);
 	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
 		"modelsViewMode",
 		"scroll",
@@ -62,6 +67,9 @@ export function Models() {
 		queryKey: ["models", { providerEnabled }],
 		queryFn: () => api.models.list(undefined, providerEnabled),
 		enabled: viewMode === "paginate",
+		// A scope change swaps the key; keep the old rows on screen instead of
+		// unmounting the header (and the dropdown just clicked) behind a spinner.
+		placeholderData: keepPreviousData,
 	});
 
 	const { data: allProviders } = useQuery({
@@ -232,25 +240,48 @@ export function Models() {
 
 	// The title answers "how many models can the proxy serve right now": a row
 	// counts only when the model AND its provider are enabled, the /v1/models
-	// rule. The badge carries the remainder so the rows in view still add up.
-	const usableCount =
+	// rule. The badge splits the remainder into rows switched off individually
+	// and rows parked under a disabled provider, so the rows in view add up and
+	// the two states stay distinguishable.
+	const counts: ModelCounts =
 		viewMode === "paginate"
-			? (models?.filter((m) => m.enabled && m.provider_enabled).length ?? 0)
-			: (scrollCounts?.enabled ?? 0);
-	const rowCount =
-		viewMode === "paginate"
-			? (models?.length ?? 0)
-			: (scrollCounts?.total ?? 0);
-	const disabledCount = rowCount - usableCount;
+			? {
+					total: models?.length ?? 0,
+					enabled:
+						models?.filter((m) => m.enabled && m.provider_enabled).length ?? 0,
+					parked: models?.filter((m) => !m.provider_enabled).length ?? 0,
+				}
+			: (scrollCounts ?? { total: 0, enabled: 0, parked: 0 });
+	const usableCount = counts.enabled;
+	const disabledCount = Math.max(
+		0,
+		counts.total - counts.enabled - counts.parked,
+	);
+	const parkedCount = counts.parked;
 
 	const modelBadge =
-		disabledCount > 0 ? (
+		disabledCount > 0 || parkedCount > 0 ? (
 			<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
-				<span className="text-red-400">
-					<span className="badge-text">
-						{t("models.badge_disabled", { count: disabledCount })}
+				{disabledCount > 0 && (
+					<span className="text-red-400">
+						<span className="badge-text">
+							{t("models.badge_disabled", { count: disabledCount })}
+						</span>
 					</span>
-				</span>
+				)}
+				{disabledCount > 0 && parkedCount > 0 && (
+					<span className="text-gray-600">/</span>
+				)}
+				{parkedCount > 0 && (
+					<span
+						className="text-gray-400"
+						title={t("models.status_parked_hint")}
+					>
+						<span className="badge-text">
+							{t("models.badge_parked", { count: parkedCount })}
+						</span>
+					</span>
+				)}
 			</span>
 		) : undefined;
 
@@ -312,7 +343,7 @@ export function Models() {
 					onModelClick={setDetailModel}
 					refreshTrigger={modelRefreshTrigger}
 					onDeleteDisabled={handleDeleteDisabled}
-					onTotalChange={handleScrollTotal}
+					onTotalChange={setScrollCounts}
 				/>
 			) : (
 				<ModelTable

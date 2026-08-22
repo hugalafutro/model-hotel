@@ -969,7 +969,6 @@
 		"page_title_one": "Malli",
 		"page_title_other": "Mallit",
 		"page_description": "Löydetty malleja palveluntarjoajilta",
-		"badge_enabled": "{{count}} käytössä",
 		"badge_disabled": "{{count}} pois käytöstä",
 		"view_mode_pages": "⬡ Sivut",
 		"view_mode_scroll": "⇊ Vieritä",
@@ -1055,7 +1054,10 @@
 		},
 		"scope_active": "Aktiiviset palveluntarjoajat",
 		"scope_disabled": "Poistetut palveluntarjoajat",
-		"scope_all": "Kaikki palveluntarjoajat"
+		"scope_all": "Kaikki palveluntarjoajat",
+		"badge_parked": "{{count}} pysäköity",
+		"status_parked": "Pysäköity",
+		"status_parked_hint": "Palveluntarjoaja on poistettu käytöstä; malli pysyy listalla, mutta sitä ei tarjoilla ennen kuin palveluntarjoaja otetaan taas käyttöön."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",

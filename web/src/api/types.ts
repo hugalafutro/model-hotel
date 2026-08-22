@@ -159,6 +159,8 @@ export interface ModelsCursorResponse {
 	total: number;
 	/** Rows the proxy can serve (model enabled AND provider enabled). */
 	enabled_total: number;
+	/** Rows parked under a disabled provider: listed, kept, not served. */
+	parked_total: number;
 	has_before: boolean;
 	has_after: boolean;
 }

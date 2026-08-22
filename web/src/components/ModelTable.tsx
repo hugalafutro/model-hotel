@@ -485,25 +485,36 @@ export function ModelTable({
 										</td>
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
-											<span
-												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "ui-badge-success" : model.enabled && model.disabled_manually ? "ui-badge-warning" : "ui-badge-error"}`}
-												{...(!model.enabled && !model.disabled_manually
-													? {
-															title: t("models.disabledByDiscovery", {
-																date: formatDate(model.last_seen_at),
-															}),
-															"data-testid": "disabled-by-discovery",
-														}
-													: {})}
-											>
-												<span className="badge-text">
-													{model.enabled && !model.disabled_manually
-														? t("common.enabled")
-														: model.enabled && model.disabled_manually
-															? t("common.manuallyDisabled")
-															: t("common.disabled")}
+											{!model.provider_enabled ? (
+												<span
+													className="ui-badge ui-badge-neutral px-2 py-px leading-[1.6] text-xs"
+													title={t("models.status_parked_hint")}
+												>
+													<span className="badge-text">
+														{t("models.status_parked")}
+													</span>
 												</span>
-											</span>
+											) : (
+												<span
+													className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "ui-badge-success" : model.enabled && model.disabled_manually ? "ui-badge-warning" : "ui-badge-error"}`}
+													{...(!model.enabled && !model.disabled_manually
+														? {
+																title: t("models.disabledByDiscovery", {
+																	date: formatDate(model.last_seen_at),
+																}),
+																"data-testid": "disabled-by-discovery",
+															}
+														: {})}
+												>
+													<span className="badge-text">
+														{model.enabled && !model.disabled_manually
+															? t("common.enabled")
+															: model.enabled && model.disabled_manually
+																? t("common.manuallyDisabled")
+																: t("common.disabled")}
+													</span>
+												</span>
+											)}
 										</td>
 									</Row>
 								);

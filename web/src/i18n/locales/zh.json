@@ -969,7 +969,6 @@
 		"page_title_one": "模型",
 		"page_title_other": "模型",
 		"page_description": "从您的提供商发现模型",
-		"badge_enabled": "{{count}} 已启用",
 		"badge_disabled": "{{count}} 已禁用",
 		"view_mode_pages": "⬡ 页面",
 		"view_mode_scroll": "⇊ 滚动",
@@ -1055,7 +1054,10 @@
 		},
 		"scope_active": "已启用的提供商",
 		"scope_disabled": "已禁用的提供商",
-		"scope_all": "所有提供商"
+		"scope_all": "所有提供商",
+		"badge_parked": "{{count}} 个已搁置",
+		"status_parked": "已搁置",
+		"status_parked_hint": "提供商已禁用；此模型仍在列表中，但在提供商重新启用之前不会提供服务。"
 	},
 	"model": {
 		"revertToDiscoveredValue": "恢复到发现的值",

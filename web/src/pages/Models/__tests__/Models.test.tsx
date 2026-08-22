@@ -112,6 +112,7 @@ describe("Models", () => {
 						entries: [mockModel],
 						total: 42,
 						enabled_total: 42,
+						parked_total: 0,
 						has_before: false,
 						has_after: false,
 					},
