@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -458,9 +460,12 @@ func TestScanProviderUnreachable(t *testing.T) {
 
 	svc := provider.NewDiscoveryService(deps.dialer.DialContext, deps.dialer.CheckRedirect)
 	var result DiscoveryResult
-	changed := scanProvider(ctx, deps, svc, p, "test", &result)
+	changed, ok := scanProvider(ctx, deps, svc, p, "test", &result)
 	if changed {
 		t.Error("expected no change row for a failed scan")
+	}
+	if ok {
+		t.Error("expected a failed scan to report not-ok, which is what keeps its retired rows out of the prune")
 	}
 	if result.ProvidersFailed != 1 || len(result.Errors) != 1 {
 		t.Errorf("expected a recorded failure, got %+v", result)
@@ -533,4 +538,158 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 			t.Errorf("expected success severity, got %q", ev.Severity)
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Retired-row prune
+// ---------------------------------------------------------------------------
+
+// newListingServer answers GET /models with the given ids, the minimal
+// OpenAI-compatible listing discovery accepts.
+func newListingServer(t *testing.T, ids ...string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" && r.URL.Path != "/v1/models" {
+			http.NotFound(w, r)
+			return
+		}
+		type item struct {
+			ID     string `json:"id"`
+			Object string `json:"object"`
+		}
+		items := make([]item, 0, len(ids))
+		for _, id := range ids {
+			items = append(items, item{ID: id, Object: "model"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": items})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// createTestProvider creates an enabled keyless provider whose OpenAI-compatible
+// base URL is baseURL + "/v1", and returns its id.
+func createTestProvider(t *testing.T, deps discoveryDeps, name, baseURL string) uuid.UUID {
+	t.Helper()
+	p, err := deps.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    name,
+		BaseURL: baseURL + "/v1",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider %s: %v", name, err)
+	}
+	return p.ID
+}
+
+// seedRetiredRow inserts a discovery-retired model row last seen `age` ago.
+func seedRetiredRow(t *testing.T, providerID uuid.UUID, modelID string, age time.Duration) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	if _, err := cmdTestDB.Pool().Exec(context.Background(), `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, disabled_manually, last_seen_at)
+		VALUES ($1, $2, $3, $3, false, false, now() - $4::interval)`,
+		id, providerID, modelID, age.String()); err != nil {
+		t.Fatalf("seed retired row %s: %v", modelID, err)
+	}
+	return id
+}
+
+func modelExists(t *testing.T, id uuid.UUID) bool {
+	t.Helper()
+	var n int
+	if err := cmdTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM models WHERE id = $1`, id).Scan(&n); err != nil {
+		t.Fatalf("exists: %v", err)
+	}
+	return n == 1
+}
+
+// TestRunDiscoveryPrunesRetiredModels pins the happy path and the horizon: a
+// successfully scanned provider's retired rows older than model_prune_days go,
+// younger ones stay, and the result reports the count.
+func TestRunDiscoveryPrunesRetiredModels(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	srv := newListingServer(t, "alive")
+	prov := createTestProvider(t, deps, "prune-ok", srv.URL)
+	old := seedRetiredRow(t, prov, "dead-old", 40*24*time.Hour)
+	young := seedRetiredRow(t, prov, "dead-young", 10*24*time.Hour)
+	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+
+	result := runDiscovery(deps, "test")
+
+	if result.ModelsPruned != 1 {
+		t.Errorf("ModelsPruned = %d, want 1 (errors: %v)", result.ModelsPruned, result.Errors)
+	}
+	if modelExists(t, old) {
+		t.Error("dead-old survived: retired 40 days ago with a 30 day horizon")
+	}
+	if !modelExists(t, young) {
+		t.Error("dead-young was pruned: retired 10 days ago with a 30 day horizon")
+	}
+}
+
+// TestRunDiscoveryPruneOffKeepsRows pins the off switch.
+func TestRunDiscoveryPruneOffKeepsRows(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	srv := newListingServer(t, "alive")
+	prov := createTestProvider(t, deps, "prune-off", srv.URL)
+	old := seedRetiredRow(t, prov, "dead-old", 40*24*time.Hour)
+	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "0"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+
+	result := runDiscovery(deps, "test")
+
+	if result.ModelsPruned != 0 || !modelExists(t, old) {
+		t.Errorf("prune ran with model_prune_days=0: pruned=%d exists=%v", result.ModelsPruned, modelExists(t, old))
+	}
+}
+
+// TestRunDiscoveryPruneSkipsFailedProvider pins the scope guard: a provider
+// whose scan failed this pass keeps every retired row, however old.
+func TestRunDiscoveryPruneSkipsFailedProvider(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	okSrv := newListingServer(t, "alive")
+	okProv := createTestProvider(t, deps, "prune-scan-ok", okSrv.URL)
+	badProv := createTestProvider(t, deps, "prune-scan-bad", "http://127.0.0.1:1") // nothing listens on port 1
+	okOld := seedRetiredRow(t, okProv, "ok-dead", 40*24*time.Hour)
+	badOld := seedRetiredRow(t, badProv, "bad-dead", 40*24*time.Hour)
+	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+
+	result := runDiscovery(deps, "test")
+
+	if result.ProvidersFailed != 1 {
+		t.Fatalf("ProvidersFailed = %d, want 1 (the test needs one failing scan)", result.ProvidersFailed)
+	}
+	if modelExists(t, okOld) {
+		t.Error("ok-dead survived although its provider scanned fine")
+	}
+	if !modelExists(t, badOld) {
+		t.Error("bad-dead was pruned although its provider's scan failed this pass")
+	}
+	if result.ModelsPruned != 1 {
+		t.Errorf("ModelsPruned = %d, want 1", result.ModelsPruned)
+	}
 }
