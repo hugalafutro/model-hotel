@@ -766,3 +766,53 @@ func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordMissingModelsUntrustedWhenSuspect pins the verdict the prune's
+// scope guard consumes: a scan whose confirmation probe cannot run reports
+// trusted=false, so scanProvider withholds that provider from pruning. A
+// cancelled context makes the probe's wait fail at once, which is the cheapest
+// way to reach the suspect branch without the real probe delays.
+func TestRecordMissingModelsUntrustedWhenSuspect(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	srv := newListingServer(t, "alive")
+	provID := createTestProvider(t, deps, "miss-suspect", srv.URL)
+	p, err := deps.providerRepo.Get(ctx, provID)
+	if err != nil {
+		t.Fatalf("get provider: %v", err)
+	}
+	// An enabled row the (empty) listing below no longer names: one absentee,
+	// so the probe loop runs and immediately hits the cancelled context.
+	if _, err := deps.pool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled)
+		VALUES ($1, $2, 'was-here', 'was-here', true)`, uuid.New(), provID); err != nil {
+		t.Fatalf("seed enabled row: %v", err)
+	}
+	snapshot, err := api.SnapshotProviderModels(ctx, deps.modelRepo, provID)
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	svc := provider.NewDiscoveryService(deps.dialer.DialContext, deps.dialer.CheckRedirect)
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	disabled, trusted := recordMissingModels(cancelled, deps, svc, p, nil, snapshot)
+
+	if trusted {
+		t.Error("a suspect scan reported trusted=true")
+	}
+	if len(disabled) != 0 {
+		t.Errorf("a suspect scan disabled %d models, want 0", len(disabled))
+	}
+	var enabled bool
+	if err := deps.pool.QueryRow(ctx, `SELECT enabled FROM models WHERE provider_id = $1 AND model_id = 'was-here'`, provID).Scan(&enabled); err != nil {
+		t.Fatalf("read row: %v", err)
+	}
+	if !enabled {
+		t.Error("a suspect scan must not record a miss")
+	}
+}

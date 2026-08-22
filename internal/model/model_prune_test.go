@@ -89,9 +89,12 @@ func TestPruneRetired(t *testing.T) {
 		}
 	}
 
-	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour),
+	// The flapped row's evidence is a membership transition in the change
+	// journal inside the window, exactly what the claims modal counts.
+	insertJournalTransition(ctx, t, onProvider, "prune-flapped", time.Now().Add(-time.Hour))
+
+	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour),
 		[]uuid.UUID{onProvider, offProvider, nullFlagProvider},
-		map[ProviderModelKey]bool{{ProviderID: onProvider, ModelID: "prune-flapped"}: true},
 		500)
 	if err != nil {
 		t.Fatalf("PruneRetired: %v", err)
@@ -138,7 +141,7 @@ func TestPruneRetired_CapAndOrder(t *testing.T) {
 			t.Fatalf("insert: %v", err)
 		}
 	}
-	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, nil, 2)
+	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, 2)
 	if err != nil {
 		t.Fatalf("PruneRetired: %v", err)
 	}
@@ -164,7 +167,7 @@ func TestPruneRetired_NoProvidersNoop(t *testing.T) {
 		VALUES ($1, $2, 'prune-noop', 'prune-noop', false, false, now() - interval '40 days')`, uuid.New(), prov); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
-	pruned, err := repo.PruneRetired(ctx, time.Now(), nil, nil, 500)
+	pruned, err := repo.PruneRetired(ctx, time.Now(), time.Now(), nil, 500)
 	if err != nil {
 		t.Fatalf("PruneRetired: %v", err)
 	}
@@ -217,7 +220,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 		aliveID := insertPrunableModel(ctx, t, prov, "prune-recon-alive")
 		goneID := insertPrunableModel(ctx, t, prov, "prune-recon-gone")
 
-		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, nil, 500)
+		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, 500)
 		if err != nil {
 			t.Fatalf("selectPruneCandidates: %v", err)
 		}
@@ -231,7 +234,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 			t.Fatalf("revive row: %v", err)
 		}
 
-		pruned, err := repo.deletePruneCandidates(ctx, candidates)
+		pruned, err := repo.deletePruneCandidates(ctx, candidates, time.Now().Add(-30*24*time.Hour))
 		if err != nil {
 			t.Fatalf("deletePruneCandidates: %v", err)
 		}
@@ -253,7 +256,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 		id1 := insertPrunableModel(ctx, t, prov, "prune-recon-b1")
 		id2 := insertPrunableModel(ctx, t, prov, "prune-recon-b2")
 
-		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, nil, 500)
+		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, 500)
 		if err != nil {
 			t.Fatalf("selectPruneCandidates: %v", err)
 		}
@@ -267,7 +270,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 			t.Fatalf("disable provider: %v", err)
 		}
 
-		pruned, err := repo.deletePruneCandidates(ctx, candidates)
+		pruned, err := repo.deletePruneCandidates(ctx, candidates, time.Now().Add(-30*24*time.Hour))
 		if err != nil {
 			t.Fatalf("deletePruneCandidates: %v", err)
 		}
@@ -295,22 +298,70 @@ func TestPruneRetired_QueryErrorsSurface(t *testing.T) {
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
 
-	if _, err := repo.selectPruneCandidates(cancelled, time.Now(), []uuid.UUID{prov}, nil, 10); err == nil {
+	if _, err := repo.selectPruneCandidates(cancelled, time.Now(), time.Now(), []uuid.UUID{prov}, 10); err == nil {
 		t.Error("selectPruneCandidates: cancelled context returned no error")
 	}
-	if _, err := repo.PruneRetired(cancelled, time.Now(), []uuid.UUID{prov}, nil, 10); err == nil {
+	if _, err := repo.PruneRetired(cancelled, time.Now(), time.Now(), []uuid.UUID{prov}, 10); err == nil {
 		t.Error("PruneRetired: cancelled context returned no error")
 	}
-	if _, err := repo.deletePruneCandidates(cancelled, candidates); err == nil {
+	if _, err := repo.deletePruneCandidates(cancelled, candidates, time.Now()); err == nil {
 		t.Error("deletePruneCandidates: cancelled context returned no error")
 	}
 	if _, err := repo.aliveModelIDs(cancelled, []uuid.UUID{id}); err == nil {
 		t.Error("aliveModelIDs: cancelled context returned no error")
 	}
-	if got, err := repo.deletePruneCandidates(ctx, nil); err != nil || got != nil {
+	if got, err := repo.deletePruneCandidates(ctx, nil, time.Now()); err != nil || got != nil {
 		t.Errorf("deletePruneCandidates(nil) = %v, %v; want nil, nil", got, err)
 	}
 	if !modelExists(ctx, t, id) {
 		t.Error("a refused query must not delete the row")
+	}
+}
+
+// insertJournalTransition records one membership transition for (provider,
+// model) in the discovery change journal at the given time: the raw evidence
+// behind "this model flapped".
+func insertJournalTransition(ctx context.Context, t *testing.T, providerID uuid.UUID, modelID string, at time.Time) {
+	t.Helper()
+	if _, err := testPool.Exec(ctx, `
+		INSERT INTO discovery_changes (detected_at, source, provider_id, provider_name, diff, seen)
+		VALUES ($1, 'test', $2, 'test', jsonb_build_object('disabled', jsonb_build_array(jsonb_build_object('model_id', $3::text))), true)`,
+		at, providerID, modelID); err != nil {
+		t.Fatalf("insert journal transition for %s: %v", modelID, err)
+	}
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM discovery_changes WHERE provider_id = $1`, providerID)
+	})
+}
+
+// TestPruneRetired_FlapLandingMidFlightKeepsRow pins that flap eligibility is
+// decided by the DELETE itself: a membership transition recorded after the
+// candidates were selected still saves the row, because the same journal
+// predicate runs inside the DELETE rather than against an earlier snapshot.
+func TestPruneRetired_FlapLandingMidFlightKeepsRow(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	prov := insertTestProvider(ctx, t, "prune-flap-race")
+	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
+	id := insertPrunableModel(ctx, t, prov, "prune-flap-race-row")
+	since := time.Now().Add(-30 * 24 * time.Hour)
+
+	candidates, err := repo.selectPruneCandidates(ctx, since, since, []uuid.UUID{prov}, 500)
+	if err != nil || len(candidates) != 1 {
+		t.Fatalf("selectPruneCandidates = %v, %v; want the one row", candidates, err)
+	}
+
+	// A scan lands between select and delete and journals a transition.
+	insertJournalTransition(ctx, t, prov, "prune-flap-race-row", time.Now())
+
+	pruned, err := repo.deletePruneCandidates(ctx, candidates, since)
+	if err != nil {
+		t.Fatalf("deletePruneCandidates: %v", err)
+	}
+	if len(pruned) != 0 {
+		t.Errorf("pruned %v, want nothing: the row flapped after selection", pruned)
+	}
+	if !modelExists(ctx, t, id) {
+		t.Error("the row was deleted although a transition landed before the DELETE")
 	}
 }

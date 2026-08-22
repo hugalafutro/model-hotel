@@ -692,13 +692,6 @@ func (r *Repository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) (int64, e
 	return tag.RowsAffected(), nil
 }
 
-// ProviderModelKey identifies a model row by the pair that is stable across
-// members and re-discoveries.
-type ProviderModelKey struct {
-	ProviderID uuid.UUID
-	ModelID    string
-}
-
 // PrunedModel is what PruneRetired reports for each deleted row: enough for
 // the log line and the failover resync, nothing else.
 type PrunedModel struct {
@@ -712,8 +705,10 @@ type PrunedModel struct {
 // nothing else has a claim on, oldest first, at most limit of them. Only rows
 // of the given providers are considered: the caller passes the providers whose
 // scan just succeeded, so a provider that could not be reached this pass keeps
-// every row. flapped excludes models the change journal saw come and go
-// within the claims window; those are broken, not retired.
+// every row. A model the change journal saw come or go since flapSince is
+// excluded, inside the same statements that select and delete, so a transition
+// that lands while the prune runs still keeps its row; those rows are
+// flapping, not retired.
 //
 // Kept, always: rows the operator switched off (disabled_manually), pinned on
 // (manually_enabled_at), rows the proxy retired from traffic (auto_retired_at,
@@ -723,13 +718,32 @@ type PrunedModel struct {
 // retirement, it does not undo it.
 //
 // The model cache is invalidated only when something was deleted.
-func (r *Repository) PruneRetired(ctx context.Context, horizon time.Time, providerIDs []uuid.UUID, flapped map[ProviderModelKey]bool, limit int) ([]PrunedModel, error) {
-	candidates, err := r.selectPruneCandidates(ctx, horizon, providerIDs, flapped, limit)
+func (r *Repository) PruneRetired(ctx context.Context, horizon, flapSince time.Time, providerIDs []uuid.UUID, limit int) ([]PrunedModel, error) {
+	candidates, err := r.selectPruneCandidates(ctx, horizon, flapSince, providerIDs, limit)
 	if err != nil || len(candidates) == 0 {
 		return nil, err
 	}
-	return r.deletePruneCandidates(ctx, candidates)
+	return r.deletePruneCandidates(ctx, candidates, flapSince)
 }
+
+// notFlappedSince is the SQL predicate shared by the prune's SELECT and
+// DELETE: the row's (provider, model) pair has no membership transition in
+// the discovery change journal since the bound parameter. It reads the same
+// journal buckets api.flapCounts does (added, reenabled, disabled; a metadata
+// update is not a flap), so the prune and the claims modal agree on what
+// flapping means. Applied in the DELETE as well as the SELECT so eligibility
+// is decided by the statement that deletes, not by an earlier snapshot.
+const notFlappedSince = `NOT EXISTS (
+		SELECT 1
+		  FROM discovery_changes dc
+		  CROSS JOIN LATERAL jsonb_array_elements(
+		           COALESCE(dc.diff->'added',     '[]'::jsonb) ||
+		           COALESCE(dc.diff->'reenabled', '[]'::jsonb) ||
+		           COALESCE(dc.diff->'disabled',  '[]'::jsonb)
+		       ) AS e
+		 WHERE dc.provider_id = m.provider_id
+		   AND dc.detected_at >= %s
+		   AND e->>'model_id' = m.model_id)`
 
 // selectPruneCandidates finds rows that discovery retired before horizon and
 // that nothing else has a claim on, oldest first, at most limit of them. Only
@@ -744,7 +758,7 @@ func (r *Repository) PruneRetired(ctx context.Context, horizon time.Time, provid
 // with their pins, prices and failover memberships for a re-enable). A
 // dismissed claim is not a reason to keep a row: dismissal acknowledges the
 // retirement, it does not undo it.
-func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Time, providerIDs []uuid.UUID, flapped map[ProviderModelKey]bool, limit int) ([]PrunedModel, error) {
+func (r *Repository) selectPruneCandidates(ctx context.Context, horizon, flapSince time.Time, providerIDs []uuid.UUID, limit int) ([]PrunedModel, error) {
 	if len(providerIDs) == 0 || limit <= 0 {
 		return nil, nil
 	}
@@ -759,29 +773,14 @@ func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Tim
 		   AND m.manually_enabled_at IS NULL
 		   AND m.auto_retired_at IS NULL
 		   AND COALESCE(m.last_seen_at, m.created_at) < $2
-		 ORDER BY COALESCE(m.last_seen_at, m.created_at) ASC, m.id ASC`,
-		providerIDs, horizon)
+		   AND `+fmt.Sprintf(notFlappedSince, "$3")+`
+		 ORDER BY COALESCE(m.last_seen_at, m.created_at) ASC, m.id ASC
+		 LIMIT $4`,
+		providerIDs, horizon, flapSince, limit)
 	if err != nil {
 		return nil, err
 	}
-	eligible, err := pgx.CollectRows(rows, pgx.RowToStructByPos[PrunedModel])
-	if err != nil {
-		return nil, err
-	}
-
-	// The flap filter runs here rather than in SQL (the journal is keyed by
-	// text ids and JSON buckets), oldest first, stopping at the cap.
-	var candidates []PrunedModel
-	for _, c := range eligible {
-		if flapped[ProviderModelKey{ProviderID: c.ProviderID, ModelID: c.ModelID}] {
-			continue
-		}
-		candidates = append(candidates, c)
-		if len(candidates) == limit {
-			break
-		}
-	}
-	return candidates, nil
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[PrunedModel])
 }
 
 // deletePruneCandidates deletes exactly the candidates that are still
@@ -790,7 +789,7 @@ func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Tim
 // DELETE: a scan or an operator action landing between the SELECT that built
 // candidates and this call can re-enable a row or its provider, and that row
 // must stay. The model cache is invalidated only when something was deleted.
-func (r *Repository) deletePruneCandidates(ctx context.Context, candidates []PrunedModel) ([]PrunedModel, error) {
+func (r *Repository) deletePruneCandidates(ctx context.Context, candidates []PrunedModel, flapSince time.Time) ([]PrunedModel, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
@@ -807,7 +806,8 @@ func (r *Repository) deletePruneCandidates(ctx context.Context, candidates []Pru
 		   AND m.disabled_manually = false
 		   AND m.manually_enabled_at IS NULL
 		   AND m.auto_retired_at IS NULL
-		   AND COALESCE(p.enabled, false) = true`, ids)
+		   AND COALESCE(p.enabled, false) = true
+		   AND `+fmt.Sprintf(notFlappedSince, "$2"), ids, flapSince)
 	if err != nil {
 		return nil, err
 	}
