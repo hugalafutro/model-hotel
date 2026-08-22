@@ -1717,7 +1717,7 @@
 			"manualGroup": "Manuell",
 			"lastRun": "Zuletzt ausgeführt",
 			"pruneRetired": "Nicht mehr geführte Modelle entfernen nach",
-			"pruneRetired.description": "Löscht Modelle, die der Anbieter nicht mehr führt, sobald sie so viele Tage fehlen. Von Hand deaktivierte oder aktivierte Modelle, wegen abgelehnter Anfragen ausgemusterte Modelle und Modelle deaktivierter Anbieter werden nie entfernt. 0 behält jede Zeile; das Minimum sind 30 Tage, das Fenster, in dem die Erkennung ein ausgemustertes Modell von einem schwankenden unterscheidet."
+			"pruneRetired.description": "Löscht ein Modell, sobald sein Anbieter es so viele Tage lang nicht mehr auflistet. Von Hand deaktivierte oder aktivierte Modelle, wegen abgelehnter Anfragen ausgemusterte Modelle und Modelle deaktivierter Anbieter bleiben erhalten. 0 löscht nie."
 		},
 		"dataStorage": {
 			"title": "Datenspeicher",

@@ -1809,7 +1809,7 @@
 			"manualGroup": "Ręczne",
 			"lastRun": "Ostatnie uruchomienie",
 			"pruneRetired": "Usuń niewymieniane modele po",
-			"pruneRetired.description": "Usuwa modele, których dostawca przestał wymieniać, gdy brakuje ich od tylu dni. Modele wyłączone lub włączone ręcznie, modele wycofane za odrzucanie żądań oraz modele wyłączonych dostawców nigdy nie są usuwane. Wartość 0 zachowuje każdy wiersz; minimum to 30 dni, czyli okno, w którym wykrywanie odróżnia model wycofany od migoczącego."
+			"pruneRetired.description": "Usuwa model, gdy jego dostawca od tylu dni nie ma go już na liście. Modele wyłączone lub włączone ręcznie, modele wycofane za odrzucanie żądań oraz modele wyłączonych dostawców są zachowywane. 0 nigdy nie usuwa."
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",

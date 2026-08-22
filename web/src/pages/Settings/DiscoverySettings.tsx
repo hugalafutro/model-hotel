@@ -209,17 +209,14 @@ export function DiscoverySettings({
 							label={t("settings.discovery.pruneRetired")}
 							value={modelPruneDays}
 							min={0}
-							max={365}
+							max={180}
 							step={1}
 							infinityValue={0}
 							unit="d"
 							disabled={isUpdating}
 							onChange={(v) => {
-								// 1..29 is below the backend's floor; snap to the
-								// nearest legal value so the save never 400s.
-								const days = v > 0 && v < 30 ? 30 : v;
 								updateMutation.mutate({
-									model_prune_days: String(days),
+									model_prune_days: String(v),
 								});
 							}}
 							description={t("settings.discovery.pruneRetired.description")}

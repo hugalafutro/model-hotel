@@ -150,9 +150,9 @@ describe("DiscoverySettings", () => {
 		});
 
 		expect(slider).toHaveAttribute("min", "0");
-		expect(slider).toHaveAttribute("max", "365");
+		expect(slider).toHaveAttribute("max", "180");
 		expect(slider).toHaveAttribute("step", "1");
-		expect(slider).toHaveValue("30");
+		expect(slider).toHaveValue("7");
 	});
 
 	it("saves model_prune_days as a whole-day string and 0 as off", async () => {
@@ -199,7 +199,7 @@ describe("DiscoverySettings", () => {
 		});
 	});
 
-	it("snaps a sub-floor prune value up to the backend's 30-day minimum", async () => {
+	it("saves a short prune horizon as-is, there is no floor above 0", async () => {
 		let capturedPayload: Record<string, string> | undefined;
 
 		server.use(
@@ -228,12 +228,11 @@ describe("DiscoverySettings", () => {
 			name: "Prune unlisted models after",
 		});
 
-		// 1..29 days is below the backend's floor and would be rejected with a 400.
 		fireEvent.change(slider, { target: { value: 3 } });
 		fireEvent.pointerUp(slider);
 
 		await waitFor(() => {
-			expect(capturedPayload).toEqual({ model_prune_days: "30" });
+			expect(capturedPayload).toEqual({ model_prune_days: "3" });
 		});
 	});
 

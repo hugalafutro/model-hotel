@@ -59,6 +59,7 @@ func TestPruneRetired(t *testing.T) {
 		{name: "prune-parked", provider: offProvider, lastSeen: old},
 		{name: "prune-too-recent", provider: onProvider, lastSeen: recent},
 		{name: "prune-flapped", provider: onProvider, lastSeen: old},
+		{name: "prune-retired-only", provider: onProvider, lastSeen: old},
 		{name: "prune-not-scanned", provider: otherProvider, lastSeen: old},
 		{name: "prune-null-provider-flag", provider: nullFlagProvider, lastSeen: old},
 		{name: "prune-null-last-seen", provider: onProvider, lastSeen: old, noLastSeen: true},
@@ -89,9 +90,12 @@ func TestPruneRetired(t *testing.T) {
 		}
 	}
 
-	// The flapped row's evidence is a membership transition in the change
-	// journal inside the window, exactly what the claims modal counts.
-	insertJournalTransition(ctx, t, onProvider, "prune-flapped", time.Now().Add(-time.Hour))
+	// The flapped row's evidence is a come-back (re-enable) in the change
+	// journal inside the window. The retired-only row carries just its own
+	// retirement entry, which every retired row has; that is not a flap, so
+	// the row is pruned like any other.
+	insertJournalTransition(ctx, t, onProvider, "prune-flapped", "reenabled", time.Now().Add(-time.Hour))
+	insertJournalTransition(ctx, t, onProvider, "prune-retired-only", "disabled", time.Now().Add(-time.Hour))
 
 	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour),
 		[]uuid.UUID{onProvider, offProvider, nullFlagProvider},
@@ -107,7 +111,7 @@ func TestPruneRetired(t *testing.T) {
 			t.Errorf("pruned ref %+v carries wrong provider/id", p)
 		}
 	}
-	want := map[string]bool{"prune-prunable": true, "prune-prunable-dismissed": true, "prune-null-last-seen": true}
+	want := map[string]bool{"prune-prunable": true, "prune-prunable-dismissed": true, "prune-null-last-seen": true, "prune-retired-only": true}
 	for _, r := range rows {
 		if got[r.name] != want[r.name] {
 			t.Errorf("%s: pruned=%v, want %v", r.name, got[r.name], want[r.name])
@@ -319,14 +323,16 @@ func TestPruneRetired_QueryErrorsSurface(t *testing.T) {
 }
 
 // insertJournalTransition records one membership transition for (provider,
-// model) in the discovery change journal at the given time: the raw evidence
-// behind "this model flapped".
-func insertJournalTransition(ctx context.Context, t *testing.T, providerID uuid.UUID, modelID string, at time.Time) {
+// model) in the discovery change journal at the given time, under the given
+// diff bucket ("added", "reenabled" or "disabled"). A come-back bucket is the
+// raw evidence behind "this model flapped"; "disabled" is what a retirement
+// itself writes.
+func insertJournalTransition(ctx context.Context, t *testing.T, providerID uuid.UUID, modelID, bucket string, at time.Time) {
 	t.Helper()
 	if _, err := testPool.Exec(ctx, `
 		INSERT INTO discovery_changes (detected_at, source, provider_id, provider_name, diff, seen)
-		VALUES ($1, 'test', $2, 'test', jsonb_build_object('disabled', jsonb_build_array(jsonb_build_object('model_id', $3::text))), true)`,
-		at, providerID, modelID); err != nil {
+		VALUES ($1, 'test', $2, 'test', jsonb_build_object($4::text, jsonb_build_array(jsonb_build_object('model_id', $3::text))), true)`,
+		at, providerID, modelID, bucket); err != nil {
 		t.Fatalf("insert journal transition for %s: %v", modelID, err)
 	}
 	t.Cleanup(func() {
@@ -351,8 +357,8 @@ func TestPruneRetired_FlapLandingMidFlightKeepsRow(t *testing.T) {
 		t.Fatalf("selectPruneCandidates = %v, %v; want the one row", candidates, err)
 	}
 
-	// A scan lands between select and delete and journals a transition.
-	insertJournalTransition(ctx, t, prov, "prune-flap-race-row", time.Now())
+	// A scan lands between select and delete and journals the model's return.
+	insertJournalTransition(ctx, t, prov, "prune-flap-race-row", "added", time.Now())
 
 	pruned, err := repo.deletePruneCandidates(ctx, candidates, since)
 	if err != nil {

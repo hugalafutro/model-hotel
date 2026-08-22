@@ -621,7 +621,7 @@ func TestRunDiscoveryPrunesRetiredModels(t *testing.T) {
 	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
 	result := runDiscovery(deps, "test")
 
@@ -633,6 +633,49 @@ func TestRunDiscoveryPrunesRetiredModels(t *testing.T) {
 	}
 	if !modelExists(t, young) {
 		t.Error("dead-young was pruned: retired 10 days ago with a 30 day horizon")
+	}
+}
+
+// TestRunDiscoveryPrunesWithShortHorizon pins that a horizon shorter than the
+// claim window is honoured: the row's own retirement entry in the change
+// journal is not a flap, so a 7 day horizon deletes a row retired 10 days
+// ago, while a row that came back inside the claim window is kept no matter
+// how long it has been gone since.
+func TestRunDiscoveryPrunesWithShortHorizon(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	srv := newListingServer(t, "alive")
+	prov := createTestProvider(t, deps, "prune-short", srv.URL)
+	retired := seedRetiredRow(t, prov, "dead-retired", 10*24*time.Hour)
+	flapped := seedRetiredRow(t, prov, "dead-flapped", 10*24*time.Hour)
+	for model, bucket := range map[string]string{"dead-retired": "disabled", "dead-flapped": "reenabled"} {
+		if _, err := cmdTestDB.Pool().Exec(ctx, `
+			INSERT INTO discovery_changes (detected_at, source, provider_id, provider_name, diff, seen)
+			VALUES (now() - interval '12 days', 'test', $1, 'prune-short',
+			        jsonb_build_object($3::text, jsonb_build_array(jsonb_build_object('model_id', $2::text))), true)`,
+			prov, model, bucket); err != nil {
+			t.Fatalf("journal %s: %v", model, err)
+		}
+	}
+	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "7"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
+
+	result := runDiscovery(deps, "test")
+
+	if result.ModelsPruned != 1 {
+		t.Errorf("ModelsPruned = %d, want 1 (errors: %v)", result.ModelsPruned, result.Errors)
+	}
+	if modelExists(t, retired) {
+		t.Error("dead-retired survived: retired 10 days ago with a 7 day horizon, its own retirement entry is not a flap")
+	}
+	if !modelExists(t, flapped) {
+		t.Error("dead-flapped was pruned although it came back inside the claim window")
 	}
 }
 
@@ -650,7 +693,7 @@ func TestRunDiscoveryPruneOffKeepsRows(t *testing.T) {
 	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "0"); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
 	result := runDiscovery(deps, "test")
 
@@ -676,7 +719,7 @@ func TestRunDiscoveryPruneSkipsFailedProvider(t *testing.T) {
 	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
 	result := runDiscovery(deps, "test")
 
@@ -714,7 +757,7 @@ func TestRunDiscoveryPruneSkipsProviderWithUpsertFailure(t *testing.T) {
 	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
 	result := runDiscovery(deps, "test")
 
@@ -730,20 +773,18 @@ func TestRunDiscoveryPruneSkipsProviderWithUpsertFailure(t *testing.T) {
 }
 
 // TestRunDiscoveryPruneRejectsUnusableHorizon pins the guard on the setting's
-// value. Negative and unparseable values have no horizon at all, a value
-// under the floor is inert because every retired row still counts as flapping
-// inside the claim window, and a value past the API's ceiling overflows the
-// duration arithmetic into a future horizon that would match every retired
-// row, so all four skip the prune.
+// value. Negative and unparseable values have no horizon at all, and a value
+// past the API's ceiling overflows the duration arithmetic into a future
+// horizon that would match every retired row, so all three skip the prune.
 func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
 	}
 	t.Cleanup(func() {
-		_ = settings.NewRepository(cmdTestDB.Pool()).Set(context.Background(), "model_prune_days", "30")
+		_ = settings.NewRepository(cmdTestDB.Pool()).Set(context.Background(), "model_prune_days", "7")
 	})
 
-	for _, value := range []string{"-5", "10", "200000", "abc"} {
+	for _, value := range []string{"-5", "200000", "abc"} {
 		t.Run(value, func(t *testing.T) {
 			wipeDiscoveryState(t)
 			deps := testDiscoveryDeps(t)
