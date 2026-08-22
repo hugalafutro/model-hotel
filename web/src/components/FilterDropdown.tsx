@@ -19,9 +19,11 @@ interface FilterDropdownProps {
 	 * Trigger sizing. "input" (default) matches a form field (ui-input, h-9).
 	 * "compact" drops ui-input for a 10px, minimally-padded trigger that sits
 	 * flush with the dashboard's segmented toggles (ui-tab) rather than towering
-	 * over them. Only the trigger changes; the popup menu is shared.
+	 * over them. "badge" takes the ui-badge box (same padding, line-height and
+	 * font size) so the trigger lines up with a badge beside a page title.
+	 * Only the trigger changes; the popup menu is shared.
 	 */
-	variant?: "input" | "compact";
+	variant?: "input" | "compact" | "badge";
 }
 
 export function FilterDropdown({
@@ -60,15 +62,18 @@ export function FilterDropdown({
 		? (selectedOption?.label ?? value)
 		: effectiveAllLabel;
 
-	const compact = variant === "compact";
+	const compact = variant === "compact" || variant === "badge";
 	// Compact avoids ui-input (whose themed base font/padding beat Tailwind
 	// utilities) so it can shrink to the 10px, py-px scale of the ui-tab toggles
 	// it sits beside; the default keeps the form-field look. w-full lets the
 	// button fill (and so truncate within) a width-capped wrapper such as the
 	// dashboard's max-w-32 rather than growing to a long owner label.
-	const triggerClass = compact
-		? "text-[10px] leading-[1.6] font-semibold py-px px-1.5 rounded-(--radius-button) border border-(--border-input) bg-(--surface-input) hover:border-(--accent) transition-colors flex items-center justify-between gap-1 w-full"
-		: "ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2";
+	const triggerClass =
+		variant === "badge"
+			? "ui-badge ui-badge-neutral text-xs leading-[1.6] font-medium py-1 px-2.5 hover:border-(--accent) transition-colors flex items-center justify-between gap-2 w-full"
+			: compact
+				? "text-[10px] leading-[1.6] font-semibold py-px px-1.5 rounded-(--radius-button) border border-(--border-input) bg-(--surface-input) hover:border-(--accent) transition-colors flex items-center justify-between gap-1 w-full"
+				: "ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2";
 	const iconSize = compact ? 12 : 14;
 
 	return (
