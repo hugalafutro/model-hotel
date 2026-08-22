@@ -692,6 +692,118 @@ func (r *Repository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) (int64, e
 	return tag.RowsAffected(), nil
 }
 
+// ProviderModelKey identifies a model row by the pair that is stable across
+// members and re-discoveries.
+type ProviderModelKey struct {
+	ProviderID uuid.UUID
+	ModelID    string
+}
+
+// PrunedModel is what PruneRetired reports for each deleted row: enough for
+// the log line and the failover resync, nothing else.
+type PrunedModel struct {
+	ID           uuid.UUID
+	ProviderID   uuid.UUID
+	ProviderName string
+	ModelID      string
+}
+
+// PruneRetired deletes rows that discovery retired before horizon and that
+// nothing else has a claim on, oldest first, at most limit of them. Only rows
+// of the given providers are considered: the caller passes the providers whose
+// scan just succeeded, so a provider that could not be reached this pass keeps
+// every row. flapped excludes models the change journal saw come and go
+// within the claims window; those are broken, not retired.
+//
+// Kept, always: rows the operator switched off (disabled_manually), pinned on
+// (manually_enabled_at), rows the proxy retired from traffic (auto_retired_at,
+// the provider still lists those), and rows of a disabled provider (parked
+// with their pins, prices and failover memberships for a re-enable). A
+// dismissed claim is not a reason to keep a row: dismissal acknowledges the
+// retirement, it does not undo it.
+//
+// The model cache is invalidated only when something was deleted.
+func (r *Repository) PruneRetired(ctx context.Context, horizon time.Time, providerIDs []uuid.UUID, flapped map[ProviderModelKey]bool, limit int) ([]PrunedModel, error) {
+	if len(providerIDs) == 0 || limit <= 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.id, m.provider_id, p.name, m.model_id
+		  FROM models m
+		  JOIN providers p ON p.id = m.provider_id
+		 WHERE m.provider_id = ANY($1)
+		   AND COALESCE(p.enabled, false) = true
+		   AND m.enabled = false
+		   AND m.disabled_manually = false
+		   AND m.manually_enabled_at IS NULL
+		   AND m.auto_retired_at IS NULL
+		   AND COALESCE(m.last_seen_at, m.created_at) < $2
+		 ORDER BY COALESCE(m.last_seen_at, m.created_at) ASC, m.id ASC`,
+		providerIDs, horizon)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var candidates []PrunedModel
+	for rows.Next() {
+		var c PrunedModel
+		if err := rows.Scan(&c.ID, &c.ProviderID, &c.ProviderName, &c.ModelID); err != nil {
+			return nil, err
+		}
+		if flapped[ProviderModelKey{ProviderID: c.ProviderID, ModelID: c.ModelID}] {
+			continue
+		}
+		candidates = append(candidates, c)
+		if len(candidates) == limit {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]uuid.UUID, len(candidates))
+	for i, c := range candidates {
+		ids[i] = c.ID
+	}
+	// Re-check the row state inside the DELETE: a scan that landed between the
+	// SELECT and here may have re-enabled a candidate, and that row must stay.
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM models
+		 WHERE id = ANY($1)
+		   AND enabled = false
+		   AND disabled_manually = false
+		   AND manually_enabled_at IS NULL
+		   AND auto_retired_at IS NULL`, ids)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, nil
+	}
+	InvalidateModelCache()
+	if int(tag.RowsAffected()) == len(candidates) {
+		return candidates, nil
+	}
+	// Something was revived mid-flight: report only what is actually gone.
+	remaining, err := r.GetByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	deleted := candidates[:0]
+	for _, c := range candidates {
+		if _, alive := remaining[c.ID]; !alive {
+			deleted = append(deleted, c)
+		}
+	}
+	return deleted, nil
+}
+
 // UpdateModelRequest contains optional fields for updating a model.
 //
 // Editing any price implicitly sets the price_customized pin, so discovery
