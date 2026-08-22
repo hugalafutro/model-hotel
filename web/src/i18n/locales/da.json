@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automatisk",
 			"manualGroup": "Manuel",
-			"lastRun": "Sidst kørt"
+			"lastRun": "Sidst kørt",
+			"pruneRetired": "Fjern udgåede modeller efter",
+			"pruneRetired.description": "Sletter modeller, som udbyderen er holdt op med at vise, når de har været væk så mange dage. Modeller, du selv har deaktiveret eller aktiveret, modeller der er trukket ud, fordi de afviser forespørgsler, og modeller fra deaktiverede udbydere fjernes aldrig. 0 beholder hver række."
 		},
 		"dataStorage": {
 			"title": "Lagring Af Data",

@@ -1807,7 +1807,9 @@
 			},
 			"automaticGroup": "Automatyczne",
 			"manualGroup": "Ręczne",
-			"lastRun": "Ostatnie uruchomienie"
+			"lastRun": "Ostatnie uruchomienie",
+			"pruneRetired": "Usuń wycofane modele po",
+			"pruneRetired.description": "Usuwa modele, których dostawca przestał wymieniać, gdy brakuje ich od tylu dni. Modele wyłączone lub włączone ręcznie, modele wycofane za odrzucanie żądań oraz modele wyłączonych dostawców nigdy nie są usuwane. Wartość 0 zachowuje każdy wiersz."
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",

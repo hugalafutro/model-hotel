@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automatisch",
 			"manualGroup": "Manuell",
-			"lastRun": "Zuletzt ausgeführt"
+			"lastRun": "Zuletzt ausgeführt",
+			"pruneRetired": "Ausgemusterte Modelle entfernen nach",
+			"pruneRetired.description": "Löscht Modelle, die der Anbieter nicht mehr führt, sobald sie so viele Tage fehlen. Von Hand deaktivierte oder aktivierte Modelle, wegen abgelehnter Anfragen ausgemusterte Modelle und Modelle deaktivierter Anbieter werden nie entfernt. 0 behält jede Zeile."
 		},
 		"dataStorage": {
 			"title": "Datenspeicher",
