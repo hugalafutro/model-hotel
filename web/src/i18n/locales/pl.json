@@ -1808,8 +1808,8 @@
 			"automaticGroup": "Automatyczne",
 			"manualGroup": "Ręczne",
 			"lastRun": "Ostatnie uruchomienie",
-			"pruneRetired": "Usuń wycofane modele po",
-			"pruneRetired.description": "Usuwa modele, których dostawca przestał wymieniać, gdy brakuje ich od tylu dni. Modele wyłączone lub włączone ręcznie, modele wycofane za odrzucanie żądań oraz modele wyłączonych dostawców nigdy nie są usuwane. Wartość 0 zachowuje każdy wiersz."
+			"pruneRetired": "Usuń niewymieniane modele po",
+			"pruneRetired.description": "Usuwa modele, których dostawca przestał wymieniać, gdy brakuje ich od tylu dni. Modele wyłączone lub włączone ręcznie, modele wycofane za odrzucanie żądań oraz modele wyłączonych dostawców nigdy nie są usuwane. Wartość 0 zachowuje każdy wiersz; minimum to 30 dni, czyli okno, w którym wykrywanie odróżnia model wycofany od migoczącego."
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",

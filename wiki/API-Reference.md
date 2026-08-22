@@ -1432,7 +1432,7 @@ X-Accel-Buffering: no
 ```
 : connected
 
-data: {"type":"discovery.complete","severity":"success","message":"Discovery complete: 15 models across 2 providers","metadata":{"source":"Startup"}}
+data: {"type":"discovery.complete","severity":"success","message":"Discovery complete: 15 models across 2 providers","metadata":{"source":"Startup","models_pruned":0}}
 
 : heartbeat
 ```

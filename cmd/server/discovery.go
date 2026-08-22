@@ -45,15 +45,6 @@ type DiscoveryResult struct {
 // one horizon while the pass applies another.
 const defaultModelPruneDays = 30
 
-// maxModelPruneDays is the same ceiling the API rule for model_prune_days
-// applies in internal/api/settings.go. Enforced again here because values
-// reach the store past that rule (config-sync import forwards an
-// above-ceiling integer between fleet members, and backup restore and direct
-// DB writes bypass it too), and beyond ~106751 days the horizon arithmetic
-// overflows int64 and lands in the future, which would match every retired
-// row.
-const maxModelPruneDays = 365
-
 // modelPruneBatch bounds one pass's deletions so a provider that retired its
 // whole catalog cannot empty a member in a single tick; the remainder goes on
 // the next passes.
@@ -183,6 +174,12 @@ func runDiscovery(deps discoveryDeps, source string) DiscoveryResult {
 // and normalize, upsert, record confirmed-missing models, and append the
 // provider's change-feed entry. It updates result's counters and reports
 // whether a discovery-change row was recorded and whether the scan succeeded.
+//
+// ok gates the destructive follow-up work, so it holds to the same bar the
+// miss recording below uses: a pass that reached the provider but could not
+// snapshot its models or could not upsert every listed row does not know
+// which rows are really absent, and must not let the prune delete that
+// provider's retired rows.
 func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provider.DiscoveryService, p *provider.Provider, source string, result *DiscoveryResult) (changed, ok bool) {
 	result.ProvidersScanned++
 	models, err := discoverySvc.DiscoverModels(ctx, p, deps.cfg.MasterKey)
@@ -264,7 +261,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 
 	touchLastDiscovered(ctx, deps.pool, p)
 	debuglog.Info("discovery: discovered models", "count", len(models), "provider", p.Name)
-	return changed, true
+	return changed, snapErr == nil && !upsertFailed
 }
 
 // modelPruneWarned remembers the last model_prune_days value the pass warned
@@ -283,9 +280,17 @@ func pruneRetiredModels(ctx context.Context, deps discoveryDeps, scannedOK []uui
 	if len(scannedOK) == 0 {
 		return 0
 	}
+	// api.MinModelPruneDays and api.MaxModelPruneDays are the same bounds the
+	// API rule for model_prune_days applies. Enforced again here because
+	// values reach the store past that rule: config-sync import forwards an
+	// out-of-range integer between fleet members, and backup restore and
+	// direct DB writes bypass it too. A sub-floor horizon prunes nothing
+	// anyway (FlappedModels keeps every row for the claim window) and beyond
+	// ~106751 days the horizon arithmetic overflows int64 and lands in the
+	// future, which would match every retired row.
 	raw := deps.settingsRepo.GetWithDefault(ctx, "model_prune_days", strconv.Itoa(defaultModelPruneDays))
 	days, err := strconv.Atoi(raw)
-	if err != nil || days < 0 || days > maxModelPruneDays {
+	if err != nil || days < 0 || (days > 0 && days < api.MinModelPruneDays) || days > api.MaxModelPruneDays {
 		modelPruneWarned.Lock()
 		unseen := modelPruneWarned.value != raw
 		modelPruneWarned.value = raw

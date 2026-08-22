@@ -1716,8 +1716,8 @@
 			"automaticGroup": "Tự động",
 			"manualGroup": "Thủ công",
 			"lastRun": "Lần chạy cuối",
-			"pruneRetired": "Xóa các mô hình đã rút sau",
-			"pruneRetired.description": "Xóa các mô hình mà nhà cung cấp đã ngừng liệt kê khi chúng biến mất đủ số ngày này. Các mô hình bạn tự tắt hoặc bật, các mô hình bị rút khỏi lưu lượng vì từ chối yêu cầu, và các mô hình của nhà cung cấp đã tắt sẽ không bao giờ bị xóa. Giá trị 0 giữ lại mọi dòng."
+			"pruneRetired": "Xóa các mô hình không còn được liệt kê sau",
+			"pruneRetired.description": "Xóa các mô hình mà nhà cung cấp đã ngừng liệt kê khi chúng biến mất đủ số ngày này. Các mô hình bạn tự tắt hoặc bật, các mô hình bị rút khỏi lưu lượng vì từ chối yêu cầu, và các mô hình của nhà cung cấp đã tắt sẽ không bao giờ bị xóa. Giá trị 0 giữ lại mọi dòng; mức tối thiểu là 30 ngày, khoảng thời gian mà quá trình khám phá dùng để phân biệt một mô hình đã rút với một mô hình chập chờn."
 		},
 		"dataStorage": {
 			"title": "Lưu trữ dữ liệu",

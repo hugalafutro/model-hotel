@@ -93,7 +93,7 @@ export function DiscoverySettings({
 	const discoveryOnStartup = settings?.discovery_on_startup !== "false";
 	const discoveryOnCreate = settings?.discovery_on_provider_create !== "false";
 	const modelPruneDays = Number(
-		settings?.model_prune_days ?? SETTING_DEFAULTS.model_prune_days,
+		settings?.model_prune_days || SETTING_DEFAULTS.model_prune_days,
 	);
 
 	return (
@@ -215,9 +215,9 @@ export function DiscoverySettings({
 							unit="d"
 							disabled={isUpdating}
 							onChange={(v) => {
-								// 1..6 is below the backend's floor; snap to the
+								// 1..29 is below the backend's floor; snap to the
 								// nearest legal value so the save never 400s.
-								const days = v > 0 && v < 7 ? 7 : v;
+								const days = v > 0 && v < 30 ? 30 : v;
 								updateMutation.mutate({
 									model_prune_days: String(days),
 								});

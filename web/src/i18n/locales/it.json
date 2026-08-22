@@ -1762,8 +1762,8 @@
 			"automaticGroup": "Automatico",
 			"manualGroup": "Manuale",
 			"lastRun": "Ultima esecuzione",
-			"pruneRetired": "Elimina i modelli ritirati dopo",
-			"pruneRetired.description": "Elimina i modelli che il provider ha smesso di elencare una volta che mancano da questo numero di giorni. I modelli che hai disattivato o attivato a mano, i modelli ritirati perché rifiutano le richieste e i modelli dei provider disattivati non vengono mai eliminati. 0 mantiene ogni riga."
+			"pruneRetired": "Elimina i modelli non elencati dopo",
+			"pruneRetired.description": "Elimina i modelli che il provider ha smesso di elencare una volta che mancano da questo numero di giorni. I modelli che hai disattivato o attivato a mano, i modelli ritirati perché rifiutano le richieste e i modelli dei provider disattivati non vengono mai eliminati. 0 mantiene ogni riga; il minimo è 30 giorni, la finestra che il rilevamento usa per distinguere un modello ritirato da uno intermittente."
 		},
 		"dataStorage": {
 			"title": "Archiviazione Dati",

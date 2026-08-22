@@ -166,7 +166,7 @@ var allowedSettings = map[string]struct {
 	"discovery_on_startup":              {typeName: "string"},                                       // bool as string
 	"discovery_on_provider_create":      {typeName: "string"},                                       // bool as string
 	"discovery_claim_alert_days":        {typeName: "int", min: 1, max: float64(MaxClaimAlertDays)}, // unaddressed-claim alert age; ceiling derived from ClaimWindow
-	"model_prune_days":                  {typeName: "int", min: 0, max: 365},                        // days before a discovery-retired model row is deleted; 0 = never, else 7..365
+	"model_prune_days":                  {typeName: "int", min: 0, max: float64(MaxModelPruneDays)}, // days before a discovery-retired model row is deleted; 0 = never, else MinModelPruneDays..MaxModelPruneDays
 	"log_retention":                     {typeName: "string"},                                       // predefined option
 	"stale_request_timeout":             {typeName: "string"},                                       // predefined option
 	"key_cache_ttl":                     {typeName: "string"},                                       // duration (e.g. "10m0s")
@@ -201,21 +201,28 @@ var allowedSettings = map[string]struct {
 
 const maxSettingValueLen = 500
 
-// minModelPruneDays is the shortest model_prune_days horizon accepted when
-// pruning is on. Anything under a week would race the discovery cadence: a
-// model retired on Monday must not be deleted before the week's scans have had
-// a chance to see it listed again.
-const minModelPruneDays = 7
+// MinModelPruneDays is the shortest model_prune_days horizon accepted when
+// pruning is on. It equals ClaimWindowDays because a retirement is itself one
+// journal transition: FlappedModels reports every retired row as flapping for
+// the whole claim window, so the prune keeps that row regardless of the
+// horizon. Any shorter horizon is inert and only looks configured.
+const MinModelPruneDays = ClaimWindowDays
+
+// MaxModelPruneDays is the longest model_prune_days horizon accepted. A year
+// of retained retired rows is already far past any operator's review cadence,
+// and the ceiling keeps the horizon arithmetic in cmd/server well clear of
+// the int64 overflow that would land it in the future.
+const MaxModelPruneDays = 365
 
 // validateSettingIntRange checks v against [min, max] and, for model_prune_days,
-// the stricter 0-or-[minModelPruneDays, max] carve-out. Returns an error
+// the stricter 0-or-[MinModelPruneDays, max] carve-out. Returns an error
 // message, or "" when v is valid.
 func validateSettingIntRange(key string, v int, lo, hi float64) string {
 	if float64(v) < lo || float64(v) > hi {
 		return fmt.Sprintf("%s must be between %d and %d", key, int(lo), int(hi))
 	}
-	if key == "model_prune_days" && v > 0 && v < minModelPruneDays {
-		return fmt.Sprintf("%s must be 0 or between %d and %d", key, minModelPruneDays, int(hi))
+	if key == "model_prune_days" && v > 0 && v < MinModelPruneDays {
+		return fmt.Sprintf("%s must be 0 or between %d and %d", key, MinModelPruneDays, int(hi))
 	}
 	return ""
 }

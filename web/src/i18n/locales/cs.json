@@ -1808,8 +1808,8 @@
 			"automaticGroup": "Automaticky",
 			"manualGroup": "Ručně",
 			"lastRun": "Naposledy spuštěno",
-			"pruneRetired": "Odstranit stažené modely po",
-			"pruneRetired.description": "Odstraní modely, které poskytovatel přestal uvádět, jakmile chybí už tolik dní. Modely, které jste ručně zakázali nebo povolili, modely stažené kvůli odmítání požadavků a modely zakázaných poskytovatelů se neodstraňují nikdy. Hodnota 0 zachová každý řádek."
+			"pruneRetired": "Odstranit neuváděné modely po",
+			"pruneRetired.description": "Odstraní modely, které poskytovatel přestal uvádět, jakmile chybí už tolik dní. Modely, které jste ručně zakázali nebo povolili, modely stažené kvůli odmítání požadavků a modely zakázaných poskytovatelů se neodstraňují nikdy. Hodnota 0 zachová každý řádek; minimum je 30 dní, což je okno, podle kterého zjišťování rozliší stažený model od kolísajícího."
 		},
 		"dataStorage": {
 			"title": "Ukládání dat",

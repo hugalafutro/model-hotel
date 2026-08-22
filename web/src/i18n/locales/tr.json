@@ -1716,8 +1716,8 @@
 			"automaticGroup": "Otomatik",
 			"manualGroup": "Manuel",
 			"lastRun": "Son çalıştırma",
-			"pruneRetired": "Kaldırılan modellerin silinme süresi",
-			"pruneRetired.description": "Sağlayıcının listelemeyi bıraktığı modelleri, bu kadar gündür kayıp olduklarında siler. Elle devre dışı bıraktığınız veya etkinleştirdiğiniz modeller, istekleri reddettiği için trafikten çekilen modeller ve devre dışı sağlayıcıların modelleri asla silinmez. 0 değeri her satırı korur."
+			"pruneRetired": "Listelenmeyen modellerin silinme süresi",
+			"pruneRetired.description": "Sağlayıcının listelemeyi bıraktığı modelleri, bu kadar gündür kayıp olduklarında siler. Elle devre dışı bıraktığınız veya etkinleştirdiğiniz modeller, istekleri reddettiği için trafikten çekilen modeller ve devre dışı sağlayıcıların modelleri asla silinmez. 0 değeri her satırı korur; en düşük değer 30 gündür, bu da keşfin kaldırılmış bir modeli gelip giden bir modelden ayırt etmek için kullandığı süredir."
 		},
 		"dataStorage": {
 			"title": "Veri Depolama",

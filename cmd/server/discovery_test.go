@@ -694,10 +694,47 @@ func TestRunDiscoveryPruneSkipsFailedProvider(t *testing.T) {
 	}
 }
 
+// TestRunDiscoveryPruneSkipsProviderWithUpsertFailure pins the other half of
+// the scope guard. A provider that answered its listing but whose rows could
+// not all be written has no trustworthy membership picture either, so it is
+// out of the prune's scope exactly like an unreachable one. The failure is
+// forced with a listed model id carrying a NUL byte, which Postgres rejects
+// for a text column: that one upsert errors while the rest of the pass
+// carries on.
+func TestRunDiscoveryPruneSkipsProviderWithUpsertFailure(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	deps := testDiscoveryDeps(t)
+	ctx := context.Background()
+	srv := newListingServer(t, "alive", "dead\x00nul")
+	prov := createTestProvider(t, deps, "prune-upsert-fail", srv.URL)
+	old := seedRetiredRow(t, prov, "dead-old", 40*24*time.Hour)
+	if err := deps.settingsRepo.Set(ctx, "model_prune_days", "30"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "30") })
+
+	result := runDiscovery(deps, "test")
+
+	if result.ProvidersFailed != 0 {
+		t.Fatalf("ProvidersFailed = %d, want 0 (the listing itself succeeds)", result.ProvidersFailed)
+	}
+	if result.ModelsPruned != 0 {
+		t.Errorf("ModelsPruned = %d, want 0 after an upsert failure", result.ModelsPruned)
+	}
+	if !modelExists(t, old) {
+		t.Error("dead-old was pruned although one of its provider's upserts failed this pass")
+	}
+}
+
 // TestRunDiscoveryPruneRejectsUnusableHorizon pins the guard on the setting's
-// value. Negative and unparseable values have no horizon at all, and a value
-// past the API's ceiling overflows the duration arithmetic into a future
-// horizon that would match every retired row, so all three skip the prune.
+// value. Negative and unparseable values have no horizon at all, a value
+// under the floor is inert because every retired row still counts as flapping
+// inside the claim window, and a value past the API's ceiling overflows the
+// duration arithmetic into a future horizon that would match every retired
+// row, so all four skip the prune.
 func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
@@ -706,7 +743,7 @@ func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 		_ = settings.NewRepository(cmdTestDB.Pool()).Set(context.Background(), "model_prune_days", "30")
 	})
 
-	for _, value := range []string{"-5", "200000", "abc"} {
+	for _, value := range []string{"-5", "10", "200000", "abc"} {
 		t.Run(value, func(t *testing.T) {
 			wipeDiscoveryState(t)
 			deps := testDiscoveryDeps(t)

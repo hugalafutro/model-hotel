@@ -169,7 +169,7 @@ Both are absent from the next fetch, which is why the distinction has to be trac
 
 ### Retired rows are pruned
 
-A model the provider stopped listing stays in the table as a disabled row so you can see what went away, retest it, or pin it. It does not stay forever. After each scheduled discovery pass, rows that discovery retired more than `model_prune_days` ago (default 30, `0` to keep everything) are deleted, and their failover groups resynced. The pass only touches providers it just scanned successfully, skips anything that flapped in the last 30 days, and deletes at most 500 rows per pass. Manual discovery from the dashboard never prunes; only the scheduled and startup passes do.
+A model the provider stopped listing stays in the table as a disabled row so you can see what went away, retest it, or pin it. It does not stay forever. After each scheduled discovery pass, rows that discovery retired more than `model_prune_days` ago (default 30, minimum 30, `0` to keep everything) are deleted, and their failover groups resynced. The pass only touches providers it just scanned successfully, skips anything that flapped in the last 30 days, and deletes at most 500 rows per pass. A row is never pruned in the first 30 days after discovery retired it: that is the window discovery reads flap history from, so a shorter horizon deletes nothing. Manual discovery from the dashboard never prunes; only the scheduled and startup passes do.
 
 Never pruned: models you disabled or enabled by hand, models the proxy retired for refusing requests (the provider still lists those), and models of disabled providers (those wait, with their pins, prices and failover memberships, for the provider to come back).
 

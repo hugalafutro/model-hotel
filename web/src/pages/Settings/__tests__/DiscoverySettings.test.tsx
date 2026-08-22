@@ -146,7 +146,7 @@ describe("DiscoverySettings", () => {
 		);
 
 		const slider = screen.getByRole("slider", {
-			name: "Prune retired models after",
+			name: "Prune unlisted models after",
 		});
 
 		expect(slider).toHaveAttribute("min", "0");
@@ -181,7 +181,7 @@ describe("DiscoverySettings", () => {
 		);
 
 		const slider = screen.getByRole("slider", {
-			name: "Prune retired models after",
+			name: "Prune unlisted models after",
 		});
 
 		fireEvent.change(slider, { target: { value: 60 } });
@@ -199,7 +199,7 @@ describe("DiscoverySettings", () => {
 		});
 	});
 
-	it("snaps a sub-floor prune value up to the backend's 7-day minimum", async () => {
+	it("snaps a sub-floor prune value up to the backend's 30-day minimum", async () => {
 		let capturedPayload: Record<string, string> | undefined;
 
 		server.use(
@@ -225,15 +225,15 @@ describe("DiscoverySettings", () => {
 		);
 
 		const slider = screen.getByRole("slider", {
-			name: "Prune retired models after",
+			name: "Prune unlisted models after",
 		});
 
-		// 1..6 days is below the backend's floor and would be rejected with a 400.
+		// 1..29 days is below the backend's floor and would be rejected with a 400.
 		fireEvent.change(slider, { target: { value: 3 } });
 		fireEvent.pointerUp(slider);
 
 		await waitFor(() => {
-			expect(capturedPayload).toEqual({ model_prune_days: "7" });
+			expect(capturedPayload).toEqual({ model_prune_days: "30" });
 		});
 	});
 

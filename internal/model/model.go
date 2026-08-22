@@ -822,17 +822,46 @@ func (r *Repository) deletePruneCandidates(ctx context.Context, candidates []Pru
 		return candidates, nil
 	}
 	// Something was revived mid-flight: report only what is actually gone.
-	remaining, err := r.GetByIDs(ctx, ids)
+	alive, err := r.aliveModelIDs(ctx, ids)
 	if err != nil {
-		return nil, err
+		// The DELETE already committed, so the rows are gone whatever this
+		// query says. Report every candidate: the caller still has to resync
+		// the failover groups they belonged to, and a revived row costs one
+		// redundant resync where a dropped row would leave a stale group.
+		debuglog.Debug("prune: reconciliation query failed, reporting all candidates", "error", err)
+		return candidates, nil
 	}
 	deleted := candidates[:0]
 	for _, c := range candidates {
-		if _, alive := remaining[c.ID]; !alive {
+		if !alive[c.ID] {
 			deleted = append(deleted, c)
 		}
 	}
 	return deleted, nil
+}
+
+// aliveModelIDs reports which of ids still exist in the models table. It
+// queries the table directly instead of going through the model cache: a
+// cache fill racing the DELETE can still hold a deleted row and would report
+// it as alive.
+func (r *Repository) aliveModelIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id FROM models WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	alive := make(map[uuid.UUID]bool)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		alive[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return alive, nil
 }
 
 // UpdateModelRequest contains optional fields for updating a model.

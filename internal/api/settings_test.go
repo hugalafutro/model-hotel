@@ -493,8 +493,10 @@ func TestUpdateSettings_UnknownKey(t *testing.T) {
 }
 
 // TestUpdateSettings_ModelPruneDaysRange pins the documented range: 0 (off)
-// or 7..365. 1..6 is rejected even though it is inside min..max, because a
-// horizon shorter than a week would race the discovery cadence itself.
+// or MinModelPruneDays..MaxModelPruneDays. A value under the floor is
+// rejected even though it is inside min..max, because a retired row is
+// reported as flapping for the whole claim window and a shorter horizon
+// prunes nothing at all.
 func TestUpdateSettings_ModelPruneDaysRange(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 	put := func(v string) int {
@@ -510,8 +512,8 @@ func TestUpdateSettings_ModelPruneDaysRange(t *testing.T) {
 		value string
 		want  int
 	}{
-		{"0", http.StatusOK}, {"7", http.StatusOK}, {"30", http.StatusOK}, {"365", http.StatusOK},
-		{"3", http.StatusBadRequest}, {"6", http.StatusBadRequest}, {"366", http.StatusBadRequest}, {"-1", http.StatusBadRequest}, {"abc", http.StatusBadRequest},
+		{"0", http.StatusOK}, {"30", http.StatusOK}, {"365", http.StatusOK},
+		{"7", http.StatusBadRequest}, {"29", http.StatusBadRequest}, {"366", http.StatusBadRequest}, {"-1", http.StatusBadRequest}, {"abc", http.StatusBadRequest},
 	} {
 		if got := put(tc.value); got != tc.want {
 			t.Errorf("model_prune_days=%q: got %d, want %d", tc.value, got, tc.want)

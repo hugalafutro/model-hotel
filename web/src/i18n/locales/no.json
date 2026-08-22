@@ -1716,8 +1716,8 @@
 			"automaticGroup": "Automatisk",
 			"manualGroup": "Manuell",
 			"lastRun": "Sist kjørt",
-			"pruneRetired": "Fjern tilbaketrukne modeller etter",
-			"pruneRetired.description": "Sletter modeller leverandøren har sluttet å liste når de har vært borte så mange dager. Modeller du har slått av eller på for hånd, modeller som er trukket tilbake fordi de avviser forespørsler, og modeller fra deaktiverte leverandører fjernes aldri. 0 beholder hver rad."
+			"pruneRetired": "Fjern ikke-listede modeller etter",
+			"pruneRetired.description": "Sletter modeller leverandøren har sluttet å liste når de har vært borte så mange dager. Modeller du har slått av eller på for hånd, modeller som er trukket tilbake fordi de avviser forespørsler, og modeller fra deaktiverte leverandører fjernes aldri. 0 beholder hver rad; minimum er 30 dager, vinduet oppdagelsen bruker for å skille en tilbaketrukket modell fra en ustabil."
 		},
 		"dataStorage": {
 			"title": "Data Lagring",

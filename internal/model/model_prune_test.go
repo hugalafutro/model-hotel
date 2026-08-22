@@ -24,6 +24,13 @@ func TestPruneRetired(t *testing.T) {
 	}
 	otherProvider := insertTestProvider(ctx, t, "prune-other")
 	t.Cleanup(func() { cleanupProvider(ctx, t, otherProvider) })
+	// enabled = NULL is the third state the column allows; COALESCE treats it
+	// as off, so its models are parked exactly like a disabled provider's.
+	nullFlagProvider := insertTestProvider(ctx, t, "prune-null-flag")
+	t.Cleanup(func() { cleanupProvider(ctx, t, nullFlagProvider) })
+	if _, err := testPool.Exec(ctx, `UPDATE providers SET enabled = NULL WHERE id = $1`, nullFlagProvider); err != nil {
+		t.Fatalf("null provider flag: %v", err)
+	}
 
 	old := time.Now().Add(-40 * 24 * time.Hour)
 	recent := time.Now().Add(-2 * 24 * time.Hour)
@@ -37,6 +44,9 @@ func TestPruneRetired(t *testing.T) {
 		retiredAt *time.Time
 		lastSeen  time.Time
 		dismissed bool
+		// noLastSeen leaves last_seen_at NULL and backdates created_at to
+		// lastSeen instead, which is the fallback the age COALESCE reads.
+		noLastSeen bool
 	}
 	now := time.Now()
 	rows := []row{
@@ -50,6 +60,8 @@ func TestPruneRetired(t *testing.T) {
 		{name: "prune-too-recent", provider: onProvider, lastSeen: recent},
 		{name: "prune-flapped", provider: onProvider, lastSeen: old},
 		{name: "prune-not-scanned", provider: otherProvider, lastSeen: old},
+		{name: "prune-null-provider-flag", provider: nullFlagProvider, lastSeen: old},
+		{name: "prune-null-last-seen", provider: onProvider, lastSeen: old, noLastSeen: true},
 	}
 	ids := map[string]uuid.UUID{}
 	for _, r := range rows {
@@ -59,17 +71,26 @@ func TestPruneRetired(t *testing.T) {
 		if r.dismissed {
 			dismissed = &now
 		}
+		lastSeen := &r.lastSeen
+		if r.noLastSeen {
+			lastSeen = nil
+		}
 		if _, err := testPool.Exec(ctx, `
 			INSERT INTO models (id, provider_id, model_id, name, enabled, disabled_manually,
 			                    manually_enabled_at, auto_retired_at, last_seen_at, discovery_dismissed_at)
 			VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9)`,
-			id, r.provider, r.name, r.enabled, r.manual, r.pinnedAt, r.retiredAt, r.lastSeen, dismissed); err != nil {
+			id, r.provider, r.name, r.enabled, r.manual, r.pinnedAt, r.retiredAt, lastSeen, dismissed); err != nil {
 			t.Fatalf("insert %s: %v", r.name, err)
+		}
+		if r.noLastSeen {
+			if _, err := testPool.Exec(ctx, `UPDATE models SET created_at = $2 WHERE id = $1`, id, r.lastSeen); err != nil {
+				t.Fatalf("backdate %s: %v", r.name, err)
+			}
 		}
 	}
 
 	pruned, err := repo.PruneRetired(ctx, time.Now().Add(-30*24*time.Hour),
-		[]uuid.UUID{onProvider, offProvider},
+		[]uuid.UUID{onProvider, offProvider, nullFlagProvider},
 		map[ProviderModelKey]bool{{ProviderID: onProvider, ModelID: "prune-flapped"}: true},
 		500)
 	if err != nil {
@@ -83,7 +104,7 @@ func TestPruneRetired(t *testing.T) {
 			t.Errorf("pruned ref %+v carries wrong provider/id", p)
 		}
 	}
-	want := map[string]bool{"prune-prunable": true, "prune-prunable-dismissed": true}
+	want := map[string]bool{"prune-prunable": true, "prune-prunable-dismissed": true, "prune-null-last-seen": true}
 	for _, r := range rows {
 		if got[r.name] != want[r.name] {
 			t.Errorf("%s: pruned=%v, want %v", r.name, got[r.name], want[r.name])
@@ -92,11 +113,11 @@ func TestPruneRetired(t *testing.T) {
 	// The table agrees with the return value.
 	var remaining int
 	if err := testPool.QueryRow(ctx, `SELECT count(*) FROM models WHERE provider_id = ANY($1)`,
-		[]uuid.UUID{onProvider, offProvider, otherProvider}).Scan(&remaining); err != nil {
+		[]uuid.UUID{onProvider, offProvider, otherProvider, nullFlagProvider}).Scan(&remaining); err != nil {
 		t.Fatalf("count: %v", err)
 	}
-	if remaining != len(rows)-2 {
-		t.Errorf("remaining rows = %d, want %d", remaining, len(rows)-2)
+	if remaining != len(rows)-len(want) {
+		t.Errorf("remaining rows = %d, want %d", remaining, len(rows)-len(want))
 	}
 }
 
