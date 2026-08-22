@@ -1029,7 +1029,6 @@
 		"page_title_many": "Modele",
 		"page_title_other": "Modele",
 		"page_description": "Odkryte modele od Twoich dostawców",
-		"badge_enabled": "{{count}} włączony",
 		"badge_disabled": "{{count}} wyłączony",
 		"view_mode_pages": "⬡ Strony",
 		"view_mode_scroll": "⇊ Przewiń",
@@ -1114,7 +1113,13 @@
 			"video": "Wyjście wideo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktywni dostawcy",
+		"scope_disabled": "Wyłączeni dostawcy",
+		"scope_all": "Wszyscy dostawcy",
+		"badge_parked": "{{count}} zaparkowanych",
+		"status_parked": "Zaparkowany",
+		"status_parked_hint": "Dostawca jest wyłączony; ten model pozostaje na liście, ale nie jest obsługiwany, dopóki dostawca nie zostanie ponownie włączony."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Przywróć do odkrytej wartości",

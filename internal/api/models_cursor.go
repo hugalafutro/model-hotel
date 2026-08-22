@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -29,6 +28,7 @@ import (
 //   - provider_id: filter by provider UUID
 //   - capabilities: comma-separated capability keys (e.g. "vision,reasoning")
 //   - outputs: comma-separated output modalities (e.g. "image,embedding")
+//   - provider_enabled: "true" or "false" to filter on the owning provider's flag
 func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -59,19 +59,28 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		m, err := scanModelRow(rows)
 		if err != nil {
-			debuglog.Error("cursor row scan failed", "error", err)
-			continue
+			// A row that cannot be scanned must fail the request: skipping it
+			// would ship totals that count a row the entries omit.
+			respondError(w, "failed to read models", err, http.StatusInternalServerError)
+			return
 		}
 		entries = append(entries, modelToResponse(m))
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read models", err, http.StatusInternalServerError)
+		return
 	}
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
+	counts := h.countModels(ctx, q, p.providerEnabled)
 	writeJSON(w, ModelsCursorResponse{
-		Entries:   entries,
-		Total:     h.countModels(ctx, q),
-		HasBefore: hasBefore,
-		HasAfter:  hasAfter,
+		Entries:      entries,
+		Total:        counts.total,
+		EnabledTotal: counts.enabled,
+		ParkedTotal:  counts.parked,
+		HasBefore:    hasBefore,
+		HasAfter:     hasAfter,
 	})
 }
 
@@ -80,7 +89,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 // ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort inverted
 // for backward pagination so LIMIT picks from the correct end.
 func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
-	conditions, args := buildModelFilterConditions(q)
+	conditions, args := buildModelFilterConditions(q, p.providerEnabled)
 	argIdx := len(args) + 1
 
 	if p.cursorStr != "" {
@@ -110,17 +119,28 @@ func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
 	return query, args
 }
 
-// countModels returns the total row count for the same filters as the data query
-// (no keyset predicate). Best-effort: returns 0 on error.
-func (h *Handler) countModels(ctx context.Context, q url.Values) int {
-	conditions, args := buildModelFilterConditions(q)
+// modelCounts is one scan's worth of filter-wide totals: every matching row,
+// the rows the proxy can serve (m.enabled AND p.enabled, the /v1/models rule),
+// and the rows parked under a disabled provider. What is left over is the
+// rows switched off individually, which the page derives.
+type modelCounts struct {
+	total, enabled, parked int
+}
+
+// countModels returns the filter-wide counts for the same filters as the data
+// query (no keyset predicate, so every page reports the same numbers).
+// Best-effort: returns zeros on error.
+func (h *Handler) countModels(ctx context.Context, q url.Values, providerEnabled *bool) modelCounts {
+	conditions, args := buildModelFilterConditions(q, providerEnabled)
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + joinAnd(conditions)
 	}
-	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+whereClause, args...).Scan(&total)
-	return total
+	var c modelCounts
+	_ = h.dbPool.Pool().QueryRow(ctx,
+		"SELECT COUNT(*), COUNT(*) FILTER (WHERE m.enabled AND p.enabled), COUNT(*) FILTER (WHERE NOT COALESCE(p.enabled, false))"+modelFromJoin+whereClause,
+		args...).Scan(&c.total, &c.enabled, &c.parked)
+	return c
 }
 
 // modelListParams holds the parsed, validated query inputs for ListModelsCursor.
@@ -130,6 +150,10 @@ type modelListParams struct {
 	cursor             modelCursor
 	direction, sortDir string
 	sortBy             string
+	// providerEnabled is the parsed provider_enabled filter; nil means any.
+	// Parsed once here and threaded through, so the value that passed
+	// validation is the value the SQL sees.
+	providerEnabled *bool
 }
 
 // parseModelListParams reads and validates the cursor list query parameters:
@@ -155,6 +179,11 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 	if q.Get("sort_dir") == "desc" {
 		p.sortDir = "DESC"
 	}
+	providerEnabled, ok := parseProviderEnabledParam(w, q.Get("provider_enabled"))
+	if !ok {
+		return p, false
+	}
+	p.providerEnabled = providerEnabled
 	switch p.sortBy {
 	case "discovered", "context", "output", "provider", "status":
 		// valid
@@ -176,7 +205,7 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 
 // modelSelectColumns is the cursor data query's column projection (models joined
 // to providers for p.name). Its order matches scanModelRow exactly.
-const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)"
 
 // modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
 // count queries.
@@ -190,7 +219,7 @@ func scanModelRow(rows pgx.Rows) (model.Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
 		&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 	return m, err
 }
@@ -302,9 +331,9 @@ func joinAnd(conditions []string) string {
 }
 
 // buildModelFilterConditions builds the WHERE clause conditions and args for
-// search, provider_id, capabilities, and outputs filters. Shared between the
+// search, provider_id, provider_enabled, capabilities, and outputs filters. Shared between the
 // main data query and the count query to avoid duplication.
-func buildModelFilterConditions(q url.Values) ([]string, []any) {
+func buildModelFilterConditions(q url.Values, providerEnabled *bool) ([]string, []any) {
 	conditions := []string{}
 	args := []any{}
 	argIdx := 1
@@ -354,6 +383,13 @@ func buildModelFilterConditions(q url.Values) ([]string, []any) {
 			args = append(args, string(capJSON))
 			argIdx++
 		}
+	}
+	if providerEnabled != nil {
+		// providers.enabled is nullable (migration 001); the proxy treats NULL
+		// as not served, so the "disabled" scope must own those rows too.
+		conditions = append(conditions, fmt.Sprintf("COALESCE(p.enabled, false) = $%d", argIdx))
+		args = append(args, *providerEnabled)
+		argIdx++
 	}
 	if outputs := q.Get("outputs"); outputs != "" {
 		// AND semantics like the capabilities filter: each requested output

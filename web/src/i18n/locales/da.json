@@ -969,7 +969,6 @@
 		"page_title_one": "Model",
 		"page_title_other": "Modeller",
 		"page_description": "Opdagede modeller fra dine udbydere",
-		"badge_enabled": "{{count}} aktiveret",
 		"badge_disabled": "{{count}} deaktiveret",
 		"view_mode_pages": "⬡ Sider",
 		"view_mode_scroll": "⇊ Rul",
@@ -1052,7 +1051,13 @@
 			"video": "Videooutput",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktive udbydere",
+		"scope_disabled": "Deaktiverede udbydere",
+		"scope_all": "Alle udbydere",
+		"badge_parked": "{{count}} parkeret",
+		"status_parked": "Parkeret",
+		"status_parked_hint": "Udbyderen er deaktiveret; denne model forbliver på listen, men serveres ikke, før udbyderen aktiveres igen."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tilbagefør til fundne værdier",

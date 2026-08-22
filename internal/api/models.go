@@ -39,6 +39,7 @@ type ModelResponse struct {
 	DisplayName                  string   `json:"display_name"`
 	ProviderID                   string   `json:"provider_id"`
 	ProviderName                 string   `json:"provider_name"`
+	ProviderEnabled              bool     `json:"provider_enabled"`
 	Capabilities                 string   `json:"capabilities"`
 	Params                       string   `json:"params"`
 	Modality                     string   `json:"modality"`
@@ -66,6 +67,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		DisplayName:                  m.DisplayName,
 		ProviderID:                   m.ProviderID.String(),
 		ProviderName:                 m.ProviderName,
+		ProviderEnabled:              m.ProviderEnabled,
 		Capabilities:                 m.Capabilities,
 		Params:                       m.Params,
 		Modality:                     m.Modality,
@@ -122,10 +124,18 @@ func (c *modelCursor) decode(s string) error {
 
 // ModelsCursorResponse is the cursor-based paginated response for models.
 type ModelsCursorResponse struct {
-	Entries   []ModelResponse `json:"entries"`
-	Total     int             `json:"total"`
-	HasBefore bool            `json:"has_before"`
-	HasAfter  bool            `json:"has_after"`
+	Entries []ModelResponse `json:"entries"`
+	// Total counts every row matching the filters. EnabledTotal counts the
+	// subset the proxy can serve (model enabled AND provider enabled), the same
+	// rule /v1/models applies, so the page title can report usable models even
+	// though only one page of rows is loaded.
+	Total        int `json:"total"`
+	EnabledTotal int `json:"enabled_total"`
+	// ParkedTotal counts rows whose provider is disabled: listed, kept, but not
+	// served until the provider is enabled again.
+	ParkedTotal int  `json:"parked_total"`
+	HasBefore   bool `json:"has_before"`
+	HasAfter    bool `json:"has_after"`
 }
 
 // RegisterModels mounts model management routes.
@@ -149,6 +159,23 @@ func (h *Handler) RegisterModels(r chi.Router) {
 	})
 }
 
+// parseProviderEnabledParam reads the optional provider_enabled query value:
+// "" means no filter, "true"/"false" filter on the owning provider's enabled
+// flag (NULL counts as false, matching the proxy), anything else is a 400. Shared by the list and cursor endpoints so both
+// views of the Models page agree on what "available on the proxy" means.
+func parseProviderEnabledParam(w http.ResponseWriter, raw string) (*bool, bool) {
+	switch raw {
+	case "":
+		return nil, true
+	case "true", "false":
+		v := raw == "true"
+		return &v, true
+	default:
+		http.Error(w, "invalid provider_enabled", http.StatusBadRequest)
+		return nil, false
+	}
+}
+
 // ListModels returns all models with optional provider filtering.
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	modelRepo := model.NewRepository(h.dbPool.Pool())
@@ -165,7 +192,12 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		providerID = &parsedID
 	}
 
-	models, err := modelRepo.List(r.Context(), providerID)
+	providerEnabled, ok := parseProviderEnabledParam(w, r.URL.Query().Get("provider_enabled"))
+	if !ok {
+		return
+	}
+
+	models, err := modelRepo.ListFiltered(r.Context(), providerID, providerEnabled)
 	if err != nil {
 		respondError(w, "failed to list models", err, http.StatusInternalServerError)
 		return

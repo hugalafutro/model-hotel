@@ -999,7 +999,6 @@
 		"page_title_many": "Modelos",
 		"page_title_other": "Modelos",
 		"page_description": "Modelos descubiertos de tus proveedores",
-		"badge_enabled": "{{count}} habilitado",
 		"badge_disabled": "{{count}} deshabilitado",
 		"view_mode_pages": "⬡ Páginas",
 		"view_mode_scroll": "⇊ Desplazamiento",
@@ -1083,7 +1082,13 @@
 			"video": "Salida de vídeo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Proveedores activos",
+		"scope_disabled": "Proveedores desactivados",
+		"scope_all": "Todos los proveedores",
+		"badge_parked": "{{count}} aparcados",
+		"status_parked": "Aparcado",
+		"status_parked_hint": "El proveedor está desactivado; este modelo sigue listado pero no se sirve hasta que el proveedor se active de nuevo."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",

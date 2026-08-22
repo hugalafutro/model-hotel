@@ -36,12 +36,27 @@ interface VirtualModelTableProps {
 	providerFilter?: string;
 	/** When set (and providers given), renders the provider dropdown in the toolbar. */
 	onProviderFilterChange?: (providerId: string) => void;
+	/**
+	 * Scope rows to providers with this enabled flag; undefined = any. Owned by
+	 * the page, which also scopes the provider dropdown to match.
+	 */
+	providerEnabled?: boolean;
 	onModelClick?: (model: Model) => void;
 	refreshTrigger?: number;
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
-	/** Called with the total model count from the server whenever it changes. */
-	onTotalChange?: (total: number) => void;
+	/**
+	 * Called with the server's filter-wide counts whenever they change: every
+	 * matching row, the rows the proxy can serve, and the rows parked under a
+	 * disabled provider.
+	 */
+	onTotalChange?: (counts: ModelCounts) => void;
+}
+
+export interface ModelCounts {
+	total: number;
+	enabled: number;
+	parked: number;
 }
 
 interface SortState {
@@ -58,6 +73,7 @@ export function VirtualModelTable({
 	providers,
 	providerFilter = "",
 	onProviderFilterChange,
+	providerEnabled,
 	onModelClick,
 	refreshTrigger,
 	onDeleteDisabled,
@@ -121,6 +137,10 @@ export function VirtualModelTable({
 				search: params.search as string | undefined,
 				capabilities: params.capabilities as string | undefined,
 				outputs: params.outputs as string | undefined,
+				provider_enabled:
+					params.provider_enabled === undefined
+						? undefined
+						: params.provider_enabled === "true",
 			});
 		},
 		[],
@@ -134,6 +154,10 @@ export function VirtualModelTable({
 		if (providerFilter) {
 			result.provider_id = providerFilter;
 		}
+		if (providerEnabled !== undefined) {
+			// The cursor hook carries string filters; the client maps it back.
+			result.provider_enabled = String(providerEnabled);
+		}
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
 		}
@@ -141,7 +165,14 @@ export function VirtualModelTable({
 			result.outputs = Array.from(outputFilter).join(",");
 		}
 		return result;
-	}, [searchQuery, sort.field, providerFilter, capFilter, outputFilter]);
+	}, [
+		searchQuery,
+		sort.field,
+		providerFilter,
+		providerEnabled,
+		capFilter,
+		outputFilter,
+	]);
 
 	const getCursor = useCallback(
 		(entry: Model): string => {
@@ -210,7 +241,8 @@ export function VirtualModelTable({
 		fetchOlder,
 		reset,
 		fetchInitial,
-	} = useBidirectionalFetch<Model>({
+		lastResponse,
+	} = useBidirectionalFetch<Model, ModelsCursorResponse>({
 		fetchFn,
 		filters,
 		sortDir: sort.dir,
@@ -219,9 +251,14 @@ export function VirtualModelTable({
 	});
 
 	// Notify parent of total count changes
+	// Every page carries the same filter-wide counts, so the latest accepted
+	// response is as good as any; after a reset there is none and the counts
+	// fall back to zero until the refetch lands.
+	const enabledTotal = lastResponse?.enabled_total ?? 0;
+	const parkedTotal = lastResponse?.parked_total ?? 0;
 	useEffect(() => {
-		onTotalChange?.(total);
-	}, [total, onTotalChange]);
+		onTotalChange?.({ total, enabled: enabledTotal, parked: parkedTotal });
+	}, [total, enabledTotal, parkedTotal, onTotalChange]);
 
 	const disabledModels = useMemo(
 		() => entries.filter((m) => !m.enabled),
@@ -613,6 +650,7 @@ export function VirtualModelTable({
 							virtualItems.map((vItem) => {
 								const model = entries[vItem.index];
 								const caps = parseCapabilities(model.capabilities);
+								const isParked = !model.provider_enabled;
 								const isActive = model.enabled && !model.disabled_manually;
 								const isManuallyDisabled =
 									model.enabled && model.disabled_manually;
@@ -680,31 +718,42 @@ export function VirtualModelTable({
 										</td>
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
-											<span
-												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${
-													isActive
-														? "ui-badge-success"
-														: isManuallyDisabled
-															? "ui-badge-warning"
-															: "ui-badge-error"
-												}`}
-												{...(!model.enabled && !model.disabled_manually
-													? {
-															title: t("models.disabledByDiscovery", {
-																date: formatDate(model.last_seen_at),
-															}),
-															"data-testid": "disabled-by-discovery",
-														}
-													: {})}
-											>
-												<span className="badge-text">
-													{isActive
-														? t("common.enabled")
-														: isManuallyDisabled
-															? t("common.manuallyDisabled")
-															: t("common.disabled")}
+											{isParked ? (
+												<span
+													className="ui-badge ui-badge-neutral px-2 py-px leading-[1.6] text-xs"
+													title={t("models.status_parked_hint")}
+												>
+													<span className="badge-text">
+														{t("models.status_parked")}
+													</span>
 												</span>
-											</span>
+											) : (
+												<span
+													className={`ui-badge px-2 py-px leading-[1.6] text-xs ${
+														isActive
+															? "ui-badge-success"
+															: isManuallyDisabled
+																? "ui-badge-warning"
+																: "ui-badge-error"
+													}`}
+													{...(!model.enabled && !model.disabled_manually
+														? {
+																title: t("models.disabledByDiscovery", {
+																	date: formatDate(model.last_seen_at),
+																}),
+																"data-testid": "disabled-by-discovery",
+															}
+														: {})}
+												>
+													<span className="badge-text">
+														{isActive
+															? t("common.enabled")
+															: isManuallyDisabled
+																? t("common.manuallyDisabled")
+																: t("common.disabled")}
+													</span>
+												</span>
+											)}
 										</td>
 									</tr>
 								);

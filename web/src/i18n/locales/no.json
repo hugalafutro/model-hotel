@@ -969,7 +969,6 @@
 		"page_title_one": "Modell",
 		"page_title_other": "Modeller",
 		"page_description": "Oppdaget modeller av dine leverandører",
-		"badge_enabled": "{{count}} er aktivert",
 		"badge_disabled": "{{count}} er deaktivert",
 		"view_mode_pages": "⬡ Sider",
 		"view_mode_scroll": "⇊ Rull",
@@ -1052,7 +1051,13 @@
 			"video": "Videoutdata",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktive leverandører",
+		"scope_disabled": "Deaktiverte leverandører",
+		"scope_all": "Alle leverandører",
+		"badge_parked": "{{count}} parkert",
+		"status_parked": "Parkert",
+		"status_parked_hint": "Leverandøren er deaktivert; denne modellen står fortsatt oppført, men serveres ikke før leverandøren aktiveres igjen."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Gå tilbake til oppdaget verdi",

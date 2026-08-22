@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import type { Model, Provider } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
 import { formatDate } from "../../utils/format";
@@ -50,6 +51,7 @@ function createModel(overrides: Partial<Model> = {}): Model {
 		display_name: "Test Model v1",
 		provider_id: "provider-001",
 		provider_name: "Test Provider",
+		provider_enabled: true,
 		capabilities: '{"streaming":true,"vision":false}',
 		params: "{}",
 		modality: "text",
@@ -876,6 +878,131 @@ describe("VirtualModelTable", () => {
 			// Verify filters passed to useBidirectionalFetch include provider_id
 			const lastFilter = capturedFilters[capturedFilters.length - 1];
 			expect(lastFilter.provider_id).toBe("p1");
+			expect(lastFilter.provider_enabled).toBeUndefined();
+		});
+
+		it("passes provider_enabled in filters as a string when scoped", () => {
+			const capturedFilters: Record<string, unknown>[] = [];
+			mockUseBidirectionalFetch.mockImplementation(
+				({ filters }: { filters: Record<string, unknown> }) => {
+					capturedFilters.push(filters);
+					return { ...defaultHookReturn, entries: [], total: 0 };
+				},
+			);
+			mockGetVirtualItems.mockReturnValue([]);
+			mockGetTotalSize.mockReturnValue(0);
+
+			renderWithProviders(<VirtualModelTable providerEnabled={false} />);
+
+			const lastFilter = capturedFilters[capturedFilters.length - 1];
+			expect(lastFilter.provider_enabled).toBe("false");
+		});
+
+		it("maps the provider_enabled filter back to a boolean for the API", async () => {
+			type FetchFn = (params: Record<string, unknown>) => Promise<unknown>;
+			let fetchFn: FetchFn | undefined;
+			mockUseBidirectionalFetch.mockImplementation(
+				({ fetchFn: fn }: { fetchFn: FetchFn }) => {
+					fetchFn = fn;
+					return { ...defaultHookReturn, entries: [], total: 0 };
+				},
+			);
+			mockGetVirtualItems.mockReturnValue([]);
+			mockGetTotalSize.mockReturnValue(0);
+			const cursor = vi.mocked(api.models.cursor);
+			cursor.mockResolvedValue({
+				entries: [],
+				enabled_total: 0,
+				parked_total: 0,
+				total: 0,
+				has_before: false,
+				has_after: false,
+			});
+
+			const onTotalChange = vi.fn();
+			renderWithProviders(
+				<VirtualModelTable
+					providerEnabled={true}
+					onTotalChange={onTotalChange}
+				/>,
+			);
+			if (!fetchFn) throw new Error("fetchFn not captured");
+
+			await fetchFn({
+				direction: "after",
+				limit: 10,
+				sort_dir: "asc",
+				provider_enabled: "true",
+			});
+			expect(cursor).toHaveBeenLastCalledWith(
+				expect.objectContaining({ provider_enabled: true }),
+			);
+
+			await fetchFn({ direction: "after", limit: 10, sort_dir: "asc" });
+			expect(cursor).toHaveBeenLastCalledWith(
+				expect.objectContaining({ provider_enabled: undefined }),
+			);
+		});
+
+		it("reports the counts from the hook's accepted response, not from the fetch", () => {
+			// The counts ride the hook's generation guard: the component reads
+			// lastResponse, so a stale in-flight reply can never leak them.
+			mockUseBidirectionalFetch.mockImplementation(() => ({
+				...defaultHookReturn,
+				entries: [],
+				total: 7,
+				lastResponse: {
+					entries: [],
+					total: 7,
+					enabled_total: 5,
+					parked_total: 1,
+					has_before: false,
+					has_after: false,
+				},
+			}));
+			mockGetVirtualItems.mockReturnValue([]);
+			mockGetTotalSize.mockReturnValue(0);
+			const onTotalChange = vi.fn();
+
+			renderWithProviders(<VirtualModelTable onTotalChange={onTotalChange} />);
+
+			expect(onTotalChange).toHaveBeenLastCalledWith({
+				total: 7,
+				enabled: 5,
+				parked: 1,
+			});
+		});
+
+		it("reports zero counts after a reset, when the hook has no accepted response", () => {
+			mockUseBidirectionalFetch.mockImplementation(() => ({
+				...defaultHookReturn,
+				entries: [],
+				total: 0,
+				lastResponse: null,
+			}));
+			mockGetVirtualItems.mockReturnValue([]);
+			mockGetTotalSize.mockReturnValue(0);
+			const onTotalChange = vi.fn();
+
+			renderWithProviders(<VirtualModelTable onTotalChange={onTotalChange} />);
+
+			expect(onTotalChange).toHaveBeenLastCalledWith({
+				total: 0,
+				enabled: 0,
+				parked: 0,
+			});
+		});
+
+		it("shows a parked pill instead of the enabled state for a disabled provider's model", () => {
+			const entries = [
+				createModel({ id: "m-parked", enabled: true, provider_enabled: false }),
+			];
+			setupWithEntries(entries);
+
+			renderWithProviders(<VirtualModelTable />);
+
+			expect(screen.getByText("Parked")).toBeInTheDocument();
+			expect(screen.queryByText("Enabled")).not.toBeInTheDocument();
 		});
 	});
 

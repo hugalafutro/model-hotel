@@ -999,7 +999,6 @@
 		"page_title_many": "Modelli",
 		"page_title_other": "Modelli",
 		"page_description": "Modelli scoperti dai tuoi provider",
-		"badge_enabled": "{{count}} abilitato",
 		"badge_disabled": "{{count}} disabilitato",
 		"view_mode_pages": "⬡ Pagine",
 		"view_mode_scroll": "⇊ Scorrimento",
@@ -1083,7 +1082,13 @@
 			"video": "Output video",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Provider attivi",
+		"scope_disabled": "Provider disattivati",
+		"scope_all": "Tutti i provider",
+		"badge_parked": "{{count}} parcheggiati",
+		"status_parked": "Parcheggiato",
+		"status_parked_hint": "Il provider è disattivato; questo modello resta in elenco ma non viene servito finché il provider non viene riattivato."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Ripristina al valore scoperto",

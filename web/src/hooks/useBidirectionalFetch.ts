@@ -4,30 +4,48 @@ import i18next from "../i18n";
 const FETCH_SIZE = 200;
 const MAX_ROWS = 10000;
 
-export type CursorFetchFn<T> = (params: {
+export interface CursorResponse<T> {
+	entries: T[];
+	total: number;
+	has_before: boolean;
+	has_after: boolean;
+}
+
+export type CursorFetchFn<
+	T,
+	R extends CursorResponse<T> = CursorResponse<T>,
+> = (params: {
 	cursor?: string;
 	direction: "after" | "before";
 	limit: number;
 	sort_dir: string;
 	[key: string]: string | number | undefined;
-}) => Promise<{
-	entries: T[];
-	total: number;
-	has_before: boolean;
-	has_after: boolean;
-}>;
+}) => Promise<R>;
 
-export interface UseBidirectionalFetchOptions<T> {
-	fetchFn: CursorFetchFn<T>;
+export interface UseBidirectionalFetchOptions<
+	T,
+	R extends CursorResponse<T> = CursorResponse<T>,
+> {
+	fetchFn: CursorFetchFn<T, R>;
 	filters: Record<string, string | undefined>;
 	sortDir: string;
 	getCursor: (entry: T) => string;
 	getId: (entry: T) => string;
 }
 
-export interface UseBidirectionalFetchReturn<T> {
+export interface UseBidirectionalFetchReturn<
+	T,
+	R extends CursorResponse<T> = CursorResponse<T>,
+> {
 	entries: T[];
 	total: number;
+	/**
+	 * The most recent response the hook accepted, null after a reset. Callers
+	 * read endpoint-specific extras (filter-wide counts and the like) from
+	 * here rather than inside fetchFn, so a response discarded by the
+	 * generation guard cannot leak its extras either.
+	 */
+	lastResponse: R | null;
 	hasBefore: boolean;
 	hasAfter: boolean;
 	isLoadingInitial: boolean;
@@ -54,15 +72,19 @@ function deepEqualFilters(
 	return true;
 }
 
-export function useBidirectionalFetch<T>({
+export function useBidirectionalFetch<
+	T,
+	R extends CursorResponse<T> = CursorResponse<T>,
+>({
 	fetchFn,
 	filters,
 	sortDir,
 	getCursor,
 	getId,
-}: UseBidirectionalFetchOptions<T>): UseBidirectionalFetchReturn<T> {
+}: UseBidirectionalFetchOptions<T, R>): UseBidirectionalFetchReturn<T, R> {
 	const [entries, setEntries] = useState<T[]>([]);
 	const [total, setTotal] = useState<number>(0);
+	const [lastResponse, setLastResponse] = useState<R | null>(null);
 	const [hasBefore, setHasBefore] = useState<boolean>(false);
 	const [hasAfter, setHasAfter] = useState<boolean>(false);
 	const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(false);
@@ -90,6 +112,7 @@ export function useBidirectionalFetch<T>({
 		generationRef.current++;
 		setEntries([]);
 		setTotal(0);
+		setLastResponse(null);
 		setHasBefore(false);
 		setHasAfter(false);
 		setError(null);
@@ -131,6 +154,7 @@ export function useBidirectionalFetch<T>({
 
 			setEntries(response.entries);
 			setTotal(response.total);
+			setLastResponse(response);
 			setHasBefore(response.has_before);
 			setHasAfter(response.has_after);
 		} catch (err) {
@@ -177,6 +201,7 @@ export function useBidirectionalFetch<T>({
 			});
 
 			if (gen !== generationRef.current) return;
+			setLastResponse(response);
 
 			if (response.entries.length === 0) {
 				setHasBefore(false);
@@ -237,6 +262,7 @@ export function useBidirectionalFetch<T>({
 			});
 
 			if (gen !== generationRef.current) return;
+			setLastResponse(response);
 
 			if (response.entries.length === 0) {
 				setHasAfter(false);
@@ -286,6 +312,7 @@ export function useBidirectionalFetch<T>({
 	return {
 		entries,
 		total,
+		lastResponse,
 		hasBefore,
 		hasAfter,
 		isLoadingInitial,

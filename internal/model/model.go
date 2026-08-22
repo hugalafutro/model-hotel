@@ -96,7 +96,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
 
 const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, created_at, COALESCE(last_seen_at, created_at)`
 
@@ -224,23 +224,35 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 
 // List returns all models, optionally filtered by provider ID.
 func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model, error) {
+	return r.ListFiltered(ctx, providerID, nil)
+}
+
+// ListFiltered returns models filtered by provider ID and/or the owning
+// provider's enabled flag. A nil filter means "any". The provider flag is what
+// separates rows the proxy can serve (see ListEnabled) from rows that merely
+// exist: a disabled provider keeps its models, pins, prices and failover
+// memberships so re-enabling it is instant, but the dashboard must not count
+// those rows as available.
+func (r *Repository) ListFiltered(ctx context.Context, providerID *uuid.UUID, providerEnabled *bool) ([]*Model, error) {
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id`
 
+	var conditions []string
+	var args []any
 	if providerID != nil {
-		query += " WHERE m.provider_id = $1"
+		args = append(args, *providerID)
+		conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", len(args)))
+	}
+	if providerEnabled != nil {
+		args = append(args, *providerEnabled)
+		conditions = append(conditions, fmt.Sprintf("COALESCE(p.enabled, false) = $%d", len(args)))
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	query += " ORDER BY m.model_id ASC"
 
-	var rows pgx.Rows
-	var err error
-
-	if providerID != nil {
-		rows, err = r.pool.Query(ctx, query, providerID)
-	} else {
-		rows, err = r.pool.Query(ctx, query)
-	}
-
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

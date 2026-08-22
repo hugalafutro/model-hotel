@@ -1083,7 +1083,6 @@
 	},
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",
-		"badge_enabled": "{{count}} ممكّن",
 		"badge_disabled": "{{count}} معطل",
 		"view_mode_pages": "⬡ الصفحات",
 		"view_mode_scroll": "⇊ التمرير",
@@ -1176,7 +1175,13 @@
 		"toast_delete_bulk_success_two": "تم حذف {{count}} نموذجين معطلين",
 		"toast_delete_bulk_success_few": "تم حذف {{count}} نماذج معطلة",
 		"toast_delete_bulk_success_many": "تم حذف {{count}} نموذجًا معطلًا",
-		"toast_delete_bulk_success_other": "تم حذف {{count}} نموذج معطل"
+		"toast_delete_bulk_success_other": "تم حذف {{count}} نموذج معطل",
+		"scope_active": "المزودون النشطون",
+		"scope_disabled": "المزودون المعطلون",
+		"scope_all": "جميع المزودين",
+		"badge_parked": "{{count}} متوقف",
+		"status_parked": "متوقف",
+		"status_parked_hint": "المزود معطل؛ يبقى هذا النموذج مدرجًا لكنه لا يُقدَّم حتى يتم تفعيل المزود مجددًا."
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",

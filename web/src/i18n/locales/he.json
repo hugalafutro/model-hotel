@@ -999,7 +999,6 @@
 		"page_title_two": "מודלים",
 		"page_title_other": "מודלים",
 		"page_description": "דגמים שהתגלו אצל הספקים שלך",
-		"badge_enabled": "{{count}} מופעל",
 		"badge_disabled": "{{count}} מושבתים",
 		"view_mode_pages": "⬡ דפים",
 		"view_mode_scroll": "⇊ גלול",
@@ -1083,7 +1082,13 @@
 			"video": "פלט וידאו",
 			"embedding": "הטמעה",
 			"rerank": "דירוג מחדש"
-		}
+		},
+		"scope_active": "ספקים פעילים",
+		"scope_disabled": "ספקים מושבתים",
+		"scope_all": "כל הספקים",
+		"badge_parked": "{{count}} מושהים",
+		"status_parked": "מושהה",
+		"status_parked_hint": "הספק מושבת; המודל נשאר ברשימה אך אינו מוגש עד שהספק יופעל מחדש."
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",

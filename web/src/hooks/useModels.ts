@@ -29,14 +29,14 @@ export function useProviders() {
 }
 
 /**
- * Enabled models only - filters to models that are both enabled and
- * have a provider assigned. Base list for the chat surfaces, which layer
+ * Models the proxy can serve: the model AND its provider are enabled, the
+ * same rule /v1/models applies. Base list for the chat surfaces, which layer
  * useChatModels on top to also drop non-chat modalities.
  */
 export function useEnabledModels() {
 	const { data: models, ...rest } = useModels();
 	const enabledModels = useMemo(
-		() => models?.filter((m: Model) => m.enabled && m.provider_name) || [],
+		() => models?.filter((m: Model) => m.enabled && m.provider_enabled) || [],
 		[models],
 	);
 	return { ...rest, data: enabledModels };

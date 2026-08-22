@@ -38,6 +38,7 @@ const baseModel = {
 	display_name: "",
 	provider_id: "provider-1",
 	provider_name: "Ollama Cloud",
+	provider_enabled: true,
 	capabilities: '{"vision":false,"audio_input":false,"reasoning":false}',
 	params: "{}",
 	modality: "text",

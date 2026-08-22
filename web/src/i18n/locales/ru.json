@@ -1029,7 +1029,6 @@
 		"page_title_many": "Модели",
 		"page_title_other": "Модели",
 		"page_description": "Найденные модели от ваших провайдеров",
-		"badge_enabled": "{{count}} включен",
 		"badge_disabled": "{{count}} отключен",
 		"view_mode_pages": "⬡ Страницы",
 		"view_mode_scroll": "⇊ Прокрутка",
@@ -1114,7 +1113,13 @@
 			"video": "Вывод видео",
 			"embedding": "Эмбеддинг",
 			"rerank": "Реранжирование"
-		}
+		},
+		"scope_active": "Активные провайдеры",
+		"scope_disabled": "Отключённые провайдеры",
+		"scope_all": "Все провайдеры",
+		"badge_parked": "{{count}} приостановлено",
+		"status_parked": "Приостановлен",
+		"status_parked_hint": "Провайдер отключён; эта модель остаётся в списке, но не обслуживается, пока провайдер не будет включён снова."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вернуться к обнаруженному значению",

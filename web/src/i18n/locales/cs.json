@@ -1029,7 +1029,6 @@
 		"page_title_many": "Modely",
 		"page_title_other": "Modely",
 		"page_description": "Modely vyhledané od vašich poskytovatelů",
-		"badge_enabled": "{{count}} je zapnutý",
 		"badge_disabled": "{{count}} je deaktivováno",
 		"view_mode_pages": "⬡ Stránky",
 		"view_mode_scroll": "⇊ Posunout",
@@ -1114,7 +1113,13 @@
 			"video": "Výstup videa",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktivní poskytovatelé",
+		"scope_disabled": "Zakázaní poskytovatelé",
+		"scope_all": "Všichni poskytovatelé",
+		"badge_parked": "{{count}} odstaveno",
+		"status_parked": "Odstaveno",
+		"status_parked_hint": "Poskytovatel je zakázán; tento model zůstává v seznamu, ale neobsluhuje se, dokud poskytovatel nebude znovu povolen."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátit se k zjištěné hodnotě",

@@ -1,18 +1,44 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import {
+	keepPreviousData,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot } from "@/lib/icons";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelTable } from "../components/ModelTable";
 import { PageHeader } from "../components/PageHeader";
-import { VirtualModelTable } from "../components/VirtualModelTable";
+import {
+	type ModelCounts,
+	VirtualModelTable,
+} from "../components/VirtualModelTable";
 import { useToast } from "../context/ToastContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
+
+/**
+ * Which providers' models the page shows. "active" is the default because the
+ * page exists to answer "what can the proxy serve right now": a disabled
+ * provider keeps its rows (pins, prices, failover memberships survive a
+ * re-enable) but /v1/models does not advertise them, so counting them here
+ * would report models nobody can call. "disabled" shows only those parked
+ * rows; "all" is the old unfiltered view.
+ */
+type ProviderScope = "active" | "disabled" | "all";
+
+const PROVIDER_SCOPES: ProviderScope[] = ["active", "disabled", "all"];
+
+function scopeToEnabled(scope: ProviderScope): boolean | undefined {
+	if (scope === "all") return undefined;
+	return scope === "active";
+}
 
 export function Models() {
 	const { toast } = useToast();
@@ -24,23 +50,55 @@ export function Models() {
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const [providerFilter, setProviderFilter] = useState("");
+	const [providerScope, setProviderScope] = useState<ProviderScope>("active");
+	const providerEnabled = scopeToEnabled(providerScope);
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
-	const [scrollTotal, setScrollTotal] = useState<number | undefined>(undefined);
+	// Scroll mode only has one page of rows, so the usable count comes from the
+	// server alongside the row total (see VirtualModelTable.onTotalChange).
+	const [scrollCounts, setScrollCounts] = useState<ModelCounts | undefined>(
+		undefined,
+	);
 	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
 		"modelsViewMode",
 		"scroll",
 	);
 
 	const { data: models, isLoading } = useQuery({
-		queryKey: ["models"],
-		queryFn: () => api.models.list(),
+		queryKey: ["models", { providerEnabled }],
+		queryFn: () => api.models.list(undefined, providerEnabled),
 		enabled: viewMode === "paginate",
+		// A scope change swaps the key; keep the old rows on screen instead of
+		// unmounting the header (and the dropdown just clicked) behind a spinner.
+		placeholderData: keepPreviousData,
 	});
 
-	const { data: providers } = useQuery({
+	const { data: allProviders } = useQuery({
 		queryKey: ["providers"],
 		queryFn: () => api.providers.list(),
 	});
+
+	// The provider dropdown follows the scope so it cannot offer a provider
+	// whose rows the scope hides (an "active" view listing a disabled provider
+	// would filter to an empty table with no explanation).
+	const providers = useMemo(() => {
+		if (allProviders === undefined || providerEnabled === undefined) {
+			return allProviders;
+		}
+		return allProviders.filter((p) => p.enabled === providerEnabled);
+	}, [allProviders, providerEnabled]);
+
+	const handleScopeChange = useCallback(
+		(value: string) => {
+			const scope = value as ProviderScope;
+			setProviderScope(scope);
+			const enabled = scopeToEnabled(scope);
+			const picked = allProviders?.find((p) => p.id === providerFilter);
+			if (picked && enabled !== undefined && picked.enabled !== enabled) {
+				setProviderFilter("");
+			}
+		},
+		[allProviders, providerFilter],
+	);
 
 	const toggleMutation = useMutation({
 		mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
@@ -180,24 +238,50 @@ export function Models() {
 		return <LoadingSpinner />;
 	}
 
-	const totalEnabled = models?.filter((m) => m.enabled).length ?? 0;
-	const totalDisabled = (models?.length ?? 0) - totalEnabled;
-	const allSameState = totalEnabled === 0 || totalDisabled === 0;
+	// The title answers "how many models can the proxy serve right now": a row
+	// counts only when the model AND its provider are enabled, the /v1/models
+	// rule. The badge splits the remainder into rows switched off individually
+	// and rows parked under a disabled provider, so the rows in view add up and
+	// the two states stay distinguishable.
+	const counts: ModelCounts =
+		viewMode === "paginate"
+			? {
+					total: models?.length ?? 0,
+					enabled:
+						models?.filter((m) => m.enabled && m.provider_enabled).length ?? 0,
+					parked: models?.filter((m) => !m.provider_enabled).length ?? 0,
+				}
+			: (scrollCounts ?? { total: 0, enabled: 0, parked: 0 });
+	const usableCount = counts.enabled;
+	const disabledCount = Math.max(
+		0,
+		counts.total - counts.enabled - counts.parked,
+	);
+	const parkedCount = counts.parked;
 
 	const modelBadge =
-		!allSameState && viewMode === "paginate" ? (
+		disabledCount > 0 || parkedCount > 0 ? (
 			<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
-				<span className="text-green-400">
-					<span className="badge-text">
-						{t("models.badge_enabled", { count: totalEnabled })}
+				{disabledCount > 0 && (
+					<span className="text-red-400">
+						<span className="badge-text">
+							{t("models.badge_disabled", { count: disabledCount })}
+						</span>
 					</span>
-				</span>
-				<span className="text-gray-600">/</span>
-				<span className="text-red-400">
-					<span className="badge-text">
-						{t("models.badge_disabled", { count: totalDisabled })}
+				)}
+				{disabledCount > 0 && parkedCount > 0 && (
+					<span className="text-gray-600">/</span>
+				)}
+				{parkedCount > 0 && (
+					<span
+						className="text-gray-400"
+						title={t("models.status_parked_hint")}
+					>
+						<span className="badge-text">
+							{t("models.badge_parked", { count: parkedCount })}
+						</span>
 					</span>
-				</span>
+				)}
 			</span>
 		) : undefined;
 
@@ -205,38 +289,48 @@ export function Models() {
 		<div className="space-y-4">
 			<PageHeader
 				icon={Bot}
-				title={countLabel(
-					viewMode === "paginate" ? models?.length : scrollTotal,
-					"models.page_title",
-				)}
+				title={countLabel(usableCount, "models.page_title")}
 				description={t("models.page_description")}
 				badge={modelBadge}
 				actions={
-					<button
-						type="button"
-						onClick={() =>
-							setViewMode(viewMode === "scroll" ? "paginate" : "scroll")
-						}
-						className={`ui-tab flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-all border ${
-							viewMode === "scroll"
-								? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
-								: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
-						}`}
-						title={
-							viewMode === "scroll"
-								? t("models.switch_to_pagination")
-								: t("models.switch_to_scroll")
-						}
-						aria-label={
-							viewMode === "scroll"
-								? t("models.switch_to_pagination")
-								: t("models.switch_to_scroll")
-						}
-					>
-						{viewMode === "scroll"
-							? t("models.view_mode_pages")
-							: t("models.view_mode_scroll")}
-					</button>
+					<div className="flex items-center gap-2">
+						<FilterDropdown
+							value={providerScope}
+							onChange={handleScopeChange}
+							allowClear={false}
+							variant="compact"
+							options={PROVIDER_SCOPES.map((scope) => ({
+								value: scope,
+								label: t(`models.scope_${scope}`),
+							}))}
+							className="w-[190px] shrink-0"
+						/>
+						<button
+							type="button"
+							onClick={() =>
+								setViewMode(viewMode === "scroll" ? "paginate" : "scroll")
+							}
+							className={`ui-tab flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-all border ${
+								viewMode === "scroll"
+									? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
+									: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
+							}`}
+							title={
+								viewMode === "scroll"
+									? t("models.switch_to_pagination")
+									: t("models.switch_to_scroll")
+							}
+							aria-label={
+								viewMode === "scroll"
+									? t("models.switch_to_pagination")
+									: t("models.switch_to_scroll")
+							}
+						>
+							{viewMode === "scroll"
+								? t("models.view_mode_pages")
+								: t("models.view_mode_scroll")}
+						</button>
+					</div>
 				}
 			/>
 
@@ -245,10 +339,11 @@ export function Models() {
 					providers={providers}
 					providerFilter={providerFilter}
 					onProviderFilterChange={setProviderFilter}
+					providerEnabled={providerEnabled}
 					onModelClick={setDetailModel}
 					refreshTrigger={modelRefreshTrigger}
 					onDeleteDisabled={handleDeleteDisabled}
-					onTotalChange={setScrollTotal}
+					onTotalChange={setScrollCounts}
 				/>
 			) : (
 				<ModelTable

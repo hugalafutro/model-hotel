@@ -112,7 +112,7 @@ describe("useProviders", () => {
 });
 
 describe("useEnabledModels", () => {
-	it("filters to enabled models with provider_name", async () => {
+	it("filters to enabled models of enabled providers", async () => {
 		const { result } = renderHook(() => useEnabledModels(), {
 			wrapper: createWrapper(),
 		});
@@ -167,11 +167,13 @@ describe("useEnabledModels", () => {
 		expect(result.current.data?.[0].enabled).toBe(true);
 	});
 
-	it("excludes models without provider_name", async () => {
+	it("excludes models of disabled providers", async () => {
+		// Enabled on paper, but its provider is off: /v1/models does not list it,
+		// so the chat pickers must not offer it either.
 		const noProviderModel: Model = {
 			...mockModel,
-			id: "model-no-provider",
-			provider_name: "",
+			id: "model-parked",
+			provider_enabled: false,
 			enabled: true,
 		};
 

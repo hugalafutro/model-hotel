@@ -999,7 +999,6 @@
 		"page_title_many": "Models",
 		"page_title_other": "Models",
 		"page_description": "S'han descobert models dels vostres proveïdors",
-		"badge_enabled": "{{count}} Activat",
 		"badge_disabled": "{{count}} desactivats",
 		"view_mode_pages": "⬡ Pàgines",
 		"view_mode_scroll": "⇊ Desplaçament",
@@ -1083,7 +1082,13 @@
 			"video": "Sortida de vídeo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Proveïdors actius",
+		"scope_disabled": "Proveïdors desactivats",
+		"scope_all": "Tots els proveïdors",
+		"badge_parked": "{{count}} aparcats",
+		"status_parked": "Aparcat",
+		"status_parked_hint": "El proveïdor està desactivat; aquest model continua llistat però no se serveix fins que el proveïdor es torni a activar."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",

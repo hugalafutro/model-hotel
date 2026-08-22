@@ -62,6 +62,8 @@ export interface Model {
 	display_name: string;
 	provider_id: string;
 	provider_name: string;
+	/** Owning provider's enabled flag; false means the row is parked, not served. */
+	provider_enabled: boolean;
 	capabilities: string;
 	params: string;
 	modality: string;
@@ -155,6 +157,10 @@ export interface AppLogsCursorResponse {
 export interface ModelsCursorResponse {
 	entries: Model[];
 	total: number;
+	/** Rows the proxy can serve (model enabled AND provider enabled). */
+	enabled_total: number;
+	/** Rows parked under a disabled provider: listed, kept, not served. */
+	parked_total: number;
 	has_before: boolean;
 	has_after: boolean;
 }

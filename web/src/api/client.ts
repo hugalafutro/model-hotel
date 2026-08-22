@@ -520,9 +520,17 @@ export const api = {
 	},
 
 	models: {
-		list: async (providerId?: string): Promise<Model[]> => {
-			const url = providerId
-				? `${API_BASE}/api/models?provider_id=${providerId}`
+		list: async (
+			providerId?: string,
+			providerEnabled?: boolean,
+		): Promise<Model[]> => {
+			const sp = new URLSearchParams();
+			if (providerId) sp.set("provider_id", providerId);
+			if (providerEnabled !== undefined)
+				sp.set("provider_enabled", String(providerEnabled));
+			const qs = sp.toString();
+			const url = qs
+				? `${API_BASE}/api/models?${qs}`
 				: `${API_BASE}/api/models`;
 			return fetchJSON<Model[]>(
 				url,
@@ -542,6 +550,8 @@ export const api = {
 			search?: string;
 			capabilities?: string;
 			outputs?: string;
+			/** Filter on the owning provider's enabled flag; undefined = any. */
+			provider_enabled?: boolean;
 		}): Promise<ModelsCursorResponse> => {
 			const sp = new URLSearchParams();
 			if (params.cursor) sp.set("cursor", params.cursor);
@@ -553,6 +563,8 @@ export const api = {
 			if (params.search) sp.set("search", params.search);
 			if (params.capabilities) sp.set("capabilities", params.capabilities);
 			if (params.outputs) sp.set("outputs", params.outputs);
+			if (params.provider_enabled !== undefined)
+				sp.set("provider_enabled", String(params.provider_enabled));
 			return fetchJSON<ModelsCursorResponse>(
 				`${API_BASE}/api/models/cursor?${sp.toString()}`,
 				{ headers: getAuthHeaders() },

@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Model } from "../../api/types";
@@ -150,6 +151,167 @@ describe("Models", () => {
 		});
 	});
 
+	describe("Provider scope", () => {
+		const onProvider = {
+			...mockProvider,
+			id: "prov-on",
+			name: "On",
+			enabled: true,
+		};
+		const offProvider = {
+			...mockProvider,
+			id: "prov-off",
+			name: "Off",
+			enabled: false,
+		};
+
+		function serveScoped(requested: string[]) {
+			server.use(
+				http.get("/api/models", ({ request }) => {
+					const scope = new URL(request.url).searchParams.get(
+						"provider_enabled",
+					);
+					requested.push(scope ?? "none");
+					const rows = [
+						{ ...mockModel, id: "m-on", provider_id: "prov-on" },
+						{
+							...mockModel,
+							id: "m-off",
+							provider_id: "prov-off",
+							provider_enabled: false,
+						},
+					];
+					if (scope === "true") return HttpResponse.json([rows[0]]);
+					if (scope === "false") return HttpResponse.json([rows[1]]);
+					return HttpResponse.json(rows);
+				}),
+				http.get("/api/providers", () => {
+					return HttpResponse.json([onProvider, offProvider]);
+				}),
+			);
+		}
+
+		it("defaults to active providers so the count matches what the proxy serves", async () => {
+			const requested: string[] = [];
+			serveScoped(requested);
+
+			renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Model")).toBeInTheDocument();
+			});
+			expect(requested).toContain("true");
+			expect(requested).not.toContain("none");
+			// The provider dropdown only offers enabled providers in this scope.
+			expect(screen.getByText("All (1) Providers")).toBeInTheDocument();
+		});
+
+		it("switches scope and requests the parked rows", async () => {
+			const user = userEvent.setup();
+			const requested: string[] = [];
+			serveScoped(requested);
+
+			renderWithProviders(<Models />);
+			await waitFor(() => {
+				expect(screen.getByText("1 Model")).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Filter: Active providers" }),
+			);
+			await user.click(screen.getByText("Disabled providers"));
+
+			await waitFor(() => {
+				expect(requested).toContain("false");
+			});
+			// A parked row is listed but not usable: no count in the title, the
+			// badge says why.
+			await waitFor(() => {
+				expect(screen.getByText("1 parked")).toBeInTheDocument();
+			});
+			expect(screen.queryByText(/\d+ disabled/)).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { name: "Models" }),
+			).toBeInTheDocument();
+
+			await user.click(
+				screen.getByRole("button", { name: "Filter: Disabled providers" }),
+			);
+			await user.click(screen.getByText("All providers"));
+
+			// "All" lists the parked row too, but a parked model is not usable, so
+			// the title stays at 1 and the badge carries the parked one.
+			await waitFor(() => {
+				expect(screen.getByText("All (2) Providers")).toBeInTheDocument();
+			});
+			expect(requested).toContain("none");
+			expect(screen.getByText("1 Model")).toBeInTheDocument();
+			expect(screen.getByText("1 parked")).toBeInTheDocument();
+		});
+
+		it("titles scroll mode with the server's usable count, not the row total", async () => {
+			localStorage.setItem("modelsViewMode", "scroll");
+			server.use(
+				http.get("/api/models/cursor", () => {
+					return HttpResponse.json({
+						entries: [],
+						total: 1000,
+						enabled_total: 950,
+						parked_total: 30,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+				http.get("/api/providers", () => {
+					return HttpResponse.json([onProvider]);
+				}),
+			);
+
+			renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("950 Models")).toBeInTheDocument();
+			});
+			// 1000 rows = 950 usable + 20 switched off + 30 parked.
+			expect(screen.getByText("20 disabled")).toBeInTheDocument();
+			expect(screen.getByText("30 parked")).toBeInTheDocument();
+		});
+
+		it("drops a picked provider that falls outside the new scope", async () => {
+			const user = userEvent.setup();
+			serveScoped([]);
+
+			renderWithProviders(<Models />);
+			await waitFor(() => {
+				expect(screen.getByText("All (1) Providers")).toBeInTheDocument();
+			});
+
+			// Pick the only active provider, then narrow the scope to disabled ones:
+			// "On" is no longer offered, so the filter resets to all.
+			await user.click(
+				screen.getByRole("button", { name: "All (1) Providers" }),
+			);
+			await user.click(screen.getByText("On"));
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "All (1) Providers: On" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Filter: Active providers" }),
+			);
+			await user.click(screen.getByText("Disabled providers"));
+
+			await waitFor(() => {
+				expect(screen.getByText("All (1) Providers")).toBeInTheDocument();
+			});
+			expect(
+				screen.queryByRole("button", { name: "All (1) Providers: On" }),
+			).not.toBeInTheDocument();
+		});
+	});
+
 	describe("Loading State", () => {
 		it("renders loading spinner initially", () => {
 			server.use(
@@ -206,13 +368,13 @@ describe("Models", () => {
 
 			renderWithProviders(<Models />);
 
+			// Title counts usable rows (model AND provider enabled); the badge
+			// carries the remainder so the rows in view still add up.
 			await waitFor(() => {
-				expect(screen.getByText("3 Models")).toBeInTheDocument();
+				expect(screen.getByText("2 Models")).toBeInTheDocument();
 			});
-
-			// Badge should show breakdown
-			expect(screen.getByText("2 enabled")).toBeInTheDocument();
 			expect(screen.getByText("1 disabled")).toBeInTheDocument();
+			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
 		it("renders model table with models", async () => {
@@ -327,12 +489,13 @@ describe("Models", () => {
 
 			renderWithProviders(<Models />);
 
+			// Nothing usable: the title has no count and the badge explains why.
 			await waitFor(() => {
-				expect(screen.getByText("2 Models")).toBeInTheDocument();
+				expect(screen.getByText("2 disabled")).toBeInTheDocument();
 			});
-
-			// No breakdown badge when all same state
-			expect(screen.queryByText("disabled")).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { name: "Models" }),
+			).toBeInTheDocument();
 		});
 	});
 

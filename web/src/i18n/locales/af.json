@@ -969,7 +969,6 @@
 		"page_title_one": "Model",
 		"page_title_other": "Modelle",
 		"page_description": "Ontdekte modelle van jou verskaffers",
-		"badge_enabled": "{{count}} geaktiveer",
 		"badge_disabled": "{{count}} gedeaktiveer",
 		"view_mode_pages": "⬡ Bladsye",
 		"view_mode_scroll": "⇊ Rol",
@@ -1052,7 +1051,13 @@
 			"video": "Video-uitset",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktiewe verskaffers",
+		"scope_disabled": "Gedeaktiveerde verskaffers",
+		"scope_all": "Alle verskaffers",
+		"badge_parked": "{{count}} geparkeer",
+		"status_parked": "Geparkeer",
+		"status_parked_hint": "Die verskaffer is gedeaktiveer; hierdie model bly gelys maar word nie bedien totdat die verskaffer weer geaktiveer word nie."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Keer terug na die ontdekte waarde",

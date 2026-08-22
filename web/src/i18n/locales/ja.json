@@ -969,7 +969,6 @@
 		"page_title_one": "モデル",
 		"page_title_other": "モデル",
 		"page_description": "プロバイダーから検出されたモデル",
-		"badge_enabled": "有効 {{count}} 件",
 		"badge_disabled": "無効 {{count}} 件",
 		"view_mode_pages": "⬡ ページ",
 		"view_mode_scroll": "⇊ スクロール",
@@ -1052,7 +1051,13 @@
 			"video": "動画出力",
 			"embedding": "埋め込み",
 			"rerank": "リランク"
-		}
+		},
+		"scope_active": "有効なプロバイダー",
+		"scope_disabled": "無効なプロバイダー",
+		"scope_all": "すべてのプロバイダー",
+		"badge_parked": "{{count}} 件が保留中",
+		"status_parked": "保留中",
+		"status_parked_hint": "プロバイダーが無効です。このモデルは一覧に残りますが、プロバイダーが再度有効になるまで提供されません。"
 	},
 	"model": {
 		"revertToDiscoveredValue": "発見された値に戻す",

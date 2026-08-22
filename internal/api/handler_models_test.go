@@ -1458,3 +1458,156 @@ func TestDeleteModel_SuccessWithFailoverSync(t *testing.T) {
 		t.Errorf("expected 204, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// TestListModels_ProviderEnabledFilter pins the contract the Models page relies
+// on: provider_enabled=true returns only rows the proxy can serve, =false only
+// the parked rows of disabled providers, and an absent param returns both.
+func TestListModels_ProviderEnabledFilter(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	createProvider := func(suffix string) string {
+		t.Helper()
+		body := fmt.Sprintf(`{"name":"pe-filter-%s-%s","base_url":"https://api.openai.com","api_key":"test-api-key"}`, suffix, uuid.New().String()[:8])
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create provider: %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("parse provider: %v", err)
+		}
+		return resp.ID
+	}
+
+	onID := createProvider("on")
+	offID := createProvider("off")
+	if _, err := pool.Exec(context.Background(), "UPDATE providers SET enabled = false WHERE id = $1", offID); err != nil {
+		t.Fatalf("disable provider: %v", err)
+	}
+	for _, row := range []struct{ pid, mid string }{{onID, "pe-served"}, {offID, "pe-parked"}} {
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, true)`,
+			uuid.New(), row.pid, row.mid, row.mid); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+	}
+
+	list := func(path string) (int, []ModelResponse) {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", path, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		r.ServeHTTP(rec, req)
+		var out []ModelResponse
+		if rec.Code == http.StatusOK {
+			if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+		}
+		return rec.Code, out
+	}
+	ids := func(ms []ModelResponse) map[string]bool {
+		out := map[string]bool{}
+		for _, m := range ms {
+			if m.ProviderID == onID || m.ProviderID == offID {
+				out[m.ModelID] = true
+			}
+		}
+		return out
+	}
+
+	for _, tc := range []struct {
+		name, query string
+		want        map[string]bool
+	}{
+		{"served only", "?provider_enabled=true", map[string]bool{"pe-served": true}},
+		{"parked only", "?provider_enabled=false", map[string]bool{"pe-parked": true}},
+		{"unfiltered", "", map[string]bool{"pe-served": true, "pe-parked": true}},
+		{"combined with provider_id", "?provider_enabled=true&provider_id=" + offID, map[string]bool{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			code, ms := list("/models" + tc.query)
+			if code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", code)
+			}
+			got := ids(ms)
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for k := range tc.want {
+				if !got[k] {
+					t.Errorf("missing %s in %v", k, got)
+				}
+			}
+			// The flag rides on every row so the dashboard can tell a parked
+			// model from a served one without a second request.
+			for _, m := range ms {
+				switch m.ProviderID {
+				case onID:
+					if !m.ProviderEnabled {
+						t.Errorf("%s: provider_enabled = false, want true", m.ModelID)
+					}
+				case offID:
+					if m.ProviderEnabled {
+						t.Errorf("%s: provider_enabled = true, want false", m.ModelID)
+					}
+				}
+			}
+		})
+	}
+
+	t.Run("NULL provider flag lists as parked on both routes", func(t *testing.T) {
+		// providers.enabled is nullable (migration 001). The proxy treats NULL
+		// as not served, so both projections must coalesce it rather than fail
+		// the scan (500 on /models, a silently dropped row on the cursor).
+		nullID := createProvider("null")
+		if _, err := pool.Exec(context.Background(), "UPDATE providers SET enabled = NULL WHERE id = $1", nullID); err != nil {
+			t.Fatalf("null provider flag: %v", err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, true)`,
+			uuid.New(), nullID, "pe-null", "pe-null"); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+
+		code, ms := list("/models?provider_id=" + nullID + "&provider_enabled=false")
+		if code != http.StatusOK {
+			t.Fatalf("list: expected 200, got %d", code)
+		}
+		if len(ms) != 1 || ms[0].ModelID != "pe-null" || ms[0].ProviderEnabled {
+			t.Fatalf("list: want the one parked row with provider_enabled=false, got %+v", ms)
+		}
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/models/cursor?provider_id="+nullID, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("cursor: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp ModelsCursorResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp.Total != 1 || resp.ParkedTotal != 1 || resp.EnabledTotal != 0 {
+			t.Errorf("cursor counts = %d/%d/%d, want total 1, parked 1, enabled 0", resp.Total, resp.EnabledTotal, resp.ParkedTotal)
+		}
+		if len(resp.Entries) != 1 || resp.Entries[0].ProviderEnabled {
+			t.Errorf("cursor entries = %+v, want the one parked row with provider_enabled=false", resp.Entries)
+		}
+	})
+
+	t.Run("rejects garbage", func(t *testing.T) {
+		code, _ := list("/models?provider_enabled=maybe")
+		if code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d", code)
+		}
+	})
+}

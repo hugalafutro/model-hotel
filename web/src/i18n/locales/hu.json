@@ -969,7 +969,6 @@
 		"page_title_one": "Modell",
 		"page_title_other": "Modellek",
 		"page_description": "A szolgáltatóidnál felfedezett modellek",
-		"badge_enabled": "{{count}} engedélyezve",
 		"badge_disabled": "{{count}} letiltva",
 		"view_mode_pages": "⬡ Oldalak",
 		"view_mode_scroll": "⇊ Görgetés",
@@ -1052,7 +1051,13 @@
 			"video": "Videókimenet",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktív szolgáltatók",
+		"scope_disabled": "Letiltott szolgáltatók",
+		"scope_all": "Összes szolgáltató",
+		"badge_parked": "{{count}} parkoltatva",
+		"status_parked": "Parkoltatva",
+		"status_parked_hint": "A szolgáltató le van tiltva; ez a modell listázva marad, de nem szolgálja ki a kéréseket, amíg a szolgáltatót újra nem engedélyezik."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",

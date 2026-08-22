@@ -1029,7 +1029,6 @@
 		"page_title_many": "Моделі",
 		"page_title_other": "Моделі",
 		"page_description": "Виявлені моделі від ваших провайдерів",
-		"badge_enabled": "{{count}} увімкнено",
 		"badge_disabled": "{{count}} вимкнено",
 		"view_mode_pages": "⬡ Сторінки",
 		"view_mode_scroll": "⇊ Прокрутка",
@@ -1114,7 +1113,13 @@
 			"video": "Вивід відео",
 			"embedding": "Ембедінг",
 			"rerank": "Переранжування"
-		}
+		},
+		"scope_active": "Активні провайдери",
+		"scope_disabled": "Вимкнені провайдери",
+		"scope_all": "Усі провайдери",
+		"badge_parked": "{{count}} призупинено",
+		"status_parked": "Призупинено",
+		"status_parked_hint": "Провайдер вимкнено; ця модель залишається в списку, але не обслуговується, доки провайдер не буде ввімкнено знову."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Повернутися до знайденого значення",

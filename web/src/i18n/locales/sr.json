@@ -999,7 +999,6 @@
 		"page_title_few": "Модели",
 		"page_title_other": "Модели",
 		"page_description": "Откривени модели од ваших провајдера",
-		"badge_enabled": "{{count}} омогућено",
 		"badge_disabled": "{{count}} онемогућено",
 		"view_mode_pages": "⬡ Странице",
 		"view_mode_scroll": "⇊ Скролуј",
@@ -1083,7 +1082,13 @@
 			"video": "Излаз видеа",
 			"embedding": "Ембединг",
 			"rerank": "Поновно рангирање"
-		}
+		},
+		"scope_active": "Активни провајдери",
+		"scope_disabled": "Онемогућени провајдери",
+		"scope_all": "Сви провајдери",
+		"badge_parked": "{{count}} паркирано",
+		"status_parked": "Паркиран",
+		"status_parked_hint": "Провајдер је онемогућен; овај модел остаје на листи, али се не опслужује док провајдер поново не буде омогућен."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вратите на откривену вредност",

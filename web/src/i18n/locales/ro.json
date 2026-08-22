@@ -999,7 +999,6 @@
 		"page_title_few": "Modele",
 		"page_title_other": "Modele",
 		"page_description": "Modele descoperite de la furnizorii tăi",
-		"badge_enabled": "{{count}} activat",
 		"badge_disabled": "{{count}} dezactivat",
 		"view_mode_pages": "⬡ Pagini",
 		"view_mode_scroll": "⇊ Derulare",
@@ -1083,7 +1082,13 @@
 			"video": "Ieșire video",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Furnizori activi",
+		"scope_disabled": "Furnizori dezactivați",
+		"scope_all": "Toți furnizorii",
+		"badge_parked": "{{count}} în așteptare",
+		"status_parked": "În așteptare",
+		"status_parked_hint": "Furnizorul este dezactivat; acest model rămâne listat, dar nu este servit până când furnizorul este reactivat."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",

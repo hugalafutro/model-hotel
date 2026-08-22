@@ -969,7 +969,6 @@
 		"page_title_one": "Modell",
 		"page_title_other": "Modeller",
 		"page_description": "Upptäckta modeller från dina leverantörer",
-		"badge_enabled": "{{count}} aktiverat",
 		"badge_disabled": "{{count}} inaktiverad",
 		"view_mode_pages": "⬡ sidor",
 		"view_mode_scroll": "⇊ Skrolla",
@@ -1052,7 +1051,13 @@
 			"video": "Videoutdata",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktiva leverantörer",
+		"scope_disabled": "Inaktiverade leverantörer",
+		"scope_all": "Alla leverantörer",
+		"badge_parked": "{{count}} parkerade",
+		"status_parked": "Parkerad",
+		"status_parked_hint": "Leverantören är inaktiverad; den här modellen finns kvar i listan men serveras inte förrän leverantören aktiveras igen."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",

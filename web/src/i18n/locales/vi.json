@@ -969,7 +969,6 @@
 		"page_title_one": "Mô hình",
 		"page_title_other": "Mô hình",
 		"page_description": "Các mô hình được phát hiện từ các nhà cung cấp của bạn",
-		"badge_enabled": "{{count}} đã bật",
 		"badge_disabled": "{{count}} đã tắt",
 		"view_mode_pages": "⬡ Trang",
 		"view_mode_scroll": "⇊ Cuộn xuống",
@@ -1052,7 +1051,13 @@
 			"video": "Xuất video",
 			"embedding": "Nhúng",
 			"rerank": "Xếp hạng lại"
-		}
+		},
+		"scope_active": "Nhà cung cấp đang hoạt động",
+		"scope_disabled": "Nhà cung cấp đã tắt",
+		"scope_all": "Tất cả nhà cung cấp",
+		"badge_parked": "{{count}} tạm dừng",
+		"status_parked": "Tạm dừng",
+		"status_parked_hint": "Nhà cung cấp đã bị tắt; mô hình này vẫn được liệt kê nhưng không được phục vụ cho đến khi nhà cung cấp được bật lại."
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",
