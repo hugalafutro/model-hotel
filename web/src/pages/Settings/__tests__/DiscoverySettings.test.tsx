@@ -237,6 +237,51 @@ describe("DiscoverySettings", () => {
 		});
 	});
 
+	it("resets the prune horizon to its default through the slider's reset control", async () => {
+		let resetKeys: string[] | undefined;
+
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({
+					model_prune_days: "90",
+				});
+			}),
+			http.delete("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				resetKeys = ((await request.json()) as { keys: string[] }).keys;
+				return HttpResponse.json({});
+			}),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const slider = await screen.findByRole("slider", {
+			name: "Prune unlisted models after",
+		});
+		await waitFor(() => {
+			expect(slider).toHaveValue("90");
+		});
+
+		// The reset control sits in the slider's label row; the prune slider is
+		// the second slider in the section, so its reset button is the second.
+		const resets = screen.getAllByRole("button", {
+			name: "Reset this setting to default",
+		});
+		await user.click(resets[resets.length - 1]);
+
+		await waitFor(() => {
+			expect(resetKeys).toEqual(["model_prune_days"]);
+		});
+	});
+
 	it("toggles Discover on Startup and calls mutation with correct payload", async () => {
 		const user = userEvent.setup();
 

@@ -279,3 +279,38 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 		}
 	})
 }
+
+// TestPruneRetired_QueryErrorsSurface pins that a failing database call on any
+// of the three prune steps comes back as an error (or, for the reconciliation
+// read, as the full candidate list) rather than as a silent "nothing to do".
+// A cancelled context is the cheapest way to make pgx refuse every query.
+func TestPruneRetired_QueryErrorsSurface(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	prov := insertTestProvider(ctx, t, "prune-errors")
+	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
+	id := insertPrunableModel(ctx, t, prov, "prune-errors-row")
+	candidates := []PrunedModel{{ID: id, ProviderID: prov, ProviderName: "prune-errors", ModelID: "prune-errors-row"}}
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+
+	if _, err := repo.selectPruneCandidates(cancelled, time.Now(), []uuid.UUID{prov}, nil, 10); err == nil {
+		t.Error("selectPruneCandidates: cancelled context returned no error")
+	}
+	if _, err := repo.PruneRetired(cancelled, time.Now(), []uuid.UUID{prov}, nil, 10); err == nil {
+		t.Error("PruneRetired: cancelled context returned no error")
+	}
+	if _, err := repo.deletePruneCandidates(cancelled, candidates); err == nil {
+		t.Error("deletePruneCandidates: cancelled context returned no error")
+	}
+	if _, err := repo.aliveModelIDs(cancelled, []uuid.UUID{id}); err == nil {
+		t.Error("aliveModelIDs: cancelled context returned no error")
+	}
+	if got, err := repo.deletePruneCandidates(ctx, nil); err != nil || got != nil {
+		t.Errorf("deletePruneCandidates(nil) = %v, %v; want nil, nil", got, err)
+	}
+	if !modelExists(ctx, t, id) {
+		t.Error("a refused query must not delete the row")
+	}
+}

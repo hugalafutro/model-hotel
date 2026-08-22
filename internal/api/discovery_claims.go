@@ -259,14 +259,10 @@ func FlappedModels(ctx context.Context, pool *pgxpool.Pool, since time.Time) (ma
 		return nil, err
 	}
 	out := make(map[model.ProviderModelKey]bool, len(counts))
-	for k, n := range counts {
-		if n == 0 {
-			continue
-		}
-		pid, err := uuid.Parse(k.providerID)
-		if err != nil {
-			continue // a journal row with an unparseable provider id cannot match a model row anyway
-		}
+	for k := range counts {
+		// flapCounts groups by a non-NULL uuid column rendered as text, so the
+		// parse cannot fail; a zero id on the impossible path matches no row.
+		pid, _ := uuid.Parse(k.providerID)
 		out[model.ProviderModelKey{ProviderID: pid, ModelID: k.modelID}] = true
 	}
 	return out, nil
