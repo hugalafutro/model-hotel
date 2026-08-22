@@ -43,7 +43,7 @@ type DiscoveryResult struct {
 // defaultModelPruneDays matches SETTING_DEFAULTS.model_prune_days in
 // web/src/pages/Settings/defaults.ts; the two must agree or the slider shows
 // one horizon while the pass applies another.
-const defaultModelPruneDays = 30
+const defaultModelPruneDays = 7
 
 // modelPruneBatch bounds one pass's deletions so a provider that retired its
 // whole catalog cannot empty a member in a single tick; the remainder goes on
@@ -283,17 +283,15 @@ func pruneRetiredModels(ctx context.Context, deps discoveryDeps, scannedOK []uui
 	if len(scannedOK) == 0 {
 		return 0
 	}
-	// api.MinModelPruneDays and api.MaxModelPruneDays are the same bounds the
-	// API rule for model_prune_days applies. Enforced again here because
-	// values reach the store past that rule: config-sync import forwards an
-	// out-of-range integer between fleet members, and backup restore and
-	// direct DB writes bypass it too. A sub-floor horizon prunes nothing
-	// anyway (the flap journal keeps every row for the claim window) and beyond
-	// ~106751 days the horizon arithmetic overflows int64 and lands in the
-	// future, which would match every retired row.
+	// 0..api.MaxModelPruneDays is the same range the API rule for
+	// model_prune_days applies. Enforced again here because values reach the
+	// store past that rule: config-sync import forwards an out-of-range
+	// integer between fleet members, and backup restore and direct DB writes
+	// bypass it too. Beyond ~106751 days the horizon arithmetic overflows
+	// int64 and lands in the future, which would match every retired row.
 	raw := deps.settingsRepo.GetWithDefault(ctx, "model_prune_days", strconv.Itoa(defaultModelPruneDays))
 	days, err := strconv.Atoi(raw)
-	if err != nil || days < 0 || (days > 0 && days < api.MinModelPruneDays) || days > api.MaxModelPruneDays {
+	if err != nil || days < 0 || days > api.MaxModelPruneDays {
 		modelPruneWarned.Lock()
 		unseen := modelPruneWarned.value != raw
 		modelPruneWarned.value = raw

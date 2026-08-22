@@ -16,7 +16,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Days a discovery-retired model row sits disabled before the scheduled
 	// discovery pass deletes it. 0 keeps rows forever. Matches
 	// defaultModelPruneDays in cmd/server/discovery.go.
-	model_prune_days: "30",
+	model_prune_days: "7",
 
 	// Proxy
 	request_timeout: "1m0s",

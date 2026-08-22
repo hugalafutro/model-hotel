@@ -85,8 +85,46 @@ describe("SettingsSection", () => {
 				<div>Child content</div>
 			</SettingsSection>,
 		);
-		await user.click(screen.getByRole("button"));
+		await user.click(screen.getByRole("button", { name: "Collapse" }));
 		expect(onToggle).toHaveBeenCalledTimes(1);
+	});
+
+	it("toggles from the title row as well as the chevron", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<SettingsSection
+				icon={Settings}
+				title="Test Settings"
+				collapsed
+				onToggle={onToggle}
+			>
+				<div>Child content</div>
+			</SettingsSection>,
+		);
+		const header = screen.getByRole("button", { name: "Test Settings" });
+		expect(header).toHaveAttribute("aria-expanded", "false");
+		await user.click(header);
+		expect(onToggle).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps the section reset button out of the toggle row", async () => {
+		const user = userEvent.setup();
+		const onResetSection = vi.fn();
+		renderWithProviders(
+			<SettingsSection
+				icon={Settings}
+				title="Test Settings"
+				collapsed={false}
+				onToggle={onToggle}
+				onResetSection={onResetSection}
+				resetTooltip="Reset section"
+			>
+				<div>Child content</div>
+			</SettingsSection>,
+		);
+		await user.click(screen.getByRole("button", { name: "Reset section" }));
+		expect(onResetSection).toHaveBeenCalledTimes(1);
+		expect(onToggle).not.toHaveBeenCalled();
 	});
 
 	it("renders custom children content", () => {

@@ -1717,7 +1717,7 @@
 			"manualGroup": "Manuell",
 			"lastRun": "Senast körd",
 			"pruneRetired": "Rensa bort ej listade modeller efter",
-			"pruneRetired.description": "Tar bort modeller som leverantören slutat lista när de varit borta så här många dagar. Modeller du själv har inaktiverat eller aktiverat, modeller som dragits tillbaka för att de avvisar förfrågningar och modeller från inaktiverade leverantörer rensas aldrig bort. 0 behåller varje rad; minimum är 30 dagar, det fönster som identifieringen använder för att skilja en tillbakadragen modell från en ostadig."
+			"pruneRetired.description": "Tar bort en modell när dess leverantör har slutat lista den i så många dagar. Modeller du själv slagit av eller på, modeller som pensionerats för att de avvisar förfrågningar och modeller från inaktiverade leverantörer behålls. 0 tar aldrig bort."
 		},
 		"dataStorage": {
 			"title": "Lagring av data",

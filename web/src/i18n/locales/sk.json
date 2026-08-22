@@ -1809,7 +1809,7 @@
 			"manualGroup": "Ručne",
 			"lastRun": "Naposledy spustené",
 			"pruneRetired": "Odstrániť neuvádzané modely po",
-			"pruneRetired.description": "Odstráni modely, ktoré poskytovateľ prestal uvádzať, keď už chýbajú toľko dní. Modely, ktoré ste ručne zakázali alebo povolili, modely stiahnuté pre odmietanie požiadaviek a modely zakázaných poskytovateľov sa nikdy neodstraňujú. Hodnota 0 zachová každý riadok; minimum je 30 dní, čo je okno, podľa ktorého zisťovanie rozlíši stiahnutý model od kolísajúceho."
+			"pruneRetired.description": "Odstráni model, keď ho jeho poskytovateľ toľko dní neuvádza v ponuke. Modely, ktoré ste ručne vypli alebo zapli, modely vyradené za odmietanie požiadaviek a modely vypnutých poskytovateľov zostávajú. 0 nikdy neodstraňuje."
 		},
 		"dataStorage": {
 			"title": "Ukladanie údajov",

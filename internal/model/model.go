@@ -705,10 +705,12 @@ type PrunedModel struct {
 // nothing else has a claim on, oldest first, at most limit of them. Only rows
 // of the given providers are considered: the caller passes the providers whose
 // scan just succeeded, so a provider that could not be reached this pass keeps
-// every row. A model the change journal saw come or go since flapSince is
-// excluded, inside the same statements that select and delete, so a transition
-// that lands while the prune runs still keeps its row; those rows are
-// flapping, not retired.
+// every row. A model the change journal saw come back (added or re-enabled)
+// since flapSince is excluded, inside the same statements that select and
+// delete, so a return that lands while the prune runs still keeps its row;
+// those rows are flapping, not retired. The row's own retirement is a
+// "disabled" journal entry and does not count: it is the retirement, not a
+// flap, which is what lets a horizon shorter than the claim window prune.
 //
 // Kept, always: rows the operator switched off (disabled_manually), pinned on
 // (manually_enabled_at), rows the proxy retired from traffic (auto_retired_at,
@@ -727,19 +729,20 @@ func (r *Repository) PruneRetired(ctx context.Context, horizon, flapSince time.T
 }
 
 // notFlappedSince is the SQL predicate shared by the prune's SELECT and
-// DELETE: the row's (provider, model) pair has no membership transition in
-// the discovery change journal since the bound parameter. It reads the same
-// journal buckets api.flapCounts does (added, reenabled, disabled; a metadata
-// update is not a flap), so the prune and the claims modal agree on what
-// flapping means. Applied in the DELETE as well as the SELECT so eligibility
-// is decided by the statement that deletes, not by an earlier snapshot.
+// DELETE: the row's (provider, model) pair has not come back (no "added" or
+// "reenabled" entry) in the discovery change journal since the bound
+// parameter. The "disabled" bucket api.flapCounts also reads is deliberately
+// left out: every retired row has exactly one of those (its retirement), so
+// counting it would keep every row for the whole claim window and make any
+// horizon shorter than the window inert. Applied in the DELETE as well as the
+// SELECT so eligibility is decided by the statement that deletes, not by an
+// earlier snapshot.
 const notFlappedSince = `NOT EXISTS (
 		SELECT 1
 		  FROM discovery_changes dc
 		  CROSS JOIN LATERAL jsonb_array_elements(
 		           COALESCE(dc.diff->'added',     '[]'::jsonb) ||
-		           COALESCE(dc.diff->'reenabled', '[]'::jsonb) ||
-		           COALESCE(dc.diff->'disabled',  '[]'::jsonb)
+		           COALESCE(dc.diff->'reenabled', '[]'::jsonb)
 		       ) AS e
 		 WHERE dc.provider_id = m.provider_id
 		   AND dc.detected_at >= %s
@@ -749,8 +752,8 @@ const notFlappedSince = `NOT EXISTS (
 // that nothing else has a claim on, oldest first, at most limit of them. Only
 // rows of the given providers are considered: the caller passes the providers
 // whose scan just succeeded, so a provider that could not be reached this
-// pass keeps every row. flapped excludes models the change journal saw come
-// and go within the claims window; those are broken, not retired.
+// pass keeps every row. notFlappedSince excludes models the change journal
+// saw come back within the claims window; those are flapping, not retired.
 //
 // Kept, always: rows the operator switched off (disabled_manually), pinned on
 // (manually_enabled_at), rows the proxy retired from traffic (auto_retired_at,
