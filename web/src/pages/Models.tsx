@@ -272,7 +272,9 @@ export function Models() {
 				value: scope,
 				label: t(`models.scope_${scope}`),
 			}))}
-			className="shrink-0"
+			// Bounded so a long localized label truncates inside the picker
+			// instead of pushing the non-wrapping title row sideways.
+			className="max-w-[220px] min-w-0"
 		/>
 	);
 
