@@ -10,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Model, ModelsCursorResponse, Provider } from "../api/types";
+import { useToast } from "../context/ToastContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import {
 	encodeCursor,
@@ -87,7 +88,12 @@ export function VirtualModelTable({
 		dir: "asc",
 	});
 	const { t } = useTranslation();
-	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
+	const { toast } = useToast();
+	// The rows the confirm dialog lists and the delete removes: every disabled
+	// row of the current filters, fetched when the button is pressed. null
+	// while nothing is pending; the dialog opens once the fetch lands.
+	const [pendingDisabled, setPendingDisabled] = useState<Model[] | null>(null);
+	const [loadingDisabled, setLoadingDisabled] = useState(false);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -260,15 +266,64 @@ export function VirtualModelTable({
 		onTotalChange?.({ total, enabled: enabledTotal, parked: parkedTotal });
 	}, [total, enabledTotal, parkedTotal, onTotalChange]);
 
-	const disabledModels = useMemo(
-		() => entries.filter((m) => !m.enabled),
-		[entries],
-	);
-	const disabledModelIds = useMemo(
-		() => disabledModels.map((m) => m.id),
-		[disabledModels],
-	);
-	const disabledCount = disabledModelIds.length;
+	// Filter-wide, from the server: the scroller only ever holds a window of
+	// rows, so counting the loaded ones would hide the button (and cap the
+	// delete) at whatever happened to be scrolled in.
+	const disabledCount = lastResponse?.disabled_total ?? 0;
+
+	// Walk every disabled row of the current filters, page by page, so the
+	// delete covers exactly what disabledCount promised. Sorted by name with
+	// its own cursor chain: the table's sort and cursor are irrelevant here.
+	const loadDisabledModels = useCallback(async () => {
+		const { provider_id, search, capabilities, outputs, provider_enabled } =
+			filters;
+		const all: Model[] = [];
+		let cursor: string | undefined;
+		for (;;) {
+			const page = await api.models.cursor({
+				cursor,
+				direction: "after",
+				limit: 200,
+				sort_by: "name",
+				sort_dir: "asc",
+				provider_id,
+				search,
+				capabilities,
+				outputs,
+				provider_enabled:
+					provider_enabled === undefined
+						? undefined
+						: provider_enabled === "true",
+				enabled: false,
+			});
+			all.push(...page.entries);
+			const last = page.entries.at(-1);
+			if (!page.has_after || !last) break;
+			cursor = encodeCursor({
+				sort_by: "name",
+				name: last.name || last.model_id,
+				model_id: last.model_id,
+				id: last.id,
+			});
+		}
+		return all;
+	}, [filters]);
+
+	const openDeleteDisabled = useCallback(async () => {
+		setLoadingDisabled(true);
+		try {
+			setPendingDisabled(await loadDisabledModels());
+		} catch (err) {
+			toast(
+				t("components.virtualModelTable.deleteDisabledLoadFailed", {
+					message: err instanceof Error ? err.message : String(err),
+				}),
+				"error",
+			);
+		} finally {
+			setLoadingDisabled(false);
+		}
+	}, [loadDisabledModels, toast, t]);
 
 	// Re-fetch when parent signals data changed (e.g. after model update)
 	const prevRefreshRef = useRef(refreshTrigger);
@@ -399,7 +454,8 @@ export function VirtualModelTable({
 					{onDeleteDisabled && disabledCount > 0 && (
 						<button
 							type="button"
-							onClick={() => setConfirmDeleteDisabled(true)}
+							onClick={openDeleteDisabled}
+							disabled={loadingDisabled}
 							className="ui-btn ui-btn-danger"
 							aria-label={t("components.virtualModelTable.deleteDisabledAria", {
 								count: disabledCount,
@@ -780,21 +836,21 @@ export function VirtualModelTable({
 					)}
 				</span>
 			</div>
-			{confirmDeleteDisabled && onDeleteDisabled && (
+			{pendingDisabled && onDeleteDisabled && (
 				<ConfirmDialog
 					title={t("components.virtualModelTable.deleteDisabledModels")}
 					message={t("components.virtualModelTable.deleteDisabledMessage", {
-						count: disabledCount,
+						count: pendingDisabled.length,
 					})}
-					fields={disabledModels.map((m) =>
+					fields={pendingDisabled.map((m) =>
 						proxyModelID(m.provider_name, m.model_id),
 					)}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {
-						onDeleteDisabled?.(disabledModelIds);
-						setConfirmDeleteDisabled(false);
+						onDeleteDisabled?.(pendingDisabled.map((m) => m.id));
+						setPendingDisabled(null);
 					}}
-					onCancel={() => setConfirmDeleteDisabled(false)}
+					onCancel={() => setPendingDisabled(null)}
 				/>
 			)}
 		</div>

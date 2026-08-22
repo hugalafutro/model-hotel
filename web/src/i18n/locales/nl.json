@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "{{count}} uitgeschakelde model verwijderen",
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen."
+			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
+			"deleteDisabledLoadFailed": "Kan uitgeschakelde modellen niet laden: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",

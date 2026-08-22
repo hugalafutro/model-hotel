@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Verwyder {{count}} gedeaktiveerde model",
 			"deleteDisabledAria_other": "Verwyder {{count}} gedeaktiveerde modelle",
 			"deleteDisabledMessage_one": "Dit sal {{count}} gedeaktiveerde model permanent verwyder. As outo-ontdekking by hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking by die verskaffer om dit te voorkom.",
-			"deleteDisabledMessage_other": "Dit sal {{count}} gedeaktiveerde modelle permanent verwyder. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking op die verskaffer om dit te voorkom."
+			"deleteDisabledMessage_other": "Dit sal {{count}} gedeaktiveerde modelle permanent verwyder. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking op die verskaffer om dit te voorkom.",
+			"deleteDisabledLoadFailed": "Kon nie gedeaktiveerde modelle laai nie: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Modelbesonderhede",

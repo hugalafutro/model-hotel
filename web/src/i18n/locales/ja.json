@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "{{count}} 無効化されたモデルを削除",
 			"deleteDisabledAria_other": "無効化されたモデル {{count}} を削除",
 			"deleteDisabledMessage_one": "無効化されたモデル {{count}} 件が完全に削除されます。プロバイダーで自動検出が有効な場合、次のサイクルで再検出されます。防ぐにはプロバイダーの自動検出を無効にしてください。",
-			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。"
+			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。",
+			"deleteDisabledLoadFailed": "無効化されたモデルを読み込めませんでした: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "モデルの詳細",

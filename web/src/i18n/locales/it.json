@@ -2557,7 +2557,8 @@
 			"deleteDisabledAria_other": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_many": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
-			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada."
+			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
+			"deleteDisabledLoadFailed": "Impossibile caricare i modelli disattivati: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Dettagli del modello",

@@ -552,6 +552,8 @@ export const api = {
 			outputs?: string;
 			/** Filter on the owning provider's enabled flag; undefined = any. */
 			provider_enabled?: boolean;
+			/** Filter on the model's own enabled flag; undefined = any. */
+			enabled?: boolean;
 		}): Promise<ModelsCursorResponse> => {
 			const sp = new URLSearchParams();
 			if (params.cursor) sp.set("cursor", params.cursor);
@@ -565,6 +567,8 @@ export const api = {
 			if (params.outputs) sp.set("outputs", params.outputs);
 			if (params.provider_enabled !== undefined)
 				sp.set("provider_enabled", String(params.provider_enabled));
+			if (params.enabled !== undefined)
+				sp.set("enabled", String(params.enabled));
 			return fetchJSON<ModelsCursorResponse>(
 				`${API_BASE}/api/models/cursor?${sp.toString()}`,
 				{ headers: getAuthHeaders() },

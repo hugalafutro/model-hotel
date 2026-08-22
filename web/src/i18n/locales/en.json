@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Delete {{count}} disabled model",
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this."
+			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
+			"deleteDisabledLoadFailed": "Failed to load disabled models: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",

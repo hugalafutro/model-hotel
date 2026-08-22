@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Törlés {{count}} letiltott modell",
 			"deleteDisabledAria_other": "Törlés {{count}} letiltott modellek",
 			"deleteDisabledMessage_one": "Ezzel véglegesen törlődik a {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban a rendszer újra felismeri őket. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál.",
-			"deleteDisabledMessage_other": "Ezzel véglegesen törlődik {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban újra felismerésre kerülnek. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál."
+			"deleteDisabledMessage_other": "Ezzel véglegesen törlődik {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban újra felismerésre kerülnek. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál.",
+			"deleteDisabledLoadFailed": "Nem sikerült betölteni a letiltott modelleket: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "A modell részletei",

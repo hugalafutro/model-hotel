@@ -2557,7 +2557,8 @@
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
 			"deleteDisabledMessage_many": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo."
+			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
+			"deleteDisabledLoadFailed": "No se pudieron cargar los modelos desactivados: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalles del modelo",

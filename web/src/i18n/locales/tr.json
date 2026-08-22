@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "{{count}} devre dışı bırakılmış modeli sil",
 			"deleteDisabledAria_other": "{{count}} devre dışı modeli sil",
 			"deleteDisabledMessage_one": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak silecektir. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"deleteDisabledMessage_other": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın."
+			"deleteDisabledMessage_other": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
+			"deleteDisabledLoadFailed": "Devre dışı modeller yüklenemedi: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model bilgileri",

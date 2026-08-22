@@ -2557,7 +2557,8 @@
 			"deleteDisabledAria_other": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledMessage_one": "Això suprimirà permanentment {{count}} model desactivat. Si l'autodetecció està habilitada al seu proveïdor, es tornarà a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_many": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
-			"deleteDisabledMessage_other": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho."
+			"deleteDisabledMessage_other": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
+			"deleteDisabledLoadFailed": "No s'han pogut carregar els models desactivats: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalls del model",

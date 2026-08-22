@@ -1465,16 +1465,25 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 		wantIDs      []string
 		wantEnabled  int
 		wantParked   int
+		wantDisabled int
 		wantProvider map[string]bool
 	}{
-		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, 0, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
-		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
-		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
+		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, 0, 1, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
+		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, 1, 0, map[string]bool{"cpe-parked": false}},
+		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, 1, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
 		// The flag composes with the other filters: search narrows to one
 		// model and the scope decides whether it is visible at all.
-		{"served + search", "&provider_enabled=true&search=cpe-park", nil, 0, 0, nil},
-		{"parked + search", "&provider_enabled=false&search=cpe-park", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
-		{"served + capabilities", "&provider_enabled=true&capabilities=vision", []string{"cpe-switched-off"}, 0, 0, map[string]bool{"cpe-switched-off": true}},
+		{"served + search", "&provider_enabled=true&search=cpe-park", nil, 0, 0, 0, nil},
+		{"parked + search", "&provider_enabled=false&search=cpe-park", []string{"cpe-parked"}, 0, 1, 0, map[string]bool{"cpe-parked": false}},
+		{"served + capabilities", "&provider_enabled=true&capabilities=vision", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
+		// The model's own flag is a filter of its own: the bulk delete reads
+		// the disabled rows of the current filters through it, and the
+		// counts it ships describe the same rows. disabled_total counts
+		// switched-off rows whether or not their provider is parked.
+		{"disabled only", "&enabled=false", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
+		{"enabled only", "&enabled=true", []string{"cpe-parked", "cpe-served"}, 1, 1, 0, map[string]bool{"cpe-parked": false, "cpe-served": true}},
+		{"disabled + parked scope", "&enabled=false&provider_enabled=false", nil, 0, 0, 0, nil},
+		{"disabled + served scope", "&enabled=false&provider_enabled=true", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_id="+both+tc.query, http.NoBody)
@@ -1496,6 +1505,9 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 			}
 			if resp.ParkedTotal != tc.wantParked {
 				t.Errorf("parked_total: got %d, want %d", resp.ParkedTotal, tc.wantParked)
+			}
+			if resp.DisabledTotal != tc.wantDisabled {
+				t.Errorf("disabled_total: got %d, want %d", resp.DisabledTotal, tc.wantDisabled)
 			}
 			if len(resp.Entries) != len(tc.wantIDs) {
 				t.Fatalf("entries: got %d, want %d", len(resp.Entries), len(tc.wantIDs))
@@ -1544,12 +1556,17 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 	})
 
 	t.Run("rejects garbage", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_enabled=maybe", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", w.Code)
+		for _, query := range []string{"provider_enabled=maybe", "enabled=maybe"} {
+			req := httptest.NewRequest(http.MethodGet, "/models/cursor?"+query, http.NoBody)
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("%s: expected 400, got %d", query, w.Code)
+			}
+			if !strings.Contains(w.Body.String(), "invalid "+strings.SplitN(query, "=", 2)[0]) {
+				t.Fatalf("%s: body should name the parameter, got %q", query, w.Body.String())
+			}
 		}
 	})
 }

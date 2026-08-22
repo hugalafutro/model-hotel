@@ -133,9 +133,13 @@ type ModelsCursorResponse struct {
 	EnabledTotal int `json:"enabled_total"`
 	// ParkedTotal counts rows whose provider is disabled: listed, kept, but not
 	// served until the provider is enabled again.
-	ParkedTotal int  `json:"parked_total"`
-	HasBefore   bool `json:"has_before"`
-	HasAfter    bool `json:"has_after"`
+	ParkedTotal int `json:"parked_total"`
+	// DisabledTotal counts rows whose own enabled flag is off, parked or not:
+	// exactly the rows the Models page's "delete disabled" removes for these
+	// filters, so the button and the delete agree without loading every row.
+	DisabledTotal int  `json:"disabled_total"`
+	HasBefore     bool `json:"has_before"`
+	HasAfter      bool `json:"has_after"`
 }
 
 // RegisterModels mounts model management routes.
@@ -164,6 +168,13 @@ func (h *Handler) RegisterModels(r chi.Router) {
 // flag (NULL counts as false, matching the proxy), anything else is a 400. Shared by the list and cursor endpoints so both
 // views of the Models page agree on what "available on the proxy" means.
 func parseProviderEnabledParam(w http.ResponseWriter, raw string) (*bool, bool) {
+	return parseBoolFilterParam(w, "provider_enabled", raw)
+}
+
+// parseBoolFilterParam reads an optional tri-state boolean query value: ""
+// means no filter, "true"/"false" filter, anything else is a 400 naming the
+// parameter.
+func parseBoolFilterParam(w http.ResponseWriter, name, raw string) (*bool, bool) {
 	switch raw {
 	case "":
 		return nil, true
@@ -171,7 +182,7 @@ func parseProviderEnabledParam(w http.ResponseWriter, raw string) (*bool, bool) 
 		v := raw == "true"
 		return &v, true
 	default:
-		http.Error(w, "invalid provider_enabled", http.StatusBadRequest)
+		http.Error(w, "invalid "+name, http.StatusBadRequest)
 		return nil, false
 	}
 }

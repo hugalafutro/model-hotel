@@ -2614,7 +2614,8 @@
 			"deleteDisabledMessage_one": "Spowoduje to trwałe usunięcie {{count}} wyłączonego modelu. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostanie on ponownie wykryty w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
 			"deleteDisabledMessage_few": "Spowoduje to trwałe usunięcie {{count}} wyłączonych modeli. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostaną one ponownie wykryte w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
 			"deleteDisabledMessage_many": "Spowoduje to trwałe usunięcie {{count}} wyłączonych modeli. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostaną one ponownie wykryte w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
-			"deleteDisabledMessage_other": "Spowoduje to trwałe usunięcie {{count}} wyłączonego modelu. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostanie on ponownie wykryty w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec."
+			"deleteDisabledMessage_other": "Spowoduje to trwałe usunięcie {{count}} wyłączonego modelu. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostanie on ponownie wykryty w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
+			"deleteDisabledLoadFailed": "Nie udało się wczytać wyłączonych modeli: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Szczegóły modelu",

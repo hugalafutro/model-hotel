@@ -914,6 +914,7 @@ describe("VirtualModelTable", () => {
 				entries: [],
 				enabled_total: 0,
 				parked_total: 0,
+				disabled_total: 0,
 				total: 0,
 				has_before: false,
 				has_after: false,
@@ -956,6 +957,7 @@ describe("VirtualModelTable", () => {
 					total: 7,
 					enabled_total: 5,
 					parked_total: 1,
+					disabled_total: 0,
 					has_before: false,
 					has_after: false,
 				},
@@ -1054,93 +1056,190 @@ describe("VirtualModelTable", () => {
 	});
 
 	describe("Delete Disabled Button", () => {
-		it("renders delete disabled button when onDeleteDisabled is provided and there are disabled models", () => {
-			const onDeleteDisabled = vi.fn();
-			const disabledModel = createModel({
-				id: "model-disabled-1",
-				enabled: false,
-			});
-			const entries = [createModel(), disabledModel];
-			setupWithEntries(entries);
-
-			renderWithProviders(
-				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+		// The button and the delete are filter-wide: the scroller only holds a
+		// window of rows, so both read the server's disabled_total and the
+		// confirm fetches every disabled row of the current filters itself.
+		function setupWithDisabledTotal(disabledTotal: number, entries: Model[]) {
+			vi.mocked(api.models.cursor).mockReset();
+			mockGetVirtualItems.mockReturnValue(
+				entries.map((e, i) => ({
+					index: i,
+					key: e.id,
+					start: i * 45,
+					end: (i + 1) * 45,
+				})),
 			);
+			mockGetTotalSize.mockReturnValue(entries.length * 45);
+			setupTable({
+				entries,
+				total: entries.length,
+				lastResponse: {
+					entries,
+					total: entries.length,
+					enabled_total: entries.length - disabledTotal,
+					parked_total: 0,
+					disabled_total: disabledTotal,
+					has_before: false,
+					has_after: false,
+				},
+			} as Partial<typeof defaultHookReturn>);
+		}
 
-			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
+		function page(entries: Model[], hasAfter: boolean) {
+			return {
+				entries,
+				total: entries.length,
+				enabled_total: 0,
+				parked_total: 0,
+				disabled_total: entries.length,
+				has_before: false,
+				has_after: hasAfter,
+			};
+		}
+
+		it("shows the filter-wide disabled count even when no disabled row is loaded", () => {
+			setupWithDisabledTotal(24, [createModel()]);
+
+			renderWithProviders(<VirtualModelTable onDeleteDisabled={vi.fn()} />);
+
+			expect(screen.getByText("Delete 24 disabled")).toBeInTheDocument();
 		});
 
-		it("does not render delete disabled button when all models are enabled", () => {
-			const onDeleteDisabled = vi.fn();
-			const entries = [
+		it("does not render delete disabled button when the filter has no disabled rows", () => {
+			setupWithDisabledTotal(0, [
 				createModel(),
 				createModel({ id: "model-002", name: "Model 2" }),
-			];
-			setupWithEntries(entries);
+			]);
 
-			renderWithProviders(
-				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
-			);
+			renderWithProviders(<VirtualModelTable onDeleteDisabled={vi.fn()} />);
 
 			expect(
 				screen.queryByRole("button", { name: /delete.*disabled/i }),
 			).not.toBeInTheDocument();
 		});
 
-		it("opens confirm dialog when delete disabled button is clicked", () => {
+		it("fetches every disabled row of the current filters and deletes exactly those", async () => {
 			const onDeleteDisabled = vi.fn();
-			const disabledModel = createModel({
+			setupWithDisabledTotal(3, [createModel()]);
+			const offscreen1 = createModel({
 				id: "model-disabled-1",
+				model_id: "grok-3",
+				name: "grok-3",
 				enabled: false,
 			});
-			const entries = [createModel(), disabledModel];
-			setupWithEntries(entries);
-
-			renderWithProviders(
-				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
-			);
-
-			fireEvent.click(screen.getByText("Delete 1 disabled"));
-
-			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
-		});
-
-		it("calls onDeleteDisabled with disabled model IDs on confirm", async () => {
-			const onDeleteDisabled = vi.fn();
-			const disabledModel = createModel({
-				id: "model-disabled-1",
+			const offscreen2 = createModel({
+				id: "model-disabled-2",
+				model_id: "kimi-k2.5",
+				name: "kimi-k2.5",
 				enabled: false,
 			});
-			const entries = [createModel(), disabledModel];
-			setupWithEntries(entries);
+			const offscreen3 = createModel({
+				id: "model-disabled-3",
+				model_id: "qwen3.5-397b",
+				name: "qwen3.5-397b",
+				enabled: false,
+			});
+			const cursor = vi.mocked(api.models.cursor);
+			cursor
+				.mockResolvedValueOnce(page([offscreen1, offscreen2], true))
+				.mockResolvedValueOnce(page([offscreen3], false));
 
 			renderWithProviders(
-				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+				<VirtualModelTable
+					onDeleteDisabled={onDeleteDisabled}
+					providerFilter="provider-001"
+					providerEnabled={true}
+				/>,
 			);
 
-			fireEvent.click(screen.getByText("Delete 1 disabled"));
+			fireEvent.click(screen.getByText("Delete 3 disabled"));
+
+			// The dialog lists what the fetch returned, not what is scrolled in.
+			expect(
+				await screen.findByText("Delete Disabled Models"),
+			).toBeInTheDocument();
+			expect(screen.getByText("Test-Provider/grok-3")).toBeInTheDocument();
+			expect(
+				screen.getByText("Test-Provider/qwen3.5-397b"),
+			).toBeInTheDocument();
+
+			// Both pages carried the table's filters plus the disabled-only flag;
+			// the second continued from the first page's last row.
+			expect(cursor).toHaveBeenCalledTimes(2);
+			expect(cursor.mock.calls[0][0]).toEqual(
+				expect.objectContaining({
+					cursor: undefined,
+					direction: "after",
+					limit: 200,
+					sort_by: "name",
+					provider_id: "provider-001",
+					provider_enabled: true,
+					enabled: false,
+				}),
+			);
+			expect(cursor.mock.calls[1][0]).toEqual(
+				expect.objectContaining({
+					cursor: expect.stringMatching(/./),
+					enabled: false,
+					provider_id: "provider-001",
+				}),
+			);
+
 			fireEvent.click(screen.getByText("Delete"));
 
 			await waitFor(() => {
-				expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+				expect(onDeleteDisabled).toHaveBeenCalledWith([
+					"model-disabled-1",
+					"model-disabled-2",
+					"model-disabled-3",
+				]);
 			});
+			expect(
+				screen.queryByText("Delete Disabled Models"),
+			).not.toBeInTheDocument();
+		});
+
+		it("reports a failed fetch and deletes nothing", async () => {
+			const onDeleteDisabled = vi.fn();
+			setupWithDisabledTotal(2, [createModel()]);
+			vi.mocked(api.models.cursor).mockRejectedValueOnce(
+				new Error("Failed to fetch models (cursor)"),
+			);
+
+			renderWithProviders(
+				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
+			);
+
+			fireEvent.click(screen.getByText("Delete 2 disabled"));
+
+			expect(
+				await screen.findByText(
+					"Failed to load disabled models: Failed to fetch models (cursor)",
+				),
+			).toBeInTheDocument();
+			expect(
+				screen.queryByText("Delete Disabled Models"),
+			).not.toBeInTheDocument();
+			expect(onDeleteDisabled).not.toHaveBeenCalled();
+			// The button is usable again for a retry.
+			expect(screen.getByText("Delete 2 disabled")).toBeEnabled();
 		});
 
 		it("closes confirm dialog on cancel", async () => {
 			const onDeleteDisabled = vi.fn();
-			const disabledModel = createModel({
-				id: "model-disabled-1",
-				enabled: false,
-			});
-			const entries = [createModel(), disabledModel];
-			setupWithEntries(entries);
+			setupWithDisabledTotal(1, [createModel()]);
+			vi.mocked(api.models.cursor).mockResolvedValueOnce(
+				page([createModel({ id: "model-disabled-1", enabled: false })], false),
+			);
 
 			renderWithProviders(
 				<VirtualModelTable onDeleteDisabled={onDeleteDisabled} />,
 			);
 
 			fireEvent.click(screen.getByText("Delete 1 disabled"));
-			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
+			expect(
+				await screen.findByText("Delete Disabled Models"),
+			).toBeInTheDocument();
 
 			fireEvent.click(screen.getByText("Cancel"));
 
@@ -1149,6 +1248,7 @@ describe("VirtualModelTable", () => {
 					screen.queryByText("Delete Disabled Models"),
 				).not.toBeInTheDocument();
 			});
+			expect(onDeleteDisabled).not.toHaveBeenCalled();
 		});
 	});
 });

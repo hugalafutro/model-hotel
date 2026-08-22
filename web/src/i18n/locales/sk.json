@@ -2614,7 +2614,8 @@
 			"deleteDisabledMessage_one": "Týmto sa natrvalo odstráni {{count}} deaktivovaný model. Ak je u daného poskytovateľa povolené automatické vyhľadávanie, model sa pri nasledujúcom cykle opäť vyhľadá. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
 			"deleteDisabledMessage_few": "Týmto sa natrvalo odstránia {{count}} deaktivované modely. Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
 			"deleteDisabledMessage_many": "Týmto sa natrvalo odstráni {{count}} deaktivovaného modelu. Ak je u daného poskytovateľa povolené automatické vyhľadávanie, model sa pri nasledujúcom cykle opäť vyhľadá. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
-			"deleteDisabledMessage_other": "Týmto sa natrvalo odstráni {{count}} deaktivovaných modelov. Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa."
+			"deleteDisabledMessage_other": "Týmto sa natrvalo odstráni {{count}} deaktivovaných modelov. Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
+			"deleteDisabledLoadFailed": "Nepodarilo sa načítať zakázané modely: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Podrobnosti o modeli",

@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Slet {{count}} deaktiveret model",
 			"deleteDisabledAria_other": "Slet {{count}} deaktiverede modeller",
 			"deleteDisabledMessage_one": "Dette vil permanent slette {{count}} deaktiveret model. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
-			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette."
+			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
+			"deleteDisabledLoadFailed": "Kunne ikke indlæse deaktiverede modeller: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model detaljer",
