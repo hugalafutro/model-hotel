@@ -157,7 +157,7 @@ open class FrontDeskClient(
                         .post(body)
                         .build()
                 http.newCall(request).execute().use { resp ->
-                    val text = resp.body?.string().orEmpty()
+                    val text = resp.body.string()
                     when {
                         resp.isSuccessful -> PairResult.Success(json.decodeFromString(text))
                         resp.code == 401 -> PairResult.InvalidCode
@@ -459,7 +459,7 @@ open class FrontDeskClient(
                         .header("Authorization", "Bearer $token")
                         .build()
                 http.newCall(request).execute().use { resp ->
-                    val text = resp.body?.string().orEmpty()
+                    val text = resp.body.string()
                     when {
                         resp.isSuccessful -> FetchResult.Success(json.decodeFromString<T>(text))
                         resp.code == 401 -> FetchResult.Unauthorized
@@ -512,7 +512,7 @@ open class FrontDeskClient(
                         .method(method, requestBody)
                         .build()
                 client.newCall(request).execute().use { resp ->
-                    val text = resp.body?.string().orEmpty()
+                    val text = resp.body.string()
                     when {
                         resp.isSuccessful -> ActionResult.Success(json.decodeFromString<T>(text))
                         resp.code == 403 -> ActionResult.Forbidden

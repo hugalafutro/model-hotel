@@ -1,7 +1,6 @@
 package com.hugalafutro.bellhop.ui.member
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,12 +42,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -76,6 +73,7 @@ import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.events.eventClipboardText
 import com.hugalafutro.bellhop.ui.events.formatEventTime
@@ -123,14 +121,13 @@ fun MemberDetailScreen(
     val health = member.status.health
     // A row copies the whole event as text, with a toast to confirm the otherwise-
     // silent act — the same affordance as the Events screen's log.
-    val clipboard = LocalClipboardManager.current
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     val copiedMsg = stringResource(R.string.events_copied)
     val timePattern = LocalTimePattern.current
     val onCopyEvent: (FdEvent) -> Unit = { event ->
         val name = member.name.takeIf { event.memberId == member.id }
-        clipboard.setText(AnnotatedString(eventClipboardText(event, name, timePattern)))
-        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+        copyText(eventClipboardText(event, name, timePattern), copiedMsg)
     }
     // Clear the optimistic pending state once the dashboard's live state (member
     // arrives live from its poll/SSE) has caught up to the accepted target.

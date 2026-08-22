@@ -1,7 +1,6 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,12 +52,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,6 +82,7 @@ import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -126,7 +124,7 @@ fun DashboardScreen(
 ) {
     // Long-press copies a member row as text, with a toast to confirm the
     // otherwise-silent act. Gated on [holdToCopy] so it never fires by accident.
-    val clipboard = LocalClipboardManager.current
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     val memberCopiedMsg = stringResource(R.string.dashboard_member_copied)
 
@@ -366,8 +364,7 @@ fun DashboardScreen(
                                     onLongClick =
                                         if (holdToCopy) {
                                             {
-                                                clipboard.setText(AnnotatedString(memberClipboardText(member)))
-                                                Toast.makeText(context, memberCopiedMsg, Toast.LENGTH_SHORT).show()
+                                                copyText(memberClipboardText(member), memberCopiedMsg)
                                             }
                                         } else {
                                             null
