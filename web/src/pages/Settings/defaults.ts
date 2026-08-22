@@ -13,6 +13,10 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	discovery_interval: "6h",
 	discovery_on_startup: "true",
 	discovery_on_provider_create: "true",
+	// Days a discovery-retired model row sits disabled before the scheduled
+	// discovery pass deletes it. 0 keeps rows forever. Matches
+	// defaultModelPruneDays in cmd/server/discovery.go.
+	model_prune_days: "30",
 
 	// Proxy
 	request_timeout: "1m0s",
@@ -85,6 +89,7 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"discovery_interval",
 		"discovery_on_startup",
 		"discovery_on_provider_create",
+		"model_prune_days",
 	],
 	proxy: [
 		"request_timeout",
@@ -125,6 +130,7 @@ export type SettingKey =
 	| "discovery_interval"
 	| "discovery_on_startup"
 	| "discovery_on_provider_create"
+	| "model_prune_days"
 	| "request_timeout"
 	| "key_cache_ttl"
 	| "ttft_timeout"
@@ -162,6 +168,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	discovery_interval: "settings.discovery.discoveryInterval",
 	discovery_on_startup: "settings.discovery.discoverOnStartup",
 	discovery_on_provider_create: "settings.discovery.discoverOnProviderCreation",
+	model_prune_days: "settings.discovery.pruneRetired",
 	request_timeout: "settings.proxy.requestTimeout",
 	key_cache_ttl: "settings.proxy.keyCacheTtl",
 	ttft_timeout: "settings.proxy.ttftTimeout",

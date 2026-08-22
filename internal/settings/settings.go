@@ -25,6 +25,7 @@ var AllowedSettings = map[string]bool{
 	"discovery_on_startup":              true,
 	"discovery_on_provider_create":      true,
 	"discovery_claim_alert_days":        true,
+	"model_prune_days":                  true,
 	"log_retention":                     true,
 	"stale_request_timeout":             true,
 	"request_timeout":                   true,
