@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Poista {{count}} pois käytöstä -malli",
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistettua mallia",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos automaattitunnistus on käytössä palveluntarjoajalla, ne löydetään uudelleen seuraavassa syklissä. Poista automaattitunnistus käytöstä palveluntarjoajalta estääksesi tämän.",
-			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistettua mallia. Jos automaattitunnistus on käytössä palveluntarjoajalla, ne löydetään uudelleen seuraavassa syklissä. Poista automaattitunnistus käytöstä palveluntarjoajalta estääksesi tämän."
+			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistettua mallia. Jos automaattitunnistus on käytössä palveluntarjoajalla, ne löydetään uudelleen seuraavassa syklissä. Poista automaattitunnistus käytöstä palveluntarjoajalta estääksesi tämän.",
+			"deleteDisabledLoadFailed": "Käytöstä poistettujen mallien lataus epäonnistui: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Mallin tiedot",

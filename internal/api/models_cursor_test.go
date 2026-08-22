@@ -1377,13 +1377,13 @@ func TestModelSortColumn_Defaults(t *testing.T) {
 		sortBy   string
 		expected string
 	}{
-		{"name", "COALESCE(m.name, m.model_id, '')"},
+		{"name", "COALESCE(NULLIF(m.name, ''), m.model_id)"},
 		{"discovered", "COALESCE(m.last_seen_at, m.created_at)"},
 		{"context", "COALESCE(m.context_length, 0)"},
 		{"output", "COALESCE(m.max_output_tokens, 0)"},
 		{"provider", "COALESCE(p.name, '')"},
-		{"", "COALESCE(m.name, m.model_id, '')"},
-		{"unknown", "COALESCE(m.name, m.model_id, '')"},
+		{"", "COALESCE(NULLIF(m.name, ''), m.model_id)"},
+		{"unknown", "COALESCE(NULLIF(m.name, ''), m.model_id)"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.sortBy, func(t *testing.T) {
@@ -1465,16 +1465,25 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 		wantIDs      []string
 		wantEnabled  int
 		wantParked   int
+		wantDisabled int
 		wantProvider map[string]bool
 	}{
-		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, 0, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
-		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
-		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
+		{"served", "&provider_enabled=true", []string{"cpe-served", "cpe-switched-off"}, 1, 0, 1, map[string]bool{"cpe-served": true, "cpe-switched-off": true}},
+		{"parked", "&provider_enabled=false", []string{"cpe-parked"}, 0, 1, 0, map[string]bool{"cpe-parked": false}},
+		{"unfiltered", "", []string{"cpe-parked", "cpe-served", "cpe-switched-off"}, 1, 1, 1, map[string]bool{"cpe-parked": false, "cpe-served": true, "cpe-switched-off": true}},
 		// The flag composes with the other filters: search narrows to one
 		// model and the scope decides whether it is visible at all.
-		{"served + search", "&provider_enabled=true&search=cpe-park", nil, 0, 0, nil},
-		{"parked + search", "&provider_enabled=false&search=cpe-park", []string{"cpe-parked"}, 0, 1, map[string]bool{"cpe-parked": false}},
-		{"served + capabilities", "&provider_enabled=true&capabilities=vision", []string{"cpe-switched-off"}, 0, 0, map[string]bool{"cpe-switched-off": true}},
+		{"served + search", "&provider_enabled=true&search=cpe-park", nil, 0, 0, 0, nil},
+		{"parked + search", "&provider_enabled=false&search=cpe-park", []string{"cpe-parked"}, 0, 1, 0, map[string]bool{"cpe-parked": false}},
+		{"served + capabilities", "&provider_enabled=true&capabilities=vision", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
+		// The model's own flag is a filter of its own: the bulk delete reads
+		// the disabled rows of the current filters through it, and the
+		// counts it ships describe the same rows. disabled_total counts
+		// switched-off rows whether or not their provider is parked.
+		{"disabled only", "&enabled=false", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
+		{"enabled only", "&enabled=true", []string{"cpe-parked", "cpe-served"}, 1, 1, 0, map[string]bool{"cpe-parked": false, "cpe-served": true}},
+		{"disabled + parked scope", "&enabled=false&provider_enabled=false", nil, 0, 0, 0, nil},
+		{"disabled + served scope", "&enabled=false&provider_enabled=true", []string{"cpe-switched-off"}, 0, 0, 1, map[string]bool{"cpe-switched-off": true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_id="+both+tc.query, http.NoBody)
@@ -1496,6 +1505,9 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 			}
 			if resp.ParkedTotal != tc.wantParked {
 				t.Errorf("parked_total: got %d, want %d", resp.ParkedTotal, tc.wantParked)
+			}
+			if resp.DisabledTotal != tc.wantDisabled {
+				t.Errorf("disabled_total: got %d, want %d", resp.DisabledTotal, tc.wantDisabled)
 			}
 			if len(resp.Entries) != len(tc.wantIDs) {
 				t.Fatalf("entries: got %d, want %d", len(resp.Entries), len(tc.wantIDs))
@@ -1544,12 +1556,97 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 	})
 
 	t.Run("rejects garbage", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/models/cursor?provider_enabled=maybe", http.NoBody)
+		for _, query := range []string{"provider_enabled=maybe", "enabled=maybe"} {
+			req := httptest.NewRequest(http.MethodGet, "/models/cursor?"+query, http.NoBody)
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("%s: expected 400, got %d", query, w.Code)
+			}
+			if !strings.Contains(w.Body.String(), "invalid "+strings.SplitN(query, "=", 2)[0]) {
+				t.Fatalf("%s: body should name the parameter, got %q", query, w.Body.String())
+			}
+		}
+	})
+}
+
+// Empty names must not strand rows behind the keyset: the page encodes the
+// model id in place of an empty name (the same stand-in the SQL sort key
+// uses), so a page ending on an empty-name row continues past it instead of
+// skipping every remaining empty-name row. The bulk delete walks the disabled
+// rows this way and must see all of them.
+func TestListModelsCursor_EmptyNamePagination(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	body := fmt.Sprintf(`{"name":"cursor-empty-%s","base_url":"https://api.example.com","api_key":"test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("parse provider: %v", err)
+	}
+	pid := created.ID
+	const n = 201
+	for i := 0; i < n; i++ {
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, '', false)`,
+			uuid.New(), pid, fmt.Sprintf("empty-name-%03d", i)); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+	}
+
+	seen := map[string]bool{}
+	cursor := ""
+	for page := 0; ; page++ {
+		url := "/models/cursor?provider_id=" + pid + "&enabled=false&sort_by=name&limit=200"
+		if cursor != "" {
+			url += "&cursor=" + cursor
+		}
+		req := httptest.NewRequest(http.MethodGet, url, http.NoBody)
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
-		if w.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d", w.Code)
+		if w.Code != http.StatusOK {
+			t.Fatalf("page %d: expected 200, got %d: %s", page, w.Code, w.Body.String())
 		}
-	})
+		var resp ModelsCursorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp.DisabledTotal != n {
+			t.Fatalf("page %d: disabled_total = %d, want %d", page, resp.DisabledTotal, n)
+		}
+		for _, e := range resp.Entries {
+			if seen[e.ID] {
+				t.Fatalf("page %d: row %s served twice", page, e.ModelID)
+			}
+			seen[e.ID] = true
+		}
+		if !resp.HasAfter {
+			break
+		}
+		if page > 2 {
+			t.Fatalf("pagination did not terminate after %d pages", page)
+		}
+		last := resp.Entries[len(resp.Entries)-1]
+		// Exactly what the page encodes: the model id stands in for an empty name.
+		c := modelCursor{SortBy: "name", Name: last.Name, ModelID: last.ModelID, ID: last.ID}
+		if c.Name == "" {
+			c.Name = c.ModelID
+		}
+		cursor = c.encode()
+	}
+	if len(seen) != n {
+		t.Fatalf("paged through %d rows, want %d", len(seen), n)
+	}
 }

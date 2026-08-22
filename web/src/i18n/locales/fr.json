@@ -2557,7 +2557,8 @@
 			"deleteDisabledAria_other": "Supprimer les modèles {{count}} désactivés",
 			"deleteDisabledMessage_one": "Ceci supprimera définitivement le modèle {{count}} désactivé. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactiver la découverte automatique sur le fournisseur pour éviter cela.",
 			"deleteDisabledMessage_many": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
-			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela."
+			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
+			"deleteDisabledLoadFailed": "Impossible de charger les modèles désactivés : {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Détails du modèle",

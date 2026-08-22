@@ -161,6 +161,11 @@ export interface ModelsCursorResponse {
 	enabled_total: number;
 	/** Rows parked under a disabled provider: listed, kept, not served. */
 	parked_total: number;
+	/**
+	 * Rows whose own flag is off, parked or not: what "delete disabled"
+	 * removes for these filters.
+	 */
+	disabled_total: number;
 	has_before: boolean;
 	has_after: boolean;
 }

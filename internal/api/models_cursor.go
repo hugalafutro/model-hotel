@@ -29,6 +29,7 @@ import (
 //   - capabilities: comma-separated capability keys (e.g. "vision,reasoning")
 //   - outputs: comma-separated output modalities (e.g. "image,embedding")
 //   - provider_enabled: "true" or "false" to filter on the owning provider's flag
+//   - enabled: "true" or "false" to filter on the model's own enabled flag
 func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -73,14 +74,15 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
-	counts := h.countModels(ctx, q, p.providerEnabled)
+	counts := h.countModels(ctx, q, p.providerEnabled, p.enabled)
 	writeJSON(w, ModelsCursorResponse{
-		Entries:      entries,
-		Total:        counts.total,
-		EnabledTotal: counts.enabled,
-		ParkedTotal:  counts.parked,
-		HasBefore:    hasBefore,
-		HasAfter:     hasAfter,
+		Entries:       entries,
+		Total:         counts.total,
+		EnabledTotal:  counts.enabled,
+		ParkedTotal:   counts.parked,
+		DisabledTotal: counts.disabled,
+		HasBefore:     hasBefore,
+		HasAfter:      hasAfter,
 	})
 }
 
@@ -89,7 +91,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 // ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort inverted
 // for backward pagination so LIMIT picks from the correct end.
 func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
-	conditions, args := buildModelFilterConditions(q, p.providerEnabled)
+	conditions, args := buildModelFilterConditions(q, p.providerEnabled, p.enabled)
 	argIdx := len(args) + 1
 
 	if p.cursorStr != "" {
@@ -121,25 +123,28 @@ func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
 
 // modelCounts is one scan's worth of filter-wide totals: every matching row,
 // the rows the proxy can serve (m.enabled AND p.enabled, the /v1/models rule),
-// and the rows parked under a disabled provider. What is left over is the
-// rows switched off individually, which the page derives.
+// the rows parked under a disabled provider, and the rows whose own flag is
+// off regardless of their provider. The page derives its "switched off
+// individually" badge from the first three; disabled is what the table's
+// bulk delete removes, so the button is driven by the same filter-wide
+// number the delete acts on, not by the rows the scroller has loaded.
 type modelCounts struct {
-	total, enabled, parked int
+	total, enabled, parked, disabled int
 }
 
 // countModels returns the filter-wide counts for the same filters as the data
 // query (no keyset predicate, so every page reports the same numbers).
 // Best-effort: returns zeros on error.
-func (h *Handler) countModels(ctx context.Context, q url.Values, providerEnabled *bool) modelCounts {
-	conditions, args := buildModelFilterConditions(q, providerEnabled)
+func (h *Handler) countModels(ctx context.Context, q url.Values, providerEnabled, enabled *bool) modelCounts {
+	conditions, args := buildModelFilterConditions(q, providerEnabled, enabled)
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + joinAnd(conditions)
 	}
 	var c modelCounts
 	_ = h.dbPool.Pool().QueryRow(ctx,
-		"SELECT COUNT(*), COUNT(*) FILTER (WHERE m.enabled AND p.enabled), COUNT(*) FILTER (WHERE NOT COALESCE(p.enabled, false))"+modelFromJoin+whereClause,
-		args...).Scan(&c.total, &c.enabled, &c.parked)
+		"SELECT COUNT(*), COUNT(*) FILTER (WHERE m.enabled AND p.enabled), COUNT(*) FILTER (WHERE NOT COALESCE(p.enabled, false)), COUNT(*) FILTER (WHERE NOT m.enabled)"+modelFromJoin+whereClause,
+		args...).Scan(&c.total, &c.enabled, &c.parked, &c.disabled)
 	return c
 }
 
@@ -154,6 +159,10 @@ type modelListParams struct {
 	// Parsed once here and threaded through, so the value that passed
 	// validation is the value the SQL sees.
 	providerEnabled *bool
+	// enabled is the parsed enabled filter on the model's own flag; nil means
+	// any. The bulk delete reads the disabled rows of the current filter
+	// through it.
+	enabled *bool
 }
 
 // parseModelListParams reads and validates the cursor list query parameters:
@@ -184,6 +193,11 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 		return p, false
 	}
 	p.providerEnabled = providerEnabled
+	enabled, ok := parseBoolFilterParam(w, "enabled", q.Get("enabled"))
+	if !ok {
+		return p, false
+	}
+	p.enabled = enabled
 	switch p.sortBy {
 	case "discovered", "context", "output", "provider", "status":
 		// valid
@@ -238,7 +252,7 @@ func modelSortColumn(sortBy string) string {
 	case "status":
 		return "CASE WHEN m.enabled AND NOT m.disabled_manually THEN 0 WHEN m.enabled AND m.disabled_manually THEN 1 ELSE 2 END"
 	default: // "name"
-		return "COALESCE(m.name, m.model_id, '')"
+		return "COALESCE(NULLIF(m.name, ''), m.model_id)"
 	}
 }
 
@@ -296,11 +310,15 @@ func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, ar
 			return pred
 		}
 	default: // "name"
+		// The sort key is the name with the model id standing in for an absent
+		// or empty one (NULLIF below), so a cursor that carries the stand-in,
+		// as the page's encoders do, and one that carries the bare name agree
+		// on where the page ended.
 		name := cursor.Name
 		if name == "" {
 			name = cursor.ModelID
 		}
-		pred := fmt.Sprintf("(COALESCE(m.name, m.model_id, ''), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
+		pred := fmt.Sprintf("(COALESCE(NULLIF(m.name, ''), m.model_id), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
 		*args = append(*args, name, cursor.ID)
 		*argIdx += 2
 		return pred
@@ -331,9 +349,10 @@ func joinAnd(conditions []string) string {
 }
 
 // buildModelFilterConditions builds the WHERE clause conditions and args for
-// search, provider_id, provider_enabled, capabilities, and outputs filters. Shared between the
-// main data query and the count query to avoid duplication.
-func buildModelFilterConditions(q url.Values, providerEnabled *bool) ([]string, []any) {
+// search, provider_id, provider_enabled, enabled, capabilities, and outputs
+// filters. Shared between the main data query and the count query to avoid
+// duplication.
+func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([]string, []any) {
 	conditions := []string{}
 	args := []any{}
 	argIdx := 1
@@ -389,6 +408,11 @@ func buildModelFilterConditions(q url.Values, providerEnabled *bool) ([]string, 
 		// as not served, so the "disabled" scope must own those rows too.
 		conditions = append(conditions, fmt.Sprintf("COALESCE(p.enabled, false) = $%d", argIdx))
 		args = append(args, *providerEnabled)
+		argIdx++
+	}
+	if enabled != nil {
+		conditions = append(conditions, fmt.Sprintf("m.enabled = $%d", argIdx))
+		args = append(args, *enabled)
 		argIdx++
 	}
 	if outputs := q.Get("outputs"); outputs != "" {

@@ -700,6 +700,7 @@ export const handlers: RequestHandler[] = [
 			total: 0,
 			enabled_total: 0,
 			parked_total: 0,
+			disabled_total: 0,
 			has_before: false,
 			has_after: false,
 		});

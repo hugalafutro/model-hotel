@@ -276,6 +276,7 @@ describe("Models", () => {
 						total: 1000,
 						enabled_total: 950,
 						parked_total: 30,
+						disabled_total: 0,
 						has_before: false,
 						has_after: false,
 					});

@@ -2557,7 +2557,8 @@
 			"deleteDisabledAria_other": "Șterge {{count}} de modele dezactivate",
 			"deleteDisabledMessage_one": "Acest lucru va șterge permanent {{count}} model dezactivat. Dacă autodescoperirea este activată pe furnizorul lui, va fi redescoperit în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
 			"deleteDisabledMessage_few": "Acest lucru va șterge permanent {{count}} modele dezactivate. Dacă autodescoperirea este activată pe furnizorul lor, vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"deleteDisabledMessage_other": "Acest lucru va șterge permanent {{count}} de modele dezactivate. Dacă autodescoperirea este activată pe furnizorul lor, vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru."
+			"deleteDisabledMessage_other": "Acest lucru va șterge permanent {{count}} de modele dezactivate. Dacă autodescoperirea este activată pe furnizorul lor, vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
+			"deleteDisabledLoadFailed": "Nu s-au putut încărca modelele dezactivate: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalii model",

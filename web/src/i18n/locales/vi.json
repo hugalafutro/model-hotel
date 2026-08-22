@@ -2500,7 +2500,8 @@
 			"deleteDisabledAria_one": "Xóa {{count}} mô hình đã tắt",
 			"deleteDisabledAria_other": "Xóa {{count}} mô hình đã tắt",
 			"deleteDisabledMessage_one": "Thao tác này sẽ xóa vĩnh viễn {{count}} mô hình đã tắt. Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Hãy tắt tự động phát hiện trên nhà cung cấp để ngăn điều này.",
-			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn {{count}} mô hình đã tắt. Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Hãy tắt tự động phát hiện trên nhà cung cấp để ngăn điều này."
+			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn {{count}} mô hình đã tắt. Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Hãy tắt tự động phát hiện trên nhà cung cấp để ngăn điều này.",
+			"deleteDisabledLoadFailed": "Không tải được các mô hình đã tắt: {{message}}"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Chi tiết mô hình",
