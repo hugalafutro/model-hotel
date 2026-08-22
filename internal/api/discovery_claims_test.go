@@ -701,3 +701,14 @@ func TestBuildProviderClaims_OrderingIsTotal(t *testing.T) {
 		}
 	}
 }
+
+// TestFlappedModels_QueryErrorSurfaces pins that a refused journal query comes
+// back as an error: the prune must skip rather than run without flap history.
+func TestFlappedModels_QueryErrorSurfaces(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := FlappedModels(cancelled, h.dbPool.Pool(), time.Now()); err == nil {
+		t.Fatal("FlappedModels: cancelled context returned no error")
+	}
+}
