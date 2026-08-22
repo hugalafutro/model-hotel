@@ -103,6 +103,14 @@ def field($k):
   | ltrimstr($k + ": ")
   | sub("^\\s+|\\s+$"; "");
 
+# The SARIF category is an upload label, not a name anyone would recognise in
+# the report: the table says "scanned image", so the two images this repo
+# builds are shown under the names the rest of the issue already uses.
+def image_name:
+  if . == "published-image" then "model-hotel"
+  elif . == "published-frontdesk-image" then "model-hotel-frontdesk"
+  else . end;
+
 ($self | split(" ") | map(select(length > 0))) as $mine
 | map({
     tool:      (.tool.name // "unknown"),
@@ -128,7 +136,7 @@ def field($k):
           name:      .[0].package,
           installed: .[0].installed,
           fixed:     .[0].fixed,
-          category:  .[0].category,
+          category:  (.[0].category | image_name),
           ours:      .[0].ours,
           n:         length
         })
