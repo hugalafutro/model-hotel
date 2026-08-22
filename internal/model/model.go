@@ -764,14 +764,15 @@ func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Tim
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	eligible, err := pgx.CollectRows(rows, pgx.RowToStructByPos[PrunedModel])
+	if err != nil {
+		return nil, err
+	}
 
+	// The flap filter runs here rather than in SQL (the journal is keyed by
+	// text ids and JSON buckets), oldest first, stopping at the cap.
 	var candidates []PrunedModel
-	for rows.Next() {
-		var c PrunedModel
-		if err := rows.Scan(&c.ID, &c.ProviderID, &c.ProviderName, &c.ModelID); err != nil {
-			return nil, err
-		}
+	for _, c := range eligible {
 		if flapped[ProviderModelKey{ProviderID: c.ProviderID, ModelID: c.ModelID}] {
 			continue
 		}
@@ -780,10 +781,6 @@ func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Tim
 			break
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	rows.Close()
 	return candidates, nil
 }
 
@@ -849,17 +846,13 @@ func (r *Repository) aliveModelIDs(ctx context.Context, ids []uuid.UUID) (map[uu
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	alive := make(map[uuid.UUID]bool)
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		alive[id] = true
-	}
-	if err := rows.Err(); err != nil {
+	found, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
 		return nil, err
+	}
+	alive := make(map[uuid.UUID]bool, len(found))
+	for _, id := range found {
+		alive[id] = true
 	}
 	return alive, nil
 }
