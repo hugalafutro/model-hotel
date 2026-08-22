@@ -236,7 +236,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Spravované primárnou inštanciou flotily. Konfigurácia nižšie je tu iba na čítanie a pri ďalšej synchronizácii konfigurácie sa nahradí. Spravujte ju na primárnej inštancii."
+			"banner": "Spravované primárnou inštanciou flotily. Konfigurácia nižšie je tu iba na čítanie a pri ďalšej synchronizácii konfigurácie sa nahradí. Spravujte ju na primárnej inštancii.",
+			"primaryBanner": "Primárna inštancia flotily. Sekcie vyššie zostávajú lokálne pre každého člena a nesynchronizujú sa. Konfigurácia nižšie sa pri najbližšej synchronizácii konfigurácie odošle všetkým členom flotily, takže zmeny vykonané tu platia pre celú flotilu."
 		},
 		"builtFromCommit": "Zostavené z commitu {{commit}}"
 	},

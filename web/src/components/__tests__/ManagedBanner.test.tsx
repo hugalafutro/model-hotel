@@ -45,6 +45,34 @@ describe("ManagedBanner", () => {
 		);
 	});
 
+	it("renders the primary counterpart at a fleet boundary", async () => {
+		server.use(
+			http.get("/api/system", () => HttpResponse.json(withFleet("primary"))),
+		);
+		renderWithProviders(<ManagedBanner fleetBoundary />);
+		expect(await screen.findByTestId("primary-banner")).toBeInTheDocument();
+		expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument();
+	});
+
+	it("renders the member text, not the primary one, at a fleet boundary on a member", async () => {
+		server.use(
+			http.get("/api/system", () => HttpResponse.json(withFleet("member"))),
+		);
+		renderWithProviders(<ManagedBanner fleetBoundary />);
+		expect(await screen.findByTestId("managed-banner")).toBeInTheDocument();
+		expect(screen.queryByTestId("primary-banner")).not.toBeInTheDocument();
+	});
+
+	it("renders nothing at a fleet boundary on a standalone instance", async () => {
+		server.use(
+			http.get("/api/system", () => HttpResponse.json(mockSystemStats)),
+		);
+		renderWithProviders(<ManagedBanner fleetBoundary />);
+		await waitFor(() =>
+			expect(screen.queryByTestId("primary-banner")).not.toBeInTheDocument(),
+		);
+	});
+
 	it("renders nothing once the heartbeat goes stale (warning)", async () => {
 		server.use(
 			http.get("/api/system", () => HttpResponse.json(withFleet("warning"))),
@@ -52,6 +80,19 @@ describe("ManagedBanner", () => {
 		renderWithProviders(<ManagedBanner />);
 		await waitFor(() =>
 			expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument(),
+		);
+	});
+
+	it("stays hidden under demo read-only mode even on the primary", async () => {
+		server.use(
+			http.get("/api/system", () => HttpResponse.json(withFleet("primary"))),
+			http.get("/api/public-config", () =>
+				HttpResponse.json({ read_only: true }),
+			),
+		);
+		renderWithProviders(<ManagedBanner fleetBoundary />);
+		await waitFor(() =>
+			expect(screen.queryByTestId("primary-banner")).not.toBeInTheDocument(),
 		);
 	});
 

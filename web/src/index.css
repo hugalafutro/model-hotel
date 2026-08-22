@@ -1169,6 +1169,25 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 	background: color-mix(in srgb, var(--warning-text) 20%, transparent);
 	border-color: color-mix(in srgb, var(--warning-text) 48%, transparent);
 }
+/* Fleet banner (ManagedBanner): the warning amber so it stands out from the
+   page instead of blending into the accent, on every theme. Light themes need
+   the darker amber for contrast on the tinted background. */
+.ui-fleet-banner {
+	color: var(--color-amber-300, #fcd34d);
+	background: color-mix(
+		in srgb,
+		var(--color-amber-400, #fbbf24) 14%,
+		transparent
+	);
+	border-color: color-mix(
+		in srgb,
+		var(--color-amber-400, #fbbf24) 45%,
+		transparent
+	);
+}
+html.light .ui-fleet-banner {
+	color: var(--color-amber-800, #92400e);
+}
 /* HA (fleet config-sync) errors take an indigo hue, distinct from the error-red
    and warning-amber of the request/app chips. Indigo (#6366f1) is fixed rather
    than theme-tokenized; only the text needs a light/dark contrast swap. */

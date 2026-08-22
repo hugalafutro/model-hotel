@@ -231,7 +231,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestita dall'istanza primaria della flotta. La configurazione qui sotto è di sola lettura e viene sostituita alla successiva sincronizzazione della configurazione. Gestiscila sull'istanza primaria."
+			"banner": "Gestita dall'istanza primaria della flotta. La configurazione qui sotto è di sola lettura e viene sostituita alla successiva sincronizzazione della configurazione. Gestiscila sull'istanza primaria.",
+			"primaryBanner": "Primario della flotta. Le sezioni sopra restano locali a ciascun membro e non vengono sincronizzate. La configurazione sotto viene inviata a ogni membro della flotta alla prossima sincronizzazione della configurazione, quindi le modifiche fatte qui valgono per l'intera flotta."
 		},
 		"builtFromCommit": "Compilato dal commit {{commit}}"
 	},

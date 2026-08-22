@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Styres av flåtens primære instans. Konfigurasjonen nedenfor er skrivebeskyttet her og erstattes ved neste konfigurasjonssynkronisering. Administrer den på den primære instansen."
+			"banner": "Styres av flåtens primære instans. Konfigurasjonen nedenfor er skrivebeskyttet her og erstattes ved neste konfigurasjonssynkronisering. Administrer den på den primære instansen.",
+			"primaryBanner": "Flåtens primære. Seksjonene ovenfor forblir lokale på hvert medlem og synkroniseres ikke. Konfigurasjonen nedenfor sendes til alle flåtemedlemmer ved neste konfigurasjonssynkronisering, så endringer her gjelder for hele flåten."
 		},
 		"builtFromCommit": "Bygget fra commit {{commit}}"
 	},

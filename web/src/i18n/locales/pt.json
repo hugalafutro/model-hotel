@@ -231,7 +231,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Gerenciada pela instância primária da frota. A configuração abaixo é somente leitura aqui e é substituída na próxima sincronização de configuração. Gerencie na instância primária."
+			"banner": "Gerenciada pela instância primária da frota. A configuração abaixo é somente leitura aqui e é substituída na próxima sincronização de configuração. Gerencie na instância primária.",
+			"primaryBanner": "Primário da frota. As seções acima permanecem locais em cada membro e não são sincronizadas. A configuração abaixo é enviada a todos os membros da frota na próxima sincronização de configuração, portanto as alterações feitas aqui se aplicam a toda a frota."
 		},
 		"builtFromCommit": "Compilado a partir do commit {{commit}}"
 	},

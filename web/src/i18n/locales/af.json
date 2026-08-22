@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Bestuur deur die vloot se primêre instansie. Die konfigurasie hieronder is hier slegs-lees en word met die volgende konfigurasiesinkronisasie vervang. Bestuur dit op die primêre instansie."
+			"banner": "Bestuur deur die vloot se primêre instansie. Die konfigurasie hieronder is hier slegs-lees en word met die volgende konfigurasiesinkronisasie vervang. Bestuur dit op die primêre instansie.",
+			"primaryBanner": "Vlootprimêr. Die afdelings hierbo bly plaaslik op elke lid en word nie gesinchroniseer nie. Die konfigurasie hieronder word by die volgende konfigurasiesinchronisasie na elke vlootlid gestoot, so veranderinge hier geld vlootwyd."
 		},
 		"builtFromCommit": "Gebou vanaf commit {{commit}}"
 	},

@@ -231,7 +231,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Gérée par l'instance principale de la flotte. La configuration ci-dessous est en lecture seule ici et est remplacée à la prochaine synchronisation de configuration. Gérez-la sur l'instance principale."
+			"banner": "Gérée par l'instance principale de la flotte. La configuration ci-dessous est en lecture seule ici et est remplacée à la prochaine synchronisation de configuration. Gérez-la sur l'instance principale.",
+			"primaryBanner": "Primaire de la flotte. Les sections ci-dessus restent locales à chaque membre et ne sont pas synchronisées. La configuration ci-dessous est envoyée à chaque membre de la flotte à la prochaine synchronisation de configuration, les modifications faites ici s'appliquent donc à toute la flotte."
 		},
 		"builtFromCommit": "Compilé depuis le commit {{commit}}"
 	},

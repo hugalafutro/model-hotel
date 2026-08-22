@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "A flotta elsődleges példánya kezeli. Az alábbi konfiguráció itt csak olvasható, és a következő konfigurációs szinkronizáláskor lecserélődik. Kezelje az elsődleges példányon."
+			"banner": "A flotta elsődleges példánya kezeli. Az alábbi konfiguráció itt csak olvasható, és a következő konfigurációs szinkronizáláskor lecserélődik. Kezelje az elsődleges példányon.",
+			"primaryBanner": "Flotta elsődleges. A fenti szakaszok minden tagon helyiek maradnak, és nem szinkronizálódnak. Az alábbi konfiguráció a következő konfigurációszinkronizáláskor minden flottatagra átkerül, így az itt végzett módosítások az egész flottára érvényesek."
 		},
 		"builtFromCommit": "A(z) {{commit}} commitból építve"
 	},

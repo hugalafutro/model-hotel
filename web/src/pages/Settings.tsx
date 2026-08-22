@@ -221,9 +221,11 @@ export function Settings() {
 				    Alerts partially, each behind its own in-section note); every
 				    section below is owned by the fleet primary, so the managed
 				    banner sits on the boundary and its "configuration below"
-				    claim reads true. On unmanaged instances it renders
-				    nothing. */}
-				<ManagedBanner />
+				    claim reads true. On the primary the same boundary carries the
+				    counterpart banner (sections above stay per-member, sections
+				    below are pushed to the fleet); on a standalone instance it
+				    renders nothing. */}
+				<ManagedBanner fleetBoundary />
 
 				<DiscoverySettings
 					collapsed={modelDiscoveryCollapsed}

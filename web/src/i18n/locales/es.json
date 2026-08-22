@@ -231,7 +231,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Gestionada por la instancia primaria de la flota. La configuración de abajo es de solo lectura aquí y se reemplaza en la próxima sincronización de configuración. Gestiónala en la instancia primaria."
+			"banner": "Gestionada por la instancia primaria de la flota. La configuración de abajo es de solo lectura aquí y se reemplaza en la próxima sincronización de configuración. Gestiónala en la instancia primaria.",
+			"primaryBanner": "Primario de la flota. Las secciones de arriba se mantienen locales en cada miembro y no se sincronizan. La configuración de abajo se envía a todos los miembros de la flota en la próxima sincronización de configuración, así que los cambios hechos aquí se aplican a toda la flota."
 		},
 		"builtFromCommit": "Compilado desde el commit {{commit}}"
 	},

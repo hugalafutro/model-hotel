@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Filo birincil örneği tarafından yönetiliyor. Aşağıdaki yapılandırma burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunu birincil örnekte yönetin."
+			"banner": "Filo birincil örneği tarafından yönetiliyor. Aşağıdaki yapılandırma burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunu birincil örnekte yönetin.",
+			"primaryBanner": "Filo birincili. Yukarıdaki bölümler her üyede yerel kalır ve eşitlenmez. Aşağıdaki yapılandırma bir sonraki yapılandırma eşitlemesinde her filo üyesine gönderilir, bu yüzden burada yapılan değişiklikler tüm filo için geçerlidir."
 		},
 		"builtFromCommit": "{{commit}} commit'inden derlendi"
 	},
