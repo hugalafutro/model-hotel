@@ -206,6 +206,24 @@ describe("Models", () => {
 			expect(screen.getByText("All (1) Providers")).toBeInTheDocument();
 		});
 
+		it("places the scope picker in the title row beside the badge", async () => {
+			const requested: string[] = [];
+			serveScoped(requested);
+
+			const { container } = renderWithProviders(<Models />);
+			await waitFor(() => {
+				expect(screen.getByText("1 Model")).toBeInTheDocument();
+			});
+
+			const titleRow = container.querySelector(".page-header-title-row");
+			expect(titleRow).not.toBeNull();
+			expect(
+				within(titleRow as HTMLElement).getByRole("button", {
+					name: "Filter: Active providers",
+				}),
+			).toBeInTheDocument();
+		});
+
 		it("switches scope and requests the parked rows", async () => {
 			const user = userEvent.setup();
 			const requested: string[] = [];
