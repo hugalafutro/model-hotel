@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // ClaimWindow bounds three things that MUST agree:
@@ -245,6 +247,29 @@ func flapCounts(ctx context.Context, pool *pgxpool.Pool, since time.Time) (map[f
 		out[k] = n
 	}
 	return out, rows.Err()
+}
+
+// FlappedModels is flapCounts as a set keyed the way internal/model keys rows,
+// for callers outside the claims modal (the retired-row prune). Any membership
+// transition since `since` counts; see flapCounts for why metadata updates do
+// not.
+func FlappedModels(ctx context.Context, pool *pgxpool.Pool, since time.Time) (map[model.ProviderModelKey]bool, error) {
+	counts, err := flapCounts(ctx, pool, since)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[model.ProviderModelKey]bool, len(counts))
+	for k, n := range counts {
+		if n == 0 {
+			continue
+		}
+		pid, err := uuid.Parse(k.providerID)
+		if err != nil {
+			continue // a journal row with an unparseable provider id cannot match a model row anyway
+		}
+		out[model.ProviderModelKey{ProviderID: pid, ModelID: k.modelID}] = true
+	}
+	return out, nil
 }
 
 // buildProviderClaims classifies rows and groups them by provider, returning

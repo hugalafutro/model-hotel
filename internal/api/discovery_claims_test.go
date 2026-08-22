@@ -283,6 +283,47 @@ func TestFlapCounts(t *testing.T) {
 	}
 }
 
+// TestFlappedModels pins the bridge the prune uses: a model with any
+// membership transition in the journal since `since` is flapped; a metadata
+// update is not; a row older than `since` is not.
+func TestFlappedModels(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	truncateDiscoveryChanges(t)
+
+	providerID := uuid.New()
+	seed := func(diff *DiscoveryDiff, age time.Duration) {
+		t.Helper()
+		if _, err := AppendDiscoveryChange(ctx, pool, "test", &providerID, "flap-prov", diff); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE discovery_changes SET detected_at = now() - $1::interval WHERE detected_at = (SELECT MAX(detected_at) FROM discovery_changes)`, age.String()); err != nil {
+			t.Fatalf("age: %v", err)
+		}
+	}
+	seed(&DiscoveryDiff{Disabled: []ModelChange{{ModelID: "flappy", Reason: changeReasonNotListed}}}, time.Hour)
+	seed(&DiscoveryDiff{Updated: []ModelUpdate{{ModelID: "priced", Changes: []FieldChange{{Field: changeFieldInputPrice}}}}}, time.Hour)
+	seed(&DiscoveryDiff{Disabled: []ModelChange{{ModelID: "ancient", Reason: changeReasonNotListed}}}, ClaimWindow+24*time.Hour)
+
+	got, err := FlappedModels(ctx, pool, time.Now().Add(-ClaimWindow))
+	if err != nil {
+		t.Fatalf("FlappedModels: %v", err)
+	}
+	key := func(id string) model.ProviderModelKey {
+		return model.ProviderModelKey{ProviderID: providerID, ModelID: id}
+	}
+	if !got[key("flappy")] {
+		t.Error("flappy: not flapped, want flapped")
+	}
+	if got[key("priced")] {
+		t.Error("priced: a metadata update counted as a flap")
+	}
+	if got[key("ancient")] {
+		t.Error("ancient: a journal row older than the window counted as a flap")
+	}
+}
+
 // TestPruneDiscoveryChanges keeps unseen rows regardless of age, because an
 // unseen row is still news the operator has not been shown.
 func TestPruneDiscoveryChanges(t *testing.T) {
