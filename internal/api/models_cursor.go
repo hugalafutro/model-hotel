@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -60,10 +59,16 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		m, err := scanModelRow(rows)
 		if err != nil {
-			debuglog.Error("cursor row scan failed", "error", err)
-			continue
+			// A row that cannot be scanned must fail the request: skipping it
+			// would ship totals that count a row the entries omit.
+			respondError(w, "failed to read models", err, http.StatusInternalServerError)
+			return
 		}
 		entries = append(entries, modelToResponse(m))
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read models", err, http.StatusInternalServerError)
+		return
 	}
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
@@ -200,7 +205,7 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 
 // modelSelectColumns is the cursor data query's column projection (models joined
 // to providers for p.name). Its order matches scanModelRow exactly.
-const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled"
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)"
 
 // modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
 // count queries.

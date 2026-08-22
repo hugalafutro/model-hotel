@@ -1563,6 +1563,47 @@ func TestListModels_ProviderEnabledFilter(t *testing.T) {
 		})
 	}
 
+	t.Run("NULL provider flag lists as parked on both routes", func(t *testing.T) {
+		// providers.enabled is nullable (migration 001). The proxy treats NULL
+		// as not served, so both projections must coalesce it rather than fail
+		// the scan (500 on /models, a silently dropped row on the cursor).
+		nullID := createProvider("null")
+		if _, err := pool.Exec(context.Background(), "UPDATE providers SET enabled = NULL WHERE id = $1", nullID); err != nil {
+			t.Fatalf("null provider flag: %v", err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, true)`,
+			uuid.New(), nullID, "pe-null", "pe-null"); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+
+		code, ms := list("/models?provider_id=" + nullID + "&provider_enabled=false")
+		if code != http.StatusOK {
+			t.Fatalf("list: expected 200, got %d", code)
+		}
+		if len(ms) != 1 || ms[0].ModelID != "pe-null" || ms[0].ProviderEnabled {
+			t.Fatalf("list: want the one parked row with provider_enabled=false, got %+v", ms)
+		}
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/models/cursor?provider_id="+nullID, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("cursor: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp ModelsCursorResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp.Total != 1 || resp.ParkedTotal != 1 || resp.EnabledTotal != 0 {
+			t.Errorf("cursor counts = %d/%d/%d, want total 1, parked 1, enabled 0", resp.Total, resp.EnabledTotal, resp.ParkedTotal)
+		}
+		if len(resp.Entries) != 1 || resp.Entries[0].ProviderEnabled {
+			t.Errorf("cursor entries = %+v, want the one parked row with provider_enabled=false", resp.Entries)
+		}
+	})
+
 	t.Run("rejects garbage", func(t *testing.T) {
 		code, _ := list("/models?provider_enabled=maybe")
 		if code != http.StatusBadRequest {
