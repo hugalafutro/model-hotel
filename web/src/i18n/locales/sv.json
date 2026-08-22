@@ -227,7 +227,7 @@
 		},
 		"managed": {
 			"banner": "Hanteras av flottans primära instans. Konfigurationen nedanför är skrivskyddad här och ersätts vid nästa konfigurationssynkronisering. Hantera den på den primära instansen.",
-			"primaryBanner": "Flottans primära. Sektionerna ovan förblir lokala på varje medlem och synkroniseras inte. Konfigurationen nedan skickas till alla flottmedlemmar vid nästa konfigurationssynkronisering, så ändringar här gäller för hela flottan."
+			"primaryBanner": "Flottans primära. Sektionerna ovan synkroniseras inte och förblir lokala på varje medlem, förutom lösenordspolicyn, e-postlistorna för tillåten inloggning och routningen av larmhändelser, som synkroniseras. Konfigurationen nedan skickas till alla flottmedlemmar vid nästa konfigurationssynkronisering, så ändringar här gäller för hela flottan."
 		},
 		"builtFromCommit": "Byggd från commit {{commit}}"
 	},

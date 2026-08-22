@@ -232,7 +232,7 @@
 		},
 		"managed": {
 			"banner": "Gestionată de instanța primară a flotei. Configurația de mai jos este aici doar pentru citire și este înlocuită la următoarea sincronizare a configurației. Gestionați-o pe instanța primară.",
-			"primaryBanner": "Primarul flotei. Secțiunile de mai sus rămân locale pe fiecare membru și nu sunt sincronizate. Configurația de mai jos este trimisă fiecărui membru al flotei la următoarea sincronizare a configurației, așa că modificările făcute aici se aplică întregii flote."
+			"primaryBanner": "Primarul flotei. Secțiunile de mai sus nu sunt sincronizate și rămân locale pe fiecare membru, cu excepția politicii de parole, a listelor de e-mailuri permise la autentificare și a rutării evenimentelor de alertă, care sunt sincronizate. Configurația de mai jos este trimisă fiecărui membru al flotei la următoarea sincronizare a configurației, așa că modificările făcute aici se aplică întregii flote."
 		},
 		"builtFromCommit": "Compilat din commitul {{commit}}"
 	},

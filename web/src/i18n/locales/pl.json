@@ -237,7 +237,7 @@
 		},
 		"managed": {
 			"banner": "Zarządzane przez instancję podstawową floty. Poniższa konfiguracja jest tutaj tylko do odczytu i zostanie zastąpiona przy następnej synchronizacji konfiguracji. Zarządzaj nią w instancji podstawowej.",
-			"primaryBanner": "Główna instancja floty. Sekcje powyżej pozostają lokalne dla każdego członka i nie są synchronizowane. Konfiguracja poniżej jest wysyłana do każdego członka floty przy następnej synchronizacji konfiguracji, więc wprowadzone tu zmiany obowiązują w całej flocie."
+			"primaryBanner": "Główna instancja floty. Sekcje powyżej nie są synchronizowane i pozostają lokalne dla każdego członka, z wyjątkiem polityki haseł, list dozwolonych adresów e-mail logowania i routingu zdarzeń alertów, które są synchronizowane. Konfiguracja poniżej jest wysyłana do każdego członka floty przy następnej synchronizacji konfiguracji, więc wprowadzone tu zmiany obowiązują w całej flocie."
 		},
 		"builtFromCommit": "Zbudowano z commita {{commit}}"
 	},

@@ -227,7 +227,7 @@
 		},
 		"managed": {
 			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Alla oleva kokoonpano on täällä vain luettavissa, ja se korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi sitä ensisijaisessa ilmentymässä.",
-			"primaryBanner": "Laivaston ensisijainen. Yllä olevat osiot pysyvät paikallisina kullakin jäsenellä eikä niitä synkronoida. Alla oleva kokoonpano lähetetään jokaiselle laivaston jäsenelle seuraavassa kokoonpanon synkronoinnissa, joten täällä tehdyt muutokset koskevat koko laivastoa."
+			"primaryBanner": "Laivaston ensisijainen. Yllä olevia osioita ei synkronoida ja ne pysyvät paikallisina kullakin jäsenellä, lukuun ottamatta salasanakäytäntöä, kirjautumisen sähköpostien sallittulistoja ja hälytystapahtumien reititystä, jotka synkronoidaan. Alla oleva kokoonpano lähetetään jokaiselle laivaston jäsenelle seuraavassa kokoonpanon synkronoinnissa, joten täällä tehdyt muutokset koskevat koko laivastoa."
 		},
 		"builtFromCommit": "Koottu commitista {{commit}}"
 	},

@@ -232,7 +232,7 @@
 		},
 		"managed": {
 			"banner": "Gestita dall'istanza primaria della flotta. La configurazione qui sotto è di sola lettura e viene sostituita alla successiva sincronizzazione della configurazione. Gestiscila sull'istanza primaria.",
-			"primaryBanner": "Primario della flotta. Le sezioni sopra restano locali a ciascun membro e non vengono sincronizzate. La configurazione sotto viene inviata a ogni membro della flotta alla prossima sincronizzazione della configurazione, quindi le modifiche fatte qui valgono per l'intera flotta."
+			"primaryBanner": "Primario della flotta. Le sezioni sopra non vengono sincronizzate e restano locali a ciascun membro, tranne la policy delle password, le liste di email consentite per l'accesso e l'instradamento degli eventi di avviso, che lo sono. La configurazione sotto viene inviata a ogni membro della flotta alla prossima sincronizzazione della configurazione, quindi le modifiche fatte qui valgono per l'intera flotta."
 		},
 		"builtFromCommit": "Compilato dal commit {{commit}}"
 	},

@@ -304,7 +304,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 The Settings page has 10 collapsible sections. On a managed fleet member the instance-local
 sections (Authentication, Appearance, Observability, and the local half of Alerts) come first,
-followed by the managed banner and the fleet-synced sections. The primary shows an amber banner at the same boundary noting that the sections above stay per-member while everything below is pushed to the fleet on the next config sync.
+followed by the managed banner and the fleet-synced sections. The primary shows an amber banner at the same boundary noting that the sections above stay per-member (except the password policy, the sign-in email allowlists and the alert event routing, which are synced) while everything below is pushed to the fleet on the next config sync.
 
 #### Authentication
 - **Passkeys:** WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).

@@ -232,7 +232,7 @@
 		},
 		"managed": {
 			"banner": "Gestionada per la instància primària de la flota. La configuració de sota és de només lectura aquí i se substitueix en la propera sincronització de configuració. Gestiona-la a la instància primària.",
-			"primaryBanner": "Primari de la flota. Les seccions de dalt es mantenen locals a cada membre i no se sincronitzen. La configuració de sota s'envia a tots els membres de la flota en la propera sincronització de configuració, de manera que els canvis fets aquí s'apliquen a tota la flota."
+			"primaryBanner": "Primari de la flota. Les seccions de dalt no se sincronitzen i es mantenen locals a cada membre, excepte la política de contrasenyes, les llistes de correus permesos per iniciar sessió i l'encaminament d'esdeveniments d'alerta, que sí que se sincronitzen. La configuració de sota s'envia a tots els membres de la flota en la propera sincronització de configuració, de manera que els canvis fets aquí s'apliquen a tota la flota."
 		},
 		"builtFromCommit": "Compilat des del commit {{commit}}"
 	},
