@@ -45,6 +45,15 @@ type DiscoveryResult struct {
 // one horizon while the pass applies another.
 const defaultModelPruneDays = 30
 
+// maxModelPruneDays is the same ceiling the API rule for model_prune_days
+// applies in internal/api/settings.go. Enforced again here because values
+// reach the store past that rule (config-sync import forwards an
+// above-ceiling integer between fleet members, and backup restore and direct
+// DB writes bypass it too), and beyond ~106751 days the horizon arithmetic
+// overflows int64 and lands in the future, which would match every retired
+// row.
+const maxModelPruneDays = 365
+
 // modelPruneBatch bounds one pass's deletions so a provider that retired its
 // whole catalog cannot empty a member in a single tick; the remainder goes on
 // the next passes.
@@ -276,7 +285,7 @@ func pruneRetiredModels(ctx context.Context, deps discoveryDeps, scannedOK []uui
 	}
 	raw := deps.settingsRepo.GetWithDefault(ctx, "model_prune_days", strconv.Itoa(defaultModelPruneDays))
 	days, err := strconv.Atoi(raw)
-	if err != nil || days < 0 {
+	if err != nil || days < 0 || days > maxModelPruneDays {
 		modelPruneWarned.Lock()
 		unseen := modelPruneWarned.value != raw
 		modelPruneWarned.value = raw

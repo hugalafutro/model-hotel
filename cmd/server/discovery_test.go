@@ -693,3 +693,39 @@ func TestRunDiscoveryPruneSkipsFailedProvider(t *testing.T) {
 		t.Errorf("ModelsPruned = %d, want 1", result.ModelsPruned)
 	}
 }
+
+// TestRunDiscoveryPruneRejectsUnusableHorizon pins the guard on the setting's
+// value. Negative and unparseable values have no horizon at all, and a value
+// past the API's ceiling overflows the duration arithmetic into a future
+// horizon that would match every retired row, so all three skip the prune.
+func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	t.Cleanup(func() {
+		_ = settings.NewRepository(cmdTestDB.Pool()).Set(context.Background(), "model_prune_days", "30")
+	})
+
+	for _, value := range []string{"-5", "200000", "abc"} {
+		t.Run(value, func(t *testing.T) {
+			wipeDiscoveryState(t)
+			deps := testDiscoveryDeps(t)
+			ctx := context.Background()
+			srv := newListingServer(t, "alive")
+			prov := createTestProvider(t, deps, "prune-horizon-"+value, srv.URL)
+			old := seedRetiredRow(t, prov, "dead-old", 40*24*time.Hour)
+			if err := deps.settingsRepo.Set(ctx, "model_prune_days", value); err != nil {
+				t.Fatalf("set: %v", err)
+			}
+
+			result := runDiscovery(deps, "test")
+
+			if result.ModelsPruned != 0 {
+				t.Errorf("ModelsPruned = %d, want 0 for model_prune_days=%q", result.ModelsPruned, value)
+			}
+			if !modelExists(t, old) {
+				t.Errorf("dead-old was pruned with model_prune_days=%q", value)
+			}
+		})
+	}
+}
