@@ -259,31 +259,52 @@ export function Models() {
 	);
 	const parkedCount = counts.parked;
 
-	const modelBadge =
-		disabledCount > 0 || parkedCount > 0 ? (
-			<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
-				{disabledCount > 0 && (
-					<span className="text-red-400">
-						<span className="badge-text">
-							{t("models.badge_disabled", { count: disabledCount })}
+	// The title row reads "N Models [remainder] [scope]": the scope picker sits
+	// beside the badge, in the badge's box, so what the count covers and what
+	// is being counted are read in one glance.
+	const scopePicker = (
+		<FilterDropdown
+			value={providerScope}
+			onChange={handleScopeChange}
+			allowClear={false}
+			variant="badge"
+			options={PROVIDER_SCOPES.map((scope) => ({
+				value: scope,
+				label: t(`models.scope_${scope}`),
+			}))}
+			className="shrink-0"
+		/>
+	);
+
+	const modelBadge = (
+		<>
+			{(disabledCount > 0 || parkedCount > 0) && (
+				<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
+					{disabledCount > 0 && (
+						<span className="text-red-400">
+							<span className="badge-text">
+								{t("models.badge_disabled", { count: disabledCount })}
+							</span>
 						</span>
-					</span>
-				)}
-				{disabledCount > 0 && parkedCount > 0 && (
-					<span className="text-gray-600">/</span>
-				)}
-				{parkedCount > 0 && (
-					<span
-						className="text-gray-400"
-						title={t("models.status_parked_hint")}
-					>
-						<span className="badge-text">
-							{t("models.badge_parked", { count: parkedCount })}
+					)}
+					{disabledCount > 0 && parkedCount > 0 && (
+						<span className="text-gray-600">/</span>
+					)}
+					{parkedCount > 0 && (
+						<span
+							className="text-gray-400"
+							title={t("models.status_parked_hint")}
+						>
+							<span className="badge-text">
+								{t("models.badge_parked", { count: parkedCount })}
+							</span>
 						</span>
-					</span>
-				)}
-			</span>
-		) : undefined;
+					)}
+				</span>
+			)}
+			{scopePicker}
+		</>
+	);
 
 	return (
 		<div className="space-y-4">
@@ -294,17 +315,6 @@ export function Models() {
 				badge={modelBadge}
 				actions={
 					<div className="flex items-center gap-2">
-						<FilterDropdown
-							value={providerScope}
-							onChange={handleScopeChange}
-							allowClear={false}
-							variant="compact"
-							options={PROVIDER_SCOPES.map((scope) => ({
-								value: scope,
-								label: t(`models.scope_${scope}`),
-							}))}
-							className="w-[190px] shrink-0"
-						/>
 						<button
 							type="button"
 							onClick={() =>
