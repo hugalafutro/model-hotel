@@ -52,7 +52,10 @@ export function SettingsSection({
 					<h2 className="text-xl font-semibold text-white">{title}</h2>
 				</button>
 				<div className="flex items-center gap-1.5">
-					{onResetSection && !managed && (
+					{/* The section reset only shows while the section is open: on a
+					    rolled-up card it reads as a stray control with nothing visible
+					    to reset, and the page-level reset already covers that case. */}
+					{onResetSection && !managed && !collapsed && (
 						<ResetButton
 							tooltip={resetTooltip ?? t("settings.common.resetSection")}
 							onClick={onResetSection}

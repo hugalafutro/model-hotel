@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Cấu hình bên dưới chỉ đọc tại đây và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý trên phiên bản chính."
+			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Cấu hình bên dưới chỉ đọc tại đây và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý trên phiên bản chính.",
+			"primaryBanner": "Máy chủ chính của đội. Các mục ở trên không được đồng bộ và giữ nguyên cục bộ trên từng thành viên, ngoại trừ chính sách mật khẩu, danh sách email được phép đăng nhập và định tuyến sự kiện cảnh báo, vốn được đồng bộ. Cấu hình bên dưới được đẩy tới mọi thành viên của đội ở lần đồng bộ cấu hình tiếp theo, nên các thay đổi ở đây áp dụng cho toàn đội."
 		},
 		"builtFromCommit": "Được build từ commit {{commit}}"
 	},

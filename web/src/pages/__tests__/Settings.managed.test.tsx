@@ -73,7 +73,7 @@ describe("Settings managed (fleet member) mode", {
 		expect(document.getElementById("session-idle-timeout")).not.toBeDisabled();
 	});
 
-	it("renders no banner or notes when this instance is the primary", async () => {
+	it("renders the primary banner on the same boundary, and no notes, when this instance is the primary", async () => {
 		let systemServed = false;
 		server.use(
 			http.get("/api/system", () => {
@@ -94,6 +94,14 @@ describe("Settings managed (fleet member) mode", {
 
 		expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("managed-note")).not.toBeInTheDocument();
+
+		// The primary's counterpart banner sits on the same boundary: the
+		// four per-member sections above it, the six fleet-synced ones below.
+		const banner = await screen.findByTestId("primary-banner");
+		const headings = screen.getAllByRole("heading", { level: 2 });
+		expect(headings).toHaveLength(10);
+		expect(headings.filter((h) => precedes(h, banner))).toHaveLength(4);
+
 		expect(await screen.findByTestId("oidc-issuer-input")).not.toBeDisabled();
 		expect(
 			await screen.findByTestId("oidc-allowed-emails-input"),

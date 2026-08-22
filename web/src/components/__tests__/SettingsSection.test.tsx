@@ -107,6 +107,26 @@ describe("SettingsSection", () => {
 		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 
+	it("hides the section reset while collapsed", () => {
+		renderWithProviders(
+			<SettingsSection
+				icon={Settings}
+				title="Test Settings"
+				collapsed={true}
+				onToggle={onToggle}
+				onResetSection={vi.fn()}
+				resetTooltip="Reset section"
+			>
+				<div>Child content</div>
+			</SettingsSection>,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Reset section" }),
+		).not.toBeInTheDocument();
+		// The collapse toggle itself is still there.
+		expect(screen.getAllByRole("button").length).toBeGreaterThan(0);
+	});
+
 	it("keeps the section reset button out of the toggle row", async () => {
 		const user = userEvent.setup();
 		const onResetSection = vi.fn();

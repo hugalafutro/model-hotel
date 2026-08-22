@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Beheerd door de primaire instantie van de vloot. De configuratie hieronder is hier alleen-lezen en wordt bij de volgende configuratiesynchronisatie vervangen. Beheer deze op de primaire instantie."
+			"banner": "Beheerd door de primaire instantie van de vloot. De configuratie hieronder is hier alleen-lezen en wordt bij de volgende configuratiesynchronisatie vervangen. Beheer deze op de primaire instantie.",
+			"primaryBanner": "Primaire van de vloot. De secties hierboven worden niet gesynchroniseerd en blijven lokaal op elk lid, behalve het wachtwoordbeleid, de e-mailtoelatingslijsten voor aanmelden en de routering van waarschuwingsgebeurtenissen, die wel worden gesynchroniseerd. De configuratie hieronder wordt bij de volgende configuratiesynchronisatie naar elk vlootlid gestuurd, dus wijzigingen hier gelden voor de hele vloot."
 		},
 		"builtFromCommit": "Gebouwd vanaf commit {{commit}}"
 	},

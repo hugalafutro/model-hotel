@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Styres af flådens primære instans. Konfigurationen nedenfor er skrivebeskyttet her og erstattes ved næste konfigurationssynkronisering. Administrer den på den primære instans."
+			"banner": "Styres af flådens primære instans. Konfigurationen nedenfor er skrivebeskyttet her og erstattes ved næste konfigurationssynkronisering. Administrer den på den primære instans.",
+			"primaryBanner": "Flådens primære. Sektionerne ovenfor synkroniseres ikke og forbliver lokale for hvert medlem, bortset fra adgangskodepolitikken, e-mail-tilladelseslisterne til login og routingen af alarmhændelser, som synkroniseres. Konfigurationen nedenfor sendes til alle flådemedlemmer ved næste konfigurationssynkronisering, så ændringer her gælder for hele flåden."
 		},
 		"builtFromCommit": "Bygget fra commit {{commit}}"
 	},

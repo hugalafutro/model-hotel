@@ -226,7 +226,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Von der Flotten-Primärinstanz verwaltet. Die Konfiguration unterhalb ist hier schreibgeschützt und wird bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz."
+			"banner": "Von der Flotten-Primärinstanz verwaltet. Die Konfiguration unterhalb ist hier schreibgeschützt und wird bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz.",
+			"primaryBanner": "Flotten-Primary. Die Abschnitte oben werden nicht synchronisiert und bleiben lokal auf jedem Mitglied, mit Ausnahme der Passwortrichtlinie, der E-Mail-Zulassungslisten für die Anmeldung und des Routings von Alarmereignissen, die synchronisiert werden. Die Konfiguration unten wird bei der nächsten Konfigurationssynchronisierung an jedes Flottenmitglied übertragen, Änderungen hier gelten also flottenweit."
 		},
 		"builtFromCommit": "Erstellt aus Commit {{commit}}"
 	},

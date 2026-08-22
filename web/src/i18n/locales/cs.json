@@ -236,7 +236,8 @@
 			}
 		},
 		"managed": {
-			"banner": "Spravováno primární instancí flotily. Konfigurace níže je zde pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte ji na primární instanci."
+			"banner": "Spravováno primární instancí flotily. Konfigurace níže je zde pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte ji na primární instanci.",
+			"primaryBanner": "Primární instance flotily. Sekce výše se nesynchronizují a zůstávají lokální pro každého člena, s výjimkou zásad hesel, seznamů povolených e-mailů pro přihlášení a směrování událostí upozornění, které se synchronizují. Konfigurace níže se při příští synchronizaci konfigurace odešle všem členům flotily, takže změny zde provedené platí pro celou flotilu."
 		},
 		"builtFromCommit": "Sestaveno z commitu {{commit}}"
 	},
