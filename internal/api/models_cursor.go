@@ -252,7 +252,7 @@ func modelSortColumn(sortBy string) string {
 	case "status":
 		return "CASE WHEN m.enabled AND NOT m.disabled_manually THEN 0 WHEN m.enabled AND m.disabled_manually THEN 1 ELSE 2 END"
 	default: // "name"
-		return "COALESCE(m.name, m.model_id, '')"
+		return "COALESCE(NULLIF(m.name, ''), m.model_id)"
 	}
 }
 
@@ -310,11 +310,15 @@ func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, ar
 			return pred
 		}
 	default: // "name"
+		// The sort key is the name with the model id standing in for an absent
+		// or empty one (NULLIF below), so a cursor that carries the stand-in,
+		// as the page's encoders do, and one that carries the bare name agree
+		// on where the page ended.
 		name := cursor.Name
 		if name == "" {
 			name = cursor.ModelID
 		}
-		pred := fmt.Sprintf("(COALESCE(m.name, m.model_id, ''), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
+		pred := fmt.Sprintf("(COALESCE(NULLIF(m.name, ''), m.model_id), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
 		*args = append(*args, name, cursor.ID)
 		*argIdx += 2
 		return pred

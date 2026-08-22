@@ -30,7 +30,7 @@ func TestModelSortColumn_Whitelist(t *testing.T) {
 		"COALESCE(m.max_output_tokens, 0)":       true,
 		"COALESCE(p.name, '')":                   true,
 		"CASE WHEN m.enabled AND NOT m.disabled_manually THEN 0 WHEN m.enabled AND m.disabled_manually THEN 1 ELSE 2 END": true,
-		"COALESCE(m.name, m.model_id, '')": true,
+		"COALESCE(NULLIF(m.name, ''), m.model_id)": true,
 	}
 	valid := []string{"name", "discovered", "context", "output", "provider", "status"}
 	defaultExpr := modelSortColumn("name")
