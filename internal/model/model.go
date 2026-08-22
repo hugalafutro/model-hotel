@@ -724,6 +724,27 @@ type PrunedModel struct {
 //
 // The model cache is invalidated only when something was deleted.
 func (r *Repository) PruneRetired(ctx context.Context, horizon time.Time, providerIDs []uuid.UUID, flapped map[ProviderModelKey]bool, limit int) ([]PrunedModel, error) {
+	candidates, err := r.selectPruneCandidates(ctx, horizon, providerIDs, flapped, limit)
+	if err != nil || len(candidates) == 0 {
+		return nil, err
+	}
+	return r.deletePruneCandidates(ctx, candidates)
+}
+
+// selectPruneCandidates finds rows that discovery retired before horizon and
+// that nothing else has a claim on, oldest first, at most limit of them. Only
+// rows of the given providers are considered: the caller passes the providers
+// whose scan just succeeded, so a provider that could not be reached this
+// pass keeps every row. flapped excludes models the change journal saw come
+// and go within the claims window; those are broken, not retired.
+//
+// Kept, always: rows the operator switched off (disabled_manually), pinned on
+// (manually_enabled_at), rows the proxy retired from traffic (auto_retired_at,
+// the provider still lists those), and rows of a disabled provider (parked
+// with their pins, prices and failover memberships for a re-enable). A
+// dismissed claim is not a reason to keep a row: dismissal acknowledges the
+// retirement, it does not undo it.
+func (r *Repository) selectPruneCandidates(ctx context.Context, horizon time.Time, providerIDs []uuid.UUID, flapped map[ProviderModelKey]bool, limit int) ([]PrunedModel, error) {
 	if len(providerIDs) == 0 || limit <= 0 {
 		return nil, nil
 	}
@@ -763,23 +784,33 @@ func (r *Repository) PruneRetired(ctx context.Context, horizon time.Time, provid
 		return nil, err
 	}
 	rows.Close()
+	return candidates, nil
+}
+
+// deletePruneCandidates deletes exactly the candidates that are still
+// eligible for pruning at delete time and reports only those. It re-checks
+// both the model's own state and its provider's enabled flag inside the
+// DELETE: a scan or an operator action landing between the SELECT that built
+// candidates and this call can re-enable a row or its provider, and that row
+// must stay. The model cache is invalidated only when something was deleted.
+func (r *Repository) deletePruneCandidates(ctx context.Context, candidates []PrunedModel) ([]PrunedModel, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-
 	ids := make([]uuid.UUID, len(candidates))
 	for i, c := range candidates {
 		ids[i] = c.ID
 	}
-	// Re-check the row state inside the DELETE: a scan that landed between the
-	// SELECT and here may have re-enabled a candidate, and that row must stay.
 	tag, err := r.pool.Exec(ctx, `
-		DELETE FROM models
-		 WHERE id = ANY($1)
-		   AND enabled = false
-		   AND disabled_manually = false
-		   AND manually_enabled_at IS NULL
-		   AND auto_retired_at IS NULL`, ids)
+		DELETE FROM models m
+		 USING providers p
+		 WHERE p.id = m.provider_id
+		   AND m.id = ANY($1)
+		   AND m.enabled = false
+		   AND m.disabled_manually = false
+		   AND m.manually_enabled_at IS NULL
+		   AND m.auto_retired_at IS NULL
+		   AND COALESCE(p.enabled, false) = true`, ids)
 	if err != nil {
 		return nil, err
 	}

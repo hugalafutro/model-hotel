@@ -151,3 +151,110 @@ func TestPruneRetired_NoProvidersNoop(t *testing.T) {
 		t.Errorf("pruned %d rows with no providers in scope, want 0", len(pruned))
 	}
 }
+
+// insertPrunableModel inserts a model row that qualifies as a prune
+// candidate: disabled, no manual pin, no traffic retirement, last seen old.
+func insertPrunableModel(ctx context.Context, t *testing.T, providerID uuid.UUID, modelID string) uuid.UUID {
+	t.Helper()
+
+	id := uuid.New()
+	if _, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, disabled_manually, last_seen_at)
+		VALUES ($1, $2, $3, $3, false, false, now() - interval '40 days')`,
+		id, providerID, modelID); err != nil {
+		t.Fatalf("insert %s: %v", modelID, err)
+	}
+	return id
+}
+
+// modelExists reports whether a model row is still present.
+func modelExists(ctx context.Context, t *testing.T, id uuid.UUID) bool {
+	t.Helper()
+
+	var exists bool
+	if err := testPool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM models WHERE id = $1)`, id).Scan(&exists); err != nil {
+		t.Fatalf("check exists: %v", err)
+	}
+	return exists
+}
+
+// TestPruneRetired_ReconcilesRevivedRows pins the two things that can change
+// between selectPruneCandidates building the candidate list and
+// deletePruneCandidates acting on it: a row itself getting re-enabled (a
+// re-listing landed in the window), and its provider getting disabled. Both
+// must leave the surviving row in place and out of the reported result,
+// which the single PruneRetired-level test cannot exercise because nothing
+// can be mutated between its internal select and delete.
+func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	t.Run("row revived mid-flight", func(t *testing.T) {
+		prov := insertTestProvider(ctx, t, "prune-recon-a")
+		t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
+
+		aliveID := insertPrunableModel(ctx, t, prov, "prune-recon-alive")
+		goneID := insertPrunableModel(ctx, t, prov, "prune-recon-gone")
+
+		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, nil, 500)
+		if err != nil {
+			t.Fatalf("selectPruneCandidates: %v", err)
+		}
+		if len(candidates) != 2 {
+			t.Fatalf("selectPruneCandidates returned %d candidates, want 2", len(candidates))
+		}
+
+		// A re-listing lands in the window: the row is re-enabled after the
+		// select but before the delete.
+		if _, err := testPool.Exec(ctx, `UPDATE models SET enabled = true WHERE id = $1`, aliveID); err != nil {
+			t.Fatalf("revive row: %v", err)
+		}
+
+		pruned, err := repo.deletePruneCandidates(ctx, candidates)
+		if err != nil {
+			t.Fatalf("deletePruneCandidates: %v", err)
+		}
+		if len(pruned) != 1 || pruned[0].ID != goneID {
+			t.Errorf("pruned = %+v, want exactly [%s]", pruned, goneID)
+		}
+		if !modelExists(ctx, t, aliveID) {
+			t.Error("revived row was deleted, want it kept")
+		}
+		if modelExists(ctx, t, goneID) {
+			t.Error("still-retired row was kept, want it deleted")
+		}
+	})
+
+	t.Run("provider disabled mid-flight", func(t *testing.T) {
+		prov := insertTestProvider(ctx, t, "prune-recon-b")
+		t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
+
+		id1 := insertPrunableModel(ctx, t, prov, "prune-recon-b1")
+		id2 := insertPrunableModel(ctx, t, prov, "prune-recon-b2")
+
+		candidates, err := repo.selectPruneCandidates(ctx, time.Now().Add(-30*24*time.Hour), []uuid.UUID{prov}, nil, 500)
+		if err != nil {
+			t.Fatalf("selectPruneCandidates: %v", err)
+		}
+		if len(candidates) != 2 {
+			t.Fatalf("selectPruneCandidates returned %d candidates, want 2", len(candidates))
+		}
+
+		// The provider is disabled in the window: its rows must be parked, not
+		// pruned, even though they were valid candidates at select time.
+		if _, err := testPool.Exec(ctx, `UPDATE providers SET enabled = false WHERE id = $1`, prov); err != nil {
+			t.Fatalf("disable provider: %v", err)
+		}
+
+		pruned, err := repo.deletePruneCandidates(ctx, candidates)
+		if err != nil {
+			t.Fatalf("deletePruneCandidates: %v", err)
+		}
+		if len(pruned) != 0 {
+			t.Errorf("pruned %d rows for a provider disabled mid-flight, want 0", len(pruned))
+		}
+		if !modelExists(ctx, t, id1) || !modelExists(ctx, t, id2) {
+			t.Error("rows of a provider disabled mid-flight were deleted, want both kept")
+		}
+	})
+}
