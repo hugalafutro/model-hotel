@@ -224,23 +224,35 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 
 // List returns all models, optionally filtered by provider ID.
 func (r *Repository) List(ctx context.Context, providerID *uuid.UUID) ([]*Model, error) {
+	return r.ListFiltered(ctx, providerID, nil)
+}
+
+// ListFiltered returns models filtered by provider ID and/or the owning
+// provider's enabled flag. A nil filter means "any". The provider flag is what
+// separates rows the proxy can serve (see ListEnabled) from rows that merely
+// exist: a disabled provider keeps its models, pins, prices and failover
+// memberships so re-enabling it is instant, but the dashboard must not count
+// those rows as available.
+func (r *Repository) ListFiltered(ctx context.Context, providerID *uuid.UUID, providerEnabled *bool) ([]*Model, error) {
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id`
 
+	var conditions []string
+	var args []any
 	if providerID != nil {
-		query += " WHERE m.provider_id = $1"
+		args = append(args, *providerID)
+		conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", len(args)))
+	}
+	if providerEnabled != nil {
+		args = append(args, *providerEnabled)
+		conditions = append(conditions, fmt.Sprintf("p.enabled = $%d", len(args)))
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	query += " ORDER BY m.model_id ASC"
 
-	var rows pgx.Rows
-	var err error
-
-	if providerID != nil {
-		rows, err = r.pool.Query(ctx, query, providerID)
-	} else {
-		rows, err = r.pool.Query(ctx, query)
-	}
-
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

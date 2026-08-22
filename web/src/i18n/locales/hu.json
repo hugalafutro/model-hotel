@@ -1052,7 +1052,10 @@
 			"video": "Videókimenet",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktív szolgáltatók",
+		"scope_disabled": "Letiltott szolgáltatók",
+		"scope_all": "Összes szolgáltató"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",

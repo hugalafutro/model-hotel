@@ -1083,7 +1083,10 @@
 			"video": "פלט וידאו",
 			"embedding": "הטמעה",
 			"rerank": "דירוג מחדש"
-		}
+		},
+		"scope_active": "ספקים פעילים",
+		"scope_disabled": "ספקים מושבתים",
+		"scope_all": "כל הספקים"
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",

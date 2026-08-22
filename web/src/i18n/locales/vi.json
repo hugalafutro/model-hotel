@@ -1052,7 +1052,10 @@
 			"video": "Xuất video",
 			"embedding": "Nhúng",
 			"rerank": "Xếp hạng lại"
-		}
+		},
+		"scope_active": "Nhà cung cấp đang hoạt động",
+		"scope_disabled": "Nhà cung cấp đã tắt",
+		"scope_all": "Tất cả nhà cung cấp"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",

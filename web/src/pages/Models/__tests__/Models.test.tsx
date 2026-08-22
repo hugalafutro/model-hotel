@@ -111,6 +111,7 @@ describe("Models", () => {
 					body: {
 						entries: [mockModel],
 						total: 42,
+						enabled_total: 42,
 						has_before: false,
 						has_after: false,
 					},
@@ -168,13 +169,13 @@ describe("Models", () => {
 
 			renderWithProviders(<Models />);
 
+			// Title counts usable rows (model AND provider enabled); the badge
+			// carries the remainder so the rows in view still add up.
 			await waitFor(() => {
-				expect(screen.getByText("3 Models")).toBeInTheDocument();
+				expect(screen.getByText("2 Models")).toBeInTheDocument();
 			});
-
-			// Badge should show breakdown
-			expect(screen.getByText("2 enabled")).toBeInTheDocument();
 			expect(screen.getByText("1 disabled")).toBeInTheDocument();
+			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
 		it("renders model table with models", async () => {
@@ -254,12 +255,13 @@ describe("Models", () => {
 
 			renderWithProviders(<Models />);
 
+			// Nothing usable: the title has no count and the badge explains why.
 			await waitFor(() => {
-				expect(screen.getByText("2 Models")).toBeInTheDocument();
+				expect(screen.getByText("2 disabled")).toBeInTheDocument();
 			});
-
-			// No breakdown badge when all same state
-			expect(screen.queryByText("disabled")).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { name: "Models" }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -952,8 +954,9 @@ describe("Models", () => {
 
 			const { user } = renderWithProviders(<Models />);
 
+			// 3 rows, 2 switched off: the title counts the usable one.
 			await waitFor(() => {
-				expect(screen.getByText("3 Models")).toBeInTheDocument();
+				expect(screen.getByText("1 Model")).toBeInTheDocument();
 			});
 
 			// Click the "Delete 2 disabled" button
@@ -1004,8 +1007,9 @@ describe("Models", () => {
 
 			const { user } = renderWithProviders(<Models />);
 
+			// 3 rows, 2 switched off: the title counts the usable one.
 			await waitFor(() => {
-				expect(screen.getByText("3 Models")).toBeInTheDocument();
+				expect(screen.getByText("1 Model")).toBeInTheDocument();
 			});
 
 			// Click the "Delete 2 disabled" button

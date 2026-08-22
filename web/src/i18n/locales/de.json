@@ -1052,7 +1052,10 @@
 			"video": "Videoausgabe",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktive Anbieter",
+		"scope_disabled": "Deaktivierte Anbieter",
+		"scope_all": "Alle Anbieter"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",

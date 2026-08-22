@@ -1052,7 +1052,10 @@
 			"video": "Videoulostulo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktiiviset palveluntarjoajat",
+		"scope_disabled": "Poistetut palveluntarjoajat",
+		"scope_all": "Kaikki palveluntarjoajat"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",

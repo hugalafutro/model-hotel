@@ -13,6 +13,7 @@ const mockEnabledModel: Model = {
 	display_name: "Gemma 3 4B",
 	provider_id: "provider-001",
 	provider_name: "Ollama Cloud",
+	provider_enabled: true,
 	capabilities: '{"reasoning":false,"streaming":true,"vision":false}',
 	params: '{"temperature":0.7}',
 	modality: "text",

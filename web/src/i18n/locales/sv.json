@@ -1052,7 +1052,10 @@
 			"video": "Videoutdata",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktiva leverantörer",
+		"scope_disabled": "Inaktiverade leverantörer",
+		"scope_all": "Alla leverantörer"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",

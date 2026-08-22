@@ -1052,7 +1052,10 @@
 			"video": "Video çıkışı",
 			"embedding": "Gömme",
 			"rerank": "Yeniden sıralama"
-		}
+		},
+		"scope_active": "Etkin sağlayıcılar",
+		"scope_disabled": "Devre dışı sağlayıcılar",
+		"scope_all": "Tüm sağlayıcılar"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tespit edilen değere geri dön",

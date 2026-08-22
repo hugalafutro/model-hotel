@@ -29,6 +29,7 @@ import (
 //   - provider_id: filter by provider UUID
 //   - capabilities: comma-separated capability keys (e.g. "vision,reasoning")
 //   - outputs: comma-separated output modalities (e.g. "image,embedding")
+//   - provider_enabled: "true" or "false" to filter on the owning provider's flag
 func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -39,6 +40,9 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	p, ok := parseModelListParams(w, q)
 	if !ok {
+		return
+	}
+	if _, ok := parseProviderEnabledParam(w, q.Get("provider_enabled")); !ok {
 		return
 	}
 
@@ -67,11 +71,13 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
+	total, enabledTotal := h.countModels(ctx, q)
 	writeJSON(w, ModelsCursorResponse{
-		Entries:   entries,
-		Total:     h.countModels(ctx, q),
-		HasBefore: hasBefore,
-		HasAfter:  hasAfter,
+		Entries:      entries,
+		Total:        total,
+		EnabledTotal: enabledTotal,
+		HasBefore:    hasBefore,
+		HasAfter:     hasAfter,
 	})
 }
 
@@ -111,16 +117,18 @@ func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
 }
 
 // countModels returns the total row count for the same filters as the data query
-// (no keyset predicate). Best-effort: returns 0 on error.
-func (h *Handler) countModels(ctx context.Context, q url.Values) int {
+// (no keyset predicate) and, from the same scan, how many of those rows the
+// proxy can serve (m.enabled AND p.enabled). Best-effort: returns 0, 0 on error.
+func (h *Handler) countModels(ctx context.Context, q url.Values) (total, enabledTotal int) {
 	conditions, args := buildModelFilterConditions(q)
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + joinAnd(conditions)
 	}
-	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+whereClause, args...).Scan(&total)
-	return total
+	_ = h.dbPool.Pool().QueryRow(ctx,
+		"SELECT COUNT(*), COUNT(*) FILTER (WHERE m.enabled AND p.enabled)"+modelFromJoin+whereClause,
+		args...).Scan(&total, &enabledTotal)
+	return total, enabledTotal
 }
 
 // modelListParams holds the parsed, validated query inputs for ListModelsCursor.
@@ -176,7 +184,7 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 
 // modelSelectColumns is the cursor data query's column projection (models joined
 // to providers for p.name). Its order matches scanModelRow exactly.
-const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, p.enabled"
 
 // modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
 // count queries.
@@ -190,7 +198,7 @@ func scanModelRow(rows pgx.Rows) (model.Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
 		&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	)
 	return m, err
 }
@@ -302,7 +310,7 @@ func joinAnd(conditions []string) string {
 }
 
 // buildModelFilterConditions builds the WHERE clause conditions and args for
-// search, provider_id, capabilities, and outputs filters. Shared between the
+// search, provider_id, provider_enabled, capabilities, and outputs filters. Shared between the
 // main data query and the count query to avoid duplication.
 func buildModelFilterConditions(q url.Values) ([]string, []any) {
 	conditions := []string{}
@@ -354,6 +362,11 @@ func buildModelFilterConditions(q url.Values) ([]string, []any) {
 			args = append(args, string(capJSON))
 			argIdx++
 		}
+	}
+	if pe := q.Get("provider_enabled"); pe == "true" || pe == "false" {
+		conditions = append(conditions, fmt.Sprintf("p.enabled = $%d", argIdx))
+		args = append(args, pe == "true")
+		argIdx++
 	}
 	if outputs := q.Get("outputs"); outputs != "" {
 		// AND semantics like the capabilities filter: each requested output

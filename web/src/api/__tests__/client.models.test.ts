@@ -44,6 +44,24 @@ describe("api.models", () => {
 			);
 		});
 
+		it("fetches models scoped to provider state", async () => {
+			vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+				return new Response("[]", { status: 200 });
+			});
+
+			await api.models.list(undefined, true);
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/models?provider_enabled=true",
+				expect.anything(),
+			);
+
+			await api.models.list("provider-123", false);
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/models?provider_id=provider-123&provider_enabled=false",
+				expect.anything(),
+			);
+		});
+
 		it("throws on error response", async () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
 				new Response("not found", { status: 404 }),
@@ -98,10 +116,11 @@ describe("api.models", () => {
 				search: "gpt",
 				capabilities: "vision",
 				outputs: "image,embedding",
+				provider_enabled: false,
 			});
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				expect.stringContaining(
-					"/api/models/cursor?cursor=abc123&direction=before&limit=20&sort_by=name&sort_dir=desc&provider_id=prov-1&search=gpt&capabilities=vision&outputs=image%2Cembedding",
+					"/api/models/cursor?cursor=abc123&direction=before&limit=20&sort_by=name&sort_dir=desc&provider_id=prov-1&search=gpt&capabilities=vision&outputs=image%2Cembedding&provider_enabled=false",
 				),
 				expect.anything(),
 			);

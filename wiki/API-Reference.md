@@ -470,8 +470,8 @@ Refreshes quota/balance information for all providers that support it.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/models` | GET | List all models (optional `?provider_id=` filter) |
-| `/api/models/cursor` | GET | Cursor-paginated model listing (keyset pagination for large catalogs) |
+| `/api/models` | GET | List all models (optional `?provider_id=` and `?provider_enabled=true|false` filters; the latter scopes to rows whose provider is enabled, i.e. what `/v1/models` advertises) |
+| `/api/models/cursor` | GET | Cursor-paginated model listing (keyset pagination for large catalogs; accepts the same `provider_enabled` filter) |
 | `/api/models/{id}` | PATCH | Update model (enable/disable, edit metadata) |
 | `/api/models/{id}` | DELETE | Delete model permanently |
 | `/api/models/{id}/test` | POST | Test a model by sending a minimal prompt |

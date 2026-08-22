@@ -36,12 +36,20 @@ interface VirtualModelTableProps {
 	providerFilter?: string;
 	/** When set (and providers given), renders the provider dropdown in the toolbar. */
 	onProviderFilterChange?: (providerId: string) => void;
+	/**
+	 * Scope rows to providers with this enabled flag; undefined = any. Owned by
+	 * the page, which also scopes the provider dropdown to match.
+	 */
+	providerEnabled?: boolean;
 	onModelClick?: (model: Model) => void;
 	refreshTrigger?: number;
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
-	/** Called with the total model count from the server whenever it changes. */
-	onTotalChange?: (total: number) => void;
+	/**
+	 * Called with the server's row count for the current filters and, from the
+	 * same response, how many of those rows the proxy can serve.
+	 */
+	onTotalChange?: (total: number, enabledTotal: number) => void;
 }
 
 interface SortState {
@@ -58,6 +66,7 @@ export function VirtualModelTable({
 	providers,
 	providerFilter = "",
 	onProviderFilterChange,
+	providerEnabled,
 	onModelClick,
 	refreshTrigger,
 	onDeleteDisabled,
@@ -65,6 +74,7 @@ export function VirtualModelTable({
 }: VirtualModelTableProps) {
 	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
+	const [enabledTotal, setEnabledTotal] = useState(0);
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
 	const [sort, setSort] = useState<SortState>({
 		field: "name",
@@ -111,7 +121,7 @@ export function VirtualModelTable({
 			sort_dir: string;
 			[key: string]: string | number | undefined;
 		}): Promise<ModelsCursorResponse> => {
-			return api.models.cursor({
+			const response = await api.models.cursor({
 				cursor: params.cursor,
 				direction: params.direction as "after" | "before",
 				limit: params.limit,
@@ -121,7 +131,15 @@ export function VirtualModelTable({
 				search: params.search as string | undefined,
 				capabilities: params.capabilities as string | undefined,
 				outputs: params.outputs as string | undefined,
+				provider_enabled:
+					params.provider_enabled === undefined
+						? undefined
+						: params.provider_enabled === "true",
 			});
+			// Every page carries the same filter-wide counts; the hook only keeps
+			// total, so the usable count is read here.
+			setEnabledTotal(response.enabled_total);
+			return response;
 		},
 		[],
 	);
@@ -134,6 +152,10 @@ export function VirtualModelTable({
 		if (providerFilter) {
 			result.provider_id = providerFilter;
 		}
+		if (providerEnabled !== undefined) {
+			// The cursor hook carries string filters; the client maps it back.
+			result.provider_enabled = String(providerEnabled);
+		}
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
 		}
@@ -141,7 +163,14 @@ export function VirtualModelTable({
 			result.outputs = Array.from(outputFilter).join(",");
 		}
 		return result;
-	}, [searchQuery, sort.field, providerFilter, capFilter, outputFilter]);
+	}, [
+		searchQuery,
+		sort.field,
+		providerFilter,
+		providerEnabled,
+		capFilter,
+		outputFilter,
+	]);
 
 	const getCursor = useCallback(
 		(entry: Model): string => {
@@ -220,8 +249,8 @@ export function VirtualModelTable({
 
 	// Notify parent of total count changes
 	useEffect(() => {
-		onTotalChange?.(total);
-	}, [total, onTotalChange]);
+		onTotalChange?.(total, enabledTotal);
+	}, [total, enabledTotal, onTotalChange]);
 
 	const disabledModels = useMemo(
 		() => entries.filter((m) => !m.enabled),

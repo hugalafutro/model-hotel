@@ -698,6 +698,7 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json({
 			entries: [],
 			total: 0,
+			enabled_total: 0,
 			has_before: false,
 			has_after: false,
 		});

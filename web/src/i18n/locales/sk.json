@@ -1114,7 +1114,10 @@
 			"video": "Výstup videa",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktívni poskytovatelia",
+		"scope_disabled": "Zakázaní poskytovatelia",
+		"scope_all": "Všetci poskytovatelia"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátiť sa k zistenej hodnote",

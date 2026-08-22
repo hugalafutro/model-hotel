@@ -1176,7 +1176,10 @@
 		"toast_delete_bulk_success_two": "تم حذف {{count}} نموذجين معطلين",
 		"toast_delete_bulk_success_few": "تم حذف {{count}} نماذج معطلة",
 		"toast_delete_bulk_success_many": "تم حذف {{count}} نموذجًا معطلًا",
-		"toast_delete_bulk_success_other": "تم حذف {{count}} نموذج معطل"
+		"toast_delete_bulk_success_other": "تم حذف {{count}} نموذج معطل",
+		"scope_active": "المزودون النشطون",
+		"scope_disabled": "المزودون المعطلون",
+		"scope_all": "جميع المزودين"
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",

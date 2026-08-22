@@ -1083,7 +1083,10 @@
 			"video": "Sortida de vídeo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Proveïdors actius",
+		"scope_disabled": "Proveïdors desactivats",
+		"scope_all": "Tots els proveïdors"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",

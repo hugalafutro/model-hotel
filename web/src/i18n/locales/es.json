@@ -1083,7 +1083,10 @@
 			"video": "Salida de vídeo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Proveedores activos",
+		"scope_disabled": "Proveedores desactivados",
+		"scope_all": "Todos los proveedores"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",

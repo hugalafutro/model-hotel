@@ -1083,7 +1083,10 @@
 			"video": "Output video",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Provider attivi",
+		"scope_disabled": "Provider disattivati",
+		"scope_all": "Tutti i provider"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Ripristina al valore scoperto",

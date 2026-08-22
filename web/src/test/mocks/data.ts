@@ -50,6 +50,7 @@ export const mockModel: Model = {
 	display_name: "Test Model v1",
 	provider_id: "provider-001",
 	provider_name: "Test Provider",
+	provider_enabled: true,
 	capabilities: '{"streaming":true,"vision":false,"audio_input":false}',
 	params: '{"temperature":0.7,"max_tokens":4096}',
 	modality: "chat",

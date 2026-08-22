@@ -1052,7 +1052,10 @@
 			"video": "视频输出",
 			"embedding": "嵌入",
 			"rerank": "重排序"
-		}
+		},
+		"scope_active": "已启用的提供商",
+		"scope_disabled": "已禁用的提供商",
+		"scope_all": "所有提供商"
 	},
 	"model": {
 		"revertToDiscoveredValue": "恢复到发现的值",

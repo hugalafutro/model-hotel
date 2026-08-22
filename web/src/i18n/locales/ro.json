@@ -1083,7 +1083,10 @@
 			"video": "Ieșire video",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Furnizori activi",
+		"scope_disabled": "Furnizori dezactivați",
+		"scope_all": "Toți furnizorii"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",

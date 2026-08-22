@@ -1052,7 +1052,10 @@
 			"video": "Video-uitset",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktiewe verskaffers",
+		"scope_disabled": "Gedeaktiveerde verskaffers",
+		"scope_all": "Alle verskaffers"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Keer terug na die ontdekte waarde",

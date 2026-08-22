@@ -1052,7 +1052,10 @@
 			"video": "Videooutput",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktive udbydere",
+		"scope_disabled": "Deaktiverede udbydere",
+		"scope_all": "Alle udbydere"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tilbagefør til fundne værdier",

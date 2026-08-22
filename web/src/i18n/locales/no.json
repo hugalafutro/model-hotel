@@ -1052,7 +1052,10 @@
 			"video": "Videoutdata",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktive leverandører",
+		"scope_disabled": "Deaktiverte leverandører",
+		"scope_all": "Alle leverandører"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Gå tilbake til oppdaget verdi",

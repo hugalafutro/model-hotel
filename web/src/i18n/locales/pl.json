@@ -1114,7 +1114,10 @@
 			"video": "Wyjście wideo",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
-		}
+		},
+		"scope_active": "Aktywni dostawcy",
+		"scope_disabled": "Wyłączeni dostawcy",
+		"scope_all": "Wszyscy dostawcy"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Przywróć do odkrytej wartości",
