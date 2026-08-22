@@ -334,12 +334,14 @@ describe("useBidirectionalFetch", () => {
 			await waitFor(() => {
 				expect(mockFetchFn).toHaveBeenCalledTimes(1);
 			});
+			// The reset runs synchronously in the filter-change effect, so right
+			// after the rerender there is no accepted response, even though the
+			// refetch it kicks off may resolve on the very next tick.
 			rerender({ filters: { status: "new" } });
+			expect(result.current.lastResponse).toBeNull();
 			await waitFor(() => {
 				expect(mockFetchFn).toHaveBeenCalledTimes(2);
 			});
-			// The reset cleared whatever was there before the refetch.
-			expect(result.current.lastResponse).toBeNull();
 
 			act(() => {
 				resolveFirst?.(stale);
