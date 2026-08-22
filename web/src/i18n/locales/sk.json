@@ -1807,7 +1807,9 @@
 			},
 			"automaticGroup": "Automaticky",
 			"manualGroup": "Ručne",
-			"lastRun": "Naposledy spustené"
+			"lastRun": "Naposledy spustené",
+			"pruneRetired": "Odstrániť neuvádzané modely po",
+			"pruneRetired.description": "Odstráni modely, ktoré poskytovateľ prestal uvádzať, keď už chýbajú toľko dní. Modely, ktoré ste ručne zakázali alebo povolili, modely stiahnuté pre odmietanie požiadaviek a modely zakázaných poskytovateľov sa nikdy neodstraňujú. Hodnota 0 zachová každý riadok; minimum je 30 dní, čo je okno, podľa ktorého zisťovanie rozlíši stiahnutý model od kolísajúceho."
 		},
 		"dataStorage": {
 			"title": "Ukladanie údajov",

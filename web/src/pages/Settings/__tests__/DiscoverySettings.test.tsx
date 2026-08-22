@@ -140,6 +140,148 @@ describe("DiscoverySettings", () => {
 		expect(slider).toHaveAttribute("step", "0.5");
 	});
 
+	it("renders the retired-model prune slider with the documented range", () => {
+		renderWithProviders(
+			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const slider = screen.getByRole("slider", {
+			name: "Prune unlisted models after",
+		});
+
+		expect(slider).toHaveAttribute("min", "0");
+		expect(slider).toHaveAttribute("max", "365");
+		expect(slider).toHaveAttribute("step", "1");
+		expect(slider).toHaveValue("30");
+	});
+
+	it("saves model_prune_days as a whole-day string and 0 as off", async () => {
+		let capturedPayload: Record<string, string> | undefined;
+
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({
+					model_prune_days: "30",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const slider = screen.getByRole("slider", {
+			name: "Prune unlisted models after",
+		});
+
+		fireEvent.change(slider, { target: { value: 60 } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ model_prune_days: "60" });
+		});
+
+		fireEvent.change(slider, { target: { value: 0 } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ model_prune_days: "0" });
+		});
+	});
+
+	it("snaps a sub-floor prune value up to the backend's 30-day minimum", async () => {
+		let capturedPayload: Record<string, string> | undefined;
+
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({
+					model_prune_days: "30",
+				});
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				capturedPayload = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+
+		renderWithProviders(
+			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const slider = screen.getByRole("slider", {
+			name: "Prune unlisted models after",
+		});
+
+		// 1..29 days is below the backend's floor and would be rejected with a 400.
+		fireEvent.change(slider, { target: { value: 3 } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(capturedPayload).toEqual({ model_prune_days: "30" });
+		});
+	});
+
+	it("resets the prune horizon to its default through the slider's reset control", async () => {
+		let resetKeys: string[] | undefined;
+
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({
+					model_prune_days: "90",
+				});
+			}),
+			http.delete("/api/settings", async ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				resetKeys = ((await request.json()) as { keys: string[] }).keys;
+				return HttpResponse.json({});
+			}),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const slider = await screen.findByRole("slider", {
+			name: "Prune unlisted models after",
+		});
+		await waitFor(() => {
+			expect(slider).toHaveValue("90");
+		});
+
+		// The reset control sits in the slider's label row; the prune slider is
+		// the second slider in the section, so its reset button is the second.
+		const resets = screen.getAllByRole("button", {
+			name: "Reset this setting to default",
+		});
+		await user.click(resets[resets.length - 1]);
+
+		await waitFor(() => {
+			expect(resetKeys).toEqual(["model_prune_days"]);
+		});
+	});
+
 	it("toggles Discover on Startup and calls mutation with correct payload", async () => {
 		const user = userEvent.setup();
 

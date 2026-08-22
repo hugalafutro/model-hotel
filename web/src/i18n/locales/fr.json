@@ -1761,7 +1761,9 @@
 			},
 			"automaticGroup": "Automatique",
 			"manualGroup": "Manuel",
-			"lastRun": "Dernière exécution"
+			"lastRun": "Dernière exécution",
+			"pruneRetired": "Purger les modèles non listés après",
+			"pruneRetired.description": "Supprime les modèles que le fournisseur ne liste plus une fois qu'ils sont absents depuis ce nombre de jours. Les modèles que vous avez désactivés ou activés à la main, les modèles retirés parce qu'ils refusent les requêtes et les modèles des fournisseurs désactivés ne sont jamais purgés. 0 conserve chaque ligne ; le minimum est de 30 jours, la fenêtre que la découverte utilise pour distinguer un modèle retiré d'un modèle intermittent."
 		},
 		"dataStorage": {
 			"title": "Stockage des données",

@@ -1866,6 +1866,8 @@
 			"description": "Configure how and when models are auto-discovered from your providers.",
 			"discoveryInterval": "Discovery Interval",
 			"discoveryInterval.description": "How often to automatically re-discover models from all enabled providers. 0 to disable.",
+			"pruneRetired": "Prune unlisted models after",
+			"pruneRetired.description": "Delete models the provider stopped listing once they have been gone this many days. Models you disabled or enabled by hand, models retired for refusing requests, and models of disabled providers are never pruned. 0 keeps every row; the minimum is 30 days, the window discovery uses to tell a retired model from a flapping one.",
 			"discoverOnStartup": "Discover on Startup",
 			"discoverOnStartupDescription": "Run discovery for all providers when the server starts",
 			"discoverOnProviderCreation": "Discover on Provider Creation",

@@ -1761,7 +1761,9 @@
 			},
 			"automaticGroup": "Automático",
 			"manualGroup": "Manual",
-			"lastRun": "Última execução"
+			"lastRun": "Última execução",
+			"pruneRetired": "Remover modelos não listados após",
+			"pruneRetired.description": "Exclui os modelos que o provedor parou de listar depois que eles ficam ausentes por esta quantidade de dias. Modelos que você desativou ou ativou manualmente, modelos retirados por recusarem requisições e modelos de provedores desativados nunca são removidos. 0 mantém todas as linhas; o mínimo é 30 dias, a janela que a descoberta usa para distinguir um modelo retirado de um intermitente."
 		},
 		"dataStorage": {
 			"title": "Armazenamento de dados",

@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Outomaties",
 			"manualGroup": "Handmatig",
-			"lastRun": "Laas uitgevoer"
+			"lastRun": "Laas uitgevoer",
+			"pruneRetired": "Snoei ongelyste modelle na",
+			"pruneRetired.description": "Vee modelle uit wat die verskaffer nie meer lys nie sodra hulle so baie dae weg is. Modelle wat jy self gedeaktiveer of geaktiveer het, modelle wat onttrek is omdat hulle versoeke weier, en modelle van gedeaktiveerde verskaffers word nooit gesnoei nie. 0 hou elke ry; die minimum is 30 dae, die venster wat ontdekking gebruik om 'n onttrekte model van 'n wisselvallige een te onderskei."
 		},
 		"dataStorage": {
 			"title": "Datastoring",

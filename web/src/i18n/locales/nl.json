@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automatisch",
 			"manualGroup": "Handmatig",
-			"lastRun": "Laatst uitgevoerd"
+			"lastRun": "Laatst uitgevoerd",
+			"pruneRetired": "Niet meer vermelde modellen opruimen na",
+			"pruneRetired.description": "Verwijdert modellen die de provider niet meer vermeldt zodra ze dit aantal dagen weg zijn. Modellen die je met de hand hebt uitgeschakeld of ingeschakeld, modellen die zijn ingetrokken omdat ze verzoeken weigeren en modellen van uitgeschakelde providers worden nooit opgeruimd. 0 houdt elke rij; het minimum is 30 dagen, het venster waarmee detectie een ingetrokken model van een wisselvallig model onderscheidt."
 		},
 		"dataStorage": {
 			"title": "Data Opslag",

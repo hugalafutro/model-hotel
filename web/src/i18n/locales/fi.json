@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automaattinen",
 			"manualGroup": "Manuaalinen",
-			"lastRun": "Viimeksi suoritettu"
+			"lastRun": "Viimeksi suoritettu",
+			"pruneRetired": "Listaamattomien mallien karsinta-aika",
+			"pruneRetired.description": "Poistaa mallit, joita palveluntarjoaja ei enää listaa, kun ne ovat olleet poissa näin monta päivää. Itse käytöstä poistettuja tai käyttöön otettuja malleja, pyyntöjen hylkäämisen vuoksi vedettyjä malleja eikä käytöstä poistettujen palveluntarjoajien malleja ei karsita koskaan. 0 säilyttää jokaisen rivin; vähimmäisarvo on 30 päivää, eli aikaikkuna, jonka avulla kartoitus erottaa poistuneen mallin epävakaasta."
 		},
 		"dataStorage": {
 			"title": "Tietojen Tallennustila",

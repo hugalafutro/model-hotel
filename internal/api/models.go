@@ -417,15 +417,23 @@ func (h *Handler) collectDistinctModelIDs(ctx context.Context, ids []uuid.UUID) 
 // model once and prunes any custom groups that referenced the deleted UUIDs.
 // This mirrors the per-model cleanup in DeleteModel, batched for a bulk delete.
 func (h *Handler) resyncFailoverAfterModelDelete(ctx context.Context, modelIDs []string, deletedIDs []uuid.UUID) {
-	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	ResyncFailoverAfterModelDelete(ctx, failover.NewRepository(h.dbPool.Pool()), modelIDs, deletedIDs)
+}
+
+// ResyncFailoverAfterModelDelete rebuilds the auto-groups of every affected
+// base model name and drops the deleted UUIDs from custom groups. Best-effort:
+// each failure is logged and the rest continues, because the rows are already
+// gone and a half-synced group is better than an aborted cleanup. Shared by
+// the dashboard bulk delete and the discovery-pass prune.
+func ResyncFailoverAfterModelDelete(ctx context.Context, repo *failover.Repository, modelIDs []string, deletedIDs []uuid.UUID) {
 	for _, mid := range modelIDs {
-		if _, err := failoverRepo.SyncForModel(ctx, mid); err != nil {
-			debuglog.Info("admin: failed to sync failover groups after bulk model delete", "model_id", mid, "error", err)
+		if _, err := repo.SyncForModel(ctx, mid); err != nil {
+			debuglog.Info("failover: sync after model delete failed", "model_id", mid, "error", err)
 		}
 	}
 	for _, id := range deletedIDs {
-		if err := failoverRepo.PruneModelUUID(ctx, id); err != nil {
-			debuglog.Info("admin: failed to prune stale failover entries after bulk model delete", "id", id, "error", err)
+		if err := repo.PruneModelUUID(ctx, id); err != nil {
+			debuglog.Info("failover: prune stale entries after model delete failed", "id", id, "error", err)
 		}
 	}
 }

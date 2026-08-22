@@ -34,21 +34,28 @@ func TestPublishDiscoveryEvent(t *testing.T) {
 		name     string
 		result   DiscoveryResult
 		severity string
+		// wantPruned is the models_pruned metadata the event must carry;
+		// -1 means the key must be absent, which is the all-failed case: no
+		// provider was scanned, so no prune could have run.
+		wantPruned int
 	}{
 		{
-			name:     "all_failed",
-			result:   DiscoveryResult{ProvidersScanned: 0, Errors: []string{"boom"}},
-			severity: "error",
+			name:       "all_failed",
+			result:     DiscoveryResult{ProvidersScanned: 0, Errors: []string{"boom"}},
+			severity:   "error",
+			wantPruned: -1,
 		},
 		{
-			name:     "partial_failure",
-			result:   DiscoveryResult{ProvidersScanned: 3, ProvidersFailed: 1, ModelsDiscovered: 5, Errors: []string{"one failed"}},
-			severity: "warning",
+			name:       "partial_failure",
+			result:     DiscoveryResult{ProvidersScanned: 3, ProvidersFailed: 1, ModelsDiscovered: 5, ModelsPruned: 2, Errors: []string{"one failed"}},
+			severity:   "warning",
+			wantPruned: 2,
 		},
 		{
-			name:     "success",
-			result:   DiscoveryResult{ProvidersScanned: 3, ModelsDiscovered: 9},
-			severity: "success",
+			name:       "success",
+			result:     DiscoveryResult{ProvidersScanned: 3, ModelsDiscovered: 9, ModelsPruned: 4},
+			severity:   "success",
+			wantPruned: 4,
 		},
 	}
 
@@ -69,6 +76,17 @@ func TestPublishDiscoveryEvent(t *testing.T) {
 					}
 					if ev.Severity != tc.severity {
 						t.Errorf("expected severity %q, got %q", tc.severity, ev.Severity)
+					}
+					got, ok := ev.Metadata["models_pruned"]
+					switch {
+					case tc.wantPruned < 0:
+						if ok {
+							t.Errorf("models_pruned = %v, want absent when nothing was scanned", got)
+						}
+					case !ok:
+						t.Errorf("models_pruned missing, want %d", tc.wantPruned)
+					case got != tc.wantPruned:
+						t.Errorf("models_pruned = %v, want %d", got, tc.wantPruned)
 					}
 					return
 				case <-deadline:

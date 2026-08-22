@@ -13,6 +13,7 @@ import { useToast } from "../../context/ToastContext";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
 import { formatDateTimeShort } from "../../utils/format";
+import { SETTING_DEFAULTS } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DiscoverySettingsProps {
@@ -91,6 +92,9 @@ export function DiscoverySettings({
 	);
 	const discoveryOnStartup = settings?.discovery_on_startup !== "false";
 	const discoveryOnCreate = settings?.discovery_on_provider_create !== "false";
+	const modelPruneDays = Number(
+		settings?.model_prune_days || SETTING_DEFAULTS.model_prune_days,
+	);
 
 	return (
 		<SettingsSection
@@ -197,6 +201,29 @@ export function DiscoverySettings({
 							onReset={() =>
 								resetSettingMutation.mutate(["discovery_interval"])
 							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+
+						<SettingsSlider
+							id="model-prune-days"
+							label={t("settings.discovery.pruneRetired")}
+							value={modelPruneDays}
+							min={0}
+							max={365}
+							step={1}
+							infinityValue={0}
+							unit="d"
+							disabled={isUpdating}
+							onChange={(v) => {
+								// 1..29 is below the backend's floor; snap to the
+								// nearest legal value so the save never 400s.
+								const days = v > 0 && v < 30 ? 30 : v;
+								updateMutation.mutate({
+									model_prune_days: String(days),
+								});
+							}}
+							description={t("settings.discovery.pruneRetired.description")}
+							onReset={() => resetSettingMutation.mutate(["model_prune_days"])}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
 					</SettingsGroup>

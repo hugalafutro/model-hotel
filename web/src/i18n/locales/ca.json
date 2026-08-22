@@ -1761,7 +1761,9 @@
 			},
 			"automaticGroup": "Automàtic",
 			"manualGroup": "Manual",
-			"lastRun": "Última execució"
+			"lastRun": "Última execució",
+			"pruneRetired": "Poda els models no llistats després de",
+			"pruneRetired.description": "Elimina els models que el proveïdor ha deixat de llistar quan fa aquests dies que han desaparegut. Els models que has desactivat o activat a mà, els models retirats per rebutjar peticions i els models de proveïdors desactivats no s'eliminen mai. Amb 0 es conserva cada fila; el mínim és de 30 dies, la finestra que fa servir la descoberta per distingir un model retirat d'un d'intermitent."
 		},
 		"dataStorage": {
 			"title": "Emmagatzematge de dades",

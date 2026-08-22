@@ -491,3 +491,32 @@ func TestUpdateSettings_UnknownKey(t *testing.T) {
 		t.Errorf("expected body to contain %q, got %q", "unknown setting", rr.Body.String())
 	}
 }
+
+// TestUpdateSettings_ModelPruneDaysRange pins the documented range: 0 (off)
+// or MinModelPruneDays..MaxModelPruneDays. A value under the floor is
+// rejected even though it is inside min..max, because a retired row is
+// reported as flapping for the whole claim window and a shorter horizon
+// prunes nothing at all.
+func TestUpdateSettings_ModelPruneDaysRange(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+	put := func(v string) int {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(`{"model_prune_days":"`+v+`"}`))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	for _, tc := range []struct {
+		value string
+		want  int
+	}{
+		{"0", http.StatusOK}, {"30", http.StatusOK}, {"365", http.StatusOK},
+		{"7", http.StatusBadRequest}, {"29", http.StatusBadRequest}, {"366", http.StatusBadRequest}, {"-1", http.StatusBadRequest}, {"abc", http.StatusBadRequest},
+	} {
+		if got := put(tc.value); got != tc.want {
+			t.Errorf("model_prune_days=%q: got %d, want %d", tc.value, got, tc.want)
+		}
+	}
+}

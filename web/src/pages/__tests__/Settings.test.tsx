@@ -266,6 +266,7 @@ describe("Settings", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 					"discovery_interval",
 					"discovery_on_startup",
 					"discovery_on_provider_create",
+					"model_prune_days",
 				]),
 			);
 

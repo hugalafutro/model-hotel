@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automatisk",
 			"manualGroup": "Manuell",
-			"lastRun": "Senast körd"
+			"lastRun": "Senast körd",
+			"pruneRetired": "Rensa bort ej listade modeller efter",
+			"pruneRetired.description": "Tar bort modeller som leverantören slutat lista när de varit borta så här många dagar. Modeller du själv har inaktiverat eller aktiverat, modeller som dragits tillbaka för att de avvisar förfrågningar och modeller från inaktiverade leverantörer rensas aldrig bort. 0 behåller varje rad; minimum är 30 dagar, det fönster som identifieringen använder för att skilja en tillbakadragen modell från en ostadig."
 		},
 		"dataStorage": {
 			"title": "Lagring av data",

@@ -1715,7 +1715,9 @@
 			},
 			"automaticGroup": "Automatikus",
 			"manualGroup": "Kézi",
-			"lastRun": "Utoljára futtatva"
+			"lastRun": "Utoljára futtatva",
+			"pruneRetired": "Nem listázott modellek törlése ennyi idő után",
+			"pruneRetired.description": "Törli azokat a modelleket, amelyeket a szolgáltató már nem sorol fel, ha ennyi napja hiányoznak. A kézzel letiltott vagy engedélyezett modellek, a kérések elutasítása miatt kivont modellek és a letiltott szolgáltatók modelljei soha nem törlődnek. A 0 minden sort megtart; a minimum 30 nap, ez az az ablak, amely alapján a felderítés megkülönbözteti a kivont modellt az ingadozótól."
 		},
 		"dataStorage": {
 			"title": "Adattárolás",
