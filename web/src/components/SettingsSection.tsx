@@ -37,10 +37,20 @@ export function SettingsSection({
 	return (
 		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-1">
-				<div className="flex items-center gap-2">
+				{/* The title row is a second collapse control: the icon and name
+				    fill the whole row up to the reset/chevron buttons, so any
+				    click along the header folds the section, not just the chevron.
+				    It stays a separate button (not a wrapper) because the reset
+				    button beside the chevron cannot nest inside another button. */}
+				<button
+					type="button"
+					onClick={onToggle}
+					aria-expanded={!collapsed}
+					className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer text-left"
+				>
 					<Icon size={18} className="text-(--accent)" />
 					<h2 className="text-xl font-semibold text-white">{title}</h2>
-				</div>
+				</button>
 				<div className="flex items-center gap-1.5">
 					{onResetSection && !managed && (
 						<ResetButton

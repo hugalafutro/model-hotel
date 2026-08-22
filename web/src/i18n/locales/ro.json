@@ -1763,7 +1763,7 @@
 			"manualGroup": "Manual",
 			"lastRun": "Ultima rulare",
 			"pruneRetired": "Elimină modelele nelistate după",
-			"pruneRetired.description": "Șterge modelele pe care furnizorul a încetat să le listeze după ce lipsesc de atâtea zile. Modelele dezactivate sau activate manual, modelele retrase fiindcă refuză cererile și modelele furnizorilor dezactivați nu sunt niciodată eliminate. Valoarea 0 păstrează fiecare rând; minimul este de 30 de zile, fereastra pe care descoperirea o folosește pentru a deosebi un model retras de unul intermitent."
+			"pruneRetired.description": "Șterge un model după ce furnizorul său nu l-a mai listat de atâtea zile. Modelele dezactivate sau activate manual, modelele retrase pentru că refuză cererile și modelele furnizorilor dezactivați sunt păstrate. 0 nu șterge niciodată."
 		},
 		"dataStorage": {
 			"title": "Stocare date",
