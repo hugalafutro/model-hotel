@@ -167,6 +167,14 @@ The modal distinguishes two reasons a row can clear, because they mean opposite 
 
 Both are absent from the next fetch, which is why the distinction has to be tracked client-side rather than inferred from absence.
 
+### Retired rows are pruned
+
+A model the provider stopped listing stays in the table as a disabled row so you can see what went away, retest it, or pin it. It does not stay forever. After each scheduled discovery pass, rows that discovery retired more than `model_prune_days` ago (default 30, `0` to keep everything) are deleted, and their failover groups resynced. The pass only touches providers it just scanned successfully, skips anything that flapped in the last 30 days, and deletes at most 500 rows per pass. Manual discovery from the dashboard never prunes; only the scheduled and startup passes do.
+
+Never pruned: models you disabled or enabled by hand, models the proxy retired for refusing requests (the provider still lists those), and models of disabled providers (those wait, with their pins, prices and failover memberships, for the provider to come back).
+
+Each fleet member prunes on its own schedule with the same horizon, so members converge without any deletion sync. If a pruned model is listed again later, discovery creates a fresh row.
+
 ### Failover group claims
 
 Failover groups that discovery disabled appear in their own section, with live member and routable counts (`1 of 3 members routable` points at a specific broken member where a bare "group disabled" would not). They carry no Retest (a retest is provider-scoped, a group is not) and no dismiss: the claim clears itself once the group is routable again. Deleted groups are deliberately not represented, since both deletion reasons are downstream of gone-model claims that are already counted.
