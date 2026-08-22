@@ -1,6 +1,5 @@
 package com.hugalafutro.bellhop.ui.events
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,6 +43,7 @@ import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
+import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
@@ -78,13 +75,11 @@ fun EventsScreen(
     // A row copies the whole event as text (handy for pasting into a bug report),
     // with a toast to confirm the otherwise-silent act. Copy is long-press only
     // and gated on [holdToCopy].
-    val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
+    val copyText = rememberCopyText()
     val copiedMsg = stringResource(R.string.events_copied)
     val timePattern = LocalTimePattern.current
     val onCopy: (FdEvent) -> Unit = { event ->
-        clipboard.setText(AnnotatedString(eventClipboardText(event, memberNames[event.memberId], timePattern)))
-        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+        copyText(eventClipboardText(event, memberNames[event.memberId], timePattern), copiedMsg)
     }
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(

@@ -1,7 +1,6 @@
 package com.hugalafutro.bellhop.ui.settings
 
 import android.app.Activity
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,14 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -61,6 +58,7 @@ import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.NavChevron
 import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import java.time.Instant
@@ -128,7 +126,7 @@ fun SettingsScreen(
     var confirmUnlink by remember { mutableStateOf(false) }
     var confirmCopyAddress by remember { mutableStateOf(false) }
     var showLanguagePicker by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     // Read once: choosing a different language recreates the activity, so this
     // never needs to react to a live change.
@@ -210,8 +208,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         confirmCopyAddress = false
-                        clipboard.setText(AnnotatedString(address))
-                        Toast.makeText(context, addressCopied, Toast.LENGTH_SHORT).show()
+                        copyText(address, addressCopied)
                     },
                     modifier = Modifier.testTag("settings-fd-copy-confirm"),
                 ) {
@@ -651,8 +648,7 @@ fun SettingsScreen(
                                 )
                                 TextButton(
                                     onClick = {
-                                        clipboard.setText(AnnotatedString(endpoint))
-                                        Toast.makeText(context, pushCopied, Toast.LENGTH_SHORT).show()
+                                        copyText(endpoint, pushCopied)
                                     },
                                     modifier = Modifier.testTag("settings-push-copy"),
                                 ) {
