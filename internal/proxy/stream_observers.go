@@ -75,6 +75,12 @@ type streamChunk struct {
 		Delta *struct {
 			Content          *string `json:"content"`
 			ReasoningContent *string `json:"reasoning_content"`
+			ToolCalls        []struct {
+				Function *struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
@@ -126,6 +132,15 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		currentContent := ""
 		if delta.Content != nil {
 			currentContent = *delta.Content
+			st.deliveredBytes += len(*delta.Content)
+		}
+		if delta.ReasoningContent != nil {
+			st.deliveredBytes += len(*delta.ReasoningContent)
+		}
+		for _, tc := range delta.ToolCalls {
+			if tc.Function != nil {
+				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)
+			}
 		}
 		if delta.ReasoningContent != nil && currentContent == "" {
 			currentContent = *delta.ReasoningContent

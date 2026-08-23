@@ -674,6 +674,11 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
+		// The provider billed whatever usage the SSE tail already reported,
+		// whether or not the client stayed to receive it.
+		if promptTokens > 0 || completionTokens > 0 {
+			h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
+		}
 		return
 	}
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")

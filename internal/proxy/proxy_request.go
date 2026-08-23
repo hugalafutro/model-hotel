@@ -107,6 +107,8 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	debuglog.Info("proxy: request start", "client_ip", clientip.From(r), "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName)
 	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "vk_id", logData.virtualKeyID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
+	logData.promptTextBytes = promptTextBytes(bodyBytes)
+
 	return &requestState{
 		startTime:   startTime,
 		reqModel:    reqModel,

@@ -94,6 +94,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
+	inputTokens, outputTokens, _ = estimateMissingUsage(inputTokens, outputTokens, 0, logData, anthropic.ResponseTextBytes(body))
 	h.recordTokenUsage(st.vkHash, logData, inputTokens, outputTokens, 0)
 
 	debuglog.Info("proxy: native anthropic non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "duration_ms", totalDuration, "input_tokens", inputTokens, "output_tokens", outputTokens)
@@ -127,6 +128,7 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 	if info.HasOutput {
 		st.completionTokens = info.OutputTokens
 	}
+	st.deliveredBytes += info.TextBytes
 	switch info.Type {
 	case "message_stop":
 		st.sawMessageStop = true
