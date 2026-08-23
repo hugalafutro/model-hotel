@@ -306,6 +306,8 @@ The Settings page has 10 collapsible sections. On a managed fleet member the ins
 sections (Authentication, Appearance, Observability, and the local half of Alerts) come first,
 followed by the managed banner and the fleet-synced sections. The primary shows an amber banner at the same boundary noting that the sections above stay per-member (except the password policy, the sign-in email allowlists and the alert event routing, which are synced) while everything below is pushed to the fleet on the next config sync.
 
+![Settings fleet banner on the primary](screenshots/settings_fleet_banner_context.png)
+
 #### Authentication
 - **Passkeys:** WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).
 - **Two-Factor (TOTP):** Authenticator-app 2FA (RFC 6238) for admin login. Enabled at runtime from Settings (scan a QR code, confirm a 6-digit code, save the one-time recovery codes); no environment variable is required. When enabled, the raw admin token alone no longer authenticates and must be combined with a code on the login screen (see [Security](Security)). If you lose the authenticator and all recovery codes, an operator can clear it with `make totp-disable`.
