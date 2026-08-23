@@ -112,8 +112,9 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 // so finalizeStream can tell a real completion from a mid-stream truncation, and
 // (3) captures a provider-sent error event into streamState so the request logs
 // as failed (deriveStreamError surfaces st.lastErrMsg) rather than silently
-// "completed" — the error frame is still forwarded to the client too. Returns
-// stop=true on a client write failure.
+// "completed" — the error frame is still forwarded to the client too, with
+// credential-shaped tokens masked (the same scrub handleDataChunk applies).
+// Returns stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
 	if info.HasInput {
@@ -139,7 +140,13 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 			debuglog.Warn("proxy: native anthropic SSE error event", "error_message", info.ErrorMessage, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
-	if err := sink.write(ev.raw); err != nil {
+	line := ev.raw
+	if info.Type == "error" {
+		if masked := maskKeyShapedTokens([]byte(ev.payload)); string(masked) != ev.payload {
+			line = append([]byte("data: "), masked...)
+		}
+	}
+	if err := sink.write(line); err != nil {
 		st.clientDisconnected = true
 		debuglog.Warn("proxy: client write failed during native stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 		return true
