@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -653,6 +654,18 @@ func TestDoUpstream_ClientDisconnectPreservesProviderError(t *testing.T) {
 // returns what the client got plus the log row it left behind.
 func runForwardUpstreamError(t *testing.T, h *Handler, status int, body string, isFailoverEligible bool) (*httptest.ResponseRecorder, *requestLogData) {
 	t.Helper()
+	return runForwardUpstreamErrorWith(t, h, status, body, isFailoverEligible, "")
+}
+
+// runForwardUpstreamErrorWithKey is runForwardUpstreamError with the candidate
+// carrying a decrypted provider key, for the exact-value masking tests.
+func runForwardUpstreamErrorWithKey(t *testing.T, h *Handler, status int, body, apiKey string) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
+	return runForwardUpstreamErrorWith(t, h, status, body, false, apiKey)
+}
+
+func runForwardUpstreamErrorWith(t *testing.T, h *Handler, status int, body string, isFailoverEligible bool, apiKey string) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
 
 	logData := &requestLogData{
 		modelID:        "gpt-5.1-codex",
@@ -665,6 +678,7 @@ func runForwardUpstreamError(t *testing.T, h *Handler, status int, body string, 
 	candidate := modelCandidate{
 		model:    &model.Model{ModelID: "gpt-5.1-codex"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "opencode-zen"},
+		apiKey:   apiKey,
 	}
 	resp := &http.Response{
 		StatusCode: status,
@@ -1071,4 +1085,51 @@ func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
 			t.Errorf("non-JSON 2xx body rewritten: %s", got)
 		}
 	})
+}
+
+// A custom or self-hosted gateway key has no prefix the shape regex knows, so
+// the exact decrypted credential is the control that covers it. Both forwarded
+// branches must scrub it; the request log keeps the original.
+func TestForwardUpstreamError_MasksExactProviderKey(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const secret = "myCustomGatewayKey2024x9z8"
+	for name, body := range map[string]string{
+		"json":    `{"error":{"message":"invalid request for account key ` + secret + `: context too long | your key: ` + secret + `","type":"invalid_request_error","code":"context_length_exceeded"}}`,
+		"nonjson": `upstream rejected key ` + secret + ` (not json)`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			w, logData := runForwardUpstreamErrorWithKey(t, h, http.StatusBadRequest, body, secret)
+			got := w.Body.String()
+			if strings.Contains(got, secret) {
+				t.Fatalf("exact provider key reached the client: %s", got)
+			}
+			if strings.Count(got, "[redacted]") != strings.Count(body, secret) {
+				t.Errorf("every occurrence must be masked, got: %s", got)
+			}
+			if !strings.Contains(logData.errorMessage, secret) {
+				t.Errorf("request log lost the original body: %s", logData.errorMessage)
+			}
+		})
+	}
+}
+
+// A keyless or placeholder credential below credentialMinLen must not turn
+// into a body-wide rewrite.
+func TestCredentialMasker(t *testing.T) {
+	body := []byte(`{"error":{"message":"ab: key abcdefgh12 and sk-proj-0123456789abcdef0123456789abcdef"}}`)
+	if got := newCredentialMasker("").mask(body); !bytes.Equal(got, maskKeyShapedTokens(body)) {
+		t.Errorf("empty key must mask by shape only, got %s", got)
+	}
+	if got := newCredentialMasker("ab").mask(body); !bytes.Equal(got, maskKeyShapedTokens(body)) {
+		t.Errorf("short key must mask by shape only, got %s", got)
+	}
+	got := string(newCredentialMasker("abcdefgh12").mask(body))
+	if strings.Contains(got, "abcdefgh12") || strings.Contains(got, "sk-proj-") {
+		t.Errorf("exact and shape layers must both apply, got %s", got)
+	}
+	if !strings.HasPrefix(got, `{"error":{"message":"ab: key [redacted] and [redacted]"}}`) {
+		t.Errorf("unexpected rewrite: %s", got)
+	}
 }

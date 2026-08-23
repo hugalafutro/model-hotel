@@ -344,6 +344,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		attempt:            attempt,
 		cancelOrigin:       streamCancelOrigin,
 		rawPassthrough:     st.anthropicNativeAttempt,
+		masker:             newCredentialMasker(candidate.apiKey),
 	}
 
 	if ttftTimeout > 0 {
@@ -751,13 +752,15 @@ const forwardableErrorBodyCap = 1 << 20
 // the client may see is decided by it together with the static
 // forwardableErrorStatus class. A payload-class refusal (a plain 400 and its
 // kin) judged this caller's own request, so the upstream's error object is
-// forwarded with key-shaped tokens masked. Everything else - auth, billing,
+// forwarded with the provider's credential masked (credentialMasker: exact
+// key, then key-shaped tokens). Everything else - auth, billing,
 // rate limit, not-found, server faults, whether classed by eligibility or by
 // status - gets a synthesised envelope with the classified reason, because
 // those bodies can quote the operator's provider credentials or account
 // details; the body stays in the request log either way. Drains/closes
 // resp.Body exactly once and always returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, isFailoverEligible bool, responseHeaderMs float64) candidateOutcome {
+	masker := newCredentialMasker(candidate.apiKey)
 	logData := st.logData
 	mayForwardError := !isFailoverEligible && forwardableErrorStatus(resp.StatusCode)
 	// How much of the body is worth holding depends on what happens to it
@@ -839,7 +842,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// provider-authored free text.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		_, _ = w.Write(maskKeyShapedTokens(body))
+		_, _ = w.Write(masker.mask(body))
 	case json.Valid(body):
 		// A non-2xx whose JSON body carries no error object. OpenCode Zen and
 		// OpenCode Go answer some failed requests with a complete
@@ -858,7 +861,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// full body reaches the request log either way via failRequest, and how
 		// much of a provider's response this gateway echoes to callers is one
 		// decision for all three cases rather than something to widen here.
-		writeOpenAIError(w, string(maskKeyShapedTokens([]byte(errMsg))), resp.StatusCode)
+		writeOpenAIError(w, string(masker.mask([]byte(errMsg))), resp.StatusCode)
 	}
 	return outcomeFatal
 }
@@ -870,22 +873,61 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 // (AKIA...), bare JWTs (the MiniMax API key format), and bearer tokens. The
 // minimum tail lengths keep prose like "sk-abc" out of scope; matches without
 // a digit are prose too and are dropped by maskKeyShapedTokens. A prefix list
-// necessarily trails the provider roster - it is the second layer, not the
-// control, which is the status-class gate above.
+// necessarily trails the provider roster - it is the third layer, behind the
+// status-class gate above and credentialMasker's exact match of this
+// gateway's own key.
 var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z0-9_-]{16,}|\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|(?i:\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}`)
+
+// credentialMinLen is the shortest provider key the exact-value mask will
+// redact. Keyless local providers carry an empty key and a handful of test or
+// placeholder setups use tiny ones; rewriting every occurrence of a few
+// characters would shred the body without protecting anything.
+const credentialMinLen = 8
+
+// credentialMasker scrubs a provider's credential out of client-bound text.
+// The exact decrypted key is the primary control: it is an exact byte match,
+// so it covers every key shape, including custom or self-hosted gateways
+// whose format the prefix regex can never anticipate, but not a JSON-escaped
+// rendering of the key (an encoder turning "&" into "\u0026" or "/" into
+// "\/" defeats it; real keys rarely carry such bytes). maskKeyShapedTokens
+// runs after it as the third layer, behind the status-class gate, for
+// credentials a relay quotes that are not ours. Build one per candidate with
+// newCredentialMasker and pass it to every client-facing emit of provider
+// error text: the buffered paths in forwardUpstreamError and the in-stream
+// error frames on the translated (handleDataChunk), native Anthropic
+// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
+// zero value masks by shape only. Client-side only: the request log keeps the
+// original body.
+type credentialMasker struct {
+	secret []byte
+}
+
+func newCredentialMasker(apiKey string) credentialMasker {
+	if len(apiKey) < credentialMinLen {
+		return credentialMasker{}
+	}
+	return credentialMasker{secret: []byte(apiKey)}
+}
+
+// mask returns body with every occurrence of the exact credential, then any
+// key-shaped token, replaced by "[redacted]". The exact pass runs first so the
+// regex cannot split the key and leave a recognisable remainder.
+func (m credentialMasker) mask(body []byte) []byte {
+	if len(m.secret) > 0 && bytes.Contains(body, m.secret) {
+		body = bytes.ReplaceAll(body, m.secret, []byte("[redacted]"))
+	}
+	return maskKeyShapedTokens(body)
+}
 
 // maskKeyShapedTokens scrubs credential-looking substrings from an upstream
 // body before it is forwarded to a client. Auth-class errors never forward at
-// all; this is the second layer, for a provider quoting a credential inside an
-// otherwise forwardable payload error. A match with no digit in it is an
-// identifier or prose ("sk_business_unit_identifier", "Bearer
-// authentication-required") rather than a credential, and stays - real keys
-// carry digits. The replacement carries no JSON metacharacters, so a valid
-// body stays valid. This covers the buffered error paths and in-stream SSE
-// error frames on the translated (handleDataChunk), native Anthropic
-// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths.
-// Client-side only: the request
-// log keeps the original body for the operator.
+// all, and credentialMasker has already removed this gateway's own key by
+// exact value; this is the third layer, for a provider quoting some other
+// credential inside an otherwise forwardable payload error. A match with no
+// digit in it is an identifier or prose ("sk_business_unit_identifier",
+// "Bearer authentication-required") rather than a credential, and stays -
+// real keys carry digits. The replacement carries no JSON metacharacters, so
+// a valid body stays valid.
 func maskKeyShapedTokens(body []byte) []byte {
 	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
 		if !bytes.ContainsAny(m, "0123456789") {

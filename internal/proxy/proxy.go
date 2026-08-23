@@ -58,7 +58,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// the transforms/observers and the finalizer share one named contract
 	// instead of a fistful of loop-locals. The stall flag and final chunkCount
 	// are filled from the reader at logUpdate.
-	st := &streamState{}
+	st := &streamState{masker: opts.masker}
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
@@ -368,7 +368,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// The observer above already took the unmasked message for the request
 		// log; chunk.Error is parsed, so content chunks pay nothing.
 		if chunk.Error != nil {
-			if masked := maskKeyShapedTokens([]byte(payload)); string(masked) != payload {
+			if masked := st.masker.mask([]byte(payload)); string(masked) != payload {
 				payload = string(masked)
 				line = append([]byte("data: "), masked...)
 			}

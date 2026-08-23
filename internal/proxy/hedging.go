@@ -440,6 +440,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		vkHash:             st.vkHash,
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",
+		masker:             newCredentialMasker(candidate.apiKey),
 	}
 	// attempt is the 0-based failover_attempt this request is logged and stored
 	// with; it must match the value stream_finalize reports for the same request.

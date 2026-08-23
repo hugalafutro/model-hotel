@@ -25,6 +25,9 @@ const (
 // hand-off between the loop and the finalizer; later phases migrate more of the
 // loop-local accumulators here.
 type streamState struct {
+	// masker scrubs the provider's credential from error frames bound for the
+	// client; copied from streamOptions so the chunk handlers can reach it.
+	masker                credentialMasker
 	promptTokens          int
 	completionTokens      int
 	reasoningTokens       int

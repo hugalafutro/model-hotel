@@ -113,7 +113,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 // (3) captures a provider-sent error event into streamState so the request logs
 // as failed (deriveStreamError surfaces st.lastErrMsg) rather than silently
 // "completed" — the error frame is still forwarded to the client too, with
-// credential-shaped tokens masked (the same scrub handleDataChunk applies).
+// the provider's credential masked (the same credentialMasker scrub
+// handleDataChunk applies).
 // Returns stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
@@ -142,7 +143,7 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 	}
 	line := ev.raw
 	if info.Type == "error" {
-		if masked := maskKeyShapedTokens([]byte(ev.payload)); string(masked) != ev.payload {
+		if masked := st.masker.mask([]byte(ev.payload)); string(masked) != ev.payload {
 			line = append([]byte("data: "), masked...)
 		}
 	}
