@@ -311,6 +311,27 @@ func TestNativeStream_ProviderErrorEvent(t *testing.T) {
 	}
 }
 
+// The native passthrough forwards the error frame raw, so it needs the same
+// credential scrub as the translated path; the request log keeps the original.
+func TestNativeStream_ProviderErrorEventMasksKeyShapedTokens(t *testing.T) {
+	const planted = "sk-ant-api03-STANDARDKEY1234567890abcdef1234567890"
+	body := nativeStreamHead + "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key " + planted + "\"}}\n\n"
+	w, logData := runNativeStream(t, body)
+
+	if strings.Contains(w.Body.String(), planted) {
+		t.Fatalf("operator credential reached the client via the native error frame:\n%s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `data: {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key [redacted]"}}`) {
+		t.Errorf("masked error frame not forwarded to client:\n%s", w.Body.String())
+	}
+	if logData.state != "failed" {
+		t.Errorf("state = %q, want failed", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	}
+}
+
 // warmCacheStream is a native stream whose message_start reports a warm cache:
 // a tiny uncached remainder beside a large cache read and a cache write.
 const warmCacheStream = `event: message_start

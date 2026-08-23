@@ -674,3 +674,127 @@ func TestHandleNonStreamingResponse_UpstreamNonJSONResponse(t *testing.T) {
 		t.Errorf("expected 200 (upstream status forwarded), got %d", inner.Code)
 	}
 }
+
+// An in-stream error frame rides the verbatim-forward path, which is the one
+// client-facing emit forwardUpstreamError's masking never sees. A provider that
+// quotes the operator's credential in a mid-stream auth/billing error must not
+// hand it to the virtual-key holder; the request log keeps the original.
+func TestHandleStreamingResponse_ErrorChunkMasksKeyShapedTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const planted = "sk-proj-STANDARDKEY1234567890abcdef1234567890"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("upstream response writer must support flushing")
+		}
+		fmt.Fprint(w, `data: {"id":"c1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"hi"},"finish_reason":null}]}`+"\n\n")
+		fmt.Fprint(w, `data: {"error":{"message":"upstream rejected: billing key `+planted+` is invalid","type":"invalid_request_error","code":"invalid_api_key"}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1})
+
+	body := inner.Body.String()
+	if strings.Contains(body, planted) {
+		t.Fatalf("operator credential reached the client verbatim:\n%s", body)
+	}
+	if !strings.Contains(body, `data: {"error":{"message":"upstream rejected: billing key [redacted] is invalid"`) {
+		t.Fatalf("expected masked error frame in client bytes, got:\n%s", body)
+	}
+	if !strings.Contains(body, `"content":"hi"`) {
+		t.Fatalf("content chunk must still forward untouched, got:\n%s", body)
+	}
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Fatalf("stream must still terminate with [DONE], got:\n%s", body)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	}
+}
+
+// An error frame that also carries a mappable finish_reason is rewritten by
+// computeFinishReason, which re-marshals the whole object: the mask must run
+// ahead of the transforms, not only on the verbatim branch. Upstream uses the
+// no-space "data:" framing to pin that the masked frame is re-framed cleanly.
+func TestHandleStreamingResponse_TransformedErrorChunkMasksKeyShapedTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const planted = "sk-proj-STANDARDKEY1234567890abcdef1234567890"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `data:{"id":"c1","object":"chat.completion.chunk","error":{"message":"billing key `+planted+` is invalid"},"choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1})
+
+	body := inner.Body.String()
+	if strings.Contains(body, planted) {
+		t.Fatalf("operator credential reached the client through a transformed error frame:\n%s", body)
+	}
+	if !strings.Contains(body, `"message":"billing key [redacted] is invalid"`) {
+		t.Fatalf("expected masked error frame in client bytes, got:\n%s", body)
+	}
+	if !strings.Contains(body, `"finish_reason":"stop"`) {
+		t.Fatalf("finish_reason normalization must still apply, got:\n%s", body)
+	}
+	if !strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	}
+}
