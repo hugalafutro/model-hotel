@@ -164,6 +164,17 @@ func TestHandleStreamingResponse_EstimatesUsageFromToolCallArguments(t *testing.
 	assert.Equal(t, 17, singleAddTokens(t, repo))
 }
 
+// Every choice of an n>1 stream is delivered output; the estimate must not
+// stop at choices[0] the way the content observers do.
+func TestHandleStreamingResponse_EstimatesUsageAcrossAllChoices(t *testing.T) {
+	body := `data: {"id":"c","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null},{"index":1,"delta":{"content":"bonjour","tool_calls":[{"index":0,"function":{"name":"f","arguments":"{}"}}]},"finish_reason":null}]}` + "\n\n" +
+		doneChunk
+	repo, _ := streamUsageHarness(t, body, false)
+
+	// 40 prompt bytes → 10; "hello" (5) + "bonjour" (7) + "f" (1) + "{}" (2) = 15 bytes → 4.
+	assert.Equal(t, 14, singleAddTokens(t, repo))
+}
+
 // A usage chunk whose counts are all zero is no usage at all.
 func TestHandleStreamingResponse_EstimatesUsageWhenReportedUsageIsZero(t *testing.T) {
 	body := contentChunk +
@@ -251,6 +262,26 @@ func TestNativeStream_EstimatesOutputWhenTruncatedBeforeMessageDelta(t *testing.
 	assert.Equal(t, 14, singleAddTokens(t, vkRepo))
 }
 
+// A tool call whose input is empty delivers only its name before the stream is
+// cut; the name alone must keep the estimate from reading as "nothing delivered".
+func TestNativeStream_EstimatesOutputFromToolStartName(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	head, _, _ := strings.Cut(nativeStreamHead, "event: content_block_start")
+	body := head + "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"lookup\",\"input\":{}}}\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+	logData := &requestLogData{id: uuid.New().String(), modelID: "claude-test", streaming: true, virtualKeyName: "test-key", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "streaming", promptTextBytes: 40}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/messages", http.NoBody), logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, rawPassthrough: true})
+
+	// input_tokens 12 reported by message_start; "lookup" (6 bytes) → 2 estimated.
+	assert.Equal(t, 14, singleAddTokens(t, vkRepo))
+}
+
 func TestHandleNativeNonStreaming_EstimatesUsageWhenOmitted(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
@@ -269,8 +300,8 @@ func TestHandleNativeNonStreaming_EstimatesUsageWhenOmitted(t *testing.T) {
 
 	h.handleNativeNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, resp, 1, 5)
 
-	// 40 prompt bytes → 10; "Hello, world!" (13) + {"a":1} (7) = 20 bytes → 5.
-	assert.Equal(t, 15, singleAddTokens(t, vkRepo))
+	// 40 prompt bytes → 10; "Hello, world!" (13) + "f" (1) + {"a":1} (7) = 21 bytes → 6.
+	assert.Equal(t, 16, singleAddTokens(t, vkRepo))
 }
 
 func TestHandleNonStreamingResponse_EstimatesUsageWhenProviderOmitsIt(t *testing.T) {

@@ -239,9 +239,9 @@ func TestInspectStreamEvent_TextBytes(t *testing.T) {
 }
 
 func TestResponseTextBytes(t *testing.T) {
-	body := `{"content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"Hello"},{"type":"tool_use","name":"f","input":{"a":1}}]}`
-	if got := ResponseTextBytes([]byte(body)); got != 14 {
-		t.Errorf("ResponseTextBytes = %d, want 14 (2 thinking + 5 text + 7 input)", got)
+	body := `{"content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"Hello"},{"type":"tool_use","name":"lookup","input":{"a":1}}]}`
+	if got := ResponseTextBytes([]byte(body)); got != 20 {
+		t.Errorf("ResponseTextBytes = %d, want 20 (2 thinking + 5 text + 6 name + 7 input)", got)
 	}
 	if got := ResponseTextBytes([]byte("nope")); got != 0 {
 		t.Errorf("ResponseTextBytes(invalid) = %d, want 0", got)

@@ -46,9 +46,7 @@ type streamState struct {
 	// usage estimate when no usage was reported: the usage chunk is the LAST
 	// chunk of an OpenAI stream, so a client that hangs up after the content
 	// (or a provider that omits the chunk) would otherwise leave the request
-	// unmetered while the provider still bills for it. Only choices[0] is
-	// observed, like the rest of the observers, so an n>1 stream estimates
-	// one choice's worth.
+	// unmetered while the provider still bills for it.
 	deliveredBytes     int
 	clientDisconnected bool
 	stalled            bool
