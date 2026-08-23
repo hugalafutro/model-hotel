@@ -144,7 +144,9 @@ Do not conflate these:
 
 Plus, internal to Front Desk: **`FRONTDESK_MASTER_KEY`** encrypts the member
 admin tokens (and Front Desk's own TOTP secret) that Front Desk stores. It is
-independent of any member's `MASTER_KEY`.
+independent of any member's `MASTER_KEY`. Generate it the same way
+(`openssl rand -base64 32`); Front Desk warns at boot when it is shorter than
+32 characters, like the main server does for `MASTER_KEY`.
 
 ### `MASTER_KEY` must match across members
 
