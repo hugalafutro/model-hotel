@@ -738,8 +738,8 @@ func TestHandleStreamingResponse_ErrorChunkMasksKeyShapedTokens(t *testing.T) {
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 
@@ -794,8 +794,8 @@ func TestHandleStreamingResponse_TransformedErrorChunkMasksKeyShapedTokens(t *te
 	if !strings.Contains(body, `"finish_reason":"stop"`) {
 		t.Fatalf("finish_reason normalization must still apply, got:\n%s", body)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 
@@ -809,6 +809,13 @@ func TestHandleStreamingResponse_ErrorChunkMasksExactProviderKey(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
+		// A content chunk quoting the key: no error shape, so only the exact
+		// layer can catch it.
+		fmt.Fprint(w, `data: {"choices":[{"index":0,"delta":{"content":"your key is `+secret+`"}}]}`+"\n\n")
+		// A reasoning chunk quoting the key in both fields: reasoning
+		// normalization rebuilds the delta from the typed chunk, so the mask
+		// must reach that struct and not only the payload string.
+		fmt.Fprint(w, `data: {"choices":[{"index":0,"delta":{"content":"answer `+secret+`","reasoning":"thinking `+secret+`"}}]}`+"\n\n")
 		fmt.Fprint(w, `data: {"error":{"message":"billing key `+secret+` is invalid"}}`+"\n\n")
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}))
@@ -842,10 +849,16 @@ func TestHandleStreamingResponse_ErrorChunkMasksExactProviderKey(t *testing.T) {
 	if strings.Contains(body, secret) {
 		t.Fatalf("exact provider key reached the client:\n%s", body)
 	}
+	if !strings.Contains(body, `"content":"your key is [redacted]"`) {
+		t.Fatalf("expected masked content chunk, got:\n%s", body)
+	}
+	if !strings.Contains(body, `"content":"answer [redacted]"`) || !strings.Contains(body, `"reasoning_content":"thinking [redacted]"`) {
+		t.Fatalf("expected masked normalized reasoning chunk, got:\n%s", body)
+	}
 	if !strings.Contains(body, `"message":"billing key [redacted] is invalid"`) {
 		t.Fatalf("expected masked error frame, got:\n%s", body)
 	}
-	if !strings.Contains(logData.errorMessage, secret) {
-		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, secret) || !strings.Contains(logData.errorMessage, "[redacted]") {
+		t.Errorf("request log must carry the error with the exact key redacted, got %q", logData.errorMessage)
 	}
 }

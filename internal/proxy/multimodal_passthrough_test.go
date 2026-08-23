@@ -828,6 +828,86 @@ func TestImageGenerations_JSONPassthrough(t *testing.T) {
 	}
 }
 
+// Buffered JSON pass-through and SSE content events are content, so only the
+// exact layer runs; the env key ("test-api-key") is scrubbed from both.
+func TestImageGenerations_PassthroughMasksExactProviderKeyInContent(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		upstreamBody := `{"created":1,"data":[{"revised_prompt":"key test-api-key","b64_json":"aW1n"}]}`
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, upstreamBody)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+		req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, req)
+		if got := strings.TrimSpace(w.Body.String()); got != `{"created":1,"data":[{"revised_prompt":"key [redacted]","b64_json":"aW1n"}]}` {
+			t.Errorf("buffered body not exact-masked: %s", got)
+		}
+	})
+	t.Run("sse", func(t *testing.T) {
+		sse := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"revised_prompt\":\"key test-api-key\"}\n\n"
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, sse)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true,"partial_images":1}`, env.providerName, env.modelName)
+		req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, req)
+		want := strings.ReplaceAll(sse, "test-api-key", "[redacted]")
+		if w.Body.String() != want {
+			t.Errorf("SSE content not exact-masked:\ngot  %q\nwant %q", w.Body.String(), want)
+		}
+	})
+}
+
+// Oversized is judged before masking: a cap+1 read that shrinks under the cap
+// once the key is redacted must still stream its remainder, byte-complete.
+func TestImageGenerations_OversizedJSONMaskedStillStreamsRemainder(t *testing.T) {
+	huge := strings.Repeat("A", passthroughJSONBufferCap+4096)
+	upstreamBody := `{"created":1,"data":[{"revised_prompt":"key test-api-key","b64_json":"` + huge + `"}]}`
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	want := strings.ReplaceAll(upstreamBody, "test-api-key", "[redacted]")
+	if got := w.Body.String(); got != want {
+		t.Errorf("oversized body mismatch: got %d bytes, want %d (key masked, remainder intact)", len(got), len(want))
+	}
+}
+
+// A key that straddles the buffered-prefix boundary of an oversized body (the
+// cap+1 read ends mid-key) must still be masked in what the client receives.
+func TestImageGenerations_OversizedJSONMasksKeyAcrossBufferBoundary(t *testing.T) {
+	head := `{"created":1,"data":[{"b64_json":"`
+	// Pad so the first 6 bytes of "test-api-key" land inside the cap+1 read
+	// and the remaining 6 stream as the remainder.
+	pad := strings.Repeat("A", passthroughJSONBufferCap+1-len(head)-6)
+	upstreamBody := head + pad + "test-api-key" + strings.Repeat("B", 4096) + `"}]}`
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	got := w.Body.String()
+	if strings.Contains(got, "test-api-key") {
+		t.Fatal("key straddling the buffer boundary reached the client")
+	}
+	if want := strings.ReplaceAll(upstreamBody, "test-api-key", "[redacted]"); got != want {
+		t.Errorf("oversized body mismatch: got %d bytes, want %d", len(got), len(want))
+	}
+}
+
 func TestImageGenerations_SSEPassthrough(t *testing.T) {
 	sse := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"cGFydA==\"}\n\nevent: image_generation.completed\ndata: {\"type\":\"image_generation.completed\",\"b64_json\":\"ZnVsbA==\"}\n\n"
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1534,6 +1614,34 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 		}
 		if n, err := m.Write([]byte("data: more\n")); err == nil || n != 0 {
 			t.Fatalf("raw-mode line onto a dead client: got n=%d err=%v, want 0 and an error", n, err)
+		}
+	})
+
+	t.Run("key straddling the spill and raw-mode boundaries is masked", func(t *testing.T) {
+		const secret = "myCustomGatewayKey2024x9z8"
+		var out bytes.Buffer
+		m := newSSEErrorMaskWriter(&out, newCredentialMasker(secret))
+		// First write overflows the event cap mid-key: the buffered bytes
+		// spill with half the key at their end.
+		first := "data: " + strings.Repeat("A", sseErrorMaskEventCap) + secret[:10]
+		// Raw-mode continuation carries the rest, then another split key, then
+		// the delimiter; a normal event follows to prove ordering survives.
+		writes := []string{first, secret[10:] + " " + secret[:5], secret[5:] + "\n", "\n", "data: ok\n\n"}
+		for _, w := range writes {
+			if _, err := m.Write([]byte(w)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := m.Flush(); err != nil {
+			t.Fatal(err)
+		}
+		got := out.String()
+		if strings.Contains(got, secret) {
+			t.Fatal("key straddling raw-mode writes reached the client")
+		}
+		want := "data: " + strings.Repeat("A", sseErrorMaskEventCap) + "[redacted] [redacted]\n\ndata: ok\n\n"
+		if got != want {
+			t.Errorf("mismatch: got len %d tail %q, want len %d", len(got), got[len(got)-40:], len(want))
 		}
 	})
 

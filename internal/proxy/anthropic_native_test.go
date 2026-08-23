@@ -333,8 +333,8 @@ func TestNativeStream_ProviderErrorEventMasksKeyShapedTokens(t *testing.T) {
 	if logData.state != "failed" {
 		t.Errorf("state = %q, want failed", logData.state)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 
@@ -342,17 +342,36 @@ func TestNativeStream_ProviderErrorEventMasksKeyShapedTokens(t *testing.T) {
 // exact value, since no prefix would catch it.
 func TestNativeStream_ProviderErrorEventMasksExactProviderKey(t *testing.T) {
 	const secret = "myCustomGatewayKey2024x9z8"
-	body := nativeStreamHead + "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key " + secret + "\"}}\n\n"
+	body := nativeStreamHead +
+		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"your key is " + secret + "\"}}\n\n" +
+		"event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key " + secret + "\"}}\n\n"
 	w, logData := runNativeStreamWith(t, body, newCredentialMasker(secret))
 
 	if strings.Contains(w.Body.String(), secret) {
-		t.Fatalf("exact provider key reached the client via the native error frame:\n%s", w.Body.String())
+		t.Fatalf("exact provider key reached the client via the native stream:\n%s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"text":"your key is [redacted]"`) {
+		t.Errorf("content event not exact-masked:\n%s", w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), `"message":"invalid x-api-key [redacted]"`) {
 		t.Errorf("masked error frame not forwarded to client:\n%s", w.Body.String())
 	}
-	if !strings.Contains(logData.errorMessage, secret) {
-		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, secret) || !strings.Contains(logData.errorMessage, "[redacted]") {
+		t.Errorf("request log must carry the error with the exact key redacted, got %q", logData.errorMessage)
+	}
+}
+
+// The native non-streaming body is content; a gateway quoting its key there is
+// scrubbed by exact value from the per-attempt masker stamped on the log row.
+func TestHandleNativeNonStreaming_MasksExactProviderKey(t *testing.T) {
+	const secret = "myCustomGatewayKey2024x9z8"
+	body := `{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"your key is ` + secret + `"}],"stop_reason":"end_turn","usage":{"input_tokens":3,"output_tokens":4}}`
+	rec, _ := runNativeNonStreamingWith(t, body, newCredentialMasker(secret))
+	if strings.Contains(rec.Body.String(), secret) {
+		t.Fatalf("exact provider key reached the client via the native non-streaming body:\n%s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"text":"your key is [redacted]"`) {
+		t.Errorf("content not exact-masked:\n%s", rec.Body.String())
 	}
 }
 
@@ -397,6 +416,12 @@ func TestNativeStream_RecordsCacheSplit(t *testing.T) {
 // handleNativeNonStreaming and returns the finalized log row.
 func runNativeNonStreaming(t *testing.T, anthropicBody string) *requestLogData {
 	t.Helper()
+	_, logData := runNativeNonStreamingWith(t, anthropicBody, credentialMasker{})
+	return logData
+}
+
+func runNativeNonStreamingWith(t *testing.T, anthropicBody string, masker credentialMasker) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 
@@ -413,6 +438,7 @@ func runNativeNonStreaming(t *testing.T, anthropicBody string) *requestLogData {
 		virtualKeyName: "test-key",
 		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
 		state:          "streaming",
+		masker:         masker,
 	}
 	st := &requestState{startTime: time.Now(), logData: logData}
 	h.insertRequestLogAsync(logData)
@@ -422,7 +448,7 @@ func runNativeNonStreaming(t *testing.T, anthropicBody string) *requestLogData {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
-	return logData
+	return rec, logData
 }
 
 // Same split on the non-streaming native path, so the two agree.

@@ -100,6 +100,10 @@ const (
 )
 
 type requestLogData struct {
+	// masker scrubs the attempt's provider credential from bodies bound for
+	// the client and from the error message stored on this row. Stamped with
+	// the provider identity for each attempt; zero value masks by shape only.
+	masker                    credentialMasker
 	id                        string
 	providerID                uuid.UUID
 	providerName              string
@@ -336,9 +340,9 @@ type streamOptions struct {
 	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
 	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
 	rawPassthrough bool
-	// masker scrubs the candidate's credential from in-stream error frames
-	// before they reach the client. Built from candidate.apiKey by the
-	// dispatcher; the zero value masks by shape only.
+	// masker scrubs the candidate's credential from the stream and the log's
+	// error message. Copied from requestLogData.masker, the per-attempt stamp;
+	// the zero value masks by shape only.
 	masker credentialMasker
 }
 

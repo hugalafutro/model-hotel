@@ -556,17 +556,27 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	if passthroughAnswered(logData.endpointType, body) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
+	// Oversized is judged on the bytes read, before masking can shrink a
+	// cap+1 read under the cap and drop the streamed remainder.
+	oversized := len(body) > passthroughJSONBufferCap
+	// Exact-key scrub only: a success body is content, where the key-shape
+	// regex could false-positive.
+	body = logData.masker.maskExact(body)
 	copyPassthroughHeaders(w, resp, contentType)
 
-	if len(body) > passthroughJSONBufferCap {
+	if oversized {
 		// Oversized JSON (e.g. several b64 images): forward the buffered
 		// prefix and stream the rest; usage extraction is skipped to keep
 		// memory bounded.
+		// The remainder streams through exactMaskWriter so a key straddling
+		// the buffered-prefix boundary, or any two reads, is still masked.
 		w.WriteHeader(resp.StatusCode)
 		written := int64(len(body))
-		if _, writeErr := w.Write(body); writeErr == nil {
-			n, _ := io.Copy(w, resp.Body)
+		ew := newExactMaskWriter(w, logData.masker)
+		if _, writeErr := ew.Write(body); writeErr == nil {
+			n, _ := io.Copy(ew, resp.Body)
 			written += n
+			_ = ew.Flush()
 		}
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
 		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written)
@@ -576,6 +586,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	promptTokens, completionTokens := extractPassthroughUsage(body)
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
+	//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
 	if _, writeErr := w.Write(body); writeErr != nil {
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}
@@ -646,7 +657,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	var masker *sseErrorMaskWriter
 	if isSSE {
 		tail = newTailBuffer(passthroughSSETailCap)
-		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail), newCredentialMasker(candidate.apiKey))
+		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail), logData.masker)
 		dst = masker
 	}
 
@@ -823,7 +834,8 @@ const sseErrorMaskEventCap = 4 << 20
 // one event at a time, scrubbing credential-shaped tokens from error frames
 // before they reach the client. Pass-through streams are otherwise copied
 // verbatim, so this is the one place the chat paths' credentialMasker scrub
-// applies to the image/audio endpoints.
+// applies to the image/audio endpoints: the exact key on every byte, the
+// key-shape regex on error frames.
 //
 // It works per event rather than per line because SSE lets one payload span
 // several `data:` lines (joined with "\n"); judging each line alone would let
@@ -842,14 +854,15 @@ const sseErrorMaskEventCap = 4 << 20
 type sseErrorMaskWriter struct {
 	w       io.Writer
 	cred    credentialMasker
-	partial []byte   // unterminated line
-	event   [][]byte // complete lines of the event in progress, each with its eol
-	held    int      // input bytes buffered in partial + event
-	raw     bool     // event exceeded the cap: pass through until its delimiter
+	rawOut  *exactMaskWriter // raw-mode writes, boundary-safe for the key
+	partial []byte           // unterminated line
+	event   [][]byte         // complete lines of the event in progress, each with its eol
+	held    int              // input bytes buffered in partial + event
+	raw     bool             // event exceeded the cap: pass through until its delimiter
 }
 
 func newSSEErrorMaskWriter(w io.Writer, cred credentialMasker) *sseErrorMaskWriter {
-	return &sseErrorMaskWriter{w: w, cred: cred}
+	return &sseErrorMaskWriter{w: w, cred: cred, rawOut: newExactMaskWriter(w, cred)}
 }
 
 func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
@@ -863,7 +876,7 @@ func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
 			chunk := p[consumed:]
 			consumed = len(p)
 			if m.raw {
-				if err := m.emit(chunk); err != nil {
+				if _, err := m.rawOut.Write(chunk); err != nil {
 					return delivered, err
 				}
 				break
@@ -880,13 +893,18 @@ func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
 		line := p[consumed : consumed+nl+1]
 		consumed += nl + 1
 		if m.raw {
-			if err := m.emit(line); err != nil {
+			if _, err := m.rawOut.Write(line); err != nil {
 				return delivered, err
 			}
-			delivered = consumed
 			if isSSEBlankLine(line) {
+				// The oversized event is over: release the held tail before
+				// normal emits resume so ordering is preserved.
 				m.raw = false
+				if err := m.rawOut.Flush(); err != nil {
+					return delivered, err
+				}
 			}
+			delivered = consumed
 			continue
 		}
 		if len(m.partial) > 0 {
@@ -915,6 +933,10 @@ func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
 // Flush writes out a trailing event that never received its delimiter (a
 // stream cut mid-event), masked if it turns out to be an error frame.
 func (m *sseErrorMaskWriter) Flush() error {
+	if m.raw {
+		m.raw = false
+		return m.rawOut.Flush()
+	}
 	if len(m.partial) > 0 {
 		m.event = append(m.event, m.partial)
 		m.partial = nil
@@ -936,7 +958,8 @@ func (m *sseErrorMaskWriter) spill() error {
 	}
 	out = append(out, m.partial...)
 	m.event, m.partial, m.held, m.raw = nil, nil, 0, true
-	return m.emit(out)
+	_, err := m.rawOut.Write(out)
+	return err
 }
 
 // emitEvent writes the buffered event plus its delimiter (nil when flushing a
@@ -961,8 +984,12 @@ func (m *sseErrorMaskWriter) emitEvent(delimiter []byte) error {
 	return m.emit(out)
 }
 
+// emit writes one complete event with the exact credential scrubbed. Every
+// normal-mode byte the client receives passes here, so a gateway quoting its
+// key in a content event is covered too; raw mode goes through rawOut, which
+// is boundary-safe across chunks.
 func (m *sseErrorMaskWriter) emit(b []byte) error {
-	_, err := m.w.Write(b)
+	_, err := m.w.Write(m.cred.maskExact(b))
 	return err
 }
 

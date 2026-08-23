@@ -680,6 +680,8 @@ func runForwardUpstreamErrorWith(t *testing.T, h *Handler, status int, body stri
 		provider: &provider.Provider{ID: uuid.New(), Name: "opencode-zen"},
 		apiKey:   apiKey,
 	}
+	// beginAttempt stamps this in production; the helper bypasses it.
+	logData.masker = newCredentialMasker(apiKey)
 	resp := &http.Response{
 		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(body)),
@@ -973,10 +975,10 @@ func TestForwardUpstreamError_ForwardedBodyMasksKeyShapedTokens(t *testing.T) {
 	if !json.Valid(w.Body.Bytes()) {
 		t.Errorf("masked body is no longer valid JSON: %s", body)
 	}
-	// Masking is client-side only: the operator's request log keeps the
-	// original body for diagnostics.
-	if !strings.Contains(logData.errorMessage, secret) {
-		t.Errorf("request log lost the original body: %s", logData.errorMessage)
+	// The request log is readable by non-admin users with the logs grant, so
+	// it gets the same scrub.
+	if strings.Contains(logData.errorMessage, secret) {
+		t.Errorf("key-shaped token reached the request log: %s", logData.errorMessage)
 	}
 }
 
@@ -1108,10 +1110,41 @@ func TestForwardUpstreamError_MasksExactProviderKey(t *testing.T) {
 			if strings.Count(got, "[redacted]") != strings.Count(body, secret) {
 				t.Errorf("every occurrence must be masked, got: %s", got)
 			}
-			if !strings.Contains(logData.errorMessage, secret) {
-				t.Errorf("request log lost the original body: %s", logData.errorMessage)
+			if strings.Contains(logData.errorMessage, secret) {
+				t.Errorf("exact key must not reach the request log either: %s", logData.errorMessage)
+			}
+			if !strings.Contains(logData.errorMessage, "[redacted]") {
+				t.Errorf("request log should keep the body with the key redacted: %s", logData.errorMessage)
 			}
 		})
+	}
+}
+
+// exactMaskWriter must see a key split across writes, release everything on
+// Flush, and pass bytes straight through when there is no key to hold for.
+func TestExactMaskWriter(t *testing.T) {
+	const secret = "myCustomGatewayKey2024x9z8"
+	var out bytes.Buffer
+	e := newExactMaskWriter(&out, newCredentialMasker(secret))
+	for _, w := range []string{"prefix " + secret[:9], secret[9:20], secret[20:] + " mid " + secret[:3], secret[3:] + " end"} {
+		if n, err := e.Write([]byte(w)); err != nil || n != len(w) {
+			t.Fatalf("Write = %d, %v; want %d, nil", n, err, len(w))
+		}
+	}
+	if err := e.Flush(); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if got := out.String(); got != "prefix [redacted] mid [redacted] end" {
+		t.Errorf("got %q", got)
+	}
+
+	out.Reset()
+	e = newExactMaskWriter(&out, credentialMasker{})
+	if _, err := e.Write([]byte("raw " + secret)); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "raw "+secret {
+		t.Errorf("no key: bytes must pass through unchanged, got %q", out.String())
 	}
 }
 
