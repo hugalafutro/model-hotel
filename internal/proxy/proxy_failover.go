@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -963,10 +964,7 @@ func (e *exactMaskWriter) Write(p []byte) (int, error) {
 	if len(e.cred.secret) == 0 {
 		return e.w.Write(p)
 	}
-	buf := make([]byte, 0, len(e.tail)+len(p))
-	buf = append(buf, e.tail...)
-	buf = append(buf, p...)
-	buf = e.cred.maskExact(buf)
+	buf := e.cred.maskExact(slices.Concat(e.tail, p))
 	keep := min(len(e.cred.secret)-1, len(buf))
 	out := buf[:len(buf)-keep]
 	e.tail = append([]byte(nil), buf[len(buf)-keep:]...)
