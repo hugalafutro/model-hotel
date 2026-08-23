@@ -177,7 +177,7 @@ func TestRunHedgedStreaming_WinnerErrorFrameMasksExactProviderKey(t *testing.T) 
 
 	const secret = "myCustomGatewayKey2024x9z8"
 	hh := newHedgeHarness([]fakeProbeSpec{
-		{delay: 5 * time.Millisecond, won: true, body: "data: {\"error\":{\"message\":\"billing key " + secret + " is invalid\"}}\n\ndata: [DONE]\n\n"},
+		{delay: 5 * time.Millisecond, won: true, body: "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"key " + secret + "\"}}]}\n\ndata: {\"error\":{\"message\":\"billing key " + secret + " is invalid\"}}\n\ndata: [DONE]\n\n"},
 		{delay: 5 * time.Millisecond, won: true},
 	})
 	st, logData := newHedgeState(500 * time.Millisecond)
@@ -188,11 +188,14 @@ func TestRunHedgedStreaming_WinnerErrorFrameMasksExactProviderKey(t *testing.T) 
 	if strings.Contains(w.Body.String(), secret) {
 		t.Fatalf("winner's provider key reached the client:\n%s", w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), `"content":"key [redacted]"`) {
+		t.Errorf("expected masked content chunk, got:\n%s", w.Body.String())
+	}
 	if !strings.Contains(w.Body.String(), `"message":"billing key [redacted] is invalid"`) {
 		t.Errorf("expected masked error frame, got:\n%s", w.Body.String())
 	}
-	if !strings.Contains(logData.errorMessage, secret) {
-		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, secret) || !strings.Contains(logData.errorMessage, "[redacted]") {
+		t.Errorf("request log must carry the error with the exact key redacted, got %q", logData.errorMessage)
 	}
 }
 

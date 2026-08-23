@@ -414,6 +414,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
+	logData.masker = newCredentialMasker(candidate.apiKey)
 	if st.isFailover {
 		logData.resolvedModelID = candidate.model.ModelID
 	}
@@ -440,7 +441,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		vkHash:             st.vkHash,
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",
-		masker:             newCredentialMasker(candidate.apiKey),
+		masker:             logData.masker,
 	}
 	// attempt is the 0-based failover_attempt this request is logged and stored
 	// with; it must match the value stream_finalize reports for the same request.

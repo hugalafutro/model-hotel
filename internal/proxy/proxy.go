@@ -358,20 +358,27 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// the immutable typed chunk and never emit, so position doesn't affect output.
 		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
 
-		// Mask credential-shaped tokens in an error frame before any emit. A
-		// provider failing mid-stream (auth, billing, quota) can quote the
-		// operator's provider credential inside the error object, and an HTTP 200
-		// stream never passes through forwardUpstreamError's masking. It sits
-		// here, ahead of the transforms, because every transform re-marshals the
-		// whole top-level object (an error frame that also carries a delta or a
-		// mappable finish_reason is rewritten and emitted with "error" intact).
-		// The observer above already took the unmasked message for the request
-		// log; chunk.Error is parsed, so content chunks pay nothing.
+		// Mask the provider's credential before any emit. Every chunk gets the
+		// exact-key pass (a gateway may quote the key in a frame of any shape,
+		// and an HTTP 200 stream never passes through forwardUpstreamError's
+		// masking); an error frame additionally gets the key-shape regex. It
+		// sits here, ahead of the transforms, because every transform
+		// re-marshals the whole top-level object (an error frame that also
+		// carries a delta or a mappable finish_reason is rewritten and emitted
+		// with "error" intact). The observer above already took the message
+		// for the request log, which is exact-masked at finalize. The typed
+		// chunk is re-decoded from the masked bytes because reasoning
+		// normalization rebuilds the delta from it, not from payload; a stale
+		// chunk would hand the transform the original text to re-emit.
+		masked := st.masker.maskExact([]byte(payload))
 		if chunk.Error != nil {
-			if masked := st.masker.mask([]byte(payload)); string(masked) != payload {
-				payload = string(masked)
-				line = append([]byte("data: "), masked...)
-			}
+			masked = maskKeyShapedTokens(masked)
+		}
+		if string(masked) != payload {
+			payload = string(masked)
+			line = append([]byte("data: "), masked...)
+			chunk = streamChunk{}
+			_ = json.Unmarshal(masked, &chunk)
 		}
 
 		// strip_reasoning: drop reasoning-only deltas (keep-alive) or forward the
@@ -536,6 +543,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	if readErr == nil && len(body) > nonStreamingBodyCap {
 		readErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap", nonStreamingBodyCap)
 	}
+	// Exact-key scrub on the whole body: the client answer and the failure
+	// log message both derive from it, and a success body is content where
+	// the key-shape regex must not run.
+	body = logData.masker.maskExact(body)
 	var chatResp ChatCompletionResponse
 	decodeErr := readErr
 	if decodeErr == nil {

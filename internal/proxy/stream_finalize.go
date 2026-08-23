@@ -25,8 +25,9 @@ const (
 // hand-off between the loop and the finalizer; later phases migrate more of the
 // loop-local accumulators here.
 type streamState struct {
-	// masker scrubs the provider's credential from error frames bound for the
-	// client; copied from streamOptions so the chunk handlers can reach it.
+	// masker scrubs the provider's credential from every frame bound for the
+	// client and from the log's error message; copied from streamOptions so
+	// the chunk handlers can reach it.
 	masker                credentialMasker
 	promptTokens          int
 	completionTokens      int
@@ -152,7 +153,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// answered. On the native Anthropic passthrough the chunks are never parsed
 	// into deltas, so its terminal message_stop stands in for the same fact.
 	logData.deliveredContent = st.sawContent || st.sawMessageStop
-	logData.errorMessage = errMsg
+	logData.errorMessage = string(opts.masker.maskExact([]byte(errMsg)))
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
 		logData.statusCode = 0

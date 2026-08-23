@@ -691,7 +691,7 @@ func TestChatCompletions_StreamingErrorFrameMasksExactProviderKey(t *testing.T) 
 	env.Upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi test-api-key\"}}]}\n\n")
 		fmt.Fprint(w, "data: {\"error\":{\"message\":\"billing key test-api-key is invalid\"}}\n\n")
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	})
@@ -713,8 +713,46 @@ func TestChatCompletions_StreamingErrorFrameMasksExactProviderKey(t *testing.T) 
 	if strings.Contains(got, "test-api-key") {
 		t.Fatalf("provider key reached the client through the dispatched stream:\n%s", got)
 	}
+	if !strings.Contains(got, `"content":"hi [redacted]"`) {
+		t.Errorf("expected masked content chunk, got:\n%s", got)
+	}
 	if !strings.Contains(got, `"message":"billing key [redacted] is invalid"`) {
 		t.Errorf("expected masked error frame, got:\n%s", got)
+	}
+}
+
+// The non-streaming answer is content, so only the exact layer runs on it;
+// the per-attempt masker stamped on the log row is what scrubs it. Pins the
+// non-hedged dispatcher as that masker's producer.
+func TestChatCompletions_NonStreamingMasksExactProviderKey(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	defer handler.Close()
+
+	env.Upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id":"c1","object":"chat.completion","model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"your key is test-api-key"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
+	})
+
+	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", w.Code, w.Body.String())
+	}
+	got := w.Body.String()
+	if strings.Contains(got, "test-api-key") {
+		t.Fatalf("provider key reached the client in the non-streaming body:\n%s", got)
+	}
+	if !strings.Contains(got, "your key is [redacted]") {
+		t.Errorf("expected masked content, got:\n%s", got)
 	}
 }
 

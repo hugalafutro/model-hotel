@@ -828,6 +828,60 @@ func TestImageGenerations_JSONPassthrough(t *testing.T) {
 	}
 }
 
+// Buffered JSON pass-through and SSE content events are content, so only the
+// exact layer runs; the env key ("test-api-key") is scrubbed from both.
+func TestImageGenerations_PassthroughMasksExactProviderKeyInContent(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		upstreamBody := `{"created":1,"data":[{"revised_prompt":"key test-api-key","b64_json":"aW1n"}]}`
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, upstreamBody)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+		req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, req)
+		if got := strings.TrimSpace(w.Body.String()); got != `{"created":1,"data":[{"revised_prompt":"key [redacted]","b64_json":"aW1n"}]}` {
+			t.Errorf("buffered body not exact-masked: %s", got)
+		}
+	})
+	t.Run("sse", func(t *testing.T) {
+		sse := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"revised_prompt\":\"key test-api-key\"}\n\n"
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, sse)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true,"partial_images":1}`, env.providerName, env.modelName)
+		req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, req)
+		want := strings.ReplaceAll(sse, "test-api-key", "[redacted]")
+		if w.Body.String() != want {
+			t.Errorf("SSE content not exact-masked:\ngot  %q\nwant %q", w.Body.String(), want)
+		}
+	})
+}
+
+// Oversized is judged before masking: a cap+1 read that shrinks under the cap
+// once the key is redacted must still stream its remainder, byte-complete.
+func TestImageGenerations_OversizedJSONMaskedStillStreamsRemainder(t *testing.T) {
+	huge := strings.Repeat("A", passthroughJSONBufferCap+4096)
+	upstreamBody := `{"created":1,"data":[{"revised_prompt":"key test-api-key","b64_json":"` + huge + `"}]}`
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	want := strings.ReplaceAll(upstreamBody, "test-api-key", "[redacted]")
+	if got := w.Body.String(); got != want {
+		t.Errorf("oversized body mismatch: got %d bytes, want %d (key masked, remainder intact)", len(got), len(want))
+	}
+}
+
 func TestImageGenerations_SSEPassthrough(t *testing.T) {
 	sse := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"cGFydA==\"}\n\nevent: image_generation.completed\ndata: {\"type\":\"image_generation.completed\",\"b64_json\":\"ZnVsbA==\"}\n\n"
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

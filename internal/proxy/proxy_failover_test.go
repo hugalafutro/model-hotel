@@ -680,6 +680,8 @@ func runForwardUpstreamErrorWith(t *testing.T, h *Handler, status int, body stri
 		provider: &provider.Provider{ID: uuid.New(), Name: "opencode-zen"},
 		apiKey:   apiKey,
 	}
+	// beginAttempt stamps this in production; the helper bypasses it.
+	logData.masker = newCredentialMasker(apiKey)
 	resp := &http.Response{
 		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(body)),
@@ -973,7 +975,7 @@ func TestForwardUpstreamError_ForwardedBodyMasksKeyShapedTokens(t *testing.T) {
 	if !json.Valid(w.Body.Bytes()) {
 		t.Errorf("masked body is no longer valid JSON: %s", body)
 	}
-	// Masking is client-side only: the operator's request log keeps the
+	// The key-shape regex is client-side only: the operator's request log keeps the
 	// original body for diagnostics.
 	if !strings.Contains(logData.errorMessage, secret) {
 		t.Errorf("request log lost the original body: %s", logData.errorMessage)
@@ -1108,8 +1110,11 @@ func TestForwardUpstreamError_MasksExactProviderKey(t *testing.T) {
 			if strings.Count(got, "[redacted]") != strings.Count(body, secret) {
 				t.Errorf("every occurrence must be masked, got: %s", got)
 			}
-			if !strings.Contains(logData.errorMessage, secret) {
-				t.Errorf("request log lost the original body: %s", logData.errorMessage)
+			if strings.Contains(logData.errorMessage, secret) {
+				t.Errorf("exact key must not reach the request log either: %s", logData.errorMessage)
+			}
+			if !strings.Contains(logData.errorMessage, "[redacted]") {
+				t.Errorf("request log should keep the body with the key redacted: %s", logData.errorMessage)
 			}
 		})
 	}

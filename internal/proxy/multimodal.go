@@ -556,14 +556,22 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	if passthroughAnswered(logData.endpointType, body) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
+	// Oversized is judged on the bytes read, before masking can shrink a
+	// cap+1 read under the cap and drop the streamed remainder.
+	oversized := len(body) > passthroughJSONBufferCap
+	// Exact-key scrub only: a success body is content, where the key-shape
+	// regex could false-positive. The streamed remainder of an oversized body
+	// is not inspected.
+	body = logData.masker.maskExact(body)
 	copyPassthroughHeaders(w, resp, contentType)
 
-	if len(body) > passthroughJSONBufferCap {
+	if oversized {
 		// Oversized JSON (e.g. several b64 images): forward the buffered
 		// prefix and stream the rest; usage extraction is skipped to keep
 		// memory bounded.
 		w.WriteHeader(resp.StatusCode)
 		written := int64(len(body))
+		//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
 		if _, writeErr := w.Write(body); writeErr == nil {
 			n, _ := io.Copy(w, resp.Body)
 			written += n
@@ -576,6 +584,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	promptTokens, completionTokens := extractPassthroughUsage(body)
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
+	//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
 	if _, writeErr := w.Write(body); writeErr != nil {
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}
@@ -646,7 +655,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	var masker *sseErrorMaskWriter
 	if isSSE {
 		tail = newTailBuffer(passthroughSSETailCap)
-		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail), newCredentialMasker(candidate.apiKey))
+		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail), logData.masker)
 		dst = masker
 	}
 
@@ -823,7 +832,8 @@ const sseErrorMaskEventCap = 4 << 20
 // one event at a time, scrubbing credential-shaped tokens from error frames
 // before they reach the client. Pass-through streams are otherwise copied
 // verbatim, so this is the one place the chat paths' credentialMasker scrub
-// applies to the image/audio endpoints.
+// applies to the image/audio endpoints: the exact key on every byte, the
+// key-shape regex on error frames.
 //
 // It works per event rather than per line because SSE lets one payload span
 // several `data:` lines (joined with "\n"); judging each line alone would let
@@ -961,8 +971,12 @@ func (m *sseErrorMaskWriter) emitEvent(delimiter []byte) error {
 	return m.emit(out)
 }
 
+// emit writes one downstream chunk with the exact credential scrubbed. Every
+// byte the client receives passes here, so a gateway quoting its key in a
+// content event is covered too; a key straddling two raw-mode chunks of an
+// oversized event is the one shape this cannot see.
 func (m *sseErrorMaskWriter) emit(b []byte) error {
-	_, err := m.w.Write(b)
+	_, err := m.w.Write(m.cred.maskExact(b))
 	return err
 }
 

@@ -344,7 +344,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		attempt:            attempt,
 		cancelOrigin:       streamCancelOrigin,
 		rawPassthrough:     st.anthropicNativeAttempt,
-		masker:             newCredentialMasker(candidate.apiKey),
+		masker:             logData.masker,
 	}
 
 	if ttftTimeout > 0 {
@@ -410,6 +410,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
+	logData.masker = newCredentialMasker(candidate.apiKey)
 	if st.isFailover {
 		logData.resolvedModelID = candidate.model.ModelID
 	}
@@ -757,11 +758,12 @@ const forwardableErrorBodyCap = 1 << 20
 // rate limit, not-found, server faults, whether classed by eligibility or by
 // status - gets a synthesised envelope with the classified reason, because
 // those bodies can quote the operator's provider credentials or account
-// details; the body stays in the request log either way. Drains/closes
+// details; the body stays in the request log either way, with only this
+// gateway's own key redacted. Drains/closes
 // resp.Body exactly once and always returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, isFailoverEligible bool, responseHeaderMs float64) candidateOutcome {
-	masker := newCredentialMasker(candidate.apiKey)
 	logData := st.logData
+	masker := logData.masker
 	mayForwardError := !isFailoverEligible && forwardableErrorStatus(resp.StatusCode)
 	// How much of the body is worth holding depends on what happens to it
 	// below. A 2xx is forwarded whole - truncating a success would corrupt it.
@@ -801,7 +803,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	h.failRequest(logData, resp.StatusCode, kind, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(logData, resp.StatusCode, kind, string(masker.maskExact([]byte(errMsg))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	// A 2xx that reached this function (any success status other than a bare
 	// 200) is not an error at all and is forwarded whatever its body is,
@@ -812,7 +814,8 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	if resp.StatusCode/100 == 2 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		_, _ = w.Write(body)
+		//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
+		_, _ = w.Write(masker.maskExact(body))
 		return outcomeFatal
 	}
 
@@ -822,7 +825,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// static status class. Their bodies are the ones that can quote the
 		// operator's provider credentials ("Incorrect API key provided:
 		// sk-...") or account details a virtual-key holder must not see, so the
-		// body stays in the DB request log via failRequest and the caller gets
+		// body (own key redacted) stays in the DB request log via failRequest and the caller gets
 		// the classified reason: enough to tell "this model is gone" from "top
 		// up your account" from "try again shortly".
 		writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, resp.StatusCode, reason), resp.StatusCode)
@@ -842,6 +845,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// provider-authored free text.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
+		//nolint:gosec // G705 false positive: provider JSON error body, not HTML; Content-Type is application/json
 		_, _ = w.Write(masker.mask(body))
 	case json.Valid(body):
 		// A non-2xx whose JSON body carries no error object. OpenCode Zen and
@@ -896,8 +900,10 @@ const credentialMinLen = 8
 // error text: the buffered paths in forwardUpstreamError and the in-stream
 // error frames on the translated (handleDataChunk), native Anthropic
 // (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
-// zero value masks by shape only. Client-side only: the request log keeps the
-// original body.
+// zero value masks by shape only. The exact layer alone (maskExact) also runs
+// on every other provider body a client receives and on the request log's
+// error message; the regex layer is client-side error text only, so the log
+// keeps everything but this gateway's own key.
 type credentialMasker struct {
 	secret []byte
 }
@@ -911,12 +917,21 @@ func newCredentialMasker(apiKey string) credentialMasker {
 
 // mask returns body with every occurrence of the exact credential, then any
 // key-shaped token, replaced by "[redacted]". The exact pass runs first so the
-// regex cannot split the key and leave a recognisable remainder.
+// regex cannot split the key and leave a recognisable remainder. For error
+// frames and bodies only: the regex layer can match prose.
 func (m credentialMasker) mask(body []byte) []byte {
+	return maskKeyShapedTokens(m.maskExact(body))
+}
+
+// maskExact replaces only the exact credential. It cannot false-positive, so
+// it is safe on every provider body bound for a client (content chunks,
+// success bodies) and on the request log, where it closes the read a
+// VK-owning dashboard user has on their own failed requests.
+func (m credentialMasker) maskExact(body []byte) []byte {
 	if len(m.secret) > 0 && bytes.Contains(body, m.secret) {
-		body = bytes.ReplaceAll(body, m.secret, []byte("[redacted]"))
+		return bytes.ReplaceAll(body, m.secret, []byte("[redacted]"))
 	}
-	return maskKeyShapedTokens(body)
+	return body
 }
 
 // maskKeyShapedTokens scrubs credential-looking substrings from an upstream
