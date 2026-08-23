@@ -887,14 +887,12 @@ func TestRestoreBackup_PgRestoreNotFound(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		if w.Code != http.StatusPreconditionFailed {
-			fmt.Printf("NO_PG_RESTORE: expected 412, got %d: %s\n", w.Code, w.Body.String())
-			os.Exit(1)
+			t.Fatalf("NO_PG_RESTORE: expected 412, got %d: %s", w.Code, w.Body.String())
 		}
 		if !strings.Contains(w.Body.String(), "pg_restore not found") {
-			fmt.Printf("NO_PG_RESTORE: expected error to mention pg_restore, got: %s\n", w.Body.String())
-			os.Exit(1)
+			t.Fatalf("NO_PG_RESTORE: expected error to mention pg_restore, got: %s", w.Body.String())
 		}
-		os.Exit(0)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_PgRestoreNotFound")
@@ -924,8 +922,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		// Create a valid dump so RestoreBackup passes pg_restore --list validation.
 		u, err := url.Parse(apiTestDBURL)
 		if err != nil {
-			fmt.Printf("EXTRACT_MIG: failed to parse DB URL: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("EXTRACT_MIG: failed to parse DB URL: %v", err)
 		}
 		dumpPath := filepath.Join(dir, "test.dump")
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -943,8 +940,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 			}
 		}
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("EXTRACT_MIG: pg_dump failed: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("EXTRACT_MIG: pg_dump failed: %v", err)
 		}
 
 		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
@@ -959,8 +955,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 
 		dumpContent, err := os.ReadFile(dumpPath)
 		if err != nil {
-			fmt.Printf("EXTRACT_MIG: failed to read dump file: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("EXTRACT_MIG: failed to read dump file: %v", err)
 		}
 
 		var buf bytes.Buffer
@@ -972,7 +967,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 
 		// Set TMPDIR to non-existent path so extractMigrationNames' filter file
 		// creation fails. Safe to do here since we're in an isolated subprocess.
-		os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
+		t.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
 
 		req := httptest.NewRequest("POST", "/backups/restore", &buf)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -980,14 +975,12 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		if w.Code != http.StatusInternalServerError {
-			fmt.Printf("EXTRACT_MIG: expected 500, got %d: %s\n", w.Code, w.Body.String())
-			os.Exit(1)
+			t.Fatalf("EXTRACT_MIG: expected 500, got %d: %s", w.Code, w.Body.String())
 		}
 		if !strings.Contains(w.Body.String(), "failed to extract migration info") {
-			fmt.Printf("EXTRACT_MIG: expected error to mention extraction failure, got: %s\n", w.Body.String())
-			os.Exit(1)
+			t.Fatalf("EXTRACT_MIG: expected error to mention extraction failure, got: %s", w.Body.String())
 		}
-		os.Exit(0)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_ExtractMigrationsError")
@@ -1064,18 +1057,15 @@ func TestSaveUploadedDump_CreateTempError(t *testing.T) {
 		// Restore permissions for cleanup
 		os.Chmod(dir, 0o755)
 		if ok {
-			fmt.Printf("CREATE_TEMP: expected saveUploadedDump to fail\n")
-			os.Exit(1)
+			t.Fatalf("CREATE_TEMP: expected saveUploadedDump to fail")
 		}
 		if tmpPath != "" {
-			fmt.Printf("CREATE_TEMP: expected empty tmpPath, got %q\n", tmpPath)
-			os.Exit(1)
+			t.Fatalf("CREATE_TEMP: expected empty tmpPath, got %q", tmpPath)
 		}
 		if w.Code != http.StatusInternalServerError {
-			fmt.Printf("CREATE_TEMP: expected 500, got %d: %s\n", w.Code, w.Body.String())
-			os.Exit(1)
+			t.Fatalf("CREATE_TEMP: expected 500, got %d: %s", w.Code, w.Body.String())
 		}
-		os.Exit(0)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestSaveUploadedDump_CreateTempError")
@@ -1106,7 +1096,7 @@ func TestRestoreBackup_SaveUploadedDumpIOCopyError(t *testing.T) {
 		// This is a more direct test: the temp file is created but
 		// io.Copy fails because the file handle was closed.
 		// Since we can't easily trigger this, the test documents the path.
-		os.Exit(0)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_SaveUploadedDumpIOCopyError")

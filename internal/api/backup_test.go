@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -831,14 +830,12 @@ func TestCreateBackup_NoPgDump_ManipulatedPATH(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		if w.Code != http.StatusPreconditionFailed {
-			fmt.Printf("NO_PG_DUMP: expected 412, got %d: %s\n", w.Code, w.Body.String())
-			os.Exit(1)
+			t.Fatalf("NO_PG_DUMP: expected 412, got %d: %s", w.Code, w.Body.String())
 		}
 		if !strings.Contains(w.Body.String(), "pg_dump not found") {
-			fmt.Printf("NO_PG_DUMP: expected error to mention pg_dump, got: %s\n", w.Body.String())
-			os.Exit(1)
+			t.Fatalf("NO_PG_DUMP: expected error to mention pg_dump, got: %s", w.Body.String())
 		}
-		os.Exit(0)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestCreateBackup_NoPgDump_ManipulatedPATH")
@@ -900,19 +897,17 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 		// Test L39-41: NewBackupHandler falls back to original path
 		h := NewBackupHandler("postgres://test", "my_backup_dir", &mockAdminAuth{}, nil)
 		if h.backupDir != "my_backup_dir" {
-			fmt.Printf("FALLBACK FAILED: expected my_backup_dir, got %q\n", h.backupDir)
-			os.Exit(1)
+			t.Fatalf("FALLBACK FAILED: expected my_backup_dir, got %q", h.backupDir)
 		}
 
 		// Test L192-194: validateBackupFilename returns "" when filepath.Abs fails
 		result := h.validateBackupFilename("test.dump")
 		if result != "" {
-			fmt.Printf("PREFIX CHECK FAILED: expected empty string, got %q\n", result)
-			os.Exit(1)
+			t.Fatalf("PREFIX CHECK FAILED: expected empty string, got %q", result)
 		}
 
 		// Success
-		os.Exit(0)
+		return
 	}
 
 	// Parent: create a temp dir, start subprocess with it as CWD, then delete it
