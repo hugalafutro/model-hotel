@@ -113,6 +113,8 @@ export interface LogEntry {
 	virtual_key_name: string;
 	virtual_key_deleted?: boolean;
 	virtual_key_id?: string;
+	/** Trusted-proxy-aware client address; "" or absent for rows predating it. */
+	client_ip?: string;
 	error_message: string;
 	/** Machine-readable failure classification; "" or absent for legacy rows. */
 	error_kind?: string;

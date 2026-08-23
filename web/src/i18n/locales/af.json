@@ -1304,7 +1304,9 @@
 			"allStatus": "Alle statusse",
 			"allEndpoints": "Alle modaliteite",
 			"owner": "Eienaar",
-			"allOwners": "Alle gebruikers"
+			"allOwners": "Alle gebruikers",
+			"key": "Virtuele sleutel",
+			"allKeys": "Alle sleutels"
 		},
 		"endpoint": {
 			"chat": "Klets",
@@ -1333,7 +1335,8 @@
 			"live": "Regstreeks",
 			"interrupted": "onderbroke",
 			"cacheInflated": "Opgeblaas deur opdrag-kastreffers",
-			"keyDeleted": "Verwyder"
+			"keyDeleted": "Verwyder",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Tydstempel van die versoek",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Sleutelontsleuteling",
 			"dial": "Dial (DNS+TCP)",
 			"settingsReads": "Instellings lees",
-			"reused": "hergebruik"
+			"reused": "hergebruik",
+			"ip": "Kliënt-IP-adres waarvandaan die versoek gekom het"
 		},
 		"status": {
 			"interrupted": "onderbroke"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Kopieer model-ID",
 			"resolved": "opgelos",
 			"provider": "Verskaffer",
-			"dbRowId": "DB-ry-ID",
 			"timestamp": "Tydstempel",
-			"copyDbRowId": "Kopieer DB-ry-ID",
 			"virtualKey": "Virtuele Sleutel",
 			"tokenUsage": "Tokengebruik",
 			"prompt": "Opdrag",
@@ -2753,7 +2755,9 @@
 			"error": "Fout",
 			"copyErrorMessage": "Kopieer foutboodskap",
 			"expandForBreakdown": "Brei uit vir die stap-vir-stap-uiteensetting",
-			"performance": "Prestasie"
+			"performance": "Prestasie",
+			"clientIp": "Kliënt-IP",
+			"copyClientIp": "Kopieer kliënt-IP"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",
@@ -2794,7 +2798,8 @@
 			"internal": "intern",
 			"cacheInflated": "Opgeblaas deur opdrag-kastreffers",
 			"deleted": "Verwyder",
-			"zeroEntries": "0 inskrywings"
+			"zeroEntries": "0 inskrywings",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Geen loginskrywings gevind nie",

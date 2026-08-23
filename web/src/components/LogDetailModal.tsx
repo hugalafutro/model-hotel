@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Activity, Calendar, FileText, Tag } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../api/types";
+import { decodeLogEscapes } from "../utils/logText";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { formatDateTime } from "./logDetailUtils";
@@ -67,7 +68,7 @@ function AppLogDetail({
 					label={t("components.appLogDetail.message")}
 					labelExtra={
 						<CopyablePill
-							text={log.message}
+							text={decodeLogEscapes(log.message)}
 							displayText={t("common.copy")}
 							tooltip={t("components.appLogDetail.copyMessage")}
 							textClassName="text-[11px] uppercase tracking-wider"
@@ -77,7 +78,7 @@ function AppLogDetail({
 				>
 					<MaybeJsonBlock
 						className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto"
-						text={log.message}
+						text={decodeLogEscapes(log.message)}
 					/>
 				</DetailItem>
 			</div>

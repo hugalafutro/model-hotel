@@ -86,6 +86,7 @@ export const GitBranch = withId(Ph.GitBranchIcon, "GitBranch");
 export const GitCompare = withId(Ph.GitDiffIcon, "GitCompare");
 export const HardDrive = withId(Ph.HardDriveIcon, "HardDrive");
 export const Server = withId(Ph.HardDrivesIcon, "Server");
+export const Globe = withId(Ph.GlobeIcon, "Globe");
 export const Hash = withId(Ph.HashIcon, "Hash");
 export const Image = withId(Ph.ImageIcon, "Image");
 export const Info = withId(Ph.InfoIcon, "Info");

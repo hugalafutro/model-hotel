@@ -56,6 +56,7 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	streaming := logEntry.streaming
 	virtualKeyName := logEntry.virtualKeyName
 	virtualKeyID := logEntry.virtualKeyID
+	clientIP := logEntry.clientIP
 	ownerUserID := logEntry.ownerUserID
 	failoverAttempt := logEntry.failoverAttempt
 	state := logEntry.state
@@ -88,10 +89,16 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		if vkID == nil && ownerUserID != "" {
 			ownerID = ownerUserID
 		}
+		// NULL (not "") when the ingest path had no client address, so old and
+		// address-less rows look the same to the dashboard.
+		var ip any
+		if clientIP != "" {
+			ip = clientIP
+		}
 		_, err := h.dbPool.Exec(ctx, `
-			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type, owner_user_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType, ownerID,
+			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type, owner_user_id, client_ip)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType, ownerID, ip,
 		)
 		if err != nil {
 			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)

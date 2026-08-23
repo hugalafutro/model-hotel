@@ -1304,7 +1304,9 @@
 			"allStatus": "Alle statuser",
 			"allEndpoints": "Alle modaliteter",
 			"owner": "Eier",
-			"allOwners": "Alle brukere"
+			"allOwners": "Alle brukere",
+			"key": "Virtuell nøkkel",
+			"allKeys": "Alle nøkler"
 		},
 		"endpoint": {
 			"chat": "Samtale",
@@ -1333,7 +1335,8 @@
 			"live": "Direkte",
 			"interrupted": "Avbrutt",
 			"cacheInflated": "Blåst opp av treff i prompt-bufferen",
-			"keyDeleted": "Slettet"
+			"keyDeleted": "Slettet",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Nøkkel dekryptering",
 			"dial": "Dial (DNS+TCP)",
 			"settingsReads": "Innstillinger Leser",
-			"reused": "gjenbrukt"
+			"reused": "gjenbrukt",
+			"ip": "Klientens IP-adresse som forespørselen kom fra"
 		},
 		"status": {
 			"interrupted": "Avbrutt"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Kopier modell-ID",
 			"resolved": "løst",
 			"provider": "Leverandør",
-			"dbRowId": "DB rad ID",
 			"timestamp": "Tidsstempel",
-			"copyDbRowId": "Kopier rad-ID for DB",
 			"virtualKey": "Virtuell nøkkel",
 			"tokenUsage": "Token bruk",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Feil",
 			"copyErrorMessage": "Kopier feilmelding",
 			"expandForBreakdown": "Utvid for fordelingen per trinn",
-			"performance": "Ytelse"
+			"performance": "Ytelse",
+			"clientIp": "Klient-IP",
+			"copyClientIp": "Kopier klient-IP"
 		},
 		"statusBadge": {
 			"streaming": "Strømming",
@@ -2794,7 +2798,8 @@
 			"internal": "intern",
 			"cacheInflated": "Blåst opp av treff i prompt-bufferen",
 			"deleted": "Slettet",
-			"zeroEntries": "0 oppføringer"
+			"zeroEntries": "0 oppføringer",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Ingen loggoppføringer funnet",

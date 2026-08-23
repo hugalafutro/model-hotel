@@ -1037,3 +1037,46 @@ func TestGetAppLogsCursor_SortDirAsc(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// TestGetAppLogs_SearchMatchesEscapedSpaces verifies a search term with a
+// space also matches messages whose attribute values carry the \x20 space
+// escaping from quoteLogValue (a search for a provider name like
+// "Ollama Cloud" must find `provider="Ollama\x20Cloud"` lines).
+func TestGetAppLogs_SearchMatchesEscapedSpaces(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	_, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO app_logs (timestamp, level, source, message) VALUES (now(), 'info', 'discovery', $1)`,
+		`account fetched provider="Ollama\x20Cloud" plan=pro`)
+	if err != nil {
+		t.Fatalf("insert app log: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/logs/app?history=true&search=Ollama+Cloud", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Entries []struct {
+			Message string `json:"message"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("parse response: %v", err)
+	}
+	found := false
+	for _, e := range response.Entries {
+		if strings.Contains(e.Message, `Ollama\x20Cloud`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("search=Ollama Cloud did not match the \\x20-escaped message; got %d entries", len(response.Entries))
+	}
+}

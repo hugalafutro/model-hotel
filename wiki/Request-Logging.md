@@ -46,6 +46,8 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `tokens_completion_reasoning` | INT | Reasoning tokens (DeepSeek-R1, etc.). Written to DB and exposed in Logs API. |
 | `tokens_prompt_cache_hit` | INT | Prompt cache hit tokens (DeepSeek). Written to DB and exposed in the Logs API response. |
 | `tokens_prompt_cache_miss` | INT | Prompt cache miss tokens (DeepSeek). Written to DB and exposed in the Logs API response. |
+| `owner_user_id` | UUID | Owning dashboard user, stored **only** for keyless rows (dashboard chat/arena); keyed rows resolve their owner through the key's current owner instead (migration 067) |
+| `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
 
 ### Privacy Note
@@ -104,8 +106,8 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
     logEntry.requestHash = generateRequestHash()
     
     // Async INSERT with minimal fields
-    INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type, owner_user_id, client_ip)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 }
 ```
 
@@ -118,6 +120,9 @@ Fields written at this stage:
 - `virtual_key_id` - From context (if authenticated)
 - `failover_attempt` - `0` initially
 - `state` - `"pending"`
+- `endpoint_type` - Endpoint family (`chat` when unset)
+- `owner_user_id` - Only for keyless dashboard rows (see the schema table)
+- `client_ip` - Trusted-proxy-resolved client address (NULL when the ingest path had none)
 
 All other fields are NULL at this point. The INSERT runs in a goroutine with a 5-second timeout.
 
@@ -523,6 +528,9 @@ The `request_logs` table has evolved through these migrations:
 | `042_cache_hits.sql` | Added: `cache_hits` JSONB (per-component cache hit/miss flags) |
 | `043_endpoint_type.sql` | Added: `endpoint_type` with default `'chat'` (multimodal proxy endpoints: embeddings, image, tts, stt) |
 | `045_error_kind.sql` | Added: `error_kind` (nullable machine-readable failure classification; no backfill) |
+| `067_request_log_owner.sql` | Added: `owner_user_id` (keyless-row attribution) + a partial index on it |
+| `073_request_log_client_ip.sql` | Added: `client_ip` (trusted-proxy-resolved client address; no backfill) |
+| `074_request_log_vk_index.sql` | Added a partial index on `virtual_key_id` for the Logs page's virtual-key filter |
 
 ## Implementation Details
 

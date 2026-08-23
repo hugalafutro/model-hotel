@@ -670,6 +670,8 @@ export const api = {
 				to?: string;
 				sort_by?: string;
 				sort_dir?: string;
+				/** Filter to a single virtual key's traffic. */
+				virtual_key_id?: string;
 				/** Admin-only filter: scope to keys owned by this user. */
 				owner_user_id?: string;
 			} = {},
@@ -686,6 +688,7 @@ export const api = {
 					to: params.to,
 					sort_by: params.sort_by,
 					sort_dir: params.sort_dir,
+					virtual_key_id: params.virtual_key_id,
 					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },
@@ -724,6 +727,8 @@ export const api = {
 			from?: string;
 			to?: string;
 			sort_dir?: string;
+			/** Filter to a single virtual key's traffic. */
+			virtual_key_id?: string;
 			/** Admin-only filter: scope to keys owned by this user. */
 			owner_user_id?: string;
 		}): Promise<LogsCursorResponse> => {
@@ -739,6 +744,7 @@ export const api = {
 					from: params.from,
 					to: params.to,
 					sort_dir: params.sort_dir,
+					virtual_key_id: params.virtual_key_id,
 					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },

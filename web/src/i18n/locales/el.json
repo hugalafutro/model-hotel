@@ -1304,7 +1304,9 @@
 			"allStatus": "Όλες οι καταστάσεις",
 			"allEndpoints": "Όλες οι λειτουργίες",
 			"owner": "Κάτοχος",
-			"allOwners": "Όλοι οι χρήστες"
+			"allOwners": "Όλοι οι χρήστες",
+			"key": "Εικονικό κλειδί",
+			"allKeys": "Όλα τα κλειδιά"
 		},
 		"endpoint": {
 			"chat": "Συνομιλία",
@@ -1333,7 +1335,8 @@
 			"live": "Ζωντανά",
 			"interrupted": "Διακόπηκε",
 			"cacheInflated": "Διογκωμένο από επιτυχίες προσωρινής μνήμης προτροπής",
-			"keyDeleted": "Διαγράφηκε"
+			"keyDeleted": "Διαγράφηκε",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Χρονοσήμανση της αίτησης",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Αποκρυπτογράφηση Κλειδιού",
 			"dial": "Κλήση (DNS+TCP)",
 			"settingsReads": "Ανάγνωση Ρυθμίσεων",
-			"reused": "επαναχρησιμοποίηση"
+			"reused": "επαναχρησιμοποίηση",
+			"ip": "Διεύθυνση IP του πελάτη από την οποία ήρθε το αίτημα"
 		},
 		"status": {
 			"interrupted": "Διακόπηκε"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Αντιγραφή ID μοντέλου",
 			"resolved": "επιλύθηκε",
 			"provider": "Πάροχος",
-			"dbRowId": "Αναγνωριστικό Γραμμής Βάσης Δεδομένων",
 			"timestamp": "Χρονοσήμανση",
-			"copyDbRowId": "Αντιγραφή ID γραμμής DB",
 			"virtualKey": "Εικονικό Κλειδί",
 			"tokenUsage": "Χρήση Token",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Σφάλμα",
 			"copyErrorMessage": "Αντιγραφή μηνύματος σφάλματος",
 			"expandForBreakdown": "Αναπτύξτε για την ανάλυση ανά βήμα",
-			"performance": "Επιδόσεις"
+			"performance": "Επιδόσεις",
+			"clientIp": "IP πελάτη",
+			"copyClientIp": "Αντιγραφή IP πελάτη"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",
@@ -2794,7 +2798,8 @@
 			"internal": "εσωτερικός",
 			"cacheInflated": "Διογκωμένο από επιτυχίες προσωρινής μνήμης προτροπής",
 			"deleted": "Διαγράφηκε",
-			"zeroEntries": "0 καταχωρήσεις"
+			"zeroEntries": "0 καταχωρήσεις",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Δεν βρέθηκαν καταχωρήσεις καταγραφής",

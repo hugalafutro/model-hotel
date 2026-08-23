@@ -20,6 +20,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -482,7 +483,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.doTestModelRequest(r.Context(), providerType, targetURL, m.ModelID, apiKey, baseBody)
 	if err != nil {
 		durationMs := float64(time.Since(start).Milliseconds())
-		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error())
+		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error(), clientip.From(r))
 		writeJSON(w, TestModelResponse{Error: err.Error()})
 		return
 	}
@@ -493,13 +494,13 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	if resp.StatusCode != http.StatusOK {
 		errMsg := util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000)
-		h.logTestModelHTTPError(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg)
+		h.logTestModelHTTPError(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r))
 		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
 		return
 	}
 
 	content, tps, promptTokens, completionTokens := parseTestModelResponse(respBody, duration)
-	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens)
+	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r))
 	writeJSON(w, TestModelResponse{
 		Success:          true,
 		Streaming:        false,
@@ -707,21 +708,21 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 
 // logTestModelRequestError records a failed test request (the upstream call
 // never completed) as a 502 "failed" request_logs row.
-func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg string) {
+func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
 	logQuery := `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
 			latency_ms, duration_ms, response_header_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-			error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
+			error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 	`
 	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
 		m.ProviderID, m.ModelID, reqHash, 502,
 		durationMs, durationMs, 0,
 		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		errMsg, false, "internal", nil, 0, "failed",
+		errMsg, false, "internal", nil, 0, "failed", textOrNull(clientIP),
 	)
 	if logErr != nil {
 		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
@@ -730,21 +731,21 @@ func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, 
 
 // logTestModelHTTPError records a test request that reached the upstream but
 // returned a non-200 status as a "failed" request_logs row.
-func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg string) {
+func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
 	logQuery := `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
 			latency_ms, duration_ms, response_header_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-			error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
+			error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 	`
 	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
 		m.ProviderID, m.ModelID, reqHash, statusCode,
 		durationMs, durationMs, 0,
 		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
+		errMsg, 0, 0, 0, false, "internal", nil, 0, "failed", textOrNull(clientIP),
 	)
 	if logErr != nil {
 		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
@@ -755,25 +756,34 @@ func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, req
 // "completed" request_logs row. For a non-streaming test, response_header_ms
 // equals total duration (no separate streaming phase) and ttft_ms is stored as
 // 0 to indicate non-streaming.
-func (h *Handler) logTestModelCompleted(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs, tps float64, promptTokens, completionTokens int) {
+func (h *Handler) logTestModelCompleted(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs, tps float64, promptTokens, completionTokens int, clientIP string) {
 	logQuery := `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
 			latency_ms, duration_ms, response_header_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
+			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 	`
 	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
 		m.ProviderID, m.ModelID, reqHash, statusCode,
 		durationMs, durationMs, durationMs,
 		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		tps, promptTokens, completionTokens, false, "internal", nil, 0, "completed",
+		tps, promptTokens, completionTokens, false, "internal", nil, 0, "completed", textOrNull(clientIP),
 	)
 	if logErr != nil {
 		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
 	}
+}
+
+// textOrNull maps "" to NULL so address-less rows look the same as rows
+// predating the client_ip column.
+func textOrNull(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.

@@ -274,7 +274,7 @@ Applied **before authentication**, before the per-key limiter:
 - Always active when `RATE_LIMIT_ENABLED=true` (cannot be bypassed by users)
 - Mounted before auth middleware to catch unauthenticated floods (brute-force key guessing, etc.)
 - Respects `X-Forwarded-For` and `X-Real-IP` headers only when request originates from trusted proxy (configured via `TRUSTED_PROXIES` CIDR list)
-- The same resolved client IP is what access log lines, auth warnings, the audit trail, and the active-sessions list record, so every surface reports one consistent address per request
+- The same resolved client IP is what access log lines, auth warnings, the audit trail, the active-sessions list, and each request-log row (`request_logs.client_ip`) record, so every surface reports one consistent address per request
 - List only CIDRs of proxies you control in `TRUSTED_PROXIES`: an entry there lets that peer's forwarded header dictate the address recorded in logs and the audit trail, so an over-broad list (never use `0.0.0.0/0`) turns the audit trail forgeable
 
 ### Layer 2: Per-Virtual-Key Rate Limiting (Usage Control)

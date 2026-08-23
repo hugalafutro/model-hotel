@@ -1304,7 +1304,9 @@
 			"allStatus": "Tüm Durumlar",
 			"allEndpoints": "Tüm Modaliteler",
 			"owner": "Sahip",
-			"allOwners": "Tüm kullanıcılar"
+			"allOwners": "Tüm kullanıcılar",
+			"key": "Sanal anahtar",
+			"allKeys": "Tüm anahtarlar"
 		},
 		"endpoint": {
 			"chat": "Sohbet",
@@ -1333,7 +1335,8 @@
 			"live": "Canlı",
 			"interrupted": "Kesintiye uğramış",
 			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
-			"keyDeleted": "Silindi"
+			"keyDeleted": "Silindi",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "İsteğin zaman damgası",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Anahtar Şifre Çözme",
 			"dial": "Arama (DNS+TCP)",
 			"settingsReads": "Ayar Okumaları",
-			"reused": "yeniden kullanılmış"
+			"reused": "yeniden kullanılmış",
+			"ip": "İsteğin geldiği istemci IP adresi"
 		},
 		"status": {
 			"interrupted": "Kesintiye uğramış"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Model kimliğini kopyala",
 			"resolved": "çözümlendi",
 			"provider": "Sağlayıcı",
-			"dbRowId": "Veritabanı Satır Kimliği",
 			"timestamp": "Zaman damgası",
-			"copyDbRowId": "Veritabanı satır kimliğini kopyala",
 			"virtualKey": "Sanal Anahtar",
 			"tokenUsage": "Jeton Kullanımı",
 			"prompt": "Komut",
@@ -2753,7 +2755,9 @@
 			"error": "Hata",
 			"copyErrorMessage": "Hata mesajını kopyala",
 			"expandForBreakdown": "Adım adım dökümü görmek için genişletin",
-			"performance": "Performans"
+			"performance": "Performans",
+			"clientIp": "İstemci IP'si",
+			"copyClientIp": "İstemci IP'sini kopyala"
 		},
 		"statusBadge": {
 			"streaming": "Akış",
@@ -2794,7 +2798,8 @@
 			"internal": "iç",
 			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
 			"deleted": "Silindi",
-			"zeroEntries": "0 kayıt"
+			"zeroEntries": "0 kayıt",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Günlük girdisi bulunamadı",

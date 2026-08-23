@@ -1388,7 +1388,9 @@
 			"allStatus": "Všetky stavy",
 			"allEndpoints": "Všetky modality",
 			"owner": "Vlastník",
-			"allOwners": "Všetci používatelia"
+			"allOwners": "Všetci používatelia",
+			"key": "Virtuálny kľúč",
+			"allKeys": "Všetky kľúče"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1417,7 +1419,8 @@
 			"live": "Naživo",
 			"interrupted": "Prerušené",
 			"cacheInflated": "Navýšené zásahmi do cache výziev",
-			"keyDeleted": "Odstránené"
+			"keyDeleted": "Odstránené",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Časová pečiatka požiadavky",
@@ -1441,7 +1444,8 @@
 			"keyDecryption": "Dešifrovanie kľúča",
 			"dial": "Vytočenie (DNS+TCP)",
 			"settingsReads": "Čítania nastavení",
-			"reused": "opätovne použitý"
+			"reused": "opätovne použitý",
+			"ip": "IP adresa klienta, z ktorej požiadavka prišla"
 		},
 		"status": {
 			"interrupted": "Prerušené"
@@ -2841,9 +2845,7 @@
 			"copyModelId": "Skopírovať ID modelu",
 			"resolved": "vyriešené",
 			"provider": "Poskytovateľ",
-			"dbRowId": "ID riadku v databáze",
 			"timestamp": "Časová pečiatka",
-			"copyDbRowId": "Kopírovať ID riadku databázy",
 			"virtualKey": "Virtuálny kľúč",
 			"tokenUsage": "Použitie tokenov",
 			"prompt": "Výzva",
@@ -2873,7 +2875,9 @@
 			"error": "Chyba",
 			"copyErrorMessage": "Skopírujte chybovú správu",
 			"expandForBreakdown": "Rozbaľte pre podrobné rozdelenie podľa krokov",
-			"performance": "Výkon"
+			"performance": "Výkon",
+			"clientIp": "IP klienta",
+			"copyClientIp": "Kopírovať IP klienta"
 		},
 		"statusBadge": {
 			"streaming": "Streamovanie",
@@ -2914,7 +2918,8 @@
 			"internal": "interný",
 			"cacheInflated": "Navýšené zásahmi do cache výziev",
 			"deleted": "Odstránené",
-			"zeroEntries": "0 záznamov"
+			"zeroEntries": "0 záznamov",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nenašli sa žiadne záznamy v protokole",

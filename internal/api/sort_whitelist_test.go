@@ -53,7 +53,7 @@ func TestModelSortColumn_Whitelist(t *testing.T) {
 func TestLogsSortDef_Whitelist(t *testing.T) {
 	valid := []string{
 		"time", "model", "provider", "status", "tokens", "tps", "ttft",
-		"response_header_ms", "duration", "overhead", "key",
+		"response_header_ms", "duration", "overhead", "key", "ip",
 	}
 	validSet := map[string]bool{}
 	for _, k := range valid {
@@ -79,6 +79,8 @@ func TestLogsSortDef_Whitelist(t *testing.T) {
 		"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END":  true,
 		"rl.proxy_overhead_ms":                                  true,
 		"CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END": true,
+		"CASE WHEN COALESCE(rl.client_ip, '') = '' THEN 1 ELSE 0 END":                                                                                            true,
+		"COALESCE(rl.client_ip, '')": true,
 	}
 	for _, in := range append(append([]string{}, valid...), hostileSortInputs...) {
 		_, def := logsSortDef(in)

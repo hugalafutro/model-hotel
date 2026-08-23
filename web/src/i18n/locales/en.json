@@ -1304,7 +1304,9 @@
 			"source": "Source",
 			"logsPlaceholder": "Filter logs…",
 			"owner": "Owner",
-			"allOwners": "All users"
+			"allOwners": "All users",
+			"key": "Virtual key",
+			"allKeys": "All keys"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1333,7 +1335,8 @@
 			"live": "Live",
 			"interrupted": "Interrupted",
 			"cacheInflated": "Inflated by prompt cache hits",
-			"keyDeleted": "Deleted"
+			"keyDeleted": "Deleted",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Timestamp of the request",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Key Decryption",
 			"dial": "Dial (DNS+TCP)",
 			"settingsReads": "Settings Reads",
-			"reused": "reused"
+			"reused": "reused",
+			"ip": "Client IP address the request came from"
 		},
 		"status": {
 			"interrupted": "Interrupted"
@@ -2722,9 +2726,7 @@
 			"copyModelId": "Copy model ID",
 			"resolved": "resolved",
 			"provider": "Provider",
-			"dbRowId": "DB Row ID",
 			"timestamp": "Timestamp",
-			"copyDbRowId": "Copy DB row ID",
 			"virtualKey": "Virtual Key",
 			"tokenUsage": "Token Usage",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"totalOverhead": "Total Overhead",
 			"error": "Error",
 			"copyErrorMessage": "Copy error message",
-			"expandForBreakdown": "Expand for the per-step breakdown"
+			"expandForBreakdown": "Expand for the per-step breakdown",
+			"clientIp": "Client IP",
+			"copyClientIp": "Copy client IP"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2794,7 +2798,8 @@
 			"internal": "internal",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"deleted": "Deleted",
-			"zeroEntries": "0 entries"
+			"zeroEntries": "0 entries",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No log entries found",

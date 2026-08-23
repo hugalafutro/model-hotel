@@ -1304,7 +1304,9 @@
 			"allStatus": "Kaikki tilat",
 			"allEndpoints": "Kaikki modaliteetit",
 			"owner": "Omistaja",
-			"allOwners": "Kaikki käyttäjät"
+			"allOwners": "Kaikki käyttäjät",
+			"key": "Virtuaalinen avain",
+			"allKeys": "Kaikki avaimet"
 		},
 		"endpoint": {
 			"chat": "Keskustelu",
@@ -1333,7 +1335,8 @@
 			"live": "Suora",
 			"interrupted": "Keskeytetty",
 			"cacheInflated": "Kasvatettu kehotevälimuistin osumilla",
-			"keyDeleted": "Poistettu"
+			"keyDeleted": "Poistettu",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Pyyntöön liittyvä aikaleima",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Avaimen Salauksen Purku",
 			"dial": "Yhteydenotto (DNS+TCP)",
 			"settingsReads": "Asetukset Lukemat",
-			"reused": "uudelleenkäytetty"
+			"reused": "uudelleenkäytetty",
+			"ip": "Asiakkaan IP-osoite, josta pyyntö tuli"
 		},
 		"status": {
 			"interrupted": "Keskeytetty"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Kopioi mallin ID",
 			"resolved": "ratkaistu",
 			"provider": "Tarjoaja",
-			"dbRowId": "Tietokannan Rivin Tunnus",
 			"timestamp": "Aikaleima",
-			"copyDbRowId": "Kopioi DB rivin ID",
 			"virtualKey": "Virtuaalinen Avain",
 			"tokenUsage": "Tokenien käyttö",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Virhe",
 			"copyErrorMessage": "Kopioi virheviesti",
 			"expandForBreakdown": "Laajenna nähdäksesi vaihekohtaisen erittelyn",
-			"performance": "Suorituskyky"
+			"performance": "Suorituskyky",
+			"clientIp": "Asiakkaan IP",
+			"copyClientIp": "Kopioi asiakkaan IP"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",
@@ -2794,7 +2798,8 @@
 			"internal": "sisäinen",
 			"cacheInflated": "Kasvatettu kehotevälimuistin osumilla",
 			"deleted": "Poistettu",
-			"zeroEntries": "0 merkintää"
+			"zeroEntries": "0 merkintää",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Lokitietoja ei löytynyt",

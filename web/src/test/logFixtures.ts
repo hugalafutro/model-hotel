@@ -30,6 +30,7 @@ export interface MockLogEntry {
 	virtual_key_id: string;
 	virtual_key_name?: string;
 	endpoint_type?: string;
+	client_ip?: string;
 }
 
 export function createMockLogEntry(

@@ -1304,7 +1304,9 @@
 			"allStatus": "Alle Status",
 			"allEndpoints": "Alle Modalitäten",
 			"owner": "Besitzer",
-			"allOwners": "Alle Benutzer"
+			"allOwners": "Alle Benutzer",
+			"key": "Virtueller Schlüssel",
+			"allKeys": "Alle Schlüssel"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1333,7 +1335,8 @@
 			"live": "Live",
 			"interrupted": "Unterbrochen",
 			"cacheInflated": "Erhöht durch Prompt-Cache-Treffer",
-			"keyDeleted": "Gelöscht"
+			"keyDeleted": "Gelöscht",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Zeitstempel der Anfrage",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Schlüssel Entschlüsselung",
 			"dial": "Wählen (DNS+TCP)",
 			"settingsReads": "Einstellungs-Lesezugriffe",
-			"reused": "wiederverwendet"
+			"reused": "wiederverwendet",
+			"ip": "Client-IP-Adresse, von der die Anfrage kam"
 		},
 		"status": {
 			"interrupted": "Unterbrochen"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Model-ID kopieren",
 			"resolved": "aufgelöst",
 			"provider": "Anbieter",
-			"dbRowId": "DB-Zeilen-ID",
 			"timestamp": "Zeitstempel",
-			"copyDbRowId": "DB-Zeilennummer kopieren",
 			"virtualKey": "Virtueller Schlüssel",
 			"tokenUsage": "Token-Nutzung",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Fehler",
 			"copyErrorMessage": "Fehlermeldung kopieren",
 			"expandForBreakdown": "Für die Aufschlüsselung pro Schritt ausklappen",
-			"performance": "Leistung"
+			"performance": "Leistung",
+			"clientIp": "Client-IP",
+			"copyClientIp": "Client-IP kopieren"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2794,7 +2798,8 @@
 			"internal": "intern",
 			"cacheInflated": "Erhöht durch Prompt-Cache-Treffer",
 			"deleted": "Gelöscht",
-			"zeroEntries": "0 Einträge"
+			"zeroEntries": "0 Einträge",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Keine Logeinträge gefunden",

@@ -590,7 +590,7 @@ func TestLogTestModelRequestError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-req-err")
 
-	h.logTestModelRequestError(ctx, m, "reqhash001", 1500, 200, 50, "connection refused")
+	h.logTestModelRequestError(ctx, m, "reqhash001", 1500, 200, 50, "connection refused", "192.0.2.10")
 
 	// Verify the row was inserted
 	var count int
@@ -633,7 +633,7 @@ func TestLogTestModelHTTPError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-http-err")
 
-	h.logTestModelHTTPError(ctx, m, "reqhash002", 429, 3000, 250, 30, "rate limited")
+	h.logTestModelHTTPError(ctx, m, "reqhash002", 429, 3000, 250, 30, "rate limited", "192.0.2.10")
 
 	var count int
 	err := h.dbPool.Pool().QueryRow(ctx,
@@ -674,7 +674,7 @@ func TestLogTestModelCompleted(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed")
 
-	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3)
+	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3, "192.0.2.10")
 
 	var count int
 	err := h.dbPool.Pool().QueryRow(ctx,
@@ -727,7 +727,7 @@ func TestLogTestModelRequestError_InsertError(t *testing.T) {
 	m := insertTestModelForLog(t, h, "test-log-req-err-fail")
 
 	// This should not panic; the log insert failure is silently logged.
-	h.logTestModelRequestError(ctx, m, "reqhash-err-001", 1500, 200, 50, "connection refused")
+	h.logTestModelRequestError(ctx, m, "reqhash-err-001", 1500, 200, 50, "connection refused", "")
 
 	// Verify no row was inserted (since the context was cancelled).
 	var count int
@@ -752,7 +752,7 @@ func TestLogTestModelHTTPError_InsertError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-http-err-fail")
 
-	h.logTestModelHTTPError(ctx, m, "reqhash-err-002", 429, 3000, 250, 30, "rate limited")
+	h.logTestModelHTTPError(ctx, m, "reqhash-err-002", 429, 3000, 250, 30, "rate limited", "")
 
 	// Verify no row was inserted.
 	var count int
@@ -777,7 +777,7 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed-fail")
 
-	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3)
+	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3, "")
 
 	// Verify no row was inserted.
 	var count int

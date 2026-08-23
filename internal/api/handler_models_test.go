@@ -1611,3 +1611,65 @@ func TestListModels_ProviderEnabledFilter(t *testing.T) {
 		}
 	})
 }
+
+// TestTestModel_LogsClientIP verifies the Test button's request_logs row
+// carries the admin's resolved client IP, matching the proxy ingest paths.
+func TestTestModel_LogsClientIP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": "invalid api key"}})
+	}))
+	defer mockServer.Close()
+
+	origTransport := h.testModelTransport
+	h.testModelTransport = &http.Transport{}
+	defer func() { h.testModelTransport = origTransport }()
+
+	providerData := fmt.Sprintf(`{"name": "test-ip-provider-%s", "base_url": "%s", "api_key": "sk-test-key"}`, uuid.New().String()[:8], mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", rec.Code)
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	testModelName := "ip-test-" + uuid.New().String()[:8]
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, testModelName, "IP Test Model", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
+	req.RemoteAddr = "198.51.100.77:4242"
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var ip *string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT client_ip FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`, testModelName,
+	).Scan(&ip); err != nil {
+		t.Fatalf("read test request log: %v", err)
+	}
+	if ip == nil || *ip != "198.51.100.77" {
+		t.Errorf("client_ip = %v, want 198.51.100.77", ip)
+	}
+}

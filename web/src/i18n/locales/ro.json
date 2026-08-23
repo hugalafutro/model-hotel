@@ -1346,7 +1346,9 @@
 			"allStatus": "Toate stările",
 			"allEndpoints": "Toate modalitățile",
 			"owner": "Proprietar",
-			"allOwners": "Toți utilizatorii"
+			"allOwners": "Toți utilizatorii",
+			"key": "Cheie virtuală",
+			"allKeys": "Toate cheile"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1375,7 +1377,8 @@
 			"live": "Live",
 			"interrupted": "Întrerupere",
 			"cacheInflated": "Umflat de accesările în cache ale promptului",
-			"keyDeleted": "Șters"
+			"keyDeleted": "Șters",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Momentul cererii",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Decriptarea cheii",
 			"dial": "Apelare (DNS+TCP)",
 			"settingsReads": "Setări Lecturi",
-			"reused": "reutilizat"
+			"reused": "reutilizat",
+			"ip": "Adresa IP a clientului de la care a venit cererea"
 		},
 		"status": {
 			"interrupted": "Întrerupere"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copiază ID-ul modelului",
 			"resolved": "rezolvat",
 			"provider": "Furnizor",
-			"dbRowId": "ID Rând DB",
 			"timestamp": "Ora",
-			"copyDbRowId": "Copiază ID rând DB",
 			"virtualKey": "Cheie virtuală",
 			"tokenUsage": "Utilizare token",
 			"prompt": "Prompt",
@@ -2813,7 +2815,9 @@
 			"error": "Eroare",
 			"copyErrorMessage": "Copiază mesajul de eroare",
 			"expandForBreakdown": "Extinde pentru defalcarea pe pași",
-			"performance": "Performanță"
+			"performance": "Performanță",
+			"clientIp": "IP-ul clientului",
+			"copyClientIp": "Copiază IP-ul clientului"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2854,7 +2858,8 @@
 			"internal": "intern",
 			"cacheInflated": "Umflat de accesările în cache ale promptului",
 			"deleted": "Șters",
-			"zeroEntries": "0 intrări"
+			"zeroEntries": "0 intrări",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nu s-au găsit intrări în jurnal",

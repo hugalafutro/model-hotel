@@ -738,3 +738,169 @@ func TestListLogs_SortByStatus(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// createLogTestKey creates a virtual key via the API and returns its id.
+func createLogTestKey(t *testing.T, r chi.Router, name string) string {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/virtual-keys", strings.NewReader(fmt.Sprintf(`{"name":%q}`, name)))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated && w.Code != http.StatusOK {
+		t.Fatalf("create virtual key: %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode virtual key: %v", err)
+	}
+	return resp["id"].(string)
+}
+
+// insertLogRowForKey inserts a minimal request_logs row bound to a virtual key,
+// optionally carrying a client IP.
+func insertLogRowForKey(t *testing.T, h *Handler, vkID, vkName, clientIP string) string {
+	t.Helper()
+	id := uuid.NewString()
+	var ip any
+	if clientIP != "" {
+		ip = clientIP
+	}
+	_, err := h.Pool().Pool().Exec(context.Background(), `
+		INSERT INTO request_logs (id, model_id, virtual_key_id, virtual_key_name, client_ip, status_code, state, created_at)
+		VALUES ($1, 'gpt-4', $2, $3, $4, 200, 'completed', $5)`,
+		id, uuid.MustParse(vkID), vkName, ip, time.Now())
+	if err != nil {
+		t.Fatalf("insert request log: %v", err)
+	}
+	return id
+}
+
+// TestListLogs_FilterByVirtualKeyID verifies ?virtual_key_id= narrows the offset
+// list to that key's rows only.
+func TestListLogs_FilterByVirtualKeyID(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk1 := createLogTestKey(t, r, "vk-logs-filter-a")
+	vk2 := createLogTestKey(t, r, "vk-logs-filter-b")
+	insertLogRowForKey(t, h, vk1, "vk-logs-filter-a", "")
+	insertLogRowForKey(t, h, vk2, "vk-logs-filter-b", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/logs?virtual_key_id="+vk1, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(w.Body).Decode(&resp)
+	entries := resp["entries"].([]any)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry for virtual_key_id filter, got %d", len(entries))
+	}
+	if got := entries[0].(map[string]any)["virtual_key_id"]; got != vk1 {
+		t.Errorf("entry virtual_key_id = %v, want %s", got, vk1)
+	}
+}
+
+// TestListLogsCursor_FilterByVirtualKeyID verifies the same filter on the
+// cursor (scroll-mode) endpoint.
+func TestListLogsCursor_FilterByVirtualKeyID(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk1 := createLogTestKey(t, r, "vk-cursor-filter-a")
+	vk2 := createLogTestKey(t, r, "vk-cursor-filter-b")
+	insertLogRowForKey(t, h, vk1, "vk-cursor-filter-a", "")
+	insertLogRowForKey(t, h, vk2, "vk-cursor-filter-b", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/cursor?virtual_key_id="+vk2, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(w.Body).Decode(&resp)
+	entries := resp["entries"].([]any)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry for virtual_key_id filter, got %d", len(entries))
+	}
+	if got := entries[0].(map[string]any)["virtual_key_id"]; got != vk2 {
+		t.Errorf("entry virtual_key_id = %v, want %s", got, vk2)
+	}
+	if total := resp["total"].(float64); total != 1 {
+		t.Errorf("total = %v, want 1", total)
+	}
+}
+
+// TestListLogs_IncludesClientIP verifies the stored client IP is projected into
+// list responses (empty string for rows predating the column).
+func TestListLogs_IncludesClientIP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk := createLogTestKey(t, r, "vk-client-ip")
+	insertLogRowForKey(t, h, vk, "vk-client-ip", "203.0.113.7")
+
+	req := httptest.NewRequest(http.MethodGet, "/logs?virtual_key_id="+vk, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(w.Body).Decode(&resp)
+	entries := resp["entries"].([]any)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if got := entries[0].(map[string]any)["client_ip"]; got != "203.0.113.7" {
+		t.Errorf("client_ip = %v, want 203.0.113.7", got)
+	}
+}
+
+// TestGetLog_IncludesClientIP verifies the single-row endpoint carries the
+// client IP for the detail modal.
+func TestGetLog_IncludesClientIP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk := createLogTestKey(t, r, "vk-client-ip-get")
+	id := insertLogRowForKey(t, h, vk, "vk-client-ip-get", "198.51.100.42")
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/"+id, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var entry map[string]any
+	json.NewDecoder(w.Body).Decode(&entry)
+	if got := entry["client_ip"]; got != "198.51.100.42" {
+		t.Errorf("client_ip = %v, want 198.51.100.42", got)
+	}
+}
+
+// TestListLogs_SortByIP covers the ip sort key (tier expression puts rows
+// without an IP last).
+func TestListLogs_SortByIP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk := createLogTestKey(t, r, "vk-sort-ip")
+	insertLogRowForKey(t, h, vk, "vk-sort-ip", "")
+	insertLogRowForKey(t, h, vk, "vk-sort-ip", "192.0.2.1")
+
+	req := httptest.NewRequest(http.MethodGet, "/logs?sort_by=ip&sort_dir=asc&virtual_key_id="+vk, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.NewDecoder(w.Body).Decode(&resp)
+	entries := resp["entries"].([]any)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if got := entries[0].(map[string]any)["client_ip"]; got != "192.0.2.1" {
+		t.Errorf("first entry client_ip = %v, want 192.0.2.1 (empty IPs sort last)", got)
+	}
+}

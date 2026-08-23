@@ -132,6 +132,11 @@ type requestLogData struct {
 	streaming                 bool
 	virtualKeyName            string
 	virtualKeyID              string
+	// clientIP is the trusted-proxy-aware client address (internal/clientip),
+	// stamped when the pending row is created and persisted to
+	// request_logs.client_ip so key usage stays attributable for the whole
+	// log-retention window.
+	clientIP string
 	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
 	// (admin-only visibility). Persisted to request_logs.owner_user_id only when
 	// there is no virtual key (migration 067); keyed rows resolve their owner

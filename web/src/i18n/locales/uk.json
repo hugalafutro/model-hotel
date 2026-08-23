@@ -1388,7 +1388,9 @@
 			"allStatus": "Усі статуси",
 			"allEndpoints": "Усі модальності",
 			"owner": "Власник",
-			"allOwners": "Усі користувачі"
+			"allOwners": "Усі користувачі",
+			"key": "Віртуальний ключ",
+			"allKeys": "Усі ключі"
 		},
 		"endpoint": {
 			"chat": "Чат",
@@ -1417,7 +1419,8 @@
 			"live": "Наживо",
 			"interrupted": "Перервано",
 			"cacheInflated": "Завищено через влучання в кеш промптів",
-			"keyDeleted": "Видалено"
+			"keyDeleted": "Видалено",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Часова відмітка запиту",
@@ -1441,7 +1444,8 @@
 			"keyDecryption": "Розшифрування ключа",
 			"dial": "Набрати (DNS+TCP)",
 			"settingsReads": "Налаштування прочитань",
-			"reused": "повторно використовується"
+			"reused": "повторно використовується",
+			"ip": "IP-адреса клієнта, з якої надійшов запит"
 		},
 		"status": {
 			"interrupted": "Перервано"
@@ -2841,9 +2845,7 @@
 			"copyModelId": "Скопіювати ID моделі",
 			"resolved": "вирішено",
 			"provider": "Постачальник",
-			"dbRowId": "Id рядка БД",
 			"timestamp": "Часові відмітки",
-			"copyDbRowId": "Копіювати рядок бази даних ID",
 			"virtualKey": "Віртуальний ключ",
 			"tokenUsage": "Використання токенів",
 			"prompt": "Prompt",
@@ -2873,7 +2875,9 @@
 			"error": "Помилка",
 			"copyErrorMessage": "Скопіювати повідомлення про помилку",
 			"expandForBreakdown": "Розгорніть для покрокового розподілу",
-			"performance": "Продуктивність"
+			"performance": "Продуктивність",
+			"clientIp": "IP клієнта",
+			"copyClientIp": "Копіювати IP клієнта"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",
@@ -2914,7 +2918,8 @@
 			"internal": "внутрішній",
 			"cacheInflated": "Завищено через влучання в кеш промптів",
 			"deleted": "Видалено",
-			"zeroEntries": "0 записів"
+			"zeroEntries": "0 записів",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Не знайдено записів у журналі",

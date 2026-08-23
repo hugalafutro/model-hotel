@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -503,4 +505,48 @@ func TestUpdateRequestLog_SkipWaitForInsert(t *testing.T) {
 	// the async insert (which would hang since insertWg is never Done).
 	// The nil dbPool also prevents any DB operations.
 	h.updateRequestLog(logEntry, updateLogOption{skipWaitForInsert: true})
+}
+
+// TestInsertRequestLogAsync_PersistsClientIP verifies the resolved client IP
+// stamped on the log entry lands in request_logs.client_ip (NULL when empty).
+func TestInsertRequestLogAsync_PersistsClientIP(t *testing.T) {
+	h := newIntegrationHandler()
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	storedIP := func(logEntry *requestLogData) *string {
+		h.insertRequestLogAsync(logEntry)
+		h.WaitForInsert(logEntry)
+		var ip *string
+		if err := pool.QueryRow(ctx,
+			`SELECT client_ip FROM request_logs WHERE id = $1`, logEntry.id,
+		).Scan(&ip); err != nil {
+			t.Fatalf("read inserted row: %v", err)
+		}
+		return ip
+	}
+
+	withIP := storedIP(&requestLogData{modelID: uuid.NewString(), state: "pending", clientIP: "198.51.100.9"})
+	if withIP == nil || *withIP != "198.51.100.9" {
+		t.Errorf("client_ip = %v, want 198.51.100.9", withIP)
+	}
+
+	withoutIP := storedIP(&requestLogData{modelID: uuid.NewString(), state: "pending"})
+	if withoutIP != nil {
+		t.Errorf("client_ip = %q, want NULL for an empty client IP", *withoutIP)
+	}
+}
+
+// TestNewPendingRequestLog_StampsClientIP verifies the pending log entry is
+// created with the request's resolved client address.
+func TestNewPendingRequestLog_StampsClientIP(t *testing.T) {
+	h := &Handler{}
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req.RemoteAddr = "198.51.100.7:51234"
+
+	logData, _ := h.newPendingRequestLog(req, endpointTypeChat, "gpt-4", false)
+	if logData.clientIP != "198.51.100.7" {
+		t.Errorf("clientIP = %q, want 198.51.100.7", logData.clientIP)
+	}
 }

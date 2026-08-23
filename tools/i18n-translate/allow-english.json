@@ -1850,6 +1850,9 @@
 		"tr",
 		"vi"
 	],
+	"components.virtualLogTable.ip": [
+		"*"
+	],
 	"components.virtualLogTable.model": [
 		"af",
 		"ca",
@@ -2923,6 +2926,9 @@
 		"sv",
 		"tr",
 		"vi"
+	],
+	"logs.table.ip": [
+		"*"
 	],
 	"logs.table.live": [
 		"da",

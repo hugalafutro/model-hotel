@@ -304,9 +304,21 @@ func appendAppLogFilters(conditions []string, args []any, argIdx int, level, sou
 		argIdx++
 	}
 	if search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
+		// Attribute values escape their spaces as \x20 (quoteLogValue), so a
+		// term with a space also has to match the escaped form or a search for
+		// a provider name like "Ollama Cloud" misses every line that carries
+		// it as an attribute. The pattern doubles the backslash because \ is
+		// the LIKE escape character.
+		escaped := strings.ReplaceAll(search, " ", `\\x20`)
+		if escaped != search {
+			conditions = append(conditions, fmt.Sprintf("(message ILIKE $%d OR message ILIKE $%d)", argIdx, argIdx+1))
+			args = append(args, "%"+search+"%", "%"+escaped+"%")
+			argIdx += 2
+		} else {
+			conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
+			args = append(args, "%"+search+"%")
+			argIdx++
+		}
 	}
 	if from != "" {
 		if t, err := time.Parse(time.RFC3339, from); err == nil {

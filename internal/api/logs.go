@@ -56,6 +56,7 @@ type LogEntry struct {
 	VirtualKeyName            string     `json:"virtual_key_name"`
 	VirtualKeyDeleted         bool       `json:"virtual_key_deleted"`
 	VirtualKeyID              string     `json:"virtual_key_id"`
+	ClientIP                  string     `json:"client_ip"` // "" for rows predating migration 073 or address-less ingest paths
 	ErrorMessage              string     `json:"error_message"`
 	ErrorKind                 string     `json:"error_kind"` // "" when unclassified (legacy rows); frontend falls back to substring matching
 	FailoverAttempt           int        `json:"failover_attempt"`
@@ -137,7 +138,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.response_header_ms, 0),
 			COALESCE(rl.resolved_model_id, ''),
 			COALESCE(rl.endpoint_type, 'chat'),
-			COALESCE(rl.error_kind, '')
+			COALESCE(rl.error_kind, ''),
+			COALESCE(rl.client_ip, '')
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`+ownerPredicate,
@@ -160,6 +162,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.ResolvedModelID,
 		&entry.EndpointType,
 		&entry.ErrorKind,
+		&entry.ClientIP,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -219,7 +222,8 @@ type LogsCursorResponse struct {
 //   - cursor: encoded cursor from a previous response (base64 JSON of {created_at, id})
 //   - direction: "after" (default) or "before" — which way to scroll from cursor
 //   - limit: page size (default 20, max 200)
-//   - model_id, provider_id, status_code, from, to: same filters as ListLogs
+//   - model_id, provider_id, virtual_key_id, status_code, from, to: same
+//     filters as ListLogs
 //   - sort_by: only "time" is supported for cursor pagination (default "time")
 //   - sort_dir: "desc" (default, newest first) or "asc"
 //
@@ -273,7 +277,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logEntrySelectColumns is the shared 36-column request_logs projection plus the
+// logEntrySelectColumns is the shared 37-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -304,7 +308,8 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             COALESCE(rl.response_header_ms, 0),
             COALESCE(rl.resolved_model_id, ''),
             COALESCE(rl.endpoint_type, 'chat'),
-            COALESCE(rl.error_kind, '')
+            COALESCE(rl.error_kind, ''),
+            COALESCE(rl.client_ip, '')
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -319,7 +324,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -344,7 +349,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -388,7 +393,7 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 35-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 37-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -410,10 +415,11 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.ResolvedModelID,
 		&entry.EndpointType,
 		&entry.ErrorKind,
+		&entry.ClientIP,
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 35-column projection shared by
+// scanLogEntry scans one request_logs row (the 37-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 	var entry LogEntry
@@ -428,7 +434,7 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // count copy lacked the `statusCode >= 0` guard the data copy has; both now use
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
 	// Owner scope first: for non-admins this is mandatory row-level security,
 	// for admins an optional dashboard filter. The two branches cover the two
 	// disjoint row shapes. A KEYED row resolves through the key's CURRENT owner,
@@ -459,6 +465,14 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 		if err == nil {
 			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
 			args = append(args, providerUUID)
+			argIndex++
+		}
+	}
+	if virtualKeyID != "" {
+		vkUUID, err := uuid.Parse(virtualKeyID)
+		if err == nil {
+			query += " AND rl.virtual_key_id = $" + util.IntToStr(argIndex)
+			args = append(args, vkUUID)
 			argIndex++
 		}
 	}
@@ -536,6 +550,7 @@ type logListParams struct {
 	ownerUserID  string
 	modelID      string
 	providerID   string
+	virtualKeyID string
 	statusCode   string
 	fromDate     string
 	toDate       string
@@ -553,6 +568,7 @@ func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, 
 		ownerUserID:  logOwnerScope(r),
 		modelID:      r.URL.Query().Get("model_id"),
 		providerID:   r.URL.Query().Get("provider_id"),
+		virtualKeyID: r.URL.Query().Get("virtual_key_id"),
 		statusCode:   r.URL.Query().Get("status_code"),
 		fromDate:     r.URL.Query().Get("from"),
 		toDate:       r.URL.Query().Get("to"),
@@ -683,6 +699,10 @@ func logsSortDef(sortBy string) (string, logSortDef) {
 		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
 		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
 		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
+		// client_ip is TEXT, so this orders lexicographically (10.* before 9.*);
+		// good enough for grouping same-address rows, which is what the column
+		// sort is for. Rows without an address always sort last.
+		"ip": {"CASE WHEN COALESCE(rl.client_ip, '') = '' THEN 1 ELSE 0 END", "COALESCE(rl.client_ip, '')"},
 	}
 	if _, ok := sortColumns[sortBy]; !ok {
 		sortBy = "time"
@@ -707,6 +727,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	cacheKey := ownerUserID + "|" + r.URL.RawQuery
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
+	virtualKeyID := r.URL.Query().Get("virtual_key_id")
 	statusCodeStr := r.URL.Query().Get("status_code")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
@@ -730,7 +751,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
 
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {

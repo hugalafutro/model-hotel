@@ -1304,7 +1304,9 @@
 			"allStatus": "모든 상태",
 			"allEndpoints": "모든 모달리티",
 			"owner": "소유자",
-			"allOwners": "모든 사용자"
+			"allOwners": "모든 사용자",
+			"key": "가상 키",
+			"allKeys": "모든 키"
 		},
 		"endpoint": {
 			"chat": "채팅",
@@ -1333,7 +1335,8 @@
 			"live": "실시간",
 			"interrupted": "중단됨",
 			"cacheInflated": "프롬프트 캐시 적중으로 인해 부풀려짐",
-			"keyDeleted": "삭제됨"
+			"keyDeleted": "삭제됨",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "요청의 타임스탬프",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "키 복호화",
 			"dial": "다이얼 (DNS+TCP)",
 			"settingsReads": "설정 읽기",
-			"reused": "재사용된"
+			"reused": "재사용된",
+			"ip": "요청이 들어온 클라이언트 IP 주소"
 		},
 		"status": {
 			"interrupted": "중단됨"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "모델 ID 복사",
 			"resolved": "확인됨",
 			"provider": "제공업체",
-			"dbRowId": "DB 행 ID",
 			"timestamp": "시간 표시",
-			"copyDbRowId": "DB 행 ID 복사",
 			"virtualKey": "가상 키",
 			"tokenUsage": "토큰 사용",
 			"prompt": "프롬프트",
@@ -2753,7 +2755,9 @@
 			"error": "오류",
 			"copyErrorMessage": "오류 메시지 복사",
 			"expandForBreakdown": "단계별 분석을 보려면 펼치세요",
-			"performance": "성능"
+			"performance": "성능",
+			"clientIp": "클라이언트 IP",
+			"copyClientIp": "클라이언트 IP 복사"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",
@@ -2794,7 +2798,8 @@
 			"internal": "내부",
 			"cacheInflated": "프롬프트 캐시 적중으로 인해 부풀려짐",
 			"deleted": "삭제됨",
-			"zeroEntries": "0건"
+			"zeroEntries": "0건",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "로그 항목이 없습니다",

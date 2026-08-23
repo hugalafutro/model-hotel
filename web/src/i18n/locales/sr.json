@@ -1346,7 +1346,9 @@
 			"allStatus": "Сви статуси",
 			"allEndpoints": "Сви модалитети",
 			"owner": "Власник",
-			"allOwners": "Сви корисници"
+			"allOwners": "Сви корисници",
+			"key": "Виртуелни кључ",
+			"allKeys": "Сви кључеви"
 		},
 		"endpoint": {
 			"chat": "Чет",
@@ -1375,7 +1377,8 @@
 			"live": "Уживо",
 			"interrupted": "Прекинуто",
 			"cacheInflated": "Увећано погоцима кеша упита",
-			"keyDeleted": "Избрисано"
+			"keyDeleted": "Избрисано",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Временски печат захтева",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Дешифровање кључа",
 			"dial": "Дијал (DNS+TCP)",
 			"settingsReads": "Читања подешавања",
-			"reused": "поново искоришћено"
+			"reused": "поново искоришћено",
+			"ip": "IP адреса клијента са које је захтев стигао"
 		},
 		"status": {
 			"interrupted": "Прекинуто"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Копирајте ИД модела",
 			"resolved": "решено",
 			"provider": "Пружалац",
-			"dbRowId": "ИД реда у бази података",
 			"timestamp": "Временски жиг",
-			"copyDbRowId": "Копирајте ИД реда у бази података",
 			"virtualKey": "Виртуелни кључ",
 			"tokenUsage": "Употреба токена",
 			"prompt": "Упит",
@@ -2813,7 +2815,9 @@
 			"error": "Грешка",
 			"copyErrorMessage": "Копирајте поруку о грешци",
 			"expandForBreakdown": "Прошири за рашчлањавање по корацима",
-			"performance": "Перформансе"
+			"performance": "Перформансе",
+			"clientIp": "IP клијента",
+			"copyClientIp": "Копирај IP клијента"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",
@@ -2854,7 +2858,8 @@
 			"internal": "унутрашњи",
 			"cacheInflated": "Увећано погоцима кеша упита",
 			"deleted": "Избрисано",
-			"zeroEntries": "0 уноса"
+			"zeroEntries": "0 уноса",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Није пронађен ниједан запис у дневнику",

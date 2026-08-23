@@ -1304,7 +1304,9 @@
 			"allStatus": "Minden állapot",
 			"allEndpoints": "Minden modalitás",
 			"owner": "Tulajdonos",
-			"allOwners": "Minden felhasználó"
+			"allOwners": "Minden felhasználó",
+			"key": "Virtuális kulcs",
+			"allKeys": "Minden kulcs"
 		},
 		"endpoint": {
 			"chat": "Csevegés",
@@ -1333,7 +1335,8 @@
 			"live": "Élőben",
 			"interrupted": "Megszakítva",
 			"cacheInflated": "A prompt-cache találatai miatt megnövelt",
-			"keyDeleted": "Törölve"
+			"keyDeleted": "Törölve",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "A kérés időbélyege",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Kulcs visszafejtése",
 			"dial": "Kapcsolódás (DNS+TCP)",
 			"settingsReads": "Beállítások megtekintése",
-			"reused": "újrahasznosított"
+			"reused": "újrahasznosított",
+			"ip": "A kliens IP-címe, ahonnan a kérés érkezett"
 		},
 		"status": {
 			"interrupted": "Megszakítva"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Modellazonosító másolása",
 			"resolved": "feloldva",
 			"provider": "Szolgáltató",
-			"dbRowId": "Adatbázis-sor azonosító",
 			"timestamp": "Időbélyeg",
-			"copyDbRowId": "Adatbázis-sor azonosítójának másolása",
 			"virtualKey": "Virtuális kulcs",
 			"tokenUsage": "A token használata",
 			"prompt": "Prompt tokenek",
@@ -2753,7 +2755,9 @@
 			"error": "Hiba",
 			"copyErrorMessage": "Hibaüzenet másolása",
 			"expandForBreakdown": "Bontsa ki a lépésenkénti bontáshoz",
-			"performance": "Teljesítmény"
+			"performance": "Teljesítmény",
+			"clientIp": "Kliens IP",
+			"copyClientIp": "Kliens IP másolása"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2794,7 +2798,8 @@
 			"internal": "belső",
 			"cacheInflated": "A prompt-cache találatai miatt megnövelt",
 			"deleted": "Törölve",
-			"zeroEntries": "0 találat"
+			"zeroEntries": "0 találat",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nem találtam naplóbejegyzéseket",

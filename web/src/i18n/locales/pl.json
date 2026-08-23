@@ -1388,7 +1388,9 @@
 			"allStatus": "Wszystkie statusy",
 			"allEndpoints": "Wszystkie modalności",
 			"owner": "Właściciel",
-			"allOwners": "Wszyscy użytkownicy"
+			"allOwners": "Wszyscy użytkownicy",
+			"key": "Klucz wirtualny",
+			"allKeys": "Wszystkie klucze"
 		},
 		"endpoint": {
 			"chat": "Czat",
@@ -1417,7 +1419,8 @@
 			"live": "Na żywo",
 			"interrupted": "Przerwane",
 			"cacheInflated": "Zawyżone przez trafienia w pamięci podręcznej promptu",
-			"keyDeleted": "Usunięto"
+			"keyDeleted": "Usunięto",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Znacznik czasu wniosku",
@@ -1441,7 +1444,8 @@
 			"keyDecryption": "Odszyfrowanie klucza",
 			"dial": "Wybieranie (DNS+TCP)",
 			"settingsReads": "Odczyty ustawień",
-			"reused": "ponownie wykorzystane"
+			"reused": "ponownie wykorzystane",
+			"ip": "Adres IP klienta, z którego przyszło żądanie"
 		},
 		"status": {
 			"interrupted": "Przerwane"
@@ -2841,9 +2845,7 @@
 			"copyModelId": "Kopiuj ID modelu",
 			"resolved": "rozwiązane",
 			"provider": "Dostawca",
-			"dbRowId": "ID wiersza bazy danych",
 			"timestamp": "Znacznik czasu",
-			"copyDbRowId": "Kopiuj ID wiersza DB",
 			"virtualKey": "Klucz wirtualny",
 			"tokenUsage": "Użycie tokenu",
 			"prompt": "Prompt",
@@ -2873,7 +2875,9 @@
 			"error": "Błąd",
 			"copyErrorMessage": "Kopiuj komunikat o błędzie",
 			"expandForBreakdown": "Rozwiń, aby zobaczyć podział na kroki",
-			"performance": "Wydajność"
+			"performance": "Wydajność",
+			"clientIp": "IP klienta",
+			"copyClientIp": "Kopiuj IP klienta"
 		},
 		"statusBadge": {
 			"streaming": "Strumieniowanie",
@@ -2914,7 +2918,8 @@
 			"internal": "wewnętrzna",
 			"cacheInflated": "Zawyżone przez trafienia w pamięci podręcznej promptu",
 			"deleted": "Usunięto",
-			"zeroEntries": "0 wpisów"
+			"zeroEntries": "0 wpisów",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nie znaleziono wpisów dziennika",
