@@ -622,7 +622,7 @@ func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError")
-	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1", "TMPDIR=/nonexistent/path/that/does/not/exist")
+	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
@@ -739,8 +739,11 @@ func TestParseMigrationNamesFromSQL_ManyMigrations(t *testing.T) {
 func TestExtractMigrationNames_FilterFileWriteError_Direct(t *testing.T) {
 	// This test runs as a subprocess to safely manipulate TMPDIR.
 	if os.Getenv("TEST_FILTER_WRITE_DIRECT") == "1" {
-		// Set TMPDIR to a read-only directory so os.CreateTemp returns an error
-		os.Setenv("TMPDIR", "/proc/1/fd") // not writable on Linux
+		// Set TMPDIR to a read-only directory so os.CreateTemp returns an error.
+		// Scoped via t.Setenv so it is restored before the process exits: the
+		// coverage runtime writes its profile through TMPDIR at exit and a
+		// broken value there fails the child with status 2.
+		t.Setenv("TMPDIR", "/proc/1/fd") // not writable on Linux
 		_, err := extractMigrationNames("/tmp/nonexistent.dump", 100)
 		if err == nil {
 			t.Fatalf("FILTER_WRITE_DIRECT: expected error")
