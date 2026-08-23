@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -853,6 +854,36 @@ func TestImageGenerations_SSEPassthrough(t *testing.T) {
 	}
 }
 
+// A pass-through SSE stream that carries a mid-stream error frame quoting the
+// operator's provider key must reach the client masked, exactly as the chat
+// streaming paths do; content events and framing stay byte-identical.
+func TestImageGenerations_SSEPassthroughMasksErrorFrame(t *testing.T) {
+	const planted = "sk-proj-STANDARDKEY1234567890abcdef1234567890"
+	partial := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"cGFydA==\"}\n\n"
+	errFrame := "event: error\ndata:{\"type\":\"error\",\"error\":{\"message\":\"billing key " + planted + " is invalid\"}}\n\n"
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, partial+errFrame)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true,"partial_images":1}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+	got := w.Body.String()
+	if strings.Contains(got, planted) {
+		t.Fatalf("operator credential reached the client through the SSE passthrough:\n%s", got)
+	}
+	want := partial + "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"billing key [redacted] is invalid\"}}\n\n"
+	if got != want {
+		t.Errorf("masked stream mismatch:\ngot  %q\nwant %q", got, want)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Audio transcriptions (multipart)
 // ---------------------------------------------------------------------------
@@ -1364,3 +1395,85 @@ func TestMultipartEndpoints_UpstreamPaths(t *testing.T) {
 		})
 	}
 }
+
+// sseErrorMaskWriter must be framing-transparent: lines split across writes
+// are reassembled before the mask decides, CRLF survives, non-error data lines
+// (including key-shaped noise inside base64 image payloads) are untouched, and
+// an unterminated trailing error frame is still masked on Flush.
+func TestSSEErrorMaskWriter(t *testing.T) {
+	const planted = "sk-proj-STANDARDKEY1234567890abcdef1234567890"
+	cases := []struct {
+		name   string
+		writes []string
+		want   string
+	}{
+		{
+			name:   "error frame split across writes",
+			writes: []string{"event: error\ndata: {\"error\":{\"message\":\"key " + planted[:10], planted[10:] + " bad\"}}\n\n"},
+			want:   "event: error\ndata: {\"error\":{\"message\":\"key [redacted] bad\"}}\n\n",
+		},
+		{
+			name:   "crlf framing preserved",
+			writes: []string{"data:{\"error\":{\"message\":\"" + planted + "\"}}\r\n\r\n"},
+			want:   "data: {\"error\":{\"message\":\"[redacted]\"}}\r\n\r\n",
+		},
+		{
+			name:   "content frame with key-shaped text untouched",
+			writes: []string{"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"/" + planted + "\"}\n\n"},
+			want:   "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"/" + planted + "\"}\n\n",
+		},
+		{
+			name:   "error null is not an error frame",
+			writes: []string{"data: {\"error\":null,\"text\":\"" + planted + "\"}\n\n"},
+			want:   "data: {\"error\":null,\"text\":\"" + planted + "\"}\n\n",
+		},
+		{
+			name:   "unterminated trailing error frame masked on flush",
+			writes: []string{"data: {\"error\":{\"message\":\"" + planted + "\"}}"},
+			want:   "data: {\"error\":{\"message\":\"[redacted]\"}}",
+		},
+		{
+			name:   "error frame without a credential keeps its original framing",
+			writes: []string{"data:{\"error\":{\"message\":\"rate limited\"}}\n\n"},
+			want:   "data:{\"error\":{\"message\":\"rate limited\"}}\n\n",
+		},
+		{
+			name:   "oversized unterminated line passes through raw",
+			writes: []string{"data: " + strings.Repeat("A", sseErrorMaskLineCap), planted + "\n"},
+			want:   "data: " + strings.Repeat("A", sseErrorMaskLineCap) + planted + "\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			m := newSSEErrorMaskWriter(&out)
+			for _, w := range tc.writes {
+				n, err := m.Write([]byte(w))
+				if err != nil || n != len(w) {
+					t.Fatalf("Write = %d, %v; want %d, nil", n, err, len(w))
+				}
+			}
+			if err := m.Flush(); err != nil {
+				t.Fatalf("Flush: %v", err)
+			}
+			if out.String() != tc.want {
+				t.Errorf("got  %q\nwant %q", out.String(), tc.want)
+			}
+		})
+	}
+
+	t.Run("underlying write error surfaces with bytes consumed", func(t *testing.T) {
+		m := newSSEErrorMaskWriter(failingWriter{})
+		n, err := m.Write([]byte("data: x\ndata: y\n"))
+		if err == nil {
+			t.Fatal("expected the underlying write error")
+		}
+		if n != len("data: x\n") {
+			t.Errorf("consumed = %d, want the first line only (%d)", n, len("data: x\n"))
+		}
+	})
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("client gone") }

@@ -882,8 +882,9 @@ var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z0-9
 // authentication-required") rather than a credential, and stays - real keys
 // carry digits. The replacement carries no JSON metacharacters, so a valid
 // body stays valid. This covers the buffered error paths and in-stream SSE
-// error frames on both the translated (handleDataChunk) and native Anthropic
-// (emitRawData) streaming paths. Client-side only: the request
+// error frames on the translated (handleDataChunk), native Anthropic
+// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths.
+// Client-side only: the request
 // log keeps the original body for the operator.
 func maskKeyShapedTokens(body []byte) []byte {
 	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {

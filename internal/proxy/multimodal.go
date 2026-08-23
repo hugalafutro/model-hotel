@@ -643,9 +643,11 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// own buffering — per-chunk flushes would just multiply syscalls.
 	var tail *tailBuffer
 	var dst io.Writer = w
+	var masker *sseErrorMaskWriter
 	if isSSE {
 		tail = newTailBuffer(passthroughSSETailCap)
-		dst = io.MultiWriter(newFlushWriter(w), tail)
+		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail))
+		dst = masker
 	}
 
 	var written int64
@@ -660,6 +662,13 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		var nc int64
 		nc, copyErr = io.Copy(dst, resp.Body)
 		written += nc
+	}
+	if masker != nil {
+		// Release a trailing unterminated line (a stream cut mid-event) so the
+		// client receives every byte the provider sent, masked or not.
+		if err := masker.Flush(); err != nil && copyErr == nil {
+			copyErr = err
+		}
 	}
 
 	promptTokens, completionTokens := 0, 0
@@ -801,6 +810,107 @@ func (t *tailBuffer) Write(p []byte) (int, error) {
 // Bytes returns the retained tail.
 func (t *tailBuffer) Bytes() []byte {
 	return t.buf
+}
+
+// sseErrorMaskLineCap bounds how much of an unterminated SSE line the masking
+// writer holds back before giving up on it and passing it through raw. It
+// matches the per-line cap of the chat stream reader; a sane error frame is
+// orders of magnitude smaller, and a partial-image event that long is not
+// something the mask should ever touch.
+const sseErrorMaskLineCap = 4 << 20
+
+// sseErrorMaskWriter is an io.Writer that forwards a pass-through SSE stream
+// line by line, scrubbing credential-shaped tokens from error frames before
+// they reach the client. Pass-through streams are otherwise copied verbatim,
+// so this is the one place the chat paths' maskKeyShapedTokens scrub applies
+// to the image/audio endpoints. Only a `data:` line whose payload is a JSON
+// object carrying an "error" member is touched; content events (multi-MB
+// base64 partial images) are forwarded byte-identical, which keeps the mask's
+// prefix regex away from payloads where a false match would corrupt data.
+// A masked line is re-framed in the canonical "data: " form. Flush releases a
+// trailing unterminated line.
+type sseErrorMaskWriter struct {
+	w       io.Writer
+	partial []byte
+}
+
+func newSSEErrorMaskWriter(w io.Writer) *sseErrorMaskWriter {
+	return &sseErrorMaskWriter{w: w}
+}
+
+func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
+	consumed := 0
+	for consumed < len(p) {
+		nl := bytes.IndexByte(p[consumed:], '\n')
+		if nl < 0 {
+			m.partial = append(m.partial, p[consumed:]...)
+			consumed = len(p)
+			if len(m.partial) > sseErrorMaskLineCap {
+				if err := m.emit(m.partial); err != nil {
+					return consumed, err
+				}
+				m.partial = m.partial[:0]
+			}
+			break
+		}
+		line := p[consumed : consumed+nl+1]
+		consumed += nl + 1
+		if len(m.partial) > 0 {
+			line = append(m.partial, line...)
+			m.partial = m.partial[:0]
+		}
+		if err := m.emit(maskSSEErrorLine(line)); err != nil {
+			return consumed, err
+		}
+	}
+	return consumed, nil
+}
+
+// Flush writes out any buffered unterminated line, masked if it is an error
+// frame that simply lacked its newline.
+func (m *sseErrorMaskWriter) Flush() error {
+	if len(m.partial) == 0 {
+		return nil
+	}
+	err := m.emit(maskSSEErrorLine(m.partial))
+	m.partial = m.partial[:0]
+	return err
+}
+
+func (m *sseErrorMaskWriter) emit(line []byte) error {
+	_, err := m.w.Write(line)
+	return err
+}
+
+// maskSSEErrorLine returns line unchanged unless it is a `data:` line whose
+// payload is a JSON object with an "error" member, in which case the payload
+// is scrubbed with maskKeyShapedTokens and re-framed. The line's trailing
+// newline (and any carriage return) is preserved.
+func maskSSEErrorLine(line []byte) []byte {
+	rest, ok := bytes.CutPrefix(line, []byte("data:"))
+	if !ok {
+		return line
+	}
+	body := bytes.TrimRight(rest, "\r\n")
+	eol := rest[len(body):]
+	payload := bytes.TrimSpace(body)
+	if len(payload) == 0 || payload[0] != '{' || !bytes.Contains(payload, []byte(`"error"`)) {
+		return line
+	}
+	var frame struct {
+		Error json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(payload, &frame) != nil || len(frame.Error) == 0 || bytes.Equal(frame.Error, []byte("null")) {
+		return line
+	}
+	masked := maskKeyShapedTokens(payload)
+	if bytes.Equal(masked, payload) {
+		return line
+	}
+	out := make([]byte, 0, len("data: ")+len(masked)+len(eol))
+	out = append(out, "data: "...)
+	out = append(out, masked...)
+	return append(out, eol...)
 }
 
 // flushWriter flushes the underlying ResponseWriter after every write so
