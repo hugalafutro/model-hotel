@@ -1438,9 +1438,29 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 			want:   "data:{\"error\":{\"message\":\"rate limited\"}}\n\n",
 		},
 		{
+			name:   "error object split across data lines is joined before masking",
+			writes: []string{"event: error\ndata: {\"type\":\"error\",\n", "data: \"error\":{\"message\":\"key " + planted + " bad\"}}\n\n"},
+			want:   "event: error\ndata: {\"type\":\"error\",\n\"error\":{\"message\":\"key [redacted] bad\"}}\n\n",
+		},
+		{
+			name:   "id and retry lines survive a masked event",
+			writes: []string{"id: 7\ndata: {\"error\":{\"message\":\"" + planted + "\"}}\nretry: 100\n\n"},
+			want:   "id: 7\nretry: 100\ndata: {\"error\":{\"message\":\"[redacted]\"}}\n\n",
+		},
+		{
+			name:   "oversized event passes through raw including its remainder",
+			writes: []string{"data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\n", "data: {\"error\":{\"message\":\"" + planted + "\"}}\n\n"},
+			want:   "data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\ndata: {\"error\":{\"message\":\"" + planted + "\"}}\n\n",
+		},
+		{
+			name:   "raw mode forwards unterminated chunks until the delimiter",
+			writes: []string{"data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\n", "data: tail", "\n\n", "data: {\"error\":{\"message\":\"" + planted + "\"}}\n\n"},
+			want:   "data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\ndata: tail\n\ndata: {\"error\":{\"message\":\"[redacted]\"}}\n\n",
+		},
+		{
 			name:   "oversized unterminated line passes through raw",
-			writes: []string{"data: " + strings.Repeat("A", sseErrorMaskLineCap), planted + "\n"},
-			want:   "data: " + strings.Repeat("A", sseErrorMaskLineCap) + planted + "\n",
+			writes: []string{"data: " + strings.Repeat("A", sseErrorMaskEventCap), planted + "\n"},
+			want:   "data: " + strings.Repeat("A", sseErrorMaskEventCap) + planted + "\n",
 		},
 	}
 	for _, tc := range cases {
@@ -1462,18 +1482,82 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 		})
 	}
 
-	t.Run("underlying write error surfaces with bytes consumed", func(t *testing.T) {
-		m := newSSEErrorMaskWriter(failingWriter{})
-		n, err := m.Write([]byte("data: x\ndata: y\n"))
+	t.Run("write error reports only fully delivered input", func(t *testing.T) {
+		// The client takes a prefix of the second event and dies. The first
+		// event was delivered in full; the second was not, so the count the
+		// caller logs as bytes delivered must stop at the event boundary.
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1})
+		in := "data: x\n\ndata: y\n\n"
+		n, err := m.Write([]byte(in))
 		if err == nil {
 			t.Fatal("expected the underlying write error")
 		}
-		if n != len("data: x\n") {
-			t.Errorf("consumed = %d, want the first line only (%d)", n, len("data: x\n"))
+		if want := len("data: x\n\n"); n != want {
+			t.Errorf("delivered = %d, want the first event only (%d)", n, want)
+		}
+	})
+
+	t.Run("spill and raw-mode write errors surface", func(t *testing.T) {
+		big := []byte("data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\n")
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{})
+		if n, err := m.Write(big); err == nil || n != 0 {
+			t.Fatalf("spill onto a dead client: got n=%d err=%v, want 0 and an error", n, err)
+		}
+
+		m = newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1})
+		if n, err := m.Write(big); err != nil || n != len(big) {
+			t.Fatalf("spill: got n=%d err=%v, want %d and nil", n, err, len(big))
+		}
+		if n, err := m.Write([]byte("data: more\n")); err == nil || n != 0 {
+			t.Fatalf("raw-mode line onto a dead client: got n=%d err=%v, want 0 and an error", n, err)
+		}
+	})
+
+	t.Run("flush error surfaces", func(t *testing.T) {
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{})
+		if _, err := m.Write([]byte("data: tail")); err != nil {
+			t.Fatalf("buffering a partial line must not touch the client: %v", err)
+		}
+		if err := m.Flush(); err == nil {
+			t.Fatal("expected Flush to surface the write error")
 		}
 	})
 }
 
-type failingWriter struct{}
+// prefixFailingWriter accepts the first `accept` downstream writes in full,
+// then writes a 3-byte prefix of the next one and fails.
+type prefixFailingWriter struct{ accept, calls int }
 
-func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("client gone") }
+func (w *prefixFailingWriter) Write(p []byte) (int, error) {
+	w.calls++
+	if w.calls <= w.accept {
+		return len(p), nil
+	}
+	return min(3, len(p)), errors.New("client gone")
+}
+
+// One logical error object may span several `data:` lines of one event; the
+// route-level masking must reassemble it before judging, or the second
+// fragment carries the credential through.
+func TestImageGenerations_SSEPassthroughMasksSplitErrorFrame(t *testing.T) {
+	const planted = "sk-proj-STANDARDKEY1234567890abcdef1234567890"
+	sse := "event: error\ndata: {\"type\":\"error\",\ndata: \"error\":{\"message\":\"billing key " + planted + " is invalid\"}}\n\n"
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, sse)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true,"partial_images":1}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	got := w.Body.String()
+	if strings.Contains(got, planted) {
+		t.Fatalf("operator credential reached the client through a split error frame:\n%s", got)
+	}
+	want := "event: error\ndata: {\"type\":\"error\",\n\"error\":{\"message\":\"billing key [redacted] is invalid\"}}\n\n"
+	if got != want {
+		t.Errorf("masked stream mismatch:\ngot  %q\nwant %q", got, want)
+	}
+}
