@@ -832,7 +832,7 @@ const sseErrorMaskEventCap = 4 << 20
 // common case: content events, multi-MB base64 partial images that must never
 // meet the mask's prefix regex) or, when the joined payload is a JSON object
 // carrying an "error" member and masking changes it, re-emitted with its
-// non-data lines intact and a single canonical "data: " line. An event that
+// non-data lines intact and canonical "data: " lines. An event that
 // grows past sseErrorMaskEventCap is passed through raw from that point.
 //
 // Write returns len(p) on success. On a downstream error it returns only the
@@ -972,8 +972,8 @@ func isSSEBlankLine(line []byte) bool {
 // maskSSEErrorEvent joins the event's `data:` payloads per the SSE spec and,
 // when the result is a JSON object with a non-null "error" member that
 // maskKeyShapedTokens changes, returns the event re-serialised: non-data lines
-// in their original order and framing, then one canonical "data: " line
-// carrying the masked payload. ok is false when the event is to be forwarded
+// in their original order and framing, then canonical "data: " lines carrying
+// the masked payload, one per physical line of the original. ok is false when the event is to be forwarded
 // verbatim.
 func maskSSEErrorEvent(lines [][]byte) (out []byte, ok bool) {
 	var payload []byte
@@ -1011,9 +1011,13 @@ func maskSSEErrorEvent(lines [][]byte) (out []byte, ok bool) {
 			out = append(out, l...)
 		}
 	}
-	out = append(out, "data: "...)
-	out = append(out, masked...)
-	out = append(out, eol...)
+	// A payload that spanned several data lines still holds the "\n" joins;
+	// each physical line needs its own prefix or SSE clients drop it.
+	for _, seg := range bytes.Split(masked, []byte{'\n'}) {
+		out = append(out, "data: "...)
+		out = append(out, seg...)
+		out = append(out, eol...)
+	}
 	return out, true
 }
 

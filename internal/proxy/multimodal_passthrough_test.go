@@ -1440,7 +1440,7 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 		{
 			name:   "error object split across data lines is joined before masking",
 			writes: []string{"event: error\ndata: {\"type\":\"error\",\n", "data: \"error\":{\"message\":\"key " + planted + " bad\"}}\n\n"},
-			want:   "event: error\ndata: {\"type\":\"error\",\n\"error\":{\"message\":\"key [redacted] bad\"}}\n\n",
+			want:   "event: error\ndata: {\"type\":\"error\",\ndata: \"error\":{\"message\":\"key [redacted] bad\"}}\n\n",
 		},
 		{
 			name:   "id and retry lines survive a masked event",
@@ -1556,7 +1556,7 @@ func TestImageGenerations_SSEPassthroughMasksSplitErrorFrame(t *testing.T) {
 	if strings.Contains(got, planted) {
 		t.Fatalf("operator credential reached the client through a split error frame:\n%s", got)
 	}
-	want := "event: error\ndata: {\"type\":\"error\",\n\"error\":{\"message\":\"billing key [redacted] is invalid\"}}\n\n"
+	want := "event: error\ndata: {\"type\":\"error\",\ndata: \"error\":{\"message\":\"billing key [redacted] is invalid\"}}\n\n"
 	if got != want {
 		t.Errorf("masked stream mismatch:\ngot  %q\nwant %q", got, want)
 	}
