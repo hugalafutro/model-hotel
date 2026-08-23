@@ -2925,7 +2925,7 @@
 			"openRouterKeyBalance": "OpenRouter: стање кључа - кликните за детаље",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} план (завршава се {{endDate}}) {{refreshed}} - кликните да освежите",
 			"updated": "- ажурирано {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} преосталих kWh {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh искоришћено у овом периоду {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt стање недоступно",
 			"miniMaxRemaining": "MiniMax преостала квота - кликните за детаље",
 			"miniMaxUsed": "Искоришћена квота MiniMax - кликните за детаље"

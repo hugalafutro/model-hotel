@@ -2867,7 +2867,7 @@
 			"openRouterKeyBalance": "OpenRouter key balance - click for details",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}) {{refreshed}} - click to update",
 			"updated": "- updated {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh remaining {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh used this period {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable"
 		},
 		"filterDropdown": {

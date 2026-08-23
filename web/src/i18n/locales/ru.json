@@ -2985,7 +2985,7 @@
 			"openRouterKeyBalance": "Баланс ключа OpenRouter - нажмите для подробностей",
 			"ollamaCloudPlanWithEnd": "План Ollama Cloud {{plan}} (заканчивается {{endDate}}) {{refreshed}} - нажмите для обновления",
 			"updated": "- обновлено {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} кВтч осталось {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: использовано {{amount}} кВтч за этот период {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступен",
 			"miniMaxRemaining": "Оставшаяся квота MiniMax - нажмите для получения подробной информации",
 			"miniMaxUsed": "Использованная квота MiniMax - нажмите для получения подробной информации"

@@ -705,6 +705,34 @@ describe("QuotaBadge", () => {
 			expect(screen.getByText("-")).toBeInTheDocument();
 		});
 
+		// Live overage fixture (used > included, kwh_remaining 0, in_overage):
+		// the label shows used/included, and the tooltip describes energy USED
+		// this period, not "remaining" (which would read as the misleading
+		// used amount with a "remaining" word beside it).
+		it("in overage: label shows used/included and tooltip says used this period", () => {
+			const overage: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				subscription: {
+					...mockNeuralWattQuota.subscription,
+					kwh_used: 2.3674,
+					kwh_included: 2.3529,
+					kwh_remaining: 0,
+					in_overage: true,
+				},
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={overage}
+				/>,
+			);
+			expect(screen.getByText("2.37/2.35 kWh")).toBeInTheDocument();
+			const title = screen.getByRole("button").getAttribute("title") ?? "";
+			expect(title).toContain("used this period");
+			expect(title).not.toContain("remaining");
+		});
+
 		it("calls onClick when clicked", async () => {
 			const user = await import("@testing-library/user-event");
 			render(

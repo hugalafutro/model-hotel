@@ -56,6 +56,8 @@ type streamReader struct {
 	stallTimeout time.Duration
 
 	streamStalledFlag atomic.Int32 // set to 1 by the watchdog on timeout
+	interruptedFlag   atomic.Int32 // set to 1 by the watchdog on process shutdown
+	shutdown          <-chan struct{}
 	stallCh           chan time.Duration
 	watchdogDone      chan struct{}
 
@@ -73,8 +75,12 @@ type streamReader struct {
 }
 
 // newStreamReader builds the scanner (replaying opts.preReadBuf first if the
-// TTFT probe captured bytes) and starts the stall watchdog when configured.
-func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData) *streamReader {
+// TTFT probe captured bytes) and starts the watchdog when a stall timeout is
+// configured or a shutdown channel is given. shutdown, when closed, makes the
+// watchdog close the upstream body and mark the stream interrupted so the
+// finalize path can hand the client a terminal error frame before the
+// process exits; nil means no shutdown signal.
+func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData, shutdown <-chan struct{}) *streamReader {
 	var scanner *bufio.Scanner
 	if opts.preReadBuf != nil {
 		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), body))
@@ -89,10 +95,11 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 		ctx:          ctx,
 		body:         body,
 		stallTimeout: opts.streamStallTimeout,
+		shutdown:     shutdown,
 		modelID:      logData.modelID,
 		providerName: logData.providerName,
 	}
-	if opts.streamStallTimeout > 0 {
+	if opts.streamStallTimeout > 0 || shutdown != nil {
 		r.stallCh = make(chan time.Duration, 1)
 		r.watchdogDone = make(chan struct{})
 		go r.runWatchdog()
@@ -101,19 +108,33 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 }
 
 // runWatchdog closes the upstream body if no scan pings arrive within the
-// (progressively extended) stall timeout, unblocking a hung scanner.
+// (progressively extended) stall timeout, unblocking a hung scanner, or when
+// the process starts shutting down. Without a stall timeout the timer never
+// arms and only the shutdown case can fire.
 func (r *streamReader) runWatchdog() {
-	timer := time.NewTimer(r.stallTimeout)
-	defer timer.Stop()
+	var timerC <-chan time.Time
+	var timer *time.Timer
+	if r.stallTimeout > 0 {
+		timer = time.NewTimer(r.stallTimeout)
+		defer timer.Stop()
+		timerC = timer.C
+	}
 	for {
 		select {
 		case d := <-r.stallCh:
+			if timer == nil {
+				continue
+			}
 			if !timer.Stop() {
 				<-timer.C
 			}
 			timer.Reset(d)
-		case <-timer.C:
+		case <-timerC:
 			r.streamStalledFlag.Store(1)
+			_ = r.body.Close() // unblock scanner
+			return
+		case <-r.shutdown:
+			r.interruptedFlag.Store(1)
 			_ = r.body.Close() // unblock scanner
 			return
 		case <-r.watchdogDone:
@@ -205,6 +226,12 @@ func dataEvent(line []byte, payload string) sseEvent {
 // stalled reports whether the watchdog fired. Read after Close().
 func (r *streamReader) stalled() bool {
 	return r.streamStalledFlag.Load() == 1
+}
+
+// interrupted reports whether the watchdog ended the stream because the
+// process is shutting down. Read after Close().
+func (r *streamReader) interrupted() bool {
+	return r.interruptedFlag.Load() == 1
 }
 
 // err returns the scanner's terminal error, if any.

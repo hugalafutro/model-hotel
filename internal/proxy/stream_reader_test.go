@@ -24,7 +24,7 @@ func TestStreamReader_Classify(t *testing.T) {
 
 	body := io.NopCloser(strings.NewReader(input))
 	logData := &requestLogData{modelID: "m", providerName: "p"}
-	reader := newStreamReader(context.Background(), body, streamOptions{}, logData)
+	reader := newStreamReader(context.Background(), body, streamOptions{}, logData, nil)
 	defer reader.Close()
 
 	type want struct {

@@ -51,7 +51,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// stall watchdog, chunk counting, the empty-line limit, client-disconnect
 	// detection, BOM/CR cleanup, and SSE classification (Phase 3). It yields
 	// classified sseEvents; this orchestrator owns emits and transforms.
-	reader := newStreamReader(r.Context(), resp.Body, opts, logData)
+	reader := newStreamReader(r.Context(), resp.Body, opts, logData, h.shutdown)
 
 	// st accumulates the per-stream metrics, carry flags, and observer state
 	// (Phase 4 §6 migration). Created before the loop and mutated in place so
@@ -144,6 +144,7 @@ logUpdate:
 	// teardown), then finalize.
 	st.chunkCount = reader.chunkCount
 	st.stalled = reader.stalled()
+	st.interrupted = reader.interrupted()
 	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)
 }
 

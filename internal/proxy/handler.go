@@ -41,6 +41,11 @@ type Handler struct {
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
 	upstreamTransport *http.Transport
+	// shutdown is closed by Close so in-flight streams can end with a
+	// well-formed error frame instead of a cut connection when the process
+	// is stopping; nil (tests building Handler{} directly) never fires.
+	shutdown     chan struct{}
+	shutdownOnce sync.Once
 
 	// safeDialer holds the SafeDialer for use in CheckRedirect.
 	safeDialer *SafeDialer
@@ -196,6 +201,7 @@ func NewHandler(
 		tpmLimiter:     tpmLimiter,
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		shutdown:       make(chan struct{}),
 		upstreamTransport: &http.Transport{
 			DialContext:           safeDialFunc(sd),
 			ResponseHeaderTimeout: 120 * time.Second,
@@ -220,6 +226,9 @@ func safeDialFunc(sd *SafeDialer) func(ctx context.Context, network, addr string
 // shutdown so the shared upstream Transport terminates its idle
 // connection goroutines.
 func (h *Handler) Close() {
+	if h.shutdown != nil {
+		h.shutdownOnce.Do(func() { close(h.shutdown) })
+	}
 	if h.upstreamTransport != nil {
 		h.upstreamTransport.CloseIdleConnections()
 		debuglog.Info("proxy: closed upstream transport")

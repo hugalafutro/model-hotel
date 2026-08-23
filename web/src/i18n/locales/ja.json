@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "OpenRouter キー残高 - 詳細についてはクリックしてください",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} プラン（{{endDate}} 終了）{{refreshed}} - クリックして更新",
 			"updated": "- {{time}} に更新",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh残り {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: 今期 {{amount}} kWh 使用 {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt の残高を取得できません",
 			"miniMaxRemaining": "MiniMax 残りクォータ - 詳細をクリックしてください",
 			"miniMaxUsed": "MiniMax 使用済みクォータ - 詳細をクリックしてください"

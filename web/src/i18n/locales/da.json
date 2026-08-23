@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "OpenRouter nøglebalance - klik for detaljer",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (slutter {{endDate}}) {{refreshed}} - klik for at opdatere",
 			"updated": "- opdaterede {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh resterende {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh brugt i denne periode {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo utilgængelig",
 			"miniMaxRemaining": "MiniMax resterende kvote - klik for detaljer",
 			"miniMaxUsed": "MiniMax brugte kvote - klik for detaljer"

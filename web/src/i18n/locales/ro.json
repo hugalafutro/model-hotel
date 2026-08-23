@@ -2925,7 +2925,7 @@
 			"openRouterKeyBalance": "Soldul cheii OpenRouter - click pentru detalii",
 			"ollamaCloudPlanWithEnd": "Plan Ollama Cloud {{plan}} (se termină la {{endDate}}) {{refreshed}} - click pentru actualizare",
 			"updated": "- Actualizare {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh rămași {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh utilizați în această perioadă {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Sold NeuralWatt indisponibil",
 			"miniMaxRemaining": "MiniMax cota rămasă - click pentru detalii",
 			"miniMaxUsed": "MiniMax cota folosită - click pentru detalii"
