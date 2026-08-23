@@ -90,6 +90,7 @@ func main() {
 	if masterKey == "" {
 		debuglog.Fatal("frontdesk: FRONTDESK_MASTER_KEY is required")
 	}
+	warnWeakMasterKey(masterKey)
 
 	rp, err := newRelyingParty(publicOrigin)
 	if err != nil {
@@ -243,4 +244,17 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// warnWeakMasterKey mirrors the main server's MASTER_KEY check: the at-rest
+// KDF runs with deliberately low cost on the assumption that the key is
+// high-entropy, so a short one is called out at boot. Warn, never fail:
+// rotating the key would invalidate every stored member token and the TOTP
+// secret, so an existing deployment keeps starting.
+func warnWeakMasterKey(key string) {
+	if !config.WeakMasterKey(key) {
+		return
+	}
+	debuglog.Warn("frontdesk: FRONTDESK_MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of member tokens and the TOTP secret; generate a strong one with `openssl rand -base64 32`",
+		"length", len(key), "recommended_min", config.RecommendedMasterKeyLength)
 }

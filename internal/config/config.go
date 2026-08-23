@@ -15,10 +15,19 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// recommendedMasterKeyLength is the minimum MASTER_KEY length we consider
-// strong enough for the low-cost Argon2id parameters. It matches the output of
-// the documented generator `openssl rand -base64 32` (44 chars), rounded down.
-const recommendedMasterKeyLength = 32
+// RecommendedMasterKeyLength is the minimum at-rest master key length we
+// consider strong enough for the low-cost Argon2id parameters. It matches the
+// output of the documented generator `openssl rand -base64 32` (44 chars),
+// rounded down. Shared with Front Desk, whose FRONTDESK_MASTER_KEY protects
+// member admin tokens and the TOTP secret with the same KDF.
+const RecommendedMasterKeyLength = 32
+
+// WeakMasterKey reports whether key is shorter than RecommendedMasterKeyLength.
+// Callers warn rather than fail: rotating a master key invalidates everything
+// encrypted under it, so an existing deployment must keep booting.
+func WeakMasterKey(key string) bool {
+	return len(key) < RecommendedMasterKeyLength
+}
 
 // Config holds the application configuration.
 type Config struct {
@@ -208,9 +217,9 @@ func Load() (*Config, error) {
 	// generator (`openssl rand -base64 32` → 44 chars) so existing deployments
 	// keep booting (rotating MASTER_KEY would invalidate all encrypted keys),
 	// while operators are nudged toward a stronger value.
-	if len(cfg.MasterKey) < recommendedMasterKeyLength {
+	if WeakMasterKey(cfg.MasterKey) {
 		debuglog.Warn("config: MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of provider credentials; generate a strong one with `openssl rand -base64 32`",
-			"length", len(cfg.MasterKey), "recommended_min", recommendedMasterKeyLength)
+			"length", len(cfg.MasterKey), "recommended_min", RecommendedMasterKeyLength)
 	}
 
 	// DEMO_SHOW_TOKEN publishes the admin token on the login screen, which is

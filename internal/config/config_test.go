@@ -1,12 +1,16 @@
 package config
 
 import (
+	"context"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // ---------------------------------------------------------------------------
@@ -1676,5 +1680,79 @@ func TestCookieSecure_DefaultsToAlways(t *testing.T) {
 	}
 	if cfg3.CookieSecure != "always" {
 		t.Errorf("CookieSecure = %q, want always for unrecognized value", cfg3.CookieSecure)
+	}
+}
+
+func TestWeakMasterKey(t *testing.T) {
+	cases := []struct {
+		key  string
+		weak bool
+	}{
+		{"", true},
+		{"abc", true},
+		{strings.Repeat("x", RecommendedMasterKeyLength-1), true},
+		{strings.Repeat("x", RecommendedMasterKeyLength), false},
+		{"Q2Fub25pY2FsIG9wZW5zc2wgcmFuZCAtYmFzZTY0IDMyIG91dA==", false}, // 44-char generator output
+	}
+	for _, c := range cases {
+		if got := WeakMasterKey(c.key); got != c.weak {
+			t.Errorf("WeakMasterKey(len %d) = %v, want %v", len(c.key), got, c.weak)
+		}
+	}
+}
+
+// loadRecordingHandler captures log records emitted during Load so the boot
+// warning can be asserted, mirroring the Front Desk test.
+type loadRecordingHandler struct {
+	records []slog.Record
+}
+
+func (h *loadRecordingHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *loadRecordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.records = append(h.records, r)
+	return nil
+}
+func (h *loadRecordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *loadRecordingHandler) WithGroup(string) slog.Handler      { return h }
+
+// Load warns, and still succeeds, on a MASTER_KEY below the recommended length;
+// a generator-length key boots silently.
+func TestLoad_WarnsOnWeakMasterKey(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
+	defer os.Unsetenv("DATABASE_URL")
+	defer os.Unsetenv("MASTER_KEY")
+
+	rec := &loadRecordingHandler{}
+	prev := slog.Default()
+	debuglog.SetHandler(rec)
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	weak := func() []slog.Record {
+		var out []slog.Record
+		for _, r := range rec.records {
+			if r.Level == slog.LevelWarn && strings.Contains(r.Message, "MASTER_KEY is shorter than recommended") {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+
+	os.Setenv("MASTER_KEY", "hunter2")
+	if _, err := Load(); err != nil {
+		t.Fatalf("a weak key must still load: %v", err)
+	}
+	if got := weak(); len(got) != 1 {
+		t.Fatalf("weak key: %d warnings, want 1", len(got))
+	} else if strings.Contains(got[0].Message, "hunter2") {
+		t.Error("the warning must not echo the key")
+	}
+
+	rec.records = nil
+	os.Setenv("MASTER_KEY", strings.Repeat("k", RecommendedMasterKeyLength))
+	if _, err := Load(); err != nil {
+		t.Fatalf("strong key: %v", err)
+	}
+	if got := weak(); len(got) != 0 {
+		t.Errorf("strong key: unexpected warning %q", got[0].Message)
 	}
 }
