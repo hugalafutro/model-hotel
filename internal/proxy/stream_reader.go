@@ -131,9 +131,6 @@ func (r *streamReader) runWatchdog() {
 	for {
 		select {
 		case d := <-r.stallCh:
-			if timer == nil {
-				continue
-			}
 			if !timer.Stop() {
 				<-timer.C
 			}

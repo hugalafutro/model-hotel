@@ -273,3 +273,37 @@ func TestHandlerClose_ClosesShutdownOnce(t *testing.T) {
 type stringError struct{ s string }
 
 func (e *stringError) Error() string { return e.s }
+
+// A stream that finishes on its own during the shutdown grace completes
+// normally — no "gateway restarting" frame, its real [DONE] stands.
+func TestHandleStreamingResponse_ShutdownGraceLetsStreamFinish(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	h.shutdown = make(chan struct{})
+	prevGrace := shutdownStreamGrace
+	shutdownStreamGrace = 2 * time.Second // long enough for the stream to end first
+	defer func() { shutdownStreamGrace = prevGrace }()
+
+	// Shutdown fires immediately, but the body is fully readable to [DONE],
+	// so the scanner reaches EOF well within the grace window.
+	close(h.shutdown)
+	body := io.NopCloser(strings.NewReader(
+		"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"))
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := streamingLog()
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1})
+
+	out := w.Body.String()
+	if strings.Contains(out, "restarting") || strings.Contains(out, "\"error\"") {
+		t.Fatalf("a stream that finished in the grace must not get a restart frame:\n%s", out)
+	}
+	if logData.state != "completed" {
+		t.Errorf("state = %q, want completed", logData.state)
+	}
+}
