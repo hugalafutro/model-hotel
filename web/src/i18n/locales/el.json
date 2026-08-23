@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "Υπόλοιπο κλειδιού OpenRouter - κάντε κλικ για λεπτομέρειες",
 			"ollamaCloudPlanWithEnd": "Πρόγραμμα Ollama Cloud {{plan}} (λήγει {{endDate}}) {{refreshed}} - κάντε κλικ για ενημέρωση",
 			"updated": "- ενημερωμένο {{time}}",
-			"neuralwattBalance": "NeuralWatt: Απομένει {{amount}} kWh {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh που χρησιμοποιήθηκαν αυτήν την περίοδο {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο",
 			"miniMaxRemaining": "MiniMax υπόλοιπο όριο - κάντε κλικ για λεπτομέρειες",
 			"miniMaxUsed": "MiniMax χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες"

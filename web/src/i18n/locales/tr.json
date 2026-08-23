@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "OpenRouter anahtar bakiyesi - ayrıntılar için tıklayın",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} paketi (süresi {{endDate}}tarihinde sona eriyor) {{refreshed}} - güncellemek için tıklayın",
 			"updated": "- güncellendi {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} Kalan kWh {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: bu dönemde {{amount}} kWh kullanıldı {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt bakiyesi mevcut değil",
 			"miniMaxRemaining": "MiniMax kalan kontenjanı - ayrıntılar için tıklayın",
 			"miniMaxUsed": "MiniMax kotası kullanıldı - ayrıntılar için tıklayın"

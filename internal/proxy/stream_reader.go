@@ -56,6 +56,9 @@ type streamReader struct {
 	stallTimeout time.Duration
 
 	streamStalledFlag atomic.Int32 // set to 1 by the watchdog on timeout
+	interruptedFlag   atomic.Int32 // set to 1 by the watchdog on process shutdown
+	shutdown          <-chan struct{}
+	shutdownGrace     time.Duration // captured from shutdownStreamGrace at construction
 	stallCh           chan time.Duration
 	watchdogDone      chan struct{}
 
@@ -73,8 +76,12 @@ type streamReader struct {
 }
 
 // newStreamReader builds the scanner (replaying opts.preReadBuf first if the
-// TTFT probe captured bytes) and starts the stall watchdog when configured.
-func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData) *streamReader {
+// TTFT probe captured bytes) and starts the watchdog when a stall timeout is
+// configured or a shutdown channel is given. shutdown, when closed, makes the
+// watchdog close the upstream body and mark the stream interrupted so the
+// finalize path can hand the client a terminal error frame before the
+// process exits; nil means no shutdown signal.
+func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData, shutdown <-chan struct{}) *streamReader {
 	var scanner *bufio.Scanner
 	if opts.preReadBuf != nil {
 		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), body))
@@ -85,26 +92,44 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
 
 	r := &streamReader{
-		scanner:      scanner,
-		ctx:          ctx,
-		body:         body,
-		stallTimeout: opts.streamStallTimeout,
-		modelID:      logData.modelID,
-		providerName: logData.providerName,
+		scanner:       scanner,
+		ctx:           ctx,
+		body:          body,
+		stallTimeout:  opts.streamStallTimeout,
+		shutdown:      shutdown,
+		shutdownGrace: shutdownStreamGrace,
+		modelID:       logData.modelID,
+		providerName:  logData.providerName,
 	}
 	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
+	}
+	if opts.streamStallTimeout > 0 || shutdown != nil {
 		r.watchdogDone = make(chan struct{})
 		go r.runWatchdog()
 	}
 	return r
 }
 
+// shutdownStreamGrace is how long an in-flight stream is allowed to keep going
+// after the process starts shutting down before its upstream body is closed and
+// the client gets a terminal "gateway restarting" frame. Kept under the HTTP
+// server's own shutdown deadline so the frame is written while the connection
+// is still live.
+var shutdownStreamGrace = 8 * time.Second
+
 // runWatchdog closes the upstream body if no scan pings arrive within the
-// (progressively extended) stall timeout, unblocking a hung scanner.
+// (progressively extended) stall timeout, unblocking a hung scanner, or when
+// the process starts shutting down. Without a stall timeout the timer never
+// arms and only the shutdown case can fire.
 func (r *streamReader) runWatchdog() {
-	timer := time.NewTimer(r.stallTimeout)
-	defer timer.Stop()
+	var timerC <-chan time.Time
+	var timer *time.Timer
+	if r.stallTimeout > 0 {
+		timer = time.NewTimer(r.stallTimeout)
+		defer timer.Stop()
+		timerC = timer.C
+	}
 	for {
 		select {
 		case d := <-r.stallCh:
@@ -112,10 +137,26 @@ func (r *streamReader) runWatchdog() {
 				<-timer.C
 			}
 			timer.Reset(d)
-		case <-timer.C:
+		case <-timerC:
 			r.streamStalledFlag.Store(1)
 			_ = r.body.Close() // unblock scanner
 			return
+		case <-r.shutdown:
+			// Give an in-flight stream a moment to finish on its own before
+			// cutting it: a stream seconds from [DONE] should complete with
+			// real content, not a restart frame. If it finishes first,
+			// watchdogDone fires and this goroutine exits without cutting.
+			r.shutdown = nil // don't re-select the closed channel
+			grace := time.NewTimer(r.shutdownGrace)
+			select {
+			case <-grace.C:
+				r.interruptedFlag.Store(1)
+				_ = r.body.Close() // unblock scanner
+				return
+			case <-r.watchdogDone:
+				grace.Stop()
+				return
+			}
 		case <-r.watchdogDone:
 			return
 		}
@@ -205,6 +246,12 @@ func dataEvent(line []byte, payload string) sseEvent {
 // stalled reports whether the watchdog fired. Read after Close().
 func (r *streamReader) stalled() bool {
 	return r.streamStalledFlag.Load() == 1
+}
+
+// interrupted reports whether the watchdog ended the stream because the
+// process is shutting down. Read after Close().
+func (r *streamReader) interrupted() bool {
+	return r.interruptedFlag.Load() == 1
 }
 
 // err returns the scanner's terminal error, if any.

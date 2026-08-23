@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "Số dư khóa OpenRouter - nhấp vào để xem chi tiết",
 			"ollamaCloudPlanWithEnd": "Gói Ollama Cloud {{plan}} (hết hạn vào ngày {{endDate}}) {{refreshed}} - nhấp vào đây để cập nhật",
 			"updated": "- đã cập nhật {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} Số kWh còn lại {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh đã dùng trong kỳ này {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Không thể hiển thị số dư NeuralWatt",
 			"miniMaxRemaining": "MiniMax: Số lượng còn lại - nhấp vào để xem chi tiết",
 			"miniMaxUsed": "Hạn ngạch MiniMax đã dùng - nhấp để xem chi tiết"

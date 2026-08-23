@@ -2925,7 +2925,7 @@
 			"openRouterKeyBalance": "Solde de clé OpenRouter - cliquez pour plus de détails",
 			"ollamaCloudPlanWithEnd": "Plan Ollama Cloud {{plan}} (se termine {{endDate}}) {{refreshed}} - cliquez pour mettre à jour",
 			"updated": "- mise à jour {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh restants {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh utilisés cette période {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Solde NeuralWatt indisponible",
 			"miniMaxRemaining": "Quota restant de MiniMax - cliquez pour plus de détails",
 			"miniMaxUsed": "Quota utilisé de MiniMax - cliquez pour plus de détails"

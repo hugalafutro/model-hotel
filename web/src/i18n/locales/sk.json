@@ -2985,7 +2985,7 @@
 			"openRouterKeyBalance": "Zostatok kľúča OpenRouter – kliknite pre podrobnosti",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plán (končí {{endDate}}) {{refreshed}} – kliknite pre aktualizáciu",
 			"updated": "- aktualizované {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} zostávajúce kWh {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh využité v tomto období {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Zostatok NeuralWatt nie je k dispozícii",
 			"miniMaxRemaining": "MiniMax – Zostávajúca kvóta – kliknite pre podrobnosti",
 			"miniMaxUsed": "MiniMax – využitá kvóta – kliknite pre podrobnosti"

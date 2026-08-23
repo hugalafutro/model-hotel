@@ -3105,7 +3105,7 @@
 			"openRouterKeyBalance": "رصيد مفتاح OpenRouter - انقر للحصول على التفاصيل",
 			"ollamaCloudPlanWithEnd": "خطة Ollama Cloud {{plan}} (ينتهي {{endDate}}) {{refreshed}} - انقر للتحديث",
 			"updated": "- تم تحديثه {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh متبقٍ {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh المستخدمة هذه الفترة {{refreshed}}",
 			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر",
 			"miniMaxRemaining": "MiniMax الحصة المتبقية - انقر للحصول على التفاصيل",
 			"miniMaxUsed": "MiniMax الحصة المستخدمة - انقر للحصول على التفاصيل"

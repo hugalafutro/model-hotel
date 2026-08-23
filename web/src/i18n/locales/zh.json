@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "OpenRouter 密钥余额 - 点击查看详情",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 套餐（截止日期： {{endDate}}） {{refreshed}} - 点击更新",
 			"updated": "- 已更新 {{time}}",
-			"neuralwattBalance": "NeuralWatt： {{amount}} 剩余电量（千瓦时） {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt：本期已用 {{amount}} 千瓦时 {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用",
 			"miniMaxRemaining": "MiniMax 剩余配额-点击查看详情",
 			"miniMaxUsed": "MiniMax 使用的配额-点击查看详情"

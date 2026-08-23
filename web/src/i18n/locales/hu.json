@@ -2865,7 +2865,7 @@
 			"openRouterKeyBalance": "OpenRouter kulcs egyenlege – kattintson a részletekért",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} csomag (lejár: {{endDate}}) {{refreshed}} – kattintson a frissítéshez",
 			"updated": "- frissítve {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} kWh maradt {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh felhasználva ebben az időszakban {{refreshed}}",
 			"neuralwattBalanceUnavailable": "A NeuralWatt egyenleg nem elérhető",
 			"miniMaxRemaining": "MiniMax: fennmaradó kvóta – kattintson a részletekért",
 			"miniMaxUsed": "MiniMax felhasznált kvóta – kattintson a részletekért"

@@ -2925,7 +2925,7 @@
 			"openRouterKeyBalance": "יתרת מפתחות ב-OpenRouter - לחץ לפרטים",
 			"ollamaCloudPlanWithEnd": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{endDate}}) {{refreshed}} - לחץ כדי לעדכן",
 			"updated": "- עודכן {{time}}",
-			"neuralwattBalance": "NeuralWatt: {{amount}} קוט\"ש שנותרו {{refreshed}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} קוט\"ש שנוצלו בתקופה זו {{refreshed}}",
 			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין",
 			"miniMaxRemaining": "MiniMax: מכסה נותרת - לחץ כאן לפרטים",
 			"miniMaxUsed": "MiniMax: מכסה בשימוש - לחץ לפרטים"
