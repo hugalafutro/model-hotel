@@ -58,6 +58,7 @@ type streamReader struct {
 	streamStalledFlag atomic.Int32 // set to 1 by the watchdog on timeout
 	interruptedFlag   atomic.Int32 // set to 1 by the watchdog on process shutdown
 	shutdown          <-chan struct{}
+	shutdownGrace     time.Duration // captured from shutdownStreamGrace at construction
 	stallCh           chan time.Duration
 	watchdogDone      chan struct{}
 
@@ -91,13 +92,14 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
 
 	r := &streamReader{
-		scanner:      scanner,
-		ctx:          ctx,
-		body:         body,
-		stallTimeout: opts.streamStallTimeout,
-		shutdown:     shutdown,
-		modelID:      logData.modelID,
-		providerName: logData.providerName,
+		scanner:       scanner,
+		ctx:           ctx,
+		body:          body,
+		stallTimeout:  opts.streamStallTimeout,
+		shutdown:      shutdown,
+		shutdownGrace: shutdownStreamGrace,
+		modelID:       logData.modelID,
+		providerName:  logData.providerName,
 	}
 	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
@@ -145,7 +147,7 @@ func (r *streamReader) runWatchdog() {
 			// real content, not a restart frame. If it finishes first,
 			// watchdogDone fires and this goroutine exits without cutting.
 			r.shutdown = nil // don't re-select the closed channel
-			grace := time.NewTimer(shutdownStreamGrace)
+			grace := time.NewTimer(r.shutdownGrace)
 			select {
 			case <-grace.C:
 				r.interruptedFlag.Store(1)
