@@ -882,6 +882,32 @@ func TestImageGenerations_OversizedJSONMaskedStillStreamsRemainder(t *testing.T)
 	}
 }
 
+// A key that straddles the buffered-prefix boundary of an oversized body (the
+// cap+1 read ends mid-key) must still be masked in what the client receives.
+func TestImageGenerations_OversizedJSONMasksKeyAcrossBufferBoundary(t *testing.T) {
+	head := `{"created":1,"data":[{"b64_json":"`
+	// Pad so the first 6 bytes of "test-api-key" land inside the cap+1 read
+	// and the remaining 6 stream as the remainder.
+	pad := strings.Repeat("A", passthroughJSONBufferCap+1-len(head)-6)
+	upstreamBody := head + pad + "test-api-key" + strings.Repeat("B", 4096) + `"}]}`
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	got := w.Body.String()
+	if strings.Contains(got, "test-api-key") {
+		t.Fatal("key straddling the buffer boundary reached the client")
+	}
+	if want := strings.ReplaceAll(upstreamBody, "test-api-key", "[redacted]"); got != want {
+		t.Errorf("oversized body mismatch: got %d bytes, want %d", len(got), len(want))
+	}
+}
+
 func TestImageGenerations_SSEPassthrough(t *testing.T) {
 	sse := "event: image_generation.partial_image\ndata: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"cGFydA==\"}\n\nevent: image_generation.completed\ndata: {\"type\":\"image_generation.completed\",\"b64_json\":\"ZnVsbA==\"}\n\n"
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1588,6 +1614,34 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 		}
 		if n, err := m.Write([]byte("data: more\n")); err == nil || n != 0 {
 			t.Fatalf("raw-mode line onto a dead client: got n=%d err=%v, want 0 and an error", n, err)
+		}
+	})
+
+	t.Run("key straddling the spill and raw-mode boundaries is masked", func(t *testing.T) {
+		const secret = "myCustomGatewayKey2024x9z8"
+		var out bytes.Buffer
+		m := newSSEErrorMaskWriter(&out, newCredentialMasker(secret))
+		// First write overflows the event cap mid-key: the buffered bytes
+		// spill with half the key at their end.
+		first := "data: " + strings.Repeat("A", sseErrorMaskEventCap) + secret[:10]
+		// Raw-mode continuation carries the rest, then another split key, then
+		// the delimiter; a normal event follows to prove ordering survives.
+		writes := []string{first, secret[10:] + " " + secret[:5], secret[5:] + "\n", "\n", "data: ok\n\n"}
+		for _, w := range writes {
+			if _, err := m.Write([]byte(w)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := m.Flush(); err != nil {
+			t.Fatal(err)
+		}
+		got := out.String()
+		if strings.Contains(got, secret) {
+			t.Fatal("key straddling raw-mode writes reached the client")
+		}
+		want := "data: " + strings.Repeat("A", sseErrorMaskEventCap) + "[redacted] [redacted]\n\ndata: ok\n\n"
+		if got != want {
+			t.Errorf("mismatch: got len %d tail %q, want len %d", len(got), got[len(got)-40:], len(want))
 		}
 	})
 

@@ -153,7 +153,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// answered. On the native Anthropic passthrough the chunks are never parsed
 	// into deltas, so its terminal message_stop stands in for the same fact.
 	logData.deliveredContent = st.sawContent || st.sawMessageStop
-	logData.errorMessage = string(opts.masker.maskExact([]byte(errMsg)))
+	logData.errorMessage = string(opts.masker.mask([]byte(errMsg)))
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
 		logData.statusCode = 0

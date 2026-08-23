@@ -803,7 +803,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	h.failRequest(logData, resp.StatusCode, kind, string(masker.maskExact([]byte(errMsg))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(logData, resp.StatusCode, kind, string(masker.mask([]byte(errMsg))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	// A 2xx that reached this function (any success status other than a bare
 	// 200) is not an error at all and is forwarded whatever its body is,
@@ -901,9 +901,9 @@ const credentialMinLen = 8
 // error frames on the translated (handleDataChunk), native Anthropic
 // (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
 // zero value masks by shape only. The exact layer alone (maskExact) also runs
-// on every other provider body a client receives and on the request log's
-// error message; the regex layer is client-side error text only, so the log
-// keeps everything but this gateway's own key.
+// on every other provider body a client receives; the request log's error
+// message gets both layers, since it is error text readable by non-admin
+// users with the logs grant. Content bodies never meet the regex.
 type credentialMasker struct {
 	secret []byte
 }
@@ -934,15 +934,62 @@ func (m credentialMasker) maskExact(body []byte) []byte {
 	return body
 }
 
-// maskKeyShapedTokens scrubs credential-looking substrings from an upstream
-// body before it is forwarded to a client. Auth-class errors never forward at
-// all, and credentialMasker has already removed this gateway's own key by
-// exact value; this is the third layer, for a provider quoting some other
-// credential inside an otherwise forwardable payload error. A match with no
+// maskKeyShapedTokens scrubs credential-looking substrings from upstream error
+// text before it reaches a client or the request log. Auth-class errors never
+// forward at all, and credentialMasker has already removed this gateway's own
+// key by exact value; this is the third layer, for a provider quoting some
+// other credential inside an otherwise forwardable payload error. A match with no
 // digit in it is an identifier or prose ("sk_business_unit_identifier",
 // "Bearer authentication-required") rather than a credential, and stays -
 // real keys carry digits. The replacement carries no JSON metacharacters, so
 // a valid body stays valid.
+// exactMaskWriter applies credentialMasker.maskExact to a byte stream whose
+// writes may split the key: it holds back the last len(key)-1 bytes of each
+// write until the next one arrives, so a key straddling two writes is still
+// seen whole. Flush releases the held tail at end of stream. Used on the two
+// raw forwarding paths (an oversized pass-through JSON remainder and an
+// oversized SSE event) where per-chunk masking has boundaries.
+type exactMaskWriter struct {
+	w    io.Writer
+	cred credentialMasker
+	tail []byte
+}
+
+func newExactMaskWriter(w io.Writer, cred credentialMasker) *exactMaskWriter {
+	return &exactMaskWriter{w: w, cred: cred}
+}
+
+func (e *exactMaskWriter) Write(p []byte) (int, error) {
+	if len(e.cred.secret) == 0 {
+		return e.w.Write(p)
+	}
+	buf := make([]byte, 0, len(e.tail)+len(p))
+	buf = append(buf, e.tail...)
+	buf = append(buf, p...)
+	buf = e.cred.maskExact(buf)
+	keep := min(len(e.cred.secret)-1, len(buf))
+	out := buf[:len(buf)-keep]
+	e.tail = append([]byte(nil), buf[len(buf)-keep:]...)
+	if len(out) > 0 {
+		if _, err := e.w.Write(out); err != nil {
+			return 0, err
+		}
+	}
+	return len(p), nil
+}
+
+// Flush writes the held tail. Call once the stream (or the raw stretch of
+// it) has ended.
+func (e *exactMaskWriter) Flush() error {
+	if len(e.tail) == 0 {
+		return nil
+	}
+	out := e.tail
+	e.tail = nil
+	_, err := e.w.Write(out)
+	return err
+}
+
 func maskKeyShapedTokens(body []byte) []byte {
 	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
 		if !bytes.ContainsAny(m, "0123456789") {

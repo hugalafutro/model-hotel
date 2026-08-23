@@ -662,7 +662,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, decodeErr, logData.modelID)
-		logData.errorMessage = logMsg
+		// body is already exact-masked; the log row also gets the key-shape
+		// layer, like every other stored error message.
+		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"

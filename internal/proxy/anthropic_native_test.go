@@ -333,8 +333,8 @@ func TestNativeStream_ProviderErrorEventMasksKeyShapedTokens(t *testing.T) {
 	if logData.state != "failed" {
 		t.Errorf("state = %q, want failed", logData.state)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 

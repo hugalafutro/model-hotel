@@ -738,8 +738,8 @@ func TestHandleStreamingResponse_ErrorChunkMasksKeyShapedTokens(t *testing.T) {
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 
@@ -794,8 +794,8 @@ func TestHandleStreamingResponse_TransformedErrorChunkMasksKeyShapedTokens(t *te
 	if !strings.Contains(body, `"finish_reason":"stop"`) {
 		t.Fatalf("finish_reason normalization must still apply, got:\n%s", body)
 	}
-	if !strings.Contains(logData.errorMessage, planted) {
-		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
+	if strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("key-shaped token reached the request log, got %q", logData.errorMessage)
 	}
 }
 
