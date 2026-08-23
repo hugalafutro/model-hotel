@@ -679,6 +679,45 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 	}
 }
 
+// The non-hedged dispatcher must hand the stream the candidate's credential
+// masker: the env provider's key ("test-api-key") has no prefix the shape regex
+// knows, so only the exact-value layer can scrub it. Pins dispatchStreaming as
+// a masker producer.
+func TestChatCompletions_StreamingErrorFrameMasksExactProviderKey(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	defer handler.Close()
+
+	env.Upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
+		fmt.Fprint(w, "data: {\"error\":{\"message\":\"billing key test-api-key is invalid\"}}\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	})
+
+	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	got := w.Body.String()
+	if strings.Contains(got, "test-api-key") {
+		t.Fatalf("provider key reached the client through the dispatched stream:\n%s", got)
+	}
+	if !strings.Contains(got, `"message":"billing key [redacted] is invalid"`) {
+		t.Errorf("expected masked error frame, got:\n%s", got)
+	}
+}
+
 // TestChatCompletions_FailoverOnRateLimit tests failover when rate limit is hit
 
 func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {

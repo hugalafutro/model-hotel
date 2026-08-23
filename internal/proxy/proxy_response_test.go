@@ -798,3 +798,54 @@ func TestHandleStreamingResponse_TransformedErrorChunkMasksKeyShapedTokens(t *te
 		t.Errorf("request log must keep the unmasked original for the operator, got %q", logData.errorMessage)
 	}
 }
+
+// The shape regex cannot know a custom gateway's key format; the stream must
+// scrub the exact credential the dispatcher hands it.
+func TestHandleStreamingResponse_ErrorChunkMasksExactProviderKey(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const secret = "myCustomGatewayKey2024x9z8"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `data: {"error":{"message":"billing key `+secret+` is invalid"}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withAuthContext(req)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, masker: newCredentialMasker(secret)})
+
+	body := inner.Body.String()
+	if strings.Contains(body, secret) {
+		t.Fatalf("exact provider key reached the client:\n%s", body)
+	}
+	if !strings.Contains(body, `"message":"billing key [redacted] is invalid"`) {
+		t.Fatalf("expected masked error frame, got:\n%s", body)
+	}
+	if !strings.Contains(logData.errorMessage, secret) {
+		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	}
+}

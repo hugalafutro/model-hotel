@@ -884,6 +884,30 @@ func TestImageGenerations_SSEPassthroughMasksErrorFrame(t *testing.T) {
 	}
 }
 
+// The test provider's key ("test-api-key") has no prefix the shape regex knows,
+// which is exactly the custom-gateway case: the route must scrub it by value.
+func TestImageGenerations_SSEPassthroughMasksExactProviderKey(t *testing.T) {
+	sse := "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"billing key test-api-key is invalid\"}}\n\n"
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, sse)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true,"partial_images":1}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	got := w.Body.String()
+	if strings.Contains(got, "test-api-key") {
+		t.Fatalf("exact provider key reached the client through the SSE passthrough:\n%s", got)
+	}
+	want := "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"billing key [redacted] is invalid\"}}\n\n"
+	if got != want {
+		t.Errorf("masked stream mismatch:\ngot  %q\nwant %q", got, want)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Audio transcriptions (multipart)
 // ---------------------------------------------------------------------------
@@ -1466,7 +1490,7 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			m := newSSEErrorMaskWriter(&out)
+			m := newSSEErrorMaskWriter(&out, credentialMasker{})
 			for _, w := range tc.writes {
 				n, err := m.Write([]byte(w))
 				if err != nil || n != len(w) {
@@ -1486,7 +1510,7 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 		// The client takes a prefix of the second event and dies. The first
 		// event was delivered in full; the second was not, so the count the
 		// caller logs as bytes delivered must stop at the event boundary.
-		m := newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1})
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1}, credentialMasker{})
 		in := "data: x\n\ndata: y\n\n"
 		n, err := m.Write([]byte(in))
 		if err == nil {
@@ -1499,12 +1523,12 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 
 	t.Run("spill and raw-mode write errors surface", func(t *testing.T) {
 		big := []byte("data: " + strings.Repeat("A", sseErrorMaskEventCap) + "\n")
-		m := newSSEErrorMaskWriter(&prefixFailingWriter{})
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{}, credentialMasker{})
 		if n, err := m.Write(big); err == nil || n != 0 {
 			t.Fatalf("spill onto a dead client: got n=%d err=%v, want 0 and an error", n, err)
 		}
 
-		m = newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1})
+		m = newSSEErrorMaskWriter(&prefixFailingWriter{accept: 1}, credentialMasker{})
 		if n, err := m.Write(big); err != nil || n != len(big) {
 			t.Fatalf("spill: got n=%d err=%v, want %d and nil", n, err, len(big))
 		}
@@ -1514,7 +1538,7 @@ func TestSSEErrorMaskWriter(t *testing.T) {
 	})
 
 	t.Run("flush error surfaces", func(t *testing.T) {
-		m := newSSEErrorMaskWriter(&prefixFailingWriter{})
+		m := newSSEErrorMaskWriter(&prefixFailingWriter{}, credentialMasker{})
 		if _, err := m.Write([]byte("data: tail")); err != nil {
 			t.Fatalf("buffering a partial line must not touch the client: %v", err)
 		}

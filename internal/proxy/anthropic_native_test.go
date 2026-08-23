@@ -204,6 +204,11 @@ func TestHandleNativeNonStreaming_ReadErrorFinalizesLog(t *testing.T) {
 // ttft_stall_test.go.
 func runNativeStream(t *testing.T, sseBody string) (*httptest.ResponseRecorder, *requestLogData) {
 	t.Helper()
+	return runNativeStreamWith(t, sseBody, credentialMasker{})
+}
+
+func runNativeStreamWith(t *testing.T, sseBody string, masker credentialMasker) (*httptest.ResponseRecorder, *requestLogData) {
+	t.Helper()
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 
@@ -226,6 +231,7 @@ func runNativeStream(t *testing.T, sseBody string) (*httptest.ResponseRecorder, 
 		vkHash:           "test-hash",
 		attempt:          1,
 		rawPassthrough:   true,
+		masker:           masker,
 	}
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
 	return w, logData
@@ -328,6 +334,24 @@ func TestNativeStream_ProviderErrorEventMasksKeyShapedTokens(t *testing.T) {
 		t.Errorf("state = %q, want failed", logData.state)
 	}
 	if !strings.Contains(logData.errorMessage, planted) {
+		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
+	}
+}
+
+// Same contract on the native passthrough: a custom-shaped key is scrubbed by
+// exact value, since no prefix would catch it.
+func TestNativeStream_ProviderErrorEventMasksExactProviderKey(t *testing.T) {
+	const secret = "myCustomGatewayKey2024x9z8"
+	body := nativeStreamHead + "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key " + secret + "\"}}\n\n"
+	w, logData := runNativeStreamWith(t, body, newCredentialMasker(secret))
+
+	if strings.Contains(w.Body.String(), secret) {
+		t.Fatalf("exact provider key reached the client via the native error frame:\n%s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"message":"invalid x-api-key [redacted]"`) {
+		t.Errorf("masked error frame not forwarded to client:\n%s", w.Body.String())
+	}
+	if !strings.Contains(logData.errorMessage, secret) {
 		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
 	}
 }

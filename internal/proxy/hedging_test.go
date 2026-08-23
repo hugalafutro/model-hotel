@@ -33,6 +33,7 @@ type fakeProbeSpec struct {
 	won       bool          // true = streamable first token
 	reqErr    reqError      // failover cause when !won
 	ignoreCtx bool          // when true, the probe does not return early on ctx cancel
+	body      string        // SSE body the winner streams; empty = newStreamableResp
 }
 
 // hedgeHarness records how runHedgedStreaming drove the probes and hands back a
@@ -66,10 +67,14 @@ func (hh *hedgeHarness) probe(ctx context.Context, _ *requestState, candidate mo
 		}
 	}
 	if spec.won {
+		resp := newStreamableResp()
+		if spec.body != "" {
+			resp.Body = io.NopCloser(strings.NewReader(spec.body))
+		}
 		return hedgeResult{
 			idx:        attempt,
 			won:        true,
-			resp:       newStreamableResp(),
+			resp:       resp,
 			trueTtftMs: 1,
 		}
 	}
@@ -160,6 +165,34 @@ func TestRunHedgedStreaming_FastWinnerSkipsBackup(t *testing.T) {
 	}
 	if logData.providerName != "prov-A" {
 		t.Errorf("winner identity should be prov-A, got %q", logData.providerName)
+	}
+}
+
+// The winner's streamOptions must carry the winner's own credential masker:
+// an error frame from the hedged winner quoting its key is scrubbed by exact
+// value, which pins serveHedgeWinner as a masker producer.
+func TestRunHedgedStreaming_WinnerErrorFrameMasksExactProviderKey(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	const secret = "myCustomGatewayKey2024x9z8"
+	hh := newHedgeHarness([]fakeProbeSpec{
+		{delay: 5 * time.Millisecond, won: true, body: "data: {\"error\":{\"message\":\"billing key " + secret + " is invalid\"}}\n\ndata: [DONE]\n\n"},
+		{delay: 5 * time.Millisecond, won: true},
+	})
+	st, logData := newHedgeState(500 * time.Millisecond)
+	cands := hedgeCandidates("prov-A", "prov-B")
+	cands[0].apiKey = secret
+	w := runHedge(context.Background(), h, hh, st, cands)
+
+	if strings.Contains(w.Body.String(), secret) {
+		t.Fatalf("winner's provider key reached the client:\n%s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"message":"billing key [redacted] is invalid"`) {
+		t.Errorf("expected masked error frame, got:\n%s", w.Body.String())
+	}
+	if !strings.Contains(logData.errorMessage, secret) {
+		t.Errorf("request log must keep the unmasked original, got %q", logData.errorMessage)
 	}
 }
 

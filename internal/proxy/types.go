@@ -336,6 +336,10 @@ type streamOptions struct {
 	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
 	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
 	rawPassthrough bool
+	// masker scrubs the candidate's credential from in-stream error frames
+	// before they reach the client. Built from candidate.apiKey by the
+	// dispatcher; the zero value masks by shape only.
+	masker credentialMasker
 }
 
 // ChatCompletionRequest is the request body for /v1/chat/completions.

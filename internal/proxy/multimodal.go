@@ -646,7 +646,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	var masker *sseErrorMaskWriter
 	if isSSE {
 		tail = newTailBuffer(passthroughSSETailCap)
-		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail))
+		masker = newSSEErrorMaskWriter(io.MultiWriter(newFlushWriter(w), tail), newCredentialMasker(candidate.apiKey))
 		dst = masker
 	}
 
@@ -822,8 +822,8 @@ const sseErrorMaskEventCap = 4 << 20
 // sseErrorMaskWriter is an io.Writer that forwards a pass-through SSE stream
 // one event at a time, scrubbing credential-shaped tokens from error frames
 // before they reach the client. Pass-through streams are otherwise copied
-// verbatim, so this is the one place the chat paths' maskKeyShapedTokens
-// scrub applies to the image/audio endpoints.
+// verbatim, so this is the one place the chat paths' credentialMasker scrub
+// applies to the image/audio endpoints.
 //
 // It works per event rather than per line because SSE lets one payload span
 // several `data:` lines (joined with "\n"); judging each line alone would let
@@ -841,14 +841,15 @@ const sseErrorMaskEventCap = 4 << 20
 // Flush releases a trailing event that lacked its delimiter.
 type sseErrorMaskWriter struct {
 	w       io.Writer
+	cred    credentialMasker
 	partial []byte   // unterminated line
 	event   [][]byte // complete lines of the event in progress, each with its eol
 	held    int      // input bytes buffered in partial + event
 	raw     bool     // event exceeded the cap: pass through until its delimiter
 }
 
-func newSSEErrorMaskWriter(w io.Writer) *sseErrorMaskWriter {
-	return &sseErrorMaskWriter{w: w}
+func newSSEErrorMaskWriter(w io.Writer, cred credentialMasker) *sseErrorMaskWriter {
+	return &sseErrorMaskWriter{w: w, cred: cred}
 }
 
 func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
@@ -946,7 +947,7 @@ func (m *sseErrorMaskWriter) emitEvent(delimiter []byte) error {
 	m.event, m.held = nil, 0
 
 	var out []byte
-	if masked, ok := maskSSEErrorEvent(lines); ok {
+	if masked, ok := maskSSEErrorEvent(lines, m.cred); ok {
 		out = masked
 	} else {
 		for _, l := range lines {
@@ -971,11 +972,11 @@ func isSSEBlankLine(line []byte) bool {
 
 // maskSSEErrorEvent joins the event's `data:` payloads per the SSE spec and,
 // when the result is a JSON object with a non-null "error" member that
-// maskKeyShapedTokens changes, returns the event re-serialised: non-data lines
+// cred.mask changes, returns the event re-serialised: non-data lines
 // in their original order and framing, then canonical "data: " lines carrying
 // the masked payload, one per physical line of the original. ok is false when the event is to be forwarded
 // verbatim.
-func maskSSEErrorEvent(lines [][]byte) (out []byte, ok bool) {
+func maskSSEErrorEvent(lines [][]byte, cred credentialMasker) (out []byte, ok bool) {
 	var payload []byte
 	var eol []byte
 	dataLines := 0
@@ -1002,7 +1003,7 @@ func maskSSEErrorEvent(lines [][]byte) (out []byte, ok bool) {
 	if json.Unmarshal(payload, &frame) != nil || len(frame.Error) == 0 || bytes.Equal(frame.Error, []byte("null")) {
 		return nil, false
 	}
-	masked := maskKeyShapedTokens(payload)
+	masked := cred.mask(payload)
 	if bytes.Equal(masked, payload) {
 		return nil, false
 	}
