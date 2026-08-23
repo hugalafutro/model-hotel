@@ -221,3 +221,29 @@ func TestInspectStreamEvent_SplitsCachedInput(t *testing.T) {
 		t.Errorf("uncached split = (%d,%d), want (0,0)", plain.CacheHitTokens, plain.CacheMissTokens)
 	}
 }
+
+// Text and thinking deltas report their character count so the passthrough can
+// estimate unreported output; other events report none.
+func TestInspectStreamEvent_TextBytes(t *testing.T) {
+	cases := map[string]int{
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`:                   5,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}`:             3,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":1}"}}`: 7,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`:                 0,
+	}
+	for payload, want := range cases {
+		if got := InspectStreamEvent([]byte(payload)).TextBytes; got != want {
+			t.Errorf("TextBytes(%s) = %d, want %d", payload, got, want)
+		}
+	}
+}
+
+func TestResponseTextBytes(t *testing.T) {
+	body := `{"content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"Hello"},{"type":"tool_use","name":"lookup","input":{"a":1}}]}`
+	if got := ResponseTextBytes([]byte(body)); got != 20 {
+		t.Errorf("ResponseTextBytes = %d, want 20 (2 thinking + 5 text + 6 name + 7 input)", got)
+	}
+	if got := ResponseTextBytes([]byte("nope")); got != 0 {
+		t.Errorf("ResponseTextBytes(invalid) = %d, want 0", got)
+	}
+}

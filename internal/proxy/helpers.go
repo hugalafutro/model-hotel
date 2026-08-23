@@ -329,3 +329,106 @@ func breakerRecordAction(statusCode int) breakerAction {
 		return breakerActionSuccess
 	}
 }
+
+// estimateTokens converts a byte length of text into a token estimate at the
+// conventional 4 bytes per token, rounding up so any delivered text charges at
+// least one token. The ratio is tuned for Latin text; multi-byte scripts run
+// closer to one token per character and estimate low.
+func estimateTokens(textBytes int) int {
+	return (textBytes + 3) / 4
+}
+
+// estimateMissingUsage fills in token counts the provider did not report, so a
+// request that delivered output is always charged against the TPM budget and
+// the key's tokens_used counter. Usage arrives in the LAST chunk of an OpenAI
+// stream, so a client that disconnects after the content but before it (the
+// upstream request is cancelled with the client, the chunk never arrives) or a
+// provider that omits usage altogether would otherwise meter as zero while the
+// provider bills the operator for the real tokens.
+//
+// Each side is estimated independently and only when it is missing: a native
+// Anthropic stream reports input_tokens up front and output_tokens at the end,
+// so a truncated one keeps its reported prompt and estimates only the output.
+// Nothing is estimated when no output was delivered (an error before the first
+// token costs nothing), and the request log keeps the provider's figures:
+// estimates charge the quota, they are not reported as measured usage.
+func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, logData *requestLogData, deliveredBytes int) (prompt, completion, reasoning int) {
+	outputTokens := completionTokens + reasoningTokens
+	if deliveredBytes == 0 || (promptTokens > 0 && outputTokens > 0) {
+		return promptTokens, completionTokens, reasoningTokens
+	}
+	promptEstimated, completionEstimated := promptTokens == 0, outputTokens == 0
+	if promptEstimated {
+		promptTokens = estimateTokens(logData.promptTextBytes)
+	}
+	if completionEstimated {
+		completionTokens = estimateTokens(deliveredBytes)
+	}
+	debuglog.Info("proxy: charging estimated tokens for usage the provider did not report", "model", logData.modelID, "provider", logData.providerName, "prompt_estimated", promptEstimated, "completion_estimated", completionEstimated, "prompt_text_bytes", logData.promptTextBytes, "delivered_bytes", deliveredBytes, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "reasoning_tokens", reasoningTokens)
+	return promptTokens, completionTokens, reasoningTokens
+}
+
+// promptTextBytes sizes the prompt text of an OpenAI-shaped request body: the
+// message text (string content and text parts) plus the tool definitions. It
+// deliberately skips image_url and input_audio parts, which are base64 blobs
+// roughly a thousand times larger than the handful of tokens they cost; sizing
+// those by bytes would turn one vision request into a phantom multi-million
+// token charge. A body that does not parse sizes as zero.
+func promptTextBytes(body []byte) int {
+	var req struct {
+		Messages []struct {
+			Content json.RawMessage `json:"content"`
+		} `json:"messages"`
+		Tools json.RawMessage `json:"tools"`
+	}
+	if json.Unmarshal(body, &req) != nil {
+		return 0
+	}
+	n := len(req.Tools)
+	for _, m := range req.Messages {
+		var text string
+		if json.Unmarshal(m.Content, &text) == nil {
+			n += len(text)
+			continue
+		}
+		var parts []struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(m.Content, &parts) == nil {
+			for _, p := range parts {
+				n += len(p.Text)
+			}
+		}
+	}
+	return n
+}
+
+// chatAnswerBytes sizes the output of a non-streaming answer (content,
+// reasoning in any of the provider spellings, and tool calls), the delivered
+// output estimateMissingUsage works from.
+func chatAnswerBytes(out ChatCompletionResponse) int {
+	n := 0
+	for _, choice := range out.Choices {
+		msg := choice.Message
+		switch c := msg.Content.(type) {
+		case string:
+			n += len(c)
+		case []any:
+			for _, part := range c {
+				if m, ok := part.(map[string]any); ok {
+					if text, ok := m["text"].(string); ok {
+						n += len(text)
+					}
+				}
+			}
+		}
+		n += len(msg.ReasoningContent) + len(msg.Reasoning)
+		for _, rd := range msg.ReasoningDetails {
+			n += len(rd.Text)
+		}
+		for _, tc := range msg.ToolCalls {
+			n += len(tc.Function.Name) + len(tc.Function.Arguments)
+		}
+	}
+	return n
+}

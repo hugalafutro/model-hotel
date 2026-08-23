@@ -39,7 +39,15 @@ type streamState struct {
 	// reached the client. It is the only signal that a stream actually answered
 	// which does not depend on optional behaviour: usage chunks are omitted by
 	// some providers, and the TTFT probe can be turned off.
-	sawContent         bool
+	sawContent bool
+	// deliveredBytes counts the bytes of content, reasoning and tool-call
+	// arguments the model produced as it streamed (before any strip_reasoning
+	// transform, which drops text the provider still billed). It backs the
+	// usage estimate when no usage was reported: the usage chunk is the LAST
+	// chunk of an OpenAI stream, so a client that hangs up after the content
+	// (or a provider that omits the chunk) would otherwise leave the request
+	// unmetered while the provider still bills for it.
+	deliveredBytes     int
 	clientDisconnected bool
 	stalled            bool
 
@@ -178,7 +186,12 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	if st.clientDisconnected && (st.promptTokens > 0 || st.completionTokens > 0) {
 		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}
-	h.recordTokenUsage(opts.vkHash, logData, st.promptTokens, st.completionTokens, st.reasoningTokens)
+	// The estimate applies on failed streams too (an SSE error after some
+	// output, a truncation): the provider billed whatever was produced before
+	// the failure. The non-streaming path only meters a decoded 2xx, which is
+	// the same rule, since nothing was produced for the client otherwise.
+	promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(st.promptTokens, st.completionTokens, st.reasoningTokens, logData, st.deliveredBytes)
+	h.recordTokenUsage(opts.vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 }
 
 // deriveStreamError classifies how the stream ended into the error message

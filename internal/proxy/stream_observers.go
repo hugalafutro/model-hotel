@@ -75,6 +75,12 @@ type streamChunk struct {
 		Delta *struct {
 			Content          *string `json:"content"`
 			ReasoningContent *string `json:"reasoning_content"`
+			ToolCalls        []struct {
+				Function *struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
@@ -121,6 +127,25 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	// deltas, causing "Thinking... Thinking... Thinking..." loops.
 	// We track consecutive identical content and log a warning when
 	// the threshold is exceeded.
+	// Every choice is delivered output, so the byte count covers all of them
+	// (an n>1 stream is billed for every choice), unlike the observers below,
+	// which only watch choices[0].
+	for _, choice := range chunk.Choices {
+		if choice.Delta == nil {
+			continue
+		}
+		if choice.Delta.Content != nil {
+			st.deliveredBytes += len(*choice.Delta.Content)
+		}
+		if choice.Delta.ReasoningContent != nil {
+			st.deliveredBytes += len(*choice.Delta.ReasoningContent)
+		}
+		for _, tc := range choice.Delta.ToolCalls {
+			if tc.Function != nil {
+				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)
+			}
+		}
+	}
 	if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 		delta := chunk.Choices[0].Delta
 		currentContent := ""

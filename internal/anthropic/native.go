@@ -119,6 +119,28 @@ func ResponseCarriesContent(body []byte) bool {
 	return len(resp.Content) > 0
 }
 
+// ResponseTextBytes is the byte length of the text, thinking, tool name and
+// tool input of a non-streaming Messages response's content blocks, the delivered output a
+// usage estimate works from when the response carries no usage block.
+func ResponseTextBytes(body []byte) int {
+	var resp struct {
+		Content []struct {
+			Text     string          `json:"text"`
+			Thinking string          `json:"thinking"`
+			Name     string          `json:"name"`
+			Input    json.RawMessage `json:"input"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(body, &resp) != nil {
+		return 0
+	}
+	n := 0
+	for _, block := range resp.Content {
+		n += len(block.Text) + len(block.Thinking) + len(block.Name) + len(block.Input)
+	}
+	return n
+}
+
 // StreamEvent is the decoded summary of a single Anthropic stream event,
 // produced by InspectStreamEvent for the native passthrough path. It carries
 // everything that path needs from one parse: the event Type (so the terminal
@@ -134,6 +156,13 @@ type StreamEvent struct {
 	OutputTokens    int
 	HasOutput       bool
 	ErrorMessage    string // set only when Type == "error"
+	// TextBytes is the byte length of the output a content block event carries:
+	// a content_block_delta's text, thinking or partial JSON, and a
+	// content_block_start's tool name (its input starts empty and arrives as
+	// deltas, so nothing is counted twice). It is the delivered output the
+	// passthrough estimates from when the stream ends before message_delta
+	// reports output_tokens.
+	TextBytes int
 }
 
 // InspectStreamEvent decodes one Anthropic stream event payload (the JSON after
@@ -154,6 +183,14 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		Error *struct {
 			Message string `json:"message"`
 		} `json:"error"`
+		Delta *struct {
+			Text        string `json:"text"`
+			Thinking    string `json:"thinking"`
+			PartialJSON string `json:"partial_json"`
+		} `json:"delta"`
+		ContentBlock *struct {
+			Name string `json:"name"`
+		} `json:"content_block"`
 	}
 	if json.Unmarshal(payload, &ev) != nil {
 		return StreamEvent{}
@@ -176,6 +213,14 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	case "error":
 		if ev.Error != nil {
 			info.ErrorMessage = ev.Error.Message
+		}
+	case "content_block_delta":
+		if ev.Delta != nil {
+			info.TextBytes = len(ev.Delta.Text) + len(ev.Delta.Thinking) + len(ev.Delta.PartialJSON)
+		}
+	case "content_block_start":
+		if ev.ContentBlock != nil {
+			info.TextBytes = len(ev.ContentBlock.Name)
 		}
 	}
 	return info

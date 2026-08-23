@@ -149,11 +149,16 @@ type requestLogData struct {
 	// can be switched off — and a real success that reports neither would
 	// otherwise look indistinguishable from a stream that emitted nothing.
 	deliveredContent bool
-	failoverAttempt  int
-	state            string
-	resolvedModelID  string
-	endpointType     string         // endpoint family: chat, embeddings, rerank, image, tts, stt
-	insertWg         sync.WaitGroup // signals when the async INSERT has completed
+	// promptTextBytes is the size of the prompt text in the client's request
+	// (message text and tool definitions, never inline media), recorded at
+	// ingest so every response path can estimate the prompt when the provider
+	// reports no usage (see estimateMissingUsage). Not persisted.
+	promptTextBytes int
+	failoverAttempt int
+	state           string
+	resolvedModelID string
+	endpointType    string         // endpoint family: chat, embeddings, rerank, image, tts, stt
+	insertWg        sync.WaitGroup // signals when the async INSERT has completed
 }
 
 type modelCandidate struct {

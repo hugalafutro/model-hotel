@@ -579,7 +579,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// UPDATE simply affects 0 rows (harmless, logged as warning).
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-		h.recordTokenUsage(vkHash, logData, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens)
+		promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
+		h.recordTokenUsage(vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 
 		// Normalize reasoning fields in the response message so that
 		// reasoning_content is always populated regardless of upstream
