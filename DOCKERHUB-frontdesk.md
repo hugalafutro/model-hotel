@@ -52,7 +52,7 @@ Set these in `deploy/ha/.env` (the compose file maps them into the container):
 | Variable | Required | Purpose |
 |---|---|---|
 | `FRONTDESK_PUBLIC_ORIGIN` | ✅ | Public `https://` origin the dashboard is reached at (the TLS proxy's hostname). Also the WebAuthn relying-party ID and expected origin. |
-| `FRONTDESK_MASTER_KEY` | ✅ | AES-256-GCM key that encrypts member admin tokens and the TOTP secret at rest. Generate with `openssl rand -base64 32`; Front Desk warns at boot when it is shorter than 32 characters. Independent of any member's `MASTER_KEY`. Rotating it makes stored tokens unrecoverable (re-enter them in the UI). |
+| `FRONTDESK_MASTER_KEY` | ✅ | AES-256-GCM key that encrypts member admin tokens and the TOTP secret at rest. Generate with `openssl rand -base64 32`; Front Desk warns at boot when it is shorter than 32 bytes. Independent of any member's `MASTER_KEY`. Rotating it makes stored tokens unrecoverable (re-enter them in the UI). |
 | `FRONTDESK_TOKEN` | optional | Dashboard login secret. Leave blank to auto-generate one, printed once to the logs on first boot. |
 | `FRONTDESK_TRUSTED_PROXIES` | optional | External reverse-proxy address(es) (CIDR, comma-separated) trusted for `X-Forwarded-*` (real client IP and HTTPS detection). |
 | `LB_PORT` | optional | Host port for client traffic (Traefik). Default `8080`. |
