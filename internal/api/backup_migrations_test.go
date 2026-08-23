@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -609,23 +608,21 @@ func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
 	// This test runs itself as a subprocess to safely manipulate TMPDIR
 	// without affecting other tests running in parallel.
 	if os.Getenv("TEST_FILTER_FILE_WRITE_ERROR") == "1" {
-		os.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
+		t.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
 		dumpPath := "/tmp/test.dump"
 
 		_, err := extractMigrationNames(dumpPath, 100)
 		if err == nil {
-			fmt.Printf("FILTER_WRITE: expected error when filter file cannot be created\n")
-			os.Exit(1)
+			t.Fatalf("FILTER_WRITE: expected error when filter file cannot be created")
 		}
 		if !strings.Contains(err.Error(), "failed to create filter file") {
-			fmt.Printf("FILTER_WRITE: expected 'failed to create filter file', got: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("FILTER_WRITE: expected 'failed to create filter file', got: %v", err)
 		}
-		os.Exit(0)
+		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError")
-	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1", "TMPDIR=/nonexistent/path/that/does/not/exist")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_FilterFileWriteError$")
+	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
@@ -640,24 +637,21 @@ func TestExtractMigrationNames_PgRestoreNotFound(t *testing.T) {
 	if os.Getenv("TEST_PG_RESTORE_NOT_FOUND") == "1" {
 		tmpFile, err := os.CreateTemp(t.TempDir(), "test-dump-*.dump")
 		if err != nil {
-			fmt.Printf("PG_RESTORE_NOT_FOUND: failed to create temp file: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("PG_RESTORE_NOT_FOUND: failed to create temp file: %v", err)
 		}
 		tmpFile.Close()
 
 		_, err = extractMigrationNames(tmpFile.Name(), 100)
 		if err == nil {
-			fmt.Printf("PG_RESTORE_NOT_FOUND: expected error when pg_restore not found\n")
-			os.Exit(1)
+			t.Fatalf("PG_RESTORE_NOT_FOUND: expected error when pg_restore not found")
 		}
 		if !strings.Contains(err.Error(), "pg_restore not found") {
-			fmt.Printf("PG_RESTORE_NOT_FOUND: expected 'pg_restore not found', got: %v\n", err)
-			os.Exit(1)
+			t.Fatalf("PG_RESTORE_NOT_FOUND: expected 'pg_restore not found', got: %v", err)
 		}
-		os.Exit(0)
+		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_PgRestoreNotFound")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_PgRestoreNotFound$")
 	cmd.Env = append(os.Environ(), "TEST_PG_RESTORE_NOT_FOUND=1", "PATH=/nonexistent")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -745,22 +739,24 @@ func TestParseMigrationNamesFromSQL_ManyMigrations(t *testing.T) {
 func TestExtractMigrationNames_FilterFileWriteError_Direct(t *testing.T) {
 	// This test runs as a subprocess to safely manipulate TMPDIR.
 	if os.Getenv("TEST_FILTER_WRITE_DIRECT") == "1" {
-		// Set TMPDIR to a read-only directory so os.CreateTemp returns an error
-		os.Setenv("TMPDIR", "/proc/1/fd") // not writable on Linux
+		// Set TMPDIR to a read-only directory so os.CreateTemp returns an error.
+		// Scoped via t.Setenv so it is restored before the process exits: the
+		// coverage runtime writes its profile through TMPDIR at exit and a
+		// broken value there fails the child with status 2.
+		t.Setenv("TMPDIR", "/proc/1/fd") // not writable on Linux
 		_, err := extractMigrationNames("/tmp/nonexistent.dump", 100)
 		if err == nil {
-			fmt.Printf("FILTER_WRITE_DIRECT: expected error\n")
-			os.Exit(1)
+			t.Fatalf("FILTER_WRITE_DIRECT: expected error")
 		}
 		// The error should be about creating the filter file
 		if !strings.Contains(err.Error(), "failed to create filter file") {
 			// Could also be about pg_restore not found depending on what fails first
 			t.Logf("got error: %v", err)
 		}
-		os.Exit(0)
+		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError_Direct")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_FilterFileWriteError_Direct$")
 	cmd.Env = append(os.Environ(), "TEST_FILTER_WRITE_DIRECT=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
