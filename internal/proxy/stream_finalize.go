@@ -58,6 +58,12 @@ type streamState struct {
 	clientDisconnected bool
 	stalled            bool
 	interrupted        bool // the process is shutting down; set from the reader
+	// clientErrMsg overrides the client-facing terminal frame message when the
+	// derived errMsg carries provider/transport detail that must not leave the
+	// gateway (a raw scanner error can embed internal IPs and the upstream
+	// address). Empty means the client frame reuses errMsg, which is
+	// gateway-authored on every other failure path.
+	clientErrMsg string
 
 	// Observer state carried across chunks (Phase 4). Not consumed by the
 	// finalizer, but co-located here so the data-chunk observers operate on one
@@ -133,6 +139,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		} else {
 			// No content received or scanner error - genuinely truncated.
 			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
+			logData.errorKind = KindProviderError
 			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 		}
 	}
@@ -173,7 +180,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// Record circuit breaker failure for stream stalls.
 	// Guard with !sawDone to avoid penalising a provider whose stream completed
 	// normally but whose stall timer fired concurrently with [DONE].
-	if st.stalled && !st.interrupted && !st.sawDone && !st.clientDisconnected && opts.circuitBreakerOn {
+	if st.stalled && !st.interrupted && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected && opts.circuitBreakerOn {
 		// deriveStreamError already warns that the stream stalled; this records
 		// that the breaker was charged for it, which the stall line does not say
 		// and which is otherwise invisible above Debug.
@@ -256,6 +263,9 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 			}
 		default:
 			errMsg = scanErr.Error()
+			// The raw scanner error can embed the gateway's own address and the
+			// upstream's: keep it in the log, hand the client a coarse message.
+			st.clientErrMsg = "stream failed: upstream connection error"
 			logData.errorKind = KindProviderError
 		}
 	}
@@ -273,11 +283,11 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	// client disconnected, which is a more meaningful diagnosis.
 	// A process shutdown closed the upstream body. It is judged before the
 	// stall so a restart never reads as a provider fault.
-	if st.interrupted && !st.sawDone && !st.clientDisconnected {
+	if st.interrupted && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected {
 		errMsg = "stream interrupted: gateway restarting"
 		logData.errorKind = KindInternal
 		debuglog.Warn("proxy: stream interrupted by shutdown", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
-	} else if st.stalled && !st.sawDone && !st.clientDisconnected {
+	} else if st.stalled && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected {
 		effectiveStall := opts.streamStallTimeout
 		if st.chunkCount > progressiveChunkThreshold {
 			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
@@ -317,16 +327,22 @@ func upstreamModelID(logData *requestLogData) string {
 // A stream that stalled, was truncated by the upstream, or was cut by a
 // gateway restart cannot fail over once bytes have gone out, so the frame is
 // the graceful end. Nothing is written when the client is gone, when the
-// upstream already sent its own error frame (it was forwarded, credentials
-// masked), or when [DONE] went out: the terminal frame must be the one error
-// the client sees. The translated path speaks OpenAI (error object, then
+// upstream already sent an error the client saw (errorChunkCount>0; note a
+// provider that split its error object across data lines has that counter set
+// even though the fragments were dropped, so that rare stream still ends
+// without a frame), or when [DONE] / a native message_stop went out: the
+// terminal frame must be the one error the client sees. The translated path speaks OpenAI (error object, then
 // [DONE]); the native Anthropic passthrough speaks Messages (an error event,
 // no sentinel).
 func (h *Handler) writeTerminalError(sink *streamSink, st *streamState, opts streamOptions, logData *requestLogData, errMsg string) {
-	if st.clientDisconnected || st.sawDone || st.errorChunkCount > 0 {
+	if st.clientDisconnected || st.sawDone || st.sawMessageStop || st.errorChunkCount > 0 {
 		return
 	}
-	msg := string(opts.masker.mask([]byte(errMsg)))
+	clientMsg := errMsg
+	if st.clientErrMsg != "" {
+		clientMsg = st.clientErrMsg
+	}
+	msg := string(opts.masker.mask([]byte(clientMsg)))
 	var frame []byte
 	if opts.rawPassthrough {
 		frame = append([]byte("event: error\ndata: "), anthropic.BuildErrorResponseFromMessage(msg, http.StatusBadGateway)...)

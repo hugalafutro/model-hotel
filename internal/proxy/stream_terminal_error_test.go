@@ -87,6 +87,10 @@ func TestHandleStreamingResponse_ShutdownEndsWithErrorFrame(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 	h.shutdown = make(chan struct{})
+	// Cut quickly instead of waiting the production grace.
+	prevGrace := shutdownStreamGrace
+	shutdownStreamGrace = 20 * time.Millisecond
+	defer func() { shutdownStreamGrace = prevGrace }()
 
 	body := newBlockUntilClosedReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
@@ -189,3 +193,83 @@ func (r *blockUntilClosedReader) Close() error {
 	}
 	return nil
 }
+
+// A raw scanner/transport error (which can embed the gateway's own address and
+// the upstream's) must not reach the client: the terminal frame carries a
+// coarse gateway-authored message while the log keeps the detail.
+func TestHandleStreamingResponse_TransportErrorClientMessageIsCoarse(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const raw = "read tcp 172.18.0.2:44322->10.0.0.50:11434: read: connection reset by peer"
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+		err:  &stringError{raw},
+	})
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := streamingLog()
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1})
+
+	out := w.Body.String()
+	if strings.Contains(out, "172.18.0.2") || strings.Contains(out, "10.0.0.50") || strings.Contains(out, "connection reset") {
+		t.Fatalf("raw transport detail reached the client:\n%s", out)
+	}
+	e := lastSSEError(t, out)
+	if e == nil || !strings.Contains(e["message"].(string), "upstream connection error") {
+		t.Fatalf("expected a coarse terminal frame, got: %s", out)
+	}
+	if !strings.Contains(logData.errorMessage, "connection reset") {
+		t.Errorf("the log must keep the transport detail, got %q", logData.errorMessage)
+	}
+}
+
+// A native Anthropic stream that emitted message_stop and then went silent is a
+// real completion: no error event is appended, and it is not charged.
+func TestNativeStream_MessageStopThenStallNoErrorFrame(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	sse := nativeStreamHead +
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+	body := newBlockUntilClosedReader(sse) // blocks after message_stop instead of EOF
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	logData := streamingLog()
+	logData.modelID = "claude-test"
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	opts := streamOptions{responseHeaderMs: 10, streamStallTimeout: 30 * time.Millisecond, vkHash: "test-hash", attempt: 1, rawPassthrough: true, circuitBreakerOn: true}
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
+
+	if strings.Contains(w.Body.String(), "\"type\":\"error\"") {
+		t.Fatalf("no error event should follow message_stop:\n%s", w.Body.String())
+	}
+	if logData.state == "failed" {
+		t.Errorf("a stream that saw message_stop is complete, not failed")
+	}
+}
+
+// Close broadcasts the shutdown signal exactly once.
+func TestHandlerClose_ClosesShutdownOnce(t *testing.T) {
+	h := &Handler{shutdown: make(chan struct{})}
+	h.Close()
+	select {
+	case <-h.shutdown:
+	default:
+		t.Fatal("Close did not close the shutdown channel")
+	}
+	h.Close() // must not panic on a second close
+}
+
+type stringError struct{ s string }
+
+func (e *stringError) Error() string { return e.s }

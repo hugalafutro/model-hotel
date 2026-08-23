@@ -99,13 +99,22 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 		modelID:      logData.modelID,
 		providerName: logData.providerName,
 	}
-	if opts.streamStallTimeout > 0 || shutdown != nil {
+	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
+	}
+	if opts.streamStallTimeout > 0 || shutdown != nil {
 		r.watchdogDone = make(chan struct{})
 		go r.runWatchdog()
 	}
 	return r
 }
+
+// shutdownStreamGrace is how long an in-flight stream is allowed to keep going
+// after the process starts shutting down before its upstream body is closed and
+// the client gets a terminal "gateway restarting" frame. Kept under the HTTP
+// server's own shutdown deadline so the frame is written while the connection
+// is still live.
+var shutdownStreamGrace = 8 * time.Second
 
 // runWatchdog closes the upstream body if no scan pings arrive within the
 // (progressively extended) stall timeout, unblocking a hung scanner, or when
@@ -134,9 +143,21 @@ func (r *streamReader) runWatchdog() {
 			_ = r.body.Close() // unblock scanner
 			return
 		case <-r.shutdown:
-			r.interruptedFlag.Store(1)
-			_ = r.body.Close() // unblock scanner
-			return
+			// Give an in-flight stream a moment to finish on its own before
+			// cutting it: a stream seconds from [DONE] should complete with
+			// real content, not a restart frame. If it finishes first,
+			// watchdogDone fires and this goroutine exits without cutting.
+			r.shutdown = nil // don't re-select the closed channel
+			grace := time.NewTimer(shutdownStreamGrace)
+			select {
+			case <-grace.C:
+				r.interruptedFlag.Store(1)
+				_ = r.body.Close() // unblock scanner
+				return
+			case <-r.watchdogDone:
+				grace.Stop()
+				return
+			}
 		case <-r.watchdogDone:
 			return
 		}

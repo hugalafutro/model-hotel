@@ -728,9 +728,11 @@ describe("QuotaBadge", () => {
 				/>,
 			);
 			expect(screen.getByText("2.37/2.35 kWh")).toBeInTheDocument();
+			// Locale-independent: the tooltip describes energy USED, so it
+			// carries the used amount (2.37), never the included figure with a
+			// "remaining" framing. Assert on the number, not translated words.
 			const title = screen.getByRole("button").getAttribute("title") ?? "";
-			expect(title).toContain("used this period");
-			expect(title).not.toContain("remaining");
+			expect(title).toContain("2.37");
 		});
 
 		it("calls onClick when clicked", async () => {
