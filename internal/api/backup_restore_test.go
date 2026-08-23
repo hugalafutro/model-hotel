@@ -895,7 +895,7 @@ func TestRestoreBackup_PgRestoreNotFound(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_PgRestoreNotFound")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_PgRestoreNotFound$")
 	cmd.Env = append(os.Environ(), "TEST_NO_PG_RESTORE=1", "PATH=")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -983,7 +983,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_ExtractMigrationsError")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_ExtractMigrationsError$")
 	cmd.Env = append(os.Environ(), "TEST_EXTRACT_MIGRATIONS_ERROR=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1068,7 +1068,7 @@ func TestSaveUploadedDump_CreateTempError(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestSaveUploadedDump_CreateTempError")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestSaveUploadedDump_CreateTempError$")
 	cmd.Env = append(os.Environ(), "TEST_SAVE_UPLOAD_CREATE_TEMP=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1099,7 +1099,7 @@ func TestRestoreBackup_SaveUploadedDumpIOCopyError(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestRestoreBackup_SaveUploadedDumpIOCopyError")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_SaveUploadedDumpIOCopyError$")
 	cmd.Env = append(os.Environ(), "TEST_IO_COPY_ERROR=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {

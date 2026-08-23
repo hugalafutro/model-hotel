@@ -621,7 +621,7 @@ func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_FilterFileWriteError$")
 	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -651,7 +651,7 @@ func TestExtractMigrationNames_PgRestoreNotFound(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_PgRestoreNotFound")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_PgRestoreNotFound$")
 	cmd.Env = append(os.Environ(), "TEST_PG_RESTORE_NOT_FOUND=1", "PATH=/nonexistent")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -756,7 +756,7 @@ func TestExtractMigrationNames_FilterFileWriteError_Direct(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestExtractMigrationNames_FilterFileWriteError_Direct")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_FilterFileWriteError_Direct$")
 	cmd.Env = append(os.Environ(), "TEST_FILTER_WRITE_DIRECT=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {

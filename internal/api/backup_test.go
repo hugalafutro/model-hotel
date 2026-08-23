@@ -838,7 +838,7 @@ func TestCreateBackup_NoPgDump_ManipulatedPATH(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestCreateBackup_NoPgDump_ManipulatedPATH")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCreateBackup_NoPgDump_ManipulatedPATH$")
 	cmd.Env = append(os.Environ(), "TEST_NO_PG_DUMP=1", "PATH=")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -913,7 +913,7 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 	// Parent: create a temp dir, start subprocess with it as CWD, then delete it
 	tmpDir := t.TempDir()
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestNewBackupHandler_AbsFallback_Subprocess")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestNewBackupHandler_AbsFallback_Subprocess$")
 	cmd.Env = append(os.Environ(), "TEST_DELETED_CWD=1")
 	cmd.Dir = tmpDir
 
