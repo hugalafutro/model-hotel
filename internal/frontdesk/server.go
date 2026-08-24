@@ -532,11 +532,15 @@ func (s *Server) traefikAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// handleHealthz answers the container health probe with the cheapest
-// store-backed read, so a wedged database still flips the container unhealthy
-// (the depth the old spider on /traefik/config provided) without exposing any
-// fleet data on an open route.
+// handleHealthz answers the container health probe with the same store reads
+// a Traefik config refresh performs (members, then settings), so the probe
+// fails exactly when Traefik's own poll would — the depth the old spider on
+// /traefik/config provided — without exposing any fleet data on an open route.
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if _, err := s.store.ListMembers(r.Context()); err != nil {
+		writeError(w, err)
+		return
+	}
 	if _, err := s.store.GetSettings(r.Context()); err != nil {
 		writeError(w, err)
 		return

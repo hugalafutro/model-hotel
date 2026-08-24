@@ -120,6 +120,39 @@ func TestTraefikConfigOpenWithoutToken(t *testing.T) {
 	}
 }
 
+// TestHealthzTracksTraefikConfigDependencies pins the probe's contract: it
+// performs the same store reads as a Traefik config refresh, so a members
+// query that would 500 /traefik/config also fails /healthz instead of leaving
+// the container green while Traefik starves (Greptile P1 on PR #747: with only
+// the settings read probed, dropping the members table split the two).
+func TestHealthzTracksTraefikConfigDependencies(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	healthz := func() int {
+		req := httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if got := healthz(); got != http.StatusOK {
+		t.Fatalf("healthz on intact store = %d, want 200", got)
+	}
+
+	// Break only the members read; settings stays queryable.
+	if _, err := store.db.Exec(`ALTER TABLE members RENAME TO members_gone`); err != nil {
+		t.Fatalf("rename members table: %v", err)
+	}
+	t.Cleanup(func() { _, _ = store.db.Exec(`ALTER TABLE members_gone RENAME TO members`) })
+
+	if got := healthz(); got < 500 {
+		t.Fatalf("healthz with broken members table = %d, want a 5xx", got)
+	}
+	if rec := pollConfig(t, srv, ""); rec.Code < 500 {
+		t.Fatalf("traefik config with broken members table = %d, want a 5xx", rec.Code)
+	}
+}
+
 // TestTraefikConfigWhitespaceTokenIsUnset guards against a blank-looking
 // FRONTDESK_TRAEFIK_TOKEN (only spaces) being stored as a live bearer: the
 // value is normalized to unset, so the endpoint stays open and the whitespace
