@@ -151,8 +151,9 @@ func vkScope(excludeDeleted bool) (join, filter string) {
 // reassigning a key moves its history), keyless rows (dashboard chat/arena)
 // through the request-time owner_user_id stamped on the row itself; see
 // migration 067. The id binds through the $argIdx placeholder, so the caller
-// must state how many args the consuming query already carries; every stats
-// query takes a single timestamp, hence argIdx 2 everywhere today. The parse
+// must state how many args the consuming query already carries; the stats
+// queries take a leading timestamp and pass 2, the provider-list token totals
+// carry no other args and pass 1. The parse
 // stays as defense in depth: a non-empty id that is not a valid UUID fails
 // CLOSED to a no-match fragment (" AND 1=0"), never to "" — dropping the
 // filter there would silently widen a scoped query to every owner's rows, an

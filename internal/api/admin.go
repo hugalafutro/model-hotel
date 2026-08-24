@@ -756,7 +756,11 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		modelCounts[providerID] = count
 	}
 
-	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT provider_id, SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) FROM request_logs WHERE provider_id IS NOT NULL GROUP BY provider_id")
+	// Non-admins only ever see their own traffic in these totals: the same
+	// owner predicate the logs/stats surfaces apply, so a usage-granted user
+	// cannot read other tenants' aggregate volume off the provider list.
+	ownerFrag, ownerArgs := ownerFilterFragment(ownerScopeFromIdentity(r), 1)
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
 	if err != nil {
 		respondError(w, "failed to query token counts", err, http.StatusInternalServerError)
 		return
