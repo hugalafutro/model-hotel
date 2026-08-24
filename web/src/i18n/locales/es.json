@@ -2935,7 +2935,7 @@
 			"neuralwattBalanceUnavailable": "Saldo neuralWatt no disponible",
 			"miniMaxRemaining": "Cuota restante de MiniMax - haga clic para más detalles",
 			"miniMaxUsed": "Cuota usada de MiniMax - haga clic para más detalles",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh usados este período · en exceso, {{spent}} descontados de los créditos, quedan {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh usados este período · en exceso, el uso se descuenta de los créditos {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtro",

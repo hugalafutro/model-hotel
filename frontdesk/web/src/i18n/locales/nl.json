@@ -658,7 +658,7 @@
 			"neuralwattEnergy": "{{provider}}: energieverbruik in deze periode",
 			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord",
 			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum",
-			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, {{spent}} van tegoed afgeschreven, {{remaining}} over"
+			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, gebruik wordt van het tegoed afgeschreven"
 		},
 		"modal": {
 			"toggleBarMode": "Wisselen tussen gebruikt en resterend",

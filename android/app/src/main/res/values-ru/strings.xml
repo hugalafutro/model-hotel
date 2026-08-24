@@ -326,6 +326,7 @@
     <string name="quota_field_usage_today">Использование сегодня</string>
     <string name="quota_field_usage_month">Использование в этом месяце</string>
     <string name="quota_field_balance_remaining">Остаток баланса</string>
+    <string name="quota_field_in_overage">Перерасход</string>
     <string name="quota_field_daily_input_tokens">Дневные входные токены</string>
     <string name="quota_field_daily_images">Дневные изображения</string>
     <string name="quota_field_mcp_quota">Квота MCP</string>

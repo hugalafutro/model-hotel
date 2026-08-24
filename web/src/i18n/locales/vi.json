@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "Không thể hiển thị số dư NeuralWatt",
 			"miniMaxRemaining": "MiniMax: Số lượng còn lại - nhấp vào để xem chi tiết",
 			"miniMaxUsed": "Hạn ngạch MiniMax đã dùng - nhấp để xem chi tiết",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh đã dùng trong kỳ này · quá mức, đã trừ {{spent}} từ tín dụng, còn lại {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh đã dùng trong kỳ này · quá mức, mức dùng được trừ vào tín dụng {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Bộ lọc",

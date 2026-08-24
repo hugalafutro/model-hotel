@@ -529,10 +529,10 @@ describe("NeuralWattQuotaModal", () => {
 		expect(screen.queryByTestId("nw-overage-note")).toBeNull();
 	});
 
-	it("derives the credit draw when credits_used_usd is a stale zero", () => {
+	it("derives the credit-bar fill when credits_used_usd is a stale zero", () => {
 		// NeuralWatt reports credits_used_usd = 0 even while overage spend
-		// drains credits_remaining_usd (verified live 2026-08-24); the bar and
-		// the spent caption must both show total minus remaining instead.
+		// drains credits_remaining_usd (verified live 2026-08-24); the bar
+		// derives total minus remaining instead.
 		render(
 			<NeuralWattQuotaModal
 				{...chrome}
@@ -544,7 +544,16 @@ describe("NeuralWattQuotaModal", () => {
 			/>,
 		);
 		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
-		expect(screen.getByText(/\$70\.00/)).toBeInTheDocument();
+	});
+
+	it("never renders a spent-total caption", () => {
+		// No cumulative draw exists in the payload (credits_used_usd is a
+		// hardwired 0, total re-bases to remaining as spend settles), so the
+		// caption slot under the credits bar stays empty.
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(screen.queryByText(/spent in total/)).toBeNull();
 	});
 
 	it("renders both usage rows", () => {

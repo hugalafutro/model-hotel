@@ -314,6 +314,7 @@
     <string name="quota_field_usage_today">Gebruik vandaag</string>
     <string name="quota_field_usage_month">Gebruik deze maand</string>
     <string name="quota_field_balance_remaining">Resterend saldo</string>
+    <string name="quota_field_in_overage">Boven de limiet</string>
     <string name="quota_field_daily_input_tokens">Dagelijkse invoertokens</string>
     <string name="quota_field_daily_images">Dagelijkse afbeeldingen</string>
     <string name="quota_field_mcp_quota">MCP-quota</string>

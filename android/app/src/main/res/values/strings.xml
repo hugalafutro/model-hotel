@@ -319,6 +319,7 @@
     <string name="quota_field_usage_today">Usage today</string>
     <string name="quota_field_usage_month">Usage this month</string>
     <string name="quota_field_balance_remaining">Balance remaining</string>
+    <string name="quota_field_in_overage">In overage</string>
     <string name="quota_field_daily_input_tokens">Daily input tokens</string>
     <string name="quota_field_daily_images">Daily images</string>
     <string name="quota_field_mcp_quota">MCP quota</string>

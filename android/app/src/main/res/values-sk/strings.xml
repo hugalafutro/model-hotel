@@ -326,6 +326,7 @@
     <string name="quota_field_usage_today">Využitie dnes</string>
     <string name="quota_field_usage_month">Využitie tento mesiac</string>
     <string name="quota_field_balance_remaining">Zostávajúci zostatok</string>
+    <string name="quota_field_in_overage">Nad limitom</string>
     <string name="quota_field_daily_input_tokens">Denné vstupné tokeny</string>
     <string name="quota_field_daily_images">Denné obrázky</string>
     <string name="quota_field_mcp_quota">Kvóta MCP</string>

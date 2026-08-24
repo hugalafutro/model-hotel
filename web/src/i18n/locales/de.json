@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt-Guthaben nicht verfügbar",
 			"miniMaxRemaining": "MiniMax verbleibendes Kontingent - für Details klicken",
 			"miniMaxUsed": "MiniMax verbrauchtes Kontingent - für Details klicken",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh in diesem Zeitraum verbraucht · im Mehrverbrauch, {{spent}} vom Guthaben abgezogen, {{remaining}} übrig {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh in diesem Zeitraum verbraucht · im Mehrverbrauch, Nutzung wird vom Guthaben abgezogen {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtern",

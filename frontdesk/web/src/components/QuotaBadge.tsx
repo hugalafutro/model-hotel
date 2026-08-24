@@ -14,7 +14,6 @@ import {
 	getKimiCodeWeeklyLimit,
 	getMiniMaxFiveHourLimit,
 	getMiniMaxWeeklyLimit,
-	getNeuralWattCreditsSpent,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 	payloadOf,
@@ -173,14 +172,11 @@ function contentFor(
 			const included = q.subscription?.kwh_included ?? 0;
 			// In overage the kwh_used counter freezes at the included amount and
 			// the spend moves to the credit balance, so the frozen kWh label
-			// alone would read as "nothing is happening"; the tooltip carries
-			// the money trail instead.
+			// alone would read as "nothing is happening"; the tooltip says so.
+			// No dollar figure: NeuralWatt exposes no cumulative draw (see
+			// getNeuralWattCreditsSpent).
 			const title = q.subscription?.in_overage
-				? t("quota.badge.neuralwattEnergyOverage", {
-						provider,
-						spent: formatDollars(getNeuralWattCreditsSpent(q.balance ?? {})),
-						remaining: formatDollars(q.balance?.credits_remaining_usd ?? 0),
-					})
+				? t("quota.badge.neuralwattEnergyOverage", { provider })
 				: t("quota.badge.neuralwattEnergy", { provider });
 			return {
 				label:

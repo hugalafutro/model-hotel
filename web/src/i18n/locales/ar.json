@@ -3115,7 +3115,7 @@
 			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر",
 			"miniMaxRemaining": "MiniMax الحصة المتبقية - انقر للحصول على التفاصيل",
 			"miniMaxUsed": "MiniMax الحصة المستخدمة - انقر للحصول على التفاصيل",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh المستخدمة هذه الفترة · في التجاوز، تم خصم {{spent}} من الاعتمادات، متبقٍ {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh المستخدمة هذه الفترة · في التجاوز، يُخصم الاستخدام من الاعتمادات {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "تصفية",

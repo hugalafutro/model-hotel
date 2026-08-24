@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo niet beschikbaar",
 			"miniMaxRemaining": "MiniMax resterende quota - klik voor details",
 			"miniMaxUsed": "MiniMax gebruikte quota - klik voor details",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh gebruikt deze periode · boven de limiet, {{spent}} van tegoed afgeschreven, {{remaining}} over {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh gebruikt deze periode · boven de limiet, gebruik wordt van het tegoed afgeschreven {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filteren",

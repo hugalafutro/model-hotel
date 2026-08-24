@@ -658,7 +658,7 @@
 			"neuralwattEnergy": "{{provider}}: in dieser Periode verbrauchte Energie",
 			"unreadable": "{{provider}}: der letzte Abruf des Primärs lieferte eine unlesbare Antwort",
 			"noQuota": "{{provider}}: der letzte Abruf des Primärs lieferte kein Kontingent",
-			"neuralwattEnergyOverage": "{{provider}}: im Mehrverbrauch, {{spent}} vom Guthaben abgezogen, {{remaining}} übrig"
+			"neuralwattEnergyOverage": "{{provider}}: im Mehrverbrauch, Nutzung wird vom Guthaben abgezogen"
 		},
 		"modal": {
 			"toggleBarMode": "Zwischen verbraucht und verbleibend wechseln",

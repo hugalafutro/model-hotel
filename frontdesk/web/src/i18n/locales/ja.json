@@ -658,7 +658,7 @@
 			"neuralwattEnergy": "{{provider}}: 今期のエネルギー使用量",
 			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました",
 			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした",
-			"neuralwattEnergyOverage": "{{provider}}: 超過中、クレジットから {{spent}} を消費、残り {{remaining}}"
+			"neuralwattEnergyOverage": "{{provider}}: 超過中、使用分はクレジットから差し引かれます"
 		},
 		"modal": {
 			"toggleBarMode": "使用量と残量を切り替える",

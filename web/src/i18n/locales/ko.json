@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt 잔액 확인 불가",
 			"miniMaxRemaining": "MiniMax 잔여 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"miniMaxUsed": "MiniMax 사용 할당량 - 자세한 내용을 보려면 클릭하세요",
-			"neuralwattBalanceOverage": "NeuralWatt: 이번 기간 {{amount}} kWh 사용 · 초과 상태, 크레딧에서 {{spent}} 차감, {{remaining}} 남음 {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: 이번 기간 {{amount}} kWh 사용 · 초과 상태, 사용량은 크레딧에서 차감됩니다 {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "필터",

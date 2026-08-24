@@ -658,7 +658,7 @@
 			"neuralwattEnergy": "{{provider}}: energy used this period",
 			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response",
 			"noQuota": "{{provider}}: the primary's last fetch returned no quota",
-			"neuralwattEnergyOverage": "{{provider}}: in overage, {{spent}} drawn from credits, {{remaining}} left"
+			"neuralwattEnergyOverage": "{{provider}}: in overage, usage draws from credits"
 		},
 		"modal": {
 			"toggleBarMode": "Switch between used and remaining",

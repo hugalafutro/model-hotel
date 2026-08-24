@@ -243,7 +243,7 @@ class QuotaModelsTest {
         assertEquals(QuotaType.NEURALWATT, pq.type)
         assertTrue(pq.available)
         val data = pq.data as QuotaData.NeuralWatt
-        assertEquals(42.5, data.balance.creditsRemainingUsd, 0.0)
+        assertEquals(42.5, data.balance.creditsRemainingUsd!!, 0.0)
         assertEquals(20.0, data.subscription.kwhUsed, 0.0)
         assertEquals(100.0, data.key.allowance)
     }

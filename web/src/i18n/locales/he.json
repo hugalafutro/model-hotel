@@ -2935,7 +2935,7 @@
 			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין",
 			"miniMaxRemaining": "MiniMax: מכסה נותרת - לחץ כאן לפרטים",
 			"miniMaxUsed": "MiniMax: מכסה בשימוש - לחץ לפרטים",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} קוט\"ש שנוצלו בתקופה זו · בחריגה, {{spent}} נוכו מהקרדיטים, נותרו {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} קוט\"ש שנוצלו בתקופה זו · בחריגה, השימוש מנוכה מהקרדיטים {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "מסנן",

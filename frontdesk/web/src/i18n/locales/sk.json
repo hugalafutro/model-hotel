@@ -672,7 +672,7 @@
 			"neuralwattEnergy": "{{provider}}: energia spotrebovaná v tomto období",
 			"unreadable": "{{provider}}: posledné načítanie primárnym členom vrátilo nečitateľnú odpoveď",
 			"noQuota": "{{provider}}: posledné načítanie primárnym členom nevrátilo žiadnu kvótu",
-			"neuralwattEnergyOverage": "{{provider}}: nad limitom, {{spent}} čerpané z kreditov, zostáva {{remaining}}"
+			"neuralwattEnergyOverage": "{{provider}}: nad limitom, využitie sa čerpá z kreditov"
 		},
 		"modal": {
 			"toggleBarMode": "Prepnúť medzi využitým a zostávajúcim",

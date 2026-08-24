@@ -1827,39 +1827,14 @@ describe("NeuralWattQuotaModal", () => {
 		});
 	});
 
-	describe("credit spend derivation", () => {
-		it("derives the spent total from total minus remaining when credits_used_usd is a stale zero", () => {
-			// NeuralWatt reports credits_used_usd = 0 even while overage spend
-			// drains credits_remaining_usd (verified live 2026-08-24).
-			const staleZeroQuota: NeuralWattQuotaResponse = {
-				...mockQuota,
-				balance: {
-					...mockQuota.balance,
-					credits_used_usd: 0,
-					credits_remaining_usd: 20.0,
-					total_credits_usd: 25.0,
-				},
-			};
-			renderWithProviders(
-				<NeuralWattQuotaModal {...defaultProps} quota={staleZeroQuota} />,
-			);
-			expect(screen.getByText("$5.00 spent total")).toBeInTheDocument();
-		});
-
-		it("keeps the reported credits_used_usd when it is the larger number", () => {
-			const reportedQuota: NeuralWattQuotaResponse = {
-				...mockQuota,
-				balance: {
-					...mockQuota.balance,
-					credits_used_usd: 6.0,
-					credits_remaining_usd: 20.0,
-					total_credits_usd: 25.0,
-				},
-			};
-			renderWithProviders(
-				<NeuralWattQuotaModal {...defaultProps} quota={reportedQuota} />,
-			);
-			expect(screen.getByText("$6.00 spent total")).toBeInTheDocument();
+	describe("no spent caption", () => {
+		it("never renders a spent-total figure, even when credits_used_usd is nonzero", () => {
+			// NeuralWatt exposes no cumulative draw: credits_used_usd is a
+			// hardwired 0 and total_credits_usd re-bases to remaining as spend
+			// settles (both verified live 2026-08-24), so a spent caption here
+			// could only ever be a fabricated $0.00.
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.queryByText(/spent total/)).not.toBeInTheDocument();
 		});
 	});
 

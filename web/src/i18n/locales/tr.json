@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt bakiyesi mevcut değil",
 			"miniMaxRemaining": "MiniMax kalan kontenjanı - ayrıntılar için tıklayın",
 			"miniMaxUsed": "MiniMax kotası kullanıldı - ayrıntılar için tıklayın",
-			"neuralwattBalanceOverage": "NeuralWatt: bu dönemde {{amount}} kWh kullanıldı · aşımda, kredilerden {{spent}} düşüldü, {{remaining}} kaldı {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: bu dönemde {{amount}} kWh kullanıldı · aşımda, kullanım kredilerden düşülür {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtre",

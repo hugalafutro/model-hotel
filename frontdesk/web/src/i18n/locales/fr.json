@@ -665,7 +665,7 @@
 			"neuralwattEnergy": "{{provider}} : énergie consommée sur cette période",
 			"unreadable": "{{provider}} : la dernière récupération du primaire a renvoyé une réponse illisible",
 			"noQuota": "{{provider}} : la dernière récupération du primaire n'a renvoyé aucun quota",
-			"neuralwattEnergyOverage": "{{provider}} : en dépassement, {{spent}} prélevés sur les crédits, {{remaining}} restants"
+			"neuralwattEnergyOverage": "{{provider}} : en dépassement, l'utilisation est prélevée sur les crédits"
 		},
 		"modal": {
 			"toggleBarMode": "Basculer entre utilisé et restant",

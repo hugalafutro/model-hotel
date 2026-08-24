@@ -306,7 +306,10 @@ data class OllamaCloudNullableTime(
 
 @Serializable
 data class NeuralWattBalance(
-    @SerialName("credits_remaining_usd") val creditsRemainingUsd: Double = 0.0,
+    // Nullable on purpose: an absent field must not read as a real $0, or the
+    // total-minus-remaining derivation in quotaMeters would render a healthy
+    // account as fully spent (the Go normalizer draws the same distinction).
+    @SerialName("credits_remaining_usd") val creditsRemainingUsd: Double? = null,
     @SerialName("total_credits_usd") val totalCreditsUsd: Double = 0.0,
     @SerialName("credits_used_usd") val creditsUsedUsd: Double = 0.0,
     @SerialName("accounting_method") val accountingMethod: String = "",
@@ -653,15 +656,17 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                 ),
                 // NeuralWatt's credits_used_usd is not trustworthy: verified
                 // live 2026-08-24 it stays 0 while overage spend drains
-                // credits_remaining_usd, so the real draw is total - remaining.
-                // The reported field still wins when it is the larger number.
+                // credits_remaining_usd, so the not-yet-settled draw is
+                // total - remaining (skipped when remaining is absent). The
+                // reported field still wins when it is the larger number.
                 amountMeter(
                     kind = QuotaMeterKind.CREDITS,
                     used =
                         maxOf(
                             data.balance.creditsUsedUsd,
-                            (data.balance.totalCreditsUsd - data.balance.creditsRemainingUsd)
-                                .coerceAtLeast(0.0),
+                            data.balance.creditsRemainingUsd
+                                ?.let { (data.balance.totalCreditsUsd - it).coerceAtLeast(0.0) }
+                                ?: 0.0,
                         ),
                     ceiling = data.balance.totalCreditsUsd,
                     format = { "$${formatDollarAmount(it)}" },

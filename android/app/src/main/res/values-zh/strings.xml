@@ -308,6 +308,7 @@
     <string name="quota_field_usage_today">今日用量</string>
     <string name="quota_field_usage_month">本月用量</string>
     <string name="quota_field_balance_remaining">剩余余额</string>
+    <string name="quota_field_in_overage">已超额</string>
     <string name="quota_field_daily_input_tokens">每日输入 token 数</string>
     <string name="quota_field_daily_images">每日图片数</string>
     <string name="quota_field_mcp_quota">MCP 配额</string>

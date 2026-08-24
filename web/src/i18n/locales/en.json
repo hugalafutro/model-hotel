@@ -2875,7 +2875,7 @@
 			"updated": "- updated {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh used this period {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh used this period · in overage, {{spent}} drawn from credits, {{remaining}} left {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh used this period · in overage, usage draws from credits {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",

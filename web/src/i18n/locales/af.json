@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt-balans onbeskikbaar",
 			"miniMaxRemaining": "MiniMax oorskotkwota - klik vir besonderhede",
 			"miniMaxUsed": "MiniMax het kwota gebruik - klik vir besonderhede",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh hierdie tydperk gebruik · in oorskryding, {{spent}} uit krediete getrek, {{remaining}} oor {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh hierdie tydperk gebruik · in oorskryding, gebruik trek uit krediete {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",

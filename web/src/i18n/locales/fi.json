@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo ei saatavilla",
 			"miniMaxRemaining": "MiniMax jäljellä oleva kiintiö - klikkaa saadaksesi lisätietoja",
 			"miniMaxUsed": "MiniMax käytetty kiintiö - klikkaa lisätietoja",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh käytetty tällä jaksolla · ylityksessä, {{spent}} veloitettu krediiteistä, {{remaining}} jäljellä {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh käytetty tällä jaksolla · ylityksessä, käyttö veloitetaan krediiteistä {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Suodatin",

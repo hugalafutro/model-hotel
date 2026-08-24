@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt の残高を取得できません",
 			"miniMaxRemaining": "MiniMax 残りクォータ - 詳細をクリックしてください",
 			"miniMaxUsed": "MiniMax 使用済みクォータ - 詳細をクリックしてください",
-			"neuralwattBalanceOverage": "NeuralWatt: 今期 {{amount}} kWh 使用 · 超過中、クレジットから {{spent}} を消費、残り {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: 今期 {{amount}} kWh 使用 · 超過中、使用分はクレジットから差し引かれます {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "フィルター",

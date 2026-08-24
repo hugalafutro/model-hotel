@@ -672,7 +672,7 @@
 			"neuralwattEnergy": "{{provider}}: энергия, израсходованная за этот период",
 			"unreadable": "{{provider}}: последний запрос основного узла вернул нечитаемый ответ",
 			"noQuota": "{{provider}}: последний запрос основного узла не вернул квоту",
-			"neuralwattEnergyOverage": "{{provider}}: перерасход, {{spent}} списано с кредитов, осталось {{remaining}}"
+			"neuralwattEnergyOverage": "{{provider}}: перерасход, использование списывается с кредитов"
 		},
 		"modal": {
 			"toggleBarMode": "Переключить между использованным и оставшимся",

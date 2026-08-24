@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用",
 			"miniMaxRemaining": "MiniMax 剩余配额-点击查看详情",
 			"miniMaxUsed": "MiniMax 使用的配额-点击查看详情",
-			"neuralwattBalanceOverage": "NeuralWatt：本期已用 {{amount}} 千瓦时 · 已超额，已从额度中扣除 {{spent}}，剩余 {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt：本期已用 {{amount}} 千瓦时 · 已超额，用量将从额度中扣除 {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "筛选器",

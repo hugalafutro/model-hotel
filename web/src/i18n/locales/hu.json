@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "A NeuralWatt egyenleg nem elérhető",
 			"miniMaxRemaining": "MiniMax: fennmaradó kvóta – kattintson a részletekért",
 			"miniMaxUsed": "MiniMax felhasznált kvóta – kattintson a részletekért",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh felhasználva ebben az időszakban · túllépésben, {{spent}} levonva a kreditekből, {{remaining}} maradt {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh felhasználva ebben az időszakban · túllépésben, a használat a kreditekből fogy {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Szűrő",

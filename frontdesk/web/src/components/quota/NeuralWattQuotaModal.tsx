@@ -84,9 +84,10 @@ export function NeuralWattQuotaModal({
 					testId="nw-credits-bar"
 					fillTestId="nw-credits-fill"
 				>
-					{t("quota.modal.spentTotal", {
-						amount: formatDollars(creditsSpent),
-					})}
+					{/* No spent caption: NeuralWatt exposes no cumulative draw
+					    (credits_used_usd is a hardwired 0 and total re-bases to
+					    remaining as spend settles), so any figure here would be
+					    a fabricated $0.00. */}
 				</QuotaBar>
 			) : (
 				<QuotaDetailGrid columns={2}>

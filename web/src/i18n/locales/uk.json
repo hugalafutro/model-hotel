@@ -2995,7 +2995,7 @@
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступний",
 			"miniMaxRemaining": "MiniMax залишилось квоти - натисніть, щоб дізнатись подробиці",
 			"miniMaxUsed": "Використана квота MiniMax - клікніть для деталей",
-			"neuralwattBalanceOverage": "NeuralWatt: використано {{amount}} кВт·год за цей період · перевищення, {{spent}} списано з кредитів, залишилось {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: використано {{amount}} кВт·год за цей період · перевищення, використання списується з кредитів {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Фільтр",

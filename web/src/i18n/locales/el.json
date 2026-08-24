@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο",
 			"miniMaxRemaining": "MiniMax υπόλοιπο όριο - κάντε κλικ για λεπτομέρειες",
 			"miniMaxUsed": "MiniMax χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh που χρησιμοποιήθηκαν αυτήν την περίοδο · σε υπέρβαση, {{spent}} αφαιρέθηκαν από τις πιστώσεις, απομένουν {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh που χρησιμοποιήθηκαν αυτήν την περίοδο · σε υπέρβαση, η χρήση αφαιρείται από τις πιστώσεις {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Φίλτρο",

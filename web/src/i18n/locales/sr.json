@@ -2935,7 +2935,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatt стање недоступно",
 			"miniMaxRemaining": "MiniMax преостала квота - кликните за детаље",
 			"miniMaxUsed": "Искоришћена квота MiniMax - кликните за детаље",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh искоришћено у овом периоду · у прекорачењу, {{spent}} повучено са кредита, преостало {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh искоришћено у овом периоду · у прекорачењу, употреба се одузима од кредита {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Филтер",

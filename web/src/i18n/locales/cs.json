@@ -2995,7 +2995,7 @@
 			"neuralwattBalanceUnavailable": "Zůstatek NeuralWatt není k dispozici",
 			"miniMaxRemaining": "MiniMax: Zbývající kvóta – klikněte pro podrobnosti",
 			"miniMaxUsed": "MiniMax: Využitá kvóta – klikněte pro podrobnosti",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh využito v tomto období · nad limitem, {{spent}} čerpáno z kreditů, zbývá {{remaining}} {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh využito v tomto období · nad limitem, využití se čerpá z kreditů {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtr",

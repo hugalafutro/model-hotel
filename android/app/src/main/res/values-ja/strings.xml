@@ -308,6 +308,7 @@
     <string name="quota_field_usage_today">本日の使用量</string>
     <string name="quota_field_usage_month">今月の使用量</string>
     <string name="quota_field_balance_remaining">残高</string>
+    <string name="quota_field_in_overage">超過中</string>
     <string name="quota_field_daily_input_tokens">1日あたりの入力トークン</string>
     <string name="quota_field_daily_images">1日あたりの画像数</string>
     <string name="quota_field_mcp_quota">MCP クォータ</string>

@@ -143,13 +143,15 @@ export function NeuralWattQuotaModal({
 							/>
 						</div>
 					)}
-					<p className="text-xs text-(--text-muted) mt-1">
-						{quota.balance.total_credits_usd > 0
-							? t("components.providerModals.spentTotal", {
-									amount: formatDollars(creditsSpent),
-								})
-							: t("components.providerModals.noCredits")}
-					</p>
+					{/* No spent caption: NeuralWatt exposes no cumulative draw
+					    (credits_used_usd is a hardwired 0 and total re-bases to
+					    remaining as spend settles), so any figure here would be
+					    a fabricated $0.00. */}
+					{quota.balance.total_credits_usd <= 0 && (
+						<p className="text-xs text-(--text-muted) mt-1">
+							{t("components.providerModals.noCredits")}
+						</p>
+					)}
 				</div>
 
 				{/* ── kWh energy bar ── */}

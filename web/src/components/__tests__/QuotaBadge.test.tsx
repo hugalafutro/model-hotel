@@ -731,43 +731,11 @@ describe("QuotaBadge", () => {
 			// Locale-independent: the tooltip describes energy USED, so it
 			// carries the used amount (2.37), never the included figure with a
 			// "remaining" framing. Assert on the number, not translated words.
-			// In overage it also carries the money trail: dollars drawn from
-			// the credit balance and dollars left.
+			// It carries NO dollar figure: NeuralWatt exposes no cumulative
+			// draw, so any dollar amount here would be fabricated.
 			const title = screen.getByRole("button").getAttribute("title") ?? "";
 			expect(title).toContain("2.37");
-			expect(title).toContain("$9.50");
-			expect(title).toContain("$15.50");
-		});
-
-		it("in overage: tooltip derives the credit draw when credits_used_usd is a stale zero", () => {
-			// NeuralWatt reports credits_used_usd = 0 even while overage spend
-			// drains credits_remaining_usd (verified live 2026-08-24); the
-			// tooltip must show total minus remaining instead.
-			const overage: NeuralWattQuotaResponse = {
-				...mockNeuralWattQuota,
-				balance: {
-					...mockNeuralWattQuota.balance,
-					credits_used_usd: 0,
-					credits_remaining_usd: 15.5,
-					total_credits_usd: 25.0,
-				},
-				subscription: {
-					...mockNeuralWattQuota.subscription,
-					kwh_used: 2.3674,
-					kwh_included: 2.3529,
-					kwh_remaining: 0,
-					in_overage: true,
-				},
-			};
-			render(
-				<QuotaBadge
-					type="neuralwatt"
-					variant="card"
-					neuralwattQuota={overage}
-				/>,
-			);
-			const title = screen.getByRole("button").getAttribute("title") ?? "";
-			expect(title).toContain("$9.50");
+			expect(title).not.toContain("$");
 		});
 
 		it("calls onClick when clicked", async () => {

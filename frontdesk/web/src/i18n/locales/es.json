@@ -665,7 +665,7 @@
 			"neuralwattEnergy": "{{provider}}: energía consumida en este periodo",
 			"unreadable": "{{provider}}: la última lectura del principal devolvió una respuesta ilegible",
 			"noQuota": "{{provider}}: la última lectura del principal no devolvió ninguna cuota",
-			"neuralwattEnergyOverage": "{{provider}}: en exceso, {{spent}} descontados de los créditos, quedan {{remaining}}"
+			"neuralwattEnergyOverage": "{{provider}}: en exceso, el uso se descuenta de los créditos"
 		},
 		"modal": {
 			"toggleBarMode": "Cambiar entre usada y restante",

@@ -248,6 +248,24 @@ class QuotaMetersTest {
     }
 
     @Test
+    fun neuralWattCreditsMeterKeepsReportedSpendWhenRemainingIsAbsent() {
+        // An absent credits_remaining_usd must not read as a real $0: deriving
+        // total - 0 would render a healthy account as fully spent.
+        val meters =
+            quotaMeters(
+                quotaOf(
+                    QuotaType.NEURALWATT,
+                    QuotaData.NeuralWatt(
+                        balance = NeuralWattBalance(creditsUsedUsd = 3.0, totalCreditsUsd = 12.0),
+                    ),
+                ),
+            )
+
+        assertEquals(listOf(QuotaMeterKind.CREDITS), meters.map { it.kind })
+        assertEquals(25.0, meters[0].usedPercent, 0.001)
+    }
+
+    @Test
     fun balanceOnlyProvidersHaveNoMeters() {
         val deepSeek =
             quotaMeters(

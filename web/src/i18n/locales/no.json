@@ -2875,7 +2875,7 @@
 			"neuralwattBalanceUnavailable": "NeuralWatts balanse utilgjengelig",
 			"miniMaxRemaining": "MiniMax gjenværende kvote - Klikk for detaljer",
 			"miniMaxUsed": "MiniMax brukt kvote - Klikk for detaljer",
-			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh brukt denne perioden · i overforbruk, {{spent}} trukket fra kreditter, {{remaining}} igjen {{refreshed}}"
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh brukt denne perioden · i overforbruk, bruk trekkes fra kreditter {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtrer",

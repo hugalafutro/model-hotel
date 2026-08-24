@@ -359,8 +359,11 @@ private fun QuotaDetailRows(data: QuotaData) {
         is QuotaData.NeuralWatt -> {
             QuotaDetailRow(
                 stringResource(R.string.quota_field_balance_remaining),
-                usd(data.balance.creditsRemainingUsd),
+                usd(data.balance.creditsRemainingUsd ?: 0.0),
             )
+            if (data.subscription.inOverage) {
+                QuotaDetailRow(stringResource(R.string.quota_field_in_overage), yes)
+            }
             // The total is the right-hand end of the credits bar above whenever
             // there is one, and a bar is drawn for exactly the same condition.
             if (data.subscription.plan.isNotBlank()) {
