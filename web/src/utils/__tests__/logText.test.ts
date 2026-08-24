@@ -67,6 +67,17 @@ describe("displayLogMessage", () => {
 		);
 	});
 
+	it("slices the boundary in UTF-16 code units, matching the backend", async () => {
+		const { displayLogMessage } = await import("../logText");
+		// "\u{1F680}\u6A21\u578B ready" is 10 UTF-16 code units (the emoji is a
+		// surrogate pair); the backend counts attrs_at in the same units, so
+		// slice(10) lands exactly on the attribute suffix.
+		const msg = '\u{1F680}\u6A21\u578B ready v="\\x20a"';
+		expect(displayLogMessage(msg, true, 10)).toBe(
+			'\u{1F680}\u6A21\u578B ready v=" a"',
+		);
+	});
+
 	it("clamps an out-of-range boundary", async () => {
 		const { displayLogMessage } = await import("../logText");
 		const msg = 'a="b\\x20c"';

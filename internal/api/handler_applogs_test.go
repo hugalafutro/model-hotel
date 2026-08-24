@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/go-chi/chi/v5"
 
@@ -1123,6 +1124,30 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 		wantSuffix := " provider=\"Ollama\\x20Cloud\""
 		if got := e.Message[e.AttrsAt:]; got != wantSuffix {
 			t.Errorf("message %q: attrs suffix = %q, want %q", msg, got, wantSuffix)
+		}
+	}
+
+	// AttrsAt crosses the stack into JavaScript's String.slice, which indexes
+	// UTF-16 code units, not UTF-8 bytes. A non-ASCII message prefix must
+	// therefore yield a boundary in UTF-16 units: for this message the byte
+	// length of the prefix differs from its UTF-16 length, so a byte-based
+	// offset would land inside the attribute suffix.
+	{
+		rec := slog.NewRecord(time.Now(), slog.LevelInfo, "discovery: \U0001F680\u6a21\u578b ready", 0)
+		rec.AddAttrs(slog.String("provider", "Ollama Cloud"))
+		if err := h.Handle(context.Background(), rec); err != nil {
+			t.Fatalf("Handle returned %v", err)
+		}
+		entries := rb.GetEntries()
+		e := entries[len(entries)-1]
+		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		prefix := strings.TrimSuffix(e.Message, wantSuffix)
+		if prefix == e.Message {
+			t.Fatalf("message %q does not end with the attrs suffix", e.Message)
+		}
+		wantAt := len(utf16.Encode([]rune(prefix)))
+		if e.AttrsAt != wantAt {
+			t.Errorf("AttrsAt = %d, want %d UTF-16 code units for prefix %q", e.AttrsAt, wantAt, prefix)
 		}
 	}
 

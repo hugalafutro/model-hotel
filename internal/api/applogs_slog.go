@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf16"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -118,9 +119,12 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		// in the stored message, so the dashboard decodes \x20 only there
 		// and raw message text is never altered, whatever it contains.
 		// SplitSource/stripLevelPrefix above trimmed a PREFIX of msgStr, so
-		// the attrs suffix length is unchanged by them.
+		// the attrs suffix length is unchanged by them. The offset is
+		// counted in UTF-16 code units, the unit JavaScript strings index
+		// by, so the browser's String.slice lands on the same boundary for
+		// non-ASCII message text (a Go byte offset would not).
 		Escaped: true,
-		AttrsAt: max(0, len(msgStr)-(msg.Len()-preAttrLen)),
+		AttrsAt: len(utf16.Encode([]rune(msgStr[:max(0, len(msgStr)-(msg.Len()-preAttrLen))]))),
 	}
 
 	// Write to ring buffer and DB.

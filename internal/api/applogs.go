@@ -30,9 +30,11 @@ type AppLogEntry struct {
 	// dashboard decodes that escaping only when this is set; legacy rows and
 	// raw io.Writer lines stay false and render verbatim (migration 075).
 	Escaped bool `json:"escaped,omitempty"`
-	// AttrsAt is the byte offset in Message where the encoded attribute
-	// suffix begins (everything before it is raw message text, everything
-	// from it on is quoteLogValue output). The dashboard decodes \x20 only
+	// AttrsAt is the offset in Message where the encoded attribute suffix
+	// begins (everything before it is raw message text, everything from it
+	// on is quoteLogValue output), counted in UTF-16 code units: the unit
+	// JavaScript strings index by, so the dashboard's String.slice lands on
+	// the same boundary for non-ASCII text. The dashboard decodes \x20 only
 	// from this offset. Meaningful only when Escaped is set.
 	AttrsAt int `json:"attrs_at"`
 }
