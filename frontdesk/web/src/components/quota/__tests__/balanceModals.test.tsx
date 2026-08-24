@@ -434,11 +434,14 @@ describe("NeuralWattQuotaModal", () => {
 		key: { name: "k", allowance: null },
 	};
 
-	it("fills the credit bar from credits used over total", () => {
+	it("renders the balance as a plain number with no credits bar", () => {
+		// The credits bar is gone for good: total re-bases to remaining as
+		// spend settles, so the bar could only ever render as untouched.
 		render(
 			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
 		);
-		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
+		expect(screen.getByText("$30.00")).toBeInTheDocument();
+		expect(screen.queryByTestId("nw-credits-fill")).toBeNull();
 	});
 
 	it("fills the energy bar from kWh used over included", () => {
@@ -481,20 +484,6 @@ describe("NeuralWattQuotaModal", () => {
 		expect(screen.getByTestId("nw-allowance")).toHaveTextContent("$25.00");
 	});
 
-	it("omits the credit bar when the account has no credit total", () => {
-		render(
-			<NeuralWattQuotaModal
-				{...chrome}
-				payload={{
-					...payload,
-					balance: { ...payload.balance, total_credits_usd: 0 },
-				}}
-				barMode="used"
-			/>,
-		);
-		expect(screen.queryByTestId("nw-credits-fill")).toBeNull();
-	});
-
 	it("flags an account in overage", () => {
 		render(
 			<NeuralWattQuotaModal
@@ -527,23 +516,6 @@ describe("NeuralWattQuotaModal", () => {
 			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
 		);
 		expect(screen.queryByTestId("nw-overage-note")).toBeNull();
-	});
-
-	it("derives the credit-bar fill when credits_used_usd is a stale zero", () => {
-		// NeuralWatt reports credits_used_usd = 0 even while overage spend
-		// drains credits_remaining_usd (verified live 2026-08-24); the bar
-		// derives total minus remaining instead.
-		render(
-			<NeuralWattQuotaModal
-				{...chrome}
-				payload={{
-					...payload,
-					balance: { ...payload.balance, credits_used_usd: 0 },
-				}}
-				barMode="used"
-			/>,
-		);
-		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
 	});
 
 	it("never renders a spent-total caption", () => {
@@ -623,8 +595,7 @@ describe("NeuralWattQuotaModal", () => {
 		render(
 			<NeuralWattQuotaModal {...chrome} payload={partial} barMode="used" />,
 		);
-		// What it does have is still shown: 70 used of 100, $30 left.
-		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
+		// What it does have is still shown: the $30 balance.
 		expect(screen.getByText("$30.00")).toBeInTheDocument();
 		expect(screen.getByTestId("nw-status")).toHaveTextContent("active");
 		// What it does not have is left out entirely, rather than rendered as
@@ -644,7 +615,7 @@ describe("NeuralWattQuotaModal", () => {
 		render(
 			<NeuralWattQuotaModal {...chrome} payload={balanceOnly} barMode="used" />,
 		);
-		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
+		expect(screen.getByText("$30.00")).toBeInTheDocument();
 		// The accounting method rides on `balance`, so it survives on its own.
 		expect(screen.getByTestId("nw-accounting-method")).toBeInTheDocument();
 		expect(screen.queryByTestId("nw-status")).toBeNull();

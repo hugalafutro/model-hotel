@@ -425,7 +425,7 @@ describe("QuotaStrip", () => {
 		["kimi-code", kimi, "kimi-weekly-fill"],
 		["minimax", minimax, "minimax-general-5h-fill"],
 		["openrouter", openrouter, "or-credits-fill"],
-		["neuralwatt", neuralwatt, "nw-credits-fill"],
+		["neuralwatt", neuralwatt, "nw-kwh-fill"],
 	] as const)(
 		"opens the %s modal for its badge and no other provider's",
 		async (_label, snapshot, ownTestId) => {

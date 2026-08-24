@@ -1873,23 +1873,13 @@ describe("NeuralWattQuotaModal", () => {
 	});
 
 	describe("no credits state", () => {
-		it("hides credits bar and shows No credits when total_credits_usd is 0", () => {
-			const noCreditsQuota: NeuralWattQuotaResponse = {
-				...mockQuota,
-				balance: {
-					...mockQuota.balance,
-					total_credits_usd: 0,
-					credits_remaining_usd: 0,
-					credits_used_usd: 0,
-				},
-			};
-			renderWithProviders(
-				<NeuralWattQuotaModal {...defaultProps} quota={noCreditsQuota} />,
-			);
+		it("renders no credits bar even with a positive credit total", () => {
+			// The credits bar is gone for good: total re-bases to remaining as
+			// spend settles, so the bar could only ever render as untouched.
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
 			expect(
 				screen.queryByTestId("neuralwatt-credits-bar"),
 			).not.toBeInTheDocument();
-			expect(screen.getByText("No credits")).toBeInTheDocument();
 		});
 
 		it("still renders subscription section when no credits", () => {

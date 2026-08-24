@@ -645,6 +645,10 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     format = { "$${formatDollarAmount(it)}" },
                 ),
             )
+        // Energy only: NeuralWatt's credits_used_usd is a hardwired 0 and
+        // total_credits_usd re-bases to remaining as spend settles (verified
+        // live 2026-08-24), so a credits meter could only ever render as
+        // untouched. The balance number itself is a detail-sheet row.
         is QuotaData.NeuralWatt ->
             listOfNotNull(
                 amountMeter(
@@ -653,23 +657,6 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     ceiling = data.subscription.kwhIncluded,
                     format = { formatKwhAmount(it) },
                     suffix = " kWh",
-                ),
-                // NeuralWatt's credits_used_usd is not trustworthy: verified
-                // live 2026-08-24 it stays 0 while overage spend drains
-                // credits_remaining_usd, so the not-yet-settled draw is
-                // total - remaining (skipped when remaining is absent). The
-                // reported field still wins when it is the larger number.
-                amountMeter(
-                    kind = QuotaMeterKind.CREDITS,
-                    used =
-                        maxOf(
-                            data.balance.creditsUsedUsd,
-                            data.balance.creditsRemainingUsd
-                                ?.let { (data.balance.totalCreditsUsd - it).coerceAtLeast(0.0) }
-                                ?: 0.0,
-                        ),
-                    ceiling = data.balance.totalCreditsUsd,
-                    format = { "$${formatDollarAmount(it)}" },
                 ),
             )
         // Balance-only and plan-only: no ceiling exists to meter against.

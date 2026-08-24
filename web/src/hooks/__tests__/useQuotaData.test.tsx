@@ -21,7 +21,6 @@ import {
 	getMiniMaxFiveHourLimit,
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
-	getNeuralWattCreditsSpent,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 	setCachedData,
@@ -867,57 +866,6 @@ describe("useQuotaData", () => {
 			expect(() => setCachedData("test-key", { data: "value" })).not.toThrow();
 
 			spy.mockRestore();
-		});
-	});
-
-	describe("getNeuralWattCreditsSpent", () => {
-		it("derives the draw from total minus remaining when the reported field is a stale zero", () => {
-			expect(
-				getNeuralWattCreditsSpent({
-					credits_used_usd: 0,
-					credits_remaining_usd: 20,
-					total_credits_usd: 25,
-				}),
-			).toBe(5);
-		});
-
-		it("keeps the reported value when it is the larger number", () => {
-			expect(
-				getNeuralWattCreditsSpent({
-					credits_used_usd: 6,
-					credits_remaining_usd: 20,
-					total_credits_usd: 25,
-				}),
-			).toBe(6);
-		});
-
-		it("returns the reported value when remaining is absent", () => {
-			expect(
-				getNeuralWattCreditsSpent({
-					credits_used_usd: 3,
-					total_credits_usd: 25,
-				}),
-			).toBe(3);
-		});
-
-		it("returns the reported value when there is no credit total", () => {
-			expect(
-				getNeuralWattCreditsSpent({
-					credits_used_usd: 3,
-					credits_remaining_usd: 20,
-					total_credits_usd: 0,
-				}),
-			).toBe(3);
-		});
-
-		it("clamps to the reported value when remaining exceeds total", () => {
-			expect(
-				getNeuralWattCreditsSpent({
-					credits_used_usd: 1,
-					credits_remaining_usd: 30,
-					total_credits_usd: 25,
-				}),
-			).toBe(1);
 		});
 	});
 

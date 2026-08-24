@@ -201,7 +201,10 @@ class QuotaMetersTest {
     }
 
     @Test
-    fun neuralWattMetersEnergyThenCredits() {
+    fun neuralWattMetersEnergyOnly() {
+        // No credits meter on purpose: NeuralWatt's credits_used_usd is a
+        // hardwired 0 and total re-bases to remaining as spend settles, so a
+        // credits bar could only ever render as untouched.
         val meters =
             quotaMeters(
                 quotaOf(
@@ -218,51 +221,8 @@ class QuotaMetersTest {
                 ),
             )
 
-        assertEquals(listOf(QuotaMeterKind.ENERGY, QuotaMeterKind.CREDITS), meters.map { it.kind })
+        assertEquals(listOf(QuotaMeterKind.ENERGY), meters.map { it.kind })
         assertEquals("12.5/20 kWh", meters[0].value)
-        assertEquals(25.0, meters[1].usedPercent, 0.001)
-    }
-
-    @Test
-    fun neuralWattCreditsMeterDerivesSpendFromRemaining() {
-        // NeuralWatt reports credits_used_usd = 0 even while overage spend
-        // drains credits_remaining_usd; the meter must show the real draw.
-        val meters =
-            quotaMeters(
-                quotaOf(
-                    QuotaType.NEURALWATT,
-                    QuotaData.NeuralWatt(
-                        balance =
-                            NeuralWattBalance(
-                                creditsUsedUsd = 0.0,
-                                creditsRemainingUsd = 9.0,
-                                totalCreditsUsd = 12.0,
-                            ),
-                    ),
-                ),
-            )
-
-        assertEquals(listOf(QuotaMeterKind.CREDITS), meters.map { it.kind })
-        assertEquals(25.0, meters[0].usedPercent, 0.001)
-        assertEquals("$3.00/$12.00", meters[0].value)
-    }
-
-    @Test
-    fun neuralWattCreditsMeterKeepsReportedSpendWhenRemainingIsAbsent() {
-        // An absent credits_remaining_usd must not read as a real $0: deriving
-        // total - 0 would render a healthy account as fully spent.
-        val meters =
-            quotaMeters(
-                quotaOf(
-                    QuotaType.NEURALWATT,
-                    QuotaData.NeuralWatt(
-                        balance = NeuralWattBalance(creditsUsedUsd = 3.0, totalCreditsUsd = 12.0),
-                    ),
-                ),
-            )
-
-        assertEquals(listOf(QuotaMeterKind.CREDITS), meters.map { it.kind })
-        assertEquals(25.0, meters[0].usedPercent, 0.001)
     }
 
     @Test

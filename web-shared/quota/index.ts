@@ -16,7 +16,6 @@ export {
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
 } from "./minimax";
-export { getNeuralWattCreditsSpent } from "./neuralwatt";
 export type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaLimitEntry,
@@ -29,7 +28,6 @@ export type {
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
 	NanoGptUsageLike,
-	NeuralWattBalanceLike,
 	NeuralWattQuotaLike,
 	OllamaCloudAccountLike,
 	OpenRouterBalanceLike,

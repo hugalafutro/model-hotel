@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { Activity, Gauge, RefreshCw } from "@/lib/icons";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { getNeuralWattCreditsSpent } from "../../hooks/useQuotaData";
 import {
 	formatDate,
 	formatDollars,
@@ -48,20 +47,6 @@ export function NeuralWattQuotaModal({
 			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
 		}
 	};
-
-	const creditsRemaining =
-		quota.balance.total_credits_usd > 0
-			? (quota.balance.credits_remaining_usd /
-					quota.balance.total_credits_usd) *
-				100
-			: 100;
-
-	const creditsSpent = getNeuralWattCreditsSpent(quota.balance);
-
-	const creditsUsed =
-		quota.balance.total_credits_usd > 0
-			? (creditsSpent / quota.balance.total_credits_usd) * 100
-			: 0;
 
 	const kwhRemaining =
 		quota.subscription.kwh_included > 0
@@ -120,38 +105,19 @@ export function NeuralWattQuotaModal({
 			scrollable
 		>
 			<div className="space-y-6">
-				{/* ── Credit balance bar ── */}
-				<div>
-					<div className="flex justify-between items-center">
-						<span className="text-sm font-medium text-(--text-secondary)">
-							{t("components.providerModals.neuralwattBalance")}
-						</span>
-						<span className="text-sm text-(--text-primary) font-medium">
-							{formatDollars(quota.balance.credits_remaining_usd)}
-						</span>
-					</div>
-					{quota.balance.total_credits_usd > 0 && (
-						<div
-							data-testid="neuralwatt-credits-bar"
-							className="w-full bg-(--surface-input) ui-bar h-3 mt-2"
-						>
-							<div
-								className={`${barMode === "used" ? usedBarColor(creditsUsed) : remainingBarColor(creditsRemaining)} h-3 ui-bar transition-all`}
-								style={{
-									width: `${barMode === "used" ? Math.min(creditsUsed, 100) : Math.min(creditsRemaining, 100)}%`,
-								}}
-							/>
-						</div>
-					)}
-					{/* No spent caption: NeuralWatt exposes no cumulative draw
-					    (credits_used_usd is a hardwired 0 and total re-bases to
-					    remaining as spend settles), so any figure here would be
-					    a fabricated $0.00. */}
-					{quota.balance.total_credits_usd <= 0 && (
-						<p className="text-xs text-(--text-muted) mt-1">
-							{t("components.providerModals.noCredits")}
-						</p>
-					)}
+				{/* ── Credit balance ── */}
+				{/* Just the number: NeuralWatt exposes no cumulative draw
+				    (credits_used_usd is a hardwired 0 and total_credits_usd
+				    re-bases to remaining as spend settles), so a bar or a
+				    spent figure here could only ever render as untouched
+				    credits / a fabricated $0.00. */}
+				<div className="flex justify-between items-center">
+					<span className="text-sm font-medium text-(--text-secondary)">
+						{t("components.providerModals.neuralwattBalance")}
+					</span>
+					<span className="text-sm text-(--text-primary) font-medium">
+						{formatDollars(quota.balance.credits_remaining_usd)}
+					</span>
 				</div>
 
 				{/* ── kWh energy bar ── */}

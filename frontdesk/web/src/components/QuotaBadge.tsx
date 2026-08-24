@@ -173,8 +173,9 @@ function contentFor(
 			// In overage the kwh_used counter freezes at the included amount and
 			// the spend moves to the credit balance, so the frozen kWh label
 			// alone would read as "nothing is happening"; the tooltip says so.
-			// No dollar figure: NeuralWatt exposes no cumulative draw (see
-			// getNeuralWattCreditsSpent).
+			// No dollar figure: NeuralWatt exposes no cumulative draw
+			// (credits_used_usd is a hardwired 0 and total_credits_usd
+			// re-bases to remaining as spend settles).
 			const title = q.subscription?.in_overage
 				? t("quota.badge.neuralwattEnergyOverage", { provider })
 				: t("quota.badge.neuralwattEnergy", { provider });

@@ -170,7 +170,10 @@ class QuotaBadgesTest {
         }
 
         composeTestRule.onNodeWithTag("quota-detail-meter-ENERGY").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("quota-detail-meter-CREDITS").assertIsDisplayed()
+        // No credits bar on purpose: NeuralWatt's credits_used_usd is a
+        // hardwired 0 and total re-bases to remaining as spend settles, so
+        // the bar could only ever render as untouched.
+        composeTestRule.onNodeWithTag("quota-detail-meter-CREDITS").assertDoesNotExist()
     }
 
     @Test

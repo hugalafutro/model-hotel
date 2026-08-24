@@ -1,4 +1,3 @@
-import { getNeuralWattCreditsSpent } from "@quota-shared";
 import { useTranslation } from "react-i18next";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { formatDollars, formatKwh, formatTokens } from "../../utils/format";
@@ -43,12 +42,6 @@ export function NeuralWattQuotaModal({
 	const currentMonth = usage?.current_month;
 	const lifetime = usage?.lifetime;
 
-	const hasCredits = balance.total_credits_usd > 0;
-	const creditsSpent = getNeuralWattCreditsSpent(balance);
-	const creditsPctUsed = hasCredits
-		? (creditsSpent / balance.total_credits_usd) * 100
-		: 0;
-
 	const hasKwh = (subscription?.kwh_included ?? 0) > 0;
 	const kwhPctUsed =
 		subscription && hasKwh
@@ -75,29 +68,17 @@ export function NeuralWattQuotaModal({
 			fetchedAt={fetchedAt}
 			onClose={onClose}
 		>
-			{hasCredits ? (
-				<QuotaBar
+			{/* Just the number, no bar: NeuralWatt exposes no cumulative draw
+			    (credits_used_usd is a hardwired 0 and total_credits_usd
+			    re-bases to remaining as spend settles), so a credits bar could
+			    only ever render as untouched. */}
+			<QuotaDetailGrid columns={2}>
+				<QuotaDetailItem
 					label={t("quota.modal.accountBalance")}
-					rightText={formatDollars(balance.credits_remaining_usd)}
-					percentage={creditsPctUsed}
-					barMode={barMode}
-					testId="nw-credits-bar"
-					fillTestId="nw-credits-fill"
-				>
-					{/* No spent caption: NeuralWatt exposes no cumulative draw
-					    (credits_used_usd is a hardwired 0 and total re-bases to
-					    remaining as spend settles), so any figure here would be
-					    a fabricated $0.00. */}
-				</QuotaBar>
-			) : (
-				<QuotaDetailGrid columns={2}>
-					<QuotaDetailItem
-						label={t("quota.modal.accountBalance")}
-						value={formatDollars(balance.credits_remaining_usd)}
-						span
-					/>
-				</QuotaDetailGrid>
-			)}
+					value={formatDollars(balance.credits_remaining_usd)}
+					span
+				/>
+			</QuotaDetailGrid>
 
 			{subscription && hasKwh && (
 				<QuotaBar
