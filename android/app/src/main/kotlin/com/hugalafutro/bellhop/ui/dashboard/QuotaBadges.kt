@@ -357,10 +357,14 @@ private fun QuotaDetailRows(data: QuotaData) {
             }
         }
         is QuotaData.NeuralWatt -> {
-            QuotaDetailRow(
-                stringResource(R.string.quota_field_balance_remaining),
-                usd(data.balance.creditsRemainingUsd ?: 0.0),
-            )
+            // Absent is not zero: rendering a missing balance as $0.00 would
+            // read as "all credits depleted", so the row is skipped instead.
+            data.balance.creditsRemainingUsd?.let { remaining ->
+                QuotaDetailRow(
+                    stringResource(R.string.quota_field_balance_remaining),
+                    usd(remaining),
+                )
+            }
             if (data.subscription.inOverage) {
                 QuotaDetailRow(stringResource(R.string.quota_field_in_overage), yes)
             }

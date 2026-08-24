@@ -150,6 +150,31 @@ class QuotaBadgesTest {
     }
 
     @Test
+    fun detailSheetSkipsBalanceRowWhenRemainingIsAbsent() {
+        // Absent is not zero: a payload without credits_remaining_usd must not
+        // render a $0.00 balance row that reads as "all credits depleted".
+        val neuralWatt =
+            ProviderQuota(
+                providerName = "neuralwatt-main",
+                type = QuotaType.NEURALWATT,
+                data =
+                    QuotaData.NeuralWatt(
+                        balance = NeuralWattBalance(totalCreditsUsd = 12.0),
+                        subscription = NeuralWattSubscription(kwhIncluded = 20.0, kwhUsed = 12.5),
+                    ),
+                fetchedAt = "2026-07-26T00:00:00Z",
+                available = true,
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaDetailSheet(pq = neuralWatt, mode = QuotaBarMode.REMAINING, onDismiss = {})
+            }
+        }
+
+        composeTestRule.onNodeWithText("$0.00", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun detailSheetDrawsABarPerMeteredReading() {
         val neuralWatt =
             ProviderQuota(
