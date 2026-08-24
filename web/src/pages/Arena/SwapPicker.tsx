@@ -136,6 +136,9 @@ export function SwapPicker({
 												type="button"
 												key={id}
 												onClick={() => onSelect(id)}
+												// The routable proxy ID: two model paths can share one
+												// display name, and the tooltip is what tells them apart.
+												title={id}
 												className="ui-tab px-2 py-0.5 text-[11px] border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors"
 											>
 												{m.display_name || m.model_id}

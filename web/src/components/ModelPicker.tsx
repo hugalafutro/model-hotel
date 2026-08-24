@@ -11,7 +11,7 @@ import {
 import type { GenerationParams, Model } from "../api/types";
 import { useModels } from "../hooks/useModels";
 import { ModelDetailModal } from "../pages/Models/ModelDetailModal";
-import { parseCapabilities } from "../utils/model";
+import { parseCapabilities, proxyModelID } from "../utils/model";
 import type { CapKey } from "./capMeta";
 import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
 import { FilterInput } from "./FilterInput";
@@ -80,10 +80,6 @@ interface MultiProps {
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
-
-function proxyModelID(providerName: string, modelId: string): string {
-	return `${providerName.replace(/ /g, "-")}/${modelId}`;
-}
 
 export function ModelPicker({
 	id,
@@ -412,7 +408,10 @@ export function ModelPicker({
 													title={
 														m.unavailable && m.unavailableReason
 															? m.unavailableReason
-															: `${m.provider_name}/${m.display_name || m.model_id}`
+															: // The routable proxy ID, not the display name: two model
+																// paths can share one display name (same model served on
+																// two routes), and the tooltip is what tells them apart.
+																val
 													}
 												>
 													<button
