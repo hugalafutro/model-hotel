@@ -151,6 +151,19 @@ func TestHealthzTracksTraefikConfigDependencies(t *testing.T) {
 	if rec := pollConfig(t, srv, ""); rec.Code < 500 {
 		t.Fatalf("traefik config with broken members table = %d, want a 5xx", rec.Code)
 	}
+	if _, err := store.db.Exec(`ALTER TABLE members_gone RENAME TO members`); err != nil {
+		t.Fatalf("restore members table: %v", err)
+	}
+
+	// And the mirror image: members reads fine, only the settings read breaks.
+	if _, err := store.db.Exec(`ALTER TABLE settings RENAME TO settings_gone`); err != nil {
+		t.Fatalf("rename settings table: %v", err)
+	}
+	t.Cleanup(func() { _, _ = store.db.Exec(`ALTER TABLE settings_gone RENAME TO settings`) })
+
+	if got := healthz(); got < 500 {
+		t.Fatalf("healthz with broken settings table = %d, want a 5xx", got)
+	}
 }
 
 // TestTraefikConfigWhitespaceTokenIsUnset guards against a blank-looking
