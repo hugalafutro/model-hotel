@@ -657,7 +657,8 @@
 			"ollamaCloudPlan": "{{provider}}: abonnement",
 			"neuralwattEnergy": "{{provider}}: energieverbruik in deze periode",
 			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord",
-			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum"
+			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum",
+			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, gebruik wordt van het tegoed afgeschreven"
 		},
 		"modal": {
 			"toggleBarMode": "Wisselen tussen gebruikt en resterend",
@@ -718,7 +719,8 @@
 			"lifetime": "Sinds het begin",
 			"overageLimit": "Overschrijdingslimiet",
 			"rateLimitTier": "Rate-limitniveau",
-			"allowance": "Budget van de sleutel"
+			"allowance": "Budget van de sleutel",
+			"neuralwattOverageNote": "Boven de limiet: de energiemeter stopt bij de inbegrepen hoeveelheid; verder gebruik wordt van het tegoed afgeschreven."
 		}
 	},
 	"errors": {

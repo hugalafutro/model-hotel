@@ -2672,7 +2672,8 @@
 			"miniMaxPlanQuota": "מכסת תוכנית MiniMax",
 			"miniMaxChatModels": "מודלים לצ'אט",
 			"miniMaxNotInPlan": "לא כלול בתוכנית",
-			"miniMaxVideoModels": "מודלים לווידאו"
+			"miniMaxVideoModels": "מודלים לווידאו",
+			"neuralwattOverageNote": "בחריגה: מונה האנרגיה נעצר בכמות הכלולה; שימוש נוסף מנוכה מיתרת הקרדיטים."
 		},
 		"providerQuotaPanel": {
 			"quotas": "מכסות",
@@ -2933,7 +2934,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} קוט\"ש שנוצלו בתקופה זו {{refreshed}}",
 			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין",
 			"miniMaxRemaining": "MiniMax: מכסה נותרת - לחץ כאן לפרטים",
-			"miniMaxUsed": "MiniMax: מכסה בשימוש - לחץ לפרטים"
+			"miniMaxUsed": "MiniMax: מכסה בשימוש - לחץ לפרטים",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} קוט\"ש שנוצלו בתקופה זו · בחריגה, השימוש מנוכה מהקרדיטים {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "מסנן",

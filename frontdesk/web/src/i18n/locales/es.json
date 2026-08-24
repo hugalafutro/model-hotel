@@ -664,7 +664,8 @@
 			"ollamaCloudPlan": "{{provider}}: plan de suscripción",
 			"neuralwattEnergy": "{{provider}}: energía consumida en este periodo",
 			"unreadable": "{{provider}}: la última lectura del principal devolvió una respuesta ilegible",
-			"noQuota": "{{provider}}: la última lectura del principal no devolvió ninguna cuota"
+			"noQuota": "{{provider}}: la última lectura del principal no devolvió ninguna cuota",
+			"neuralwattEnergyOverage": "{{provider}}: en exceso, el uso se descuenta de los créditos"
 		},
 		"modal": {
 			"toggleBarMode": "Cambiar entre usada y restante",
@@ -725,7 +726,8 @@
 			"lifetime": "Histórico",
 			"overageLimit": "Límite de exceso",
 			"rateLimitTier": "Nivel de límite de tasa",
-			"allowance": "Asignación de la clave"
+			"allowance": "Asignación de la clave",
+			"neuralwattOverageNote": "En exceso: el contador de energía se detiene en la cantidad incluida; el uso adicional se descuenta del saldo de créditos."
 		}
 	},
 	"errors": {

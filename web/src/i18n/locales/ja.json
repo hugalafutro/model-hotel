@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax プランクォータ",
 			"miniMaxChatModels": "チャットモデル",
 			"miniMaxNotInPlan": "プランに含まれていません",
-			"miniMaxVideoModels": "動画モデル"
+			"miniMaxVideoModels": "動画モデル",
+			"neuralwattOverageNote": "超過中: エネルギーメーターは含まれる量で停止し、以降の使用はクレジット残高から差し引かれます。"
 		},
 		"providerQuotaPanel": {
 			"quotas": "クォータ",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: 今期 {{amount}} kWh 使用 {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt の残高を取得できません",
 			"miniMaxRemaining": "MiniMax 残りクォータ - 詳細をクリックしてください",
-			"miniMaxUsed": "MiniMax 使用済みクォータ - 詳細をクリックしてください"
+			"miniMaxUsed": "MiniMax 使用済みクォータ - 詳細をクリックしてください",
+			"neuralwattBalanceOverage": "NeuralWatt: 今期 {{amount}} kWh 使用 · 超過中、使用分はクレジットから差し引かれます {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "フィルター",

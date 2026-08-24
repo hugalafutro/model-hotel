@@ -42,11 +42,6 @@ export function NeuralWattQuotaModal({
 	const currentMonth = usage?.current_month;
 	const lifetime = usage?.lifetime;
 
-	const hasCredits = balance.total_credits_usd > 0;
-	const creditsPctUsed = hasCredits
-		? (balance.credits_used_usd / balance.total_credits_usd) * 100
-		: 0;
-
 	const hasKwh = (subscription?.kwh_included ?? 0) > 0;
 	const kwhPctUsed =
 		subscription && hasKwh
@@ -73,28 +68,21 @@ export function NeuralWattQuotaModal({
 			fetchedAt={fetchedAt}
 			onClose={onClose}
 		>
-			{hasCredits ? (
-				<QuotaBar
+			{/* Just the number, no bar: NeuralWatt exposes no cumulative draw
+			    (credits_used_usd is a hardwired 0 and total_credits_usd
+			    re-bases to remaining as spend settles), so a credits bar could
+			    only ever render as untouched. */}
+			<QuotaDetailGrid columns={2}>
+				<QuotaDetailItem
 					label={t("quota.modal.accountBalance")}
-					rightText={formatDollars(balance.credits_remaining_usd)}
-					percentage={creditsPctUsed}
-					barMode={barMode}
-					testId="nw-credits-bar"
-					fillTestId="nw-credits-fill"
-				>
-					{t("quota.modal.spentTotal", {
-						amount: formatDollars(balance.credits_used_usd),
-					})}
-				</QuotaBar>
-			) : (
-				<QuotaDetailGrid columns={2}>
-					<QuotaDetailItem
-						label={t("quota.modal.accountBalance")}
-						value={formatDollars(balance.credits_remaining_usd)}
-						span
-					/>
-				</QuotaDetailGrid>
-			)}
+					value={
+						balance.credits_remaining_usd != null
+							? formatDollars(balance.credits_remaining_usd)
+							: "-"
+					}
+					span
+				/>
+			</QuotaDetailGrid>
 
 			{subscription && hasKwh && (
 				<QuotaBar
@@ -107,6 +95,15 @@ export function NeuralWattQuotaModal({
 				>
 					{`${formatKwh(subscription.kwh_remaining)} kWh ${t("quota.modal.remaining")}`}
 				</QuotaBar>
+			)}
+
+			{/* In overage the provider freezes kwh_used at the included amount and
+			    bills further usage against the credit balance, so the bars above
+			    stop moving; say where the spend actually goes. */}
+			{subscription?.in_overage && (
+				<p className="fd-quota-overage-note" data-testid="nw-overage-note">
+					{t("quota.modal.neuralwattOverageNote")}
+				</p>
 			)}
 
 			<QuotaDetailGrid columns={2}>

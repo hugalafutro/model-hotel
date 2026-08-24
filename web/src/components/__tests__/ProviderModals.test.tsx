@@ -1805,6 +1805,37 @@ describe("NeuralWattQuotaModal", () => {
 			const statusDot = screen.getByTestId("neuralwatt-status-dot");
 			expect(statusDot).toHaveClass("bg-green-400");
 		});
+
+		it("shows the overage note when in overage and hides it otherwise", () => {
+			const overageQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					in_overage: true,
+				},
+			};
+			const { unmount } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={overageQuota} />,
+			);
+			expect(screen.getByTestId("neuralwatt-overage-note")).toBeInTheDocument();
+			unmount();
+
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(
+				screen.queryByTestId("neuralwatt-overage-note"),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("no spent caption", () => {
+		it("never renders a spent-total figure, even when credits_used_usd is nonzero", () => {
+			// NeuralWatt exposes no cumulative draw: credits_used_usd is a
+			// hardwired 0 and total_credits_usd re-bases to remaining as spend
+			// settles (both verified live 2026-08-24), so a spent caption here
+			// could only ever be a fabricated $0.00.
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.queryByText(/spent total/)).not.toBeInTheDocument();
+		});
 	});
 
 	describe("bar mode toggle", () => {
@@ -1842,23 +1873,28 @@ describe("NeuralWattQuotaModal", () => {
 	});
 
 	describe("no credits state", () => {
-		it("hides credits bar and shows No credits when total_credits_usd is 0", () => {
-			const noCreditsQuota: NeuralWattQuotaResponse = {
+		it("renders a dash when the balance is absent, never a fabricated $0.00", () => {
+			const absentBalanceQuota: NeuralWattQuotaResponse = {
 				...mockQuota,
 				balance: {
 					...mockQuota.balance,
-					total_credits_usd: 0,
-					credits_remaining_usd: 0,
-					credits_used_usd: 0,
+					credits_remaining_usd: undefined,
 				},
 			};
 			renderWithProviders(
-				<NeuralWattQuotaModal {...defaultProps} quota={noCreditsQuota} />,
+				<NeuralWattQuotaModal {...defaultProps} quota={absentBalanceQuota} />,
 			);
+			expect(screen.getByText("-")).toBeInTheDocument();
+			expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+		});
+
+		it("renders no credits bar even with a positive credit total", () => {
+			// The credits bar is gone for good: total re-bases to remaining as
+			// spend settles, so the bar could only ever render as untouched.
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
 			expect(
 				screen.queryByTestId("neuralwatt-credits-bar"),
 			).not.toBeInTheDocument();
-			expect(screen.getByText("No credits")).toBeInTheDocument();
 		});
 
 		it("still renders subscription section when no credits", () => {

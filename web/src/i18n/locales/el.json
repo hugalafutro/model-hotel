@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "Ποσόστωση Σχεδίου MiniMax",
 			"miniMaxChatModels": "Μοντέλα συνομιλίας",
 			"miniMaxNotInPlan": "Δεν περιλαμβάνεται στο πλάνο",
-			"miniMaxVideoModels": "Μοντέλα βίντεο"
+			"miniMaxVideoModels": "Μοντέλα βίντεο",
+			"neuralwattOverageNote": "Σε υπέρβαση: ο μετρητής ενέργειας σταματά στην περιλαμβανόμενη ποσότητα· η περαιτέρω χρήση αφαιρείται από το υπόλοιπο πιστώσεων."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Ποσοστώσεις",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh που χρησιμοποιήθηκαν αυτήν την περίοδο {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο",
 			"miniMaxRemaining": "MiniMax υπόλοιπο όριο - κάντε κλικ για λεπτομέρειες",
-			"miniMaxUsed": "MiniMax χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες"
+			"miniMaxUsed": "MiniMax χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh που χρησιμοποιήθηκαν αυτήν την περίοδο · σε υπέρβαση, η χρήση αφαιρείται από τις πιστώσεις {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Φίλτρο",

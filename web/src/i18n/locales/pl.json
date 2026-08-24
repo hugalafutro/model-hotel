@@ -2730,7 +2730,8 @@
 			"miniMaxPlanQuota": "Limit planu MiniMax",
 			"miniMaxChatModels": "Modele czatu",
 			"miniMaxNotInPlan": "Nie uwzględnione w planie",
-			"miniMaxVideoModels": "Modele wideo"
+			"miniMaxVideoModels": "Modele wideo",
+			"neuralwattOverageNote": "Powyżej limitu: licznik energii zatrzymuje się na uwzględnionej ilości; dalsze zużycie pomniejsza saldo kredytów."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Użycie",
@@ -2993,7 +2994,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh zużyto w tym okresie {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Saldo NeuralWatt niedostępne",
 			"miniMaxRemaining": "Pozostały limit MiniMax - kliknij po szczegóły",
-			"miniMaxUsed": "Wykorzystany limit MiniMax - kliknij po szczegóły"
+			"miniMaxUsed": "Wykorzystany limit MiniMax - kliknij po szczegóły",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh zużyto w tym okresie · powyżej limitu, zużycie jest pobierane z kredytów {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtr",

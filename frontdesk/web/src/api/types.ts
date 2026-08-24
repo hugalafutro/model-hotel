@@ -490,7 +490,8 @@ export interface NeuralWattQuotaUsagePeriod {
  */
 export interface NeuralWattQuotaResponse {
 	balance: {
-		credits_remaining_usd: number;
+		/** Absent when the provider omitted the balance; never coerce to 0. */
+		credits_remaining_usd?: number | null;
 		total_credits_usd: number;
 		credits_used_usd: number;
 		accounting_method: string;

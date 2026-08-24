@@ -306,7 +306,10 @@ data class OllamaCloudNullableTime(
 
 @Serializable
 data class NeuralWattBalance(
-    @SerialName("credits_remaining_usd") val creditsRemainingUsd: Double = 0.0,
+    // Nullable on purpose: an absent field must not read as a real $0, or the
+    // total-minus-remaining derivation in quotaMeters would render a healthy
+    // account as fully spent (the Go normalizer draws the same distinction).
+    @SerialName("credits_remaining_usd") val creditsRemainingUsd: Double? = null,
     @SerialName("total_credits_usd") val totalCreditsUsd: Double = 0.0,
     @SerialName("credits_used_usd") val creditsUsedUsd: Double = 0.0,
     @SerialName("accounting_method") val accountingMethod: String = "",
@@ -642,6 +645,10 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     format = { "$${formatDollarAmount(it)}" },
                 ),
             )
+        // Energy only: NeuralWatt's credits_used_usd is a hardwired 0 and
+        // total_credits_usd re-bases to remaining as spend settles (verified
+        // live 2026-08-24), so a credits meter could only ever render as
+        // untouched. The balance number itself is a detail-sheet row.
         is QuotaData.NeuralWatt ->
             listOfNotNull(
                 amountMeter(
@@ -650,12 +657,6 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     ceiling = data.subscription.kwhIncluded,
                     format = { formatKwhAmount(it) },
                     suffix = " kWh",
-                ),
-                amountMeter(
-                    kind = QuotaMeterKind.CREDITS,
-                    used = data.balance.creditsUsedUsd,
-                    ceiling = data.balance.totalCreditsUsd,
-                    format = { "$${formatDollarAmount(it)}" },
                 ),
             )
         // Balance-only and plan-only: no ceiling exists to meter against.

@@ -2730,7 +2730,8 @@
 			"miniMaxPlanQuota": "Квота плана MiniMax",
 			"miniMaxChatModels": "Модели чата",
 			"miniMaxNotInPlan": "Не включено в план",
-			"miniMaxVideoModels": "Модели видео"
+			"miniMaxVideoModels": "Модели видео",
+			"neuralwattOverageNote": "Перерасход: счётчик энергии останавливается на включённом объёме; дальнейшее использование списывается с баланса кредитов."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Использование",
@@ -2993,7 +2994,8 @@
 			"neuralwattBalance": "NeuralWatt: использовано {{amount}} кВтч за этот период {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступен",
 			"miniMaxRemaining": "Оставшаяся квота MiniMax - нажмите для получения подробной информации",
-			"miniMaxUsed": "Использованная квота MiniMax - нажмите для получения подробной информации"
+			"miniMaxUsed": "Использованная квота MiniMax - нажмите для получения подробной информации",
+			"neuralwattBalanceOverage": "NeuralWatt: использовано {{amount}} кВтч за этот период · перерасход, использование списывается с кредитов {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Фильтр",

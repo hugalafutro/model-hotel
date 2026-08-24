@@ -2672,7 +2672,8 @@
 			"miniMaxPlanQuota": "Квота MiniMax плана",
 			"miniMaxChatModels": "Модели ћаскања",
 			"miniMaxNotInPlan": "Није укључено у план",
-			"miniMaxVideoModels": "Видео модели"
+			"miniMaxVideoModels": "Видео модели",
+			"neuralwattOverageNote": "У прекорачењу: бројило енергије се зауставља на укљученој количини; даља употреба се одузима од стања кредита."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Квоте",
@@ -2933,7 +2934,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh искоришћено у овом периоду {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt стање недоступно",
 			"miniMaxRemaining": "MiniMax преостала квота - кликните за детаље",
-			"miniMaxUsed": "Искоришћена квота MiniMax - кликните за детаље"
+			"miniMaxUsed": "Искоришћена квота MiniMax - кликните за детаље",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh искоришћено у овом периоду · у прекорачењу, употреба се одузима од кредита {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Филтер",

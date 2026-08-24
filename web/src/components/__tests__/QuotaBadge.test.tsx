@@ -731,8 +731,11 @@ describe("QuotaBadge", () => {
 			// Locale-independent: the tooltip describes energy USED, so it
 			// carries the used amount (2.37), never the included figure with a
 			// "remaining" framing. Assert on the number, not translated words.
+			// It carries NO dollar figure: NeuralWatt exposes no cumulative
+			// draw, so any dollar amount here would be fabricated.
 			const title = screen.getByRole("button").getAttribute("title") ?? "";
 			expect(title).toContain("2.37");
+			expect(title).not.toContain("$");
 		});
 
 		it("calls onClick when clicked", async () => {

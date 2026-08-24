@@ -2672,7 +2672,8 @@
 			"miniMaxPlanQuota": "Quota del pla de MiniMax",
 			"miniMaxChatModels": "Models de xat",
 			"miniMaxNotInPlan": "No inclòs al pla",
-			"miniMaxVideoModels": "Models de vídeo"
+			"miniMaxVideoModels": "Models de vídeo",
+			"neuralwattOverageNote": "En excés: el comptador d'energia s'atura a la quantitat inclosa; l'ús addicional es descompta del saldo de crèdits."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Ús",
@@ -2933,7 +2934,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh utilitzats aquest període {{refreshed}}",
 			"neuralwattBalanceUnavailable": "El saldo de NeuralWatt no està disponible",
 			"miniMaxRemaining": "Quota restant de MiniMax - fes clic per a més detalls",
-			"miniMaxUsed": "Quota utilitzada de MiniMax - fes clic per a més detalls"
+			"miniMaxUsed": "Quota utilitzada de MiniMax - fes clic per a més detalls",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh utilitzats aquest període · en excés, l'ús es descompta dels crèdits {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtre",

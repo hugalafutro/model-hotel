@@ -657,7 +657,8 @@
 			"ollamaCloudPlan": "{{provider}}：订阅套餐",
 			"neuralwattEnergy": "{{provider}}：本期已用电量",
 			"unreadable": "{{provider}}：主节点上次抓取返回了无法解析的响应",
-			"noQuota": "{{provider}}：主节点上次抓取未返回配额"
+			"noQuota": "{{provider}}：主节点上次抓取未返回配额",
+			"neuralwattEnergyOverage": "{{provider}}：已超额，用量将从额度中扣除"
 		},
 		"modal": {
 			"toggleBarMode": "在已用和剩余之间切换",
@@ -718,7 +719,8 @@
 			"lifetime": "累计",
 			"overageLimit": "超额上限",
 			"rateLimitTier": "速率限制等级",
-			"allowance": "密钥额度"
+			"allowance": "密钥额度",
+			"neuralwattOverageNote": "已超额：电量计数器停在套餐包含量；后续用量将从余额中扣除。"
 		}
 	},
 	"errors": {

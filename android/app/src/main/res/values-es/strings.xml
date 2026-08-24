@@ -314,6 +314,7 @@
     <string name="quota_field_usage_today">Uso de hoy</string>
     <string name="quota_field_usage_month">Uso de este mes</string>
     <string name="quota_field_balance_remaining">Saldo restante</string>
+    <string name="quota_field_in_overage">En exceso</string>
     <string name="quota_field_daily_input_tokens">Tokens de entrada diarios</string>
     <string name="quota_field_daily_images">Imágenes diarias</string>
     <string name="quota_field_mcp_quota">Cuota de MCP</string>

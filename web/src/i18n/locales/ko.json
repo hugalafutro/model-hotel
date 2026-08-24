@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax 플랜 할당량",
 			"miniMaxChatModels": "채팅 모델",
 			"miniMaxNotInPlan": "플랜에 포함되지 않음",
-			"miniMaxVideoModels": "동영상 모델"
+			"miniMaxVideoModels": "동영상 모델",
+			"neuralwattOverageNote": "초과 상태: 에너지 측정기는 포함된 양에서 멈추며, 이후 사용량은 크레딧 잔액에서 차감됩니다."
 		},
 		"providerQuotaPanel": {
 			"quotas": "사용량",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: 이번 기간 {{amount}} kWh 사용 {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt 잔액 확인 불가",
 			"miniMaxRemaining": "MiniMax 잔여 할당량 - 자세한 내용을 보려면 클릭하세요",
-			"miniMaxUsed": "MiniMax 사용 할당량 - 자세한 내용을 보려면 클릭하세요"
+			"miniMaxUsed": "MiniMax 사용 할당량 - 자세한 내용을 보려면 클릭하세요",
+			"neuralwattBalanceOverage": "NeuralWatt: 이번 기간 {{amount}} kWh 사용 · 초과 상태, 사용량은 크레딧에서 차감됩니다 {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "필터",

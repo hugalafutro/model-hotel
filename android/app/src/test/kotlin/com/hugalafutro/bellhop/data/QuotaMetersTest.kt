@@ -201,21 +201,28 @@ class QuotaMetersTest {
     }
 
     @Test
-    fun neuralWattMetersEnergyThenCredits() {
+    fun neuralWattMetersEnergyOnly() {
+        // No credits meter on purpose: NeuralWatt's credits_used_usd is a
+        // hardwired 0 and total re-bases to remaining as spend settles, so a
+        // credits bar could only ever render as untouched.
         val meters =
             quotaMeters(
                 quotaOf(
                     QuotaType.NEURALWATT,
                     QuotaData.NeuralWatt(
-                        balance = NeuralWattBalance(creditsUsedUsd = 3.0, totalCreditsUsd = 12.0),
+                        balance =
+                            NeuralWattBalance(
+                                creditsUsedUsd = 3.0,
+                                creditsRemainingUsd = 9.0,
+                                totalCreditsUsd = 12.0,
+                            ),
                         subscription = NeuralWattSubscription(kwhIncluded = 20.0, kwhUsed = 12.5),
                     ),
                 ),
             )
 
-        assertEquals(listOf(QuotaMeterKind.ENERGY, QuotaMeterKind.CREDITS), meters.map { it.kind })
+        assertEquals(listOf(QuotaMeterKind.ENERGY), meters.map { it.kind })
         assertEquals("12.5/20 kWh", meters[0].value)
-        assertEquals(25.0, meters[1].usedPercent, 0.001)
     }
 
     @Test

@@ -2672,7 +2672,8 @@
 			"miniMaxPlanQuota": "Cota planului MiniMax",
 			"miniMaxChatModels": "Modele de chat",
 			"miniMaxNotInPlan": "Nu este inclus în plan",
-			"miniMaxVideoModels": "Modele video"
+			"miniMaxVideoModels": "Modele video",
+			"neuralwattOverageNote": "În depășire: contorul de energie se oprește la cantitatea inclusă; utilizarea suplimentară se scade din soldul de credite."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Utilizare",
@@ -2933,7 +2934,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh utilizați în această perioadă {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Sold NeuralWatt indisponibil",
 			"miniMaxRemaining": "MiniMax cota rămasă - click pentru detalii",
-			"miniMaxUsed": "MiniMax cota folosită - click pentru detalii"
+			"miniMaxUsed": "MiniMax cota folosită - click pentru detalii",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh utilizați în această perioadă · în depășire, utilizarea se scade din credite {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtrare",

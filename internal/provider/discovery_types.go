@@ -1,11 +1,15 @@
 package provider
 
 // NeuralWattQuotaBalance contains balance/credit information.
+// CreditsRemainingUSD is a pointer on purpose: the snapshot path re-marshals
+// this struct verbatim to both dashboards, and a bare float64 would turn an
+// omitted upstream balance into a fabricated $0.00 "all credits depleted"
+// reading (the internal/quota normalizer draws the same distinction).
 type NeuralWattQuotaBalance struct {
-	CreditsRemainingUSD float64 `json:"credits_remaining_usd"`
-	TotalCreditsUSD     float64 `json:"total_credits_usd"`
-	CreditsUsedUSD      float64 `json:"credits_used_usd"`
-	AccountingMethod    string  `json:"accounting_method"`
+	CreditsRemainingUSD *float64 `json:"credits_remaining_usd,omitempty"`
+	TotalCreditsUSD     float64  `json:"total_credits_usd"`
+	CreditsUsedUSD      float64  `json:"credits_used_usd"`
+	AccountingMethod    string   `json:"accounting_method"`
 }
 
 // NeuralWattQuotaUsagePeriod contains cost/request/token/energy usage.
