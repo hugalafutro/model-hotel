@@ -1115,6 +1115,26 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 	if last := entries[len(entries)-1]; last.Escaped {
 		t.Error("legacy io.Writer entry must not claim the flattened-encoding flag")
 	}
+
+	// The flag vouches for the WHOLE flattened row, message text included. A
+	// raw message containing a quote or a backslash could interact with the
+	// display-side decode (desynced quote state, or a literal \x20), so such
+	// a record must not claim the flag and renders verbatim instead.
+	for _, msg := range []string{
+		`discovery: could not parse "x`,
+		`discovery: literal path="\x20evidence" in message`,
+		`discovery: windows path C:\temp`,
+	} {
+		rec := slog.NewRecord(time.Now(), slog.LevelInfo, msg, 0)
+		rec.AddAttrs(slog.String("provider", "Ollama Cloud"))
+		if err := h.Handle(context.Background(), rec); err != nil {
+			t.Fatalf("Handle returned %v", err)
+		}
+		entries = rb.GetEntries()
+		if last := entries[len(entries)-1]; last.Escaped {
+			t.Errorf("message %q contains decode-relevant characters; entry must not claim the flag", msg)
+		}
+	}
 }
 
 // TestGetAppLogs_EscapedFlagProvenance verifies the escaped flag round-trips

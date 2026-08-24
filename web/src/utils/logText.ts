@@ -19,7 +19,10 @@
  */
 /** The display form of an app-log message: decoded only when the backend
  * marked the row as using the flattened encoding (AppLogEntry.escaped), so a
- * legacy or raw message containing a literal `\x20` is never altered. */
+ * legacy or raw message containing a literal `\x20` is never altered. The
+ * backend grants the flag only when the raw message portion contains neither
+ * a quote nor a backslash, so on a flagged row every quote and backslash
+ * belongs to encoder output and this scan cannot touch raw text or desync. */
 export function displayLogMessage(
 	message: string,
 	escaped: boolean | undefined,

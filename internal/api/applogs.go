@@ -29,6 +29,9 @@ type AppLogEntry struct {
 	// values use the flattened quoteLogValue encoding (spaces as \x20). The
 	// dashboard decodes that escaping only when this is set; legacy rows and
 	// raw io.Writer lines stay false and render verbatim (migration 075).
+	// The flag is granted only when the raw message portion holds no quote
+	// and no backslash, so on a flagged row every such character belongs to
+	// encoder output and display-side decoding is exact (see Handle).
 	Escaped bool `json:"escaped,omitempty"`
 }
 

@@ -112,9 +112,16 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		Level:     appLevel,
 		Source:    source,
 		Message:   msgStr,
-		// Attribute values above went through quoteLogValue's flattened
-		// encoding, so the dashboard may decode \x20 in this message.
-		Escaped: true,
+		// The attribute values above went through quoteLogValue's flattened
+		// encoding, so the dashboard may decode \x20 in this message. The
+		// flag vouches for the WHOLE flattened row, so it is granted only
+		// when the raw message portion contains neither a quote nor a
+		// backslash: then every quote and backslash in the row provably
+		// belongs to encoder output and the display-side decode cannot touch
+		// raw text or desync on it. A message that does carry those
+		// characters (they are developer-written constants, so this is rare)
+		// simply renders verbatim, escapes and all.
+		Escaped: !strings.ContainsAny(baseMsg, "\"\\"),
 	}
 
 	// Write to ring buffer and DB.
