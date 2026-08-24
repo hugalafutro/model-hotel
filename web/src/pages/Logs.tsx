@@ -67,7 +67,8 @@ function RequestLogs() {
 		| "ttft"
 		| "duration"
 		| "overhead"
-		| "key";
+		| "key"
+		| "ip";
 
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [page, setPage] = useState(1);
@@ -77,16 +78,27 @@ function RequestLogs() {
 		provider_id: "",
 		status_code: "",
 		endpoint_type: "",
+		virtual_key_id: "",
 		owner_user_id: "",
 	});
 
 	// Owner filter is admin-only: non-admins are already server-scoped to
 	// their own keys, so the dropdown would be dead weight for them.
-	const { isAdmin } = useIdentity();
+	const { isAdmin, can } = useIdentity();
 	const { data: ownerOptions } = useQuery({
 		queryKey: ["users"],
 		queryFn: () => api.users.list(),
 		enabled: isAdmin,
+		staleTime: 60_000,
+	});
+	// Key filter rides the same card: the roster endpoint needs the
+	// virtual-keys grant, and the server scopes non-admins to their own keys.
+	const { data: keyOptions } = useQuery({
+		// Same key as the Virtual Keys page, so VK create/rename/delete
+		// invalidations refresh this dropdown too.
+		queryKey: ["virtualKeys"],
+		queryFn: () => api.virtualKeys.list(),
+		enabled: can("virtual_keys"),
 		staleTime: 60_000,
 	});
 	const debouncedModelId = useDebounce(filters.model_id, 300);
@@ -170,6 +182,7 @@ function RequestLogs() {
 			debouncedProviderId,
 			filters.status_code,
 			filters.endpoint_type,
+			filters.virtual_key_id,
 			filters.owner_user_id,
 			dateFrom,
 			dateTo,
@@ -183,6 +196,7 @@ function RequestLogs() {
 				provider_id: debouncedProviderId || undefined,
 				status_code: filters.status_code || undefined,
 				endpoint_type: filters.endpoint_type || undefined,
+				virtual_key_id: filters.virtual_key_id || undefined,
 				owner_user_id: filters.owner_user_id || undefined,
 				from: dateFrom || undefined,
 				to: dateTo || undefined,
@@ -205,6 +219,7 @@ function RequestLogs() {
 			provider_id: debouncedProviderId || undefined,
 			status_code: filters.status_code || undefined,
 			endpoint_type: filters.endpoint_type || undefined,
+			virtual_key_id: filters.virtual_key_id || undefined,
 			owner_user_id: filters.owner_user_id || undefined,
 			from: dateFrom || undefined,
 			to: dateTo || undefined,
@@ -214,6 +229,7 @@ function RequestLogs() {
 			debouncedProviderId,
 			filters.status_code,
 			filters.endpoint_type,
+			filters.virtual_key_id,
 			filters.owner_user_id,
 			dateFrom,
 			dateTo,
@@ -243,6 +259,7 @@ function RequestLogs() {
 				provider_id: params.provider_id as string | undefined,
 				status_code: params.status_code as string | undefined,
 				endpoint_type: params.endpoint_type as string | undefined,
+				virtual_key_id: params.virtual_key_id as string | undefined,
 				owner_user_id: params.owner_user_id as string | undefined,
 				from: params.from as string | undefined,
 				to: params.to as string | undefined,
@@ -478,7 +495,7 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.modelPlaceholder")}
-								className="w-50"
+								className="w-43"
 								autoFocus
 							/>
 							<FilterInput
@@ -488,7 +505,7 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.providerPlaceholder")}
-								className="w-50"
+								className="w-43"
 							/>
 							<FilterDropdown
 								value={filters.status_code}
@@ -504,7 +521,7 @@ function RequestLogs() {
 									{ value: "5xx", label: "5XX" },
 									{ value: "0", label: "0" },
 								]}
-								className="w-36"
+								className="w-31"
 							/>
 							<FilterDropdown
 								value={filters.endpoint_type}
@@ -518,8 +535,25 @@ function RequestLogs() {
 									value: o.value,
 									label: t(o.labelKey),
 								}))}
-								className="w-36"
+								className="w-38"
 							/>
+
+							{(keyOptions?.length ?? 0) > 0 && (
+								<FilterDropdown
+									value={filters.virtual_key_id}
+									onChange={(v) => {
+										setFilters({ ...filters, virtual_key_id: v });
+										setPage(1);
+									}}
+									placeholder={t("logs.filters.key")}
+									allLabel={t("logs.filters.allKeys")}
+									options={(keyOptions ?? []).map((k) => ({
+										value: k.id,
+										label: k.name,
+									}))}
+									className="w-28"
+								/>
+							)}
 
 							{isAdmin && (ownerOptions?.length ?? 0) > 0 && (
 								<FilterDropdown
@@ -534,7 +568,7 @@ function RequestLogs() {
 										value: u.id,
 										label: u.username,
 									}))}
-									className="w-36"
+									className="w-30"
 								/>
 							)}
 
@@ -663,6 +697,13 @@ function RequestLogs() {
 										sort={sort}
 										onSort={handleSort}
 										tooltip={t("logs.tooltip.key")}
+									/>
+									<SortableHeader
+										label={t("logs.table.ip")}
+										field="ip"
+										sort={sort}
+										onSort={handleSort}
+										tooltip={t("logs.tooltip.ip")}
 									/>
 								</tr>
 							</thead>
@@ -856,12 +897,18 @@ function RequestLogs() {
 														log.virtual_key_name || log.virtual_key_id || "-"
 													)}
 												</td>
+												<td
+													className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono truncate"
+													title={log.client_ip || undefined}
+												>
+													{log.client_ip || "-"}
+												</td>
 											</Row>
 										);
 									})
 								) : (
 									<EmptyRow
-										colSpan={11}
+										colSpan={12}
 										message={t("logs.emptyState.requests")}
 									/>
 								)}

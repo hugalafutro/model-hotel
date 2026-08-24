@@ -75,6 +75,11 @@ export interface ShelfError {
 	errorKind?: string;
 	/** App-log emitter source (app errors only); drives the HA sub-category. */
 	source?: string;
+	/** True when the message uses the backend's flattened \x20 encoding
+	 * (app errors only); gates display-side decoding. */
+	escaped?: boolean;
+	/** Attribute-suffix offset for the decode (app errors only). */
+	attrsAt?: number;
 }
 
 function makeKey(kind: ShelfErrorKind, timestamp: string, message: string) {
@@ -256,6 +261,8 @@ export function useErrorShelf(): UseErrorShelf {
 				timestamp: entry.timestamp,
 				entry,
 				source: entry.source || undefined,
+				escaped: entry.escaped,
+				attrsAt: entry.attrs_at,
 			});
 		}
 

@@ -1388,7 +1388,9 @@
 			"allStatus": "Všechny stavy",
 			"allEndpoints": "Všechny modality",
 			"owner": "Vlastník",
-			"allOwners": "Všichni uživatelé"
+			"allOwners": "Všichni uživatelé",
+			"key": "Virtuální klíč",
+			"allKeys": "Všechny klíče"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1417,7 +1419,8 @@
 			"live": "Živě",
 			"interrupted": "Přerušeno",
 			"cacheInflated": "Nadhodnoceno zásahy do promptové mezipaměti",
-			"keyDeleted": "Smazáno"
+			"keyDeleted": "Smazáno",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Časové razítko požadavku",
@@ -1441,7 +1444,8 @@
 			"keyDecryption": "Dešifrování klíče",
 			"dial": "Navázání spojení (DNS+TCP)",
 			"settingsReads": "Nastavení – Čtení",
-			"reused": "znovu použité"
+			"reused": "znovu použité",
+			"ip": "IP adresa klienta, ze které požadavek přišel"
 		},
 		"status": {
 			"interrupted": "Přerušeno"
@@ -2841,9 +2845,7 @@
 			"copyModelId": "Zkopírovat ID modelu",
 			"resolved": "vyřešeno",
 			"provider": "Poskytovatel",
-			"dbRowId": "ID řádku v databázi",
 			"timestamp": "Časové razítko",
-			"copyDbRowId": "Zkopírovat ID řádku databáze",
 			"virtualKey": "Virtuální klíč",
 			"tokenUsage": "Použití tokenů",
 			"prompt": "Výzva",
@@ -2873,7 +2875,9 @@
 			"error": "Chyba",
 			"copyErrorMessage": "Zkopírujte chybovou zprávu",
 			"expandForBreakdown": "Rozbalte pro podrobné rozdělení podle kroků",
-			"performance": "Výkon"
+			"performance": "Výkon",
+			"clientIp": "IP klienta",
+			"copyClientIp": "Kopírovat IP klienta"
 		},
 		"statusBadge": {
 			"streaming": "Streamování",
@@ -2914,7 +2918,8 @@
 			"internal": "interní",
 			"cacheInflated": "Nadhodnoceno zásahy do promptové mezipaměti",
 			"deleted": "Smazáno",
-			"zeroEntries": "0 záznamů"
+			"zeroEntries": "0 záznamů",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Žádné log záznamy nenalezeny",

@@ -25,6 +25,18 @@ type AppLogEntry struct {
 	Level     string `json:"level"`                // "info", "warning", "error"
 	Source    string `json:"source"`               // "proxy", "auth", "discovery", etc. (without brackets)
 	Message   string `json:"message"`
+	// Escaped marks messages produced by the slog handler, whose attribute
+	// values use the flattened quoteLogValue encoding (spaces as \x20). The
+	// dashboard decodes that escaping only when this is set; legacy rows and
+	// raw io.Writer lines stay false and render verbatim (migration 075).
+	Escaped bool `json:"escaped,omitempty"`
+	// AttrsAt is the offset in Message where the encoded attribute suffix
+	// begins (everything before it is raw message text, everything from it
+	// on is quoteLogValue output), counted in UTF-16 code units: the unit
+	// JavaScript strings index by, so the dashboard's String.slice lands on
+	// the same boundary for non-ASCII text. The dashboard decodes \x20 only
+	// from this offset. Meaningful only when Escaped is set.
+	AttrsAt int `json:"attrs_at"`
 }
 
 // parseLogLine extracts the structured fields from a raw log line.
@@ -304,9 +316,21 @@ func appendAppLogFilters(conditions []string, args []any, argIdx int, level, sou
 		argIdx++
 	}
 	if search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
+		// Attribute values escape their spaces as \x20 (quoteLogValue), so a
+		// term with a space also has to match the escaped form or a search for
+		// a provider name like "Ollama Cloud" misses every line that carries
+		// it as an attribute. The pattern doubles the backslash because \ is
+		// the LIKE escape character.
+		escaped := strings.ReplaceAll(search, " ", `\\x20`)
+		if escaped != search {
+			conditions = append(conditions, fmt.Sprintf("(message ILIKE $%d OR message ILIKE $%d)", argIdx, argIdx+1))
+			args = append(args, "%"+search+"%", "%"+escaped+"%")
+			argIdx += 2
+		} else {
+			conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
+			args = append(args, "%"+search+"%")
+			argIdx++
+		}
 	}
 	if from != "" {
 		if t, err := time.Parse(time.RFC3339, from); err == nil {
@@ -353,12 +377,12 @@ func appLogWhereClause(conditions []string) string {
 }
 
 // scanAppLogRow scans one row of the cursor projection
-// (id, created_at, timestamp, level, source, message) into an AppLogEntry.
+// (id, created_at, timestamp, level, source, message, escaped, attrs_at) into an AppLogEntry.
 func scanAppLogRow(rows pgx.Rows) (AppLogEntry, error) {
 	var e AppLogEntry
 	var id string
 	var cat, ts time.Time
-	if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message); err != nil {
+	if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt); err != nil {
 		return e, err
 	}
 	e.ID = id
@@ -462,7 +486,7 @@ func buildAppLogCursorQuery(p appLogCursorParams, q url.Values) (string, []any) 
 		}
 	}
 	query := fmt.Sprintf(
-		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
+		"SELECT id, created_at, timestamp, level, source, message, escaped, attrs_at FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
 		appLogWhereClause(conditions), fetchSortDir, fetchSortDir, argIdx,
 	)
 	args = append(args, p.limit+1)
@@ -515,7 +539,7 @@ func buildAppLogHistoryQuery(p appLogHistoryParams, q url.Values) (string, []any
 	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
 		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 	query := fmt.Sprintf(
-		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
+		"SELECT timestamp, level, source, message, escaped, attrs_at FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
 		appLogWhereClause(conditions), p.sortCol, p.sortDir, argIdx, argIdx+1,
 	)
 	args = append(args, p.perPage, (p.page-1)*p.perPage)
@@ -563,7 +587,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var e AppLogEntry
 		var ts time.Time
-		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message); err != nil {
+		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt); err != nil {
 			continue
 		}
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)

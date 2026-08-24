@@ -1304,7 +1304,9 @@
 			"allStatus": "Alla statusar",
 			"allEndpoints": "Alla modaliteter",
 			"owner": "Ägare",
-			"allOwners": "Alla användare"
+			"allOwners": "Alla användare",
+			"key": "Virtuell nyckel",
+			"allKeys": "Alla nycklar"
 		},
 		"endpoint": {
 			"chat": "Chatt",
@@ -1333,7 +1335,8 @@
 			"live": "Live",
 			"interrupted": "Avbruten",
 			"cacheInflated": "Inflated by prompt cache hits",
-			"keyDeleted": "Borttagen"
+			"keyDeleted": "Borttagen",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstämpel för begäran",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Nyckel dekryptering",
 			"dial": "Uppkoppling (DNS+TCP)",
 			"settingsReads": "Läser inställningar",
-			"reused": "återanvänd"
+			"reused": "återanvänd",
+			"ip": "Klientens IP-adress som begäran kom från"
 		},
 		"status": {
 			"interrupted": "Avbruten"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Kopiera modell-ID",
 			"resolved": "löst",
 			"provider": "Leverantör",
-			"dbRowId": "DB Rad ID",
 			"timestamp": "Tidsstämpel",
-			"copyDbRowId": "Kopiera DB rad-ID",
 			"virtualKey": "Virtuell nyckel",
 			"tokenUsage": "Token användning",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Fel",
 			"copyErrorMessage": "Kopiera felmeddelande",
 			"expandForBreakdown": "Expandera för uppdelningen per steg",
-			"performance": "Prestanda"
+			"performance": "Prestanda",
+			"clientIp": "Klient-IP",
+			"copyClientIp": "Kopiera klient-IP"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",
@@ -2794,7 +2798,8 @@
 			"internal": "intern",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"deleted": "Borttagen",
-			"zeroEntries": "0 poster"
+			"zeroEntries": "0 poster",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Inga loggposter hittades",

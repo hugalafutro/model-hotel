@@ -1304,7 +1304,9 @@
 			"allStatus": "所有状态",
 			"allEndpoints": "所有模态",
 			"owner": "所有者",
-			"allOwners": "所有用户"
+			"allOwners": "所有用户",
+			"key": "虚拟密钥",
+			"allKeys": "所有密钥"
 		},
 		"endpoint": {
 			"chat": "聊天",
@@ -1333,7 +1335,8 @@
 			"live": "实时模式",
 			"interrupted": "已中断",
 			"cacheInflated": "因提示缓存命中而偏高",
-			"keyDeleted": "已删除"
+			"keyDeleted": "已删除",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "请求的时间戳",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "密钥解码",
 			"dial": "拨号 (DNS+TCP)",
 			"settingsReads": "设置读取",
-			"reused": "已重新使用"
+			"reused": "已重新使用",
+			"ip": "请求来源的客户端 IP 地址"
 		},
 		"status": {
 			"interrupted": "已中断"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "复制模型ID",
 			"resolved": "已解决",
 			"provider": "提供商",
-			"dbRowId": "数据库行 ID",
 			"timestamp": "时间戳",
-			"copyDbRowId": "复制 DB 行 ID",
 			"virtualKey": "虚拟密钥",
 			"tokenUsage": "令牌使用情况",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "错误",
 			"copyErrorMessage": "复制错误消息",
 			"expandForBreakdown": "展开以查看分步明细",
-			"performance": "性能"
+			"performance": "性能",
+			"clientIp": "客户端 IP",
+			"copyClientIp": "复制客户端 IP"
 		},
 		"statusBadge": {
 			"streaming": "流式传输",
@@ -2794,7 +2798,8 @@
 			"internal": "内部设置",
 			"cacheInflated": "因提示缓存命中而偏高",
 			"deleted": "已删除",
-			"zeroEntries": "0 个条目"
+			"zeroEntries": "0 个条目",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "未找到日志条目",

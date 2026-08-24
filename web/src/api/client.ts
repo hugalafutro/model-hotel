@@ -2,6 +2,7 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AlertTargets,
+	AppLogEntry,
 	AppLogsCursorResponse,
 	AuditListResponse,
 	AuthSession,
@@ -55,13 +56,6 @@ import type {
 	VirtualKey,
 	ZAICodingQuotaResponse,
 } from "./types";
-
-export interface AppLogEntry {
-	timestamp: string;
-	level: "info" | "warning" | "error";
-	source: string;
-	message: string;
-}
 
 export const API_BASE = "";
 
@@ -670,6 +664,10 @@ export const api = {
 				to?: string;
 				sort_by?: string;
 				sort_dir?: string;
+				/** Filter to a single virtual key's traffic. */
+				virtual_key_id?: string;
+				/** Filter to requests from one exact client address. */
+				client_ip?: string;
 				/** Admin-only filter: scope to keys owned by this user. */
 				owner_user_id?: string;
 			} = {},
@@ -686,6 +684,8 @@ export const api = {
 					to: params.to,
 					sort_by: params.sort_by,
 					sort_dir: params.sort_dir,
+					virtual_key_id: params.virtual_key_id,
+					client_ip: params.client_ip,
 					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },
@@ -724,6 +724,10 @@ export const api = {
 			from?: string;
 			to?: string;
 			sort_dir?: string;
+			/** Filter to a single virtual key's traffic. */
+			virtual_key_id?: string;
+			/** Filter to requests from one exact client address. */
+			client_ip?: string;
 			/** Admin-only filter: scope to keys owned by this user. */
 			owner_user_id?: string;
 		}): Promise<LogsCursorResponse> => {
@@ -739,6 +743,8 @@ export const api = {
 					from: params.from,
 					to: params.to,
 					sort_dir: params.sort_dir,
+					virtual_key_id: params.virtual_key_id,
+					client_ip: params.client_ip,
 					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },

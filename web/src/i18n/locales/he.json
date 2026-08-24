@@ -1346,7 +1346,9 @@
 			"allStatus": "כל הסטטוסים",
 			"allEndpoints": "כל המודאליות",
 			"owner": "בעלים",
-			"allOwners": "כל המשתמשים"
+			"allOwners": "כל המשתמשים",
+			"key": "מפתח וירטואלי",
+			"allKeys": "כל המפתחות"
 		},
 		"endpoint": {
 			"chat": "צ'אט",
@@ -1375,7 +1377,8 @@
 			"live": "בשידור חי",
 			"interrupted": "נקטע",
 			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
-			"keyDeleted": "נמחק"
+			"keyDeleted": "נמחק",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "תאריך ושעה של הבקשה",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "פענוח מפתח",
 			"dial": "חיוג (DNS+TCP)",
 			"settingsReads": "הגדרות קריאה",
-			"reused": "בשימוש חוזר"
+			"reused": "בשימוש חוזר",
+			"ip": "כתובת ה-IP של הלקוח שממנה הגיעה הבקשה"
 		},
 		"status": {
 			"interrupted": "נקטע"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "העתק מזהה הדגם",
 			"resolved": "נפתר",
 			"provider": "ספק",
-			"dbRowId": "מזהה שורה בבסיס הנתונים",
 			"timestamp": "תאריך ושעה",
-			"copyDbRowId": "העתקת מזהה שורה בבסיס הנתונים",
 			"virtualKey": "מפתח וירטואלי",
 			"tokenUsage": "שימוש באסימונים",
 			"prompt": "הנחיה",
@@ -2813,7 +2815,9 @@
 			"error": "שגיאה",
 			"copyErrorMessage": "העתק את הודעת השגיאה",
 			"expandForBreakdown": "הרחב לפירוט לפי שלבים",
-			"performance": "ביצועים"
+			"performance": "ביצועים",
+			"clientIp": "IP של הלקוח",
+			"copyClientIp": "העתק את ה-IP של הלקוח"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",
@@ -2854,7 +2858,8 @@
 			"internal": "פנימי",
 			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
 			"deleted": "נמחק",
-			"zeroEntries": "0 רשומות"
+			"zeroEntries": "0 רשומות",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "לא נמצאו רשומות ביומן",

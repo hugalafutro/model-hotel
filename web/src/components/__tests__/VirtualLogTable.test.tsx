@@ -280,7 +280,10 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "-" when provider_name is empty', () => {
-			const entries = [createLogEntry({ provider_name: "" })];
+			// client_ip is set so the provider cell renders the row's only "-".
+			const entries = [
+				createLogEntry({ provider_name: "", client_ip: "198.51.100.1" }),
+			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1437,23 +1440,24 @@ describe("VirtualLogTable", () => {
 
 			expect(screen.getByText("vk-abc123")).toBeInTheDocument();
 
-			// Find the key column cell (last column in the row)
+			// Find the key column cell (second-to-last column, before IP)
 			const row = screen.getByText("vk-abc123").closest("tr");
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
-				// Key column is the last column
-				const keyCell = cells[cells.length - 1];
+				const keyCell = cells[cells.length - 2];
 				expect(keyCell).toHaveAttribute("title", "vk-abc123");
 			}
 		});
 
 		it("does NOT set title attribute when virtual_key_name and virtual_key_id are both empty", () => {
+			// client_ip is set so the key cell renders the row's only "-".
 			const entries = [
 				createLogEntry({
 					virtual_key_deleted: false,
 					virtual_key_name: "",
 					virtual_key_id: "",
+					client_ip: "198.51.100.1",
 				}),
 			];
 			mockGetVirtualItems.mockReturnValue([
@@ -1468,13 +1472,12 @@ describe("VirtualLogTable", () => {
 			// The cell should show "-" as fallback
 			expect(screen.getByText("-")).toBeInTheDocument();
 
-			// Find the key column cell (last column in the row)
+			// Find the key column cell (second-to-last column, before IP)
 			const row = screen.getByText("-").closest("tr");
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
-				// Key column is the last column
-				const keyCell = cells[cells.length - 1];
+				const keyCell = cells[cells.length - 2];
 				expect(keyCell).not.toHaveAttribute("title");
 			}
 		});

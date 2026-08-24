@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/go-chi/chi/v5"
 
@@ -1036,4 +1038,185 @@ func TestGetAppLogsCursor_SortDirAsc(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
+}
+
+// TestGetAppLogs_SearchMatchesEscapedSpaces verifies a search term with a
+// space also matches messages whose attribute values carry the \x20 space
+// escaping from quoteLogValue (a search for a provider name like
+// "Ollama Cloud" must find `provider="Ollama\x20Cloud"` lines).
+func TestGetAppLogs_SearchMatchesEscapedSpaces(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	_, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO app_logs (timestamp, level, source, message) VALUES (now(), 'info', 'discovery', $1)`,
+		`account fetched provider="Ollama\x20Cloud" plan=pro`)
+	if err != nil {
+		t.Fatalf("insert app log: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/logs/app?history=true&search=Ollama+Cloud", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Entries []struct {
+			Message string `json:"message"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("parse response: %v", err)
+	}
+	found := false
+	for _, e := range response.Entries {
+		if strings.Contains(e.Message, `Ollama\x20Cloud`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("search=Ollama Cloud did not match the \\x20-escaped message; got %d entries", len(response.Entries))
+	}
+}
+
+// TestAppSlogHandler_MarksEntriesEscaped pins the provenance contract: the
+// slog path (whose attribute values go through quoteLogValue's flattened
+// encoding) marks entries escaped and records where the encoded attribute
+// suffix begins, so the dashboard decodes exactly the encoder's output and
+// never the raw message text. A raw line through the legacy io.Writer path
+// never went through the encoder and must not claim the flag.
+func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
+	savedBuf, savedWriter := appLogBuffer, dbWriter
+	rb := &ringBuffer{entries: make([]AppLogEntry, appLogBufferSize)}
+	appLogBuffer, dbWriter = rb, nil
+	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+
+	var buf bytes.Buffer
+	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
+
+	// Messages that could confuse a whole-string decode: a lone quote, an
+	// attribute-shaped literal with \x20, a backslashed path. The boundary
+	// makes them irrelevant: everything before AttrsAt is raw text, everything
+	// from AttrsAt on is encoder output.
+	for _, msg := range []string{
+		"discovery: account fetched",
+		`discovery: could not parse "x`,
+		`discovery: literal path="\x20evidence" in message`,
+		`discovery: windows path C:\temp`,
+	} {
+		rec := slog.NewRecord(time.Now(), slog.LevelInfo, msg, 0)
+		rec.AddAttrs(slog.String("provider", "Ollama Cloud"))
+		if err := h.Handle(context.Background(), rec); err != nil {
+			t.Fatalf("Handle returned %v", err)
+		}
+		entries := rb.GetEntries()
+		e := entries[len(entries)-1]
+		if !e.Escaped {
+			t.Errorf("slog entry for %q should carry the provenance flag", msg)
+		}
+		if e.AttrsAt < 0 || e.AttrsAt > len(e.Message) {
+			t.Fatalf("AttrsAt %d out of range for %q", e.AttrsAt, e.Message)
+		}
+		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		if got := e.Message[e.AttrsAt:]; got != wantSuffix {
+			t.Errorf("message %q: attrs suffix = %q, want %q", msg, got, wantSuffix)
+		}
+	}
+
+	// AttrsAt crosses the stack into JavaScript's String.slice, which indexes
+	// UTF-16 code units, not UTF-8 bytes. A non-ASCII message prefix must
+	// therefore yield a boundary in UTF-16 units: for this message the byte
+	// length of the prefix differs from its UTF-16 length, so a byte-based
+	// offset would land inside the attribute suffix.
+	{
+		rec := slog.NewRecord(time.Now(), slog.LevelInfo, "discovery: \U0001F680\u6a21\u578b ready", 0)
+		rec.AddAttrs(slog.String("provider", "Ollama Cloud"))
+		if err := h.Handle(context.Background(), rec); err != nil {
+			t.Fatalf("Handle returned %v", err)
+		}
+		entries := rb.GetEntries()
+		e := entries[len(entries)-1]
+		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		prefix := strings.TrimSuffix(e.Message, wantSuffix)
+		if prefix == e.Message {
+			t.Fatalf("message %q does not end with the attrs suffix", e.Message)
+		}
+		wantAt := len(utf16.Encode([]rune(prefix)))
+		if e.AttrsAt != wantAt {
+			t.Errorf("AttrsAt = %d, want %d UTF-16 code units for prefix %q", e.AttrsAt, wantAt, prefix)
+		}
+	}
+
+	if _, err := rb.Write([]byte(`2026/08/24 01:00:00 [legacy] raw line path="\x20evidence"`)); err != nil {
+		t.Fatalf("ring Write: %v", err)
+	}
+	entries := rb.GetEntries()
+	if last := entries[len(entries)-1]; last.Escaped {
+		t.Error("legacy io.Writer entry must not claim the flattened-encoding flag")
+	}
+}
+
+// TestGetAppLogs_EscapedFlagProvenance verifies the escaped flag round-trips
+// through the DB on both the history and cursor endpoints, so the dashboard
+// can decode \x20 only on rows known to use the flattened encoder.
+func TestGetAppLogs_EscapedFlagProvenance(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	_, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO app_logs (timestamp, level, source, message, escaped, attrs_at) VALUES
+		 (now(), 'info', 'provtest', 'legacy path="\x20evidence"', false, 0),
+		 (now(), 'info', 'provtest', 'fetched provider="Ollama\x20Cloud"', true, 8)`)
+	if err != nil {
+		t.Fatalf("insert app logs: %v", err)
+	}
+
+	assertFlags := func(path string) {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", path, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d: %s", path, rec.Code, rec.Body.String())
+		}
+		var response struct {
+			Entries []struct {
+				Message string `json:"message"`
+				Escaped bool   `json:"escaped"`
+				AttrsAt *int   `json:"attrs_at"`
+			} `json:"entries"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Fatalf("%s: parse response: %v", path, err)
+		}
+		seen := 0
+		for _, e := range response.Entries {
+			if strings.Contains(e.Message, "Ollama") {
+				seen++
+				if !e.Escaped {
+					t.Errorf("%s: encoder row should be escaped=true", path)
+				}
+				if e.AttrsAt == nil || *e.AttrsAt != 8 {
+					t.Errorf("%s: encoder row attrs_at = %v, want 8", path, e.AttrsAt)
+				}
+			}
+			if strings.Contains(e.Message, "legacy") {
+				seen++
+				if e.Escaped {
+					t.Errorf("%s: legacy row must stay escaped=false", path)
+				}
+			}
+		}
+		if seen != 2 {
+			t.Errorf("%s: expected both rows, matched %d", path, seen)
+		}
+	}
+	assertFlags("/logs/app?history=true&source=provtest")
+	assertFlags("/logs/app/cursor?source=provtest")
 }

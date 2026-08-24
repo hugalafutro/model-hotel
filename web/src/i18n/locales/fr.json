@@ -1346,7 +1346,9 @@
 			"allStatus": "Tous les statuts",
 			"allEndpoints": "Toutes les modalités",
 			"owner": "Propriétaire",
-			"allOwners": "Tous les utilisateurs"
+			"allOwners": "Tous les utilisateurs",
+			"key": "Clé virtuelle",
+			"allKeys": "Toutes les clés"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1375,7 +1377,8 @@
 			"live": "En direct",
 			"interrupted": "Interrompu",
 			"cacheInflated": "Gonflé par les hits du cache d'invite",
-			"keyDeleted": "Supprimé"
+			"keyDeleted": "Supprimé",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Horodatage de la demande",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Déchiffrement de clé",
 			"dial": "Connexion (DNS+TCP)",
 			"settingsReads": "Lectures des paramètres",
-			"reused": "réutilisé"
+			"reused": "réutilisé",
+			"ip": "Adresse IP du client d'où provient la requête"
 		},
 		"status": {
 			"interrupted": "Interrompu"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copier l'ID du modèle",
 			"resolved": "résolu",
 			"provider": "Fournisseur",
-			"dbRowId": "ID de la ligne de la base de données",
 			"timestamp": "Horodatage",
-			"copyDbRowId": "Copier l'ID de la ligne de la BD",
 			"virtualKey": "Clé virtuelle",
 			"tokenUsage": "Utilisation du jeton",
 			"prompt": "Prompt",
@@ -2813,7 +2815,9 @@
 			"error": "Erreur",
 			"copyErrorMessage": "Copier le message d'erreur",
 			"expandForBreakdown": "Développez pour voir le détail par étape",
-			"performance": "Performances"
+			"performance": "Performances",
+			"clientIp": "IP du client",
+			"copyClientIp": "Copier l'IP du client"
 		},
 		"statusBadge": {
 			"streaming": "Streaming en cours",
@@ -2854,7 +2858,8 @@
 			"internal": "interne",
 			"cacheInflated": "Gonflé par les hits du cache d'invite",
 			"deleted": "Supprimé",
-			"zeroEntries": "0 entrées"
+			"zeroEntries": "0 entrées",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Aucune entrée de journal trouvée",

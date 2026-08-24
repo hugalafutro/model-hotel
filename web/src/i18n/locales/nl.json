@@ -1304,7 +1304,9 @@
 			"allStatus": "Alle statussen",
 			"allEndpoints": "Alle modaliteiten",
 			"owner": "Eigenaar",
-			"allOwners": "Alle gebruikers"
+			"allOwners": "Alle gebruikers",
+			"key": "Virtuele sleutel",
+			"allKeys": "Alle sleutels"
 		},
 		"endpoint": {
 			"chat": "Chatten",
@@ -1333,7 +1335,8 @@
 			"live": "Live",
 			"interrupted": "Onderbroken",
 			"cacheInflated": "Inflated by prompt cache hits",
-			"keyDeleted": "Verwijderd"
+			"keyDeleted": "Verwijderd",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Tijdstempel van de aanvraag",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Sleutel decoderen",
 			"dial": "Verbinden (DNS+TCP)",
 			"settingsReads": "Instellingen Lezen",
-			"reused": "hergebruikt"
+			"reused": "hergebruikt",
+			"ip": "IP-adres van de client waarvan het verzoek kwam"
 		},
 		"status": {
 			"interrupted": "Onderbroken"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "model-ID kopiëren",
 			"resolved": "opgelost",
 			"provider": "Leverancier",
-			"dbRowId": "DB rij ID",
 			"timestamp": "Tijdstempel",
-			"copyDbRowId": "Kopieer DB rij ID",
 			"virtualKey": "Virtuele sleutel",
 			"tokenUsage": "Token gebruik",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Foutmelding",
 			"copyErrorMessage": "Foutmelding kopiëren",
 			"expandForBreakdown": "Vouw uit voor de uitsplitsing per stap",
-			"performance": "Prestaties"
+			"performance": "Prestaties",
+			"clientIp": "Client-IP",
+			"copyClientIp": "Client-IP kopiëren"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",
@@ -2794,7 +2798,8 @@
 			"internal": "Intern",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"deleted": "Verwijderd",
-			"zeroEntries": "0 vermeldingen"
+			"zeroEntries": "0 vermeldingen",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Geen logs gevonden",

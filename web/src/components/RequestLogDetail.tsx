@@ -8,6 +8,7 @@ import {
 	ChevronRight,
 	Clock,
 	Gauge,
+	Globe,
 	Hash,
 	Key,
 	Layers,
@@ -229,14 +230,18 @@ export function RequestLogDetail({
 					value={requestLog.provider_name}
 				/>
 				<DetailItem
-					icon={Hash}
-					label={t("components.requestLogDetail.dbRowId")}
+					icon={Globe}
+					label={t("components.requestLogDetail.clientIp")}
 				>
-					<CopyablePill
-						text={requestLog.id}
-						tooltip={t("components.requestLogDetail.copyDbRowId")}
-						textClassName="font-mono text-sm"
-					/>
+					{requestLog.client_ip ? (
+						<CopyablePill
+							text={requestLog.client_ip}
+							tooltip={t("components.requestLogDetail.copyClientIp")}
+							textClassName="font-mono text-sm"
+						/>
+					) : (
+						"-"
+					)}
 				</DetailItem>
 				<DetailItem
 					icon={Key}

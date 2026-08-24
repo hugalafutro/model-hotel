@@ -113,6 +113,8 @@ export interface LogEntry {
 	virtual_key_name: string;
 	virtual_key_deleted?: boolean;
 	virtual_key_id?: string;
+	/** Trusted-proxy-aware client address; "" or absent for rows predating it. */
+	client_ip?: string;
 	error_message: string;
 	/** Machine-readable failure classification; "" or absent for legacy rows. */
 	error_kind?: string;
@@ -129,6 +131,13 @@ export interface AppLogEntry {
 	level: "info" | "warning" | "error";
 	source: string;
 	message: string;
+	/** True when the message's attribute values use the backend's flattened
+	 * encoding (spaces as \x20); gates display-side decoding. Absent/false on
+	 * legacy rows and raw io.Writer lines, which render verbatim. */
+	escaped?: boolean;
+	/** Byte offset where the encoded attribute suffix begins; decoding applies
+	 * only from here, so raw message text is never altered. */
+	attrs_at?: number;
 }
 
 export interface LogsResponse {

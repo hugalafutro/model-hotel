@@ -1346,7 +1346,9 @@
 			"allStatus": "Tutti gli stati",
 			"allEndpoints": "Tutte le modalità",
 			"owner": "Proprietario",
-			"allOwners": "Tutti gli utenti"
+			"allOwners": "Tutti gli utenti",
+			"key": "Chiave virtuale",
+			"allKeys": "Tutte le chiavi"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1375,7 +1377,8 @@
 			"live": "Live",
 			"interrupted": "Interrotto",
 			"cacheInflated": "Gonfiato dagli hit della cache dei prompt",
-			"keyDeleted": "Eliminato"
+			"keyDeleted": "Eliminato",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Timestamp della richiesta",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Decifratura Chiave",
 			"dial": "Connessione (DNS+TCP)",
 			"settingsReads": "Letture Delle Impostazioni",
-			"reused": "riutilizzato"
+			"reused": "riutilizzato",
+			"ip": "Indirizzo IP del client da cui è arrivata la richiesta"
 		},
 		"status": {
 			"interrupted": "Interrotto"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copia ID modello",
 			"resolved": "risolto",
 			"provider": "Provider",
-			"dbRowId": "ID Riga DB",
 			"timestamp": "Timestamp",
-			"copyDbRowId": "Copia ID riga DB",
 			"virtualKey": "Chiave Virtuale",
 			"tokenUsage": "Utilizzo Token",
 			"prompt": "Prompt",
@@ -2813,7 +2815,9 @@
 			"error": "Errore",
 			"copyErrorMessage": "Copia messaggio di errore",
 			"expandForBreakdown": "Espandi per il dettaglio per passaggio",
-			"performance": "Prestazioni"
+			"performance": "Prestazioni",
+			"clientIp": "IP del client",
+			"copyClientIp": "Copia IP del client"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2854,7 +2858,8 @@
 			"internal": "interno",
 			"cacheInflated": "Gonfiato dagli hit della cache dei prompt",
 			"deleted": "Eliminato",
-			"zeroEntries": "0 voci"
+			"zeroEntries": "0 voci",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nessun log trovato",

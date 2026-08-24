@@ -312,17 +312,17 @@ describe("LogDetailModal", () => {
 			expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
 		});
 
-		it("displays DB row ID with copy button", () => {
+		it("displays the client IP with copy button", () => {
 			renderWithProviders(
 				<LogDetailModal
-					log={mockRequestLog}
+					log={{ ...mockRequestLog, client_ip: "203.0.113.7" }}
 					type="request"
 					onClose={onClose}
 				/>,
 			);
 
-			expect(screen.getByText("DB Row ID")).toBeInTheDocument();
-			expect(screen.getByText("req-123")).toBeInTheDocument();
+			expect(screen.getByText("Client IP")).toBeInTheDocument();
+			expect(screen.getByText("203.0.113.7")).toBeInTheDocument();
 		});
 
 		it("displays virtual key name", () => {
@@ -643,21 +643,21 @@ describe("LogDetailModal", () => {
 			expect(clipboardText).toBe("gemma3:4b");
 		});
 
-		it("copies DB row ID to clipboard", async () => {
+		it("copies the client IP to clipboard", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(
 				<LogDetailModal
-					log={mockRequestLog}
+					log={{ ...mockRequestLog, client_ip: "203.0.113.7" }}
 					type="request"
 					onClose={onClose}
 				/>,
 			);
 
-			const copyButton = screen.getByLabelText("Copy DB row ID");
+			const copyButton = screen.getByLabelText("Copy client IP");
 			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
-			expect(clipboardText).toBe("req-123");
+			expect(clipboardText).toBe("203.0.113.7");
 		});
 
 		it("copies error message to clipboard", async () => {

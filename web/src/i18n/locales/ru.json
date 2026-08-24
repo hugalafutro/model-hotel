@@ -1388,7 +1388,9 @@
 			"allStatus": "Все статусы",
 			"allEndpoints": "Все модальности",
 			"owner": "Владелец",
-			"allOwners": "Все пользователи"
+			"allOwners": "Все пользователи",
+			"key": "Виртуальный ключ",
+			"allKeys": "Все ключи"
 		},
 		"endpoint": {
 			"chat": "Чат",
@@ -1417,7 +1419,8 @@
 			"live": "Онлайн",
 			"interrupted": "Прервано",
 			"cacheInflated": "Завышено попаданиями в кэш промптов",
-			"keyDeleted": "Удалено"
+			"keyDeleted": "Удалено",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Отметка времени для запроса",
@@ -1441,7 +1444,8 @@
 			"keyDecryption": "Расшифровка ключа",
 			"dial": "Набор (DNS+TCP)",
 			"settingsReads": "Чтения настроек",
-			"reused": "повторно использовано"
+			"reused": "повторно использовано",
+			"ip": "IP-адрес клиента, с которого пришёл запрос"
 		},
 		"status": {
 			"interrupted": "Прервано"
@@ -2841,9 +2845,7 @@
 			"copyModelId": "Копировать ID модели",
 			"resolved": "разрешено",
 			"provider": "Поставщик",
-			"dbRowId": "ID строки БД",
 			"timestamp": "Отметка времени",
-			"copyDbRowId": "Копировать ID строки базы данных",
 			"virtualKey": "Виртуальный ключ",
 			"tokenUsage": "Использование токена",
 			"prompt": "Prompt",
@@ -2873,7 +2875,9 @@
 			"error": "Ошибка",
 			"copyErrorMessage": "Копировать сообщение об ошибке",
 			"expandForBreakdown": "Разверните для пошаговой разбивки",
-			"performance": "Производительность"
+			"performance": "Производительность",
+			"clientIp": "IP клиента",
+			"copyClientIp": "Копировать IP клиента"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",
@@ -2914,7 +2918,8 @@
 			"internal": "внутренняя",
 			"cacheInflated": "Завышено попаданиями в кэш промптов",
 			"deleted": "Удалено",
-			"zeroEntries": "0 записей"
+			"zeroEntries": "0 записей",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Записи журнала не найдены",

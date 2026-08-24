@@ -48,6 +48,7 @@ The only information recorded is strictly necessary for routing, metering, and d
 | Request state | `state` | Lifecycle status: `pending` → `streaming` → `completed` / `failed` |
 | Endpoint family | `endpoint_type` | Which endpoint the request came through: `chat`, `embeddings`, `image`, `tts`, `stt` |
 | Request hash | `request_hash` | Random 16-character hex request identifier (see below) |
+| Client IP | `client_ip` | Source-address attribution of key usage (trusted-proxy resolved, see [IP Address Handling](#ip-address-handling); `NULL` on rows predating migration 073) |
 
 ### About `error_message`
 
@@ -113,7 +114,7 @@ To be explicit about the boundaries:
 | Audio input | ❌ Never | Passed through to provider unchanged |
 | API keys (provider or virtual) | ❌ Never | Decrypted in memory only, never written to logs or DB |
 | Request body content | ❌ Never | JSON bodies are parsed only for `model` and `stream`; multipart forms only for `model` |
-| IP addresses | ⚠️ Metadata | Recorded in app-log lines (access/auth), the audit trail, and the active-sessions list, each retention-bound; never in `request_logs` |
+| IP addresses | ⚠️ Metadata | Recorded in app-log lines (access/auth), the audit trail, the active-sessions list, and per-request in `request_logs.client_ip`; each follows its surface's retention (request logs: the `log_retention` setting, which defaults to keep-forever) |
 | User-agent strings | ⚠️ Sessions only | Up to 256 bytes stored per dashboard login for the active-sessions list; deleted with the session |
 | X-Forwarded-For headers | ⚠️ Resolved | Honored only from `TRUSTED_PROXIES`; the resolved client IP is what gets recorded, never the raw header |
 
@@ -182,8 +183,9 @@ The client address is resolved once per request with trusted-proxy awareness: `X
 - **Application logs**: access lines and auth warnings (failed logins, invalid keys) record the client IP alongside routing metadata, subject to the same retention as other app logs. Never request or prompt content.
 - **Audit trail**: each recorded admin action stores the caller address, pruned per the `audit_retention_days` setting.
 - **Active sessions**: each dashboard login stores the IP it was minted from, shown in Settings so the operator can spot a session that isn't theirs; it is deleted with the session.
+- **Request logs**: each proxied call's `request_logs` row stores the resolved client address (`client_ip`, since migration 073), so virtual-key usage stays attributable to a source address for as long as request logs are kept. Rows are purged together with the rest of the request log per the `log_retention` setting.
 
-`request_logs` (the per-proxied-call metering table) does **not** store client IPs.
+Note that `log_retention` defaults to keep-forever: if storing client addresses indefinitely is a concern for your deployment, set a bounded `log_retention` (see [Data Retention](#data-retention)) so request-log rows, `client_ip` included, are purged on schedule.
 
 ## Data Retention
 
@@ -277,7 +279,7 @@ See [Configuration](Configuration) for details.
 | Virtual key storage | SHA-256 hash (one-way) |
 | Provider key storage | AES-256-GCM + Argon2id (per-provider random salt, 8MB) |
 | Request content | Never logged, never stored |
-| IP addresses | Rate-limit buckets in-memory (10-minute cleanup); logged addresses follow app-log and audit retention |
+| IP addresses | Rate-limit buckets in-memory (10-minute cleanup); logged addresses follow app-log, audit, and request-log retention |
 | Error messages | Provider diagnostics only (200-char SSE, 2000-char failover, full in DB) |
 | Request identifiers | Random 8-byte hex (not content-based) |
 | Data retention | Configurable (1h to 30d, or forever) |
@@ -287,7 +289,7 @@ See [Configuration](Configuration) for details.
 
 Model Hotel's architecture supports compliance with data protection regulations:
 
-- **GDPR**: Prompts and responses are never stored. Operational metadata does include client IP addresses (personal data under the GDPR) in app logs, the audit trail, and the active-sessions list, all with bounded retention.
+- **GDPR**: Prompts and responses are never stored. Operational metadata does include client IP addresses (personal data under the GDPR) in app logs, the audit trail, the active-sessions list, and request logs (`client_ip`). App logs, the audit trail, and sessions are retention-bound by default; request logs default to keep-forever, so set `log_retention` to bound them when IP addresses must not be kept indefinitely.
 - **Data minimization**: Only essential operational data is collected.
 - **Purpose limitation**: Logged data is used only for routing, metering, and diagnostics.
 - **Storage limitation**: Automatic retention policies ensure logs are purged after configurable periods.

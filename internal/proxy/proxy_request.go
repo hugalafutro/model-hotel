@@ -152,6 +152,7 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 		streaming:       isStreaming,
 		virtualKeyName:  vkName,
 		virtualKeyID:    vkID,
+		clientIP:        clientip.From(r),
 		ownerUserID:     ownerUserID,
 		failoverAttempt: 0,
 		state:           "pending",

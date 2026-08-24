@@ -1472,7 +1472,9 @@
 			"allStatus": "جميع الحالات",
 			"allEndpoints": "جميع الأنماط",
 			"owner": "المالك",
-			"allOwners": "كل المستخدمين"
+			"allOwners": "كل المستخدمين",
+			"key": "المفتاح الافتراضي",
+			"allKeys": "كل المفاتيح"
 		},
 		"endpoint": {
 			"chat": "الدردشة",
@@ -1501,7 +1503,8 @@
 			"live": "مباشر",
 			"interrupted": "مقطوع",
 			"cacheInflated": "متضخم بسبب إصابات ذاكرة الموجّهات المؤقتة",
-			"keyDeleted": "محذوف"
+			"keyDeleted": "محذوف",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "الطابع الزمني للطلب",
@@ -1525,7 +1528,8 @@
 			"keyDecryption": "فك تشفير المفتاح",
 			"dial": "الاتصال (DNS+TCP)",
 			"settingsReads": "قراءة الإعدادات",
-			"reused": "إعادة الاستخدام"
+			"reused": "إعادة الاستخدام",
+			"ip": "عنوان IP للعميل الذي جاء منه الطلب"
 		},
 		"status": {
 			"interrupted": "مقطوع"
@@ -2961,9 +2965,7 @@
 			"copyModelId": "نسخ معرف النموذج",
 			"resolved": "تم الحل",
 			"provider": "موفر",
-			"dbRowId": "معرف صف DB",
 			"timestamp": "الطابع الزمني",
-			"copyDbRowId": "نسخ معرف صف DB",
 			"virtualKey": "المفتاح الافتراضي",
 			"tokenUsage": "استخدام الرمز",
 			"prompt": "Prompt",
@@ -2993,7 +2995,9 @@
 			"error": "خطأ",
 			"copyErrorMessage": "نسخ رسالة الخطأ",
 			"expandForBreakdown": "وسّع لعرض التفصيل لكل خطوة",
-			"performance": "الأداء"
+			"performance": "الأداء",
+			"clientIp": "IP العميل",
+			"copyClientIp": "نسخ IP العميل"
 		},
 		"statusBadge": {
 			"streaming": "البث",
@@ -3034,7 +3038,8 @@
 			"internal": "داخلي",
 			"cacheInflated": "متضخم بسبب إصابات ذاكرة الموجّهات المؤقتة",
 			"deleted": "محذوف",
-			"zeroEntries": "0 إدخالات"
+			"zeroEntries": "0 إدخالات",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "لم يتم العثور على إدخالات السجل",

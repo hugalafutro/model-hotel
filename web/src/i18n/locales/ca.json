@@ -1346,7 +1346,9 @@
 			"allStatus": "Tots els estats",
 			"allEndpoints": "Totes les modalitats",
 			"owner": "Propietari",
-			"allOwners": "Tots els usuaris"
+			"allOwners": "Tots els usuaris",
+			"key": "Clau virtual",
+			"allKeys": "Totes les claus"
 		},
 		"endpoint": {
 			"chat": "Xat",
@@ -1375,7 +1377,8 @@
 			"live": "En directe",
 			"interrupted": "Interromput",
 			"cacheInflated": "Inflat pels encerts de memòria cau del prompt",
-			"keyDeleted": "Eliminat"
+			"keyDeleted": "Eliminat",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Segell de temps de la sol·licitud",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Desxifratge de la clau",
 			"dial": "Connexió (DNS+TCP)",
 			"settingsReads": "Lectures de configuració",
-			"reused": "reutilitzat"
+			"reused": "reutilitzat",
+			"ip": "Adreça IP del client des d'on va arribar la sol·licitud"
 		},
 		"status": {
 			"interrupted": "Interromput"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copia l'ID del model",
 			"resolved": "resolt",
 			"provider": "Proveïdor",
-			"dbRowId": "ID de fila de DB",
 			"timestamp": "Segell de temps",
-			"copyDbRowId": "Copia l'ID de fila de la base de dades",
 			"virtualKey": "Clau virtual",
 			"tokenUsage": "Ús de tokens",
 			"prompt": "Instrucció",
@@ -2813,7 +2815,9 @@
 			"error": "Error",
 			"copyErrorMessage": "Copiar missatge d'error",
 			"expandForBreakdown": "Desplega per veure el desglossament per passos",
-			"performance": "Rendiment"
+			"performance": "Rendiment",
+			"clientIp": "IP del client",
+			"copyClientIp": "Copia la IP del client"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2854,7 +2858,8 @@
 			"internal": "intern",
 			"cacheInflated": "Inflat pels encerts de memòria cau del prompt",
 			"deleted": "Eliminat",
-			"zeroEntries": "0 entrades"
+			"zeroEntries": "0 entrades",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No s'han trobat entrades de registre",

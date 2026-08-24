@@ -1346,7 +1346,9 @@
 			"allStatus": "Todos os status",
 			"allEndpoints": "Todas as modalidades",
 			"owner": "Proprietário",
-			"allOwners": "Todos os usuários"
+			"allOwners": "Todos os usuários",
+			"key": "Chave virtual",
+			"allKeys": "Todas as chaves"
 		},
 		"endpoint": {
 			"chat": "Bate-papo",
@@ -1375,7 +1377,8 @@
 			"live": "Ao vivo",
 			"interrupted": "Interrompido",
 			"cacheInflated": "Inflado por acertos do cache de prompt",
-			"keyDeleted": "Excluído"
+			"keyDeleted": "Excluído",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Carimbo de tempo do pedido",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Descriptografia de Chave",
 			"dial": "Discar (DNS+TCP)",
 			"settingsReads": "Leituras de configurações",
-			"reused": "reutilizado"
+			"reused": "reutilizado",
+			"ip": "Endereço IP do cliente de onde veio a solicitação"
 		},
 		"status": {
 			"interrupted": "Interrompido"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copiar modelo ID",
 			"resolved": "resolvido",
 			"provider": "Fornecedor",
-			"dbRowId": "ID da linha do BD",
 			"timestamp": "Timestamp",
-			"copyDbRowId": "Copiar ID da linha do BD",
 			"virtualKey": "Chave Virtual",
 			"tokenUsage": "Uso do token",
 			"prompt": "Prompt",
@@ -2813,7 +2815,9 @@
 			"error": "ERRO",
 			"copyErrorMessage": "Copiar mensagem de erro",
 			"expandForBreakdown": "Expanda para ver o detalhamento por etapa",
-			"performance": "Desempenho"
+			"performance": "Desempenho",
+			"clientIp": "IP do cliente",
+			"copyClientIp": "Copiar IP do cliente"
 		},
 		"statusBadge": {
 			"streaming": "Transmitindo",
@@ -2854,7 +2858,8 @@
 			"internal": "Interno",
 			"cacheInflated": "Inflado por acertos do cache de prompt",
 			"deleted": "Excluído",
-			"zeroEntries": "0 entradas"
+			"zeroEntries": "0 entradas",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nenhuma entrada de log encontrada",

@@ -1346,7 +1346,9 @@
 			"allStatus": "Todos los estados",
 			"allEndpoints": "Todas las modalidades",
 			"owner": "Propietario",
-			"allOwners": "Todos los usuarios"
+			"allOwners": "Todos los usuarios",
+			"key": "Clave virtual",
+			"allKeys": "Todas las claves"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1375,7 +1377,8 @@
 			"live": "En directo",
 			"interrupted": "Interrumpido",
 			"cacheInflated": "Inflado por aciertos de la caché de prompt",
-			"keyDeleted": "Eliminado"
+			"keyDeleted": "Eliminado",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Marca de tiempo de la solicitud",
@@ -1399,7 +1402,8 @@
 			"keyDecryption": "Descifrado de clave",
 			"dial": "Marcar (DNS+TCP)",
 			"settingsReads": "Lecturas de ajustes",
-			"reused": "reutilizado"
+			"reused": "reutilizado",
+			"ip": "Dirección IP del cliente desde la que llegó la solicitud"
 		},
 		"status": {
 			"interrupted": "Interrumpido"
@@ -2781,9 +2785,7 @@
 			"copyModelId": "Copiar ID del modelo",
 			"resolved": "resuelto",
 			"provider": "Proveedor",
-			"dbRowId": "ID fila DB",
 			"timestamp": "Timestamp",
-			"copyDbRowId": "Copiar ID de fila DB",
 			"virtualKey": "Clave virtual",
 			"tokenUsage": "Uso de Token",
 			"prompt": "Prompt",
@@ -2813,7 +2815,9 @@
 			"error": "Error",
 			"copyErrorMessage": "Copiar mensaje de error",
 			"expandForBreakdown": "Expande para ver el desglose por pasos",
-			"performance": "Rendimiento"
+			"performance": "Rendimiento",
+			"clientIp": "IP del cliente",
+			"copyClientIp": "Copiar IP del cliente"
 		},
 		"statusBadge": {
 			"streaming": "Transmisión",
@@ -2854,7 +2858,8 @@
 			"internal": "interno",
 			"cacheInflated": "Inflado por aciertos de la caché de prompt",
 			"deleted": "Eliminado",
-			"zeroEntries": "0 entradas"
+			"zeroEntries": "0 entradas",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No se encontraron registros",

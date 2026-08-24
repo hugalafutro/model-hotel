@@ -158,7 +158,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<tbody>
 							<tr>
 								<td
-									colSpan={11}
+									colSpan={12}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									{t("components.virtualLogTable.noLogsFound")}
@@ -279,6 +279,12 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								title={t("components.virtualLogTable.key")}
 							>
 								{t("components.virtualLogTable.key")}
+							</th>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.ip")}
+							>
+								{t("components.virtualLogTable.ip")}
 							</th>
 						</tr>
 					</thead>
@@ -465,6 +471,12 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										) : (
 											log.virtual_key_name || log.virtual_key_id || "-"
 										)}
+									</td>
+									<td
+										className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono truncate"
+										title={log.client_ip || undefined}
+									>
+										{log.client_ip || "-"}
 									</td>
 								</tr>
 							);

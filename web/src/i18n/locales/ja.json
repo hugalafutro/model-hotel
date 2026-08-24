@@ -1304,7 +1304,9 @@
 			"allStatus": "すべてのステータス",
 			"allEndpoints": "すべてのモダリティ",
 			"owner": "所有者",
-			"allOwners": "すべてのユーザー"
+			"allOwners": "すべてのユーザー",
+			"key": "仮想キー",
+			"allKeys": "すべてのキー"
 		},
 		"endpoint": {
 			"chat": "チャット",
@@ -1333,7 +1335,8 @@
 			"live": "ライブ",
 			"interrupted": "中断されました",
 			"cacheInflated": "プロンプトキャッシュのヒットにより水増しされています",
-			"keyDeleted": "削除しました"
+			"keyDeleted": "削除しました",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "リクエストのタイムスタンプ",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "鍵の復号化",
 			"dial": "ダイヤル (DNS+TCP)",
 			"settingsReads": "設定を読み込みます",
-			"reused": "再利用しました"
+			"reused": "再利用しました",
+			"ip": "リクエスト元のクライアントIPアドレス"
 		},
 		"status": {
 			"interrupted": "中断されました"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "モデル ID をコピー",
 			"resolved": "解決済み",
 			"provider": "プロバイダー",
-			"dbRowId": "DB 行 ID",
 			"timestamp": "タイムスタンプ",
-			"copyDbRowId": "DB 行 ID をコピー",
 			"virtualKey": "仮想キー",
 			"tokenUsage": "トークンの使用状況",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "エラー",
 			"copyErrorMessage": "エラーメッセージをコピー",
 			"expandForBreakdown": "ステップごとの内訳を表示するには展開してください",
-			"performance": "パフォーマンス"
+			"performance": "パフォーマンス",
+			"clientIp": "クライアントIP",
+			"copyClientIp": "クライアントIPをコピー"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",
@@ -2794,7 +2798,8 @@
 			"internal": "内部",
 			"cacheInflated": "プロンプトキャッシュのヒットにより水増しされています",
 			"deleted": "削除しました",
-			"zeroEntries": "0 項目"
+			"zeroEntries": "0 項目",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "ログエントリが見つかりません",

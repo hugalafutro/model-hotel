@@ -1405,7 +1405,7 @@ func TestBuildAppLogCursorQuery_NoCursorNoFilters(t *testing.T) {
 	q := url.Values{}
 	query, args := buildAppLogCursorQuery(p, q)
 
-	if !strings.Contains(query, "SELECT id, created_at, timestamp, level, source, message FROM app_logs") {
+	if !strings.Contains(query, "SELECT id, created_at, timestamp, level, source, message, escaped, attrs_at FROM app_logs") {
 		t.Errorf("expected SELECT from app_logs, got %q", query)
 	}
 	if !strings.Contains(query, "ORDER BY created_at DESC, id DESC") {

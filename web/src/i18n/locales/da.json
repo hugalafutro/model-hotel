@@ -1304,7 +1304,9 @@
 			"allStatus": "Alle statusser",
 			"allEndpoints": "Alle modaliteter",
 			"owner": "Ejer",
-			"allOwners": "Alle brugere"
+			"allOwners": "Alle brugere",
+			"key": "Virtuel nøgle",
+			"allKeys": "Alle nøgler"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1333,7 +1335,8 @@
 			"live": "Live",
 			"interrupted": "Afbrudt",
 			"cacheInflated": "Oppustet af prompt-cache-hits",
-			"keyDeleted": "Slettet"
+			"keyDeleted": "Slettet",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Dekryptering Af Nøgle",
 			"dial": "Ring Til (DNS+TCP)",
 			"settingsReads": "Læsning af indstillinger",
-			"reused": "genbrugt"
+			"reused": "genbrugt",
+			"ip": "Klientens IP-adresse, som anmodningen kom fra"
 		},
 		"status": {
 			"interrupted": "Afbrudt"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Kopier model ID",
 			"resolved": "løst",
 			"provider": "Udbyder",
-			"dbRowId": "Db Række ID",
 			"timestamp": "Tidsstempel",
-			"copyDbRowId": "Kopier DB række-ID",
 			"virtualKey": "Virtuel Nøgle",
 			"tokenUsage": "Token Anvendelse",
 			"prompt": "Prompt",
@@ -2753,7 +2755,9 @@
 			"error": "Fejl",
 			"copyErrorMessage": "Kopiér fejlmeddelelse",
 			"expandForBreakdown": "Udvid for at se opdelingen pr. trin",
-			"performance": "Ydeevne"
+			"performance": "Ydeevne",
+			"clientIp": "Klient-IP",
+			"copyClientIp": "Kopiér klient-IP"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
@@ -2794,7 +2798,8 @@
 			"internal": "intern",
 			"cacheInflated": "Oppustet af prompt-cache-hits",
 			"deleted": "Slettet",
-			"zeroEntries": "0 poster"
+			"zeroEntries": "0 poster",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Ingen logposter fundet",

@@ -1304,7 +1304,9 @@
 			"allStatus": "Tất cả trạng thái",
 			"allEndpoints": "Tất cả các phương thức",
 			"owner": "Chủ sở hữu",
-			"allOwners": "Tất cả người dùng"
+			"allOwners": "Tất cả người dùng",
+			"key": "Khóa ảo",
+			"allKeys": "Tất cả các khóa"
 		},
 		"endpoint": {
 			"chat": "Trò chuyện",
@@ -1333,7 +1335,8 @@
 			"live": "Trực tiếp",
 			"interrupted": "Bị gián đoạn",
 			"cacheInflated": "Tăng do các lần trúng bộ nhớ đệm lời nhắc",
-			"keyDeleted": "Đã xóa"
+			"keyDeleted": "Đã xóa",
+			"ip": "IP"
 		},
 		"tooltip": {
 			"timeDate": "Dấu thời gian của yêu cầu",
@@ -1357,7 +1360,8 @@
 			"keyDecryption": "Giải mã khóa",
 			"dial": "Quay số (DNS+TCP)",
 			"settingsReads": "Lượt đọc cài đặt",
-			"reused": "đã được tái sử dụng"
+			"reused": "đã được tái sử dụng",
+			"ip": "Địa chỉ IP của máy khách gửi yêu cầu"
 		},
 		"status": {
 			"interrupted": "Bị gián đoạn"
@@ -2721,9 +2725,7 @@
 			"copyModelId": "Sao chép ID mô hình",
 			"resolved": "đã được giải quyết",
 			"provider": "Nhà cung cấp",
-			"dbRowId": "ID hàng trong cơ sở dữ liệu",
 			"timestamp": "Dấu thời gian",
-			"copyDbRowId": "Sao chép ID hàng trong cơ sở dữ liệu",
 			"virtualKey": "Khóa ảo",
 			"tokenUsage": "Mức sử dụng token",
 			"prompt": "Lời nhắc",
@@ -2753,7 +2755,9 @@
 			"error": "Lỗi",
 			"copyErrorMessage": "Sao chép thông báo lỗi",
 			"expandForBreakdown": "Mở rộng để xem chi tiết theo từng bước",
-			"performance": "Hiệu suất"
+			"performance": "Hiệu suất",
+			"clientIp": "IP máy khách",
+			"copyClientIp": "Sao chép IP máy khách"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",
@@ -2794,7 +2798,8 @@
 			"internal": "nội bộ",
 			"cacheInflated": "Tăng do các lần trúng bộ nhớ đệm lời nhắc",
 			"deleted": "Đã xóa",
-			"zeroEntries": "0 kết quả"
+			"zeroEntries": "0 kết quả",
+			"ip": "IP"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Không tìm thấy mục nhật ký nào",
