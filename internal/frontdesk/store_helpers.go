@@ -96,7 +96,7 @@ func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 	}
 	// Reject embedded credentials (userinfo): the stored URL is re-emitted
 	// unchanged by consumers with a wider audience than the admin who entered
-	// it (the unauthenticated /traefik/config endpoint and the device-readable
+	// it (the open-by-default /traefik/config endpoint and the device-readable
 	// event log), so it must never carry a secret. A member behind a
 	// basic-authenticated proxy needs a dedicated credential field, not
 	// userinfo in the base URL.

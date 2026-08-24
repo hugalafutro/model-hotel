@@ -27,9 +27,12 @@ import (
 )
 
 // This file is the Front Desk control-plane HTTP server. It exposes:
-//   - GET /traefik/config: the unauthenticated, compose-internal Traefik dynamic
-//     config (Traefik's HTTP provider polls this; we record each poll for the
-//     staleness watchdog).
+//   - GET /traefik/config: the compose-internal Traefik dynamic config
+//     (Traefik's HTTP provider polls this; we record each poll for the
+//     staleness watchdog). Bearer-gated when FRONTDESK_TRAEFIK_TOKEN is set,
+//     open otherwise.
+//   - GET /healthz: the container liveness probe; unauthenticated, store-backed,
+//     discloses nothing.
 //   - /api/webauthn/* and /api/totp/*: the shared adminauth login/management
 //     ceremonies (Option B parity), backed by the SQLite stores.
 //   - /api/* control-plane REST (members, settings, events, traefik-status) and
@@ -50,6 +53,7 @@ type ServerConfig struct {
 	IPLimiter    adminauth.IPLimiterMiddleware // per-IP limit on login routes
 	UI           fs.FS                         // embedded SPA; nil disables the UI mount
 	MetricsToken string                        // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
+	TraefikToken string                        // FRONTDESK_TRAEFIK_TOKEN; bearer Traefik's HTTP provider sends when polling /traefik/config (endpoint stays open when empty)
 	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
 	Version      string                        // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
 	// CookieSecure controls the Secure attribute on Front Desk auth cookies:
@@ -77,6 +81,7 @@ type Server struct {
 	version        string       // running build, surfaced read-only over GET /api/version
 	masterKey      string       // encrypts the Apprise target secret at rest
 	metricsToken   string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
+	traefikToken   string       // dedicated bearer for Traefik's /traefik/config polls; empty keeps the endpoint open (Traefik cannot log in, so admin auth is no fallback here)
 	cookieSecure   string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
 	alertDisp      *alert.Dispatcher
 	pairing        *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
@@ -204,6 +209,7 @@ func NewServer(cfg ServerConfig) *Server {
 		version:         version,
 		masterKey:       cfg.MasterKey,
 		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		traefikToken:    strings.TrimSpace(cfg.TraefikToken), // whitespace-only is treated as unset, not a live bearer
 		cookieSecure:    cookieSecure,
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
@@ -301,8 +307,18 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 		})
 	})
 
-	// Unauthenticated, compose-internal: Traefik's HTTP provider polls this.
-	r.Get("/traefik/config", s.handleTraefikConfig)
+	// Traefik's HTTP provider polls this. With FRONTDESK_TRAEFIK_TOKEN set,
+	// only a poll carrying that bearer is served (the compose wires the same
+	// value into Traefik's provider headers); without one the endpoint stays
+	// open for compose-internal use, relying on the deployment boundary and
+	// the reverse-proxy 404 block the HA wiki prescribes.
+	r.Get("/traefik/config", s.traefikAuth(s.handleTraefikConfig))
+
+	// Container liveness probe (the image's HEALTHCHECK). Unauthenticated on
+	// purpose: it must keep answering when FRONTDESK_TRAEFIK_TOKEN gates the
+	// config endpoint, so it discloses nothing and only proves the server and
+	// its store answer.
+	r.Get("/healthz", s.handleHealthz)
 
 	// Prometheus scrape endpoint. Outside /api (matching the main server's
 	// mount) and never rate-limited by IP so scrapers aren't throttled; auth
@@ -486,10 +502,51 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// Traefik config (unauthenticated, compose-internal)
+// Traefik config (bearer-gated when FRONTDESK_TRAEFIK_TOKEN is set)
 // ---------------------------------------------------------------------------
 
+// traefikAuth gates the Traefik dynamic-config endpoint. With a dedicated
+// FRONTDESK_TRAEFIK_TOKEN configured, only a poll carrying that bearer is
+// served; Traefik's HTTP provider sends it via providers.http.headers, wired
+// to the same value in the HA compose. Without a token the endpoint stays
+// open: Traefik polls credential-less, so unlike /metrics there is no
+// admin-auth fallback — gating an unconfigured fleet would 401 its own data
+// plane and take the front door down on the next Traefik restart.
+func (s *Server) traefikAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.traefikToken == "" {
+			next(w, r)
+			return
+		}
+		tok, ok := util.ParseBearerToken(r)
+		if subtle.ConstantTimeCompare([]byte(tok), []byte(s.traefikToken)) == 1 {
+			next(w, r)
+			return
+		}
+		if !ok || tok == "" {
+			debuglog.Warn("frontdesk: traefik config poll missing bearer token", "remote_addr", clientip.From(r))
+		} else {
+			debuglog.Warn("frontdesk: traefik config poll with invalid token", "remote_addr", clientip.From(r))
+		}
+		http.Error(w, "invalid traefik token", http.StatusUnauthorized)
+	}
+}
+
+// handleHealthz answers the container health probe with the cheapest
+// store-backed read, so a wedged database still flips the container unhealthy
+// (the depth the old spider on /traefik/config provided) without exposing any
+// fleet data on an open route.
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if _, err := s.store.GetSettings(r.Context()); err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s *Server) handleTraefikConfig(w http.ResponseWriter, r *http.Request) {
+	// Recorded after the gate, so a rejected poll cannot keep the staleness
+	// watchdog quiet while a token mismatch is starving the real Traefik.
 	s.poller.RecordConfigPoll()
 
 	members, err := s.store.ListMembers(r.Context())

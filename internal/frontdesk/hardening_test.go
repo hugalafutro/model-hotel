@@ -200,7 +200,7 @@ func TestNormalizeMemberURLHTTPSGate(t *testing.T) {
 // TestNormalizeMemberURLRejectsUserinfo guards the credential-leak fix: a
 // member base URL carrying userinfo (basic-auth credentials) is rejected at
 // add time, because the stored URL is re-emitted verbatim to wider audiences
-// (the unauthenticated /traefik/config endpoint and the device-readable
+// (the open-by-default /traefik/config endpoint and the device-readable
 // event log).
 func TestNormalizeMemberURLRejectsUserinfo(t *testing.T) {
 	rejected := []string{

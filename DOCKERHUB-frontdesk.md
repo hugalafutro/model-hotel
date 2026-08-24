@@ -29,7 +29,7 @@ Front Desk generates Traefik's dynamic config and serves an admin dashboard. It 
 ## Image details
 
 - Self-contained: stores everything in an embedded SQLite database under `DATA_DIR` (no Postgres). Mount a volume at `/data` to persist members, settings, and credentials.
-- Listens on **port 8090** (admin UI plus the internal `/traefik/config` endpoint).
+- Listens on **port 8090** (admin UI plus the internal `/traefik/config` endpoint, lockable to Traefik's own polls via `FRONTDESK_TRAEFIK_TOKEN`).
 - Runs as a non-root user, base packages upgraded for current security patches.
 - `linux/amd64`.
 

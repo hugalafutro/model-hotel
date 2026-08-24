@@ -36,7 +36,9 @@ with the last config it fetched; only membership changes pause until it returns.
 
 - **Traefik (data plane)** carries all client traffic and load-balances across
   members. It pulls its routing config from Front Desk over the internal compose
-  network via Traefik's HTTP provider, polling `GET /traefik/config` every ~5s.
+  network via Traefik's HTTP provider, polling `GET /traefik/config` every ~5s
+  (optionally locked to a shared `FRONTDESK_TRAEFIK_TOKEN` bearer; see
+  [TLS Proxy](#tls-proxy)).
 - **Front Desk (control plane)** is a small Go binary with an embedded SQLite
   database and its own web UI. You add, drain, and remove members here, replicate
   config across the fleet, and watch health. It is **never** in the request path.
@@ -431,9 +433,11 @@ server {
     server_name frontdesk.example.com;
     # ssl_certificate / ssl_certificate_key ...
 
-    # Defense in depth: /traefik/config is unauthenticated (Traefik fetches it
-    # over the compose network and it carries no secrets, only member URLs and
-    # settings). Do not expose it through the public proxy.
+    # Defense in depth: keep /traefik/config off the public hostname (Traefik
+    # fetches it over the compose network; it carries no secrets, only member
+    # URLs and settings). Setting FRONTDESK_TRAEFIK_TOKEN in .env additionally
+    # locks the endpoint to Traefik's own polls, so this block stops being the
+    # only line of defense — keep it anyway.
     location = /traefik/config { return 404; }
     location /traefik/ { return 404; }
 

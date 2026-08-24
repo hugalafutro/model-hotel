@@ -3,8 +3,9 @@ package frontdesk
 import "time"
 
 // This file turns the member list + settings into a Traefik v3 dynamic
-// configuration, served unauthenticated on the compose-internal network at
-// GET /traefik/config and polled by Traefik's HTTP provider. Traefik owns the
+// configuration, served on the compose-internal network at GET /traefik/config
+// (open by default, bearer-gated when FRONTDESK_TRAEFIK_TOKEN is set) and
+// polled by Traefik's HTTP provider. Traefik owns the
 // data path; if Front Desk dies, Traefik keeps the last config it fetched, so
 // the control plane being down never interrupts traffic.
 
@@ -95,7 +96,8 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	for _, m := range members {
 		if m.State == StateActive {
 			// stripUserinfo is a backstop for rows stored before userinfo was
-			// rejected at add time: this payload is served unauthenticated.
+			// rejected at add time: this payload is served without admin auth
+			// (open unless FRONTDESK_TRAEFIK_TOKEN gates it).
 			servers = append(servers, TraefikServer{URL: stripUserinfo(m.URL)})
 		}
 	}

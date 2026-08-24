@@ -48,6 +48,12 @@ services:
             # HTTP provider: poll Front Desk for the dynamic config every ~5s.
             - "--providers.http.endpoint=http://frontdesk:8090/traefik/config"
             - "--providers.http.pollInterval=5s"
+            # Shared poll secret (optional, recommended): set
+            # FRONTDESK_TRAEFIK_TOKEN in .env and Front Desk serves the config
+            # only to polls carrying this bearer. Left unset, the header is an
+            # empty "Bearer" that Front Desk ignores and the endpoint stays
+            # open as before.
+            - "--providers.http.headers.Authorization=Bearer ${FRONTDESK_TRAEFIK_TOKEN:-}"
             # Access log stays off by default (see the HA wiki, "Observability").
             - "--accesslog=false"
             - "--log.level=INFO"
@@ -100,6 +106,11 @@ services:
             # Dedicated bearer for Prometheus /metrics scrapes; empty keeps the
             # endpoint behind the admin login.
             - FRONTDESK_METRICS_TOKEN=${FRONTDESK_METRICS_TOKEN:-}
+            # Shared poll secret for /traefik/config (optional, recommended).
+            # The same value feeds Traefik's provider headers above, so setting
+            # it once in .env locks the endpoint to Traefik's own polls; empty
+            # keeps it open for compose-internal use as before.
+            - FRONTDESK_TRAEFIK_TOKEN=${FRONTDESK_TRAEFIK_TOKEN:-}
             # Secure attribute on the fd_session/fd_csrf login cookies (shares
             # COOKIE_SECURE with the dashboard). Default "always" works behind
             # this stack's required TLS proxy and on localhost dev; set "never"
