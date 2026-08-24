@@ -17,6 +17,16 @@
  * escape and an even run belongs to the value. An escaped quote (`\"`) inside
  * a quoted value does not end the token.
  */
+/** The display form of an app-log message: decoded only when the backend
+ * marked the row as using the flattened encoding (AppLogEntry.escaped), so a
+ * legacy or raw message containing a literal `\x20` is never altered. */
+export function displayLogMessage(
+	message: string,
+	escaped: boolean | undefined,
+): string {
+	return escaped ? decodeLogEscapes(message) : message;
+}
+
 export function decodeLogEscapes(message: string): string {
 	let out = "";
 	let inQuotes = false;

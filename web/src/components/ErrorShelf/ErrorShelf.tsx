@@ -11,7 +11,7 @@ import {
 import type { AppLogEntry, LogEntry } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
-import { decodeLogEscapes } from "../../utils/logText";
+import { displayLogMessage } from "../../utils/logText";
 import { truncateWithEllipsis } from "../../utils/truncate";
 import { LogDetailModal } from "../LogDetailModal";
 import {
@@ -195,7 +195,10 @@ export function ErrorShelf() {
 										: isSsoSource(err.source)
 											? "sso"
 											: err.kind;
-								const displayMessage = decodeLogEscapes(err.message);
+								const displayMessage = displayLogMessage(
+									err.message,
+									err.escaped,
+								);
 								const chipLabel =
 									category === "ha"
 										? t("layout.errorShelf.haKind")

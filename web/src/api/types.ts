@@ -131,6 +131,10 @@ export interface AppLogEntry {
 	level: "info" | "warning" | "error";
 	source: string;
 	message: string;
+	/** True when the message's attribute values use the backend's flattened
+	 * encoding (spaces as \x20); gates display-side decoding. Absent/false on
+	 * legacy rows and raw io.Writer lines, which render verbatim. */
+	escaped?: boolean;
 }
 
 export interface LogsResponse {

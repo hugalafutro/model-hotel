@@ -2,6 +2,7 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AlertTargets,
+	AppLogEntry,
 	AppLogsCursorResponse,
 	AuditListResponse,
 	AuthSession,
@@ -55,13 +56,6 @@ import type {
 	VirtualKey,
 	ZAICodingQuotaResponse,
 } from "./types";
-
-export interface AppLogEntry {
-	timestamp: string;
-	level: "info" | "warning" | "error";
-	source: string;
-	message: string;
-}
 
 export const API_BASE = "";
 

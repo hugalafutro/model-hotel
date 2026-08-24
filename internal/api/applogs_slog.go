@@ -112,6 +112,9 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		Level:     appLevel,
 		Source:    source,
 		Message:   msgStr,
+		// Attribute values above went through quoteLogValue's flattened
+		// encoding, so the dashboard may decode \x20 in this message.
+		Escaped: true,
 	}
 
 	// Write to ring buffer and DB.

@@ -25,6 +25,11 @@ type AppLogEntry struct {
 	Level     string `json:"level"`                // "info", "warning", "error"
 	Source    string `json:"source"`               // "proxy", "auth", "discovery", etc. (without brackets)
 	Message   string `json:"message"`
+	// Escaped marks messages produced by the slog handler, whose attribute
+	// values use the flattened quoteLogValue encoding (spaces as \x20). The
+	// dashboard decodes that escaping only when this is set; legacy rows and
+	// raw io.Writer lines stay false and render verbatim (migration 075).
+	Escaped bool `json:"escaped,omitempty"`
 }
 
 // parseLogLine extracts the structured fields from a raw log line.
@@ -365,12 +370,12 @@ func appLogWhereClause(conditions []string) string {
 }
 
 // scanAppLogRow scans one row of the cursor projection
-// (id, created_at, timestamp, level, source, message) into an AppLogEntry.
+// (id, created_at, timestamp, level, source, message, escaped) into an AppLogEntry.
 func scanAppLogRow(rows pgx.Rows) (AppLogEntry, error) {
 	var e AppLogEntry
 	var id string
 	var cat, ts time.Time
-	if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message); err != nil {
+	if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message, &e.Escaped); err != nil {
 		return e, err
 	}
 	e.ID = id
@@ -474,7 +479,7 @@ func buildAppLogCursorQuery(p appLogCursorParams, q url.Values) (string, []any) 
 		}
 	}
 	query := fmt.Sprintf(
-		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
+		"SELECT id, created_at, timestamp, level, source, message, escaped FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
 		appLogWhereClause(conditions), fetchSortDir, fetchSortDir, argIdx,
 	)
 	args = append(args, p.limit+1)
@@ -527,7 +532,7 @@ func buildAppLogHistoryQuery(p appLogHistoryParams, q url.Values) (string, []any
 	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
 		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 	query := fmt.Sprintf(
-		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
+		"SELECT timestamp, level, source, message, escaped FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
 		appLogWhereClause(conditions), p.sortCol, p.sortDir, argIdx, argIdx+1,
 	)
 	args = append(args, p.perPage, (p.page-1)*p.perPage)
@@ -575,7 +580,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var e AppLogEntry
 		var ts time.Time
-		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message); err != nil {
+		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message, &e.Escaped); err != nil {
 			continue
 		}
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)

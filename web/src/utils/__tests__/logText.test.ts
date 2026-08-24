@@ -45,3 +45,15 @@ describe("decodeLogEscapes", () => {
 		);
 	});
 });
+
+describe("displayLogMessage", () => {
+	it("decodes only rows the backend marked as flattened-encoded", async () => {
+		const { displayLogMessage } = await import("../logText");
+		const msg = 'fetched provider="Ollama\\x20Cloud"';
+		expect(displayLogMessage(msg, true)).toBe(
+			'fetched provider="Ollama Cloud"',
+		);
+		expect(displayLogMessage(msg, false)).toBe(msg);
+		expect(displayLogMessage(msg, undefined)).toBe(msg);
+	});
+});

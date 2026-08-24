@@ -169,15 +169,15 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 
 	// Build batch INSERT
 	builder := strings.Builder{}
-	builder.WriteString("INSERT INTO app_logs (timestamp, level, source, message) VALUES ")
-	args := make([]any, 0, len(entries)*4)
+	builder.WriteString("INSERT INTO app_logs (timestamp, level, source, message, escaped) VALUES ")
+	args := make([]any, 0, len(entries)*5)
 	for i, e := range entries {
 		if i > 0 {
 			builder.WriteString(", ")
 		}
-		offset := i * 4
-		fmt.Fprintf(&builder, "($%d, $%d, $%d, $%d)", offset+1, offset+2, offset+3, offset+4)
-		args = append(args, e.Timestamp, e.Level, e.Source, e.Message)
+		offset := i * 5
+		fmt.Fprintf(&builder, "($%d, $%d, $%d, $%d, $%d)", offset+1, offset+2, offset+3, offset+4, offset+5)
+		args = append(args, e.Timestamp, e.Level, e.Source, e.Message, e.Escaped)
 	}
 	_, err := w.pool.Exec(ctx, builder.String(), args...)
 	if err != nil {

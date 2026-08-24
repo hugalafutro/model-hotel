@@ -37,7 +37,7 @@ import {
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "../utils/logBadgeUtils";
-import { decodeLogEscapes } from "../utils/logText";
+import { displayLogMessage } from "../utils/logText";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -464,7 +464,7 @@ export function AppLogs() {
 											<td className="px-2 py-1 align-middle">
 												<div className="min-h-[2lh] flex items-center">
 													<div className="text-xs font-mono line-clamp-2 text-gray-400">
-														{decodeLogEscapes(entry.message)}
+														{displayLogMessage(entry.message, entry.escaped)}
 													</div>
 												</div>
 											</td>
