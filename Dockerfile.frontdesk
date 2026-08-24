@@ -82,7 +82,9 @@ ENTRYPOINT ["docker-entrypoint-frontdesk.sh"]
 
 EXPOSE 8090
 
+# /healthz stays open when FRONTDESK_TRAEFIK_TOKEN gates /traefik/config, and
+# still exercises the store like the old config-endpoint spider did.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:8090/traefik/config || exit 1
+    CMD wget --quiet --tries=1 --spider http://localhost:8090/healthz || exit 1
 
 CMD ["./frontdesk"]

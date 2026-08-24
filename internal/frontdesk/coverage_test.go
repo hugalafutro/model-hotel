@@ -235,7 +235,8 @@ func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
 		{http.MethodPut, "/api/settings", `{"health_poll_secs":1,"traefik_poll_secs":1,"traefik_stale_secs":1}`, true},
 		{http.MethodGet, "/api/events", "", true},
 		{http.MethodPost, "/api/config/sync", `{"primary_id":"` + m.ID + `"}`, true},
-		{http.MethodGet, "/traefik/config", "", false}, // unauthenticated, compose-internal
+		{http.MethodGet, "/traefik/config", "", false}, // compose-internal, open without a configured token
+		{http.MethodGet, "/healthz", "", false},        // liveness probe reports the dead store
 	}
 	for _, c := range cases {
 		rec := do(t, srv, c.method, c.path, c.body, c.auth)
@@ -245,8 +246,8 @@ func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
 	}
 }
 
-// TestHandleTraefikConfig covers the unauthenticated, compose-internal config
-// endpoint that Traefik's HTTP provider polls.
+// TestHandleTraefikConfig covers the compose-internal config endpoint that
+// Traefik's HTTP provider polls (open here: no poll token configured).
 func TestHandleTraefikConfig(t *testing.T) {
 	srv, store := newTestServer(t)
 	if _, err := store.CreateMember(context.Background(), "m1", "http://m1:8081", ""); err != nil {

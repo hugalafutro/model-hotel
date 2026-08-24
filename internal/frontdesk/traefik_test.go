@@ -155,7 +155,7 @@ func TestBuildTraefikConfigJSONShape(t *testing.T) {
 }
 
 // TestBuildTraefikConfigStripsUserinfo guards the defense-in-depth strip on
-// the unauthenticated /traefik/config payload: a stored member URL that
+// the open-by-default /traefik/config payload: a stored member URL that
 // predates the userinfo rejection in normalizeMemberURL is emitted without
 // its credentials.
 func TestBuildTraefikConfigStripsUserinfo(t *testing.T) {

@@ -141,6 +141,10 @@ func main() {
 		// Dedicated Prometheus scrape bearer; when unset, /metrics falls back to
 		// the admin-or-session gate (never unauthenticated).
 		MetricsToken: os.Getenv("FRONTDESK_METRICS_TOKEN"),
+		// Dedicated bearer for Traefik's /traefik/config polls; when unset the
+		// endpoint stays open for compose-internal use (Traefik cannot log in,
+		// so there is no admin-auth fallback to give it).
+		TraefikToken: os.Getenv("FRONTDESK_TRAEFIK_TOKEN"),
 		LBPort:       lbPort,
 		Version:      version,
 		// Secure attribute on the fd_session/fd_csrf pair; shares COOKIE_SECURE
