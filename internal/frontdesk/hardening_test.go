@@ -4,9 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
@@ -191,6 +194,133 @@ func TestNormalizeMemberURLHTTPSGate(t *testing.T) {
 	// Opted in (allowHTTP=true): http accepted.
 	if _, err := normalizeMemberURL("http://mh1:8080", true); err != nil {
 		t.Errorf("http with allowHTTP=true: unexpected error %v", err)
+	}
+}
+
+// TestNormalizeMemberURLRejectsUserinfo guards the credential-leak fix: a
+// member base URL carrying userinfo (basic-auth credentials) is rejected at
+// add time, because the stored URL is re-emitted verbatim to wider audiences
+// (the unauthenticated /traefik/config endpoint and the device-readable
+// event log).
+func TestNormalizeMemberURLRejectsUserinfo(t *testing.T) {
+	rejected := []string{
+		"http://admin:S3cretPass@127.0.0.1:8086",
+		"https://user:pass@host.example",
+		"http://user@127.0.0.1:8086", // a bare username is still userinfo
+	}
+	for _, raw := range rejected {
+		if _, err := normalizeMemberURL(raw, true); !errors.Is(err, ErrValidation) {
+			t.Errorf("normalizeMemberURL(%q) = %v, want ErrValidation", raw, err)
+		}
+	}
+	if _, err := normalizeMemberURL("http://127.0.0.1:8086", true); err != nil {
+		t.Errorf("normalizeMemberURL without userinfo: unexpected error %v", err)
+	}
+}
+
+// TestStripUserinfo guards the defensive strip applied where stored member
+// URLs are rendered to unauthenticated or lower-privilege audiences:
+// userinfo is removed, credential-free URLs pass through unchanged, and an
+// unparseable string is returned as-is rather than dropped.
+func TestStripUserinfo(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"http://admin:S3cretPass@10.0.0.5:8080", "http://10.0.0.5:8080"},
+		{"https://user@mh1.internal:8080/base", "https://mh1.internal:8080/base"},
+		{"http://10.0.0.5:8080", "http://10.0.0.5:8080"},
+		{"http://exa mple.com", "http://exa mple.com"}, // unparseable: passthrough
+	}
+	for _, c := range cases {
+		if got := stripUserinfo(c.in); got != c.want {
+			t.Errorf("stripUserinfo(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestRedactErrURL guards the error rendering used by monitor-readable status
+// fields: userinfo embedded in a URL inside the error text is removed, whether
+// the *url.Error is the top-level error or wrapped, while the host, path, and
+// cause survive. An error without a URL passes through unchanged.
+func TestRedactErrURL(t *testing.T) {
+	base := &url.Error{Op: "Get", URL: "http://leakuser:leakpass@10.0.0.5:8080/health", Err: errors.New("dial tcp: connection refused")}
+	for _, err := range []error{base, fmt.Errorf("read export: %w", base)} {
+		got := redactErrURL(err)
+		if strings.Contains(got, "leakuser") || strings.Contains(got, "leakpass") {
+			t.Errorf("redactErrURL(%v) = %q, still carries credentials", err, got)
+		}
+		if !strings.Contains(got, "10.0.0.5:8080/health") {
+			t.Errorf("redactErrURL(%v) = %q, lost the host/path", err, got)
+		}
+	}
+	if got := redactErrURL(errors.New("plain failure")); got != "plain failure" {
+		t.Errorf("redactErrURL(plain) = %q, want passthrough", got)
+	}
+	// net/http renders the username percent-decoded, so an email-style
+	// username puts a literal @ inside the userinfo; the whole userinfo up to
+	// the last @ before the host must go.
+	multi := &url.Error{Op: "Get", URL: "http://leakuser@corp:***@10.0.0.5:8080/health", Err: errors.New("dial tcp: connection refused")}
+	got := redactErrURL(multi)
+	if strings.Contains(got, "leakuser") || strings.Contains(got, "corp") {
+		t.Errorf("redactErrURL(multi-@) = %q, still carries part of the username", got)
+	}
+	if !strings.Contains(got, "10.0.0.5:8080/health") {
+		t.Errorf("redactErrURL(multi-@) = %q, lost the host/path", got)
+	}
+}
+
+// TestListEventsStripsStoredURLUserinfo guards the read-side leg of the
+// credential-leak fix: an event row whose stored metadata predates the
+// userinfo rejection (e.g. from a restored backup) is returned with the
+// credentials removed, since /api/events is monitor-readable.
+func TestListEventsStripsStoredURLUserinfo(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if _, err := s.InsertEvent(ctx, Event{
+		Type: "member.added", Severity: "info", Source: "frontdesk", Message: "legacy added",
+		Metadata: map[string]any{"url": "http://admin:S3cretPass@10.0.0.5:8080", "note": "kept"},
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+	evs, _, err := s.ListEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("events = %d, want 1", len(evs))
+	}
+	if got := evs[0].Metadata["url"]; got != "http://10.0.0.5:8080" {
+		t.Errorf("metadata url = %v, want credentials stripped", got)
+	}
+	if got := evs[0].Metadata["note"]; got != "kept" {
+		t.Errorf("metadata note = %v, want untouched", got)
+	}
+}
+
+// TestListMembersStripsStoredURLUserinfo guards the members-list leg of the
+// credential-leak fix: a member row whose stored URL predates the userinfo
+// rejection is listed without its credentials, since GET /api/members is
+// monitor-readable.
+func TestListMembersStripsStoredURLUserinfo(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "legacy", "http://10.0.0.5:8080", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	// Plant a pre-fix row shape directly: CreateMember itself now rejects it.
+	if _, err := store.db.ExecContext(ctx, "UPDATE members SET url = ? WHERE id = ?",
+		"http://admin:S3cretPass@10.0.0.5:8080", m.ID); err != nil {
+		t.Fatalf("plant legacy url: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/members", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/members = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "S3cretPass") {
+		t.Errorf("members list still carries credentials: %s", body)
+	}
+	if !strings.Contains(body, "http://10.0.0.5:8080") {
+		t.Errorf("members list lost the member URL: %s", body)
 	}
 }
 

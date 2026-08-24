@@ -153,3 +153,21 @@ func TestBuildTraefikConfigJSONShape(t *testing.T) {
 		t.Error("missing services")
 	}
 }
+
+// TestBuildTraefikConfigStripsUserinfo guards the defense-in-depth strip on
+// the unauthenticated /traefik/config payload: a stored member URL that
+// predates the userinfo rejection in normalizeMemberURL is emitted without
+// its credentials.
+func TestBuildTraefikConfigStripsUserinfo(t *testing.T) {
+	cfg := BuildTraefikConfig(
+		[]*Member{{Name: "a", URL: "http://admin:S3cretPass@a:8081", State: StateActive}},
+		defaultSettings(),
+	)
+	servers := cfg.HTTP.Services[traefikServiceName].LoadBalancer.Servers
+	if len(servers) != 1 {
+		t.Fatalf("servers = %d, want 1", len(servers))
+	}
+	if servers[0].URL != "http://a:8081" {
+		t.Errorf("server URL = %q, want credentials stripped", servers[0].URL)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -511,5 +512,52 @@ func TestConfigPollStaleAccessor(t *testing.T) {
 	now = base.Add(10 * time.Minute) // default threshold is 30s
 	if !p.ConfigPollStale(context.Background()) {
 		t.Fatal("10-minute-old poll not reported stale")
+	}
+}
+
+// TestCheckHealthRedactsURLError guards the health-status leg of the
+// credential-leak fix: a dial failure against a member URL that still carries
+// userinfo (a row stored before the rejection) is reported without the
+// credentials, since HealthStatus.Error is monitor-readable.
+func TestCheckHealthRedactsURLError(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	hs := p.checkHealth(context.Background(), "http://leakuser:leakpass@127.0.0.1:1")
+	if hs.Healthy || hs.Error == "" {
+		t.Fatalf("unreachable member should report an error: %+v", hs)
+	}
+	if strings.Contains(hs.Error, "leakuser") || strings.Contains(hs.Error, "leakpass") {
+		t.Errorf("health error still carries credentials: %q", hs.Error)
+	}
+}
+
+// TestPollTraefikOnceMatchesStrippedLegacyURL guards the correlation key for
+// legacy rows: BuildTraefikConfig publishes a stored URL without its userinfo,
+// so Traefik reports status under the stripped URL, and the lookup must use
+// the same key or the member's Traefik badge stays blank forever.
+func TestPollTraefikOnceMatchesStrippedLegacyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"http://a:8081":"UP"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p, store, _ := newTestPoller(t, srv.URL)
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "a", "http://a:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	// Plant a pre-fix row shape directly: CreateMember itself now rejects it.
+	if _, err := store.db.ExecContext(ctx, "UPDATE members SET url = ? WHERE id = ?",
+		"http://leakuser:leakpass@a:8081", m.ID); err != nil {
+		t.Fatalf("plant legacy url: %v", err)
+	}
+
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Errorf("legacy member traefik status = %q, want UP", got)
 	}
 }

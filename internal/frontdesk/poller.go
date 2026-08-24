@@ -254,13 +254,17 @@ func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberHealthPath, http.NoBody)
 	if err != nil {
-		hs.Error = err.Error()
+		// redactErrURL: the status is monitor-readable and the dial error embeds
+		// the member URL, which can carry userinfo on a pre-rejection row.
+		hs.Error = redactErrURL(err)
 		return hs
 	}
 	resp, err := p.client.Do(req)
 	hs.LatencyMs = p.now().Sub(start).Milliseconds()
 	if err != nil {
-		hs.Error = err.Error()
+		// redactErrURL: the status is monitor-readable and the dial error embeds
+		// the member URL, which can carry userinfo on a pre-rejection row.
+		hs.Error = redactErrURL(err)
 		return hs
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -559,7 +563,9 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
-		next := statusByURL[m.URL] // "" when Traefik does not list it
+		// Key by the same URL BuildTraefikConfig publishes: a legacy row can
+		// still carry userinfo, which the emitted config strips.
+		next := statusByURL[stripUserinfo(m.URL)] // "" when Traefik does not list it
 		if next == "UP" {
 			delete(p.traefikNonUp, m.ID)
 		} else {
