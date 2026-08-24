@@ -677,8 +677,71 @@ describe("ModelPicker", () => {
 		it("has proper title on model chips", () => {
 			renderWithProviders(<ModelPicker {...defaultProps} />);
 			const gptChip = screen.getByText("GPT-4").closest("div");
-			// Title format: provider_name/display_name
-			expect(gptChip).toHaveAttribute("title", "OpenAI/GPT-4");
+			// The tooltip carries the routable proxy ID (provider/model_id), the
+			// same string the detail modal's copy icon yields.
+			expect(gptChip).toHaveAttribute("title", "OpenAI/gpt-4");
+		});
+
+		it("gives distinct tooltips to models sharing a display name", () => {
+			// Two provider paths can enrich to the same display name (e.g. both
+			// NeuralWatt DeepSeek variants read "Deepseek V4 Flash"). The pill label
+			// is then identical, so the tooltip must expose the raw model_id or the
+			// pair looks like a duplicate.
+			const twins: Model[] = [
+				{
+					...mockModels[0],
+					model_id: "deepseek-ai/DeepSeek-V4-Flash",
+					display_name: "Deepseek V4 Flash",
+					provider_name: "Neuralwatt",
+				},
+				{
+					...mockModels[1],
+					model_id: "deepseek-v4-flash",
+					display_name: "Deepseek V4 Flash",
+					provider_name: "Neuralwatt",
+				},
+			];
+			renderWithProviders(<ModelPicker {...defaultProps} models={twins} />);
+
+			const titles = screen
+				.getAllByText("Deepseek V4 Flash")
+				.map((el) => el.closest("div")?.getAttribute("title"));
+			expect(titles).toHaveLength(2);
+			expect(new Set(titles)).toEqual(
+				new Set([
+					"Neuralwatt/deepseek-ai/DeepSeek-V4-Flash",
+					"Neuralwatt/deepseek-v4-flash",
+				]),
+			);
+		});
+
+		it("normalizes provider-name spaces in the chip tooltip", () => {
+			// The tooltip is the routable proxy ID, so a spaced provider name shows
+			// its dashed form, exactly as the detail modal's copy icon yields it.
+			const spaced: Model[] = [
+				{
+					...mockModels[0],
+					provider_name: "Model Hotel",
+					model_id: "house-model",
+					display_name: "House Model",
+				},
+			];
+			renderWithProviders(<ModelPicker {...defaultProps} models={spaced} />);
+			const chip = screen.getByText("House Model").closest("div");
+			expect(chip).toHaveAttribute("title", "Model-Hotel/house-model");
+		});
+
+		it("shows the unavailable reason as the chip tooltip for N/A models", () => {
+			const na = [
+				{
+					...mockModels[0],
+					unavailable: true,
+					unavailableReason: "Provider disabled",
+				},
+			];
+			renderWithProviders(<ModelPicker {...defaultProps} models={na} />);
+			const chip = screen.getByText("GPT-4").closest("div");
+			expect(chip).toHaveAttribute("title", "Provider disabled");
 		});
 
 		it("has proper aria-label on collapse buttons", () => {

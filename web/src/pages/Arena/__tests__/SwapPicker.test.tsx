@@ -72,6 +72,37 @@ describe("SwapPicker", () => {
 		expect(screen.getByText("Model Two")).toBeInTheDocument();
 	});
 
+	it("gives pills distinct proxy-ID tooltips when display names collide", () => {
+		// Two model paths can share one display name (same model served on two
+		// routes); the label is then identical, so the tooltip must carry the
+		// routable proxy ID or the pair looks like a duplicate.
+		const models = [
+			createModel(
+				"Neuralwatt",
+				"deepseek-ai/DeepSeek-V4-Flash",
+				"Deepseek V4 Flash",
+			),
+			createModel("Neuralwatt", "deepseek-v4-flash", "Deepseek V4 Flash"),
+		];
+		renderWithProviders(
+			<SwapPicker
+				enabledModels={models}
+				disabledModels={new Set()}
+				alreadyUsed={[]}
+				onSelect={mockOnSelect}
+			/>,
+		);
+		const titles = screen
+			.getAllByText("Deepseek V4 Flash")
+			.map((el) => el.getAttribute("title"));
+		expect(new Set(titles)).toEqual(
+			new Set([
+				"Neuralwatt/deepseek-ai/DeepSeek-V4-Flash",
+				"Neuralwatt/deepseek-v4-flash",
+			]),
+		);
+	});
+
 	it("groups models by provider with provider headers", () => {
 		const models = [
 			createModel("OpenAI", "gpt-4", "GPT-4"),
