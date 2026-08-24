@@ -460,6 +460,16 @@ stamps the sync), but every long import gets reported as a failed push first.
 Set `FRONTDESK_PUBLIC_ORIGIN=https://frontdesk.example.com` and
 `FRONTDESK_TRUSTED_PROXIES` to the proxy's address in `.env`.
 
+`LB_TRUSTED_PROXIES` is the data-plane counterpart: set it to the same proxy
+CIDRs so Traefik passes the proxy's `X-Forwarded-For` chain through to the
+members instead of replacing it with the proxy's own address. Without it,
+every request routed through the load balancer reaches the members attributed
+to a proxy IP, in their request logs and app logs alike. Two settings must
+line up for members to show the real client: this variable on the HA stack,
+and each member's own `TRUSTED_PROXIES` listing every proxy hop in front of
+it, which behind this stack means its usual ingress proxy plus the host
+running Traefik.
+
 ---
 
 ## Observability
