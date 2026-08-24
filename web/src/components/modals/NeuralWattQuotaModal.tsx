@@ -116,7 +116,9 @@ export function NeuralWattQuotaModal({
 						{t("components.providerModals.neuralwattBalance")}
 					</span>
 					<span className="text-sm text-(--text-primary) font-medium">
-						{formatDollars(quota.balance.credits_remaining_usd)}
+						{quota.balance.credits_remaining_usd != null
+							? formatDollars(quota.balance.credits_remaining_usd)
+							: "-"}
 					</span>
 				</div>
 

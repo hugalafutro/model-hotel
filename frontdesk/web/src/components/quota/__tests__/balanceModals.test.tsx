@@ -518,6 +518,21 @@ describe("NeuralWattQuotaModal", () => {
 		expect(screen.queryByTestId("nw-overage-note")).toBeNull();
 	});
 
+	it("renders a dash when the balance is absent, never a fabricated $0.00", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					balance: { ...payload.balance, credits_remaining_usd: undefined },
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByText("-")).toBeInTheDocument();
+		expect(screen.queryByText("$0.00")).toBeNull();
+	});
+
 	it("never renders a spent-total caption", () => {
 		// No cumulative draw exists in the payload (credits_used_usd is a
 		// hardwired 0, total re-bases to remaining as spend settles), so the

@@ -75,7 +75,11 @@ export function NeuralWattQuotaModal({
 			<QuotaDetailGrid columns={2}>
 				<QuotaDetailItem
 					label={t("quota.modal.accountBalance")}
-					value={formatDollars(balance.credits_remaining_usd)}
+					value={
+						balance.credits_remaining_usd != null
+							? formatDollars(balance.credits_remaining_usd)
+							: "-"
+					}
 					span
 				/>
 			</QuotaDetailGrid>

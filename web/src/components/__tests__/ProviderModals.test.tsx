@@ -1873,6 +1873,21 @@ describe("NeuralWattQuotaModal", () => {
 	});
 
 	describe("no credits state", () => {
+		it("renders a dash when the balance is absent, never a fabricated $0.00", () => {
+			const absentBalanceQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				balance: {
+					...mockQuota.balance,
+					credits_remaining_usd: undefined,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={absentBalanceQuota} />,
+			);
+			expect(screen.getByText("-")).toBeInTheDocument();
+			expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+		});
+
 		it("renders no credits bar even with a positive credit total", () => {
 			// The credits bar is gone for good: total re-bases to remaining as
 			// spend settles, so the bar could only ever render as untouched.

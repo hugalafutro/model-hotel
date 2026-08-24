@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,10 +61,11 @@ func TestGetNeuralWattQuota_Success(t *testing.T) {
 			return
 		}
 
+		remaining := 23.9
 		response := NeuralWattQuotaResponse{
 			SnapshotAt: "2026-06-02T17:42:29Z",
 			Balance: NeuralWattQuotaBalance{
-				CreditsRemainingUSD: 23.9,
+				CreditsRemainingUSD: &remaining,
 				TotalCreditsUSD:     23.9,
 				CreditsUsedUSD:      0.0,
 				AccountingMethod:    "energy",
@@ -132,8 +134,8 @@ func TestGetNeuralWattQuota_Success(t *testing.T) {
 		t.Fatalf("GetNeuralWattQuota failed: %v", err)
 	}
 
-	if quota.Balance.CreditsRemainingUSD != 23.9 {
-		t.Errorf("Expected CreditsRemainingUSD 23.9, got %f", quota.Balance.CreditsRemainingUSD)
+	if quota.Balance.CreditsRemainingUSD == nil || *quota.Balance.CreditsRemainingUSD != 23.9 {
+		t.Errorf("Expected CreditsRemainingUSD 23.9, got %v", quota.Balance.CreditsRemainingUSD)
 	}
 	if quota.Balance.AccountingMethod != "energy" {
 		t.Errorf("Expected AccountingMethod 'energy', got '%s'", quota.Balance.AccountingMethod)
@@ -378,5 +380,40 @@ func TestGetNeuralWattQuota_NilProvider(t *testing.T) {
 	_, err = service.GetNeuralWattQuota(context.Background(), provider, masterKey)
 	if err == nil {
 		t.Error("Expected error for decryption failure, got nil")
+	}
+}
+
+func TestNeuralWattQuotaBalance_AbsentRemainingSurvivesRoundTrip(t *testing.T) {
+	// The snapshot path re-marshals the decoded struct verbatim to both
+	// dashboards, so an omitted credits_remaining_usd must stay omitted: a
+	// bare float64 would fabricate a $0.00 "all credits depleted" balance.
+	var absent NeuralWattQuotaBalance
+	if err := json.Unmarshal([]byte(`{"total_credits_usd":25,"credits_used_usd":0}`), &absent); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if absent.CreditsRemainingUSD != nil {
+		t.Fatalf("absent credits_remaining_usd decoded as %v, want nil", *absent.CreditsRemainingUSD)
+	}
+	out, err := json.Marshal(absent)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(out), "credits_remaining_usd") {
+		t.Fatalf("absent credits_remaining_usd re-marshaled as present: %s", out)
+	}
+
+	var zero NeuralWattQuotaBalance
+	if err := json.Unmarshal([]byte(`{"credits_remaining_usd":0,"total_credits_usd":25}`), &zero); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if zero.CreditsRemainingUSD == nil || *zero.CreditsRemainingUSD != 0 {
+		t.Fatal("explicit zero must decode as a real 0, not nil")
+	}
+	out, err = json.Marshal(zero)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"credits_remaining_usd":0`) {
+		t.Fatalf("explicit zero must survive the round trip: %s", out)
 	}
 }
