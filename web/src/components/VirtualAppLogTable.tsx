@@ -266,7 +266,11 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 									<td className="px-2 py-1 align-middle">
 										<div className="min-h-[2lh] flex items-center">
 											<div className="text-xs font-mono line-clamp-2 text-gray-400">
-												{displayLogMessage(entry.message, entry.escaped)}
+												{displayLogMessage(
+													entry.message,
+													entry.escaped,
+													entry.attrs_at,
+												)}
 											</div>
 										</div>
 									</td>

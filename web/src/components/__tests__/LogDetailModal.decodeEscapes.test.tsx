@@ -13,6 +13,7 @@ const baseLog: AppLogEntry = {
 	level: "info",
 	source: "discovery",
 	message: 'account fetched provider="Ollama\\x20Cloud" plan=pro',
+	attrs_at: 15,
 };
 
 describe("LogDetailModal app-log escape decoding", () => {
@@ -28,6 +29,30 @@ describe("LogDetailModal app-log escape decoding", () => {
 			screen.getByText('account fetched provider="Ollama Cloud" plan=pro'),
 		).toBeInTheDocument();
 		expect(screen.queryByText(/Ollama\\x20Cloud/)).not.toBeInTheDocument();
+	});
+
+	it("decodes only the attribute suffix, never the raw message text", () => {
+		// The message portion itself carries an attribute-shaped literal; the
+		// attrs_at boundary keeps it verbatim while the real attributes after
+		// it still decode.
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...baseLog,
+					message:
+						'literal path="\\x20evidence" in text provider="Ollama\\x20Cloud"',
+					attrs_at: 35,
+					escaped: true,
+				}}
+				type="app"
+				onClose={() => {}}
+			/>,
+		);
+		expect(
+			screen.getByText(
+				'literal path="\\x20evidence" in text provider="Ollama Cloud"',
+			),
+		).toBeInTheDocument();
 	});
 
 	it("renders unflagged (legacy/raw) rows verbatim", () => {

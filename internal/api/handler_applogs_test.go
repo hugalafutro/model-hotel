@@ -1082,10 +1082,12 @@ func TestGetAppLogs_SearchMatchesEscapedSpaces(t *testing.T) {
 	}
 }
 
-// TestAppSlogHandler_MarksEntriesEscaped pins the provenance flag: only the
+// TestAppSlogHandler_MarksEntriesEscaped pins the provenance contract: the
 // slog path (whose attribute values go through quoteLogValue's flattened
-// encoding) marks entries escaped; a raw line through the legacy io.Writer
-// path never went through the encoder and must not claim the flag.
+// encoding) marks entries escaped and records where the encoded attribute
+// suffix begins, so the dashboard decodes exactly the encoder's output and
+// never the raw message text. A raw line through the legacy io.Writer path
+// never went through the encoder and must not claim the flag.
 func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 	savedBuf, savedWriter := appLogBuffer, dbWriter
 	rb := &ringBuffer{entries: make([]AppLogEntry, appLogBufferSize)}
@@ -1094,33 +1096,13 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 
 	var buf bytes.Buffer
 	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
-	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "discovery: account fetched", 0)
-	rec.AddAttrs(slog.String("provider", "Ollama Cloud"))
-	if err := h.Handle(context.Background(), rec); err != nil {
-		t.Fatalf("Handle returned %v", err)
-	}
 
-	entries := rb.GetEntries()
-	if len(entries) != 1 {
-		t.Fatalf("expected 1 ring entry, got %d", len(entries))
-	}
-	if !entries[0].Escaped {
-		t.Error("slog-produced entry should carry the flattened-encoding provenance flag")
-	}
-
-	if _, err := rb.Write([]byte(`2026/08/24 01:00:00 [legacy] raw line path="\x20evidence"`)); err != nil {
-		t.Fatalf("ring Write: %v", err)
-	}
-	entries = rb.GetEntries()
-	if last := entries[len(entries)-1]; last.Escaped {
-		t.Error("legacy io.Writer entry must not claim the flattened-encoding flag")
-	}
-
-	// The flag vouches for the WHOLE flattened row, message text included. A
-	// raw message containing a quote or a backslash could interact with the
-	// display-side decode (desynced quote state, or a literal \x20), so such
-	// a record must not claim the flag and renders verbatim instead.
+	// Messages that could confuse a whole-string decode: a lone quote, an
+	// attribute-shaped literal with \x20, a backslashed path. The boundary
+	// makes them irrelevant: everything before AttrsAt is raw text, everything
+	// from AttrsAt on is encoder output.
 	for _, msg := range []string{
+		"discovery: account fetched",
 		`discovery: could not parse "x`,
 		`discovery: literal path="\x20evidence" in message`,
 		`discovery: windows path C:\temp`,
@@ -1130,10 +1112,26 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 		if err := h.Handle(context.Background(), rec); err != nil {
 			t.Fatalf("Handle returned %v", err)
 		}
-		entries = rb.GetEntries()
-		if last := entries[len(entries)-1]; last.Escaped {
-			t.Errorf("message %q contains decode-relevant characters; entry must not claim the flag", msg)
+		entries := rb.GetEntries()
+		e := entries[len(entries)-1]
+		if !e.Escaped {
+			t.Errorf("slog entry for %q should carry the provenance flag", msg)
 		}
+		if e.AttrsAt < 0 || e.AttrsAt > len(e.Message) {
+			t.Fatalf("AttrsAt %d out of range for %q", e.AttrsAt, e.Message)
+		}
+		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		if got := e.Message[e.AttrsAt:]; got != wantSuffix {
+			t.Errorf("message %q: attrs suffix = %q, want %q", msg, got, wantSuffix)
+		}
+	}
+
+	if _, err := rb.Write([]byte(`2026/08/24 01:00:00 [legacy] raw line path="\x20evidence"`)); err != nil {
+		t.Fatalf("ring Write: %v", err)
+	}
+	entries := rb.GetEntries()
+	if last := entries[len(entries)-1]; last.Escaped {
+		t.Error("legacy io.Writer entry must not claim the flattened-encoding flag")
 	}
 }
 
@@ -1146,9 +1144,9 @@ func TestGetAppLogs_EscapedFlagProvenance(t *testing.T) {
 	h.Register(r)
 
 	_, err := h.Pool().Pool().Exec(context.Background(),
-		`INSERT INTO app_logs (timestamp, level, source, message, escaped) VALUES
-		 (now(), 'info', 'provtest', 'legacy path="\x20evidence"', false),
-		 (now(), 'info', 'provtest', 'fetched provider="Ollama\x20Cloud"', true)`)
+		`INSERT INTO app_logs (timestamp, level, source, message, escaped, attrs_at) VALUES
+		 (now(), 'info', 'provtest', 'legacy path="\x20evidence"', false, 0),
+		 (now(), 'info', 'provtest', 'fetched provider="Ollama\x20Cloud"', true, 8)`)
 	if err != nil {
 		t.Fatalf("insert app logs: %v", err)
 	}
@@ -1166,6 +1164,7 @@ func TestGetAppLogs_EscapedFlagProvenance(t *testing.T) {
 			Entries []struct {
 				Message string `json:"message"`
 				Escaped bool   `json:"escaped"`
+				AttrsAt *int   `json:"attrs_at"`
 			} `json:"entries"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
@@ -1177,6 +1176,9 @@ func TestGetAppLogs_EscapedFlagProvenance(t *testing.T) {
 				seen++
 				if !e.Escaped {
 					t.Errorf("%s: encoder row should be escaped=true", path)
+				}
+				if e.AttrsAt == nil || *e.AttrsAt != 8 {
+					t.Errorf("%s: encoder row attrs_at = %v, want 8", path, e.AttrsAt)
 				}
 			}
 			if strings.Contains(e.Message, "legacy") {

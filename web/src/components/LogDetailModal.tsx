@@ -68,7 +68,7 @@ function AppLogDetail({
 					label={t("components.appLogDetail.message")}
 					labelExtra={
 						<CopyablePill
-							text={displayLogMessage(log.message, log.escaped)}
+							text={displayLogMessage(log.message, log.escaped, log.attrs_at)}
 							displayText={t("common.copy")}
 							tooltip={t("components.appLogDetail.copyMessage")}
 							textClassName="text-[11px] uppercase tracking-wider"
@@ -78,7 +78,7 @@ function AppLogDetail({
 				>
 					<MaybeJsonBlock
 						className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto"
-						text={displayLogMessage(log.message, log.escaped)}
+						text={displayLogMessage(log.message, log.escaped, log.attrs_at)}
 					/>
 				</DetailItem>
 			</div>

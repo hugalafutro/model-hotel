@@ -50,10 +50,27 @@ describe("displayLogMessage", () => {
 	it("decodes only rows the backend marked as flattened-encoded", async () => {
 		const { displayLogMessage } = await import("../logText");
 		const msg = 'fetched provider="Ollama\\x20Cloud"';
-		expect(displayLogMessage(msg, true)).toBe(
+		expect(displayLogMessage(msg, true, 7)).toBe(
 			'fetched provider="Ollama Cloud"',
 		);
-		expect(displayLogMessage(msg, false)).toBe(msg);
-		expect(displayLogMessage(msg, undefined)).toBe(msg);
+		expect(displayLogMessage(msg, false, 7)).toBe(msg);
+		expect(displayLogMessage(msg, undefined, 7)).toBe(msg);
+	});
+
+	it("never decodes before the attribute boundary", async () => {
+		const { displayLogMessage } = await import("../logText");
+		// The message portion is an attribute-shaped literal; only the real
+		// attribute suffix decodes.
+		const msg = 'literal path="\\x20raw" provider="Ollama\\x20Cloud"';
+		expect(displayLogMessage(msg, true, 22)).toBe(
+			'literal path="\\x20raw" provider="Ollama Cloud"',
+		);
+	});
+
+	it("clamps an out-of-range boundary", async () => {
+		const { displayLogMessage } = await import("../logText");
+		const msg = 'a="b\\x20c"';
+		expect(displayLogMessage(msg, true, 9999)).toBe(msg);
+		expect(displayLogMessage(msg, true, -5)).toBe('a="b c"');
 	});
 });

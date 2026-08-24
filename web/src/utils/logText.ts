@@ -18,16 +18,19 @@
  * a quoted value does not end the token.
  */
 /** The display form of an app-log message: decoded only when the backend
- * marked the row as using the flattened encoding (AppLogEntry.escaped), so a
- * legacy or raw message containing a literal `\x20` is never altered. The
- * backend grants the flag only when the raw message portion contains neither
- * a quote nor a backslash, so on a flagged row every quote and backslash
- * belongs to encoder output and this scan cannot touch raw text or desync. */
+ * marked the row as using the flattened encoding (AppLogEntry.escaped), and
+ * only from the recorded attribute boundary (AppLogEntry.attrs_at) onward.
+ * Everything before the boundary is raw developer-written message text and
+ * is never altered, whatever it contains; everything after it is pure
+ * quoteLogValue output, on which the scan is exact. */
 export function displayLogMessage(
 	message: string,
 	escaped: boolean | undefined,
+	attrsAt?: number,
 ): string {
-	return escaped ? decodeLogEscapes(message) : message;
+	if (!escaped) return message;
+	const at = Math.min(Math.max(attrsAt ?? 0, 0), message.length);
+	return message.slice(0, at) + decodeLogEscapes(message.slice(at));
 }
 
 export function decodeLogEscapes(message: string): string {

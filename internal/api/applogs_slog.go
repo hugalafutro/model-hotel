@@ -80,6 +80,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 	msg.WriteString(r.Message)
 	baseMsg := msg.String() // message before attrs are appended (for the JSON field)
+	preAttrLen := msg.Len() // everything appended after this is encoder output
 
 	fields := make(map[string]any)
 	appendAttr := func(a slog.Attr) {
@@ -113,15 +114,13 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		Source:    source,
 		Message:   msgStr,
 		// The attribute values above went through quoteLogValue's flattened
-		// encoding, so the dashboard may decode \x20 in this message. The
-		// flag vouches for the WHOLE flattened row, so it is granted only
-		// when the raw message portion contains neither a quote nor a
-		// backslash: then every quote and backslash in the row provably
-		// belongs to encoder output and the display-side decode cannot touch
-		// raw text or desync on it. A message that does carry those
-		// characters (they are developer-written constants, so this is rare)
-		// simply renders verbatim, escapes and all.
-		Escaped: !strings.ContainsAny(baseMsg, "\"\\"),
+		// encoding; AttrsAt records exactly where that encoder output begins
+		// in the stored message, so the dashboard decodes \x20 only there
+		// and raw message text is never altered, whatever it contains.
+		// SplitSource/stripLevelPrefix above trimmed a PREFIX of msgStr, so
+		// the attrs suffix length is unchanged by them.
+		Escaped: true,
+		AttrsAt: max(0, len(msgStr)-(msg.Len()-preAttrLen)),
 	}
 
 	// Write to ring buffer and DB.

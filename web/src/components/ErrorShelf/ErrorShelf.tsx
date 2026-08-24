@@ -198,6 +198,7 @@ export function ErrorShelf() {
 								const displayMessage = displayLogMessage(
 									err.message,
 									err.escaped,
+									err.attrsAt,
 								);
 								const chipLabel =
 									category === "ha"

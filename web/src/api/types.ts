@@ -135,6 +135,9 @@ export interface AppLogEntry {
 	 * encoding (spaces as \x20); gates display-side decoding. Absent/false on
 	 * legacy rows and raw io.Writer lines, which render verbatim. */
 	escaped?: boolean;
+	/** Byte offset where the encoded attribute suffix begins; decoding applies
+	 * only from here, so raw message text is never altered. */
+	attrs_at?: number;
 }
 
 export interface LogsResponse {
