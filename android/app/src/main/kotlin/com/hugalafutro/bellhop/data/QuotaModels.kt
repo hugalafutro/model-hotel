@@ -651,9 +651,18 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     format = { formatKwhAmount(it) },
                     suffix = " kWh",
                 ),
+                // NeuralWatt's credits_used_usd is not trustworthy: verified
+                // live 2026-08-24 it stays 0 while overage spend drains
+                // credits_remaining_usd, so the real draw is total - remaining.
+                // The reported field still wins when it is the larger number.
                 amountMeter(
                     kind = QuotaMeterKind.CREDITS,
-                    used = data.balance.creditsUsedUsd,
+                    used =
+                        maxOf(
+                            data.balance.creditsUsedUsd,
+                            (data.balance.totalCreditsUsd - data.balance.creditsRemainingUsd)
+                                .coerceAtLeast(0.0),
+                        ),
                     ceiling = data.balance.totalCreditsUsd,
                     format = { "$${formatDollarAmount(it)}" },
                 ),

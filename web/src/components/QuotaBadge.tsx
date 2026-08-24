@@ -18,6 +18,7 @@ import {
 	getKimiCodeWeeklyLimit,
 	getMiniMaxFiveHourLimit,
 	getMiniMaxWeeklyLimit,
+	getNeuralWattCreditsSpent,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
@@ -237,13 +238,21 @@ function neuralwattBadgeContent(
 				time: new Date(dataUpdatedAt).toLocaleTimeString(),
 			})
 		: "";
-	return {
-		label,
-		title: i18next.t("components.quotaBadge.neuralwattBalance", {
-			amount: formatKwh(used),
-			refreshed,
-		}),
-	};
+	// In overage the kwh_used counter freezes at the included amount and the
+	// spend moves to the credit balance, so the kWh label alone would read as
+	// "nothing is happening"; the tooltip carries the money trail instead.
+	const title = quota.subscription.in_overage
+		? i18next.t("components.quotaBadge.neuralwattBalanceOverage", {
+				amount: formatKwh(used),
+				spent: formatDollars(getNeuralWattCreditsSpent(quota.balance)),
+				remaining: formatDollars(quota.balance.credits_remaining_usd),
+				refreshed,
+			})
+		: i18next.t("components.quotaBadge.neuralwattBalance", {
+				amount: formatKwh(used),
+				refreshed,
+			});
+	return { label, title };
 }
 
 // ── QuotaBadge component ────────────────────────────────────────────────

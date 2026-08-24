@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "Hạn ngạch gói MiniMax",
 			"miniMaxChatModels": "Mô hình trò chuyện",
 			"miniMaxNotInPlan": "Không có trong gói",
-			"miniMaxVideoModels": "Mô hình video"
+			"miniMaxVideoModels": "Mô hình video",
+			"neuralwattOverageNote": "Quá mức: đồng hồ năng lượng dừng ở mức bao gồm; việc sử dụng thêm sẽ trừ vào số dư tín dụng."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Mức sử dụng",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh đã dùng trong kỳ này {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Không thể hiển thị số dư NeuralWatt",
 			"miniMaxRemaining": "MiniMax: Số lượng còn lại - nhấp vào để xem chi tiết",
-			"miniMaxUsed": "Hạn ngạch MiniMax đã dùng - nhấp để xem chi tiết"
+			"miniMaxUsed": "Hạn ngạch MiniMax đã dùng - nhấp để xem chi tiết",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh đã dùng trong kỳ này · quá mức, đã trừ {{spent}} từ tín dụng, còn lại {{remaining}} {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Bộ lọc",

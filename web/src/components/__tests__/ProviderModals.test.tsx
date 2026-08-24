@@ -1805,6 +1805,62 @@ describe("NeuralWattQuotaModal", () => {
 			const statusDot = screen.getByTestId("neuralwatt-status-dot");
 			expect(statusDot).toHaveClass("bg-green-400");
 		});
+
+		it("shows the overage note when in overage and hides it otherwise", () => {
+			const overageQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					in_overage: true,
+				},
+			};
+			const { unmount } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={overageQuota} />,
+			);
+			expect(screen.getByTestId("neuralwatt-overage-note")).toBeInTheDocument();
+			unmount();
+
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(
+				screen.queryByTestId("neuralwatt-overage-note"),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("credit spend derivation", () => {
+		it("derives the spent total from total minus remaining when credits_used_usd is a stale zero", () => {
+			// NeuralWatt reports credits_used_usd = 0 even while overage spend
+			// drains credits_remaining_usd (verified live 2026-08-24).
+			const staleZeroQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				balance: {
+					...mockQuota.balance,
+					credits_used_usd: 0,
+					credits_remaining_usd: 20.0,
+					total_credits_usd: 25.0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={staleZeroQuota} />,
+			);
+			expect(screen.getByText("$5.00 spent total")).toBeInTheDocument();
+		});
+
+		it("keeps the reported credits_used_usd when it is the larger number", () => {
+			const reportedQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				balance: {
+					...mockQuota.balance,
+					credits_used_usd: 6.0,
+					credits_remaining_usd: 20.0,
+					total_credits_usd: 25.0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={reportedQuota} />,
+			);
+			expect(screen.getByText("$6.00 spent total")).toBeInTheDocument();
+		});
 	});
 
 	describe("bar mode toggle", () => {

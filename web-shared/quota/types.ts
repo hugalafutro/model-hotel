@@ -148,3 +148,9 @@ export interface NeuralWattQuotaLike {
 	balance?: { credits_remaining_usd?: number | null } | null;
 	subscription?: { plan?: string } | null;
 }
+
+export interface NeuralWattBalanceLike {
+	credits_used_usd?: number | null;
+	credits_remaining_usd?: number | null;
+	total_credits_usd?: number | null;
+}

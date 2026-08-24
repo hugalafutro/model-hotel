@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax-tilauksen kiintiö",
 			"miniMaxChatModels": "Keskustelumallit",
 			"miniMaxNotInPlan": "Ei sisälly tilaukseen",
-			"miniMaxVideoModels": "Videomallit"
+			"miniMaxVideoModels": "Videomallit",
+			"neuralwattOverageNote": "Ylityksessä: energiamittari pysähtyy sisältyvään määrään; lisäkäyttö veloitetaan krediittisaldosta."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Käyttö",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh käytetty tällä jaksolla {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo ei saatavilla",
 			"miniMaxRemaining": "MiniMax jäljellä oleva kiintiö - klikkaa saadaksesi lisätietoja",
-			"miniMaxUsed": "MiniMax käytetty kiintiö - klikkaa lisätietoja"
+			"miniMaxUsed": "MiniMax käytetty kiintiö - klikkaa lisätietoja",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh käytetty tällä jaksolla · ylityksessä, {{spent}} veloitettu krediiteistä, {{remaining}} jäljellä {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Suodatin",

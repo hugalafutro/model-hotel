@@ -671,7 +671,8 @@
 			"ollamaCloudPlan": "{{provider}}: plán předplatného",
 			"neuralwattEnergy": "{{provider}}: energie spotřebovaná v tomto období",
 			"unreadable": "{{provider}}: poslední načtení primární instancí vrátilo nečitelnou odpověď",
-			"noQuota": "{{provider}}: poslední načtení primární instancí nevrátilo žádnou kvótu"
+			"noQuota": "{{provider}}: poslední načtení primární instancí nevrátilo žádnou kvótu",
+			"neuralwattEnergyOverage": "{{provider}}: nad limitem, {{spent}} čerpáno z kreditů, zbývá {{remaining}}"
 		},
 		"modal": {
 			"toggleBarMode": "Přepnout mezi využitým a zbývajícím",
@@ -732,7 +733,8 @@
 			"lifetime": "Za celou dobu",
 			"overageLimit": "Limit překročení",
 			"rateLimitTier": "Úroveň omezení počtu požadavků",
-			"allowance": "Příděl klíče"
+			"allowance": "Příděl klíče",
+			"neuralwattOverageNote": "Nad limitem: měřič energie se zastaví na zahrnutém množství; další využití čerpá z kreditového zůstatku."
 		}
 	},
 	"errors": {

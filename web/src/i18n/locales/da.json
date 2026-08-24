@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "Kvote for MiniMax-plan",
 			"miniMaxChatModels": "Chatmodeller",
 			"miniMaxNotInPlan": "Ikke inkluderet i planen",
-			"miniMaxVideoModels": "Videomodeller"
+			"miniMaxVideoModels": "Videomodeller",
+			"neuralwattOverageNote": "I overage: energimåleren stopper ved den inkluderede mængde; yderligere forbrug trækkes fra kreditsaldoen."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kvoter",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh brugt i denne periode {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo utilgængelig",
 			"miniMaxRemaining": "MiniMax resterende kvote - klik for detaljer",
-			"miniMaxUsed": "MiniMax brugte kvote - klik for detaljer"
+			"miniMaxUsed": "MiniMax brugte kvote - klik for detaljer",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh brugt i denne periode · i overage, {{spent}} trukket fra kreditter, {{remaining}} tilbage {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtrer",

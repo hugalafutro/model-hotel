@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax csomag kvótája",
 			"miniMaxChatModels": "Csevegési modellek",
 			"miniMaxNotInPlan": "Nincs a csomagban",
-			"miniMaxVideoModels": "Videomodellek"
+			"miniMaxVideoModels": "Videomodellek",
+			"neuralwattOverageNote": "Túllépésben: az energiamérő a foglalt mennyiségnél megáll; a további használat a kreditegyenleget csökkenti."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Használat",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh felhasználva ebben az időszakban {{refreshed}}",
 			"neuralwattBalanceUnavailable": "A NeuralWatt egyenleg nem elérhető",
 			"miniMaxRemaining": "MiniMax: fennmaradó kvóta – kattintson a részletekért",
-			"miniMaxUsed": "MiniMax felhasznált kvóta – kattintson a részletekért"
+			"miniMaxUsed": "MiniMax felhasznált kvóta – kattintson a részletekért",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh felhasználva ebben az időszakban · túllépésben, {{spent}} levonva a kreditekből, {{remaining}} maradt {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Szűrő",

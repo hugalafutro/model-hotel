@@ -2846,7 +2846,8 @@
 			"miniMaxPlanQuota": "حصة خطة MiniMax",
 			"miniMaxChatModels": "نماذج الدردشة",
 			"miniMaxNotInPlan": "غير مدرج في الخطة",
-			"miniMaxVideoModels": "نماذج الفيديو"
+			"miniMaxVideoModels": "نماذج الفيديو",
+			"neuralwattOverageNote": "في التجاوز: يتوقف عداد الطاقة عند الكمية المشمولة؛ ويُخصم الاستخدام الإضافي من رصيد الاعتمادات."
 		},
 		"providerQuotaPanel": {
 			"quotas": "الاستخدام",
@@ -3113,7 +3114,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh المستخدمة هذه الفترة {{refreshed}}",
 			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر",
 			"miniMaxRemaining": "MiniMax الحصة المتبقية - انقر للحصول على التفاصيل",
-			"miniMaxUsed": "MiniMax الحصة المستخدمة - انقر للحصول على التفاصيل"
+			"miniMaxUsed": "MiniMax الحصة المستخدمة - انقر للحصول على التفاصيل",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh المستخدمة هذه الفترة · في التجاوز، تم خصم {{spent}} من الاعتمادات، متبقٍ {{remaining}} {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "تصفية",

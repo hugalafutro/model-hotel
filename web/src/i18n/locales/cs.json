@@ -2730,7 +2730,8 @@
 			"miniMaxPlanQuota": "Kvóta plánu MiniMax",
 			"miniMaxChatModels": "Chatovací modely",
 			"miniMaxNotInPlan": "Není v plánu",
-			"miniMaxVideoModels": "Video modely"
+			"miniMaxVideoModels": "Video modely",
+			"neuralwattOverageNote": "Nad limitem: měřič energie se zastaví na zahrnutém množství; další využití čerpá z kreditového zůstatku."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Využití",
@@ -2993,7 +2994,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh využito v tomto období {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Zůstatek NeuralWatt není k dispozici",
 			"miniMaxRemaining": "MiniMax: Zbývající kvóta – klikněte pro podrobnosti",
-			"miniMaxUsed": "MiniMax: Využitá kvóta – klikněte pro podrobnosti"
+			"miniMaxUsed": "MiniMax: Využitá kvóta – klikněte pro podrobnosti",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh využito v tomto období · nad limitem, {{spent}} čerpáno z kreditů, zbývá {{remaining}} {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtr",

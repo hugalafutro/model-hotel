@@ -2614,7 +2614,8 @@
 			"neuralwattBillingInterval": "Billing Interval",
 			"neuralwattAccountingMethod": "Accounting Method",
 			"limits": "Limits",
-			"none": "None"
+			"none": "None",
+			"neuralwattOverageNote": "In overage: the energy meter stops at the included amount; further usage draws down the credit balance."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Usage",
@@ -2873,7 +2874,8 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}) {{refreshed}} - click to update",
 			"updated": "- updated {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh used this period {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable"
+			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh used this period · in overage, {{spent}} drawn from credits, {{remaining}} left {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",

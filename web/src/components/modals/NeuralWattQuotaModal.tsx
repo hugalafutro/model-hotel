@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Activity, Gauge, RefreshCw } from "@/lib/icons";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { getNeuralWattCreditsSpent } from "../../hooks/useQuotaData";
 import {
 	formatDate,
 	formatDollars,
@@ -55,9 +56,11 @@ export function NeuralWattQuotaModal({
 				100
 			: 100;
 
+	const creditsSpent = getNeuralWattCreditsSpent(quota.balance);
+
 	const creditsUsed =
 		quota.balance.total_credits_usd > 0
-			? (quota.balance.credits_used_usd / quota.balance.total_credits_usd) * 100
+			? (creditsSpent / quota.balance.total_credits_usd) * 100
 			: 0;
 
 	const kwhRemaining =
@@ -143,7 +146,7 @@ export function NeuralWattQuotaModal({
 					<p className="text-xs text-(--text-muted) mt-1">
 						{quota.balance.total_credits_usd > 0
 							? t("components.providerModals.spentTotal", {
-									amount: formatDollars(quota.balance.credits_used_usd),
+									amount: formatDollars(creditsSpent),
 								})
 							: t("components.providerModals.noCredits")}
 					</p>
@@ -188,6 +191,18 @@ export function NeuralWattQuotaModal({
 							</p>
 						)}
 					</div>
+				)}
+
+				{/* In overage the provider freezes kwh_used at the included amount
+				    and bills further usage against the credit balance, so the bars
+				    above stop moving; say where the spend actually goes. */}
+				{quota.subscription.in_overage && (
+					<p
+						data-testid="neuralwatt-overage-note"
+						className="text-xs text-red-400"
+					>
+						{t("components.providerModals.neuralwattOverageNote")}
+					</p>
 				)}
 
 				{/* ── Subscription details ── */}

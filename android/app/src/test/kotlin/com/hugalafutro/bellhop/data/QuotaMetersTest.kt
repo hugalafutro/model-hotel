@@ -207,7 +207,12 @@ class QuotaMetersTest {
                 quotaOf(
                     QuotaType.NEURALWATT,
                     QuotaData.NeuralWatt(
-                        balance = NeuralWattBalance(creditsUsedUsd = 3.0, totalCreditsUsd = 12.0),
+                        balance =
+                            NeuralWattBalance(
+                                creditsUsedUsd = 3.0,
+                                creditsRemainingUsd = 9.0,
+                                totalCreditsUsd = 12.0,
+                            ),
                         subscription = NeuralWattSubscription(kwhIncluded = 20.0, kwhUsed = 12.5),
                     ),
                 ),
@@ -216,6 +221,30 @@ class QuotaMetersTest {
         assertEquals(listOf(QuotaMeterKind.ENERGY, QuotaMeterKind.CREDITS), meters.map { it.kind })
         assertEquals("12.5/20 kWh", meters[0].value)
         assertEquals(25.0, meters[1].usedPercent, 0.001)
+    }
+
+    @Test
+    fun neuralWattCreditsMeterDerivesSpendFromRemaining() {
+        // NeuralWatt reports credits_used_usd = 0 even while overage spend
+        // drains credits_remaining_usd; the meter must show the real draw.
+        val meters =
+            quotaMeters(
+                quotaOf(
+                    QuotaType.NEURALWATT,
+                    QuotaData.NeuralWatt(
+                        balance =
+                            NeuralWattBalance(
+                                creditsUsedUsd = 0.0,
+                                creditsRemainingUsd = 9.0,
+                                totalCreditsUsd = 12.0,
+                            ),
+                    ),
+                ),
+            )
+
+        assertEquals(listOf(QuotaMeterKind.CREDITS), meters.map { it.kind })
+        assertEquals(25.0, meters[0].usedPercent, 0.001)
+        assertEquals("$3.00/$12.00", meters[0].value)
     }
 
     @Test

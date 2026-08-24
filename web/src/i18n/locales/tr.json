@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax Plan Kotası",
 			"miniMaxChatModels": "Sohbet modelleri",
 			"miniMaxNotInPlan": "Planda değil",
-			"miniMaxVideoModels": "Video modelleri"
+			"miniMaxVideoModels": "Video modelleri",
+			"neuralwattOverageNote": "Aşımda: enerji sayacı dahil edilen miktarda durur; sonraki kullanım kredi bakiyesinden düşülür."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kotalar",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: bu dönemde {{amount}} kWh kullanıldı {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt bakiyesi mevcut değil",
 			"miniMaxRemaining": "MiniMax kalan kontenjanı - ayrıntılar için tıklayın",
-			"miniMaxUsed": "MiniMax kotası kullanıldı - ayrıntılar için tıklayın"
+			"miniMaxUsed": "MiniMax kotası kullanıldı - ayrıntılar için tıklayın",
+			"neuralwattBalanceOverage": "NeuralWatt: bu dönemde {{amount}} kWh kullanıldı · aşımda, kredilerden {{spent}} düşüldü, {{remaining}} kaldı {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtre",

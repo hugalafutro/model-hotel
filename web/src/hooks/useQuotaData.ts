@@ -44,6 +44,7 @@ export {
 	getMiniMaxFiveHourLimit,
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
+	getNeuralWattCreditsSpent,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "@quota-shared";

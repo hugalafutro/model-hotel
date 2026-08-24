@@ -1,3 +1,4 @@
+import { getNeuralWattCreditsSpent } from "@quota-shared";
 import { useTranslation } from "react-i18next";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { formatDollars, formatKwh, formatTokens } from "../../utils/format";
@@ -43,8 +44,9 @@ export function NeuralWattQuotaModal({
 	const lifetime = usage?.lifetime;
 
 	const hasCredits = balance.total_credits_usd > 0;
+	const creditsSpent = getNeuralWattCreditsSpent(balance);
 	const creditsPctUsed = hasCredits
-		? (balance.credits_used_usd / balance.total_credits_usd) * 100
+		? (creditsSpent / balance.total_credits_usd) * 100
 		: 0;
 
 	const hasKwh = (subscription?.kwh_included ?? 0) > 0;
@@ -83,7 +85,7 @@ export function NeuralWattQuotaModal({
 					fillTestId="nw-credits-fill"
 				>
 					{t("quota.modal.spentTotal", {
-						amount: formatDollars(balance.credits_used_usd),
+						amount: formatDollars(creditsSpent),
 					})}
 				</QuotaBar>
 			) : (
@@ -107,6 +109,15 @@ export function NeuralWattQuotaModal({
 				>
 					{`${formatKwh(subscription.kwh_remaining)} kWh ${t("quota.modal.remaining")}`}
 				</QuotaBar>
+			)}
+
+			{/* In overage the provider freezes kwh_used at the included amount and
+			    bills further usage against the credit balance, so the bars above
+			    stop moving; say where the spend actually goes. */}
+			{subscription?.in_overage && (
+				<p className="fd-quota-overage-note" data-testid="nw-overage-note">
+					{t("quota.modal.neuralwattOverageNote")}
+				</p>
 			)}
 
 			<QuotaDetailGrid columns={2}>

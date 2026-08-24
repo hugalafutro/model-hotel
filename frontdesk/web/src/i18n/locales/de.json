@@ -657,7 +657,8 @@
 			"ollamaCloudPlan": "{{provider}}: Abonnement-Tarif",
 			"neuralwattEnergy": "{{provider}}: in dieser Periode verbrauchte Energie",
 			"unreadable": "{{provider}}: der letzte Abruf des Primärs lieferte eine unlesbare Antwort",
-			"noQuota": "{{provider}}: der letzte Abruf des Primärs lieferte kein Kontingent"
+			"noQuota": "{{provider}}: der letzte Abruf des Primärs lieferte kein Kontingent",
+			"neuralwattEnergyOverage": "{{provider}}: im Mehrverbrauch, {{spent}} vom Guthaben abgezogen, {{remaining}} übrig"
 		},
 		"modal": {
 			"toggleBarMode": "Zwischen verbraucht und verbleibend wechseln",
@@ -718,7 +719,8 @@
 			"lifetime": "Gesamt",
 			"overageLimit": "Mehrverbrauchslimit",
 			"rateLimitTier": "Rate-Limit-Stufe",
-			"allowance": "Budget des Schlüssels"
+			"allowance": "Budget des Schlüssels",
+			"neuralwattOverageNote": "Im Mehrverbrauch: Der Energiezähler stoppt bei der enthaltenen Menge; weitere Nutzung wird vom Guthaben abgezogen."
 		}
 	},
 	"errors": {

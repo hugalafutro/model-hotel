@@ -657,7 +657,8 @@
 			"ollamaCloudPlan": "{{provider}}: subscription plan",
 			"neuralwattEnergy": "{{provider}}: energy used this period",
 			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response",
-			"noQuota": "{{provider}}: the primary's last fetch returned no quota"
+			"noQuota": "{{provider}}: the primary's last fetch returned no quota",
+			"neuralwattEnergyOverage": "{{provider}}: in overage, {{spent}} drawn from credits, {{remaining}} left"
 		},
 		"modal": {
 			"toggleBarMode": "Switch between used and remaining",
@@ -718,7 +719,8 @@
 			"lifetime": "Lifetime",
 			"overageLimit": "Overage limit",
 			"rateLimitTier": "Rate limit tier",
-			"allowance": "Key allowance"
+			"allowance": "Key allowance",
+			"neuralwattOverageNote": "In overage: the energy meter stops at the included amount; further usage draws down the credit balance."
 		}
 	},
 	"errors": {

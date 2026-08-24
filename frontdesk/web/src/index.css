@@ -938,6 +938,12 @@ h3 {
 	font-size: 0.74rem;
 }
 
+.fd-quota-overage-note {
+	margin: 0;
+	color: var(--danger);
+	font-size: 0.74rem;
+}
+
 .fd-quota-class {
 	display: flex;
 	flex-direction: column;

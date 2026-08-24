@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax Plankwota",
 			"miniMaxChatModels": "Klets-modelle",
 			"miniMaxNotInPlan": "Nie in plan nie",
-			"miniMaxVideoModels": "Video-modelle"
+			"miniMaxVideoModels": "Video-modelle",
+			"neuralwattOverageNote": "In oorskryding: die energiemeter stop by die ingeslote hoeveelheid; verdere gebruik trek die kredietbalans af."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Gebruik",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh hierdie tydperk gebruik {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt-balans onbeskikbaar",
 			"miniMaxRemaining": "MiniMax oorskotkwota - klik vir besonderhede",
-			"miniMaxUsed": "MiniMax het kwota gebruik - klik vir besonderhede"
+			"miniMaxUsed": "MiniMax het kwota gebruik - klik vir besonderhede",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh hierdie tydperk gebruik · in oorskryding, {{spent}} uit krediete getrek, {{remaining}} oor {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",

@@ -657,7 +657,8 @@
 			"ollamaCloudPlan": "{{provider}}: サブスクリプションプラン",
 			"neuralwattEnergy": "{{provider}}: 今期のエネルギー使用量",
 			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました",
-			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした"
+			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした",
+			"neuralwattEnergyOverage": "{{provider}}: 超過中、クレジットから {{spent}} を消費、残り {{remaining}}"
 		},
 		"modal": {
 			"toggleBarMode": "使用量と残量を切り替える",
@@ -718,7 +719,8 @@
 			"lifetime": "累計",
 			"overageLimit": "超過上限",
 			"rateLimitTier": "レート制限ティア",
-			"allowance": "キーの割当額"
+			"allowance": "キーの割当額",
+			"neuralwattOverageNote": "超過中: エネルギーメーターは含まれる量で停止し、以降の使用はクレジット残高から差し引かれます。"
 		}
 	},
 	"errors": {

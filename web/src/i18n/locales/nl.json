@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax-abonnementsquotum",
 			"miniMaxChatModels": "Chatmodellen",
 			"miniMaxNotInPlan": "Niet inbegrepen in het plan",
-			"miniMaxVideoModels": "Videomodellen"
+			"miniMaxVideoModels": "Videomodellen",
+			"neuralwattOverageNote": "Boven de limiet: de energiemeter stopt bij de inbegrepen hoeveelheid; verder gebruik wordt van het tegoed afgeschreven."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quota's",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh gebruikt deze periode {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo niet beschikbaar",
 			"miniMaxRemaining": "MiniMax resterende quota - klik voor details",
-			"miniMaxUsed": "MiniMax gebruikte quota - klik voor details"
+			"miniMaxUsed": "MiniMax gebruikte quota - klik voor details",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh gebruikt deze periode · boven de limiet, {{spent}} van tegoed afgeschreven, {{remaining}} over {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filteren",

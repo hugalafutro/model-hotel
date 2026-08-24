@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax 套餐配额",
 			"miniMaxChatModels": "聊天模型",
 			"miniMaxNotInPlan": "套餐不包含",
-			"miniMaxVideoModels": "视频模型"
+			"miniMaxVideoModels": "视频模型",
+			"neuralwattOverageNote": "已超额：电量计数器停在套餐包含量；后续用量将从余额中扣除。"
 		},
 		"providerQuotaPanel": {
 			"quotas": "用量",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt：本期已用 {{amount}} 千瓦时 {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用",
 			"miniMaxRemaining": "MiniMax 剩余配额-点击查看详情",
-			"miniMaxUsed": "MiniMax 使用的配额-点击查看详情"
+			"miniMaxUsed": "MiniMax 使用的配额-点击查看详情",
+			"neuralwattBalanceOverage": "NeuralWatt：本期已用 {{amount}} 千瓦时 · 已超额，已从额度中扣除 {{spent}}，剩余 {{remaining}} {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "筛选器",

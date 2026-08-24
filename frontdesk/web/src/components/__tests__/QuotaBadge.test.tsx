@@ -348,6 +348,40 @@ describe("QuotaBadge", () => {
 		expect(badge).not.toHaveTextContent("/");
 	});
 
+	it("carries the credit draw in the NeuralWatt tooltip while in overage", () => {
+		// NeuralWatt reports credits_used_usd = 0 even while overage spend
+		// drains credits_remaining_usd (verified live 2026-08-24), so the
+		// tooltip derives the draw from total minus remaining.
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "neuralwatt" },
+					{
+						balance: {
+							credits_remaining_usd: 15.5,
+							total_credits_usd: 25,
+							credits_used_usd: 0,
+							accounting_method: "energy",
+						},
+						subscription: {
+							kwh_used: 2.37,
+							kwh_included: 2.35,
+							kwh_remaining: 0,
+							in_overage: true,
+						},
+					},
+				)}
+				barMode="remaining"
+				onClick={vi.fn()}
+			/>,
+		);
+		const title = screen
+			.getByTestId("quota-badge-neuralwatt:p")
+			.getAttribute("title");
+		expect(title).toContain("$9.50");
+		expect(title).toContain("$15.50");
+	});
+
 	it("renders a dash and the degraded class when the fetch failed", () => {
 		const m = model({ degraded: true });
 		m.snapshot.http_status = 502;

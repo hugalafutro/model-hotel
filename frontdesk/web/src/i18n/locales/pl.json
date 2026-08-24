@@ -671,7 +671,8 @@
 			"ollamaCloudPlan": "{{provider}}: plan subskrypcji",
 			"neuralwattEnergy": "{{provider}}: energia zużyta w tym okresie",
 			"unreadable": "{{provider}}: ostatnie pobranie przez głównego członka zwróciło nieczytelną odpowiedź",
-			"noQuota": "{{provider}}: ostatnie pobranie przez głównego członka nie zwróciło żadnego przydziału"
+			"noQuota": "{{provider}}: ostatnie pobranie przez głównego członka nie zwróciło żadnego przydziału",
+			"neuralwattEnergyOverage": "{{provider}}: powyżej limitu, {{spent}} pobrano z kredytów, pozostało {{remaining}}"
 		},
 		"modal": {
 			"toggleBarMode": "Przełącz między wykorzystanym a pozostałym",
@@ -732,7 +733,8 @@
 			"lifetime": "Od początku",
 			"overageLimit": "Limit przekroczenia",
 			"rateLimitTier": "Poziom limitu żądań",
-			"allowance": "Budżet klucza"
+			"allowance": "Budżet klucza",
+			"neuralwattOverageNote": "Powyżej limitu: licznik energii zatrzymuje się na uwzględnionej ilości; dalsze zużycie pomniejsza saldo kredytów."
 		}
 	},
 	"errors": {

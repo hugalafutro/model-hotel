@@ -2614,7 +2614,8 @@
 			"miniMaxPlanQuota": "MiniMax Plankontingent",
 			"miniMaxChatModels": "Chat-Modelle",
 			"miniMaxNotInPlan": "Nicht im Plan enthalten",
-			"miniMaxVideoModels": "Video-Modelle"
+			"miniMaxVideoModels": "Video-Modelle",
+			"neuralwattOverageNote": "Im Mehrverbrauch: Der Energiezähler stoppt bei der enthaltenen Menge; weitere Nutzung wird vom Guthaben abgezogen."
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quoten",
@@ -2873,7 +2874,8 @@
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh in diesem Zeitraum verbraucht {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt-Guthaben nicht verfügbar",
 			"miniMaxRemaining": "MiniMax verbleibendes Kontingent - für Details klicken",
-			"miniMaxUsed": "MiniMax verbrauchtes Kontingent - für Details klicken"
+			"miniMaxUsed": "MiniMax verbrauchtes Kontingent - für Details klicken",
+			"neuralwattBalanceOverage": "NeuralWatt: {{amount}} kWh in diesem Zeitraum verbraucht · im Mehrverbrauch, {{spent}} vom Guthaben abgezogen, {{remaining}} übrig {{refreshed}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtern",
