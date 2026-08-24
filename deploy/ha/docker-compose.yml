@@ -31,6 +31,16 @@ services:
             # Data-plane entrypoint. The generated config routes onto "web", so
             # this name must stay in sync with internal/frontdesk/traefik.go.
             - "--entrypoints.web.address=:8080"
+            # CIDRs of the external TLS proxy fronting LB_PORT (comma-
+            # separated). When set, Traefik trusts that proxy's
+            # X-Forwarded-For chain and passes it through to members
+            # instead of replacing it with the proxy's own address, so
+            # members can attribute requests to the real client. Members
+            # must also list this stack's host in their own
+            # TRUSTED_PROXIES to walk the extra hop. Unset, every request
+            # routed through the LB reaches members attributed to a proxy
+            # address.
+            - "--entrypoints.web.forwardedHeaders.trustedIPs=${LB_TRUSTED_PROXIES:-}"
             # API/dashboard on its own entrypoint, NOT published to the host:
             # Front Desk polls it over the compose network for serverStatus.
             - "--entrypoints.traefik.address=:8081"
