@@ -879,6 +879,37 @@ func TestGetLog_IncludesClientIP(t *testing.T) {
 	}
 }
 
+// TestListLogs_FilterByClientIP verifies ?client_ip= narrows both listing
+// endpoints to rows from that exact address.
+func TestListLogs_FilterByClientIP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	vk := createLogTestKey(t, r, "vk-ip-filter")
+	insertLogRowForKey(t, h, vk, "vk-ip-filter", "198.51.100.9")
+	insertLogRowForKey(t, h, vk, "vk-ip-filter", "203.0.113.7")
+
+	for _, path := range []string{
+		"/logs?client_ip=198.51.100.9",
+		"/logs/cursor?client_ip=198.51.100.9",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d: %s", path, w.Code, w.Body.String())
+		}
+		var resp map[string]any
+		json.NewDecoder(w.Body).Decode(&resp)
+		entries := resp["entries"].([]any)
+		if len(entries) != 1 {
+			t.Fatalf("%s: expected 1 entry for client_ip filter, got %d", path, len(entries))
+		}
+		if got := entries[0].(map[string]any)["client_ip"]; got != "198.51.100.9" {
+			t.Errorf("%s: entry client_ip = %v, want 198.51.100.9", path, got)
+		}
+	}
+}
+
 // TestListLogs_SortByIP covers the ip sort key (tier expression puts rows
 // without an IP last).
 func TestListLogs_SortByIP(t *testing.T) {

@@ -222,7 +222,7 @@ type LogsCursorResponse struct {
 //   - cursor: encoded cursor from a previous response (base64 JSON of {created_at, id})
 //   - direction: "after" (default) or "before" — which way to scroll from cursor
 //   - limit: page size (default 20, max 200)
-//   - model_id, provider_id, virtual_key_id, status_code, from, to: same
+//   - model_id, provider_id, virtual_key_id, client_ip, status_code, from, to: same
 //     filters as ListLogs
 //   - sort_by: only "time" is supported for cursor pagination (default "time")
 //   - sort_dir: "desc" (default, newest first) or "asc"
@@ -324,7 +324,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -349,7 +349,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -434,7 +434,7 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // count copy lacked the `statusCode >= 0` guard the data copy has; both now use
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
 	// Owner scope first: for non-admins this is mandatory row-level security,
 	// for admins an optional dashboard filter. The two branches cover the two
 	// disjoint row shapes. A KEYED row resolves through the key's CURRENT owner,
@@ -475,6 +475,11 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 			args = append(args, vkUUID)
 			argIndex++
 		}
+	}
+	if clientIP != "" {
+		query += " AND rl.client_ip = $" + util.IntToStr(argIndex)
+		args = append(args, clientIP)
+		argIndex++
 	}
 	if statusCodeStr != "" {
 		if statusCodeStr == "4xx" {
@@ -551,6 +556,7 @@ type logListParams struct {
 	modelID      string
 	providerID   string
 	virtualKeyID string
+	clientIP     string
 	statusCode   string
 	fromDate     string
 	toDate       string
@@ -569,6 +575,7 @@ func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, 
 		modelID:      r.URL.Query().Get("model_id"),
 		providerID:   r.URL.Query().Get("provider_id"),
 		virtualKeyID: r.URL.Query().Get("virtual_key_id"),
+		clientIP:     r.URL.Query().Get("client_ip"),
 		statusCode:   r.URL.Query().Get("status_code"),
 		fromDate:     r.URL.Query().Get("from"),
 		toDate:       r.URL.Query().Get("to"),
@@ -728,6 +735,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
 	virtualKeyID := r.URL.Query().Get("virtual_key_id")
+	clientIP := r.URL.Query().Get("client_ip")
 	statusCodeStr := r.URL.Query().Get("status_code")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
@@ -751,7 +759,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
 
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {
