@@ -80,7 +80,7 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 		// generic "something went wrong".
 		writeJSON(w, http.StatusOK, fleetStatusResponse{
 			PrimaryID:   primary.ID,
-			PrimaryNote: fmt.Sprintf("could not read this member's admin API: %v. Check its URL and that its stored admin token is current.", err),
+			PrimaryNote: fmt.Sprintf("could not read this member's admin API: %s. Check its URL and that its stored admin token is current.", redactErrURL(err)),
 			Members:     []fleetMemberStatus{},
 			LBPort:      s.lbPort,
 		})

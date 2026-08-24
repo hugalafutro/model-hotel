@@ -94,7 +94,9 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	servers := make([]TraefikServer, 0, len(members))
 	for _, m := range members {
 		if m.State == StateActive {
-			servers = append(servers, TraefikServer{URL: m.URL})
+			// stripUserinfo is a backstop for rows stored before userinfo was
+			// rejected at add time: this payload is served unauthenticated.
+			servers = append(servers, TraefikServer{URL: stripUserinfo(m.URL)})
 		}
 	}
 

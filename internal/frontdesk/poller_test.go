@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -511,5 +512,20 @@ func TestConfigPollStaleAccessor(t *testing.T) {
 	now = base.Add(10 * time.Minute) // default threshold is 30s
 	if !p.ConfigPollStale(context.Background()) {
 		t.Fatal("10-minute-old poll not reported stale")
+	}
+}
+
+// TestCheckHealthRedactsURLError guards the health-status leg of the
+// credential-leak fix: a dial failure against a member URL that still carries
+// userinfo (a row stored before the rejection) is reported without the
+// credentials, since HealthStatus.Error is monitor-readable.
+func TestCheckHealthRedactsURLError(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	hs := p.checkHealth(context.Background(), "http://leakuser:leakpass@127.0.0.1:1")
+	if hs.Healthy || hs.Error == "" {
+		t.Fatalf("unreachable member should report an error: %+v", hs)
+	}
+	if strings.Contains(hs.Error, "leakuser") || strings.Contains(hs.Error, "leakpass") {
+		t.Errorf("health error still carries credentials: %q", hs.Error)
 	}
 }

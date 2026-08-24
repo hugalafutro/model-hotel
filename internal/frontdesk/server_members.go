@@ -44,6 +44,14 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]memberView, len(members))
 	for i, m := range members {
+		// This list is monitor-readable: a row stored before normalizeMemberURL
+		// began rejecting userinfo must not surface its credentials. The store
+		// row keeps the URL as written; only the rendered copy is stripped.
+		if stripped := stripUserinfo(m.URL); stripped != m.URL {
+			mc := *m
+			mc.URL = stripped
+			m = &mc
+		}
 		views[i] = memberView{Member: m, Status: snap[m.ID]}
 		if e, ok := newest[m.ID]; ok {
 			ev := e
@@ -177,7 +185,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " added", MemberID: m.ID,
-		Metadata: map[string]any{"url": m.URL},
+		Metadata: map[string]any{"url": stripUserinfo(m.URL)},
 	})
 	writeJSON(w, http.StatusCreated, memberResponse{Member: m})
 }
