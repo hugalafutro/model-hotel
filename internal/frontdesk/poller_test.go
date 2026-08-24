@@ -529,3 +529,35 @@ func TestCheckHealthRedactsURLError(t *testing.T) {
 		t.Errorf("health error still carries credentials: %q", hs.Error)
 	}
 }
+
+// TestPollTraefikOnceMatchesStrippedLegacyURL guards the correlation key for
+// legacy rows: BuildTraefikConfig publishes a stored URL without its userinfo,
+// so Traefik reports status under the stripped URL, and the lookup must use
+// the same key or the member's Traefik badge stays blank forever.
+func TestPollTraefikOnceMatchesStrippedLegacyURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"http://a:8081":"UP"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p, store, _ := newTestPoller(t, srv.URL)
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "a", "http://a:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	// Plant a pre-fix row shape directly: CreateMember itself now rejects it.
+	if _, err := store.db.ExecContext(ctx, "UPDATE members SET url = ? WHERE id = ?",
+		"http://leakuser:leakpass@a:8081", m.ID); err != nil {
+		t.Fatalf("plant legacy url: %v", err)
+	}
+
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Errorf("legacy member traefik status = %q, want UP", got)
+	}
+}

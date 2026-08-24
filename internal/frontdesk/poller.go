@@ -563,7 +563,9 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
-		next := statusByURL[m.URL] // "" when Traefik does not list it
+		// Key by the same URL BuildTraefikConfig publishes: a legacy row can
+		// still carry userinfo, which the emitted config strips.
+		next := statusByURL[stripUserinfo(m.URL)] // "" when Traefik does not list it
 		if next == "UP" {
 			delete(p.traefikNonUp, m.ID)
 		} else {
