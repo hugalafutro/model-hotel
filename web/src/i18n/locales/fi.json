@@ -971,10 +971,6 @@
 		"page_title_other": "Mallit",
 		"page_description": "Löydetty malleja palveluntarjoajilta",
 		"badge_disabled": "{{count}} pois käytöstä",
-		"view_mode_pages": "⬡ Sivut",
-		"view_mode_scroll": "⇊ Vieritä",
-		"switch_to_pagination": "Vaihda sivutustilaan",
-		"switch_to_scroll": "Vaihda vieritystilaan",
 		"toast_updated": "Malli päivitetty",
 		"toast_update_failed": "Mallin päivitys epäonnistui: {{message}}",
 		"toast_toggle_enabled": "Malli käytössä",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live päivitykset jatkettiin",
 				"live": "Suora"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Vaihda vieritystilaan",
-				"switchToPagination": "Vaihda sivutustilaan",
-				"scroll": "⇊ Vieritä",
-				"pages": "⬡ Sivut"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Suodata päivämäärän mukaan",
 				"clearDateFilter": "Tyhjennä päivämäärän suodatin",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Ei suosituksia saatavilla",
 			"tooltip": "Käytä models.dev-katalogin suosittelemia asetuksia"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Vaihda vieritystilaan",
-			"switchToPagination": "Vaihda sivutustilaan",
-			"scroll": "⇊ Vieritä",
-			"pages": "⬡ Sivut"
-		},
 		"liveToggleButton": {
 			"live": "Suora",
 			"liveUpdatesPaused": "Live päivitykset keskeytetty",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "malli",
 			"modelCount_other": "mallit"
+		},
+		"viewModeToggle": {
+			"tooltip": "Vaihda sivutuksen ja loputtoman vierityksen välillä napsauttamalla.",
+			"scrolling": "Loputon vieritys",
+			"pagination": "Sivutus"
 		}
 	},
 	"failoverGroups": {

@@ -555,8 +555,10 @@ describe("AppLogs view mode toggle", () => {
 			expect(screen.getByText("paginate mode entry")).toBeInTheDocument();
 		});
 
-		// Find scroll mode toggle button by label - when in paginate mode, label is "Switch to scroll mode"
-		const scrollModeButton = screen.getByLabelText("Switch to scroll mode");
+		// The toggle label is mode-independent; the glyph carries the state
+		const scrollModeButton = screen.getByTitle(
+			"Click to toggle between pagination and infinite scrolling.",
+		);
 		await user.click(scrollModeButton);
 
 		// Verify localStorage was updated
@@ -564,9 +566,13 @@ describe("AppLogs view mode toggle", () => {
 			expect(localStorage.getItem("appLogsViewMode")).toBe("scroll");
 		});
 
-		// Switch back to paginate mode - now button label is "Switch to pagination mode"
-		const paginateModeButton = screen.getByLabelText(
-			"Switch to pagination mode",
+		expect(
+			scrollModeButton.querySelector(".icon-infinite-scroll"),
+		).toBeInTheDocument();
+
+		// Switch back to paginate mode
+		const paginateModeButton = screen.getByTitle(
+			"Click to toggle between pagination and infinite scrolling.",
 		);
 		await user.click(paginateModeButton);
 
@@ -674,10 +680,14 @@ describe("AppLogs scroll mode - cursor endpoint", () => {
 
 		renderWithProviders(<AppLogs />);
 
-		// In scroll mode, the toggle button shows "Switch to pagination mode"
+		// In scroll mode the toggle shows the infinite-scroll glyph
 		await waitFor(() => {
 			expect(
-				screen.getByLabelText("Switch to pagination mode"),
+				screen
+					.getByTitle(
+						"Click to toggle between pagination and infinite scrolling.",
+					)
+					.querySelector(".icon-infinite-scroll"),
 			).toBeInTheDocument();
 		});
 

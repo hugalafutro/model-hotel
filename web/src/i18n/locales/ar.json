@@ -1085,10 +1085,6 @@
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",
 		"badge_disabled": "{{count}} معطل",
-		"view_mode_pages": "⬡ الصفحات",
-		"view_mode_scroll": "⇊ التمرير",
-		"switch_to_pagination": "التبديل إلى وضع تحديد الصفحات",
-		"switch_to_scroll": "التبديل إلى وضع التمرير",
 		"toast_updated": "تم تحديث النموذج",
 		"toast_update_failed": "فشل تحديث النموذج: {{message}}",
 		"toast_toggle_enabled": "تم تمكين النموذج",
@@ -2583,12 +2579,6 @@
 				"resumed": "تم استئناف التحديثات المباشرة",
 				"live": "مباشر"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "التبديل إلى وضع التمرير",
-				"switchToPagination": "التبديل إلى وضع تحديد الصفحات",
-				"scroll": "⇊ التمرير",
-				"pages": "⬡ الصفحات"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "تصفية حسب نطاق التاريخ",
 				"clearDateFilter": "مسح فلتر التاريخ",
@@ -3061,12 +3051,6 @@
 			"noRecommendationsAvailable": "لا توجد توصيات متاحة",
 			"tooltip": "تطبيق الإعدادات الموصى بها من كتالوج models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "التبديل إلى وضع التمرير",
-			"switchToPagination": "التبديل إلى وضع تحديد الصفحات",
-			"scroll": "⇊ التمرير",
-			"pages": "⬡ الصفحات"
-		},
 		"liveToggleButton": {
 			"live": "مباشر",
 			"liveUpdatesPaused": "التحديثات المباشرة متوقفة مؤقتاً",
@@ -3128,6 +3112,11 @@
 			"modelCount_few": "نماذج",
 			"modelCount_many": "نموذجًا",
 			"modelCount_other": "نموذج"
+		},
+		"viewModeToggle": {
+			"tooltip": "انقر للتبديل بين تحديد الصفحات والتمرير اللانهائي.",
+			"scrolling": "التمرير اللانهائي",
+			"pagination": "تحديد الصفحات"
 		}
 	},
 	"failoverGroups": {

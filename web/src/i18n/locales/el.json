@@ -971,10 +971,6 @@
 		"page_title_other": "Μοντέλα",
 		"page_description": "Ανακαλύφθηκαν μοντέλα από τους παρόχους σας",
 		"badge_disabled": "{{count}} απενεργοποιημένα",
-		"view_mode_pages": "⬡ Σελίδες",
-		"view_mode_scroll": "⇊ Κύλιση",
-		"switch_to_pagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
-		"switch_to_scroll": "Εναλλαγή σε λειτουργία κύλισης",
 		"toast_updated": "Το μοντέλο ενημερώθηκε",
 		"toast_update_failed": "Αποτυχία ενημέρωσης μοντέλου: {{message}}",
 		"toast_toggle_enabled": "Μοντέλο ενεργοποιημένο",
@@ -2371,12 +2367,6 @@
 				"resumed": "Οι ζωντανές ενημερώσεις συνεχίστηκαν",
 				"live": "Ζωντανά"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Εναλλαγή σε λειτουργία κύλισης",
-				"switchToPagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
-				"scroll": "⇊ Κύλιση",
-				"pages": "⬡ Σελίδες"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Φιλτράρισμα κατά εύρος ημερομηνιών",
 				"clearDateFilter": "Εκκαθάριση φίλτρου ημερομηνίας",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Δεν υπάρχουν διαθέσιμες συστάσεις",
 			"tooltip": "Εφαρμογή συνιστώμενων ρυθμίσεων από τον κατάλογο models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Εναλλαγή σε λειτουργία κύλισης",
-			"switchToPagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
-			"scroll": "⇊ Κύλιση",
-			"pages": "⬡ Σελίδες"
-		},
 		"liveToggleButton": {
 			"live": "Ζωντανά",
 			"liveUpdatesPaused": "Ζωντανές ενημερώσεις σε παύση",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "μοντέλο",
 			"modelCount_other": "μοντέλα"
+		},
+		"viewModeToggle": {
+			"tooltip": "Κάντε κλικ για εναλλαγή μεταξύ σελιδοποίησης και ατέρμονης κύλισης.",
+			"scrolling": "Ατέρμονη κύλιση",
+			"pagination": "Σελιδοποίηση"
 		}
 	},
 	"failoverGroups": {

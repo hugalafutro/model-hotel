@@ -311,19 +311,25 @@ export function Dashboard() {
 					</div>
 				}
 			/>
-			{/* Stat cards */}
+			{/* Stat cards. The provider/model pills count what the proxy can serve
+			    right now: enabled providers, and models that are enabled AND whose
+			    provider is enabled (the /v1/models rule the Models page title uses).
+			    That subsumes the excludeDeleted pre-filter in useDashboard, which
+			    still matters for the other queries riding the same flag. */}
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 				<StatCard
 					label={t("dashboard.stats.totalProviders")}
-					value={providers?.length || 0}
+					value={providers?.filter((p) => p.enabled).length ?? 0}
 					icon={PlugZap}
 					accent={accents.providers}
 					loading={providersLoading}
 				/>
 				<StatCard
 					label={t("dashboard.stats.totalModels")}
-					value={models?.length || 0}
+					value={
+						models?.filter((m) => m.enabled && m.provider_enabled).length ?? 0
+					}
 					icon={Bot}
 					accent={accents.models}
 					loading={modelsLoading}

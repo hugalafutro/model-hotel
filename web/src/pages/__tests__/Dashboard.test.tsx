@@ -228,6 +228,73 @@ describe("Dashboard", () => {
 				{ timeout: 5000 },
 			);
 		});
+
+		it("counts only enabled providers", async () => {
+			const providers = [
+				mockProvider,
+				{ ...mockProvider, id: "provider-002", name: "Provider 2" },
+				{
+					...mockProvider,
+					id: "provider-003",
+					name: "Provider 3",
+					enabled: false,
+				},
+			];
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/models", () => HttpResponse.json([mockModel])),
+				http.get("/api/providers", () => HttpResponse.json(providers)),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(
+				() => {
+					const card = screen.getByText("Total Providers").closest(".ui-card");
+					const statValue = card?.querySelector('[data-testid="stat-value"]');
+					expect(statValue?.textContent).toBe("2");
+				},
+				{ timeout: 5000 },
+			);
+		});
+
+		it("counts only models that are enabled under an enabled provider", async () => {
+			const models = [
+				mockModel,
+				{ ...mockModel, id: "model-002", model_id: "model-2" },
+				// Switched off individually
+				{
+					...mockModel,
+					id: "model-003",
+					model_id: "model-3",
+					enabled: false,
+					disabled_manually: true,
+				},
+				// Parked under a disabled provider
+				{
+					...mockModel,
+					id: "model-004",
+					model_id: "model-4",
+					provider_enabled: false,
+				},
+			];
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/models", () => HttpResponse.json(models)),
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(
+				() => {
+					const card = screen.getByText("Total Models").closest(".ui-card");
+					const statValue = card?.querySelector('[data-testid="stat-value"]');
+					expect(statValue?.textContent).toBe("2");
+				},
+				{ timeout: 5000 },
+			);
+		});
 	});
 
 	describe("Gauge Components", () => {

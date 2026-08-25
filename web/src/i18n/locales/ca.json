@@ -1001,10 +1001,6 @@
 		"page_title_other": "Models",
 		"page_description": "S'han descobert models dels vostres proveïdors",
 		"badge_disabled": "{{count}} desactivats",
-		"view_mode_pages": "⬡ Pàgines",
-		"view_mode_scroll": "⇊ Desplaçament",
-		"switch_to_pagination": "Canvia al mode de pàgina",
-		"switch_to_scroll": "Canvia al mode de desplaçament",
 		"toast_updated": "Model actualitzat",
 		"toast_update_failed": "S'ha fallat l'actualització del model: {{message}}",
 		"toast_toggle_enabled": "Model habilitat",
@@ -2424,12 +2420,6 @@
 				"resumed": "S'han reprès les actualitzacions en directe",
 				"live": "En directe"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Canvia al mode de desplaçament",
-				"switchToPagination": "Canvia al mode de pàgina",
-				"scroll": "⇊ Desplaçament",
-				"pages": "⬡ Pàgines"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtra per interval de dates",
 				"clearDateFilter": "Esborrar el filtre de data",
@@ -2881,12 +2871,6 @@
 			"noRecommendationsAvailable": "No hi ha recomanacions disponibles",
 			"tooltip": "Aplica la configuració recomanada del catàleg models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Canvia al mode de desplaçament",
-			"switchToPagination": "Canvia al mode de pàgina",
-			"scroll": "⇊ Desplaçament",
-			"pages": "⬡ Pàgines"
-		},
 		"liveToggleButton": {
 			"live": "En directe",
 			"liveUpdatesPaused": "Les actualitzacions en directe estan en pausa",
@@ -2945,6 +2929,11 @@
 			"modelCount_one": "model",
 			"modelCount_many": "models",
 			"modelCount_other": "models"
+		},
+		"viewModeToggle": {
+			"tooltip": "Fes clic per alternar entre paginació i desplaçament infinit.",
+			"scrolling": "Desplaçament infinit",
+			"pagination": "Paginació"
 		}
 	},
 	"failoverGroups": {

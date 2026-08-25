@@ -13,6 +13,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelTable } from "../components/ModelTable";
 import { PageHeader } from "../components/PageHeader";
+import { ViewModeToggle } from "../components/ViewModeToggle";
 import {
 	type ModelCounts,
 	VirtualModelTable,
@@ -317,31 +318,7 @@ export function Models() {
 				badge={modelBadge}
 				actions={
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() =>
-								setViewMode(viewMode === "scroll" ? "paginate" : "scroll")
-							}
-							className={`ui-tab flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-all border ${
-								viewMode === "scroll"
-									? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
-									: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
-							}`}
-							title={
-								viewMode === "scroll"
-									? t("models.switch_to_pagination")
-									: t("models.switch_to_scroll")
-							}
-							aria-label={
-								viewMode === "scroll"
-									? t("models.switch_to_pagination")
-									: t("models.switch_to_scroll")
-							}
-						>
-							{viewMode === "scroll"
-								? t("models.view_mode_pages")
-								: t("models.view_mode_scroll")}
-						</button>
+						<ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
 					</div>
 				}
 			/>

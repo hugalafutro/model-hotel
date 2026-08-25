@@ -971,10 +971,6 @@
 		"page_title_other": "모델",
 		"page_description": "귀하의 공급업체에서 발견된 모델",
 		"badge_disabled": "{{count}} 비활성화됨",
-		"view_mode_pages": "⬡ 페이지",
-		"view_mode_scroll": "⇊ 아래로 스크롤",
-		"switch_to_pagination": "페이지 나누기 모드로 전환",
-		"switch_to_scroll": "스크롤 모드로 전환",
 		"toast_updated": "모델 업데이트됨",
 		"toast_update_failed": "모델 업데이트에 실패했습니다: {{message}}",
 		"toast_toggle_enabled": "모델 활성화됨",
@@ -2371,12 +2367,6 @@
 				"resumed": "실시간 업데이트가 재개되었습니다",
 				"live": "실시간"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "스크롤 모드로 전환",
-				"switchToPagination": "페이지 나누기 모드로 전환",
-				"scroll": "⇊ 아래로 스크롤",
-				"pages": "⬡ 페이지"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "날짜 범위별로 필터링",
 				"clearDateFilter": "날짜 필터 지우기",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "추천할 만한 내용이 없습니다",
 			"tooltip": "models.dev 카탈로그의 권장 설정 적용"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "스크롤 모드로 전환",
-			"switchToPagination": "페이지 나누기 모드로 전환",
-			"scroll": "⇊ 아래로 스크롤",
-			"pages": "⬡ 페이지"
-		},
 		"liveToggleButton": {
 			"live": "실시간",
 			"liveUpdatesPaused": "실시간 업데이트 일시 중지",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "모델",
 			"modelCount_other": "모델"
+		},
+		"viewModeToggle": {
+			"tooltip": "클릭하여 페이지 나누기와 무한 스크롤 사이를 전환합니다.",
+			"scrolling": "무한 스크롤",
+			"pagination": "페이지 나누기"
 		}
 	},
 	"failoverGroups": {

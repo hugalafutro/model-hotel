@@ -1031,10 +1031,6 @@
 		"page_title_other": "Modely",
 		"page_description": "Objavené modely od vašich poskytovateľov",
 		"badge_disabled": "{{count}} zakázaných",
-		"view_mode_pages": "⬡ Stránky",
-		"view_mode_scroll": "⇊ Posúvať",
-		"switch_to_pagination": "Prejsť do režimu stránkovania",
-		"switch_to_scroll": "Prejsť do režimu posúvania",
 		"toast_updated": "Model bol aktualizovaný",
 		"toast_update_failed": "Aktualizácia modelu sa nepodarila: {{message}}",
 		"toast_toggle_enabled": "Model je povolený",
@@ -2477,12 +2473,6 @@
 				"resumed": "Obnovenie živých aktualizácií",
 				"live": "Naživo"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Prejsť do režimu posúvania",
-				"switchToPagination": "Prejsť do režimu stránkovania",
-				"scroll": "⇊ Posúvať",
-				"pages": "⬡ Stránky"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrovať podľa časového obdobia",
 				"clearDateFilter": "Vymazať filter podľa dátumu",
@@ -2941,12 +2931,6 @@
 			"noRecommendationsAvailable": "Žiadne odporúčania nie sú k dispozícii",
 			"tooltip": "Použiť odporúčané nastavenia z katalógu models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Prejsť do režimu posúvania",
-			"switchToPagination": "Prejsť do režimu stránkovania",
-			"scroll": "⇊ Posúvať",
-			"pages": "⬡ Stránky"
-		},
 		"liveToggleButton": {
 			"live": "Naživo",
 			"liveUpdatesPaused": "Aktualizácie v reálnom čase sú pozastavené",
@@ -3006,6 +2990,11 @@
 			"modelCount_few": "modely",
 			"modelCount_many": "modelu",
 			"modelCount_other": "modelov"
+		},
+		"viewModeToggle": {
+			"tooltip": "Kliknutím prepnete medzi stránkovaním a nekonečným posúvaním.",
+			"scrolling": "Nekonečné posúvanie",
+			"pagination": "Stránkovanie"
 		}
 	},
 	"failoverGroups": {

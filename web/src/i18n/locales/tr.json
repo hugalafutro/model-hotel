@@ -971,10 +971,6 @@
 		"page_title_other": "Modeller",
 		"page_description": "Sağlayıcılarınızdan bulunan modeller",
 		"badge_disabled": "{{count}} devre dışı",
-		"view_mode_pages": "⬡ Sayfalar",
-		"view_mode_scroll": "⇊ Aşağı kaydır",
-		"switch_to_pagination": "Sayfa numaralandırma moduna geç",
-		"switch_to_scroll": "Kaydırma moduna geç",
 		"toast_updated": "Model güncellendi",
 		"toast_update_failed": "Model güncellenemedi: {{message}}",
 		"toast_toggle_enabled": "Model etkin",
@@ -2371,12 +2367,6 @@
 				"resumed": "Canlı güncellemeler yeniden başladı",
 				"live": "Canlı"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Kaydırma moduna geç",
-				"switchToPagination": "Sayfa numaralandırma moduna geç",
-				"scroll": "⇊ Aşağı kaydır",
-				"pages": "⬡ Sayfalar"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Tarih aralığına göre filtrele",
 				"clearDateFilter": "Tarih filtresini temizle",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Öneri bulunmamaktadır",
 			"tooltip": "models.dev kataloğundaki önerilen ayarları uygula"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Kaydırma moduna geç",
-			"switchToPagination": "Sayfa numaralandırma moduna geç",
-			"scroll": "⇊ Aşağı kaydır",
-			"pages": "⬡ Sayfalar"
-		},
 		"liveToggleButton": {
 			"live": "Canlı",
 			"liveUpdatesPaused": "Canlı güncellemeler duraklatıldı",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "model",
 			"modelCount_other": "modeller"
+		},
+		"viewModeToggle": {
+			"tooltip": "Sayfa numaralandırma ile sonsuz kaydırma arasında geçiş yapmak için tıklayın.",
+			"scrolling": "Sonsuz kaydırma",
+			"pagination": "Sayfa numaralandırma"
 		}
 	},
 	"failoverGroups": {

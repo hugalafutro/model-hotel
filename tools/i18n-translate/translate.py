@@ -281,7 +281,7 @@ def allowed(allow: dict[str, list[str]], key: str, code: str) -> bool:
 
 SKIP_VALUES = {
 	"hotel/model", "TBD", "VS", "ON", "OFF", "auto", "N/A", "n/a", "OK",
-	"⬡ Pages", "⇊ Scroll", "✏️Custom",
+	"✏️Custom",
 }
 
 

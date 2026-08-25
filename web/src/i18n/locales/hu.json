@@ -971,10 +971,6 @@
 		"page_title_other": "Modellek",
 		"page_description": "A szolgáltatóidnál felfedezett modellek",
 		"badge_disabled": "{{count}} letiltva",
-		"view_mode_pages": "⬡ Oldalak",
-		"view_mode_scroll": "⇊ Görgetés",
-		"switch_to_pagination": "Válts át oldalszámozási módra",
-		"switch_to_scroll": "Válts át görgetési módra",
 		"toast_updated": "A modell frissítve",
 		"toast_update_failed": "A modell frissítése nem sikerült: {{message}}",
 		"toast_toggle_enabled": "Modell engedélyezve",
@@ -2371,12 +2367,6 @@
 				"resumed": "Az élő frissítések újraindultak",
 				"live": "Élőben"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Válts át görgetési módra",
-				"switchToPagination": "Válts át oldalszámozási módra",
-				"scroll": "⇊ Görgetés",
-				"pages": "⬡ Oldalak"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Szűrés dátumtartomány szerint",
 				"clearDateFilter": "A dátumszűrő törlése",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Nincs elérhető ajánlás",
 			"tooltip": "A models.dev katalógusból ajánlott beállítások alkalmazása"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Válts át görgetési módra",
-			"switchToPagination": "Válts át oldalszámozási módra",
-			"scroll": "⇊ Görgetés",
-			"pages": "⬡ Oldalak"
-		},
 		"liveToggleButton": {
 			"live": "Élőben",
 			"liveUpdatesPaused": "Az élő frissítések szünetelnek",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "modell",
 			"modelCount_other": "modellek"
+		},
+		"viewModeToggle": {
+			"tooltip": "Kattints az oldalszámozás és a végtelen görgetés közötti váltáshoz.",
+			"scrolling": "Végtelen görgetés",
+			"pagination": "Oldalszámozás"
 		}
 	},
 	"failoverGroups": {

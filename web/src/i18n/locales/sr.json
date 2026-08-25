@@ -1001,10 +1001,6 @@
 		"page_title_other": "Модели",
 		"page_description": "Откривени модели од ваших провајдера",
 		"badge_disabled": "{{count}} онемогућено",
-		"view_mode_pages": "⬡ Странице",
-		"view_mode_scroll": "⇊ Скролуј",
-		"switch_to_pagination": "Пређите у режим страничења",
-		"switch_to_scroll": "Пређите у режим скроловања",
 		"toast_updated": "Модел је ажуриран",
 		"toast_update_failed": "Ажурирање модела није успело: {{message}}",
 		"toast_toggle_enabled": "Модел омогућен",
@@ -2424,12 +2420,6 @@
 				"resumed": "Обновљена су преношења уживо",
 				"live": "Уживо"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Пређите у режим скроловања",
-				"switchToPagination": "Пређите у режим страничења",
-				"scroll": "⇊ Скролуј",
-				"pages": "⬡ Странице"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Филтрирајте по распону датума",
 				"clearDateFilter": "Очисти филтер датума",
@@ -2881,12 +2871,6 @@
 			"noRecommendationsAvailable": "Нема доступних препорука",
 			"tooltip": "Применити препоручена подешавања из каталога models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Пређите у режим скроловања",
-			"switchToPagination": "Пређите у режим страничења",
-			"scroll": "⇊ Скролуј",
-			"pages": "⬡ Странице"
-		},
 		"liveToggleButton": {
 			"live": "Уживо",
 			"liveUpdatesPaused": "Прекинута су ажурирања уживо",
@@ -2945,6 +2929,11 @@
 			"modelCount_one": "модел",
 			"modelCount_few": "модела",
 			"modelCount_other": "модела"
+		},
+		"viewModeToggle": {
+			"tooltip": "Кликните да бисте прешли између страничења и бесконачног скроловања.",
+			"scrolling": "Бесконачно скроловање",
+			"pagination": "Страничење"
 		}
 	},
 	"failoverGroups": {

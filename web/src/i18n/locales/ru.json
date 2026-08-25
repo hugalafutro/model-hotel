@@ -1031,10 +1031,6 @@
 		"page_title_other": "Модели",
 		"page_description": "Найденные модели от ваших провайдеров",
 		"badge_disabled": "{{count}} отключен",
-		"view_mode_pages": "⬡ Страницы",
-		"view_mode_scroll": "⇊ Прокрутка",
-		"switch_to_pagination": "Переключиться в режим пагинации",
-		"switch_to_scroll": "Переключиться в режим прокрутки",
 		"toast_updated": "Модель обновлена",
 		"toast_update_failed": "Не удалось обновить модель: {{message}}",
 		"toast_toggle_enabled": "Модель включена",
@@ -2477,12 +2473,6 @@
 				"resumed": "Обновления в реальном времени возобновлены",
 				"live": "Онлайн"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Переключиться в режим прокрутки",
-				"switchToPagination": "Переключиться в режим пагинации",
-				"scroll": "⇊ Прокрутка",
-				"pages": "⬡ Страницы"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Фильтр по диапазону дат",
 				"clearDateFilter": "Очистить фильтр даты",
@@ -2941,12 +2931,6 @@
 			"noRecommendationsAvailable": "Нет доступных рекомендаций",
 			"tooltip": "Применить рекомендованные настройки из каталога models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Переключиться в режим прокрутки",
-			"switchToPagination": "Переключиться в режим пагинации",
-			"scroll": "⇊ Прокрутка",
-			"pages": "⬡ Страницы"
-		},
 		"liveToggleButton": {
 			"live": "Онлайн",
 			"liveUpdatesPaused": "Онлайн обновления приостановлены",
@@ -3006,6 +2990,11 @@
 			"modelCount_few": "модели",
 			"modelCount_many": "моделей",
 			"modelCount_other": "модели"
+		},
+		"viewModeToggle": {
+			"tooltip": "Нажмите, чтобы переключиться между пагинацией и бесконечной прокруткой.",
+			"scrolling": "Бесконечная прокрутка",
+			"pagination": "Пагинация"
 		}
 	},
 	"failoverGroups": {

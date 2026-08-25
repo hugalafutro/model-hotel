@@ -971,10 +971,6 @@
 		"page_title_other": "Modelle",
 		"page_description": "Entdeckte Modelle von Ihren Anbietern",
 		"badge_disabled": "{{count}} deaktiviert",
-		"view_mode_pages": "⬡ Seiten",
-		"view_mode_scroll": "⇊ Scrollen",
-		"switch_to_pagination": "Zum Seitenmodus wechseln",
-		"switch_to_scroll": "Zum Scroll-Modus wechseln",
 		"toast_updated": "Modell aktualisiert",
 		"toast_update_failed": "Fehler beim Aktualisieren des Modells: {{message}}",
 		"toast_toggle_enabled": "Modell aktiviert",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live-Updates fortgesetzt",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Zum Scroll-Modus wechseln",
-				"switchToPagination": "Zum Seitenmodus wechseln",
-				"scroll": "⇊ Scrollen",
-				"pages": "⬡ Seiten"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Nach Datumsbereich filtern",
 				"clearDateFilter": "Datumsfilter löschen",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Keine Empfehlungen verfügbar",
 			"tooltip": "Empfohlene Einstellungen aus models.dev Katalog anwenden"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Zum Scroll-Modus wechseln",
-			"switchToPagination": "Zum Seitenmodus wechseln",
-			"scroll": "⇊ Scrollen",
-			"pages": "⬡ Seiten"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Live-Updates pausiert",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "modell",
 			"modelCount_other": "modelle"
+		},
+		"viewModeToggle": {
+			"tooltip": "Klicken, um zwischen Seitenmodus und endlosem Scrollen zu wechseln.",
+			"scrolling": "Endloses Scrollen",
+			"pagination": "Seitenmodus"
 		}
 	},
 	"failoverGroups": {

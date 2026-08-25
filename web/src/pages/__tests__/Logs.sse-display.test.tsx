@@ -716,8 +716,8 @@ describe("Logs", () => {
 			});
 
 			// Click the switch to pagination mode button
-			const switchToPaginateBtn = screen.getByLabelText(
-				"Switch to pagination mode",
+			const switchToPaginateBtn = screen.getByTitle(
+				"Click to toggle between pagination and infinite scrolling.",
 			);
 			await user.click(switchToPaginateBtn);
 
@@ -728,9 +728,9 @@ describe("Logs", () => {
 				).not.toBeInTheDocument();
 			});
 
-			// Button should now offer switching to scroll mode
+			// Toggle glyph now reflects paginate mode
 			expect(
-				screen.getByLabelText("Switch to scroll mode"),
+				switchToPaginateBtn.querySelector(".icon-pages"),
 			).toBeInTheDocument();
 		});
 
@@ -753,7 +753,9 @@ describe("Logs", () => {
 			});
 
 			// Click switch to scroll mode
-			const switchToScrollBtn = screen.getByLabelText("Switch to scroll mode");
+			const switchToScrollBtn = screen.getByTitle(
+				"Click to toggle between pagination and infinite scrolling.",
+			);
 			await user.click(switchToScrollBtn);
 
 			// View mode should be persisted

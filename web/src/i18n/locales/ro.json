@@ -1001,10 +1001,6 @@
 		"page_title_other": "Modele",
 		"page_description": "Modele descoperite de la furnizorii tăi",
 		"badge_disabled": "{{count}} dezactivat",
-		"view_mode_pages": "⬡ Pagini",
-		"view_mode_scroll": "⇊ Derulare",
-		"switch_to_pagination": "Comutați la modul paginare",
-		"switch_to_scroll": "Comutați la modul derulare",
 		"toast_updated": "Model actualizat",
 		"toast_update_failed": "Actualizarea modelului a eșuat: {{message}}",
 		"toast_toggle_enabled": "Model activat",
@@ -2424,12 +2420,6 @@
 				"resumed": "Actualizări live reluate",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Comutați la modul derulare",
-				"switchToPagination": "Comutați la modul paginare",
-				"scroll": "⇊ Derulare",
-				"pages": "⬡ Pagini"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrează după intervalul de date",
 				"clearDateFilter": "Ștergeți filtrul de date",
@@ -2881,12 +2871,6 @@
 			"noRecommendationsAvailable": "Nu există recomandări disponibile",
 			"tooltip": "Aplică setările recomandate din catalogul de models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Comutați la modul derulare",
-			"switchToPagination": "Comutați la modul paginare",
-			"scroll": "⇊ Derulare",
-			"pages": "⬡ Pagini"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Actualizări live întrerupte",
@@ -2945,6 +2929,11 @@
 			"modelCount_one": "model",
 			"modelCount_few": "modele",
 			"modelCount_other": "de modele"
+		},
+		"viewModeToggle": {
+			"tooltip": "Faceți clic pentru a comuta între paginare și derulare infinită.",
+			"scrolling": "Derulare infinită",
+			"pagination": "Paginare"
 		}
 	},
 	"failoverGroups": {
