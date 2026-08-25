@@ -13,6 +13,7 @@ import { useToast } from "../context/ToastContext";
 import { reportResults } from "../utils/syncResults";
 import { formatRelative } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
+import { CopyRow } from "./CopyRow";
 import { Notice } from "./Notice";
 
 // FleetSyncWizard is the single control for designating a source-of-truth member
@@ -944,40 +945,6 @@ function StepConfig({
 					</button>
 				</div>
 			)}
-		</div>
-	);
-}
-
-// CopyRow shows a monospace URL with a copy button, mirroring the reset panel's
-// clipboard handling (silently no-ops when the clipboard is blocked; the text
-// stays selectable).
-function CopyRow({ value }: { value: string }) {
-	const { t } = useTranslation();
-	const [copied, setCopied] = useState(false);
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(value);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
-		} catch {
-			/* clipboard blocked: the value stays selectable */
-		}
-	};
-	return (
-		<div className="fd-row" style={{ gap: "0.5rem", alignItems: "center" }}>
-			<code
-				className="ui-input fd-mono"
-				style={{
-					flex: "1 1 auto",
-					padding: "0.3rem 0.5rem",
-					userSelect: "all",
-				}}
-			>
-				{value}
-			</code>
-			<button type="button" className="ui-btn ui-btn-sm" onClick={copy}>
-				{copied ? t("common.copied") : t("common.copy")}
-			</button>
 		</div>
 	);
 }

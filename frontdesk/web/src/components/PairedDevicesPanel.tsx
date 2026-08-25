@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DeviceRole, PairedDevice, PairStart } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { formatAbsolute } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -33,6 +34,9 @@ const DEVICE_LIST_POLL_MS = 5000;
 export function PairedDevicesPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	// Copying the pairing string is reported as a toast, not a label on the
+	// button, so the hook's "Copied" flag is left off.
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const [devices, setDevices] = useState<PairedDevice[] | null>(null);
 	const [role, setRole] = useState<DeviceRole>("operator");
 	const [pair, setPair] = useState<PairStart | null>(null);
@@ -152,12 +156,11 @@ export function PairedDevicesPanel() {
 
 	const copyPayload = async () => {
 		if (!pair) return;
-		try {
-			await navigator.clipboard.writeText(pairingPayload(pair.code));
-			toast(t("settings.devices.copied"), "success");
-		} catch {
-			toast(t("errors.generic"), "error");
-		}
+		const ok = await copy(pairingPayload(pair.code));
+		toast(
+			ok ? t("settings.devices.copied") : t("errors.generic"),
+			ok ? "success" : "error",
+		);
 	};
 
 	const confirmRevoke = async () => {

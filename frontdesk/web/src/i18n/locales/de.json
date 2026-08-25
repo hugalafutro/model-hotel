@@ -402,8 +402,6 @@
 				},
 				"ntfyServerHint": "Sie nutzen ntfy.sh? Geben Sie https://ntfy.sh ein. Selbst gehostet? Ihre öffentliche ntfy-Adresse.",
 				"generate": "Erzeugen",
-				"copy": "Kopieren",
-				"copied": "Kopiert",
 				"ntfySubscribe": "Auf Ihrem Telefon in der ntfy-App: Thema abonnieren, Anderen Server verwenden, dann eingeben:",
 				"bellhopPasteHint": "Öffnen Sie Bellhop, Einstellungen, Echtzeit-Push, und fügen Sie das dort angezeigte Push-Thema für Front Desk ein.",
 				"bellhopBad": "Das sieht nicht nach einem Bellhop-Push-Endpunkt aus. Er sollte so aussehen: https://ntfy.example.com/upAbCdEf?up=1",

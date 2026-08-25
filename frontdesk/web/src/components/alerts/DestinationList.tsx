@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { ConfirmModal } from "../ConfirmModal";
 import { describeTarget } from "./composers";
 
@@ -146,34 +147,19 @@ export function DestinationList({
 // row text stays selectable.
 function CopyButton({ url, rowName }: { url: string; rowName: string }) {
 	const { t } = useTranslation();
-	const [copied, setCopied] = useState(false);
-	// The "Copied" label reverts on a timer, which has to be dropped if the row
-	// goes first: removing a destination unmounts it, and firing then would set
-	// state on an unmounted button.
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(
-		() => () => {
-			if (timer.current !== null) clearTimeout(timer.current);
-		},
-		[],
-	);
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(url);
-			setCopied(true);
-			if (timer.current !== null) clearTimeout(timer.current);
-			timer.current = setTimeout(() => setCopied(false), 2000);
-		} catch {
-			/* clipboard blocked: the value stays selectable */
-		}
-	};
+	// The "Copied" label reverts on a timer the hook drops if the row goes first:
+	// removing a destination unmounts it, and firing then would set state on an
+	// unmounted button.
+	const { copy, copied } = useCopyToClipboard();
 	return (
 		<button
 			type="button"
 			className="ui-btn ui-btn-sm"
 			data-testid="alert-destination-copy"
 			aria-label={`${t("common.copy")}: ${rowName}`}
-			onClick={copy}
+			onClick={() => {
+				void copy(url);
+			}}
 		>
 			{copied ? t("common.copied") : t("common.copy")}
 		</button>

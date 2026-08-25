@@ -406,8 +406,6 @@
 				},
 				"ntfyServerHint": "Vous utilisez ntfy.sh ? Saisissez https://ntfy.sh. Auto-hébergé ? Votre adresse ntfy publique.",
 				"generate": "Générer",
-				"copy": "Copier",
-				"copied": "Copié",
 				"ntfySubscribe": "Sur votre téléphone, dans l'application ntfy : S'abonner à un sujet, Utiliser un autre serveur, puis saisissez :",
 				"bellhopPasteHint": "Ouvrez Bellhop, Paramètres, Push en temps réel, et collez le Sujet push pour Front Desk affiché là.",
 				"bellhopBad": "Cela ne ressemble pas à un point de terminaison push Bellhop. Il devrait ressembler à https://ntfy.example.com/upAbCdEf?up=1",

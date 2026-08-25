@@ -402,8 +402,6 @@
 				},
 				"ntfyServerHint": "ntfy.sh を使いますか? https://ntfy.sh と入力してください。セルフホストの場合は、公開している ntfy のアドレスを入力します。",
 				"generate": "生成",
-				"copy": "コピー",
-				"copied": "コピーしました",
 				"ntfySubscribe": "スマホの ntfy アプリで、トピックを購読、別のサーバーを使用、の順に選び、次を入力してください:",
 				"bellhopPasteHint": "Bellhop を開き、設定、リアルタイム プッシュ、と進んで、そこに表示されている Front Desk 用のプッシュトピックを貼り付けてください。",
 				"bellhopBad": "これは Bellhop のプッシュエンドポイントには見えません。https://ntfy.example.com/upAbCdEf?up=1 のような形式になります。",

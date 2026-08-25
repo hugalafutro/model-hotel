@@ -402,8 +402,6 @@
 				},
 				"ntfyServerHint": "Gebruik je ntfy.sh? Typ https://ntfy.sh. Zelf gehost? Je publieke ntfy-adres.",
 				"generate": "Genereren",
-				"copy": "Kopiëren",
-				"copied": "Gekopieerd",
 				"ntfySubscribe": "Op je telefoon, in de ntfy-app: Abonneren op onderwerp, Andere server gebruiken, en voer dan in:",
 				"bellhopPasteHint": "Open Bellhop, Instellingen, Realtime push, en plak het Push-onderwerp voor Front Desk dat daar staat.",
 				"bellhopBad": "Dat lijkt geen Bellhop-push-endpoint. Het hoort er zo uit te zien: https://ntfy.example.com/upAbCdEf?up=1",

@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { formatAbsolute } from "../utils/time";
 import { registerPasskey } from "../utils/webauthn";
 import { ConfirmModal } from "./ConfirmModal";
@@ -33,14 +34,6 @@ export function SecurityPanels() {
 			<TotpPanel />
 		</div>
 	);
-}
-
-function copyText(
-	value: string,
-	ok: () => void,
-	fail: () => void,
-): Promise<void> {
-	return navigator.clipboard.writeText(value).then(ok, fail);
 }
 
 // transportLabel maps a WebAuthn transport to a friendly device hint, mirroring
@@ -320,6 +313,18 @@ function CredentialRow({
 function TotpPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	// The result is reported as a toast rather than a label on the button, so the
+	// hook's "Copied" flag is left off.
+	const { copy } = useCopyToClipboard({ trackCopied: false });
+
+	// copyValue puts one secret on the clipboard and says which way it went. A
+	// refused clipboard is a message rather than a silent no-op, because the
+	// operator is mid-enrolment and has to know to select the text by hand.
+	const copyValue = (value: string, okMessage: string) => {
+		void copy(value).then((ok) => {
+			toast(ok ? okMessage : t("common.copy"), ok ? "success" : "error");
+		});
+	};
 
 	const [enabled, setEnabled] = useState(false);
 	const [enabledAt, setEnabledAt] = useState<string | undefined>(undefined);
@@ -462,10 +467,9 @@ function TotpPanel() {
 						type="button"
 						className="ui-btn ui-btn-ghost"
 						onClick={() =>
-							copyText(
+							copyValue(
 								recoveryCodes.join("\n"),
-								() => toast(t("settings.totp.codesCopied"), "success"),
-								() => toast(t("common.copy"), "error"),
+								t("settings.totp.codesCopied"),
 							)
 						}
 					>
@@ -531,11 +535,7 @@ function TotpPanel() {
 							type="button"
 							className="ui-btn ui-btn-ghost ui-btn-sm"
 							onClick={() =>
-								copyText(
-									enrollSecret,
-									() => toast(t("settings.totp.secretCopied"), "success"),
-									() => toast(t("common.copy"), "error"),
-								)
+								copyValue(enrollSecret, t("settings.totp.secretCopied"))
 							}
 							aria-label={t("settings.totp.secret")}
 						>

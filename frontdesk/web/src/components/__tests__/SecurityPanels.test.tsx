@@ -363,4 +363,41 @@ describe("TotpPanel", () => {
 
 		expect(await screen.findByText(/Invalid code/i)).toBeInTheDocument();
 	});
+
+	it("copies the enrollment secret and toasts either outcome", async () => {
+		const writeText = vi
+			.fn()
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error("denied"));
+		Object.defineProperty(navigator, "clipboard", {
+			value: { writeText },
+			configurable: true,
+		});
+		server.use(
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false, has_credentials: false }),
+			),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({
+					uri: "otpauth://totp/FrontDesk:admin?secret=JBSWY3DPEHPK3PXP",
+					secret: "JBSWY3DPEHPK3PXP",
+				}),
+			),
+		);
+		renderPanels();
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^Enable$/i }),
+		);
+		const copyButton = await screen.findByRole("button", { name: /^Secret$/i });
+
+		await userEvent.click(copyButton);
+		expect(writeText).toHaveBeenCalledWith("JBSWY3DPEHPK3PXP");
+		expect(await screen.findByText(/Secret copied/i)).toBeInTheDocument();
+
+		// A refused clipboard says so instead of leaving the operator to guess.
+		await userEvent.click(copyButton);
+		expect(await screen.findByText(/^Copy$/)).toBeInTheDocument();
+	});
 });

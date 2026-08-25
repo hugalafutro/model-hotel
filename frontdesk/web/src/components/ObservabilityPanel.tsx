@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ObservabilityStatus } from "../api/types";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 
 // Exporter is one log-export integration row: its enabled state plus the copy
 // for the status badge and the (copyable) environment variable that turns it on.
@@ -28,24 +29,17 @@ interface Exporter {
 // clipboard failure is swallowed (the text is selectable regardless).
 function CopyEnvVar({ text }: { text: string }) {
 	const { t } = useTranslation();
-	const [copied, setCopied] = useState(false);
-
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 1500);
-		} catch {
-			// Clipboard unavailable (insecure context / denied): leave the text
-			// visible so the operator can select it manually.
-		}
-	};
+	// A clipboard that is unavailable (insecure context / denied) leaves the text
+	// visible so the operator can select it manually, and the icon never swaps.
+	const { copy, copied } = useCopyToClipboard({ resetAfterMs: 1500 });
 
 	return (
 		<button
 			type="button"
 			className="ui-btn ui-btn-ghost fd-mono"
-			onClick={copy}
+			onClick={() => {
+				void copy(text);
+			}}
 			title={t("settings.observability.copy")}
 			aria-label={t("settings.observability.copy")}
 			style={{

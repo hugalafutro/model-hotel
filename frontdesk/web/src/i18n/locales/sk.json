@@ -410,8 +410,6 @@
 				},
 				"ntfyServerHint": "Používate ntfy.sh? Zadajte https://ntfy.sh. Máte vlastný server? Zadajte svoju verejnú adresu ntfy.",
 				"generate": "Vygenerovať",
-				"copy": "Kopírovať",
-				"copied": "Skopírované",
 				"ntfySubscribe": "Na telefóne v aplikácii ntfy: Odoberať tému, Použiť iný server, a potom zadajte:",
 				"bellhopPasteHint": "Otvorte Bellhop, Nastavenia, Push v reálnom čase, a vložte Push tému pre Front Desk, ktorá sa tam zobrazuje.",
 				"bellhopBad": "Toto nevyzerá ako push endpoint Bellhopu. Mal by vyzerať takto: https://ntfy.example.com/upAbCdEf?up=1",
