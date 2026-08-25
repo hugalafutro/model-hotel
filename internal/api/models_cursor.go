@@ -32,8 +32,7 @@ import (
 //   - enabled: "true" or "false" to filter on the model's own enabled flag
 func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(ModelsCursorResponse{})
+		writeJSON(w, ModelsCursorResponse{})
 		return
 	}
 

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -59,15 +58,11 @@ func (h *Handler) rejectDuplicateLocalServer(w http.ResponseWriter, r *http.Requ
 			continue
 		}
 		if provider.SameLocalAddress(p.BaseURL, baseURL) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			if err := json.NewEncoder(w).Encode(map[string]string{
+			writeJSONStatus(w, http.StatusConflict, map[string]string{
 				"code":     codeProviderDuplicateAddress,
 				"error":    "a provider for this address already exists: " + p.Name,
 				"existing": p.Name,
-			}); err != nil {
-				logEncodeError(err)
-			}
+			})
 			return false
 		}
 	}
@@ -75,11 +70,7 @@ func (h *Handler) rejectDuplicateLocalServer(w http.ResponseWriter, r *http.Requ
 }
 
 func writeProviderTypeGateError(w http.ResponseWriter, body providerTypeGateResponse) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		logEncodeError(err)
-	}
+	writeJSONStatus(w, http.StatusBadRequest, body)
 }
 
 // confirmLocalServerType blocks a create or a URL change whose address does not

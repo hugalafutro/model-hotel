@@ -10,25 +10,26 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
+// logComponent is the log prefix the shared response helpers write under.
+const logComponent = "frontdesk"
+
+// writeJSON encodes v as JSON with an explicit status code.
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		debuglog.Error("frontdesk: encode response", "error", err)
-	}
+	httpx.WriteJSONStatus(w, logComponent, status, v)
 }
 
-// writeError maps store errors to HTTP status codes.
 // writeCodedError writes a JSON error body carrying a stable machine-readable
 // code alongside the human message, so the frontend can route on the code rather
 // than matching translatable English text. Plain-text writeError is kept for the
 // many endpoints that need no client-side discrimination.
 func writeCodedError(w http.ResponseWriter, status int, code, msg string) {
-	writeJSON(w, status, map[string]string{"code": code, "error": msg})
+	httpx.WriteCodedError(w, logComponent, status, code, msg)
 }
 
+// writeError maps store errors to HTTP status codes.
 func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):

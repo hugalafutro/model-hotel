@@ -97,10 +97,7 @@ func (h *Handler) ProbeAlert(w http.ResponseWriter, r *http.Request) {
 // The dashboard renders its event picker from this, so a new Go-side event
 // surfaces in the UI without any frontend change.
 func (h *Handler) GetAlertEvents(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(alert.Catalog()); err != nil {
-		respondError(w, "failed to encode alert events", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, alert.Catalog())
 }
 
 // SendAlertTest (POST /alert/test) fires a test notification. With no body it

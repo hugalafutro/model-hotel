@@ -9,8 +9,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// TestReadOnlyGuard verifies the middleware in isolation: safe methods reach the
-// next handler, mutating methods are refused with 403 and never reach it.
+// TestReadOnlyGuard verifies the api wrapper delegates to httpx.ReadOnlyGuard:
+// safe methods reach the next handler, mutating methods are refused with 403,
+// and the discovery-ack exemption still passes through. The full method matrix
+// and the exempt-path list are tested in internal/httpx.
 func TestReadOnlyGuard(t *testing.T) {
 	var called bool
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -19,54 +21,26 @@ func TestReadOnlyGuard(t *testing.T) {
 	})
 	guard := readOnlyGuard(next)
 
-	for _, m := range []string{http.MethodGet, http.MethodHead, http.MethodOptions} {
+	cases := []struct {
+		method     string
+		path       string
+		wantCalled bool
+		wantCode   int
+	}{
+		{http.MethodGet, "/providers", true, http.StatusOK},
+		{http.MethodPost, "/providers", false, http.StatusForbidden},
+		{http.MethodPost, "/api/discovery/changes/ack", true, http.StatusOK},
+	}
+	for _, tc := range cases {
 		called = false
 		rec := httptest.NewRecorder()
-		guard.ServeHTTP(rec, httptest.NewRequest(m, "/providers", http.NoBody))
-		if !called {
-			t.Errorf("%s: expected next handler to be called", m)
+		guard.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, http.NoBody))
+		if called != tc.wantCalled {
+			t.Errorf("%s %s: next handler called = %v, want %v", tc.method, tc.path, called, tc.wantCalled)
 		}
-		if rec.Code != http.StatusOK {
-			t.Errorf("%s: expected 200, got %d", m, rec.Code)
+		if rec.Code != tc.wantCode {
+			t.Errorf("%s %s: status = %d, want %d", tc.method, tc.path, rec.Code, tc.wantCode)
 		}
-	}
-
-	for _, m := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
-		called = false
-		rec := httptest.NewRecorder()
-		guard.ServeHTTP(rec, httptest.NewRequest(m, "/providers", http.NoBody))
-		if called {
-			t.Errorf("%s: next handler must not be called in read-only mode", m)
-		}
-		if rec.Code != http.StatusForbidden {
-			t.Errorf("%s: expected 403, got %d", m, rec.Code)
-		}
-	}
-
-	// Acknowledging background-discovery notifications is exempt: it only flips a
-	// per-row "seen" flag, so it must pass through even in read-only mode.
-	called = false
-	rec := httptest.NewRecorder()
-	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/discovery/changes/ack", http.NoBody))
-	if !called {
-		t.Error("POST /discovery/changes/ack: expected exemption to reach next handler")
-	}
-	if rec.Code != http.StatusOK {
-		t.Errorf("POST /discovery/changes/ack: expected 200, got %d", rec.Code)
-	}
-
-	// Dismiss is NOT exempt. It suppresses a real discrepancy from everyone's
-	// view, unlike the ack it sits next to, which only flips a per-row seen
-	// flag. Pattern-matching the neighbouring exemption is the easy way to get
-	// this wrong, so it is asserted explicitly.
-	called = false
-	rec = httptest.NewRecorder()
-	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/discovery/dismiss", http.NoBody))
-	if called {
-		t.Error("POST /api/discovery/dismiss: next handler must not be called in read-only mode")
-	}
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("read-only POST /api/discovery/dismiss = %d, want 403", rec.Code)
 	}
 }
 

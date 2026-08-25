@@ -3,18 +3,65 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"syscall"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// The helper bodies live in internal/httpx and are tested there. What this
+// package owns is the wrapper layer: it must keep the "api" log prefix and the
+// argument order the ~250 call sites rely on.
+
+// msgCaptureHandler records the message of the last record it handled.
+type msgCaptureHandler struct{ msg string }
+
+func (h *msgCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *msgCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	h.msg = r.Message
+	return nil
+}
+func (h *msgCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *msgCaptureHandler) WithGroup(string) slog.Handler      { return h }
+
+func captureAPILogs(t *testing.T) *msgCaptureHandler {
+	t.Helper()
+	// SetHandler swaps the process-wide slog default; restore it afterwards so
+	// later tests in this package aren't silently swallowed by the capture handler.
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	capt := &msgCaptureHandler{}
+	debuglog.SetHandler(capt)
+	return capt
+}
+
+func TestRespondError_UsesAPIPrefix(t *testing.T) {
+	capt := captureAPILogs(t)
+	w := httptest.NewRecorder()
+	respondError(w, "failed to load thing", errors.New("db down"), http.StatusInternalServerError)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
+	}
+	if capt.msg != "api: failed to load thing" {
+		t.Errorf("log message = %q, want the api prefix", capt.msg)
+	}
+}
+
+func TestRespondBadRequest_UsesAPIPrefix(t *testing.T) {
+	capt := captureAPILogs(t)
+	w := httptest.NewRecorder()
+	respondBadRequest(w, "invalid JSON body", errors.New("unexpected EOF"))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+	if capt.msg != "api: bad request: invalid JSON body" {
+		t.Errorf("log message = %q, want the api prefix", capt.msg)
+	}
+}
 
 func TestRespondLookupError(t *testing.T) {
 	t.Run("not-found sentinel returns 404", func(t *testing.T) {
@@ -25,80 +72,52 @@ func TestRespondLookupError(t *testing.T) {
 		}
 	})
 
-	t.Run("wrapped not-found sentinel returns 404", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		wrapped := fmt.Errorf("query failed: %w", pgx.ErrNoRows)
-		respondLookupError(w, wrapped, pgx.ErrNoRows, "thing not found", "failed to load thing")
-		if w.Code != http.StatusNotFound {
-			t.Errorf("expected 404 for wrapped sentinel, got %d", w.Code)
-		}
-	})
-
-	t.Run("any other error returns a logged 500", func(t *testing.T) {
+	t.Run("any other error returns a logged 500 under the api prefix", func(t *testing.T) {
+		capt := captureAPILogs(t)
 		w := httptest.NewRecorder()
 		respondLookupError(w, errors.New("db connection lost"), pgx.ErrNoRows, "thing not found", "failed to load thing")
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("expected 500, got %d", w.Code)
 		}
+		if capt.msg != "api: failed to load thing" {
+			t.Errorf("log message = %q, want the api prefix", capt.msg)
+		}
 	})
 }
 
-func TestIsClientDisconnect(t *testing.T) {
-	cases := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"broken pipe", syscall.EPIPE, true},
-		{"connection reset", syscall.ECONNRESET, true},
-		{"closed conn", net.ErrClosed, true},
-		{"context canceled is not a disconnect", context.Canceled, false},
-		{"wrapped broken pipe", fmt.Errorf("write tcp: %w", syscall.EPIPE), true},
-		{"unmarshalable value", errors.New("json: unsupported type: chan int"), false},
-		{"nil", nil, false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isClientDisconnect(tc.err); got != tc.want {
-				t.Errorf("isClientDisconnect(%v) = %v, want %v", tc.err, got, tc.want)
-			}
-		})
-	}
-}
-
-// levelCaptureHandler records the level of the last record it handled.
-type levelCaptureHandler struct{ last slog.Level }
-
-func (h *levelCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-func (h *levelCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	h.last = r.Level
-	return nil
-}
-func (h *levelCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *levelCaptureHandler) WithGroup(string) slog.Handler      { return h }
-
-func TestLogEncodeError_Level(t *testing.T) {
-	// SetHandler swaps the process-wide slog default; restore it afterwards so
-	// later tests in this package aren't silently swallowed by the capture handler.
-	prev := slog.Default().Handler()
-	t.Cleanup(func() { debuglog.SetHandler(prev) })
-
-	capt := &levelCaptureHandler{}
-	debuglog.SetHandler(capt)
-
-	t.Run("client disconnect logs at debug", func(t *testing.T) {
-		capt.last = slog.LevelError + 1 // sentinel
-		logEncodeError(fmt.Errorf("write tcp 1.2.3.4:8080->5.6.7.8:9: write: %w", syscall.EPIPE))
-		if capt.last != slog.LevelDebug {
-			t.Errorf("expected debug level, got %v", capt.last)
+func TestWriteJSONHelpers(t *testing.T) {
+	t.Run("writeJSON", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		writeJSON(w, map[string]string{"a": "b"})
+		if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/json" {
+			t.Errorf("got %d %q", w.Code, w.Header().Get("Content-Type"))
 		}
 	})
 
-	t.Run("genuine encode error logs at error", func(t *testing.T) {
-		capt.last = slog.LevelDebug - 1 // sentinel
-		logEncodeError(errors.New("json: unsupported type: chan int"))
-		if capt.last != slog.LevelError {
-			t.Errorf("expected error level, got %v", capt.last)
+	t.Run("writeJSONCreated writes 201", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		writeJSONCreated(w, map[string]string{"a": "b"})
+		if w.Code != http.StatusCreated {
+			t.Errorf("status = %d, want 201", w.Code)
+		}
+	})
+
+	t.Run("writeJSONStatus writes the given status", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		writeJSONStatus(w, http.StatusAccepted, map[string]string{"a": "b"})
+		if w.Code != http.StatusAccepted {
+			t.Errorf("status = %d, want 202", w.Code)
+		}
+	})
+
+	t.Run("writeCodedError writes {code,error}", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		writeCodedError(w, http.StatusConflict, "duplicate", "already exists")
+		if w.Code != http.StatusConflict {
+			t.Errorf("status = %d, want 409", w.Code)
+		}
+		if got := w.Body.String(); got != "{\"code\":\"duplicate\",\"error\":\"already exists\"}\n" {
+			t.Errorf("body = %q", got)
 		}
 	})
 }
