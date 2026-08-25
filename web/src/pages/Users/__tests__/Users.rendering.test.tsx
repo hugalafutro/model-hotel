@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardUser } from "../../../api/types";
-import { mockUsersApi } from "../../../test/helpers";
+import { serveUsersApi } from "../../../test/helpers";
 import { mockDashboardUser } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -25,7 +25,7 @@ describe("Users page", () => {
 	});
 
 	it("renders the empty state when no users exist", async () => {
-		mockUsersApi([]);
+		serveUsersApi([]);
 		renderWithProviders(<Users />);
 		await waitFor(() => {
 			expect(
@@ -37,7 +37,7 @@ describe("Users page", () => {
 	});
 
 	it("renders users with role and status badges plus grant labels", async () => {
-		mockUsersApi([mockDashboardUser, mockAdmin]);
+		serveUsersApi([mockDashboardUser, mockAdmin]);
 		renderWithProviders(<Users />);
 
 		await waitFor(() => {
@@ -56,7 +56,7 @@ describe("Users page", () => {
 	});
 
 	it("opens the create modal from the add button", async () => {
-		mockUsersApi([]);
+		serveUsersApi([]);
 		const { user } = renderWithProviders(<Users />);
 
 		await waitFor(() => {
@@ -72,7 +72,7 @@ describe("Users page", () => {
 	});
 
 	it("opens the edit modal when a row is clicked", async () => {
-		mockUsersApi([mockDashboardUser]);
+		serveUsersApi([mockDashboardUser]);
 		const { user } = renderWithProviders(<Users />);
 
 		await waitFor(() => {

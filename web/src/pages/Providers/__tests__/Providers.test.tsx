@@ -252,8 +252,10 @@ describe("Providers", () => {
 			};
 			server.use(
 				...mockProvidersPageDefaults({ providers: [testProvider] }),
-				http.delete("/api/providers/:id", () =>
-					HttpResponse.json({ error: "Delete failed" }, { status: 500 }),
+				// DeleteProvider answers http.Error, so the body is plain text.
+				http.delete(
+					"/api/providers/:id",
+					() => new HttpResponse("provider not found", { status: 404 }),
 				),
 			);
 
@@ -283,7 +285,7 @@ describe("Providers", () => {
 			await waitFor(() => {
 				expect(
 					screen.getByText(
-						'Failed to delete: Failed to delete provider: 500 {"error":"Delete failed"}',
+						"Failed to delete: Failed to delete provider: 404 provider not found",
 					),
 				).toBeInTheDocument();
 			});

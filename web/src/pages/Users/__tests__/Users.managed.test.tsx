@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockUsersApi } from "../../../test/helpers";
+import { serveUsersApi } from "../../../test/helpers";
 import { mockDashboardUser, mockSystemStats } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -24,7 +24,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("member")),
 			),
 		);
-		mockUsersApi([mockDashboardUser]);
+		serveUsersApi([mockDashboardUser]);
 		renderWithProviders(<Users />);
 
 		expect(await screen.findByTestId("managed-banner")).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("member")),
 			),
 		);
-		mockUsersApi([mockDashboardUser]);
+		serveUsersApi([mockDashboardUser]);
 		const { user } = renderWithProviders(<Users />);
 
 		await user.click(await screen.findByText("alice"));
@@ -69,7 +69,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("primary")),
 			),
 		);
-		mockUsersApi([mockDashboardUser]);
+		serveUsersApi([mockDashboardUser]);
 		renderWithProviders(<Users />);
 
 		expect(await screen.findByTestId("add-user-button")).toBeInTheDocument();

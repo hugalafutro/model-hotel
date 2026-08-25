@@ -282,9 +282,11 @@ export function serveSettings(values: Record<string, string>): void {
 /**
  * Serve the pair of reads the Users page makes on mount: the user list and
  * the catalogue of grants the role editor offers. Registers itself on the
- * shared server.
+ * shared server. Named apart from the provider-access suite's local
+ * mockUsersApi, which serves a shorter grant list and an extra providers
+ * handler that its assertions depend on.
  */
-export function mockUsersApi(users: DashboardUser[]): void {
+export function serveUsersApi(users: DashboardUser[]): void {
 	server.use(
 		http.get("/api/users", () => HttpResponse.json(users)),
 		http.get("/api/users/grants", () =>

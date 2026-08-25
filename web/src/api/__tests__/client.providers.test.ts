@@ -96,35 +96,25 @@ describe("api.providers", () => {
 			);
 		});
 
-		it("carries the server's error text on failure", async () => {
+		// Both failure bodies below are the plain text DeleteProvider actually
+		// sends; the endpoint has no coded {code, error} path.
+		it("carries the server's error text on a missing provider", async () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
-				new Response("provider is still referenced", { status: 409 }),
-			);
-			await expect(api.providers.delete("123")).rejects.toThrow(
-				"Failed to delete provider: 409 provider is still referenced",
-			);
-		});
-
-		it("reports the status even when the failure body is empty", async () => {
-			vi.spyOn(globalThis, "fetch").mockResolvedValue(
-				new Response(null, { status: 500 }),
-			);
-			await expect(api.providers.delete("123")).rejects.toThrow(
-				"Failed to delete provider: 500",
-			);
-		});
-
-		it("carries the status and code of a coded error body", async () => {
-			vi.spyOn(globalThis, "fetch").mockResolvedValue(
-				new Response(
-					JSON.stringify({ code: "provider_in_use", error: "still in use" }),
-					{ status: 409 },
-				),
+				new Response("provider not found", { status: 404 }),
 			);
 			await expect(api.providers.delete("123")).rejects.toMatchObject({
-				message: "Failed to delete provider: 409 still in use",
-				status: 409,
-				code: "provider_in_use",
+				message: "Failed to delete provider: 404 provider not found",
+				status: 404,
+			});
+		});
+
+		it("carries the server's error text on a delete that fails", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("failed to delete provider 123", { status: 500 }),
+			);
+			await expect(api.providers.delete("123")).rejects.toMatchObject({
+				message: "Failed to delete provider: 500 failed to delete provider 123",
+				status: 500,
 			});
 		});
 	});
