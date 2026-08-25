@@ -2,6 +2,7 @@ import type {
 	PublicKeyCredentialCreationOptionsJSON,
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
+import { readCookie } from "@web-shared/cookies";
 import type {
 	AlertEventDef,
 	AlertStatus,
@@ -46,8 +47,7 @@ const CSRF_COOKIE = "fd_csrf";
 
 /** getCsrfToken reads the readable fd_csrf cookie, or null when absent. */
 export function getCsrfToken(): string | null {
-	const m = document.cookie.match(/(?:^|;\s*)fd_csrf=([^;]+)/);
-	return m ? decodeURIComponent(m[1]) : null;
+	return readCookie(CSRF_COOKIE);
 }
 
 /** hasSession reports whether a login has left its readable cookie marker. */
