@@ -29,7 +29,9 @@
 #
 # The base ref also comes from SIZE_GATE_BASE, which is how CI passes the pull
 # request's base commit. With neither set the comparison runs against
-# origin/master, and says so and skips when that ref is not in the clone.
+# origin/master. A base that does not resolve to a commit is exit 2; a base that
+# resolves but does not carry the allowlist yet is the one case that says so and
+# skips, and the working-tree checks still run.
 #
 # Exit codes: 0 clean, 1 violations found, 2 bad usage or unreadable allowlist.
 
@@ -39,10 +41,11 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 ALLOWLIST_REL="scripts/ci/size-allowlist.txt"
 ALLOWLIST="$ROOT/$ALLOWLIST_REL"
 
-# The ref whose allowlist the working-tree one is compared against. An explicitly
-# named ref that cannot be resolved is a hard error, because whoever named it
-# asked for the comparison; the origin/master fallback merely skips, since a fresh
-# clone or a shallow CI checkout legitimately lacks it.
+# The ref whose allowlist the working-tree one is compared against. A base that
+# does not resolve to a commit is a hard error either way: skipping there would
+# turn a mistyped ref, or a fetch that did not bring the base into the clone, into
+# a silent pass on the one check that stops the allowlist from growing. The flag
+# only picks the wording, so the fallback can point at the override.
 BASE_REF=${SIZE_GATE_BASE-}
 BASE_EXPLICIT=0
 if [ -n "$BASE_REF" ]; then
@@ -235,13 +238,17 @@ load_allowlist() {
 # nothing to compare against, having said why on stdout.
 load_base_allowlist() {
 	local path lines
-	if ! git -C "$ROOT" rev-parse --verify --quiet "$BASE_REF" >/dev/null 2>&1; then
+	# ^{commit} is load-bearing: rev-parse --verify accepts any full 40-hex string
+	# as a well-formed object name and returns 0 without the object being present,
+	# which is exactly the shape CI passes. Peeling to a commit is what actually
+	# reads the object store.
+	if ! git -C "$ROOT" rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null 2>&1; then
 		if [ "$BASE_EXPLICIT" -eq 1 ]; then
 			echo "size-gate: base ref $BASE_REF is not in this clone; fetch it before comparing" >&2
-			exit 2
+		else
+			echo "size-gate: base ref $BASE_REF is not in this clone; fetch it, or name another with --base" >&2
 		fi
-		echo "size-gate: $BASE_REF is not in this clone, skipping the shrink-only comparison"
-		return 1
+		exit 2
 	fi
 	if ! git -C "$ROOT" show "$BASE_REF:$ALLOWLIST_REL" >"$BASE_FILE" 2>/dev/null; then
 		echo "size-gate: no allowlist at $BASE_REF, skipping the shrink-only comparison"

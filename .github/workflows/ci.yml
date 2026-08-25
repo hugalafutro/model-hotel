@@ -247,7 +247,10 @@ jobs:
           elif git rev-parse --verify --quiet HEAD~1 >/dev/null; then
             echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=" >> "$GITHUB_OUTPUT"
+            # A checkout with no parent commit has nothing to compare against,
+            # so the base is HEAD and the comparison is a no-op. fetch-depth: 2
+            # gives every push a parent, so this is the belt to that suspenders.
+            echo "ref=HEAD" >> "$GITHUB_OUTPUT"
           fi
 
       # Fails when a file crosses its ceiling with no allowlist entry, when an
