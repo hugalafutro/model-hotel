@@ -16,10 +16,11 @@
 # it just grew. --base makes shrink-only a check rather than a comment: it reads
 # the allowlist as it exists at a trusted ref and fails on any entry whose count
 # is higher than at that ref, and on any entry the base does not have. A rename is
-# the exception the pairing recognises: an added path is allowed when an entry the
-# base has is gone from the new list with a count at least as large. Added and
-# removed entries pair off largest-count first, so the list can never gain an
-# entry. Lowered counts and removed entries always pass.
+# the one exception: a new entry is accepted only for a path git detects as a
+# rename of a removed entry, at the same or a lower count. Git adjudicates that at
+# 50% similarity, so a file rewritten past that point, a copy, and an unrelated
+# oversized file swapped in for a dropped one are all new entries and all fail.
+# Lowered counts and removed entries always pass.
 #
 # Usage:
 #   size-gate.sh                check; quiet on success, one line per violation
@@ -118,7 +119,8 @@ SCOPE_FILE=$(mktemp)
 OFFENDERS_FILE=$(mktemp)
 PARSED_FILE=$(mktemp)
 BASE_FILE=$(mktemp)
-trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE" "$PARSED_FILE" "$BASE_FILE"' EXIT
+RENAME_FILE=$(mktemp)
+trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE" "$PARSED_FILE" "$BASE_FILE" "$RENAME_FILE"' EXIT
 
 # A gate that scans less than it claims and still reports clean is worse than no
 # gate, so a scope root that is not a directory is a hard error, not a warning.
@@ -197,6 +199,10 @@ write_allowlist() {
 declare -A RECORDED=()
 declare -A BASE_RECORDED=()
 
+# New path -> old path for every rename git detects between the base and the
+# working tree, filled on demand by load_renames.
+declare -A RENAMED_FROM=()
+
 # Validates the allowlist in file $1 (named $2 in errors) and writes its entries
 # to $PARSED_FILE as path<TAB>lines. The redirection keeps this in the main shell,
 # so a malformed entry exits the script rather than a subshell.
@@ -261,54 +267,64 @@ load_base_allowlist() {
 	return 0
 }
 
-# Enforces shrink-only against the base: no count may rise, and an added path is
-# allowed only as a rename of a removed one. Added and removed entries pair off
-# largest-count first, which finds a valid pairing whenever one exists, so an
-# added entry that is left without a partner or outgrows the partner it gets is
-# an entry the list is gaining.
+# Renames git detects between the base and the working tree, keyed by new path.
+# --diff-filter=R keeps renames only and copy detection stays off, so a file
+# copied to a second path is an addition here and never inherits an entry. The
+# diff has no second ref on purpose: it compares the tree, which is the PR head in
+# CI and picks up a staged `git mv` locally.
+load_renames() {
+	local status old new
+	if ! git -C "$ROOT" -c core.quotePath=false diff --name-status \
+		--find-renames=50% --diff-filter=R "$BASE_REF" -- \
+		"${GO_ROOTS[@]}" "${TS_ROOTS[@]}" >"$RENAME_FILE" 2>/dev/null; then
+		echo "size-gate: could not diff the scope roots against $BASE_REF" >&2
+		exit 2
+	fi
+	while IFS=$'\t' read -r status old new; do
+		case "$status" in R*) ;; *) continue ;; esac
+		RENAMED_FROM[$new]=$old
+	done <"$RENAME_FILE"
+}
+
+# Enforces shrink-only against the base: no count may rise, and a path the base
+# does not list is an entry the list is gaining unless git calls it a rename of an
+# entry the list is dropping. Git decides what a rename is, so an unrelated
+# oversized file cannot take a dropped entry's place by matching its line count.
 compare_with_base() {
-	local path entry count acount apath rcount rpath index=0
-	local -a added=() removed=() added_sorted=() removed_sorted=()
+	local path count apath acount origin
+	local -a added=()
 
 	for path in "${!RECORDED[@]}"; do
 		count=${RECORDED[$path]}
 		if [ -z "${BASE_RECORDED[$path]+set}" ]; then
-			added+=("$count"$'\t'"$path")
+			added+=("$path")
 		elif [ "$count" -gt "${BASE_RECORDED[$path]}" ]; then
 			echo "$path: recorded $count, ${BASE_RECORDED[$path]} at $BASE_REF: a recorded count may only be lowered" >&2
 			VIOLATIONS=$((VIOLATIONS + 1))
 		fi
 	done
 
-	for path in "${!BASE_RECORDED[@]}"; do
-		if [ -z "${RECORDED[$path]+set}" ]; then
-			removed+=("${BASE_RECORDED[$path]}"$'\t'"$path")
-		fi
-	done
-
 	if [ ${#added[@]} -eq 0 ]; then
 		return
 	fi
-	mapfile -t added_sorted < <(printf '%s\n' "${added[@]}" | LC_ALL=C sort -rn)
-	if [ ${#removed[@]} -gt 0 ]; then
-		mapfile -t removed_sorted < <(printf '%s\n' "${removed[@]}" | LC_ALL=C sort -rn)
-	fi
+	load_renames
 
-	for entry in "${added_sorted[@]}"; do
-		acount=${entry%%$'\t'*}
-		apath=${entry#*$'\t'}
-		if [ "$index" -ge ${#removed_sorted[@]} ]; then
-			echo "$apath: new entry at $acount lines with no entry dropped to pair it with: the allowlist takes no new entries (a rename moves an existing one)" >&2
+	for apath in "${added[@]}"; do
+		acount=${RECORDED[$apath]}
+		origin=${RENAMED_FROM[$apath]-}
+		if [ -z "$origin" ]; then
+			echo "$apath: new entry at $acount lines: the allowlist takes an entry for a new path only when git detects it as a rename of an allowlisted file, so split it instead" >&2
 			VIOLATIONS=$((VIOLATIONS + 1))
-		else
-			rcount=${removed_sorted[$index]%%$'\t'*}
-			rpath=${removed_sorted[$index]#*$'\t'}
-			if [ "$acount" -gt "$rcount" ]; then
-				echo "$apath: new entry at $acount lines, pairs with the dropped $rpath at $rcount: a rename may not raise the count" >&2
-				VIOLATIONS=$((VIOLATIONS + 1))
-			fi
+		elif [ -z "${BASE_RECORDED[$origin]+set}" ]; then
+			echo "$apath: renamed from $origin, which $BASE_REF does not allowlist: an entry moves with a file that already had one" >&2
+			VIOLATIONS=$((VIOLATIONS + 1))
+		elif [ -n "${RECORDED[$origin]+set}" ]; then
+			echo "$apath: renamed from $origin, whose entry is still listed: a rename moves its entry, it does not add a second one" >&2
+			VIOLATIONS=$((VIOLATIONS + 1))
+		elif [ "$acount" -gt "${BASE_RECORDED[$origin]}" ]; then
+			echo "$apath: $acount lines, ${BASE_RECORDED[$origin]} at $BASE_REF as $origin: a rename may not raise the count" >&2
+			VIOLATIONS=$((VIOLATIONS + 1))
 		fi
-		index=$((index + 1))
 	done
 }
 
