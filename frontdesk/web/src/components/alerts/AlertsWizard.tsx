@@ -10,6 +10,7 @@ import {
 	FIELDS,
 	ntfyServerOf,
 } from "./composers";
+import { parseCsv } from "./events";
 import {
 	StepApprise,
 	StepDestinations,
@@ -198,16 +199,6 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 		tested: false,
 		acceptedUrl: null,
 	};
-}
-
-/** parseCsv turns a stored alert_events CSV into a membership Set. */
-function parseCsv(csv: string): Set<string> {
-	return new Set(
-		csv
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean),
-	);
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
