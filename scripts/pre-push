@@ -276,7 +276,7 @@ fi
 # than in the Docker image build, catching type errors before the push, and is
 # incremental (tsbuildinfo). Covers web/ only; frontdesk/web is not linted here.
 # web-shared/ counts as a web/ change: the dashboard imports it through the
-# @quota-shared alias, so its types are checked by web/'s tsc -b.
+# @web-shared/* alias, so its types are checked by web/'s tsc -b.
 if ! touched '^web/|^web-shared/'; then
 	echo "pre-push: no web/ or web-shared/ changes, skipping pnpm lint + tsc -b"
 elif [ -d "$REPO_ROOT/web/node_modules" ]; then
@@ -388,7 +388,7 @@ else
 	fi
 
 	# Front Desk frontend. A web-shared/ change runs this suite too - Front Desk
-	# imports the same modules through @quota-shared - but the report regex stays
+	# imports the same modules through @web-shared/* - but the report regex stays
 	# frontdesk-only: those lines are measured by web/'s report, and asking for
 	# them here would fail the instrumentation guard on every push. The broader
 	# seed regex still hands them to test selection, so a web-shared change runs

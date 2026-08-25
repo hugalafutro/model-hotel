@@ -6,7 +6,8 @@ import { useWheelPaging } from "../useWheelPaging";
 // pointed at the latest callbacks, and turning a paging decision into
 // preventDefault + a page turn. The decision itself (delta modes, jitter floor,
 // gesture clock, edge detection) is arithmetic shared with the other frontend
-// and is covered against web-shared/wheel-paging directly.
+// and is covered against web-shared/wheel-paging directly, in web/, which owns
+// web-shared/ for coverage.
 
 interface HarnessProps {
 	canPrev: boolean;

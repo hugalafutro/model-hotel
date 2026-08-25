@@ -7,6 +7,10 @@ import {
 } from "@web-shared/alerts/composers";
 import { describe, expect, it } from "vitest";
 
+// The alert destination composers, shared with Front Desk. Tested here rather
+// than under pages/Settings/alerts: the module backs the alerts UI in both
+// frontends and belongs to neither app's page tree.
+
 describe("compose", () => {
 	it("composes ntfy from server + topic and stays empty while invalid", () => {
 		expect(

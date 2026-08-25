@@ -143,8 +143,8 @@ runs:
         # the SQL migrations and testdata too, and the Makefile drives the local
         # equivalents of these jobs.
         go=$(match '^(cmd|internal)/|\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$|^Makefile$')
-        # web-shared/ holds the quota parsing both SPAs import through their
-        # @quota-shared alias, and testdata/quota-contract/ the fixtures their
+        # web-shared/ holds the modules both SPAs import through their
+        # @web-shared/* alias, and testdata/quota-contract/ the fixtures their
         # suites read, so a change to either is a change to BOTH app surfaces.
         web=$(match '^web/|^web-shared/|^testdata/quota-contract/')
         fdweb=$(match '^frontdesk/web/|^web-shared/|^testdata/quota-contract/')
