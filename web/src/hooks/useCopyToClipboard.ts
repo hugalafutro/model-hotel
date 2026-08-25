@@ -1,3 +1,4 @@
+import { type ClipboardWriter, writeClipboard } from "@web-shared/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseCopyToClipboardOptions {
@@ -8,7 +9,7 @@ interface UseCopyToClipboardOptions {
 	 * that need their own fallback path (e.g. a dashboard served over plain HTTP,
 	 * where the Clipboard API does not exist).
 	 */
-	write?: (text: string) => Promise<void> | void;
+	write?: ClipboardWriter;
 	/**
 	 * When false, `copied` stays false and no reset timer is scheduled, for
 	 * callers that report the result some other way (a toast) and never render
@@ -28,10 +29,8 @@ interface UseCopyToClipboard {
  * A clipboard write plus the "Copied" flag that goes with it.
  *
  * - `copy(text)` resolves false instead of throwing when the clipboard is
- *   missing or refuses, so callers that toast a failure still can. The write
- *   runs inside the async body on purpose: `navigator.clipboard` is undefined in
- *   non-secure (plain HTTP) contexts, and that turns a synchronous throw into a
- *   rejection the catch below sees.
+ *   missing or refuses, so callers that toast a failure still can. That
+ *   never-throw write is shared with Front Desk in web-shared/clipboard.
  * - `copied` flips true on success and reverts on a timer cleared on a re-copy
  *   and on unmount. An unmount while the write is still in flight ends the copy
  *   there: the text reaches the clipboard, but nothing is flagged and no timer
@@ -64,12 +63,7 @@ export function useCopyToClipboard(
 
 	const copy = useCallback(
 		async (text: string): Promise<boolean> => {
-			try {
-				const writer = writeRef.current;
-				await (writer ? writer(text) : navigator.clipboard.writeText(text));
-			} catch {
-				return false;
-			}
+			if (!(await writeClipboard(text, writeRef.current))) return false;
 			if (!alive.current || !trackCopied) return true;
 			setCopied(true);
 			if (timer.current !== null) clearTimeout(timer.current);
