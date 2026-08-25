@@ -51,106 +51,13 @@ import { ErrorShelf } from "./ErrorShelf";
 import { Logo } from "./Logo";
 import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
-
-const u = "text-(--text-muted)";
-
-function formatDuration(seconds: number) {
-	const d = Math.floor(seconds / 86400);
-	const h = Math.floor((seconds % 86400) / 3600);
-	const m = Math.floor((seconds % 3600) / 60);
-	if (d > 0)
-		return (
-			<>
-				{d}
-				<span className={u}>d</span> {h}
-				<span className={u}>h</span>
-			</>
-		);
-	if (h > 0)
-		return (
-			<>
-				{h}
-				<span className={u}>h</span> {m}
-				<span className={u}>m</span>
-			</>
-		);
-	return (
-		<>
-			{m}
-			<span className={u}>m</span>
-		</>
-	);
-}
-
-function formatNumber(n: number) {
-	if (n >= 1_000_000)
-		return (
-			<>
-				{(n / 1_000_000).toFixed(1)}
-				<span className={u}>M</span>
-			</>
-		);
-	if (n >= 1_000)
-		return (
-			<>
-				{(n / 1_000).toFixed(1)}
-				<span className={u}>K</span>
-			</>
-		);
-	return n.toLocaleString();
-}
-
-function formatMB(mb: number) {
-	if (mb < 1)
-		return (
-			<>
-				{mb.toFixed(1)}
-				<span className={u}> MB</span>
-			</>
-		);
-	if (mb >= 1024)
-		return (
-			<>
-				{(mb / 1024).toFixed(1)}
-				<span className={u}> GB</span>
-			</>
-		);
-	return (
-		<>
-			{Math.round(mb)}
-			<span className={u}> MB</span>
-		</>
-	);
-}
-
-function formatBytesPerSec(bytesPerSec: number) {
-	if (bytesPerSec <= 0)
-		return (
-			<>
-				0<span className={u}> B/s</span>
-			</>
-		);
-	if (bytesPerSec >= 1024 * 1024)
-		return (
-			<>
-				{(bytesPerSec / 1024 / 1024).toFixed(1)}
-				<span className={u}> MB/s</span>
-			</>
-		);
-	if (bytesPerSec >= 1024)
-		return (
-			<>
-				{(bytesPerSec / 1024).toFixed(1)}
-				<span className={u}> KB/s</span>
-			</>
-		);
-	return (
-		<>
-			{Math.round(bytesPerSec)}
-			<span className={u}> B/s</span>
-		</>
-	);
-}
+import {
+	formatBytesPerSec,
+	formatDuration,
+	formatMB,
+	formatNumber,
+	unitClass,
+} from "./systemStatusFormat";
 
 function SystemStatus() {
 	const { t } = useTranslation();
@@ -249,7 +156,7 @@ function SystemStatus() {
 	) : app ? (
 		<>
 			{formatMB(app.heap_alloc_mb)}
-			<span className={u}> {t("layout.stats.heap")}</span>
+			<span className={unitClass}> {t("layout.stats.heap")}</span>
 		</>
 	) : (
 		"-"
@@ -324,14 +231,14 @@ function SystemStatus() {
 									<>
 										<span>
 											{cpuPct.toFixed(1)}
-											<span className={u}>%</span>
+											<span className={unitClass}>%</span>
 										</span>
 										{procs != null && procs > 0 && (
 											<>
 												<span className="text-(--text-secondary) mx-1">|</span>
 												<span>
 													{procs}
-													<span className={u}>
+													<span className={unitClass}>
 														{" "}
 														{t("layout.stats.procs", { count: procs })}
 													</span>
@@ -471,7 +378,7 @@ function SystemStatus() {
 											{cacheHitLive ? (
 												<>
 													{stats.db.cache_hit_ratio}
-													<span className={u}>%</span>
+													<span className={unitClass}>%</span>
 												</>
 											) : (
 												dash
@@ -482,7 +389,10 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbConnections")}
 										>
 											{stats.db.connections}
-											<span className={u}> {t("layout.stats.conn")}</span>
+											<span className={unitClass}>
+												{" "}
+												{t("layout.stats.conn")}
+											</span>
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
@@ -490,7 +400,10 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbTxPerSec")}
 										>
 											{stats.db.tx_per_sec.toFixed(1)}
-											<span className={u}> {t("layout.stats.txPerSec")}</span>
+											<span className={unitClass}>
+												{" "}
+												{t("layout.stats.txPerSec")}
+											</span>
 										</span>
 									</>
 								) : (
