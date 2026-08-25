@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { Modal } from "../../components/Modal";
+import { bucketLabel } from "./bucketLabel";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import type { GaugeDataKey, Range } from "./types";
 
@@ -45,16 +46,7 @@ export function GaugeModal({
 	const chartData = (() => {
 		if (!tsData?.points) return [];
 		return tsData.points.map((p) => {
-			const d = new Date(p.bucket);
-			const label =
-				range === "1w"
-					? d.toLocaleDateString("en-US", {
-							month: "short",
-							day: "numeric",
-						})
-					: range === "1h"
-						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
-						: `${d.getHours().toString().padStart(2, "0")}:00`;
+			const label = bucketLabel(new Date(p.bucket), range);
 			return {
 				hour: label,
 				rawDate: p.bucket,

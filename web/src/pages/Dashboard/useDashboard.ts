@@ -13,6 +13,7 @@ import type {
 import { useToast } from "../../context/ToastContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
+import { bucketLabel } from "./bucketLabel";
 import type { Range } from "./types";
 
 /** Synthetic virtual_key_name values the backend meters under its own routes
@@ -603,16 +604,7 @@ export function useDashboard(): UseDashboardReturn {
 	const acData = (() => {
 		if (!tsData?.points) return [];
 		return tsData.points.map((p) => {
-			const d = new Date(p.bucket);
-			const label =
-				requestsChartRange === "1w"
-					? d.toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-						})
-					: requestsChartRange === "1h"
-						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
-						: `${d.getHours().toString().padStart(2, "0")}:00`;
+			const label = bucketLabel(new Date(p.bucket), requestsChartRange);
 			return {
 				hour: label,
 				rawDate: p.bucket,
@@ -633,16 +625,7 @@ export function useDashboard(): UseDashboardReturn {
 	const tokenAcData = (() => {
 		if (!tokenTsData?.points) return [];
 		return tokenTsData.points.map((p) => {
-			const d = new Date(p.bucket);
-			const label =
-				tokensChartRange === "1w"
-					? d.toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-						})
-					: tokensChartRange === "1h"
-						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
-						: `${d.getHours().toString().padStart(2, "0")}:00`;
+			const label = bucketLabel(new Date(p.bucket), tokensChartRange);
 			return {
 				hour: label,
 				rawDate: p.bucket,
