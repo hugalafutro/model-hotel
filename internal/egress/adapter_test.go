@@ -1,76 +1,25 @@
 package egress
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"testing"
 )
-
-func TestAsJSONString(t *testing.T) {
-	cases := []struct {
-		name    string
-		raw     string
-		want    string
-		wantOK  bool
-		comment string
-	}{
-		{name: "absent field", raw: "", want: "", wantOK: false},
-		{name: "string literal", raw: `"hello"`, want: "hello", wantOK: true},
-		{name: "empty string literal", raw: `""`, want: "", wantOK: true},
-		{name: "escapes are decoded", raw: `"a\nb"`, want: "a\nb", wantOK: true},
-		{name: "null decodes to the empty string", raw: `null`, want: "", wantOK: true},
-		{name: "array is not a string", raw: `[{"type":"text"}]`, want: "", wantOK: false},
-		{name: "object is not a string", raw: `{"type":"text"}`, want: "", wantOK: false},
-		{name: "number is not a string", raw: `42`, want: "", wantOK: false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, ok := AsJSONString(json.RawMessage(tc.raw))
-			if got != tc.want || ok != tc.wantOK {
-				t.Errorf("AsJSONString(%q) = (%q, %v), want (%q, %v)", tc.raw, got, ok, tc.want, tc.wantOK)
-			}
-		})
-	}
-}
-
-func TestDecodeStop(t *testing.T) {
-	cases := []struct {
-		name string
-		raw  string
-		want []string
-	}{
-		{name: "absent field", raw: "", want: nil},
-		{name: "single string", raw: `"STOP"`, want: []string{"STOP"}},
-		{name: "empty string is not a stop sequence", raw: `""`, want: nil},
-		{name: "array", raw: `["a","b"]`, want: []string{"a", "b"}},
-		{name: "empty array", raw: `[]`, want: []string{}},
-		{name: "wrong type", raw: `{"a":1}`, want: nil},
-		{name: "malformed", raw: `[not json`, want: nil},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := DecodeStop(json.RawMessage(tc.raw))
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("DecodeStop(%q) = %#v, want %#v", tc.raw, got, tc.want)
-			}
-		})
-	}
-}
 
 // fakeTranslator echoes each payload back in a recognisable frame, so the
 // adapter's own mechanics (line splitting, EOF finish, poisoning) are what the
 // assertions below measure rather than any real dialect's translation.
 type fakeTranslator struct {
-	failOn    string // payload that makes Translate fail
+	failOn    string   // payload that makes Translate fail
+	seen      []string // one entry per Translate call, so folding is measurable
 	finishErr error
 	finished  int
 }
 
 func (f *fakeTranslator) Translate(payload []byte) ([]byte, error) {
+	f.seen = append(f.seen, string(payload))
 	if f.failOn != "" && string(payload) == f.failOn {
 		return nil, errors.New("bad payload")
 	}
@@ -141,6 +90,118 @@ func TestStreamAdapter_NonDataLinesIgnored(t *testing.T) {
 	}
 	if got := string(out); got != "<real>[DONE]" {
 		t.Errorf("output = %q, want only the data payload translated", got)
+	}
+}
+
+// TestStreamAdapter_FoldedEventTranslatedOnce pins the SSE folding rule: one
+// event may spread its payload over several "data:" fields, and the payload is
+// their newline-join. Translating each field on its own would hand the
+// translator JSON fragments and poison the stream.
+func TestStreamAdapter_FoldedEventTranslatedOnce(t *testing.T) {
+	tr := &fakeTranslator{}
+	body := &scriptedBody{script: []string{"data: {\"text\":\ndata: \"hello\"}\n\n"}}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(tr.seen) != 1 {
+		t.Fatalf("Translate called %d times, want 1: %q", len(tr.seen), tr.seen)
+	}
+	if tr.seen[0] != "{\"text\":\n\"hello\"}" {
+		t.Errorf("payload = %q, want the two fields joined with a newline", tr.seen[0])
+	}
+	if got := string(out); got != "<{\"text\":\n\"hello\"}>[DONE]" {
+		t.Errorf("output = %q", got)
+	}
+}
+
+// TestStreamAdapter_NonDataFieldsInsideEventIgnored keeps comment lines and the
+// other SSE fields out of the payload even when they sit between the data
+// fields of one folded event: the dialect translators key off the payload's own
+// JSON type, never the SSE event name.
+func TestStreamAdapter_NonDataFieldsInsideEventIgnored(t *testing.T) {
+	tr := &fakeTranslator{}
+	body := &scriptedBody{script: []string{
+		"event: content_block_delta\n: keepalive\ndata: {\"a\":1,\nid: 7\ndata: \"b\":2}\nretry: 100\n\n",
+	}}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(tr.seen) != 1 {
+		t.Fatalf("Translate called %d times, want 1: %q", len(tr.seen), tr.seen)
+	}
+	if tr.seen[0] != "{\"a\":1,\n\"b\":2}" {
+		t.Errorf("payload = %q, want only the data fields joined", tr.seen[0])
+	}
+	if got := string(out); got != "<{\"a\":1,\n\"b\":2}>[DONE]" {
+		t.Errorf("output = %q", got)
+	}
+}
+
+// TestStreamAdapter_BlankLineSeparatesEvents pins the other half of the rule:
+// the blank line ends an event, so two of them stay two Translate calls rather
+// than merging into one payload.
+func TestStreamAdapter_BlankLineSeparatesEvents(t *testing.T) {
+	tr := &fakeTranslator{}
+	body := &scriptedBody{script: []string{"data: one\n\ndata: two\n\n"}}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(tr.seen) != 2 || tr.seen[0] != "one" || tr.seen[1] != "two" {
+		t.Errorf("Translate calls = %q, want [one two]", tr.seen)
+	}
+	if got := string(out); got != "<one><two>[DONE]" {
+		t.Errorf("output = %q", got)
+	}
+}
+
+// TestStreamAdapter_UnterminatedFoldedEventFlushedAtEOF covers the tail an
+// upstream leaves when it closes without the blank line: the folded event is
+// still dispatched once, before Finish().
+func TestStreamAdapter_UnterminatedFoldedEventFlushedAtEOF(t *testing.T) {
+	tr := &fakeTranslator{}
+	body := &scriptedBody{script: []string{"data: {\"text\":\ndata: \"tail\"}"}}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(tr.seen) != 1 {
+		t.Fatalf("Translate called %d times, want 1: %q", len(tr.seen), tr.seen)
+	}
+	if tr.seen[0] != "{\"text\":\n\"tail\"}" {
+		t.Errorf("payload = %q, want the whole folded tail", tr.seen[0])
+	}
+	if got := string(out); got != "<{\"text\":\n\"tail\"}>[DONE]" {
+		t.Errorf("output = %q, want the tail translated before the terminal bytes", got)
+	}
+}
+
+// TestStreamAdapter_FoldedEventOverCapFailsStream pins the cap as an event-size
+// cap: neither field is close to the limit on its own, but the event they build
+// is over it, so it must fail rather than grow the buffer.
+func TestStreamAdapter_FoldedEventOverCapFailsStream(t *testing.T) {
+	tr := &fakeTranslator{}
+	half := strings.Repeat("a", MaxSSEEventBytes/2+1)
+	body := &scriptedBody{script: []string{"data: " + half + "\ndata: " + half + "\n\n"}}
+
+	_, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err == nil {
+		t.Fatal("expected the joined event to exceed the cap")
+	}
+	if !strings.Contains(err.Error(), "exceeds") || !strings.HasPrefix(err.Error(), "test: ") {
+		t.Errorf("error = %q, want the component prefix and the exceeded cap", err)
+	}
+	if strings.Contains(err.Error(), "aaaa") {
+		t.Errorf("error leaked the buffered event: %q", err)
+	}
+	if len(tr.seen) != 0 {
+		t.Errorf("Translate called on an over-cap event: %q", tr.seen)
 	}
 }
 
@@ -220,11 +281,11 @@ func TestStreamAdapter_FinishErrorIsLoggedNotFatal(t *testing.T) {
 	}
 }
 
-func TestStreamAdapter_OverlongLineFailsStream(t *testing.T) {
+func TestStreamAdapter_OverlongEventFailsStream(t *testing.T) {
 	tr := &fakeTranslator{}
 	// An upstream that never emits a newline must fail the stream rather than
 	// grow the line buffer without bound.
-	body := &scriptedBody{script: []string{"data: " + strings.Repeat("a", MaxSSELineBytes+1)}}
+	body := &scriptedBody{script: []string{"data: " + strings.Repeat("a", MaxSSEEventBytes+1)}}
 
 	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
 	if err == nil {

@@ -86,6 +86,37 @@ func TestStreamAdapter_NonDataLinesIgnored(t *testing.T) {
 	}
 }
 
+// TestStreamAdapter_FoldedChunkTranslatesCleanly builds a Vertex body whose
+// first chunk folds its JSON across two "data:" fields, which SSE allows. The
+// payload is their newline-join, so the chunk must translate as one event
+// rather than as two fragments that would poison the stream.
+func TestStreamAdapter_FoldedChunkTranslatesCleanly(t *testing.T) {
+	upstream := &slowReader{script: []string{
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\r\n" +
+			"data: \"parts\":[{\"text\":\"Hello\"}]}}]}\r\n\n",
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}]," +
+			"\"usageMetadata\":{\"promptTokenCount\":1,\"candidatesTokenCount\":2,\"totalTokenCount\":3}}\n\n",
+	}}
+
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "gemini-2.5-flash"))
+	if err != nil {
+		t.Fatalf("a folded chunk failed the stream: %v", err)
+	}
+	s := string(out)
+	if !strings.Contains(s, `"content":"Hello"`) {
+		t.Errorf("folded chunk lost its text:\n%s", s)
+	}
+	if !strings.Contains(s, `"content":"!"`) {
+		t.Errorf("following chunk lost:\n%s", s)
+	}
+	if !strings.Contains(s, `"finish_reason":"stop"`) || !strings.Contains(s, `"total_tokens":3`) {
+		t.Errorf("terminal chunk or usage missing:\n%s", s)
+	}
+	if !strings.HasSuffix(s, "data: [DONE]\n\n") {
+		t.Errorf("stream must end with [DONE], got tail %q", s[max(0, len(s)-40):])
+	}
+}
+
 func TestStreamAdapter_MalformedChunkPoisonsStream(t *testing.T) {
 	// A malformed data line means a corrupt upstream. Already-translated bytes
 	// drain, then the stream errors — and EOF must NOT fabricate a clean

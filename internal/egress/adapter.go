@@ -9,19 +9,21 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// MaxSSELineBytes caps the unterminated SSE line an adapter will buffer. Vendor
-// deltas are orders of magnitude smaller than this, so an upstream that never
-// emits a newline is a broken peer, not a large response — the stream fails
-// instead of growing the buffer until the process suffers.
-const MaxSSELineBytes = 1 << 20
+// MaxSSEEventBytes caps the SSE event an adapter will buffer: the data fields
+// joined so far plus the line still being read. Vendor deltas are orders of
+// magnitude smaller than this, so an upstream that never closes an event is a
+// broken peer, not a large response — the stream fails instead of growing the
+// buffer until the process suffers.
+const MaxSSEEventBytes = 1 << 20
 
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
 // Implemented by each dialect's StreamTranslator.
 type Translator interface {
-	// Translate maps one "data:" payload to zero or more output bytes. A
-	// non-nil error means the upstream stream is corrupt or carried an error
-	// event, and poisons the adapter.
+	// Translate maps one event's payload — every "data:" field of that event,
+	// joined with newlines — to zero or more output bytes. A non-nil error
+	// means the upstream stream is corrupt or carried an error event, and
+	// poisons the adapter.
 	Translate(payload []byte) ([]byte, error)
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
 	// when the translator already emitted them.
@@ -45,6 +47,7 @@ type StreamAdapter struct {
 	tr        Translator
 
 	lineBuf  []byte // partial SSE line carried across reads
+	eventBuf []byte // data fields of the event under construction, newline-joined
 	pending  []byte // translated bytes not yet handed to the caller
 	readBuf  []byte
 	srcErr   error
@@ -64,8 +67,8 @@ func NewStreamAdapter(component string, upstream io.ReadCloser, tr Translator) *
 }
 
 // Read refills the pending buffer from upstream (translating as it goes) and
-// copies out. On EOF any residual partial line is flushed through the
-// translator and the terminal Finish() bytes are appended before the EOF is
+// copies out. On EOF any unterminated tail is flushed through the translator
+// and the terminal Finish() bytes are appended before the EOF is
 // surfaced; other upstream errors surface only after all translated bytes have
 // been drained. A translation failure poisons the stream: already translated
 // bytes drain, then the error surfaces — Finish() is never fabricated over a
@@ -91,7 +94,7 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 				// transport and here would be reported as a broken stream even
 				// though it ended normally. This adapter ends on io.EOF itself.
 				a.srcErr = io.EOF
-				a.flushPartialLine()
+				a.flushAtEOF()
 				if a.transErr == nil {
 					fin, finErr := a.tr.Finish()
 					if finErr != nil {
@@ -107,54 +110,107 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// consume splits incoming bytes into SSE lines and feeds each data payload to
-// the translator. "event:"/comment/blank lines are dropped; the adapter
-// generates its own framing.
+// consume splits incoming bytes into SSE lines and assembles those lines into
+// events. SSE lets one event fold its payload across several "data:" fields,
+// so a field is appended to the event under construction rather than
+// translated on its own, and the blank line that terminates the event hands
+// the joined payload to the translator exactly once. Comment lines (":") and
+// every other field — "event:", "id:", "retry:" — are ignored, because the
+// dialect translators key off the payload's own JSON type rather than the SSE
+// event name. The adapter generates its own framing on the way out.
 func (a *StreamAdapter) consume(p []byte) {
 	a.lineBuf = append(a.lineBuf, p...)
 	for {
 		idx := bytes.IndexByte(a.lineBuf, '\n')
 		if idx < 0 {
-			if len(a.lineBuf) > MaxSSELineBytes {
-				a.lineBuf = nil
-				a.transErr = fmt.Errorf("%s: upstream SSE line exceeds %d bytes", a.component, MaxSSELineBytes)
-				debuglog.Warn(a.component+": stream line exceeds buffer cap", "limit", MaxSSELineBytes)
-			}
+			a.withinEventCap(len(a.lineBuf))
 			return
 		}
 		line := bytes.TrimRight(a.lineBuf[:idx], "\r")
 		a.lineBuf = a.lineBuf[idx+1:]
+		if len(line) == 0 {
+			if !a.dispatchEvent() {
+				return
+			}
+			continue
+		}
 		if !bytes.HasPrefix(line, []byte("data:")) {
 			continue
 		}
-		payload := bytes.TrimSpace(line[len("data:"):])
-		if len(payload) == 0 {
+		// The spec strips one optional leading space; trimming both ends is
+		// safe on top of that because JSON ignores whitespace around a value,
+		// and a folded payload cannot split inside a string literal — the
+		// newline the join inserts would be illegal there — so no byte a
+		// translator reads can be trimmed away. A field with no value adds
+		// nothing to the event.
+		value := bytes.TrimSpace(line[len("data:"):])
+		if len(value) == 0 {
 			continue
 		}
-		out, err := a.tr.Translate(payload)
-		if err != nil {
-			// A malformed data line or an upstream error event means the
-			// stream is dead; record it and stop translating so Read surfaces
-			// the failure.
-			debuglog.Warn(a.component+": stream chunk translate failed", "error", err)
-			a.transErr = err
+		if len(a.eventBuf) > 0 {
+			a.eventBuf = append(a.eventBuf, '\n')
+		}
+		a.eventBuf = append(a.eventBuf, value...)
+		if !a.withinEventCap(0) {
 			return
 		}
-		a.pending = append(a.pending, out...)
 	}
 }
 
-// flushPartialLine feeds a residual line to the translator at EOF. An upstream
-// that closes without a trailing newline would otherwise lose its last event
+// withinEventCap poisons the stream when the event under construction outgrows
+// the cap, and reports whether parsing may continue. partialLine is the length
+// of the line still being read, counted with the fields already joined so that
+// a folded event cannot carry more than a single line could.
+func (a *StreamAdapter) withinEventCap(partialLine int) bool {
+	if len(a.eventBuf)+partialLine <= MaxSSEEventBytes {
+		return true
+	}
+	a.lineBuf, a.eventBuf = nil, nil
+	a.transErr = fmt.Errorf("%s: upstream SSE event exceeds %d bytes", a.component, MaxSSEEventBytes)
+	debuglog.Warn(a.component+": stream event exceeds buffer cap", "limit", MaxSSEEventBytes)
+	return false
+}
+
+// dispatchEvent hands the assembled payload to the translator once and clears
+// the buffer for the next event. An event that carried no data fields
+// dispatches nothing. It reports whether parsing may continue.
+func (a *StreamAdapter) dispatchEvent() bool {
+	if len(a.eventBuf) == 0 {
+		return true
+	}
+	payload := a.eventBuf
+	a.eventBuf = nil
+	out, err := a.tr.Translate(payload)
+	if err != nil {
+		// A malformed event or an upstream error event means the stream is
+		// dead; record it and stop translating so Read surfaces the failure.
+		debuglog.Warn(a.component+": stream event translate failed", "error", err)
+		a.transErr = err
+		return false
+	}
+	a.pending = append(a.pending, out...)
+	return true
+}
+
+// flushAtEOF dispatches the stream's unterminated tail: the residual line the
+// upstream never terminated, and then the event no blank line ever closed. An
+// upstream that closes without that framing would otherwise lose its last event
 // entirely — including a final message_delta's stop_reason — while Finish()
 // still emitted a clean terminal chunk, which is exactly the quiet truncation
-// this adapter exists to prevent.
-func (a *StreamAdapter) flushPartialLine() {
-	if len(a.lineBuf) == 0 || a.transErr != nil {
+// this adapter exists to prevent. A tail that does not translate poisons the
+// stream, so a connection cut mid-event surfaces as the failure it is.
+func (a *StreamAdapter) flushAtEOF() {
+	if a.transErr != nil {
 		return
 	}
-	a.lineBuf = append(a.lineBuf, '\n')
-	a.consume(nil)
+	if len(a.lineBuf) > 0 {
+		a.lineBuf = append(a.lineBuf, '\n')
+		a.consume(nil)
+		if a.transErr != nil {
+			return
+		}
+	}
+	a.dispatchEvent()
 }
 
 // Close closes the upstream body. The stall watchdog calls this to unblock a
