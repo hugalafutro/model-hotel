@@ -971,10 +971,6 @@
 		"page_title_other": "Models",
 		"page_description": "Discovered models from your providers",
 		"badge_disabled": "{{count}} disabled",
-		"view_mode_pages": "⬡ Pages",
-		"view_mode_scroll": "⇊ Scroll",
-		"switch_to_pagination": "Switch to pagination mode",
-		"switch_to_scroll": "Switch to scroll mode",
 		"toast_updated": "Model updated",
 		"toast_update_failed": "Failed to update model: {{message}}",
 		"toast_toggle_enabled": "Model enabled",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live updates resumed",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Switch to scroll mode",
-				"switchToPagination": "Switch to pagination mode",
-				"scroll": "⇊ Scroll",
-				"pages": "⬡ Pages"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filter by date range",
 				"clearDateFilter": "Clear date filter",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "No recommendations available",
 			"tooltip": "Apply recommended settings from models.dev catalogue"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Switch to scroll mode",
-			"switchToPagination": "Switch to pagination mode",
-			"scroll": "⇊ Scroll",
-			"pages": "⬡ Pages"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Live updates paused",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "model",
 			"modelCount_other": "models"
+		},
+		"viewModeToggle": {
+			"tooltip": "Click to toggle between pagination and infinite scrolling.",
+			"switchToScroll": "Switch to scroll mode",
+			"switchToPagination": "Switch to pagination mode"
 		}
 	},
 	"failoverGroups": {

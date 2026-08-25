@@ -269,7 +269,9 @@ describe("Audit page", () => {
 		expect(await screen.findByText("/page-one")).toBeInTheDocument();
 		// Switch from infinite scroll to the paginated static table.
 		await user.click(
-			screen.getByRole("button", { name: "Switch to pagination mode" }),
+			screen.getByTitle(
+				"Click to toggle between pagination and infinite scrolling.",
+			),
 		);
 		// Jump to page two -> the next offset is requested.
 		await user.click(await screen.findByRole("button", { name: "2" }));

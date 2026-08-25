@@ -971,10 +971,6 @@
 		"page_title_other": "Modelle",
 		"page_description": "Ontdekte modelle van jou verskaffers",
 		"badge_disabled": "{{count}} gedeaktiveer",
-		"view_mode_pages": "⬡ Bladsye",
-		"view_mode_scroll": "⇊ Rol",
-		"switch_to_pagination": "Skakel oor na bladsyverdelingsmodus",
-		"switch_to_scroll": "Skakel na blaaimodus",
 		"toast_updated": "Model opgedateer",
 		"toast_update_failed": "Misluk om model op te dateer: {{message}}",
 		"toast_toggle_enabled": "Model geaktiveer",
@@ -2371,12 +2367,6 @@
 				"resumed": "Regstreekse opdaterings hervat",
 				"live": "Regstreeks"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Skakel na blaaimodus",
-				"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-				"scroll": "⇊ Rol",
-				"pages": "⬡ Bladsye"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtreer volgens datumreeks",
 				"clearDateFilter": "Maak datumfilter skoon",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Geen aanbevelings beskikbaar nie",
 			"tooltip": "Pas die aanbevole instellings uit die models.dev-katalogus toe."
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Skakel na blaaimodus",
-			"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-			"scroll": "⇊ Rol",
-			"pages": "⬡ Bladsye"
-		},
 		"liveToggleButton": {
 			"live": "Regstreeks",
 			"liveUpdatesPaused": "Regstreekse opdaterings opgeskort",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "model",
 			"modelCount_other": "modelle"
+		},
+		"viewModeToggle": {
+			"tooltip": "Klik om tussen bladsyverdeling en oneindige blaai te wissel.",
+			"switchToScroll": "Skakel na blaaimodus",
+			"switchToPagination": "Skakel oor na bladsyverdelingsmodus"
 		}
 	},
 	"failoverGroups": {

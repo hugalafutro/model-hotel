@@ -971,10 +971,6 @@
 		"page_title_other": "模型",
 		"page_description": "从您的提供商发现模型",
 		"badge_disabled": "{{count}} 已禁用",
-		"view_mode_pages": "⬡ 页面",
-		"view_mode_scroll": "⇊ 滚动",
-		"switch_to_pagination": "切换到分页模式",
-		"switch_to_scroll": "切换到滚动模式",
 		"toast_updated": "模型已更新",
 		"toast_update_failed": "更新模型失败： {{message}}",
 		"toast_toggle_enabled": "模型已启用",
@@ -2371,12 +2367,6 @@
 				"resumed": "实时更新已恢复",
 				"live": "实时模式"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "切换到滚动模式",
-				"switchToPagination": "切换到分页模式",
-				"scroll": "⇊ 滚动",
-				"pages": "⬡ 页面"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "按日期范围过滤",
 				"clearDateFilter": "清除日期筛选器",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "无可用的建议",
 			"tooltip": "从models.dev 目录应用推荐设置"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "切换到滚动模式",
-			"switchToPagination": "切换到分页模式",
-			"scroll": "⇊ 滚动",
-			"pages": "⬡ 页面"
-		},
 		"liveToggleButton": {
 			"live": "实时模式",
 			"liveUpdatesPaused": "实时更新已暂停",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "模型",
 			"modelCount_other": "模型"
+		},
+		"viewModeToggle": {
+			"tooltip": "点击以在分页和无限滚动之间切换。",
+			"switchToScroll": "切换到滚动模式",
+			"switchToPagination": "切换到分页模式"
 		}
 	},
 	"failoverGroups": {

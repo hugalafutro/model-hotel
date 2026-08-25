@@ -21,9 +21,9 @@ import {
 	DateRangePickerPopover,
 	LiveToggleButton,
 	LogsErrorState,
-	ViewModeToggle,
 } from "../components/logs";
 import { PageHeader } from "../components/PageHeader";
+import { ViewModeToggle } from "../components/ViewModeToggle";
 import { VirtualAppLogTable } from "../components/VirtualAppLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";

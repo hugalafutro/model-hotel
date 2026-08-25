@@ -692,20 +692,16 @@ describe("AppLogs", () => {
 			renderWithProviders(<AppLogs />);
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", {
-						name: /Switch to scroll mode/,
-					}),
+					screen.getByTitle(/Click to toggle between pagination/),
 				).toBeInTheDocument();
 			});
-			const scrollButton = screen.getByRole("button", {
-				name: /Switch to scroll mode/,
-			});
+			const scrollButton = screen.getByTitle(
+				/Click to toggle between pagination/,
+			);
 			await user.click(scrollButton);
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", {
-						name: /Switch to pagination mode/,
-					}),
+					scrollButton.querySelector(".icon-infinite-scroll"),
 				).toBeInTheDocument();
 			});
 			// Paginate table headers should be gone
@@ -731,14 +727,12 @@ describe("AppLogs", () => {
 			renderWithProviders(<AppLogs />);
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", {
-						name: /Switch to scroll mode/,
-					}),
+					screen.getByTitle(/Click to toggle between pagination/),
 				).toBeInTheDocument();
 			});
-			const scrollButton = screen.getByRole("button", {
-				name: /Switch to scroll mode/,
-			});
+			const scrollButton = screen.getByTitle(
+				/Click to toggle between pagination/,
+			);
 			await user.click(scrollButton);
 			await waitFor(() => {
 				expect(localStorage.getItem("appLogsViewMode")).toBe("scroll");

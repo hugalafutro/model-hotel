@@ -1762,6 +1762,12 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	gap: 0;
 }
 
+/* Icon-only button (view-mode toggle): square-ish padding so a lone glyph
+   does not float in a wide pill. Size-only variant like ui-btn-compact. */
+[data-ui-style] .ui-btn-icon {
+	padding: 0.375rem 0.5rem;
+}
+
 /* Prominent CTAs (login screen). Size-only variant like ui-btn-compact:
    these rules are unlayered, so per-button Tailwind padding and font-size
    utilities cannot override the base ui-btn sizing. */

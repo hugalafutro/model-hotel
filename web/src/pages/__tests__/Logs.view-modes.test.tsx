@@ -116,7 +116,9 @@ describe("Logs", () => {
 			});
 
 			// Click the switch to scroll mode button
-			const switchToScrollBtn = screen.getByLabelText("Switch to scroll mode");
+			const switchToScrollBtn = screen.getByTitle(
+				"Click to toggle between pagination and infinite scrolling.",
+			);
 			await user.click(switchToScrollBtn);
 
 			// Should now show VirtualLogTable
@@ -124,9 +126,9 @@ describe("Logs", () => {
 				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
 			});
 
-			// Button should now have different aria-label
+			// Toggle glyph now reflects scroll mode
 			expect(
-				screen.getByLabelText("Switch to pagination mode"),
+				switchToScrollBtn.querySelector(".icon-infinite-scroll"),
 			).toBeInTheDocument();
 		});
 	});

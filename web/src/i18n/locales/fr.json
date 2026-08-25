@@ -1001,10 +1001,6 @@
 		"page_title_other": "Modèles",
 		"page_description": "Des modèles découverts de vos fournisseurs",
 		"badge_disabled": "{{count}} désactivé",
-		"view_mode_pages": "⬡ Pages",
-		"view_mode_scroll": "⇊ Défilement",
-		"switch_to_pagination": "Passer en mode pagination",
-		"switch_to_scroll": "Passer en mode défilement",
 		"toast_updated": "Modèle mis à jour",
 		"toast_update_failed": "Impossible de mettre à jour le modèle : {{message}}",
 		"toast_toggle_enabled": "Modèle activé",
@@ -2424,12 +2420,6 @@
 				"resumed": "Les mises à jour en direct ont repris",
 				"live": "En direct"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Passer en mode défilement",
-				"switchToPagination": "Passer en mode pagination",
-				"scroll": "⇊ Défilement",
-				"pages": "⬡ Pages"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer par plage de dates",
 				"clearDateFilter": "Effacer le filtre de date",
@@ -2881,12 +2871,6 @@
 			"noRecommendationsAvailable": "Aucune recommandation disponible",
 			"tooltip": "Appliquer les paramètres recommandés depuis le catalogue models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Passer en mode défilement",
-			"switchToPagination": "Passer en mode pagination",
-			"scroll": "⇊ Défilement",
-			"pages": "⬡ Pages"
-		},
 		"liveToggleButton": {
 			"live": "En direct",
 			"liveUpdatesPaused": "Mises à jour en direct en pause",
@@ -2945,6 +2929,11 @@
 			"modelCount_one": "modèle",
 			"modelCount_many": "modèles",
 			"modelCount_other": "modèles"
+		},
+		"viewModeToggle": {
+			"tooltip": "Cliquez pour basculer entre la pagination et le défilement infini.",
+			"switchToScroll": "Passer en mode défilement",
+			"switchToPagination": "Passer en mode pagination"
 		}
 	},
 	"failoverGroups": {

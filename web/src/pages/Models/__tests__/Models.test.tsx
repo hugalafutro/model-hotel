@@ -27,10 +27,14 @@ describe("Models", () => {
 				expect(screen.getByText("Models")).toBeInTheDocument();
 			});
 
-			// Toggle button should show "⬡ Pages" in scroll mode
+			// Toggle glyph reflects scroll mode
 			expect(
-				screen.getByRole("button", { name: "Switch to pagination mode" }),
-			).toHaveTextContent("⬡ Pages");
+				screen
+					.getByTitle(
+						"Click to toggle between pagination and infinite scrolling.",
+					)
+					.querySelector(".icon-infinite-scroll"),
+			).toBeInTheDocument();
 
 			// Badge should not be shown in scroll mode
 			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
@@ -49,7 +53,9 @@ describe("Models", () => {
 
 			// Click toggle to switch to paginate mode
 			await user.click(
-				screen.getByRole("button", { name: "Switch to pagination mode" }),
+				screen.getByTitle(
+					"Click to toggle between pagination and infinite scrolling.",
+				),
 			);
 
 			// Should now show count label
@@ -57,10 +63,14 @@ describe("Models", () => {
 				expect(screen.getByText("1 Model")).toBeInTheDocument();
 			});
 
-			// Toggle button should now show "⇊ Scroll"
+			// Toggle glyph now reflects paginate mode
 			expect(
-				screen.getByRole("button", { name: "Switch to scroll mode" }),
-			).toHaveTextContent("⇊ Scroll");
+				screen
+					.getByTitle(
+						"Click to toggle between pagination and infinite scrolling.",
+					)
+					.querySelector(".icon-pages"),
+			).toBeInTheDocument();
 		});
 
 		it("switches from paginate to scroll mode when clicking toggle", async () => {
@@ -74,7 +84,9 @@ describe("Models", () => {
 
 			// Click toggle to switch to scroll mode
 			await user.click(
-				screen.getByRole("button", { name: "Switch to scroll mode" }),
+				screen.getByTitle(
+					"Click to toggle between pagination and infinite scrolling.",
+				),
 			);
 
 			// Should now show "Models" without count
@@ -859,9 +871,13 @@ describe("Models", () => {
 				expect(screen.getByText("Models")).toBeInTheDocument();
 			});
 
-			// Verify paginate mode is active (toggle button should show "⇊ Scroll")
+			// Verify paginate mode is active (toggle shows the pages glyph)
 			expect(
-				screen.getByRole("button", { name: "Switch to scroll mode" }),
+				screen
+					.getByTitle(
+						"Click to toggle between pagination and infinite scrolling.",
+					)
+					.querySelector(".icon-pages"),
 			).toBeInTheDocument();
 		});
 

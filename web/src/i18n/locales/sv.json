@@ -971,10 +971,6 @@
 		"page_title_other": "Modeller",
 		"page_description": "Upptäckta modeller från dina leverantörer",
 		"badge_disabled": "{{count}} inaktiverad",
-		"view_mode_pages": "⬡ sidor",
-		"view_mode_scroll": "⇊ Skrolla",
-		"switch_to_pagination": "Växla till sidnumreringsläge",
-		"switch_to_scroll": "Växla till rullningsläge",
 		"toast_updated": "Modell uppdaterad",
 		"toast_update_failed": "Det gick inte att uppdatera modellen: {{message}}",
 		"toast_toggle_enabled": "Modell aktiverad",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live-uppdateringar återupptogs",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Växla till rullningsläge",
-				"switchToPagination": "Växla till sidnumreringsläge",
-				"scroll": "⇊ Skrolla",
-				"pages": "⬡ sidor"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrera efter datumintervall",
 				"clearDateFilter": "Rensa datumfilter",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Inga rekommendationer tillgängliga",
 			"tooltip": "Tillämpa rekommenderade inställningar från models.dev katalog"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Växla till rullningsläge",
-			"switchToPagination": "Växla till sidnumreringsläge",
-			"scroll": "⇊ Skrolla",
-			"pages": "⬡ sidor"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Live-uppdateringar pausade",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "modell",
 			"modelCount_other": "modeller"
+		},
+		"viewModeToggle": {
+			"tooltip": "Klicka för att växla mellan sidnumrering och oändlig rullning.",
+			"switchToScroll": "Växla till rullningsläge",
+			"switchToPagination": "Växla till sidnumreringsläge"
 		}
 	},
 	"failoverGroups": {

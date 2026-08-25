@@ -971,10 +971,6 @@
 		"page_title_other": "モデル",
 		"page_description": "プロバイダーから検出されたモデル",
 		"badge_disabled": "無効 {{count}} 件",
-		"view_mode_pages": "⬡ ページ",
-		"view_mode_scroll": "⇊ スクロール",
-		"switch_to_pagination": "ページネーションモードに切り替える",
-		"switch_to_scroll": "スクロールモードに切り替える",
 		"toast_updated": "モデルが更新されました",
 		"toast_update_failed": "モデルの更新に失敗しました: {{message}}",
 		"toast_toggle_enabled": "モデルは有効になっています",
@@ -2371,12 +2367,6 @@
 				"resumed": "ライブアップデートを再開しました",
 				"live": "ライブ"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "スクロールモードに切り替える",
-				"switchToPagination": "ページネーションモードに切り替える",
-				"scroll": "⇊ スクロール",
-				"pages": "⬡ ページ"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "日付範囲でフィルター",
 				"clearDateFilter": "日付フィルタをクリア",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "おすすめはありません",
 			"tooltip": "models.dev catalogue から推奨される設定を適用します"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "スクロールモードに切り替える",
-			"switchToPagination": "ページネーションモードに切り替える",
-			"scroll": "⇊ スクロール",
-			"pages": "⬡ ページ"
-		},
 		"liveToggleButton": {
 			"live": "ライブ",
 			"liveUpdatesPaused": "ライブアップデートを一時停止しました",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "モデル",
 			"modelCount_other": "モデル"
+		},
+		"viewModeToggle": {
+			"tooltip": "クリックでページネーションと無限スクロールを切り替えます。",
+			"switchToScroll": "スクロールモードに切り替える",
+			"switchToPagination": "ページネーションモードに切り替える"
 		}
 	},
 	"failoverGroups": {

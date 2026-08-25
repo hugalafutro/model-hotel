@@ -971,10 +971,6 @@
 		"page_title_other": "Modeller",
 		"page_description": "Opdagede modeller fra dine udbydere",
 		"badge_disabled": "{{count}} deaktiveret",
-		"view_mode_pages": "⬡ Sider",
-		"view_mode_scroll": "⇊ Rul",
-		"switch_to_pagination": "Skift til pagineringstilstand",
-		"switch_to_scroll": "Skift til rulletilstand",
 		"toast_updated": "Model opdateret",
 		"toast_update_failed": "Kunne ikke opdatere model: {{message}}",
 		"toast_toggle_enabled": "Model aktiveret",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live opdateringer genoptaget",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Skift til rulletilstand",
-				"switchToPagination": "Skift til pagineringstilstand",
-				"scroll": "⇊ Rul",
-				"pages": "⬡ Sider"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer efter datointerval",
 				"clearDateFilter": "Ryd datofilter",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Ingen anbefalinger tilgængelige",
 			"tooltip": "Anvend anbefalede indstillinger fra models.dev katalog"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Skift til rulletilstand",
-			"switchToPagination": "Skift til pagineringstilstand",
-			"scroll": "⇊ Rul",
-			"pages": "⬡ Sider"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Live opdateringer sat på pause",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "model",
 			"modelCount_other": "modeller"
+		},
+		"viewModeToggle": {
+			"tooltip": "Klik for at skifte mellem paginering og uendelig rulning.",
+			"switchToScroll": "Skift til rulletilstand",
+			"switchToPagination": "Skift til pagineringstilstand"
 		}
 	},
 	"failoverGroups": {

@@ -971,10 +971,6 @@
 		"page_title_other": "Modellen",
 		"page_description": "Ontdekte modellen van jouw aanbieders",
 		"badge_disabled": "{{count}} uitgeschakeld",
-		"view_mode_pages": "⬡ Pagina's",
-		"view_mode_scroll": "⇊ Scroll",
-		"switch_to_pagination": "Schakel naar pagineringsmodus",
-		"switch_to_scroll": "Overschakelen naar scrollmodus",
 		"toast_updated": "Model bijgewerkt",
 		"toast_update_failed": "Update model mislukt: {{message}}",
 		"toast_toggle_enabled": "Model ingeschakeld",
@@ -2371,12 +2367,6 @@
 				"resumed": "Live updates hervat",
 				"live": "Live"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Overschakelen naar scrollmodus",
-				"switchToPagination": "Schakel naar pagineringsmodus",
-				"scroll": "⇊ Scroll",
-				"pages": "⬡ Pagina's"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Op datumbereik filteren",
 				"clearDateFilter": "Datumfilter wissen",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Geen aanbevelingen beschikbaar",
 			"tooltip": "Aanbevolen instellingen van models.dev catalogus toepassen"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Overschakelen naar scrollmodus",
-			"switchToPagination": "Schakel naar pagineringsmodus",
-			"scroll": "⇊ Scroll",
-			"pages": "⬡ Pagina's"
-		},
 		"liveToggleButton": {
 			"live": "Live",
 			"liveUpdatesPaused": "Live updates gepauzeerd",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "model",
 			"modelCount_other": "modellen"
+		},
+		"viewModeToggle": {
+			"tooltip": "Klik om te wisselen tussen paginering en oneindig scrollen.",
+			"switchToScroll": "Overschakelen naar scrollmodus",
+			"switchToPagination": "Schakel naar pagineringsmodus"
 		}
 	},
 	"failoverGroups": {

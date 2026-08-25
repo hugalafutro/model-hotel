@@ -27,10 +27,10 @@ import {
 	EndpointTypeBadge,
 	LiveToggleButton,
 	LogsErrorState,
-	ViewModeToggle,
 } from "../components/logs";
-import { LOG_COL_WIDTHS } from "../components/logTableWidths";
+import { LOG_COL_WIDTHS, LOG_TABLE_MIN_W } from "../components/logTableWidths";
 import { PageHeader } from "../components/PageHeader";
+import { ViewModeToggle } from "../components/ViewModeToggle";
 import { VirtualLogTable } from "../components/VirtualLogTable";
 import { useIdentity } from "../context/IdentityContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
@@ -613,7 +613,7 @@ function RequestLogs() {
 
 				{viewMode === "paginate" && (!isLoading || logsData) && (
 					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
-						<table className="w-full table-fixed ui-table min-w-250">
+						<table className={`w-full table-fixed ui-table ${LOG_TABLE_MIN_W}`}>
 							<colgroup>
 								{LOG_COL_WIDTHS.map((col) => (
 									<col key={col.key} className={col.width} />

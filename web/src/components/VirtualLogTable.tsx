@@ -14,7 +14,7 @@ import {
 } from "../utils/logHelpers";
 import { Badge } from "./Badge";
 import { EndpointTypeBadge } from "./logs";
-import { LOG_COL_WIDTHS } from "./logTableWidths";
+import { LOG_COL_WIDTHS, LOG_TABLE_MIN_W } from "./logTableWidths";
 
 interface VirtualLogTableProps {
 	entries: LogEntry[];
@@ -149,7 +149,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						minHeight: "200px",
 					}}
 				>
-					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
+					<table
+						className={`w-full table-fixed ui-table ui-table-virtual ${LOG_TABLE_MIN_W}`}
+					>
 						<colgroup>
 							{LOG_COL_WIDTHS.map((col) => (
 								<col key={col.key} className={col.width} />
@@ -199,7 +201,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				onScroll={handleScroll}
 			>
 				<table
-					className="w-full table-fixed ui-table ui-table-virtual min-w-250"
+					className={`w-full table-fixed ui-table ui-table-virtual ${LOG_TABLE_MIN_W}`}
 					style={{
 						marginTop: paddingTop,
 						marginBottom: paddingBottom + 8,

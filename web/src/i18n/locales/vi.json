@@ -971,10 +971,6 @@
 		"page_title_other": "Mô hình",
 		"page_description": "Các mô hình được phát hiện từ các nhà cung cấp của bạn",
 		"badge_disabled": "{{count}} đã tắt",
-		"view_mode_pages": "⬡ Trang",
-		"view_mode_scroll": "⇊ Cuộn xuống",
-		"switch_to_pagination": "Chuyển sang chế độ phân trang",
-		"switch_to_scroll": "Chuyển sang chế độ cuộn",
 		"toast_updated": "Đã cập nhật mô hình",
 		"toast_update_failed": "Không thể cập nhật mô hình: {{message}}",
 		"toast_toggle_enabled": "Đã bật mô hình",
@@ -2371,12 +2367,6 @@
 				"resumed": "Cập nhật trực tiếp đã tiếp tục",
 				"live": "Trực tiếp"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "Chuyển sang chế độ cuộn",
-				"switchToPagination": "Chuyển sang chế độ phân trang",
-				"scroll": "⇊ Cuộn xuống",
-				"pages": "⬡ Trang"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "Lọc theo khoảng thời gian",
 				"clearDateFilter": "Xóa bộ lọc theo ngày",
@@ -2821,12 +2811,6 @@
 			"noRecommendationsAvailable": "Không có đề xuất nào",
 			"tooltip": "Áp dụng các cài đặt được đề xuất từ danh mục models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "Chuyển sang chế độ cuộn",
-			"switchToPagination": "Chuyển sang chế độ phân trang",
-			"scroll": "⇊ Cuộn xuống",
-			"pages": "⬡ Trang"
-		},
 		"liveToggleButton": {
 			"live": "Trực tiếp",
 			"liveUpdatesPaused": "Tạm dừng cập nhật trực tiếp",
@@ -2884,6 +2868,11 @@
 		"providerModelsModal": {
 			"modelCount_one": "mô hình",
 			"modelCount_other": "mô hình"
+		},
+		"viewModeToggle": {
+			"tooltip": "Nhấp để chuyển đổi giữa phân trang và cuộn vô hạn.",
+			"switchToScroll": "Chuyển sang chế độ cuộn",
+			"switchToPagination": "Chuyển sang chế độ phân trang"
 		}
 	},
 	"failoverGroups": {

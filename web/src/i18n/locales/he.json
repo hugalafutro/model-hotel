@@ -1001,10 +1001,6 @@
 		"page_title_other": "מודלים",
 		"page_description": "דגמים שהתגלו אצל הספקים שלך",
 		"badge_disabled": "{{count}} מושבתים",
-		"view_mode_pages": "⬡ דפים",
-		"view_mode_scroll": "⇊ גלול",
-		"switch_to_pagination": "עבור למצב חלוקה לעמודים",
-		"switch_to_scroll": "עבור למצב גלילה",
 		"toast_updated": "הדגם עודכן",
 		"toast_update_failed": "לא הצליח לעדכן את המודל: {{message}}",
 		"toast_toggle_enabled": "המודל מופעל",
@@ -2424,12 +2420,6 @@
 				"resumed": "העדכונים החיים חודשו",
 				"live": "בשידור חי"
 			},
-			"viewModeToggle": {
-				"switchToScroll": "עבור למצב גלילה",
-				"switchToPagination": "עבור למצב חלוקה לעמודים",
-				"scroll": "⇊ גלול",
-				"pages": "⬡ דפים"
-			},
 			"dateFilterButton": {
 				"filterByDateRange": "סינון לפי טווח תאריכים",
 				"clearDateFilter": "נקה את מסנן התאריכים",
@@ -2881,12 +2871,6 @@
 			"noRecommendationsAvailable": "אין המלצות זמינות",
 			"tooltip": "החל את ההגדרות המומלצות מקטלוג models.dev"
 		},
-		"viewModeToggle": {
-			"switchToScroll": "עבור למצב גלילה",
-			"switchToPagination": "עבור למצב חלוקה לעמודים",
-			"scroll": "⇊ גלול",
-			"pages": "⬡ דפים"
-		},
 		"liveToggleButton": {
 			"live": "בשידור חי",
 			"liveUpdatesPaused": "העדכונים החיים הושעו",
@@ -2945,6 +2929,11 @@
 			"modelCount_one": "דגם",
 			"modelCount_two": "דגמים",
 			"modelCount_other": "דגמים"
+		},
+		"viewModeToggle": {
+			"tooltip": "לחץ כדי לעבור בין חלוקה לעמודים לגלילה אינסופית.",
+			"switchToScroll": "עבור למצב גלילה",
+			"switchToPagination": "עבור למצב חלוקה לעמודים"
 		}
 	},
 	"failoverGroups": {
