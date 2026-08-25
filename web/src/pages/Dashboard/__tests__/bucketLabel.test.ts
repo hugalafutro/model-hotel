@@ -6,10 +6,14 @@ describe("bucketLabel", () => {
 	// dates are built the same way the chart's Date(p.bucket) ends up.
 	const at = (h: number, m: number) => new Date(2024, 5, 15, h, m);
 
-	it("labels a week bucket with the day", () => {
-		const label = bucketLabel(at(14, 35), "1w");
-		// Matches both en-GB ("15 Jun") and en-US ("Jun 15")
-		expect(label).toMatch(/15.*Jun|Jun.*15/);
+	it("labels a week bucket with the day, in the browser's locale", () => {
+		const date = at(14, 35);
+		expect(bucketLabel(date, "1w")).toBe(
+			new Intl.DateTimeFormat(undefined, {
+				month: "short",
+				day: "numeric",
+			}).format(date),
+		);
 	});
 
 	it("labels an hour bucket with minutes", () => {

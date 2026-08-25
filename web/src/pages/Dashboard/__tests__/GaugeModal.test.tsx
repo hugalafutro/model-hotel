@@ -372,7 +372,7 @@ describe("GaugeModal", () => {
 		renderWithProviders(<GaugeModal {...defaultProps} />);
 
 		await waitFor(() => {
-			// Day label should be formatted as "Jan 15"
+			// Week buckets carry a day label in the browser's locale
 			expect(screen.getByTestId("area-chart")).toBeInTheDocument();
 		});
 	});

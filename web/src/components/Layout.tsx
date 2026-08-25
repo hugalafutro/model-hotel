@@ -52,10 +52,10 @@ import { Logo } from "./Logo";
 import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 import {
-	formatBytesPerSec,
-	formatDuration,
-	formatMB,
-	formatNumber,
+	formatCount,
+	formatMemoryMB,
+	formatThroughput,
+	formatUptime,
 	unitClass,
 } from "./systemStatusFormat";
 
@@ -145,17 +145,17 @@ function SystemStatus() {
 			: undefined;
 	const appMem = dockerMem ? (
 		<>
-			{formatMB(docker.memory_usage_bytes / 1024 / 1024)} /{" "}
-			{formatMB(docker.memory_limit_bytes / 1024 / 1024)}
+			{formatMemoryMB(docker.memory_usage_bytes / 1024 / 1024)} /{" "}
+			{formatMemoryMB(docker.memory_limit_bytes / 1024 / 1024)}
 		</>
 	) : hasLimit ? (
 		<>
-			{formatMB(app.memory_current_bytes / 1024 / 1024)} /{" "}
-			{formatMB(app.memory_limit_bytes / 1024 / 1024)}
+			{formatMemoryMB(app.memory_current_bytes / 1024 / 1024)} /{" "}
+			{formatMemoryMB(app.memory_limit_bytes / 1024 / 1024)}
 		</>
 	) : app ? (
 		<>
-			{formatMB(app.heap_alloc_mb)}
+			{formatMemoryMB(app.heap_alloc_mb)}
 			<span className={unitClass}> {t("layout.stats.heap")}</span>
 		</>
 	) : (
@@ -210,7 +210,7 @@ function SystemStatus() {
 						>
 							<span>{t("layout.stats.uptime")}</span>
 							<span className="text-(--text-secondary)">
-								{app ? formatDuration(app.uptime_seconds) : dash}
+								{app ? formatUptime(app.uptime_seconds) : dash}
 							</span>
 						</div>
 
@@ -267,14 +267,14 @@ function SystemStatus() {
 							<span className="text-(--text-secondary) tabular-nums">
 								<span className="text-sky-400/60 inline-block min-w-22 text-right">
 									{typeof netRx === "number" ? (
-										<>↓{formatBytesPerSec(netRx)}</>
+										<>↓{formatThroughput(netRx)}</>
 									) : (
 										dash
 									)}
 								</span>
 								<span className="text-amber-400/60 inline-block min-w-22 text-right">
 									{typeof netTx === "number" ? (
-										<>↑{formatBytesPerSec(netTx)}</>
+										<>↑{formatThroughput(netTx)}</>
 									) : (
 										dash
 									)}
@@ -297,14 +297,14 @@ function SystemStatus() {
 							<span className="text-(--text-secondary) tabular-nums">
 								<span className="text-sky-400/60 inline-block min-w-22 text-right">
 									{typeof diskRead === "number" ? (
-										<>↓{formatBytesPerSec(diskRead)}</>
+										<>↓{formatThroughput(diskRead)}</>
 									) : (
 										dash
 									)}
 								</span>
 								<span className="text-amber-400/60 inline-block min-w-22 text-right">
 									{typeof diskWrite === "number" ? (
-										<>↑{formatBytesPerSec(diskWrite)}</>
+										<>↑{formatThroughput(diskWrite)}</>
 									) : (
 										dash
 									)}
@@ -352,7 +352,7 @@ function SystemStatus() {
 							<span>{t("layout.stats.requestsToday")}</span>
 							<span className="text-(--text-secondary)">
 								{app && app.requests_today > 0
-									? formatNumber(app.requests_today)
+									? formatCount(app.requests_today)
 									: dash}
 							</span>
 						</div>
@@ -367,7 +367,7 @@ function SystemStatus() {
 											className="text-(--text-secondary)"
 											title={t("layout.tooltips.dbSize")}
 										>
-											{formatMB(stats.db.size_mb)}
+											{formatMemoryMB(stats.db.size_mb)}
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
