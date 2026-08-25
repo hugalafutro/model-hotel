@@ -1,3 +1,12 @@
+# Every text file is normalized to LF in the index and checked out with LF, so a
+# Windows clone with core.autocrlf=true gets the same bytes as everyone else. The
+# size gate depends on it: it counts newlines and rejects any CR byte in a source
+# file, which without this line a CRLF checkout would turn into a violation for
+# every file in the tree. text=auto leaves git's binary detection in charge, so
+# images and archives are untouched. The specific rules below still win, since a
+# later pattern beats an earlier one.
+* text=auto eol=lf
+
 # Force LF on files that must stay LF inside the Docker image.
 #
 # The container ENTRYPOINT is docker-entrypoint.sh. If a contributor checks the
@@ -14,6 +23,17 @@ Dockerfile text eol=lf
 # bash scripts, so the *.sh rule above misses them. A CRLF checkout would break
 # their shebang and silently disable the hooks on Windows.
 scripts/* text eol=lf
+
+# Files whose exact bytes matter more than the convention, so the rule above skips
+# them entirely rather than converting them:
+#
+# gradlew.bat is Gradle's Windows launcher and cmd.exe wants CRLF. The two OFL
+# texts and THIRD-PARTY-NOTICES.md carry upstream licence wording verbatim, and
+# the notices file is regenerated and diffed by CI (`make notices`), so a
+# normalized copy in the index would never match what the generator writes.
+android/gradlew.bat -text
+android/licenses/* -text
+THIRD-PARTY-NOTICES.md -text
 
 # A pattern containing a slash is anchored and its * never matches a /, so the
 # rule above covers scripts/ itself and nothing deeper, while a slashless pattern

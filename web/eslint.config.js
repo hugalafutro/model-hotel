@@ -64,12 +64,12 @@ export default defineConfig([
 		// A vitest file is one describe() call, so the whole suite reads as a
 		// single arrow function and the rule measures the file rather than any
 		// unit of logic. Test length is capped by the file-size gate instead.
-		files: [
-			"**/*.test.{ts,tsx}",
-			"**/*.spec.{ts,tsx}",
-			"**/__tests__/**/*.{ts,tsx}",
-			"src/test/**/*.{ts,tsx}",
-		],
+		//
+		// Matched by DIRECTORY, not by filename, so this agrees with
+		// scripts/ci/size-gate.sh: a .test.ts suffix is something a production
+		// file can be given, and it should not be able to hand itself an
+		// exemption. A suite beside its source is still subject to the rule.
+		files: ["**/__tests__/**/*.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
 		rules: {
 			"max-lines-per-function": "off",
 		},
