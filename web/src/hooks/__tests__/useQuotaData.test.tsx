@@ -1,5 +1,4 @@
 import * as reactQuery from "@tanstack/react-query";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
@@ -13,6 +12,7 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 
 import type { Provider } from "../../api/types";
 import { server } from "../../test/mocks/server";
+import { createQueryWrapper } from "../../test/utils";
 import {
 	detectQuotaProviderType,
 	getCachedData,
@@ -26,15 +26,6 @@ import {
 	setCachedData,
 	useQuotaData,
 } from "../useQuotaData";
-
-function createWrapper() {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
-	return ({ children }: { children: React.ReactNode }) => (
-		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-	);
-}
 
 const mockProviders: Provider[] = [
 	{
@@ -127,7 +118,7 @@ describe("useQuotaData", () => {
 
 	it("returns undefined provider IDs when no providers are passed", async () => {
 		const { result } = renderHook(() => useQuotaData(undefined), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		expect(result.current.nanogptProviderId).toBeUndefined();
@@ -140,7 +131,7 @@ describe("useQuotaData", () => {
 
 	it("detects provider IDs from providers array", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -157,7 +148,7 @@ describe("useQuotaData", () => {
 	it("ignores disabled providers entirely: no ID, no fetch, no badge", async () => {
 		const disabled = mockProviders.map((p) => ({ ...p, enabled: false }));
 		const { result } = renderHook(() => useQuotaData(disabled), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		expect(result.current.nanogptProviderId).toBeUndefined();
@@ -187,7 +178,7 @@ describe("useQuotaData", () => {
 			{ ...mockProviders[0], id: "nanogpt-on" },
 		];
 		const { result } = renderHook(() => useQuotaData(twoNanos), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -199,7 +190,7 @@ describe("useQuotaData", () => {
 		const useQueryMock = reactQuery.useQuery as unknown as Mock;
 
 		renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		const nanoCall = useQueryMock.mock.calls.find(
@@ -220,7 +211,7 @@ describe("useQuotaData", () => {
 
 	it("fetches quota data on mount for enabled providers", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		// Wait for all queries to complete
@@ -254,7 +245,7 @@ describe("useQuotaData", () => {
 
 	it("handles loading state", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		// Initially, data should be undefined (loading)
@@ -277,7 +268,7 @@ describe("useQuotaData", () => {
 		);
 
 		renderHook(() => useQuotaData(mockProviders, { toastErrors }), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		// Wait for error to be triggered
@@ -313,7 +304,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		// Wait for queries to complete (nanogpt will fail silently)
@@ -327,7 +318,7 @@ describe("useQuotaData", () => {
 
 	it("refetches NanoGPT data when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -349,7 +340,7 @@ describe("useQuotaData", () => {
 
 	it("refetches Z.ai data when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -369,7 +360,7 @@ describe("useQuotaData", () => {
 
 	it("refetches DeepSeek data when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -389,7 +380,7 @@ describe("useQuotaData", () => {
 
 	it("refetches OpenRouter data when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -409,7 +400,7 @@ describe("useQuotaData", () => {
 
 	it("refetches Ollama Cloud data when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -429,7 +420,7 @@ describe("useQuotaData", () => {
 
 	it("invalidates all quota queries when called", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -448,7 +439,7 @@ describe("useQuotaData", () => {
 
 	it("derives Z.ai five-hour and weekly limits", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -463,7 +454,7 @@ describe("useQuotaData", () => {
 
 	it("derives NanoGPT weekly helpers", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -478,7 +469,7 @@ describe("useQuotaData", () => {
 
 	it("calculates badge visibility correctly", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -501,7 +492,7 @@ describe("useQuotaData", () => {
 		});
 
 		const { result } = renderHook(() => useQuotaData(providersWithoutNano), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -528,7 +519,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -574,7 +565,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -622,7 +613,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -643,7 +634,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -680,7 +671,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -694,7 +685,7 @@ describe("useQuotaData", () => {
 		const { result } = renderHook(
 			() =>
 				useQuotaData(mockProviders, { collapsed: true, refetchInterval: 1000 }),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(() => {
@@ -708,7 +699,7 @@ describe("useQuotaData", () => {
 
 	it("caches data to localStorage after fetching", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -735,7 +726,7 @@ describe("useQuotaData", () => {
 		);
 
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		// Should have cached data immediately
@@ -744,7 +735,7 @@ describe("useQuotaData", () => {
 
 	it("returns dataUpdatedAt timestamps", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -758,7 +749,7 @@ describe("useQuotaData", () => {
 
 	it("tracks isRefetching state for each provider", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {

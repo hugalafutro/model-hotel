@@ -2,20 +2,10 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import i18n from "../../../i18n";
+import { serveSettings } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AlertsSettings } from "../AlertsSettings";
-
-function mockSettings(values: Record<string, string>) {
-	server.use(
-		http.get("/api/settings", ({ request }) => {
-			if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
-				return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-			}
-			return HttpResponse.json(values);
-		}),
-	);
-}
 
 // mockTargets serves the decrypted destination list GET /api/alert/targets
 // returns; the settings row keeps its "********" mask so a test that asserts
@@ -59,7 +49,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("hides config inputs when alerting is disabled", async () => {
-		mockSettings({ alert_enabled: "false" });
+		serveSettings({ alert_enabled: "false" });
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
@@ -75,7 +65,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("shows inputs and the stored destinations in clear when enabled", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -103,7 +93,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("renders one readable row per stored destination", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -120,7 +110,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("writes the remaining list when a destination row is removed", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -144,7 +134,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("clears the setting when the last destination row is removed", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -165,7 +155,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("tests one destination on its own", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -195,7 +185,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("explains a row test failure with the reported reason", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -225,7 +215,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("offers the full guided run when nothing is stored", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		mockTargets([]);
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
@@ -237,7 +227,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("offers adding a destination once one is stored", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -252,7 +242,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("blocks the guided run and says why when the stored list cannot be read", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -281,7 +271,7 @@ describe("AlertsSettings", () => {
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		mockTargets([]);
 		server.use(
 			http.get("/api/alert/events", async () => {
@@ -312,7 +302,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("says why the guided run is unavailable when the event list cannot be read", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		mockTargets([]);
 		server.use(
 			http.get(
@@ -337,7 +327,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("opens the guided run and writes nothing when it is cancelled", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		mockTargets([]);
 		const put = capturePut();
 		const user = userEvent.setup();
@@ -357,7 +347,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("starts the add-destination run at the destination step", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -433,7 +423,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("reports an uncoded destination read failure generically", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		failTargets();
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
@@ -448,7 +438,7 @@ describe("AlertsSettings", () => {
 		// A 500 leaves `targets` at its empty-array fallback, which would
 		// otherwise render the list's own "nothing configured" empty state
 		// alongside the callout that already explains the read failed.
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		failTargets();
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
@@ -464,7 +454,7 @@ describe("AlertsSettings", () => {
 		// A rotated master key is the one thing on this card the toggle does
 		// nothing about, so it is reported in both states; the guided entry point
 		// itself waits for the toggle.
-		mockSettings({ alert_enabled: "false" });
+		serveSettings({ alert_enabled: "false" });
 		failTargets("undecryptable");
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
@@ -475,7 +465,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("keeps the manual configuration behind the advanced disclosure", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 		});
@@ -495,7 +485,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("points at the guided run when no apprise address is set", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
@@ -517,7 +507,7 @@ describe("AlertsSettings", () => {
 	}
 
 	it("re-reads the destinations after a settings write", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const reads = countTargetReads();
 		capturePut();
 		const user = userEvent.setup();
@@ -536,7 +526,7 @@ describe("AlertsSettings", () => {
 	it("re-reads the destinations after a setting is reset", async () => {
 		// A reset clears the Apprise address and targets just as an edit can, so
 		// the decrypted list it produced is stale either way.
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const reads = countTargetReads();
 		server.use(http.delete("/api/settings", () => HttpResponse.json({})));
 		const user = userEvent.setup();
@@ -555,7 +545,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("keeps the destinations and the guided run usable on a managed member", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -578,7 +568,7 @@ describe("AlertsSettings", () => {
 		// switch it on to reach its own delivery settings. Hiding them behind
 		// the toggle the way an unmanaged card does would leave this member no
 		// way to configure the address it is expected to deliver through.
-		mockSettings({ alert_enabled: "false" });
+		serveSettings({ alert_enabled: "false" });
 		mockTargets([]);
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} managed />,
@@ -598,7 +588,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("reveals the event picker from the catalog API on toggle", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const user = userEvent.setup();
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
@@ -619,7 +609,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("disables the test button until fully configured", async () => {
-		mockSettings({ alert_enabled: "true" }); // no URL/target
+		serveSettings({ alert_enabled: "true" }); // no URL/target
 		renderWithProviders(
 			<AlertsSettings collapsed={false} onToggle={() => {}} />,
 		);
@@ -641,7 +631,7 @@ describe("AlertsSettings", () => {
 	}
 
 	it("saves the apprise-api URL on blur", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const put = capturePut();
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -661,7 +651,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("encrypts a new target on blur", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const put = capturePut();
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -678,7 +668,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("clears a configured target", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -696,7 +686,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("sends a test notification and toasts success", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -713,7 +703,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("writes the picker selection when an event is toggled off", async () => {
-		mockSettings({ alert_enabled: "true" }); // unset alert_events => catalog defaults
+		serveSettings({ alert_enabled: "true" }); // unset alert_events => catalog defaults
 		const put = capturePut();
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -735,7 +725,7 @@ describe("AlertsSettings", () => {
 		// behind the primary holds a selection naming events its own catalog has
 		// not heard of. Rebuilding the CSV from the catalog alone would drop them
 		// on the first tick, and sync would carry that loss back out.
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_events: "circuit_breaker.open,from.the.future",
 		});
@@ -760,7 +750,7 @@ describe("AlertsSettings", () => {
 
 	it("reflects a stored event selection in the picker", async () => {
 		// value-defined branch: only circuit_breaker.open selected.
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_events: "circuit_breaker.open",
 		});
@@ -781,7 +771,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("toasts an error when the test notification fails", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 			alert_apprise_targets: "********",
@@ -812,7 +802,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("toggles a whole category with select-all/none", async () => {
-		mockSettings({ alert_enabled: "true" });
+		serveSettings({ alert_enabled: "true" });
 		const put = capturePut();
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -833,7 +823,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("shows the apprise-api reachable status", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 		});
@@ -846,7 +836,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("shows a reachable-but-unhealthy status", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 		});
@@ -871,7 +861,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("shows an unreachable status when the probe fails", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 		});
@@ -923,7 +913,7 @@ describe("AlertsSettings", () => {
 	}
 
 	it("renders the stored threshold and a ceiling below the claim window", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
 			discovery_claim_alert_days: "12",
@@ -939,7 +929,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("persists a new threshold", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
 			discovery_claim_alert_days: "7",
@@ -960,7 +950,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("refuses a threshold above the ceiling and saves the ceiling instead", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
 			discovery_claim_alert_days: "7",
@@ -988,7 +978,7 @@ describe("AlertsSettings", () => {
 		// A value the API validator would reject can still reach the client:
 		// a restored backup or a config-sync import writes settings directly.
 		// It must render as the number the backend will actually act on.
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
 			discovery_claim_alert_days: "45",
@@ -1009,7 +999,7 @@ describe("AlertsSettings", () => {
 		// reach `Number("")` (0) and render the slider's minimum of 1 while the
 		// backend fell back to its own default of 7 — a visible/effective
 		// disagreement, exactly what this control exists to prevent.
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
 			discovery_claim_alert_days: "",
@@ -1025,7 +1015,7 @@ describe("AlertsSettings", () => {
 	});
 
 	it("surfaces a failed status check instead of hiding it", async () => {
-		mockSettings({
+		serveSettings({
 			alert_enabled: "true",
 			alert_apprise_api_url: "http://apprise:8000",
 		});

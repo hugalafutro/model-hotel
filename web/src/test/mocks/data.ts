@@ -1,5 +1,6 @@
 import type {
 	BackupEntry,
+	DashboardUser,
 	FailoverGroup,
 	Model,
 	Provider,
@@ -164,4 +165,18 @@ export const mockFailoverGroup: FailoverGroup = {
 	total_tokens: 0,
 	created_at: "2026-04-01T10:00:00Z",
 	updated_at: "2026-05-10T12:00:00Z",
+};
+
+/** A non-admin dashboard user with two grants, enabled and never logged in. */
+export const mockDashboardUser: DashboardUser = {
+	id: "11111111-2222-4333-8444-555555555555",
+	username: "alice",
+	display_name: "Alice A",
+	email: "alice@example.com",
+	role: "user",
+	grants: ["chat", "logs"],
+	enabled: true,
+	created_at: "2026-07-01T10:00:00Z",
+	updated_at: "2026-07-01T10:00:00Z",
+	last_login_at: null,
 };

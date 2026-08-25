@@ -157,24 +157,6 @@ describe("Providers", () => {
 			});
 		});
 
-		it("shows empty state when no providers exist", async () => {
-			server.use(
-				http.get("/api/providers", () => {
-					return HttpResponse.json([]);
-				}),
-			);
-
-			renderWithProviders(<Providers />);
-
-			await waitFor(() => {
-				expect(
-					screen.getByText(
-						"No providers configured. Add your first provider to get started.",
-					),
-				).toBeInTheDocument();
-			});
-		});
-
 		it("shows empty state when filter matches nothing", async () => {
 			const providers = [
 				mockProvider,
@@ -763,51 +745,6 @@ describe("Providers", () => {
 			});
 		});
 
-		it("shows error toast when delete fails", async () => {
-			server.use(
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-				http.delete("/api/providers/:id", () => {
-					return HttpResponse.json(
-						{ error: "Failed to delete provider" },
-						{ status: 500 },
-					);
-				}),
-			);
-
-			const { user } = renderWithProviders(<Providers />);
-
-			await waitFor(() => {
-				expect(screen.getByText("Test Provider")).toBeInTheDocument();
-			});
-
-			// Click Delete button on the card
-			const deleteButton = screen.getByRole("button", { name: "Delete" });
-			await user.click(deleteButton);
-
-			// Wait for modal to appear
-			await waitFor(() => {
-				expect(
-					screen.getByText(/Are you sure you want to delete/),
-				).toBeInTheDocument();
-			});
-
-			// Click confirm button in modal
-			const modal = screen.getByRole("dialog");
-			const modalDeleteButton = within(modal).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(modalDeleteButton);
-
-			// Error message includes full HTTP response
-			await waitFor(() => {
-				expect(
-					screen.getByText(/Failed to delete:.*Failed to delete provider/),
-				).toBeInTheDocument();
-			});
-		});
-
 		it("closes delete modal after deletion completes", async () => {
 			server.use(
 				http.get("/api/providers", () => {
@@ -881,44 +818,6 @@ describe("Providers", () => {
 	});
 
 	describe("Refresh Quotas/Balances", () => {
-		it("shows success toast when all quotas refresh successfully", async () => {
-			server.use(
-				http.get("/api/providers", () => {
-					return HttpResponse.json([mockProvider]);
-				}),
-				http.post("/api/providers/refresh-quotas", () => {
-					return HttpResponse.json({
-						refreshed: 3,
-						failed: 0,
-						skipped: 0,
-						results: [],
-					});
-				}),
-			);
-
-			const { user } = renderWithProviders(<Providers />);
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole("button", {
-						name: "Refresh Quotas/Balances",
-					}),
-				).toBeInTheDocument();
-			});
-
-			await user.click(
-				screen.getByRole("button", {
-					name: "Refresh Quotas/Balances",
-				}),
-			);
-
-			await waitFor(() => {
-				expect(
-					screen.getByText("Refreshed 3 quotas/balances"),
-				).toBeInTheDocument();
-			});
-		});
-
 		it("shows warning toast when some quotas fail", async () => {
 			server.use(
 				http.get("/api/providers", () => {

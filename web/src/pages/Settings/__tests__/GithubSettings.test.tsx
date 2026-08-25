@@ -2,20 +2,10 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveSettings } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { GithubPanel } from "../GithubSettings";
-
-function mockSettings(values: Record<string, string>) {
-	server.use(
-		http.get("/api/settings", ({ request }) => {
-			if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
-				return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-			}
-			return HttpResponse.json(values);
-		}),
-	);
-}
 
 function mockGithubStatus(enabled: boolean) {
 	server.use(
@@ -30,7 +20,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("hides config inputs when GitHub SSO is disabled", async () => {
-		mockSettings({ github_sso_enabled: "false" });
+		serveSettings({ github_sso_enabled: "false" });
 		renderWithProviders(<GithubPanel />);
 		await screen.findByTestId("github-panel");
 		expect(
@@ -42,7 +32,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("shows inputs, a configured secret, and the derived callback URL when enabled", async () => {
-		mockSettings({
+		serveSettings({
 			github_sso_enabled: "true",
 			github_client_id: "Iv1.abc123",
 			github_client_secret: "********",
@@ -70,7 +60,7 @@ describe("GithubPanel", () => {
 	it("does not show the configured-green indicator when the client secret is blank", async () => {
 		// Status ignores the secret, so it reports enabled=true with id + base URL
 		// set; the panel must still show amber (incomplete) because no secret is set.
-		mockSettings({
+		serveSettings({
 			github_sso_enabled: "true",
 			github_client_id: "Iv1.abc123",
 			github_public_base_url: "https://hotel.example.com",
@@ -87,7 +77,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("derives the callback URL without a doubled slash", async () => {
-		mockSettings({
+		serveSettings({
 			github_sso_enabled: "true",
 			github_public_base_url: "https://hotel.example.com/",
 		});
@@ -102,7 +92,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("commits each editable field, sets and clears the secret", async () => {
-		mockSettings({
+		serveSettings({
 			github_sso_enabled: "true",
 			github_client_id: "Iv1.abc123",
 			github_client_secret: "********",
@@ -162,7 +152,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("toggles enable off", async () => {
-		mockSettings({
+		serveSettings({
 			github_sso_enabled: "true",
 			github_client_id: "Iv1.abc123",
 		});

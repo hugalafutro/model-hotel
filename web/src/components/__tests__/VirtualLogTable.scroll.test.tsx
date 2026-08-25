@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LogEntry } from "../../api/types";
+import { createLogTableEntry } from "../../test/logFixtures";
 import { renderWithProviders } from "../../test/utils";
 import { VirtualLogTable } from "../VirtualLogTable";
 
@@ -16,46 +17,6 @@ vi.mock("@tanstack/react-virtual", () => ({
 		measureElement: mockMeasureElement,
 	})),
 }));
-
-// Helper to create mock LogEntry
-function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
-	return {
-		id: `log-${Math.random().toString(36).slice(2)}`,
-		provider_id: "prov-1",
-		provider_name: "Test Provider",
-		model_id: "test-provider/model-v1",
-		request_hash: "abc123def456",
-		status_code: 200,
-		latency_ms: 150,
-		duration_ms: 200,
-		ttft_ms: 50,
-		response_header_ms: 50,
-		proxy_overhead_ms: 5,
-		parse_ms: 1,
-		failover_lookup_ms: 0,
-		model_lookup_ms: 1,
-		provider_lookup_ms: 1,
-		key_decrypt_ms: 2,
-		dial_ms: 10,
-		settings_read_ms: 1,
-		tokens_per_second: 25.5,
-		tokens_prompt: 100,
-		tokens_completion: 50,
-		tokens_prompt_cache_hit: 0,
-		tokens_prompt_cache_miss: 100,
-		tokens_completion_reasoning: 0,
-		streaming: true,
-		state: "completed",
-		virtual_key_name: "test-key",
-		virtual_key_id: "vk-1",
-		error_message: "",
-		failover_attempt: 0,
-		created_at: "2026-05-23T10:00:00Z",
-		resolved_model_id: "",
-		endpoint_type: "chat",
-		...overrides,
-	};
-}
 
 // Default props
 const defaultProps = {
@@ -87,9 +48,9 @@ describe("VirtualLogTable", () => {
 		it("adjusts scrollTop when entries are prepended and scroll is not at top", async () => {
 			// Initial entries
 			const initialEntries = [
-				createLogEntry({ id: "log-1" }),
-				createLogEntry({ id: "log-2" }),
-				createLogEntry({ id: "log-3" }),
+				createLogTableEntry({ id: "log-1" }),
+				createLogTableEntry({ id: "log-2" }),
+				createLogTableEntry({ id: "log-3" }),
 			];
 
 			// Set initial virtualizer state
@@ -133,8 +94,8 @@ describe("VirtualLogTable", () => {
 
 			// New entries prepended (2 new entries at the start)
 			const newEntries = [
-				createLogEntry({ id: "log-new-1" }),
-				createLogEntry({ id: "log-new-2" }),
+				createLogTableEntry({ id: "log-new-1" }),
+				createLogTableEntry({ id: "log-new-2" }),
 				...initialEntries, // original entries shifted
 			];
 
@@ -164,8 +125,8 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT adjust scrollTop when scroll is at the very top (scrollTop <= 1)", async () => {
 			const initialEntries = [
-				createLogEntry({ id: "log-1" }),
-				createLogEntry({ id: "log-2" }),
+				createLogTableEntry({ id: "log-1" }),
+				createLogTableEntry({ id: "log-2" }),
 			];
 
 			mockGetVirtualItems.mockReturnValue(
@@ -195,7 +156,7 @@ describe("VirtualLogTable", () => {
 			});
 
 			const newEntries = [
-				createLogEntry({ id: "log-new-1" }),
+				createLogTableEntry({ id: "log-new-1" }),
 				...initialEntries,
 			];
 
@@ -220,7 +181,7 @@ describe("VirtualLogTable", () => {
 
 	describe("ResizeObserver total size sync", () => {
 		it("updates prevTotalSizeRef when getTotalSize changes between renders", () => {
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 
 			// Initial total size
 			mockGetVirtualItems.mockReturnValue([
@@ -248,7 +209,7 @@ describe("VirtualLogTable", () => {
 		it("strips only first segment from model_id with multiple slashes", () => {
 			// Model with provider/a/b/c format
 			const entries = [
-				createLogEntry({ model_id: "provider/a/b/c/model-name" }),
+				createLogTableEntry({ model_id: "provider/a/b/c/model-name" }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -264,7 +225,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("handles model_id with exactly one slash correctly", () => {
-			const entries = [createLogEntry({ model_id: "openai/gpt-4" })];
+			const entries = [createLogTableEntry({ model_id: "openai/gpt-4" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -278,7 +239,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("handles model_id without any slash", () => {
-			const entries = [createLogEntry({ model_id: "standalone-model" })];
+			const entries = [createLogTableEntry({ model_id: "standalone-model" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -295,7 +256,7 @@ describe("VirtualLogTable", () => {
 	describe("Tokens column with reasoning tokens", () => {
 		it("shows prompt+completion tokens when tokens_completion_reasoning > 0", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					tokens_prompt: 200,
 					tokens_completion: 100,
 					tokens_completion_reasoning: 50,
@@ -318,7 +279,7 @@ describe("VirtualLogTable", () => {
 
 		it("shows '-' when all token counts are 0 even with reasoning tokens", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					tokens_prompt: 0,
 					tokens_completion: 0,
 					tokens_completion_reasoning: 50,
@@ -341,7 +302,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Duration formatting edge cases", () => {
 		it("shows '1.0s' at exactly 1000ms boundary", () => {
-			const entries = [createLogEntry({ duration_ms: 1000 })];
+			const entries = [createLogTableEntry({ duration_ms: 1000 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -356,7 +317,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("shows '999ms' just below 1000ms boundary", () => {
-			const entries = [createLogEntry({ duration_ms: 999 })];
+			const entries = [createLogTableEntry({ duration_ms: 999 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -372,7 +333,7 @@ describe("VirtualLogTable", () => {
 		it("shows '1000ms' at exactly 1000ms with .toFixed(0)", () => {
 			// Check the code: duration_ms >= 1000 shows seconds
 			// So 1000ms shows as 1.0s
-			const entries = [createLogEntry({ duration_ms: 1000 })];
+			const entries = [createLogTableEntry({ duration_ms: 1000 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -386,7 +347,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("shows '0ms' for duration_ms = 0", () => {
-			const entries = [createLogEntry({ duration_ms: 0 })];
+			const entries = [createLogTableEntry({ duration_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -403,7 +364,7 @@ describe("VirtualLogTable", () => {
 
 	describe("T/s formatting with edge cases", () => {
 		it("handles very small TPS values (< 0.1)", () => {
-			const entries = [createLogEntry({ tokens_per_second: 0.05 })];
+			const entries = [createLogTableEntry({ tokens_per_second: 0.05 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -419,7 +380,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("handles TPS = 0", () => {
-			const entries = [createLogEntry({ tokens_per_second: 0 })];
+			const entries = [createLogTableEntry({ tokens_per_second: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -435,7 +396,7 @@ describe("VirtualLogTable", () => {
 
 		it("shows '-' for TPS when request is cancelled", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					error_message: "Request cancelled",
 					tokens_per_second: 25.5,
 				}),
@@ -456,7 +417,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Overhead column edge cases", () => {
 		it("shows formatted overhead when proxy_overhead_ms > 0", () => {
-			const entries = [createLogEntry({ proxy_overhead_ms: 15.5 })];
+			const entries = [createLogTableEntry({ proxy_overhead_ms: 15.5 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -470,7 +431,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("shows '-' when proxy_overhead_ms = 0", () => {
-			const entries = [createLogEntry({ proxy_overhead_ms: 0 })];
+			const entries = [createLogTableEntry({ proxy_overhead_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -484,7 +445,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("shows '-' when proxy_overhead_ms is negative", () => {
-			const entries = [createLogEntry({ proxy_overhead_ms: -5 })];
+			const entries = [createLogTableEntry({ proxy_overhead_ms: -5 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -500,7 +461,7 @@ describe("VirtualLogTable", () => {
 
 		it("shows '-' when proxy_overhead_ms is null", () => {
 			const entries = [
-				createLogEntry({ proxy_overhead_ms: null as unknown as number }),
+				createLogTableEntry({ proxy_overhead_ms: null as unknown as number }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -518,7 +479,7 @@ describe("VirtualLogTable", () => {
 	describe("Combined edge cases", () => {
 		it("renders correctly with extreme values across all columns", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					model_id: "provider/a/b/c/deep/nested",
 					request_hash: "a".repeat(100),
 					tokens_prompt: 10000,

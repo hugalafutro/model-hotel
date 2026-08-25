@@ -1,40 +1,16 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DashboardUser } from "../../../api/types";
-import { mockSystemStats } from "../../../test/mocks/data";
+import { serveUsersApi } from "../../../test/helpers";
+import { mockDashboardUser, mockSystemStats } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Users } from "../index";
-
-const mockUser: DashboardUser = {
-	id: "11111111-2222-4333-8444-555555555555",
-	username: "alice",
-	display_name: "Alice A",
-	email: "alice@example.com",
-	role: "user",
-	grants: ["chat", "logs"],
-	enabled: true,
-	created_at: "2026-07-01T10:00:00Z",
-	updated_at: "2026-07-01T10:00:00Z",
-	last_login_at: null,
-};
 
 const systemWithFleet = (state: "primary" | "member") => ({
 	...mockSystemStats,
 	fleet: { state, is_primary: state === "primary" },
 });
-
-function mockUsersApi(users: DashboardUser[]) {
-	server.use(
-		http.get("/api/users", () => HttpResponse.json(users)),
-		http.get("/api/users/grants", () =>
-			HttpResponse.json({
-				grants: ["chat", "usage", "logs", "models", "virtual_keys"],
-			}),
-		),
-	);
-}
 
 describe("Users managed (fleet member) mode", () => {
 	beforeEach(() => {
@@ -48,7 +24,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("member")),
 			),
 		);
-		mockUsersApi([mockUser]);
+		serveUsersApi([mockDashboardUser]);
 		renderWithProviders(<Users />);
 
 		expect(await screen.findByTestId("managed-banner")).toBeInTheDocument();
@@ -63,7 +39,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("member")),
 			),
 		);
-		mockUsersApi([mockUser]);
+		serveUsersApi([mockDashboardUser]);
 		const { user } = renderWithProviders(<Users />);
 
 		await user.click(await screen.findByText("alice"));
@@ -93,7 +69,7 @@ describe("Users managed (fleet member) mode", () => {
 				HttpResponse.json(systemWithFleet("primary")),
 			),
 		);
-		mockUsersApi([mockUser]);
+		serveUsersApi([mockDashboardUser]);
 		renderWithProviders(<Users />);
 
 		expect(await screen.findByTestId("add-user-button")).toBeInTheDocument();

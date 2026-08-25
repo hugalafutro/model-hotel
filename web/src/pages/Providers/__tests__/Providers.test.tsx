@@ -252,8 +252,10 @@ describe("Providers", () => {
 			};
 			server.use(
 				...mockProvidersPageDefaults({ providers: [testProvider] }),
-				http.delete("/api/providers/:id", () =>
-					HttpResponse.json({ error: "Delete failed" }, { status: 500 }),
+				// DeleteProvider answers http.Error, so the body is plain text.
+				http.delete(
+					"/api/providers/:id",
+					() => new HttpResponse("provider not found", { status: 404 }),
 				),
 			);
 
@@ -278,8 +280,14 @@ describe("Providers", () => {
 			});
 			await user.click(confirmButton);
 
+			// api.providers.delete reads the failure body, so the toast carries the
+			// status and the server's own wording, not just a client-side label.
 			await waitFor(() => {
-				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
+				expect(
+					screen.getByText(
+						"Failed to delete: Failed to delete provider: 404 provider not found",
+					),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -1017,7 +1025,11 @@ describe("Providers", () => {
 			renderWithProviders(<Providers />);
 
 			await waitFor(() => {
-				expect(screen.getByText(/No providers configured/)).toBeInTheDocument();
+				expect(
+					screen.getByText(
+						"No providers configured. Add your first provider to get started.",
+					),
+				).toBeInTheDocument();
 			});
 		});
 	});
