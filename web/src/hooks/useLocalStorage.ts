@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 type SetValue<T> = (value: T | ((prev: T) => T)) => void;
 
@@ -99,10 +99,13 @@ function readStored<T>(
 /**
  * Read-only view of a localStorage key another screen owns and writes.
  *
- * Returns the current value and re-reads it whenever the key changes: a
+ * The value is read at render time, so it follows both sides: a caller that
+ * rerenders with a different `key`, `fallback` or deserializer sees the new
+ * reading in that same render, and a change announced from elsewhere - a
  * cross-tab `storage` event, the `localStorageChange` this module dispatches on
- * every write, or any extra event name the writer announces. It never writes,
- * so it cannot re-enter the listener a write-through setter would trigger.
+ * every write, or any extra event name the writer announces - triggers a
+ * re-render that reads again. It never writes, so it cannot re-enter the
+ * listener a write-through setter would trigger.
  */
 export function useLocalStorageValue<T>(
 	key: string,
@@ -111,18 +114,10 @@ export function useLocalStorageValue<T>(
 ): T {
 	const { deserialize, events } = options;
 
-	// Refs so the listener below re-reads with the current deserializer and
-	// fallback without resubscribing when the caller passes them inline.
-	const deserializeRef = useRef(deserialize);
-	const fallbackRef = useRef(fallback);
-	useEffect(() => {
-		deserializeRef.current = deserialize;
-		fallbackRef.current = fallback;
-	}, [deserialize, fallback]);
-
-	const [value, setValue] = useState<T>(() =>
-		readStored(key, fallback, deserialize),
-	);
+	// The subscription holds no copy of the value: it only says "read again",
+	// which is what keeps the two sources of change - the caller's inputs and
+	// the writer's announcements - from drifting apart.
+	const [, readAgain] = useReducer((reads: number) => reads + 1, 0);
 
 	// The names ride as JSON so an inline array literal does not resubscribe on
 	// every render, and so a name is restored exactly as given, spaces included.
@@ -140,7 +135,7 @@ export function useLocalStorageValue<T>(
 			if (e instanceof StorageEvent && e.key !== null && e.key !== key) {
 				return;
 			}
-			setValue(readStored(key, fallbackRef.current, deserializeRef.current));
+			readAgain();
 		};
 		const names = [
 			"storage",
@@ -153,5 +148,5 @@ export function useLocalStorageValue<T>(
 		};
 	}, [key, extraEvents]);
 
-	return value;
+	return readStored(key, fallback, deserialize);
 }

@@ -123,6 +123,64 @@ describe("useLocalStorageValue", () => {
 		expect(result.current).toBe(5000);
 	});
 
+	it("reads the new key immediately when the caller rerenders with one", () => {
+		localStorage.setItem(key, "first");
+		localStorage.setItem("other-key", "second");
+		const { result, rerender } = renderHook(
+			({ k }) => useLocalStorageValue(k, "fallback"),
+			{ initialProps: { k: key } },
+		);
+		expect(result.current).toBe("first");
+
+		rerender({ k: "other-key" });
+		expect(result.current).toBe("second");
+	});
+
+	it("falls back immediately when the new key is absent", () => {
+		localStorage.setItem(key, "first");
+		const { result, rerender } = renderHook(
+			({ k }) => useLocalStorageValue(k, "fallback"),
+			{ initialProps: { k: key } },
+		);
+
+		rerender({ k: "absent-key" });
+		expect(result.current).toBe("fallback");
+	});
+
+	it("follows a new fallback while the key is absent", () => {
+		const { result, rerender } = renderHook(
+			({ f }) => useLocalStorageValue(key, f),
+			{ initialProps: { f: "first" } },
+		);
+		expect(result.current).toBe("first");
+
+		rerender({ f: "second" });
+		expect(result.current).toBe("second");
+	});
+
+	it("re-parses when the caller rerenders with a new deserializer", () => {
+		localStorage.setItem(key, "5");
+		const { result, rerender } = renderHook(
+			({ d }) =>
+				useLocalStorageValue(key, 0, {
+					deserialize: d,
+				}),
+			{
+				initialProps: {
+					d: (stored: string | null, fallback: number) =>
+						stored === null ? fallback : Number(stored),
+				},
+			},
+		);
+		expect(result.current).toBe(5);
+
+		rerender({
+			d: (stored: string | null, fallback: number) =>
+				stored === null ? fallback : Number(stored) * 1000,
+		});
+		expect(result.current).toBe(5000);
+	});
+
 	it("re-reads on a cross-tab storage event for its key", () => {
 		localStorage.setItem(key, "first");
 		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
