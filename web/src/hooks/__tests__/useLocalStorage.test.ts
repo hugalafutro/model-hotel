@@ -268,6 +268,17 @@ describe("useLocalStorageValue", () => {
 		dispatchSpy.mockRestore();
 	});
 
+	it("falls back when the deserializer throws", () => {
+		localStorage.setItem(key, "not-json");
+		const { result } = renderHook(() =>
+			useLocalStorageValue(key, "fallback", {
+				deserialize: (stored) => JSON.parse(stored ?? "") as string,
+			}),
+		);
+
+		expect(result.current).toBe("fallback");
+	});
+
 	it("falls back when localStorage throws", () => {
 		const getItemSpy = vi
 			.spyOn(Storage.prototype, "getItem")
