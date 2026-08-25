@@ -18,6 +18,7 @@ import { screen } from "@testing-library/react";
 import { HttpResponse, http, type RequestHandler } from "msw";
 import type {
 	BackupEntry,
+	DashboardUser,
 	FailoverGroup,
 	FailoverListResponse,
 	LogsResponse,
@@ -36,6 +37,7 @@ import {
 	mockProvider,
 	mockVirtualKey,
 } from "./mocks/data";
+import { server } from "./mocks/server";
 
 // ── Override factories ───────────────────────────────────────────────────
 
@@ -256,6 +258,41 @@ export function mockModelsCursor(
 				: HttpResponse.json(data, { status }),
 		),
 	];
+}
+
+// ── Self-registering handlers ─────────────────────────────────────────────
+
+/**
+ * Serve GET /api/settings with `values`, rejecting a request that arrives
+ * without the `mh_csrf` cookie the way the real endpoint does. Registers
+ * itself on the shared server, so call it inside the test rather than
+ * spreading it into `server.use()`.
+ */
+export function serveSettings(values: Record<string, string>): void {
+	server.use(
+		http.get("/api/settings", ({ request }) => {
+			if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+				return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+			}
+			return HttpResponse.json(values);
+		}),
+	);
+}
+
+/**
+ * Serve the pair of reads the Users page makes on mount: the user list and
+ * the catalogue of grants the role editor offers. Registers itself on the
+ * shared server.
+ */
+export function mockUsersApi(users: DashboardUser[]): void {
+	server.use(
+		http.get("/api/users", () => HttpResponse.json(users)),
+		http.get("/api/users/grants", () =>
+			HttpResponse.json({
+				grants: ["chat", "usage", "logs", "models", "virtual_keys"],
+			}),
+		),
+	);
 }
 
 // ── Streaming SSE helpers ─────────────────────────────────────────────────

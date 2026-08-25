@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
@@ -6,6 +5,7 @@ import type { Model, Provider } from "../../api/types";
 import { IdentityProvider, useIdentity } from "../../context/IdentityContext";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
+import { createQueryWrapper } from "../../test/utils";
 import {
 	useChatModels,
 	useEnabledModels,
@@ -14,21 +14,10 @@ import {
 	useProviders,
 } from "../useModels";
 
-function createWrapper() {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
-	return function Wrapper({ children }: { children: React.ReactNode }) {
-		return (
-			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-		);
-	};
-}
-
 describe("useModels", () => {
 	it("returns data from API", async () => {
 		const { result } = renderHook(() => useModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		expect(result.current.isLoading).toBe(true);
@@ -43,7 +32,7 @@ describe("useModels", () => {
 
 	it("handles loading state", async () => {
 		const { result } = renderHook(() => useModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		expect(result.current.isLoading).toBe(true);
@@ -58,7 +47,7 @@ describe("useModels", () => {
 		);
 
 		const { result } = renderHook(() => useModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -72,7 +61,7 @@ describe("useModels", () => {
 describe("useProviders", () => {
 	it("returns data from API", async () => {
 		const { result } = renderHook(() => useProviders(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -85,7 +74,7 @@ describe("useProviders", () => {
 
 	it("handles loading state", async () => {
 		const { result } = renderHook(() => useProviders(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		expect(result.current.isLoading).toBe(true);
@@ -100,7 +89,7 @@ describe("useProviders", () => {
 		);
 
 		const { result } = renderHook(() => useProviders(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -114,7 +103,7 @@ describe("useProviders", () => {
 describe("useEnabledModels", () => {
 	it("filters to enabled models of enabled providers", async () => {
 		const { result } = renderHook(() => useEnabledModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -132,7 +121,7 @@ describe("useEnabledModels", () => {
 		);
 
 		const { result } = renderHook(() => useEnabledModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -156,7 +145,7 @@ describe("useEnabledModels", () => {
 		);
 
 		const { result } = renderHook(() => useEnabledModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -184,7 +173,7 @@ describe("useEnabledModels", () => {
 		);
 
 		const { result } = renderHook(() => useEnabledModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -220,7 +209,7 @@ describe("useChatModels", () => {
 		);
 
 		const { result } = renderHook(() => useChatModels(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -258,7 +247,7 @@ describe("useChatModels", () => {
 					HttpResponse.json([mockModel, otherProviderModel], { status: 200 }),
 				),
 			);
-			const Wrapper = createWrapper();
+			const Wrapper = createQueryWrapper();
 			// The identity resolves asynchronously and reads as "no cap" until it
 			// does, so every case below settles on `me` before asserting. Without
 			// that, the uncapped case would pass against the pending state alone.
@@ -317,7 +306,7 @@ describe("useChatModels", () => {
 describe("useProviderData", () => {
 	it("maps providers to { name, base_url }", async () => {
 		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -337,7 +326,7 @@ describe("useProviderData", () => {
 		);
 
 		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
@@ -362,7 +351,7 @@ describe("useProviderData", () => {
 		);
 
 		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createWrapper(),
+			wrapper: createQueryWrapper(),
 		});
 
 		await waitFor(() => {
