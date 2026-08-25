@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { TotpPanel } from "../TotpSettings";
@@ -366,6 +367,31 @@ describe("TotpSettings", () => {
 		expect(
 			screen.queryByText(/Save these recovery codes now/i),
 		).not.toBeInTheDocument();
+	});
+
+	it("toasts when the secret cannot be copied", async () => {
+		mockStatus(false);
+		server.use(
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({ uri: ENROLL_URI, secret: ENROLL_SECRET }),
+			),
+		);
+		const { user } = renderWithProviders(<TotpPanel />);
+
+		await user.click(
+			await screen.findByRole("button", { name: /Enable TOTP/i }),
+		);
+		// user-event installs its own clipboard stub; spy on that instance.
+		vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+			new Error("denied"),
+		);
+		await user.click(
+			await screen.findByRole("button", { name: /Copy TOTP secret/i }),
+		);
+
+		expect(await screen.findByTestId("toast-message")).toHaveTextContent(
+			i18n.t("common.failedToCopy"),
+		);
 	});
 
 	it("copies the secret and recovery codes, and cancels enrollment", async () => {
