@@ -33,7 +33,7 @@ import {
 export function ErrorShelf() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const { unacked, ack, ackAll } = useErrorShelf();
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second

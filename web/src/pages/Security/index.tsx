@@ -22,7 +22,7 @@ import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 export function Security() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
 
 	const [enrollUri, setEnrollUri] = useState("");

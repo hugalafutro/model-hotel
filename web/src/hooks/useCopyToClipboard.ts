@@ -9,6 +9,12 @@ interface UseCopyToClipboardOptions {
 	 * where the Clipboard API does not exist).
 	 */
 	write?: (text: string) => Promise<void> | void;
+	/**
+	 * When false, `copied` stays false and no reset timer is scheduled, for
+	 * callers that report the result some other way (a toast) and never render
+	 * the flag. Defaults to true.
+	 */
+	trackCopied?: boolean;
 }
 
 interface UseCopyToClipboard {
@@ -26,14 +32,15 @@ interface UseCopyToClipboard {
  *   runs inside the async body on purpose: `navigator.clipboard` is undefined in
  *   non-secure (plain HTTP) contexts, and that turns a synchronous throw into a
  *   rejection the catch below sees.
- * - `copied` flips true on success and reverts on a timer that is cleared both
- *   on a re-copy and on unmount, so it never sets state on a component that is
- *   already gone.
+ * - `copied` flips true on success and reverts on a timer cleared on a re-copy
+ *   and on unmount. An unmount while the write is still in flight ends the copy
+ *   there: the text reaches the clipboard, but nothing is flagged and no timer
+ *   is scheduled behind the cleanup that would have cleared it.
  */
 export function useCopyToClipboard(
 	options: UseCopyToClipboardOptions = {},
 ): UseCopyToClipboard {
-	const { resetAfterMs = 2000, write } = options;
+	const { resetAfterMs = 2000, write, trackCopied = true } = options;
 	const [copied, setCopied] = useState(false);
 
 	// Refs so `copy` keeps one identity across renders even when the caller
@@ -44,12 +51,16 @@ export function useCopyToClipboard(
 	}, [write]);
 
 	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(
-		() => () => {
+	// False from unmount onwards, so work resumed after an awaited write knows
+	// the component it would touch is gone.
+	const alive = useRef(true);
+	useEffect(() => {
+		alive.current = true;
+		return () => {
+			alive.current = false;
 			if (timer.current !== null) clearTimeout(timer.current);
-		},
-		[],
-	);
+		};
+	}, []);
 
 	const copy = useCallback(
 		async (text: string): Promise<boolean> => {
@@ -59,12 +70,13 @@ export function useCopyToClipboard(
 			} catch {
 				return false;
 			}
+			if (!alive.current || !trackCopied) return true;
 			setCopied(true);
 			if (timer.current !== null) clearTimeout(timer.current);
 			timer.current = setTimeout(() => setCopied(false), resetAfterMs);
 			return true;
 		},
-		[resetAfterMs],
+		[resetAfterMs, trackCopied],
 	);
 
 	return { copy, copied };

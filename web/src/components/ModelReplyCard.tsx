@@ -132,7 +132,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	onDisableModel,
 }: ModelReplyCardProps) {
 	const { t } = useTranslation();
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const [elapsed, setElapsed] = useState(0);
 	const [maximized, setMaximized] = useState(false);
 	const bodyRef = useRef<HTMLDivElement>(null);

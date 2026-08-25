@@ -204,7 +204,7 @@ function ToastItem({
 	fuse: boolean;
 	onDone: () => void;
 }) {
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const [paused, setPaused] = useState(false);
 	const [fading, setFading] = useState(false);
 	const startTimeRef = useRef(0);

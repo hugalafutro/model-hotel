@@ -12,7 +12,7 @@ import { formatDate } from "../../utils/format";
 export function TotpPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
 
 	const [enrollUri, setEnrollUri] = useState("");

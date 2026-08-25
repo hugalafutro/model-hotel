@@ -36,8 +36,10 @@ export function CopyButton({
 }: CopyButtonProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy, copied } = useCopyToClipboard();
 	const isIcon = variant === "icon";
+	// The icon variant reports through a toast and never renders the flag, so it
+	// does not pay for the state update and the reset timer behind it.
+	const { copy, copied } = useCopyToClipboard({ trackCopied: !isIcon });
 
 	const handleClick = async () => {
 		const ok = await copy(text);
