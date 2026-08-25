@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-	formatTimestamp,
+	formatLogTimestamp,
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "./logBadgeUtils";
@@ -203,9 +203,9 @@ describe("getSourceBadgeClasses", () => {
 	});
 });
 
-describe("formatTimestamp", () => {
+describe("formatLogTimestamp", () => {
 	it("formats valid ISO date string", () => {
-		const result = formatTimestamp("2024-01-15T10:30:45Z");
+		const result = formatLogTimestamp("2024-01-15T10:30:45Z");
 		expect(result).toBe(
 			new Date("2024-01-15T10:30:45Z").toLocaleString("en-US", {
 				year: "numeric",
@@ -220,12 +220,12 @@ describe("formatTimestamp", () => {
 	});
 
 	it("returns original string for invalid date", () => {
-		const result = formatTimestamp("not-a-date");
+		const result = formatLogTimestamp("not-a-date");
 		expect(result).toBe("not-a-date");
 	});
 
 	it("returns original string for empty string", () => {
-		const result = formatTimestamp("");
+		const result = formatLogTimestamp("");
 		expect(result).toBe("");
 	});
 });

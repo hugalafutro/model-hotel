@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ChevronDown,
@@ -8,6 +8,7 @@ import {
 	ChevronsUpDown,
 	ChevronUp,
 } from "@/lib/icons";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 interface CollapsibleToggleProps {
 	collapsed: boolean;
@@ -79,28 +80,16 @@ export function useCollapsible(
 	collapsed: boolean;
 	toggle: () => void;
 } {
-	const [collapsed, setCollapsed] = useState(() => {
-		if (!storageKey) return defaultValue;
-		try {
-			return localStorage.getItem(storageKey) === "true";
-		} catch {
-			return defaultValue;
-		}
-	});
+	// Stored as "true"/"false"; anything else reads as expanded.
+	const [collapsed, setCollapsed] = useLocalStorage<boolean>(
+		storageKey ?? "",
+		defaultValue,
+		{ enabled: !!storageKey, deserialize: (stored) => stored === "true" },
+	);
 
 	const toggle = useCallback(() => {
-		setCollapsed((prev) => {
-			const next = !prev;
-			if (storageKey) {
-				try {
-					localStorage.setItem(storageKey, String(next));
-				} catch {
-					/* ignore */
-				}
-			}
-			return next;
-		});
-	}, [storageKey]);
+		setCollapsed((prev) => !prev);
+	}, [setCollapsed]);
 
 	return { collapsed, toggle };
 }

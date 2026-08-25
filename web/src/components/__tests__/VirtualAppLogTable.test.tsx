@@ -1203,8 +1203,8 @@ describe("VirtualAppLogTable", () => {
 		});
 	});
 
-	// ==================== formatTimestamp Tests ====================
-	describe("formatTimestamp", () => {
+	// ==================== formatLogTimestamp Tests ====================
+	describe("formatLogTimestamp", () => {
 		beforeEach(() => {
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: "log-1", start: 0, end: 48 },
@@ -1222,7 +1222,7 @@ describe("VirtualAppLogTable", () => {
 			);
 
 			// The timestamp cell should contain formatted date
-			// formatTimestamp returns locale string like "05/23/2026, 10:00:00"
+			// formatLogTimestamp returns locale string like "05/23/2026, 10:00:00"
 			const timestampCell = container.querySelector(
 				'td[class*="whitespace-nowrap"]',
 			);

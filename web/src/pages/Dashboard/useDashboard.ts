@@ -11,8 +11,12 @@ import type {
 	TimeSeriesStats,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
+import {
+	useLocalStorage,
+	useLocalStorageValue,
+} from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
+import { bucketLabel } from "./bucketLabel";
 import type { Range } from "./types";
 
 /** Synthetic virtual_key_name values the backend meters under its own routes
@@ -325,44 +329,24 @@ export function useDashboard(): UseDashboardReturn {
 		};
 	}, []);
 
-	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
-		try {
-			const raw = localStorage.getItem("dashboardRefreshSec");
-			if (raw !== null) {
-				const sec = Number(raw);
+	// Milliseconds derived from the seconds value the Settings page owns and
+	// writes, announcing each change as "dashboardRefreshChange". The dashboard
+	// follows it and never writes it; 0 disables auto-refresh and anything
+	// unparsable means the 30s default.
+	const dashboardRefreshMs = useLocalStorageValue(
+		"dashboardRefreshSec",
+		30000,
+		{
+			deserialize: (stored, fallback) => {
+				if (stored === null) return fallback;
+				const sec = Number(stored);
 				if (sec > 0) return sec * 1000;
 				if (sec === 0) return 0;
-			}
-		} catch {
-			// localStorage unavailable (private browsing, quota, iframe)
-		}
-		return 30000;
-	});
-
-	// React to interval changes from Settings page mid-session
-	useEffect(() => {
-		const handler = () => {
-			try {
-				const raw = localStorage.getItem("dashboardRefreshSec");
-				if (raw !== null) {
-					const sec = Number(raw);
-					if (sec > 0) {
-						setDashboardRefreshMs(sec * 1000);
-						return;
-					}
-					if (sec === 0) {
-						setDashboardRefreshMs(0);
-						return;
-					}
-				}
-				setDashboardRefreshMs(30000);
-			} catch {
-				setDashboardRefreshMs(30000);
-			}
-		};
-		window.addEventListener("dashboardRefreshChange", handler);
-		return () => window.removeEventListener("dashboardRefreshChange", handler);
-	}, []);
+				return fallback;
+			},
+			events: ["dashboardRefreshChange"],
+		},
+	);
 
 	const handleRefresh = useCallback(() => {
 		const now = Date.now();
@@ -603,16 +587,7 @@ export function useDashboard(): UseDashboardReturn {
 	const acData = (() => {
 		if (!tsData?.points) return [];
 		return tsData.points.map((p) => {
-			const d = new Date(p.bucket);
-			const label =
-				requestsChartRange === "1w"
-					? d.toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-						})
-					: requestsChartRange === "1h"
-						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
-						: `${d.getHours().toString().padStart(2, "0")}:00`;
+			const label = bucketLabel(new Date(p.bucket), requestsChartRange);
 			return {
 				hour: label,
 				rawDate: p.bucket,
@@ -633,16 +608,7 @@ export function useDashboard(): UseDashboardReturn {
 	const tokenAcData = (() => {
 		if (!tokenTsData?.points) return [];
 		return tokenTsData.points.map((p) => {
-			const d = new Date(p.bucket);
-			const label =
-				tokensChartRange === "1w"
-					? d.toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-						})
-					: tokensChartRange === "1h"
-						? `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
-						: `${d.getHours().toString().padStart(2, "0")}:00`;
+			const label = bucketLabel(new Date(p.bucket), tokensChartRange);
 			return {
 				hour: label,
 				rawDate: p.bucket,

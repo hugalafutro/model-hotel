@@ -78,6 +78,14 @@ export function formatDate(ts: number | string): string {
 	});
 }
 
+/** Clock time alone, in the browser's locale and its 12/24-hour convention. */
+export function formatTime(ts: number | string): string {
+	return new Date(ts).toLocaleTimeString(undefined, {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
 export function formatDateTimeShort(ts: number | string): string {
 	return new Date(ts).toLocaleDateString(undefined, {
 		day: "numeric",

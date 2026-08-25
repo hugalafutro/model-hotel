@@ -6,11 +6,13 @@ import { Check, Copy, Download, X } from "@/lib/icons";
 import { api } from "../../api/client";
 import { CopyButton } from "../../components/CopyButton";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatDate } from "../../utils/format";
 
 export function TotpPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
 
 	const [enrollUri, setEnrollUri] = useState("");
@@ -126,12 +128,9 @@ export function TotpPanel() {
 	};
 
 	const handleCopySecret = async () => {
-		try {
-			await navigator.clipboard.writeText(enrollSecret);
+		if (await copy(enrollSecret))
 			toast(t("settings.totp.secretCopied"), "success");
-		} catch {
-			toast(t("common.failedToCopy"), "error");
-		}
+		else toast(t("common.failedToCopy"), "error");
 	};
 
 	const handleDownloadCodes = () => {

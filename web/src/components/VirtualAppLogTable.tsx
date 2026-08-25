@@ -3,7 +3,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AppLogEntry } from "../api/types";
 import {
-	formatTimestamp,
+	formatLogTimestamp,
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "../utils/logBadgeUtils";
@@ -244,7 +244,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 									onClick={() => onRowClick(entry)}
 								>
 									<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
-										{formatTimestamp(entry.timestamp)}
+										{formatLogTimestamp(entry.timestamp)}
 									</td>
 									<td className="px-2 py-1 align-middle">
 										<Badge variant={getLevelBadgeVariant(entry.level)}>

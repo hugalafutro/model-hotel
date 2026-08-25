@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { CopyButton } from "../../../components/CopyButton";
 import { describeTarget } from "./composers";
 
 // DestinationList renders the saved Apprise targets as one readable row each:
@@ -84,7 +85,14 @@ export function DestinationList({
 							{info.secret || info.url}
 						</code>
 						<span className="flex items-center gap-1.5 ml-auto">
-							<CopyButton url={url} rowName={rowName} />
+							{/* Puts one target URL on the clipboard so it can be pasted
+							    into another Model Hotel or a service's own UI. */}
+							<CopyButton
+								variant="label"
+								text={url}
+								testId="alert-destination-copy"
+								ariaLabel={`${t("common.copy")}: ${rowName}`}
+							/>
 							<button
 								type="button"
 								className="ui-btn ui-btn-secondary"
@@ -127,44 +135,5 @@ export function DestinationList({
 				/>
 			)}
 		</div>
-	);
-}
-
-// CopyButton puts one target URL on the clipboard so it can be pasted into
-// another Model Hotel or a service's own UI. A blocked clipboard is silent; the
-// row text stays selectable.
-function CopyButton({ url, rowName }: { url: string; rowName: string }) {
-	const { t } = useTranslation();
-	const [copied, setCopied] = useState(false);
-	// The "Copied" label reverts on a timer, which has to be dropped if the row
-	// goes first: removing a destination unmounts it, and firing then would set
-	// state on an unmounted button.
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(
-		() => () => {
-			if (timer.current !== null) clearTimeout(timer.current);
-		},
-		[],
-	);
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(url);
-			setCopied(true);
-			if (timer.current !== null) clearTimeout(timer.current);
-			timer.current = setTimeout(() => setCopied(false), 2000);
-		} catch {
-			/* clipboard blocked: the value stays selectable */
-		}
-	};
-	return (
-		<button
-			type="button"
-			className="ui-btn ui-btn-secondary"
-			data-testid="alert-destination-copy"
-			aria-label={`${t("common.copy")}: ${rowName}`}
-			onClick={copy}
-		>
-			{copied ? t("common.copied") : t("common.copy")}
-		</button>
 	);
 }

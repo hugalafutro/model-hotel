@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserTotpStatus } from "../../../api/types";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Security } from "../index";
@@ -248,6 +249,32 @@ describe("Security page edge handlers", () => {
 		expect(
 			screen.queryByTestId("security-verify-code"),
 		).not.toBeInTheDocument();
+	});
+
+	it("toasts when the secret cannot be copied", {
+		timeout: 30000,
+	}, async () => {
+		mockStatus({ enabled: false });
+		server.use(
+			http.post("/api/auth/totp/enroll/start", () =>
+				HttpResponse.json({
+					uri: "otpauth://totp/Model%20Hotel:alice?secret=JBSWY3DP",
+					secret: "JBSWY3DPEHPK3PXP",
+				}),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+
+		await user.click(await screen.findByTestId("security-enable-button"));
+		// user-event installs its own clipboard stub; spy on that instance.
+		vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+			new Error("denied"),
+		);
+		await user.click(await screen.findByTestId("security-copy-secret"));
+
+		expect(await screen.findByTestId("toast-message")).toHaveTextContent(
+			i18n.t("common.failedToCopy"),
+		);
 	});
 
 	it("downloads and acknowledges the recovery codes", {

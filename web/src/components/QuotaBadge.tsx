@@ -1,5 +1,4 @@
 import i18next from "i18next";
-import { useEffect, useState } from "react";
 import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
@@ -11,6 +10,7 @@ import type {
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
+import { useLocalStorageValue } from "../hooks/useLocalStorage";
 import type { QuotaDataResult, QuotaProviderType } from "../hooks/useQuotaData";
 import {
 	detectQuotaProviderType,
@@ -408,50 +408,14 @@ export function QuotaBadges({
 	onOllamaCloudClick,
 	onNeuralwattClick,
 }: QuotaBadgesProps) {
-	const [barMode, setBarMode] = useState<QuotaBarMode>(() => {
-		try {
-			return (
-				(localStorage.getItem("quota-bar-mode") as QuotaBarMode) || "remaining"
-			);
-		} catch {
-			return "remaining";
-		}
-	});
+	// The quota modals own this key and write it; the badges only follow it,
+	// re-reading whenever a modal in this tab or another tab changes the mode.
+	const barMode = useLocalStorageValue<QuotaBarMode>(
+		"quota-bar-mode",
+		"remaining",
+		{ deserialize: (stored) => (stored as QuotaBarMode) || "remaining" },
+	);
 
-	// Listen for bar-mode changes from modals (same tab via custom event,
-	// cross-tab via storage event, cross-component via localStorageChange).
-	useEffect(() => {
-		const handleModeChange = (e?: Event) => {
-			// localStorageChange custom events include the key that changed;
-			// ignore unrelated key changes.
-			if (
-				e?.type === "localStorageChange" &&
-				(e as CustomEvent).detail?.key !== "quota-bar-mode"
-			) {
-				return;
-			}
-			// Cross-tab storage events: check StorageEvent.key
-			if (e instanceof StorageEvent) {
-				if (e.key !== null && e.key !== "quota-bar-mode") {
-					return;
-				}
-			}
-			try {
-				setBarMode(
-					(localStorage.getItem("quota-bar-mode") as QuotaBarMode) ||
-						"remaining",
-				);
-			} catch {
-				setBarMode("remaining");
-			}
-		};
-		window.addEventListener("localStorageChange", handleModeChange);
-		window.addEventListener("storage", handleModeChange);
-		return () => {
-			window.removeEventListener("localStorageChange", handleModeChange);
-			window.removeEventListener("storage", handleModeChange);
-		};
-	}, []);
 	const scope = providerBaseUrl
 		? detectQuotaProviderType(providerBaseUrl)
 		: undefined;

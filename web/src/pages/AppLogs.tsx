@@ -33,7 +33,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
 import {
-	formatTimestamp,
+	formatLogTimestamp,
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "../utils/logBadgeUtils";
@@ -442,7 +442,7 @@ export function AppLogs() {
 											onClick={() => setSelectedLog(entry)}
 										>
 											<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
-												{formatTimestamp(entry.timestamp)}
+												{formatLogTimestamp(entry.timestamp)}
 											</td>
 											<td className="px-2 py-1 align-middle">
 												<Badge variant={getLevelBadgeVariant(entry.level)}>

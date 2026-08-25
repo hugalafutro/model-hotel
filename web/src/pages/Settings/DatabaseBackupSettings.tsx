@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
@@ -21,6 +21,7 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatDateTimeShort } from "../../utils/format";
 
 interface DatabaseBackupSettingsProps {
@@ -157,28 +158,38 @@ export function DatabaseBackupSettings({
 	// over plain HTTP on a LAN (a normal self-hosted setup) has none, so fall
 	// back to the legacy selection-based copy rather than fail on the one
 	// button that exists to unblock a verified restore.
-	const writeClipboard = async (text: string) => {
-		if (navigator.clipboard?.writeText) {
-			await navigator.clipboard.writeText(text);
-			return;
-		}
-		const holder = document.createElement("textarea");
-		holder.value = text;
-		holder.setAttribute("readonly", "");
-		holder.style.position = "fixed";
-		holder.style.opacity = "0";
-		document.body.appendChild(holder);
-		holder.select();
-		let copied: boolean;
-		try {
-			copied = document.execCommand("copy");
-		} finally {
-			document.body.removeChild(holder);
-		}
-		if (!copied) {
-			throw new Error(t("common.failedToCopy"));
-		}
-	};
+	const writeClipboard = useCallback(
+		async (text: string) => {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(text);
+				return;
+			}
+			const holder = document.createElement("textarea");
+			holder.value = text;
+			holder.setAttribute("readonly", "");
+			holder.style.position = "fixed";
+			holder.style.opacity = "0";
+			document.body.appendChild(holder);
+			holder.select();
+			let copied: boolean;
+			try {
+				copied = document.execCommand("copy");
+			} finally {
+				document.body.removeChild(holder);
+			}
+			if (!copied) {
+				throw new Error(t("common.failedToCopy"));
+			}
+		},
+		[t],
+	);
+	// One clipboard path for the whole dashboard, with this page's fallback
+	// writer in front of it. The button reports through a toast, so the "Copied"
+	// flag is not tracked.
+	const { copy } = useCopyToClipboard({
+		write: writeClipboard,
+		trackCopied: false,
+	});
 
 	// Puts the backup's signature sidecar on the clipboard for the restore
 	// form. The download hands over the dump alone, and without shell access to
@@ -187,7 +198,9 @@ export function DatabaseBackupSettings({
 	const copySignature = async (filename: string) => {
 		try {
 			const { signature } = await api.backups.signature(filename);
-			await writeClipboard(signature);
+			if (!(await copy(signature))) {
+				throw new Error(t("common.failedToCopy"));
+			}
 			toast(t("settings.backup.signatureCopied"), "success");
 		} catch (err) {
 			toast(

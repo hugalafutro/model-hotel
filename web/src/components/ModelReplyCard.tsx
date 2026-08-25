@@ -10,6 +10,7 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { formatDuration, formatNumber } from "../utils/format";
 import { is5xxError } from "../utils/model";
 import { InfoHint } from "./InfoHint";
@@ -131,6 +132,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	onDisableModel,
 }: ModelReplyCardProps) {
 	const { t } = useTranslation();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const [elapsed, setElapsed] = useState(0);
 	const [maximized, setMaximized] = useState(false);
 	const bodyRef = useRef<HTMLDivElement>(null);
@@ -449,7 +451,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							<button
 								type="button"
 								onClick={() => {
-									navigator.clipboard.writeText(content);
+									void copy(content);
 								}}
 								className="ui-icon-btn p-1.5 rounded-md"
 								title={t("common.copy")}

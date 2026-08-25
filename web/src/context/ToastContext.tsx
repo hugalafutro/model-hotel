@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FuseOutline } from "../components/FuseOutline";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { Copy, X } from "../lib/icons";
 
@@ -203,6 +204,7 @@ function ToastItem({
 	fuse: boolean;
 	onDone: () => void;
 }) {
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const [paused, setPaused] = useState(false);
 	const [fading, setFading] = useState(false);
 	const startTimeRef = useRef(0);
@@ -306,8 +308,10 @@ function ToastItem({
 		warning: "bg-amber-900/70 text-amber-200",
 	};
 
+	// A blocked clipboard is silent here: a failure toast about a failed copy of
+	// a toast would stack on the very message the user is trying to keep.
 	const handleCopy = () => {
-		navigator.clipboard.writeText(toast.message).catch(() => {});
+		void copy(toast.message);
 	};
 
 	const { t } = useTranslation();
