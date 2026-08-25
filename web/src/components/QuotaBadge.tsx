@@ -408,6 +408,9 @@ export function QuotaBadges({
 	onOllamaCloudClick,
 	onNeuralwattClick,
 }: QuotaBadgesProps) {
+	// The quota modals own this key (they write it through useLocalStorage); the
+	// badges only follow it. Reading it raw keeps the listener below free to
+	// adopt an observed value without writing it back and re-announcing it.
 	const [barMode, setBarMode] = useState<QuotaBarMode>(() => {
 		try {
 			return (

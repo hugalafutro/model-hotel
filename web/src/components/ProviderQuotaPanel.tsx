@@ -5,6 +5,7 @@ import { RefreshCw } from "@/lib/icons";
 import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import {
@@ -17,6 +18,9 @@ import {
 } from "./ProviderModals";
 import { QuotaBadges } from "./QuotaBadge";
 
+// Mirrors a flag the Settings page owns and writes. This panel only reads it,
+// so it stays a plain read plus the listeners below rather than useLocalStorage,
+// whose setter would write the value straight back on every event it observes.
 function isQuotaDisabled(): boolean {
 	try {
 		return localStorage.getItem("sidebarQuotaDisabled") === "true";
@@ -31,13 +35,12 @@ export function ProviderQuotaPanel() {
 	const lastManualRefresh = useRef(0);
 	const refreshCooldownMs = 10_000;
 
-	const [collapsed, setCollapsed] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaCollapsed") === "true";
-		} catch {
-			return false;
-		}
-	});
+	// Stored as "true"/"false"; anything else reads as expanded.
+	const [collapsed, setCollapsed] = useLocalStorage<boolean>(
+		"sidebarQuotaCollapsed",
+		false,
+		{ deserialize: (stored) => stored === "true" },
+	);
 	const [disabled, setDisabled] = useState(() => isQuotaDisabled());
 
 	// Listen for show/hide toggle changes from the Settings page (same tab) and
@@ -57,11 +60,6 @@ export function ProviderQuotaPanel() {
 	const toggleCollapsed = useCallback(() => {
 		setCollapsed((prev) => {
 			const next = !prev;
-			try {
-				localStorage.setItem("sidebarQuotaCollapsed", String(next));
-			} catch {
-				/* ignore */
-			}
 			if (next) {
 				toast(t("components.providerQuotaPanel.quotaPanelCollapsed"), "info");
 			} else {
@@ -69,7 +67,7 @@ export function ProviderQuotaPanel() {
 			}
 			return next;
 		});
-	}, [toast, t]);
+	}, [setCollapsed, toast, t]);
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],

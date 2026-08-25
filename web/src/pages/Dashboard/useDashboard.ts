@@ -326,6 +326,9 @@ export function useDashboard(): UseDashboardReturn {
 		};
 	}, []);
 
+	// Milliseconds derived from a seconds value the Settings page owns and
+	// writes. The dashboard only follows it, in a different unit than the key
+	// holds, so it stays a plain read plus the listener below.
 	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
 		try {
 			const raw = localStorage.getItem("dashboardRefreshSec");
