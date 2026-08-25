@@ -126,6 +126,22 @@ func sseRequest(t *testing.T) (*http.Request, context.CancelFunc) {
 	return httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/sse", http.NoBody), cancel
 }
 
+// A stream opened while the server is shutting down ends at once: its re-auth
+// ticker is refused, and a stream whose credentials are never re-checked would
+// outlive the revocation it is there to notice.
+func TestSSEStreamEndsWhileShuttingDown(t *testing.T) {
+	srv, _ := newTestServer(t)
+	if err := srv.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	req, _ := sseRequest(t)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := newSSERecorder()
+	done := startStreamWith(t, srv, req, rec, sseTick)
+	awaitClosed(t, done, "while the server was shutting down")
+}
+
 // A device unpaired while its stream is open must lose the stream: the next
 // re-checks fail and the handler returns.
 func TestSSEClosesAfterDeviceRevoked(t *testing.T) {

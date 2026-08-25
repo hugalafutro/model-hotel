@@ -172,6 +172,59 @@ func TestShutdownBoundsTheDrain(t *testing.T) {
 	}
 }
 
+// TestStartBackgroundRefusedOnceShutdownBegins: an http.Server drain returns on
+// its own deadline without stopping the handlers still in flight, so a handler
+// can reach a registration after Shutdown has parked its waiter. Registering then
+// would trip sync.WaitGroup's "Add called concurrently with Wait" panic, so the
+// answer is a refusal: the work is not started and the caller is told.
+func TestStartBackgroundRefusedOnceShutdownBegins(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	if err := srv.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	ran := make(chan struct{})
+	if srv.StartBackground(t.Context(), func(context.Context) { close(ran) }) {
+		t.Error("StartBackground reported the work started after Shutdown; want a refusal")
+	}
+	select {
+	case <-ran:
+		t.Error("refused background work ran anyway")
+	default:
+	}
+}
+
+// TestShutdownWaitsForTheSSEReauthTicker: a stream's re-auth ticker reads the
+// session and device tables, so the drain has to cover it. Shutdown must not
+// return, and so must not close the store, while one is still ticking; the
+// request context is what ends it, exactly as a disconnecting client would.
+func TestShutdownWaitsForTheSSEReauthTicker(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	req, cancelReq := sseRequest(t)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := newSSERecorder()
+	streamDone := startStreamWith(t, srv, req, rec, sseTick)
+	awaitWrite(t, rec, "keep-alive") // the ticker is running and re-checking
+
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- srv.Shutdown(t.Context()) }()
+	// t.Context() outlives the test body, so this drain has no deadline of its own
+	// to escape through: only the ticker returning can release it.
+	select {
+	case <-shutdownDone:
+		t.Fatal("Shutdown returned while an SSE re-auth ticker was still running")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancelReq()
+	awaitClosed(t, streamDone, "after its request context was cancelled")
+	if err := <-shutdownDone; err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+}
+
 func TestServerAuthGate(t *testing.T) {
 	srv, _ := newTestServer(t)
 

@@ -155,11 +155,19 @@ type Server struct {
 	// staleness window has passed since this process started.
 	startedAt time.Time
 	router    http.Handler
-	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
-	// callers can drain them on shutdown. Without it, a kick fired by an enable
-	// keeps writing to the store after a caller (or a test) has moved on, which
-	// races store teardown.
-	bgWG sync.WaitGroup
+	// bgWG tracks every background goroutine the server owns: the detached
+	// auto-sync kick, the process-lifetime poll loops, and an SSE stream's re-auth
+	// ticker. Without it, work fired by a request keeps reading the store after a
+	// caller (or a test) has moved on, which races store teardown.
+	//
+	// bgMu guards bgClosing and pairs registration with it. A sync.WaitGroup panics
+	// on an Add that lifts the counter off zero while a Wait is parked, so
+	// registration and the "are we draining yet" decision have to be one atomic
+	// step: StartBackground holds bgMu across both, and Shutdown takes it to set
+	// bgClosing before it parks. bgClosing stays set; the server is not restartable.
+	bgMu      sync.Mutex
+	bgClosing bool
+	bgWG      sync.WaitGroup
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -272,15 +280,30 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.router.Se
 // prefer at process exit.
 func (s *Server) Wait() { s.bgWG.Wait() }
 
-// StartBackground runs fn as a tracked background goroutine, so Wait and Shutdown
-// cover it. The registration happens on the caller's goroutine, before fn is
-// spawned, so a shutdown racing startup still waits for fn rather than missing a
-// counter that had not been incremented yet.
+// StartBackground runs fn as a tracked background goroutine and reports whether it
+// started, so Wait and Shutdown cover it. The registration happens on the caller's
+// goroutine, before fn is spawned, so a shutdown racing startup still waits for fn
+// rather than missing a counter that had not been incremented yet.
+//
+// It refuses once Shutdown has begun, and that refusal is the whole point of the
+// lock: an http.Server drain returns on its own deadline without stopping the
+// handlers still in flight, so a handler outliving it and registering here would
+// otherwise trip the WaitGroup's "Add called concurrently with Wait" panic.
+// Refusing is also the right answer on its own terms, since anything started at
+// that moment is cancelled milliseconds later. The caller decides what to do
+// without the goroutine; false is a normal shutdown-time answer, not an error.
 //
 // fn owns its exit: it is expected to return when ctx is done, which is how
 // Shutdown's drain ever completes.
-func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) {
+func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) (started bool) {
+	s.bgMu.Lock()
+	defer s.bgMu.Unlock()
+	if s.bgClosing {
+		debuglog.Debug("frontdesk: background work refused, server is shutting down")
+		return false
+	}
 	s.bgWG.Go(func() { fn(ctx) })
+	return true
 }
 
 // Shutdown drains the server's background goroutines and then closes the store,
@@ -293,9 +316,18 @@ func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) 
 // forever; the store is closed either way and the timed-out drain is logged, so
 // the operator sees which shutdown was untidy.
 //
-// Callers stop accepting new work first (the HTTP server's own Shutdown), so
-// nothing can register another goroutine while this drains.
+// It takes ownership of the store it was configured with and closes it, so a
+// caller holding the same *Store must not keep using it afterwards.
+//
+// Nothing can register another goroutine while this drains: the closing flag is
+// set before the waiter parks, and StartBackground refuses from that point on.
+// Callers should still stop accepting requests first (the HTTP server's own
+// Shutdown), so in-flight work has its chance to finish rather than being refused.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.bgMu.Lock()
+	s.bgClosing = true
+	s.bgMu.Unlock()
+
 	drained := make(chan struct{})
 	go func() {
 		defer close(drained)

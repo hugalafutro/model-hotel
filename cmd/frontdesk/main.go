@@ -101,7 +101,9 @@ func main() {
 	if err != nil {
 		debuglog.Fatal("frontdesk: failed to open store", "error", err)
 	}
-	defer func() { _ = store.Close() }()
+	// No deferred close: srv.Shutdown owns the store from here (it closes it after
+	// draining), and every bail-out below is debuglog.Fatal, which is os.Exit and
+	// runs no defers. A deferred close would only ever be a second, redundant one.
 
 	adminMgr, isNew, err := admin.New(dataDir, os.Getenv("FRONTDESK_TOKEN"))
 	if err != nil {
@@ -191,7 +193,11 @@ func main() {
 	// drain what is in flight and close the store. Its own budget, not
 	// shutdownCtx, which the HTTP drain may already have spent. Bounded, so a
 	// loop that ignores its cancellation delays exit rather than hanging it.
-	drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// 5s, not the HTTP drain's 10s: every loop returns on ctx within a tick, so the
+	// budget only has to absorb a straggler. It keeps the worst case (10s HTTP + 5s
+	// drain + 5s OTLP flush) at cmd/server's shape plus the drain, which the
+	// stop_grace_period on the front-desk service in deploy/ha covers.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer drainCancel()
 	if err := srv.Shutdown(drainCtx); err != nil {
 		debuglog.Error("frontdesk: store shutdown failed", "error", err)
