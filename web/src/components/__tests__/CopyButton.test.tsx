@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import i18n from "../../i18n";
 import { renderWithProviders } from "../../test/utils";
 import { CopyButton } from "../CopyButton";
 
@@ -41,5 +42,46 @@ describe("CopyButton", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Copied to clipboard")).toBeInTheDocument();
 		});
+	});
+
+	it("shows failure toast when the clipboard refuses", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<CopyButton text="test content" />);
+		// Spied after render: userEvent.setup() installs its own clipboard stub,
+		// so the spy has to go on whatever object is in place by then.
+		vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+			new Error("denied"),
+		);
+
+		await user.click(screen.getByRole("button"));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("toast-message")).toHaveTextContent(
+				i18n.t("common.failedToCopy"),
+			);
+		});
+	});
+
+	it("swaps its label instead of toasting in the label variant", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<CopyButton
+				variant="label"
+				text="test content"
+				testId="label-copy"
+				ariaLabel="Copy: row"
+			/>,
+		);
+		const button = screen.getByTestId("label-copy");
+		expect(button).toHaveClass("ui-btn-secondary");
+		expect(button).toHaveAttribute("aria-label", "Copy: row");
+		expect(button).toHaveTextContent(i18n.t("common.copy"));
+
+		await user.click(button);
+
+		await waitFor(() => {
+			expect(button).toHaveTextContent(i18n.t("common.copied"));
+		});
+		expect(screen.queryByTestId("toast-message")).not.toBeInTheDocument();
 	});
 });

@@ -7,6 +7,7 @@ import { ApiError, api, clearAuth } from "../../api/client";
 import { CopyButton } from "../../components/CopyButton";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatDate } from "../../utils/format";
 import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 
@@ -21,6 +22,7 @@ import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 export function Security() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
 
 	const [enrollUri, setEnrollUri] = useState("");
@@ -129,12 +131,9 @@ export function Security() {
 	};
 
 	const handleCopySecret = async () => {
-		try {
-			await navigator.clipboard.writeText(enrollSecret);
+		if (await copy(enrollSecret))
 			toast(t("settings.totp.secretCopied"), "success");
-		} catch {
-			toast(t("common.failedToCopy"), "error");
-		}
+		else toast(t("common.failedToCopy"), "error");
 	};
 
 	const handleDownloadCodes = () => {

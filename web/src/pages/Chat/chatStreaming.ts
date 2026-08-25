@@ -10,14 +10,6 @@ import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry, type RetryOptions } from "../../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 
-export function formatTime(ts: number): string {
-	const d = new Date(ts);
-	return d.toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-}
-
 export type ConversationState =
 	| "idle"
 	| "running"

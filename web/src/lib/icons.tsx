@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
+// Every export here is a component; the withId() wrappers are just opaque to the
+// fast-refresh rule, which only recognises the plainly-declared one below.
+
 // Central icon shim. Maps the app's icon names (formerly lucide-react) to
 // Phosphor icons, so every call site stays unchanged - only the import path
 // moved to "@/lib/icons". Each icon is wrapped to carry a stable, lib-agnostic
@@ -168,3 +172,26 @@ export const SlidersHorizontal = withId(
 export const ArrowLeftRight = withId(Ph.ArrowsLeftRightIcon, "ArrowLeftRight");
 export const ArrowDownToLine = withId(Ph.ArrowLineDownIcon, "ArrowDownToLine");
 export const ArrowUpFromLine = withId(Ph.ArrowLineUpIcon, "ArrowUpFromLine");
+
+// A Brain struck through, for "reasoning is stripped". Composed here rather
+// than mapped to a Ph.* glyph because Phosphor has no brain-slash: the bar is
+// an overlay sized to the icon box and inherits the surrounding text color.
+export function BrainSlashIcon({
+	size = 14,
+	className = "",
+}: {
+	size?: number;
+	className?: string;
+}) {
+	return (
+		<span
+			className={`relative inline-block ${className}`}
+			style={{ width: size, height: size }}
+		>
+			<Brain size={size} />
+			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+				<span className="w-full h-[1.5px] bg-current rotate-45" />
+			</span>
+		</span>
+	);
+}

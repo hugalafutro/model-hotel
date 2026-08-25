@@ -10,6 +10,7 @@ import {
 } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { displayLogMessage } from "../../utils/logText";
 import { truncateWithEllipsis } from "../../utils/truncate";
@@ -32,6 +33,7 @@ import {
 export function ErrorShelf() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const { unacked, ack, ackAll } = useErrorShelf();
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second
@@ -68,17 +70,11 @@ export function ErrorShelf() {
 	}, [clearArmed, ackAll, toast, t]);
 
 	const handleCopy = useCallback(
-		(message: string) => {
-			// Run the write inside a promise chain so a missing Clipboard API
-			// (navigator.clipboard is undefined in non-secure/HTTP contexts)
-			// surfaces as a rejection and hits the failure toast, rather than
-			// throwing synchronously and bypassing it.
-			Promise.resolve()
-				.then(() => navigator.clipboard.writeText(message))
-				.then(() => toast(t("common.copiedToClipboard"), "info"))
-				.catch(() => toast(t("common.failedToCopy"), "error"));
+		async (message: string) => {
+			if (await copy(message)) toast(t("common.copiedToClipboard"), "info");
+			else toast(t("common.failedToCopy"), "error");
 		},
-		[toast, t],
+		[copy, toast, t],
 	);
 
 	const handleViewDetails = useCallback((err: ShelfError) => {

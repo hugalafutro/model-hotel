@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, ChevronRight, RotateCcw } from "@/lib/icons";
+import { BrainSlashIcon, ChevronRight, RotateCcw } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -9,26 +9,6 @@ import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
 import { UsageSnippets } from "./UsageSnippets";
-
-function BrainSlashIcon({
-	size = 14,
-	className = "",
-}: {
-	size?: number;
-	className?: string;
-}) {
-	return (
-		<span
-			className={`relative inline-block ${className}`}
-			style={{ width: size, height: size }}
-		>
-			<Brain size={size} />
-			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-				<span className="w-full h-[1.5px] bg-current rotate-45" />
-			</span>
-		</span>
-	);
-}
 
 export function CreateKeyModal({
 	onClose,

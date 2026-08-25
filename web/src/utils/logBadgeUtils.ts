@@ -78,7 +78,11 @@ export const getSourceBadgeClasses = (source: string) => {
 	}
 };
 
-export const formatTimestamp = (ts: string) => {
+// Log-row stamp: fixed-width 24-hour date and time down to the second, so rows
+// line up in the log tables. An unparsable value is passed through as it came.
+// Distinct from utils/format's formatTimestamp, which is the locale-short form
+// used everywhere else.
+export const formatLogTimestamp = (ts: string) => {
 	try {
 		const d = new Date(ts);
 		if (Number.isNaN(d.getTime())) {
