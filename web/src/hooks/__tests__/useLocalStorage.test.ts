@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useLocalStorage } from "../useLocalStorage";
+import { useLocalStorage, useLocalStorageValue } from "../useLocalStorage";
 
 describe("useLocalStorage", () => {
 	const key = "test-key";
@@ -90,5 +90,139 @@ describe("useLocalStorage", () => {
 
 		expect(result.current[0]).toBe("fail"); // state still updated
 		setItemSpy.mockRestore();
+	});
+});
+
+describe("useLocalStorageValue", () => {
+	const key = "mirrored-key";
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+	});
+
+	it("reads the stored value on mount", () => {
+		localStorage.setItem(key, "stored");
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+		expect(result.current).toBe("stored");
+	});
+
+	it("returns the fallback when the key is absent", () => {
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+		expect(result.current).toBe("fallback");
+	});
+
+	it("deserializes the raw string, nulls included", () => {
+		localStorage.setItem(key, "5");
+		const { result } = renderHook(() =>
+			useLocalStorageValue(key, 30_000, {
+				deserialize: (stored, fallback) =>
+					stored === null ? fallback : Number(stored) * 1000,
+			}),
+		);
+		expect(result.current).toBe(5000);
+	});
+
+	it("re-reads on a cross-tab storage event for its key", () => {
+		localStorage.setItem(key, "first");
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(new StorageEvent("storage", { key }));
+		});
+		expect(result.current).toBe("second");
+	});
+
+	it("re-reads on the localStorageChange event for its key", () => {
+		localStorage.setItem(key, "first");
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(
+				new CustomEvent("localStorageChange", { detail: { key } }),
+			);
+		});
+		expect(result.current).toBe("second");
+	});
+
+	it("re-reads on an extra event the writer announces", () => {
+		localStorage.setItem(key, "first");
+		const { result } = renderHook(() =>
+			useLocalStorageValue(key, "fallback", { events: ["writerToggle"] }),
+		);
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(new CustomEvent("writerToggle"));
+		});
+		expect(result.current).toBe("second");
+	});
+
+	it("ignores changes to other keys", () => {
+		localStorage.setItem(key, "first");
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(new StorageEvent("storage", { key: "other" }));
+			window.dispatchEvent(
+				new CustomEvent("localStorageChange", { detail: { key: "other" } }),
+			);
+		});
+		expect(result.current).toBe("first");
+	});
+
+	it("never writes, not even while following a change", () => {
+		localStorage.setItem(key, "first");
+		const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		const { result, unmount } = renderHook(() =>
+			useLocalStorageValue(key, "fallback"),
+		);
+
+		act(() => {
+			window.dispatchEvent(
+				new CustomEvent("localStorageChange", { detail: { key } }),
+			);
+		});
+		unmount();
+
+		expect(result.current).toBe("first");
+		expect(setItemSpy).not.toHaveBeenCalled();
+		// Only the event the test itself fired; the hook announces nothing.
+		expect(dispatchSpy).toHaveBeenCalledTimes(1);
+		setItemSpy.mockRestore();
+		dispatchSpy.mockRestore();
+	});
+
+	it("falls back when localStorage throws", () => {
+		const getItemSpy = vi
+			.spyOn(Storage.prototype, "getItem")
+			.mockImplementation(() => {
+				throw new Error("SecurityError");
+			});
+
+		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
+
+		expect(result.current).toBe("fallback");
+		getItemSpy.mockRestore();
+	});
+
+	it("stops following once unmounted", () => {
+		localStorage.setItem(key, "first");
+		const { result, unmount } = renderHook(() =>
+			useLocalStorageValue(key, "fallback"),
+		);
+		unmount();
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(
+				new CustomEvent("localStorageChange", { detail: { key } }),
+			);
+		});
+		expect(result.current).toBe("first");
 	});
 });

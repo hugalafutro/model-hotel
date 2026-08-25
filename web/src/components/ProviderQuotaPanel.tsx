@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "@/lib/icons";
 import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import {
+	useLocalStorage,
+	useLocalStorageValue,
+} from "../hooks/useLocalStorage";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import {
@@ -17,17 +20,6 @@ import {
 	ZAICodingQuotaModal,
 } from "./ProviderModals";
 import { QuotaBadges } from "./QuotaBadge";
-
-// Mirrors a flag the Settings page owns and writes. This panel only reads it,
-// so it stays a plain read plus the listeners below rather than useLocalStorage,
-// whose setter would write the value straight back on every event it observes.
-function isQuotaDisabled(): boolean {
-	try {
-		return localStorage.getItem("sidebarQuotaDisabled") === "true";
-	} catch {
-		return false;
-	}
-}
 
 export function ProviderQuotaPanel() {
 	const { t } = useTranslation();
@@ -41,33 +33,27 @@ export function ProviderQuotaPanel() {
 		false,
 		{ deserialize: (stored) => stored === "true" },
 	);
-	const [disabled, setDisabled] = useState(() => isQuotaDisabled());
+	// The show/hide flag belongs to the Settings page, which announces its writes
+	// as "sidebarQuotaToggle"; this panel follows the value and never writes it.
+	// The refresh interval comes from the server setting below, so it needs no
+	// listener of its own.
+	const disabled = useLocalStorageValue("sidebarQuotaDisabled", false, {
+		deserialize: (stored) => stored === "true",
+		events: ["sidebarQuotaToggle"],
+	});
 
-	// Listen for show/hide toggle changes from the Settings page (same tab) and
-	// cross-tab storage events. The refresh interval is now sourced from the
-	// server setting below, so it no longer needs a custom-event listener.
-	useEffect(() => {
-		const toggleHandler = () => setDisabled(isQuotaDisabled());
-		window.addEventListener("sidebarQuotaToggle", toggleHandler);
-		// Also listen for storage events (cross-tab)
-		window.addEventListener("storage", toggleHandler);
-		return () => {
-			window.removeEventListener("sidebarQuotaToggle", toggleHandler);
-			window.removeEventListener("storage", toggleHandler);
-		};
-	}, []);
-
+	// The toast is announced here, outside the state updater, which React may
+	// call more than once for a single toggle.
 	const toggleCollapsed = useCallback(() => {
-		setCollapsed((prev) => {
-			const next = !prev;
-			if (next) {
-				toast(t("components.providerQuotaPanel.quotaPanelCollapsed"), "info");
-			} else {
-				toast(t("components.providerQuotaPanel.quotaPanelExpanded"), "info");
-			}
-			return next;
-		});
-	}, [setCollapsed, toast, t]);
+		const next = !collapsed;
+		setCollapsed(next);
+		toast(
+			next
+				? t("components.providerQuotaPanel.quotaPanelCollapsed")
+				: t("components.providerQuotaPanel.quotaPanelExpanded"),
+			"info",
+		);
+	}, [collapsed, setCollapsed, toast, t]);
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],

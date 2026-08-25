@@ -11,7 +11,10 @@ import type {
 	TimeSeriesStats,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
+import {
+	useLocalStorage,
+	useLocalStorageValue,
+} from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
 import { bucketLabel } from "./bucketLabel";
 import type { Range } from "./types";
@@ -326,47 +329,24 @@ export function useDashboard(): UseDashboardReturn {
 		};
 	}, []);
 
-	// Milliseconds derived from a seconds value the Settings page owns and
-	// writes. The dashboard only follows it, in a different unit than the key
-	// holds, so it stays a plain read plus the listener below.
-	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
-		try {
-			const raw = localStorage.getItem("dashboardRefreshSec");
-			if (raw !== null) {
-				const sec = Number(raw);
+	// Milliseconds derived from the seconds value the Settings page owns and
+	// writes, announcing each change as "dashboardRefreshChange". The dashboard
+	// follows it and never writes it; 0 disables auto-refresh and anything
+	// unparsable means the 30s default.
+	const dashboardRefreshMs = useLocalStorageValue(
+		"dashboardRefreshSec",
+		30000,
+		{
+			deserialize: (stored, fallback) => {
+				if (stored === null) return fallback;
+				const sec = Number(stored);
 				if (sec > 0) return sec * 1000;
 				if (sec === 0) return 0;
-			}
-		} catch {
-			// localStorage unavailable (private browsing, quota, iframe)
-		}
-		return 30000;
-	});
-
-	// React to interval changes from Settings page mid-session
-	useEffect(() => {
-		const handler = () => {
-			try {
-				const raw = localStorage.getItem("dashboardRefreshSec");
-				if (raw !== null) {
-					const sec = Number(raw);
-					if (sec > 0) {
-						setDashboardRefreshMs(sec * 1000);
-						return;
-					}
-					if (sec === 0) {
-						setDashboardRefreshMs(0);
-						return;
-					}
-				}
-				setDashboardRefreshMs(30000);
-			} catch {
-				setDashboardRefreshMs(30000);
-			}
-		};
-		window.addEventListener("dashboardRefreshChange", handler);
-		return () => window.removeEventListener("dashboardRefreshChange", handler);
-	}, []);
+				return fallback;
+			},
+			events: ["dashboardRefreshChange"],
+		},
+	);
 
 	const handleRefresh = useCallback(() => {
 		const now = Date.now();
