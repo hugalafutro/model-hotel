@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -193,7 +194,7 @@ func translateChatMessages(msgs []chatReqMessage) (string, []any, error) {
 // Responses re-route only triggers for tools+reasoning requests, which are
 // text/vision workloads.
 func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		return []contentPart{{Type: "input_text", Text: s}}, nil
 	}
 	if len(raw) == 0 || string(raw) == "null" {
@@ -221,7 +222,7 @@ func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 // string verbatim, or the concatenated text parts of an array. ok is false
 // when the field is absent/null.
 func flattenContent(raw json.RawMessage) (string, bool) {
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		return s, true
 	}
 	if len(raw) == 0 || string(raw) == "null" {
@@ -240,18 +241,6 @@ func flattenContent(raw json.RawMessage) (string, bool) {
 	return sb.String(), true
 }
 
-// asJSONString returns the value when raw is a JSON string literal.
-func asJSONString(raw json.RawMessage) (string, bool) {
-	if len(raw) == 0 {
-		return "", false
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s, true
-	}
-	return "", false
-}
-
 // translateToolChoice maps the chat tool_choice union onto the Responses one:
 // the string modes are shared verbatim; the named-function object flattens
 // from {type:"function",function:{name}} to {type:"function",name}.
@@ -259,7 +248,7 @@ func translateToolChoice(raw json.RawMessage) (any, bool) {
 	if len(raw) == 0 {
 		return nil, false
 	}
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		switch s {
 		case "auto", "none", "required":
 			return s, true

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"net/http"
 	"time"
@@ -193,10 +192,7 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, stats)
 }
 
 // modelKeySQL is the aggregation key for per-model stats: the "Provider/model"
@@ -720,10 +716,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		result.Points = fillEmptyBuckets(result.Points, since, endTrunc, bucketSize)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, result)
 }
 
 func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize string) []TimeSeriesPoint {
@@ -846,8 +839,5 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		result.Items[0].Share = math.Round((100-roundedSum+result.Items[0].Share)*10) / 10
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, result)
 }

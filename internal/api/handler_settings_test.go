@@ -718,9 +718,12 @@ func TestResetSettings_CommitError(t *testing.T) {
 	fw := &trackingFailingWriter{}
 	h.ResetSettings(fw, req)
 
-	// After encode fails, respondError is called with 500.
-	if fw.statusCode != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for encode error, got %d", fw.statusCode)
+	// The response body has already started when the encode fails, so the
+	// handler must not fabricate a second status: it logs the failure and
+	// leaves the truncated stream for the client to detect. Writing a 500 here
+	// would be a superfluous WriteHeader on a committed response.
+	if fw.statusCode != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", fw.statusCode)
 	}
 }
 
@@ -884,8 +887,12 @@ func TestUpdateSettings_ResponseEncodeError(t *testing.T) {
 	fw := &statusTrackingFailWriter{}
 	h.UpdateSettings(fw, req)
 
-	if fw.statusCode != http.StatusInternalServerError {
-		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, fw.statusCode)
+	// The response body has already started when the encode fails, so the
+	// handler must not fabricate a second status: it logs the failure and
+	// leaves the truncated stream for the client to detect. Writing a 500 here
+	// would be a superfluous WriteHeader on a committed response.
+	if fw.statusCode != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", fw.statusCode)
 	}
 }
 

@@ -133,10 +133,7 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 	all = h.injectReadOnlyStatus(all)
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(all); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, all)
 }
 
 // allowedSettings defines which keys can be set and their validation rules.
@@ -346,10 +343,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	all, _ := h.settingsRepo.GetAll(r.Context())
 	all = h.injectReadOnlyStatus(all)
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(all); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, all)
 }
 
 // ResetSettings deletes specified settings keys from the database so they
@@ -427,8 +421,5 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	all, _ := h.settingsRepo.GetAll(r.Context())
 	all = h.injectReadOnlyStatus(all)
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(all); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, all)
 }

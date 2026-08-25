@@ -787,8 +787,12 @@ func TestGetStats_JSONEncodeError(t *testing.T) {
 
 	handler.GetStats(w, r)
 
-	if w.code != http.StatusInternalServerError {
-		t.Errorf("Expected 500, got %d", w.code)
+	// The response body has already started when the encode fails, so the
+	// handler must not fabricate a second status: it logs the failure and
+	// leaves the truncated stream for the client to detect. Writing a 500 here
+	// would be a superfluous WriteHeader on a committed response.
+	if w.code != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", w.code)
 	}
 }
 
@@ -807,8 +811,12 @@ func TestGetTimeSeries_JSONEncodeError(t *testing.T) {
 
 	handler.GetTimeSeries(w, r)
 
-	if w.code != http.StatusInternalServerError {
-		t.Errorf("Expected 500, got %d", w.code)
+	// The response body has already started when the encode fails, so the
+	// handler must not fabricate a second status: it logs the failure and
+	// leaves the truncated stream for the client to detect. Writing a 500 here
+	// would be a superfluous WriteHeader on a committed response.
+	if w.code != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", w.code)
 	}
 }
 
@@ -827,8 +835,12 @@ func TestGetProviderDistribution_JSONEncodeError(t *testing.T) {
 
 	handler.GetProviderDistribution(w, r)
 
-	if w.code != http.StatusInternalServerError {
-		t.Errorf("Expected 500, got %d", w.code)
+	// The response body has already started when the encode fails, so the
+	// handler must not fabricate a second status: it logs the failure and
+	// leaves the truncated stream for the client to detect. Writing a 500 here
+	// would be a superfluous WriteHeader on a committed response.
+	if w.code != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", w.code)
 	}
 }
 

@@ -272,6 +272,68 @@ func TestStreamAdapter_EndToEnd(t *testing.T) {
 	}
 }
 
+// TestStreamAdapter_FoldedEventTranslatesCleanly folds one output_text.delta
+// across two "data:" fields, which SSE allows: the payload is their
+// newline-join and the blank line ends the event. Dispatching each field on its
+// own hands the translator JSON fragments, and because this dialect logs and
+// skips a malformed event the delta is dropped silently — the stream still ends
+// with [DONE], just short of its content.
+func TestStreamAdapter_FoldedEventTranslatesCleanly(t *testing.T) {
+	sse := "event: response.created\r\n" +
+		"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\"}}\r\n" +
+		"\r\n" +
+		"event: response.output_text.delta\r\n" +
+		"data: {\"type\":\"response.output_text.delta\",\r\n" +
+		"data: \"delta\":\"Hello\"}\r\n" +
+		"\r\n" +
+		"event: response.completed\r\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}}\r\n" +
+		"\r\n"
+	out, err := io.ReadAll(NewStreamAdapter(io.NopCloser(iotest{r: strings.NewReader(sse)}), "m"))
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	chunks, sawDone := collectChunks(t, out)
+	if !sawDone {
+		t.Fatalf("no [DONE]:\n%s", out)
+	}
+	if len(chunks) != 3 { // content + finish + usage
+		t.Fatalf("got %d chunks, want 3 (the folded delta was dropped):\n%s", len(chunks), out)
+	}
+	if d := delta(t, chunks[0]); d["content"] != "Hello" {
+		t.Errorf("folded delta lost its content: chunk[0] = %v", d)
+	}
+}
+
+// TestStreamAdapter_SkipsDoneAndMalformedEvents pins the two dispatch rules
+// this dialect owns: a "[DONE]" payload is ignored (Responses streams do not
+// use that sentinel), and a malformed event is skipped rather than failing the
+// stream, so the events around it still translate.
+func TestStreamAdapter_SkipsDoneAndMalformedEvents(t *testing.T) {
+	sse := "data: [DONE]\n\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hel\"}\n\n" +
+		"data: {not json}\n\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"lo\"}\n\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n"
+	out, err := io.ReadAll(NewStreamAdapter(io.NopCloser(strings.NewReader(sse)), "m"))
+	if err != nil {
+		t.Fatalf("a malformed event failed the stream: %v", err)
+	}
+	chunks, sawDone := collectChunks(t, out)
+	if !sawDone {
+		t.Fatalf("no [DONE]:\n%s", out)
+	}
+	if len(chunks) != 3 { // two content deltas + finish
+		t.Fatalf("got %d chunks, want 3:\n%s", len(chunks), out)
+	}
+	if d := delta(t, chunks[0]); d["content"] != "Hel" {
+		t.Errorf("chunk[0] = %v, want the delta before the malformed event", d)
+	}
+	if d := delta(t, chunks[1]); d["content"] != "lo" {
+		t.Errorf("chunk[1] = %v, want the delta after the malformed event", d)
+	}
+}
+
 // iotest yields one byte per Read to exercise line reassembly.
 type iotest struct{ r io.Reader }
 

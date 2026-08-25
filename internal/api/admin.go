@@ -713,7 +713,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Create(r.Context(), req, encCiphertext, encNonce, encSalt)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
 			return
 		}
@@ -1011,7 +1011,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			http.Error(w, "a provider with this name already exists", http.StatusConflict)
 			return
 		}
@@ -1085,14 +1085,6 @@ func providerTypeAllowsEmptyKey(providerType string) bool {
 	default:
 		return false
 	}
-}
-
-// isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (error code 23505).
-func isUniqueViolation(err error) bool {
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-		return pgErr.Code == "23505"
-	}
-	return false
 }
 
 // isForeignKeyViolation checks if the error is a PostgreSQL foreign key violation (error code 23503).

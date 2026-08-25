@@ -216,9 +216,7 @@ func (h *UserLoginHandler) checkSecondFactor(w http.ResponseWriter, r *http.Requ
 		return true
 	}
 	if code == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]bool{"totp_required": true})
+		writeJSONStatus(w, http.StatusUnauthorized, map[string]bool{"totp_required": true})
 		return false
 	}
 	if ok, verr := repo.Verify(r.Context(), code); verr == nil && ok {

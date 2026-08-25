@@ -2,16 +2,13 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
@@ -549,13 +546,4 @@ func syncableSettingKeys() []string {
 		}
 	}
 	return out
-}
-
-// writeJSONStatus writes v as JSON with an explicit status code.
-func writeJSONStatus(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
-		debuglog.Error("configsync: encode response", "error", err)
-	}
 }

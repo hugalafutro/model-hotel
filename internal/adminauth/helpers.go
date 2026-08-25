@@ -5,20 +5,16 @@
 // The handlers depend only on interfaces (webauthn.Store, AdminAuthenticator,
 // IPLimiterMiddleware) and the webauthn/totp domain packages, never on a
 // database driver, so the same audited code backs Postgres (main server) and
-// SQLite (Front Desk). The small response/guard helpers below are copied from
-// internal/api (their single source before this extraction) to keep this
-// package free of an import dependency on api.
+// SQLite (Front Desk). The small response/guard helpers below are thin wrappers
+// over internal/httpx, the neutral leaf package that holds their single body;
+// they exist only to pin this package's log prefix and keep the call sites
+// short.
 package adminauth
 
 import (
-	"encoding/json"
-	"errors"
-	"net"
 	"net/http"
-	"strings"
-	"syscall"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // AdminAuthenticator validates the raw admin token. Implemented by
@@ -35,75 +31,31 @@ type IPLimiterMiddleware interface {
 	ClientIP(r *http.Request) string
 }
 
-// writeJSON encodes v as JSON. Copied from internal/api/helpers.go.
+// logComponent is the log prefix every helper in this package writes.
+const logComponent = "adminauth"
+
+// writeJSON encodes v as JSON.
 func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		logEncodeError(err)
-	}
+	httpx.WriteJSON(w, logComponent, v)
 }
 
-// logEncodeError downgrades client-disconnect write errors to debug so a client
-// hanging up before the body is written doesn't spam production error logs;
-// genuine encode bugs stay at error level. Copied from internal/api/helpers.go.
-func logEncodeError(err error) {
-	if isClientDisconnect(err) {
-		debuglog.Debug("adminauth: client disconnected before JSON response completed", "error", err)
-		return
-	}
-	debuglog.Error("adminauth: failed to encode JSON response", "error", err)
+// writeJSONStatus encodes v as JSON under an explicit status code.
+func writeJSONStatus(w http.ResponseWriter, status int, v any) {
+	httpx.WriteJSONStatus(w, logComponent, status, v)
 }
 
-// isClientDisconnect reports whether err is an OS-level write error signalling
-// the client closed the connection mid-response. Context cancellation is
-// deliberately excluded. Copied from internal/api/helpers.go.
-func isClientDisconnect(err error) bool {
-	return errors.Is(err, syscall.EPIPE) ||
-		errors.Is(err, syscall.ECONNRESET) ||
-		errors.Is(err, net.ErrClosed)
-}
-
-// respondError writes an error response, logging server faults. Copied from
-// internal/api/helpers.go.
+// respondError writes an error response, logging server faults.
 func respondError(w http.ResponseWriter, message string, err error, code int) {
-	if err != nil {
-		debuglog.Error("adminauth: "+message, "error", err)
-	} else if code >= 500 {
-		debuglog.Error("adminauth: " + message)
-	}
-	http.Error(w, message, code)
+	httpx.RespondError(w, logComponent, message, err, code)
 }
 
-// respondBadRequest writes a 400 response. Copied from internal/api/helpers.go.
+// respondBadRequest writes a 400 response, logging the cause server-side.
 func respondBadRequest(w http.ResponseWriter, message string, err error) {
-	if err != nil {
-		debuglog.Info("adminauth: bad request: "+message, "error", err)
-	}
-	http.Error(w, message, http.StatusBadRequest)
+	httpx.RespondBadRequest(w, logComponent, message, err)
 }
 
-// readOnlyGuard refuses mutating requests in demo read-only mode. Copied from
-// internal/api/readonly.go (the logout exemption mirrors that source).
+// readOnlyGuard refuses mutating requests in demo read-only mode. Only the
+// webauthn/logout exemption is reachable from this package's routes.
 func readOnlyGuard(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet, http.MethodHead, http.MethodOptions:
-			next.ServeHTTP(w, r)
-		case http.MethodPost:
-			if isReadOnlyExemptPost(r.URL.Path) {
-				next.ServeHTTP(w, r)
-				return
-			}
-			fallthrough
-		default:
-			respondError(w, "this is a read-only demo: creating, editing, and deleting are disabled", nil, http.StatusForbidden)
-		}
-	})
-}
-
-// isReadOnlyExemptPost lists POST paths allowed in read-only mode. Copied from
-// internal/api/readonly.go (only the webauthn/logout case is reachable here).
-func isReadOnlyExemptPost(path string) bool {
-	return strings.HasSuffix(path, "/discovery/changes/ack") ||
-		strings.HasSuffix(path, "/webauthn/logout")
+	return httpx.ReadOnlyGuard(logComponent, next)
 }
