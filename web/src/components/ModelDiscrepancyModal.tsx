@@ -94,6 +94,7 @@ export interface ModelDiscrepancyModalProps {
 	managed?: boolean;
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function ModelDiscrepancyModal({
 	providers,
 	groupClaims,

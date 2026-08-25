@@ -28,6 +28,7 @@ import { ChatMessageList } from "./Chat/ChatMessageList";
 
 import { useChat } from "./Chat/useChat";
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Chat() {
 	const { t } = useTranslation();
 	// Refs are split off so the ref-free `chat` rest object can be read freely

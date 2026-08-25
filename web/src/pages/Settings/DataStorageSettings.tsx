@@ -29,6 +29,7 @@ interface DataStorageSettingsProps {
 	managed?: boolean;
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function DataStorageSettings({
 	collapsed,
 	onToggle,

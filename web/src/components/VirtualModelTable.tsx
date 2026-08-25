@@ -70,6 +70,7 @@ const HEADER_BASE =
 
 const EDGE_THRESHOLD_PX = 500;
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function VirtualModelTable({
 	providers,
 	providerFilter = "",

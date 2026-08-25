@@ -47,6 +47,7 @@ function SectionHeader({
 	);
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function KeyDetailModal({
 	vk,
 	onClose,

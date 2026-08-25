@@ -8,6 +8,14 @@ import tseslint from "typescript-eslint";
 export default defineConfig([
 	globalIgnores(["dist", "coverage"]),
 	{
+		// A disable directive that no longer suppresses anything is dead code, and
+		// the size ratchet leans on that: the moment an oversized function is split
+		// under the limit, its directive fails `pnpm lint` and has to come out.
+		linterOptions: {
+			reportUnusedDisableDirectives: "error",
+		},
+	},
+	{
 		files: ["**/*.{ts,tsx}"],
 		extends: [
 			js.configs.recommended,

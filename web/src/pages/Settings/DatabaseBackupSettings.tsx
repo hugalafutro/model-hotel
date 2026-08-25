@@ -30,6 +30,7 @@ interface DatabaseBackupSettingsProps {
 	managed?: boolean;
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function DatabaseBackupSettings({
 	collapsed,
 	onToggle,

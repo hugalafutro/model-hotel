@@ -28,6 +28,7 @@ import { BracketPreviewPill } from "./Arena/shared";
 import { useArena } from "./Arena/useArena";
 import { WinnerSummaryModal } from "./Arena/WinnerSummaryModal";
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Arena() {
 	const { t } = useTranslation();
 	// Refs are split off so the ref-free `arena` rest object can be read freely

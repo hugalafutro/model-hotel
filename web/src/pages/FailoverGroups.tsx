@@ -26,6 +26,7 @@ import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
 import { ProviderDisableModal } from "./FailoverGroups/ProviderDisableModal";
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function FailoverGroups() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
