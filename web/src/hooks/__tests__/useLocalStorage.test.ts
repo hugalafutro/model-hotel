@@ -160,6 +160,19 @@ describe("useLocalStorageValue", () => {
 		expect(result.current).toBe("second");
 	});
 
+	it("subscribes to an event name containing a space", () => {
+		localStorage.setItem(key, "first");
+		const { result } = renderHook(() =>
+			useLocalStorageValue(key, "fallback", { events: ["writer toggle"] }),
+		);
+
+		localStorage.setItem(key, "second");
+		act(() => {
+			window.dispatchEvent(new CustomEvent("writer toggle"));
+		});
+		expect(result.current).toBe("second");
+	});
+
 	it("ignores changes to other keys", () => {
 		localStorage.setItem(key, "first");
 		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));

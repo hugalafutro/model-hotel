@@ -124,8 +124,9 @@ export function useLocalStorageValue<T>(
 		readStored(key, fallback, deserialize),
 	);
 
-	// Joined so an inline array literal does not resubscribe on every render.
-	const extraEvents = events?.join(" ") ?? "";
+	// The names ride as JSON so an inline array literal does not resubscribe on
+	// every render, and so a name is restored exactly as given, spaces included.
+	const extraEvents = JSON.stringify(events ?? []);
 	useEffect(() => {
 		const handler = (e: Event) => {
 			// The custom event names the key that changed; ignore the others.
@@ -144,7 +145,7 @@ export function useLocalStorageValue<T>(
 		const names = [
 			"storage",
 			"localStorageChange",
-			...(extraEvents === "" ? [] : extraEvents.split(" ")),
+			...(JSON.parse(extraEvents) as string[]),
 		];
 		for (const name of names) window.addEventListener(name, handler);
 		return () => {

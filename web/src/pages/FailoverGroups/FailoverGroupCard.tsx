@@ -68,7 +68,7 @@ export function FailoverGroupCard({
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy } = useCopyToClipboard();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 
 	// Optimistic local state: reorders immediately on dragEnd so the DOM
 	// order matches the visual drag position. key-based reset ensures
