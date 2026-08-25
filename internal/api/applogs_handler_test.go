@@ -1004,6 +1004,33 @@ func TestGetAppLogs_HistoryWithDB(t *testing.T) {
 	}
 }
 
+// TestGetAppLogs_HistoryCountFailure covers the filtered-count error branch:
+// a filter forces a real COUNT query, and a cancelled request context makes it
+// fail. The handler answers 200 with an {"error": ...} body rather than an
+// empty page, so the dashboard can tell the two apart.
+func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // the COUNT query cannot run on a dead context
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&level=error", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", rec.Header().Get("Content-Type"))
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if body["error"] != "failed to count logs" {
+		t.Errorf("body = %v, want the count-failure error", body)
+	}
+}
+
 // TestGetAppLogs_HistorySuccessWithDB tests the full success path of
 // getAppLogsHistory: entries are read from the DB, scanned, and returned
 // with proper pagination metadata including level/source counts.
