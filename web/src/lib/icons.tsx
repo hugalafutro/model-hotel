@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
+// Every export here is a component; the withId() wrappers are just opaque to the
+// fast-refresh rule, which only recognises the plainly-declared one below.
+
 // Central icon shim. Maps the app's icon names (formerly lucide-react) to
 // Phosphor icons, so every call site stays unchanged - only the import path
 // moved to "@/lib/icons". Each icon is wrapped to carry a stable, lib-agnostic
