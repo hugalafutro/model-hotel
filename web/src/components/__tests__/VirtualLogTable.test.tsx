@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LogEntry } from "../../api/types";
+import { createLogTableEntry } from "../../test/logFixtures";
 import { renderWithProviders } from "../../test/utils";
 import { VirtualLogTable } from "../VirtualLogTable";
 
@@ -24,46 +25,6 @@ function getColumnIndex(headerText: string): number {
 		if (headers[i].textContent?.includes(headerText)) return i;
 	}
 	throw new Error(`Column header "${headerText}" not found in table`);
-}
-
-// Helper to create mock LogEntry
-function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
-	return {
-		id: "log-1",
-		provider_id: "prov-1",
-		provider_name: "Test Provider",
-		model_id: "test-provider/model-v1",
-		request_hash: "abc123def456",
-		status_code: 200,
-		latency_ms: 150,
-		duration_ms: 200,
-		ttft_ms: 50,
-		response_header_ms: 50,
-		proxy_overhead_ms: 5,
-		parse_ms: 1,
-		failover_lookup_ms: 0,
-		model_lookup_ms: 1,
-		provider_lookup_ms: 1,
-		key_decrypt_ms: 2,
-		dial_ms: 10,
-		settings_read_ms: 1,
-		tokens_per_second: 25.5,
-		tokens_prompt: 100,
-		tokens_completion: 50,
-		tokens_prompt_cache_hit: 0,
-		tokens_prompt_cache_miss: 100,
-		tokens_completion_reasoning: 0,
-		streaming: true,
-		state: "completed",
-		virtual_key_name: "test-key",
-		virtual_key_id: "vk-1",
-		error_message: "",
-		failover_attempt: 0,
-		created_at: "2026-05-23T10:00:00Z",
-		resolved_model_id: "",
-		endpoint_type: "chat",
-		...overrides,
-	};
 }
 
 // Default props
@@ -135,7 +96,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Populated state rendering", () => {
 		it("renders table headers with sort direction (desc arrow ↓)", () => {
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -148,7 +109,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders table headers with sort direction (asc arrow ↑)", () => {
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -162,13 +123,13 @@ describe("VirtualLogTable", () => {
 
 		it("renders row data for each virtual item", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					id: "log-1",
 					provider_name: "Provider A",
 					model_id: "provider-a/model-1",
 					status_code: 200,
 				}),
-				createLogEntry({
+				createLogTableEntry({
 					id: "log-2",
 					provider_name: "Provider B",
 					model_id: "provider-b/model-2",
@@ -196,7 +157,7 @@ describe("VirtualLogTable", () => {
 		it("shows a live ticking duration for in-progress rows instead of a dash", () => {
 			const now = new Date("2026-05-23T10:00:05.000Z").getTime();
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					id: "live-1",
 					state: "streaming",
 					duration_ms: 0,
@@ -218,7 +179,7 @@ describe("VirtualLogTable", () => {
 
 		it("calls onRowClick with correct entry when row is clicked", async () => {
 			const onRowClick = vi.fn();
-			const entries = [createLogEntry({ id: "log-123" })];
+			const entries = [createLogTableEntry({ id: "log-123" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: "log-123", start: 0, end: 29 },
 			]);
@@ -243,7 +204,7 @@ describe("VirtualLogTable", () => {
 
 		it("calls onSortToggle when Time/Date header is clicked", async () => {
 			const onSortToggle = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -264,7 +225,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "Deleted" (italic red) for deleted provider_name', () => {
-			const entries = [createLogEntry({ provider_name: "Deleted" })];
+			const entries = [createLogTableEntry({ provider_name: "Deleted" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -282,7 +243,7 @@ describe("VirtualLogTable", () => {
 		it('renders "-" when provider_name is empty', () => {
 			// client_ip is set so the provider cell renders the row's only "-".
 			const entries = [
-				createLogEntry({ provider_name: "", client_ip: "198.51.100.1" }),
+				createLogTableEntry({ provider_name: "", client_ip: "198.51.100.1" }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -299,7 +260,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders status badge variant correctly for status 200 (success)", () => {
-			const entries = [createLogEntry({ status_code: 200 })];
+			const entries = [createLogTableEntry({ status_code: 200 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -314,7 +275,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders status badge variant correctly for status 0 (error)", () => {
-			const entries = [createLogEntry({ status_code: 0 })];
+			const entries = [createLogTableEntry({ status_code: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -329,7 +290,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders status badge variant correctly for status 429 (orange - 4xx)", () => {
-			const entries = [createLogEntry({ status_code: 429 })];
+			const entries = [createLogTableEntry({ status_code: 429 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -344,7 +305,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders status badge variant correctly for status 500 (error - 5xx)", () => {
-			const entries = [createLogEntry({ status_code: 500 })];
+			const entries = [createLogTableEntry({ status_code: 500 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -359,7 +320,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders status badge variant correctly for status 100 (muted - 1xx)", () => {
-			const entries = [createLogEntry({ status_code: 100 })];
+			const entries = [createLogTableEntry({ status_code: 100 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -380,7 +341,7 @@ describe("VirtualLogTable", () => {
 		// detail modal correctly showed blue "Pending".
 		it('renders "…" (not "0") for a pending in-progress row', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					state: "pending",
 					status_code: 0,
 					created_at: new Date().toISOString(),
@@ -410,7 +371,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "Live" for a streaming in-progress row', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					state: "streaming",
 					status_code: 0,
 					created_at: new Date().toISOString(),
@@ -438,7 +399,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders stale "⚠" for a pending row older than the stale threshold', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					state: "pending",
 					status_code: 0,
 					created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
@@ -467,7 +428,7 @@ describe("VirtualLogTable", () => {
 		// shape: a cancelled row must never render the blue "…"/"Live" indicator.
 		it('renders cancelled (not "Live") for a cancelled row still shaped as pending', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					state: "pending",
 					status_code: 0,
 					error_kind: "client_disconnect",
@@ -499,7 +460,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {
 			const entries = [
-				createLogEntry({ error_message: "Request cancelled by user" }),
+				createLogTableEntry({ error_message: "Request cancelled by user" }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -515,7 +476,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders tokens as "prompt+completion" when > 0', () => {
 			const entries = [
-				createLogEntry({ tokens_prompt: 100, tokens_completion: 50 }),
+				createLogTableEntry({ tokens_prompt: 100, tokens_completion: 50 }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -535,7 +496,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "-" when tokens are 0', () => {
 			const entries = [
-				createLogEntry({ tokens_prompt: 0, tokens_completion: 0 }),
+				createLogTableEntry({ tokens_prompt: 0, tokens_completion: 0 }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -556,7 +517,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders model_id with provider prefix stripped", () => {
-			const entries = [createLogEntry({ model_id: "openai/gpt-4" })];
+			const entries = [createLogTableEntry({ model_id: "openai/gpt-4" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -571,7 +532,9 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders hotel/ model_id as-is", () => {
-			const entries = [createLogEntry({ model_id: "hotel/my-failover-group" })];
+			const entries = [
+				createLogTableEntry({ model_id: "hotel/my-failover-group" }),
+			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -587,7 +550,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "Deleted" (italic red) for virtual_key_deleted=true', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					virtual_key_deleted: true,
 					virtual_key_name: "old-key",
 				}),
@@ -608,7 +571,7 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT set title attribute on key column when virtual_key_deleted=true", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					virtual_key_deleted: true,
 					virtual_key_name: "old-key",
 					virtual_key_id: "vk-deleted",
@@ -636,7 +599,10 @@ describe("VirtualLogTable", () => {
 
 		it('renders "internal" (italic) for internal virtual keys', () => {
 			const entries = [
-				createLogEntry({ virtual_key_name: "internal", virtual_key_id: "" }),
+				createLogTableEntry({
+					virtual_key_name: "internal",
+					virtual_key_id: "",
+				}),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -653,7 +619,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders virtual_key_name when present", () => {
-			const entries = [createLogEntry({ virtual_key_name: "my-api-key" })];
+			const entries = [createLogTableEntry({ virtual_key_name: "my-api-key" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -668,7 +634,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "-" when no virtual key info', () => {
 			const entries = [
-				createLogEntry({ virtual_key_name: "", virtual_key_id: "" }),
+				createLogTableEntry({ virtual_key_name: "", virtual_key_id: "" }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -687,7 +653,7 @@ describe("VirtualLogTable", () => {
 	describe("Pagination footer", () => {
 		it('renders "X–Y / total" pagination in footer', () => {
 			const entries = Array.from({ length: 10 }, (_, i) =>
-				createLogEntry({ id: `log-${i}` }),
+				createLogTableEntry({ id: `log-${i}` }),
 			);
 			mockGetVirtualItems.mockReturnValue(
 				entries.map((e, i) => ({
@@ -713,7 +679,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders loading indicators in footer when populated", () => {
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -736,7 +702,7 @@ describe("VirtualLogTable", () => {
 	describe("Scroll/edge threshold", () => {
 		it("calls onFetchNewer when scrollTop < 500 and hasBefore=true and not loading", () => {
 			const onFetchNewer = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -776,7 +742,7 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT call onFetchNewer when isLoadingBefore=true", () => {
 			const onFetchNewer = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -816,7 +782,7 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT call onFetchNewer when hasBefore=false", () => {
 			const onFetchNewer = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -855,7 +821,7 @@ describe("VirtualLogTable", () => {
 
 		it("calls onFetchOlder when near bottom and hasAfter=true and not loading", () => {
 			const onFetchOlder = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -896,7 +862,7 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT call onFetchOlder when isLoadingAfter=true", () => {
 			const onFetchOlder = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -936,7 +902,7 @@ describe("VirtualLogTable", () => {
 
 		it("does NOT call onFetchOlder when hasAfter=false", () => {
 			const onFetchOlder = vi.fn();
-			const entries = [createLogEntry()];
+			const entries = [createLogTableEntry()];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -976,7 +942,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Duration formatting", () => {
 		it("renders duration in ms when < 1000", () => {
-			const entries = [createLogEntry({ duration_ms: 500 })];
+			const entries = [createLogTableEntry({ duration_ms: 500 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -990,7 +956,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it("renders duration in seconds when >= 1000", () => {
-			const entries = [createLogEntry({ duration_ms: 1500 })];
+			const entries = [createLogTableEntry({ duration_ms: 1500 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1004,7 +970,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "-" when duration_ms is 0', () => {
-			const entries = [createLogEntry({ duration_ms: 0 })];
+			const entries = [createLogTableEntry({ duration_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1021,7 +987,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Proxy overhead", () => {
 		it("renders overhead with accent color when > 0", () => {
-			const entries = [createLogEntry({ proxy_overhead_ms: 10 })];
+			const entries = [createLogTableEntry({ proxy_overhead_ms: 10 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1038,7 +1004,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "-" when overhead is 0 or null', () => {
-			const entries = [createLogEntry({ proxy_overhead_ms: 0 })];
+			const entries = [createLogTableEntry({ proxy_overhead_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1055,7 +1021,7 @@ describe("VirtualLogTable", () => {
 
 	describe("TTFT formatting", () => {
 		it("renders TTFT value when ttft_ms > 0", () => {
-			const entries = [createLogEntry({ ttft_ms: 120.5 })];
+			const entries = [createLogTableEntry({ ttft_ms: 120.5 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1070,7 +1036,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "-" when ttft_ms is 0', () => {
-			const entries = [createLogEntry({ ttft_ms: 0 })];
+			const entries = [createLogTableEntry({ ttft_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1093,7 +1059,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Headers formatting", () => {
 		it("renders Headers value when response_header_ms > 0", () => {
-			const entries = [createLogEntry({ response_header_ms: 150.5 })];
+			const entries = [createLogTableEntry({ response_header_ms: 150.5 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1113,7 +1079,7 @@ describe("VirtualLogTable", () => {
 		});
 
 		it('renders "-" when response_header_ms is 0', () => {
-			const entries = [createLogEntry({ response_header_ms: 0 })];
+			const entries = [createLogTableEntry({ response_header_ms: 0 })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1136,7 +1102,7 @@ describe("VirtualLogTable", () => {
 	describe("Cancelled request formatting", () => {
 		it('renders "-" for TPS on cancelled requests', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					error_message: "request cancelled",
 					tokens_per_second: 25.5,
 				}),
@@ -1162,7 +1128,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "-" for TTFT on cancelled requests', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					error_message: "request cancelled",
 					ttft_ms: 120.5,
 				}),
@@ -1187,7 +1153,7 @@ describe("VirtualLogTable", () => {
 
 		it('renders "-" for Headers on cancelled requests', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					error_message: "request cancelled",
 					response_header_ms: 150.5,
 				}),
@@ -1214,7 +1180,7 @@ describe("VirtualLogTable", () => {
 	describe("TPS cache-hit tinting", () => {
 		it("applies tertiary text color when tokens_prompt_cache_hit > 0", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					tokens_per_second: 42.5,
 					tokens_prompt_cache_hit: 500,
 				}),
@@ -1241,7 +1207,7 @@ describe("VirtualLogTable", () => {
 
 		it("shows inflated by prompt cache hits tooltip when tokens_prompt_cache_hit > 0", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					tokens_per_second: 42.5,
 					tokens_prompt_cache_hit: 500,
 				}),
@@ -1269,7 +1235,7 @@ describe("VirtualLogTable", () => {
 
 		it("uses default gray color when tokens_prompt_cache_hit is 0", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					tokens_per_second: 42.5,
 					tokens_prompt_cache_hit: 0,
 				}),
@@ -1298,7 +1264,7 @@ describe("VirtualLogTable", () => {
 
 	describe("Model ID formatting", () => {
 		it("renders model_id as-is when it contains no slash", () => {
-			const entries = [createLogEntry({ model_id: "gpt-4o-mini" })];
+			const entries = [createLogTableEntry({ model_id: "gpt-4o-mini" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1313,7 +1279,7 @@ describe("VirtualLogTable", () => {
 
 		it("renders hotel/ model_id with resolved_model_id showing both in cell and tooltip", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					model_id: "hotel/my-failover-group",
 					resolved_model_id: "openai/gpt-4o",
 				}),
@@ -1344,7 +1310,7 @@ describe("VirtualLogTable", () => {
 
 		it("renders non-hotel/ model_id with resolved_model_id not showing resolved in tooltip", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					model_id: "anthropic/claude-3-5-sonnet",
 					resolved_model_id: "anthropic/claude-3-5-sonnet",
 				}),
@@ -1369,7 +1335,7 @@ describe("VirtualLogTable", () => {
 
 	describe("created_at formatting", () => {
 		it('renders "-" when created_at is empty', () => {
-			const entries = [createLogEntry({ created_at: "" })];
+			const entries = [createLogTableEntry({ created_at: "" })];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1387,7 +1353,10 @@ describe("VirtualLogTable", () => {
 	describe("Virtual key case sensitivity", () => {
 		it('renders "internal" (italic) for case-insensitive Internal virtual key', () => {
 			const entries = [
-				createLogEntry({ virtual_key_name: "Internal", virtual_key_id: "" }),
+				createLogTableEntry({
+					virtual_key_name: "Internal",
+					virtual_key_id: "",
+				}),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -1407,7 +1376,10 @@ describe("VirtualLogTable", () => {
 	describe("Virtual key fallback", () => {
 		it("renders virtual_key_id when name is empty", () => {
 			const entries = [
-				createLogEntry({ virtual_key_name: "", virtual_key_id: "vk-abc123" }),
+				createLogTableEntry({
+					virtual_key_name: "",
+					virtual_key_id: "vk-abc123",
+				}),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -1423,7 +1395,7 @@ describe("VirtualLogTable", () => {
 
 		it("sets title to virtual_key_id when virtual_key_name is empty and key is not deleted", () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					virtual_key_deleted: false,
 					virtual_key_name: "",
 					virtual_key_id: "vk-abc123",
@@ -1453,7 +1425,7 @@ describe("VirtualLogTable", () => {
 		it("does NOT set title attribute when virtual_key_name and virtual_key_id are both empty", () => {
 			// client_ip is set so the key cell renders the row's only "-".
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					virtual_key_deleted: false,
 					virtual_key_name: "",
 					virtual_key_id: "",
@@ -1486,7 +1458,7 @@ describe("VirtualLogTable", () => {
 	describe("Proxy overhead null", () => {
 		it('renders "-" when proxy_overhead_ms is null', () => {
 			const entries = [
-				createLogEntry({ proxy_overhead_ms: null as unknown as number }),
+				createLogTableEntry({ proxy_overhead_ms: null as unknown as number }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -1504,7 +1476,9 @@ describe("VirtualLogTable", () => {
 
 	describe("Cancel error detection", () => {
 		it('detects "disconnect" as cancelled error', () => {
-			const entries = [createLogEntry({ error_message: "Client disconnect" })];
+			const entries = [
+				createLogTableEntry({ error_message: "Client disconnect" }),
+			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
 			]);
@@ -1519,7 +1493,7 @@ describe("VirtualLogTable", () => {
 
 		it('detects "client disconnected" as cancelled error', () => {
 			const entries = [
-				createLogEntry({ error_message: "client disconnected" }),
+				createLogTableEntry({ error_message: "client disconnected" }),
 			];
 			mockGetVirtualItems.mockReturnValue([
 				{ index: 0, key: entries[0].id, start: 0, end: 29 },
@@ -1535,7 +1509,7 @@ describe("VirtualLogTable", () => {
 
 		it('detects "timed out" as cancelled error', () => {
 			const entries = [
-				createLogEntry({
+				createLogTableEntry({
 					error_message: "all providers failed: upstream request timed out",
 				}),
 			];

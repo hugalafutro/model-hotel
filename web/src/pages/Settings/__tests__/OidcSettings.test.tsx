@@ -2,20 +2,10 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveSettings } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { OidcPanel } from "../OidcSettings";
-
-function mockSettings(values: Record<string, string>) {
-	server.use(
-		http.get("/api/settings", ({ request }) => {
-			if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
-				return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
-			}
-			return HttpResponse.json(values);
-		}),
-	);
-}
 
 function mockOidcStatus(enabled: boolean) {
 	server.use(
@@ -32,7 +22,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("hides config inputs when SSO is disabled", async () => {
-		mockSettings({ oidc_enabled: "false" });
+		serveSettings({ oidc_enabled: "false" });
 		renderWithProviders(<OidcPanel />);
 		await screen.findByTestId("oidc-panel");
 		expect(screen.queryByTestId("oidc-issuer-input")).not.toBeInTheDocument();
@@ -42,7 +32,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("shows inputs, a configured secret, and the derived redirect URI when enabled", async () => {
-		mockSettings({
+		serveSettings({
 			oidc_enabled: "true",
 			oidc_issuer_url: "https://auth.example.com",
 			oidc_client_id: "model-hotel",
@@ -67,7 +57,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("derives the redirect URI without a doubled slash", async () => {
-		mockSettings({
+		serveSettings({
 			oidc_enabled: "true",
 			oidc_public_base_url: "https://hotel.example.com/",
 		});
@@ -82,7 +72,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("commits each editable field, sets and clears the secret", async () => {
-		mockSettings({
+		serveSettings({
 			oidc_enabled: "true",
 			oidc_issuer_url: "https://auth.example.com",
 			oidc_client_secret: "********",
@@ -146,7 +136,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("reveals and hides the secret without committing the draft", async () => {
-		mockSettings({
+		serveSettings({
 			oidc_enabled: "true",
 			oidc_issuer_url: "https://auth.example.com",
 			oidc_public_base_url: "https://hotel.example.com",
@@ -186,7 +176,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("toggles enable off", async () => {
-		mockSettings({ oidc_enabled: "true", oidc_issuer_url: "https://a.test" });
+		serveSettings({ oidc_enabled: "true", oidc_issuer_url: "https://a.test" });
 		mockOidcStatus(true);
 		const puts: Record<string, string>[] = [];
 		server.use(

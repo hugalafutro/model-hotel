@@ -27,6 +27,20 @@ function createTestQueryClient() {
 	});
 }
 
+/**
+ * Wrapper for `renderHook` on a hook that needs react-query and nothing else.
+ * Each call builds a fresh QueryClient with retries off, so one test's failed
+ * query never carries into the next.
+ */
+export function createQueryWrapper() {
+	const queryClient = createTestQueryClient();
+	return function QueryWrapper({ children }: { children: ReactNode }) {
+		return (
+			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+		);
+	};
+}
+
 interface AllProvidersProps {
 	children: ReactNode;
 	initialEntries?: MemoryRouterProps["initialEntries"];

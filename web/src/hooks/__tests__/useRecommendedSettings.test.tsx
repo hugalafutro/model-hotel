@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GenerationParams } from "../../api/types";
+import { createQueryWrapper } from "../../test/utils";
 import type { RecommendedSettingsResult } from "../../utils/recommendedSettings";
 import { useRecommendedSettings } from "../useRecommendedSettings";
 
@@ -18,17 +19,6 @@ const { fetchRecommendedSettings } = await import(
 	"../../utils/recommendedSettings"
 );
 
-function createWrapper() {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
-	return function Wrapper({ children }: { children: React.ReactNode }) {
-		return (
-			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-		);
-	};
-}
-
 describe("useRecommendedSettings", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -40,7 +30,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("gpt-4o", "OpenAI"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		expect(result.current.loading).toBe(true);
@@ -64,7 +54,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("gpt-4o", "OpenAI"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(() => {
@@ -83,7 +73,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("gpt-4o", "OpenAI"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(
@@ -107,7 +97,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("unknown-model", "Unknown Provider"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(() => {
@@ -168,7 +158,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("claude-3-opus", "Anthropic"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(() => {
@@ -195,7 +185,7 @@ describe("useRecommendedSettings", () => {
 
 		const { result } = renderHook(
 			() => useRecommendedSettings("gemini-pro", "Google"),
-			{ wrapper: createWrapper() },
+			{ wrapper: createQueryWrapper() },
 		);
 
 		await waitFor(() => {
@@ -228,7 +218,7 @@ describe("useRecommendedSettings", () => {
 			({ modelId, providerName }) =>
 				useRecommendedSettings(modelId, providerName),
 			{
-				wrapper: createWrapper(),
+				wrapper: createQueryWrapper(),
 				initialProps: { modelId: "gpt-4o", providerName: "OpenAI" },
 			},
 		);

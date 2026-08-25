@@ -96,13 +96,26 @@ describe("api.providers", () => {
 			);
 		});
 
-		it("throws fixed error on failure", async () => {
+		// Both failure bodies below are the plain text DeleteProvider actually
+		// sends; the endpoint has no coded {code, error} path.
+		it("carries the server's error text on a missing provider", async () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
-				new Response(null, { status: 500 }),
+				new Response("provider not found", { status: 404 }),
 			);
-			await expect(api.providers.delete("123")).rejects.toThrow(
-				"Failed to delete provider",
+			await expect(api.providers.delete("123")).rejects.toMatchObject({
+				message: "Failed to delete provider: 404 provider not found",
+				status: 404,
+			});
+		});
+
+		it("carries the server's error text on a delete that fails", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("failed to delete provider 123", { status: 500 }),
 			);
+			await expect(api.providers.delete("123")).rejects.toMatchObject({
+				message: "Failed to delete provider: 500 failed to delete provider 123",
+				status: 500,
+			});
 		});
 	});
 
