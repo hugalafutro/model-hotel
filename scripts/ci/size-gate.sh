@@ -287,7 +287,7 @@ load_base_allowlist() {
 		exit 2
 	fi
 	BOOTSTRAP=1
-	echo "size-gate: $BASE_REF predates the gate; comparing against an empty base in bootstrap snapshot mode, where every entry records its file's exact current size"
+	echo "size-gate: $BASE_REF predates the gate; bootstrap snapshot mode, where an entry names only a file already over its ceiling at $BASE_REF, at its exact current size and no more than it measured there"
 	return 0
 }
 
