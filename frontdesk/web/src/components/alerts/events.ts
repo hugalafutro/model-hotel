@@ -1,8 +1,9 @@
 import type { TFunction } from "i18next";
 
-// How an alert event catalog entry is displayed, shared by the Alerts card's
-// picker and the wizard's events step so the two always agree: one severity
-// palette, one labelling rule, one place to change either.
+// The alert event catalog as the Alerts card's picker and the wizard's events
+// step both see it, so the two always agree: one severity palette, one
+// labelling rule, one reading of the stored selection, one place to change any
+// of them.
 
 /** Dot colour per catalog severity, in the Front Desk palette. */
 export const SEVERITY_COLOR: Record<string, string> = {
@@ -19,4 +20,16 @@ export function eventLabel(t: TFunction, type: string): string {
 	return t(`settings.alerts.event.${type.replace(/\./g, "_")}`, {
 		defaultValue: type,
 	});
+}
+
+// parseCsv turns the stored alert_events CSV into a membership Set. Blank
+// entries are dropped, so a trailing comma or a stray space never becomes an
+// event type nothing matches.
+export function parseCsv(csv: string): Set<string> {
+	return new Set(
+		csv
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean),
+	);
 }

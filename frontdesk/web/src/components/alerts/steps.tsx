@@ -3,13 +3,12 @@ import {
 	type Dispatch,
 	Fragment,
 	type ReactNode,
-	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
 import { generateTopic } from "../../utils/ntfy";
+import { CopyRow } from "../CopyRow";
 import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
 import {
 	APPRISE_SERVICES_URL,
@@ -282,13 +281,11 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 						testId="wiz-copy-server"
 						label={t(`${K}.field.server`)}
 						value={value("server")}
-						t={t}
 					/>
 					<CopyRow
 						testId="wiz-copy-topic"
 						label={t(`${K}.field.topic`)}
 						value={value("topic")}
-						t={t}
 					/>
 				</div>
 			)}
@@ -775,65 +772,6 @@ function Field({
 				/>
 				{children}
 			</div>
-		</div>
-	);
-}
-
-// One value the operator has to retype on a phone, with a button that saves the
-// retyping. A blocked clipboard is silent: the text stays selectable.
-function CopyRow({
-	testId,
-	label,
-	value,
-	t,
-}: {
-	testId: string;
-	label: string;
-	value: string;
-	t: TFunction;
-}) {
-	const [copied, setCopied] = useState(false);
-	// The "Copied" label reverts on a timer, which has to be dropped if the step
-	// is left first: the wizard swaps steps under it, and firing then would set
-	// state on an unmounted row.
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(
-		() => () => {
-			if (timer.current !== null) clearTimeout(timer.current);
-		},
-		[],
-	);
-	if (value === "") return null;
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(value);
-			setCopied(true);
-			if (timer.current !== null) clearTimeout(timer.current);
-			timer.current = setTimeout(() => setCopied(false), 2000);
-		} catch {
-			/* clipboard blocked: the value stays selectable */
-		}
-	};
-	return (
-		<div className="fd-row" style={{ gap: "0.4rem", alignItems: "center" }}>
-			<span className="fd-faint" style={{ fontSize: "0.8rem" }}>
-				{label}
-			</span>
-			<code
-				className="fd-mono"
-				style={{ fontSize: "0.8rem", userSelect: "all" }}
-			>
-				{value}
-			</code>
-			<button
-				type="button"
-				className="ui-btn ui-btn-sm"
-				data-testid={testId}
-				aria-label={`${t(`${K}.copy`)}: ${label}`}
-				onClick={copy}
-			>
-				{copied ? t(`${K}.copied`) : t(`${K}.copy`)}
-			</button>
 		</div>
 	);
 }

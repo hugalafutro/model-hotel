@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { registerPasskey } from "../../utils/webauthn";
 import { SecurityPanels } from "../SecurityPanels";
@@ -362,5 +363,55 @@ describe("TotpPanel", () => {
 		await userEvent.click(screen.getByRole("button", { name: /^Verify$/i }));
 
 		expect(await screen.findByText(/Invalid code/i)).toBeInTheDocument();
+	});
+
+	it("copies the enrollment secret and toasts either outcome", async () => {
+		const writeText = vi
+			.fn()
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error("denied"));
+		Object.defineProperty(navigator, "clipboard", {
+			value: { writeText },
+			configurable: true,
+		});
+		server.use(
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false, has_credentials: false }),
+			),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({
+					uri: "otpauth://totp/FrontDesk:admin?secret=JBSWY3DPEHPK3PXP",
+					secret: "JBSWY3DPEHPK3PXP",
+				}),
+			),
+		);
+		renderPanels();
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^Enable$/i }),
+		);
+		const copyButton = await screen.findByRole("button", { name: /^Secret$/i });
+
+		// Both outcomes are asserted through the toast region and the i18n keys
+		// themselves, so neither a reworded string nor another "Copy" elsewhere
+		// on the page can decide the result.
+		const toasts = () => within(screen.getByRole("status"));
+
+		await userEvent.click(copyButton);
+		expect(writeText).toHaveBeenCalledWith("JBSWY3DPEHPK3PXP");
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("settings.totp.secretCopied")),
+			).toBeInTheDocument(),
+		);
+
+		// A refused clipboard says so instead of leaving the operator to guess.
+		await userEvent.click(copyButton);
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("common.failedToCopy")),
+			).toBeInTheDocument(),
+		);
 	});
 });

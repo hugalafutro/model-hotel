@@ -8,7 +8,7 @@ import { ntfyAppriseURL } from "../utils/ntfy";
 import { AlertsWizard } from "./alerts/AlertsWizard";
 import { APPRISE_SERVICES_URL, ntfyServerOf } from "./alerts/composers";
 import { DestinationList } from "./alerts/DestinationList";
-import { eventLabel, SEVERITY_COLOR } from "./alerts/events";
+import { eventLabel, parseCsv, SEVERITY_COLOR } from "./alerts/events";
 
 // The failure codes /api/alert/test returns with a 502 that map to an
 // actionable sentence; anything else falls back to the generic error.
@@ -21,16 +21,6 @@ const REASON_CODES = new Set([
 	"deliver_failed",
 	"undecryptable",
 ]);
-
-// parseCsv turns the stored alert_events CSV into a membership Set.
-function parseCsv(csv: string): Set<string> {
-	return new Set(
-		csv
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean),
-	);
-}
 
 interface LoadedTargets {
 	targets: string[];
