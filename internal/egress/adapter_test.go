@@ -268,6 +268,41 @@ func TestStreamAdapter_UpstreamErrorAfterDrain(t *testing.T) {
 	}
 }
 
+// lastReadEOFBody hands back its whole payload and io.EOF from a single Read,
+// the shape io.Reader permits and a transport produces when the final packet
+// closes the connection.
+type lastReadEOFBody struct{ data string }
+
+func (r *lastReadEOFBody) Read(p []byte) (int, error) {
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	if r.data == "" {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func (r *lastReadEOFBody) Close() error { return nil }
+
+// TestStreamAdapter_PoisonedByLastReadSkipsFinish covers the stream that dies in
+// the very read that reports EOF: the EOF flush must not hand a finished-looking
+// terminal to a corrupt stream.
+func TestStreamAdapter_PoisonedByLastReadSkipsFinish(t *testing.T) {
+	tr := &fakeTranslator{failOn: "bad"}
+	body := &lastReadEOFBody{data: "data: pre\n\ndata: bad\n\n"}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if err == nil {
+		t.Fatal("expected the translation failure to surface")
+	}
+	if got := string(out); got != "<pre>" {
+		t.Errorf("output = %q, want only the bytes translated before the failure", got)
+	}
+	if tr.finished != 0 {
+		t.Error("Finish must not be called over a stream poisoned in its last read")
+	}
+}
+
 func TestStreamAdapter_FinishErrorIsLoggedNotFatal(t *testing.T) {
 	tr := &fakeTranslator{finishErr: errors.New("finish blew up")}
 	body := &scriptedBody{script: []string{"data: x\n\n"}}

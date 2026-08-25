@@ -206,10 +206,9 @@ func (a *StreamAdapter) flushAtEOF() {
 	if len(a.lineBuf) > 0 {
 		a.lineBuf = append(a.lineBuf, '\n')
 		a.consume(nil)
-		if a.transErr != nil {
-			return
-		}
 	}
+	// consume can only have poisoned the stream here by tripping the event cap,
+	// which clears the buffer, so dispatchEvent then has nothing to hand on.
 	a.dispatchEvent()
 }
 
