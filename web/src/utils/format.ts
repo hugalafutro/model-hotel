@@ -1,4 +1,15 @@
 import i18next from "i18next";
+
+// The locale-independent formatters live once in web-shared/ and are re-exported
+// here, so every existing "utils/format" import keeps working and the two
+// dashboards cannot drift on how a magnitude reads. Everything defined below
+// phrases itself through i18next and is the dashboard's own.
+export {
+	formatCompact,
+	formatDollars,
+	formatKwh,
+	formatTokens,
+} from "@web-shared/format";
 /** Encode a value as base64, handling Unicode characters safely. */
 export function encodeCursor(obj: unknown): string {
 	const json = JSON.stringify(obj);
@@ -31,11 +42,6 @@ export function formatRelativeTime(dateStr: string | null): string {
 export function formatNumber(n: number | null | undefined): string {
 	if (n == null) return "-";
 	return n.toLocaleString();
-}
-
-export function formatTokens(n: number | null | undefined): string {
-	if (n == null) return "-";
-	return formatCompact(n);
 }
 
 export function formatTimestamp(ts: number | string): string {
@@ -98,32 +104,6 @@ export function formatDateTimeShort(ts: number | string): string {
 
 export function formatWithCommas(n: number): string {
 	return Math.round(n).toLocaleString();
-}
-
-export function formatCompact(n: number): string {
-	if (n === 0) return "0";
-	const abs = Math.abs(n);
-	const fmt = (v: number) => {
-		const s = v.toFixed(1);
-		return s.endsWith(".0") ? s.slice(0, -2) : s;
-	};
-	if (abs >= 1_000_000_000) return `${fmt(n / 1_000_000_000)}B`;
-	if (abs >= 1_000_000) return `${fmt(n / 1_000_000)}M`;
-	if (abs >= 1_000) return `${fmt(n / 1_000)}K`;
-	return fmt(n);
-}
-
-export function formatDollars(v: number): string {
-	return v.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-	});
-}
-
-export function formatKwh(v: number): string {
-	return v.toLocaleString("en-US", {
-		maximumFractionDigits: 2,
-	});
 }
 
 export function dropTrailingZero(v: number, decimals: number): string {

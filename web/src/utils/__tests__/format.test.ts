@@ -6,7 +6,9 @@ import {
 	encodeCursor,
 	formatCompact,
 	formatDate,
+	formatDollars,
 	formatDuration,
+	formatKwh,
 	formatNumber,
 	formatPercent,
 	formatRelativeTime,
@@ -342,9 +344,27 @@ describe("formatCompact", () => {
 		expect(formatCompact(25_000_000)).toBe("25M");
 	});
 
+	it("formats billions with B suffix", () => {
+		expect(formatCompact(3_400_000_000)).toBe("3.4B");
+	});
+
 	it("handles negative numbers", () => {
 		expect(formatCompact(-1500)).toBe("-1.5K");
 		expect(formatCompact(-1_000_000)).toBe("-1M");
+	});
+});
+
+describe("formatDollars", () => {
+	it("renders a USD amount", () => {
+		expect(formatDollars(12.5)).toBe("$12.50");
+	});
+});
+
+describe("formatKwh", () => {
+	it("caps at two decimal places", () => {
+		// Deliberately not a digit sequence of pi: biome's
+		// lint/suspicious/noApproximativeNumericConstant flags that literal.
+		expect(formatKwh(7.86432)).toBe("7.86");
 	});
 });
 
