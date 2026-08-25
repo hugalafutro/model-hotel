@@ -225,11 +225,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Two commits, so a push to master can compare the allowlist against
+          # its parent. A pull request fetches its base SHA in the next step.
+          fetch-depth: 2
+
+      # The allowlist ships in the branch, so a branch could exempt whatever it
+      # just grew by editing it. The gate therefore compares it against the base
+      # commit's copy, which is what makes "the list only shrinks" a check rather
+      # than a comment. A pull request compares against its base SHA; a push (to
+      # master, or a manual dispatch) compares against the previous commit, so a
+      # direct push cannot loosen it either.
+      - name: resolve the base for the allowlist comparison
+        id: base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$PR_BASE_SHA" ]; then
+            git fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
+            echo "ref=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+          elif git rev-parse --verify --quiet HEAD~1 >/dev/null; then
+            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
 
       # Fails when a file crosses its ceiling with no allowlist entry, when an
-      # allowlisted file grows past its recorded count, or when an entry has gone
-      # stale. Split the file; the allowlist takes no new entries.
+      # allowlisted file grows past its recorded count, when an entry has gone
+      # stale, and when the allowlist itself gained an entry or raised a count
+      # since the base. Split the file; the allowlist takes no new entries.
       - name: size gate
+        env:
+          SIZE_GATE_BASE: ${{ steps.base.outputs.ref }}
         run: make size-check
 
   workflow-lint:

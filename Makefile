@@ -38,6 +38,11 @@ fmt:
 # over the ceiling carry their current count in scripts/ci/size-allowlist.txt and
 # may only shrink; the list takes no new entries. `size-gate.sh --update` lowers
 # the recorded counts once files get smaller.
+#
+# Shrink-only is checked, not just documented: the allowlist is compared against
+# its copy at origin/master, so an edit that adds an entry or raises a count fails
+# here as it does in CI. Pass another ref with SIZE_GATE_BASE or --base; when the
+# ref is not in the clone the comparison says so and skips.
 size-check:
 	scripts/ci/size-gate.sh
 

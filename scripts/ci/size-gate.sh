@@ -12,17 +12,46 @@
 # Renaming or moving an allowlisted file is the one hand-edit the list takes: move
 # the entry to the new path with the same or a lower count, never a new entry.
 #
+# The allowlist lives in the branch, so a branch could edit it to exempt whatever
+# it just grew. --base makes shrink-only a check rather than a comment: it reads
+# the allowlist as it exists at a trusted ref and fails on any entry whose count
+# is higher than at that ref, and on any entry the base does not have. A rename is
+# the exception the pairing recognises: an added path is allowed when an entry the
+# base has is gone from the new list with a count at least as large. Added and
+# removed entries pair off largest-count first, so the list can never gain an
+# entry. Lowered counts and removed entries always pass.
+#
 # Usage:
-#   size-gate.sh            check; quiet on success, one line per violation
-#   size-gate.sh --list     print every current offender as path<TAB>lines
-#   size-gate.sh --update   lower the recorded counts, drop stale entries
+#   size-gate.sh                check; quiet on success, one line per violation
+#   size-gate.sh --base <ref>   also compare the allowlist against that ref's copy
+#   size-gate.sh --list         print every current offender as path<TAB>lines
+#   size-gate.sh --update       lower the recorded counts, drop stale entries
+#
+# The base ref also comes from SIZE_GATE_BASE, which is how CI passes the pull
+# request's base commit. With neither set the comparison runs against
+# origin/master, and says so and skips when that ref is not in the clone.
 #
 # Exit codes: 0 clean, 1 violations found, 2 bad usage or unreadable allowlist.
 
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-ALLOWLIST="$ROOT/scripts/ci/size-allowlist.txt"
+ALLOWLIST_REL="scripts/ci/size-allowlist.txt"
+ALLOWLIST="$ROOT/$ALLOWLIST_REL"
+
+# The ref whose allowlist the working-tree one is compared against. An explicitly
+# named ref that cannot be resolved is a hard error, because whoever named it
+# asked for the comparison; the origin/master fallback merely skips, since a fresh
+# clone or a shallow CI checkout legitimately lacks it.
+BASE_REF=${SIZE_GATE_BASE-}
+BASE_EXPLICIT=0
+if [ -n "$BASE_REF" ]; then
+	BASE_EXPLICIT=1
+fi
+
+# Running total across the base comparison and the working-tree check, so one run
+# reports every problem and prints a single summary.
+VIOLATIONS=0
 
 PROD_CEILING=800
 TEST_CEILING=2000
@@ -37,11 +66,13 @@ TS_ROOTS=(web/src frontdesk/web/src web-shared)
 
 usage() {
 	cat <<-'USAGE'
-		size-gate.sh            check every source file against its ceiling
-		size-gate.sh --list     print every current offender as path<TAB>lines
-		size-gate.sh --update   lower the recorded counts, drop stale entries
+		size-gate.sh                check every source file against its ceiling
+		size-gate.sh --base <ref>   also check the allowlist only shrank since <ref>
+		size-gate.sh --list         print every current offender as path<TAB>lines
+		size-gate.sh --update       lower the recorded counts, drop stale entries
 
 		Ceilings: 800 lines of production code, 2000 lines of tests.
+		The base ref also comes from SIZE_GATE_BASE; it defaults to origin/master.
 		Exit codes: 0 clean, 1 violations found, 2 bad usage or unreadable allowlist.
 	USAGE
 }
@@ -82,7 +113,9 @@ is_generated() {
 # either step can exit the whole script instead of just a subshell.
 SCOPE_FILE=$(mktemp)
 OFFENDERS_FILE=$(mktemp)
-trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE"' EXIT
+PARSED_FILE=$(mktemp)
+BASE_FILE=$(mktemp)
+trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE" "$PARSED_FILE" "$BASE_FILE"' EXIT
 
 # A gate that scans less than it claims and still reports clean is worse than no
 # gate, so a scope root that is not a directory is a hard error, not a warning.
@@ -155,37 +188,127 @@ write_allowlist() {
 	mv "$ALLOWLIST.tmp" "$ALLOWLIST"
 }
 
-# Recorded counts keyed by path. Malformed and duplicate entries are rejected so
-# a botched edit fails the gate instead of silently exempting a file.
+# Recorded counts keyed by path: RECORDED from the working tree, BASE_RECORDED
+# from the base ref. Malformed and duplicate entries are rejected so a botched
+# edit fails the gate instead of silently exempting a file.
 declare -A RECORDED=()
+declare -A BASE_RECORDED=()
 
-load_allowlist() {
-	local line path lines lineno=0
-	if [ ! -f "$ALLOWLIST" ]; then
-		echo "size-gate: missing allowlist $ALLOWLIST" >&2
-		exit 2
-	fi
+# Validates the allowlist in file $1 (named $2 in errors) and writes its entries
+# to $PARSED_FILE as path<TAB>lines. The redirection keeps this in the main shell,
+# so a malformed entry exits the script rather than a subshell.
+parse_allowlist() {
+	local file=$1 label=$2 line path lines lineno=0
+	local -A seen_paths=()
+	: >"$PARSED_FILE"
 	while IFS= read -r line || [ -n "$line" ]; do
 		lineno=$((lineno + 1))
 		case "$line" in '#'* | '') continue ;; esac
 		path=${line%%$'\t'*}
 		lines=${line#*$'\t'}
 		if [ "$path" = "$line" ] || [ -z "$path" ] || ! [[ $lines =~ ^[0-9]+$ ]]; then
-			echo "size-gate: $ALLOWLIST:$lineno: expected path<TAB>lines, got: $line" >&2
+			echo "size-gate: $label:$lineno: expected path<TAB>lines, got: $line" >&2
 			exit 2
 		fi
-		if [ -n "${RECORDED[$path]+set}" ]; then
-			echo "size-gate: $ALLOWLIST:$lineno: duplicate entry for $path" >&2
+		if [ -n "${seen_paths[$path]+set}" ]; then
+			echo "size-gate: $label:$lineno: duplicate entry for $path" >&2
 			exit 2
 		fi
+		seen_paths[$path]=1
+		printf '%s\t%s\n' "$path" "$lines" >>"$PARSED_FILE"
+	done <"$file"
+}
+
+load_allowlist() {
+	local path lines
+	if [ ! -f "$ALLOWLIST" ]; then
+		echo "size-gate: missing allowlist $ALLOWLIST" >&2
+		exit 2
+	fi
+	parse_allowlist "$ALLOWLIST" "$ALLOWLIST"
+	while IFS=$'\t' read -r path lines; do
 		RECORDED[$path]=$lines
-	done <"$ALLOWLIST"
+	done <"$PARSED_FILE"
+}
+
+# Fills BASE_RECORDED from the allowlist at $BASE_REF. Returns 1 when there is
+# nothing to compare against, having said why on stdout.
+load_base_allowlist() {
+	local path lines
+	if ! git -C "$ROOT" rev-parse --verify --quiet "$BASE_REF" >/dev/null 2>&1; then
+		if [ "$BASE_EXPLICIT" -eq 1 ]; then
+			echo "size-gate: base ref $BASE_REF is not in this clone; fetch it before comparing" >&2
+			exit 2
+		fi
+		echo "size-gate: $BASE_REF is not in this clone, skipping the shrink-only comparison"
+		return 1
+	fi
+	if ! git -C "$ROOT" show "$BASE_REF:$ALLOWLIST_REL" >"$BASE_FILE" 2>/dev/null; then
+		echo "size-gate: no allowlist at $BASE_REF, skipping the shrink-only comparison"
+		return 1
+	fi
+	parse_allowlist "$BASE_FILE" "$BASE_REF:$ALLOWLIST_REL"
+	while IFS=$'\t' read -r path lines; do
+		BASE_RECORDED[$path]=$lines
+	done <"$PARSED_FILE"
+	return 0
+}
+
+# Enforces shrink-only against the base: no count may rise, and an added path is
+# allowed only as a rename of a removed one. Added and removed entries pair off
+# largest-count first, which finds a valid pairing whenever one exists, so an
+# added entry that is left without a partner or outgrows the partner it gets is
+# an entry the list is gaining.
+compare_with_base() {
+	local path entry count acount apath rcount rpath index=0
+	local -a added=() removed=() added_sorted=() removed_sorted=()
+
+	for path in "${!RECORDED[@]}"; do
+		count=${RECORDED[$path]}
+		if [ -z "${BASE_RECORDED[$path]+set}" ]; then
+			added+=("$count"$'\t'"$path")
+		elif [ "$count" -gt "${BASE_RECORDED[$path]}" ]; then
+			echo "$path: recorded $count, ${BASE_RECORDED[$path]} at $BASE_REF: a recorded count may only be lowered" >&2
+			VIOLATIONS=$((VIOLATIONS + 1))
+		fi
+	done
+
+	for path in "${!BASE_RECORDED[@]}"; do
+		if [ -z "${RECORDED[$path]+set}" ]; then
+			removed+=("${BASE_RECORDED[$path]}"$'\t'"$path")
+		fi
+	done
+
+	if [ ${#added[@]} -eq 0 ]; then
+		return
+	fi
+	mapfile -t added_sorted < <(printf '%s\n' "${added[@]}" | LC_ALL=C sort -rn)
+	if [ ${#removed[@]} -gt 0 ]; then
+		mapfile -t removed_sorted < <(printf '%s\n' "${removed[@]}" | LC_ALL=C sort -rn)
+	fi
+
+	for entry in "${added_sorted[@]}"; do
+		acount=${entry%%$'\t'*}
+		apath=${entry#*$'\t'}
+		if [ "$index" -ge ${#removed_sorted[@]} ]; then
+			echo "$apath: new entry at $acount lines with no entry dropped to pair it with: the allowlist takes no new entries (a rename moves an existing one)" >&2
+			VIOLATIONS=$((VIOLATIONS + 1))
+		else
+			rcount=${removed_sorted[$index]%%$'\t'*}
+			rpath=${removed_sorted[$index]#*$'\t'}
+			if [ "$acount" -gt "$rcount" ]; then
+				echo "$apath: new entry at $acount lines, pairs with the dropped $rpath at $rcount: a rename may not raise the count" >&2
+				VIOLATIONS=$((VIOLATIONS + 1))
+			fi
+		fi
+		index=$((index + 1))
+	done
 }
 
 # Compares the tree against the allowlist. Violations go to stderr, shrink hints
 # to stdout, and a clean run prints nothing at all.
 check() {
-	local violations=0 path lines ceiling recorded
+	local path lines ceiling recorded
 	local -A seen=()
 	collect_offenders
 
@@ -195,10 +318,10 @@ check() {
 		recorded=${RECORDED[$path]-}
 		if [ -z "$recorded" ]; then
 			echo "$path: $lines lines, ceiling $ceiling: split it (the allowlist takes no new entries)" >&2
-			violations=$((violations + 1))
+			VIOLATIONS=$((VIOLATIONS + 1))
 		elif [ "$lines" -gt "$recorded" ]; then
 			echo "$path: $lines lines, recorded $recorded (ceiling $ceiling): allowlisted files may shrink, never grow" >&2
-			violations=$((violations + 1))
+			VIOLATIONS=$((VIOLATIONS + 1))
 		elif [ "$lines" -lt "$recorded" ]; then
 			echo "$path shrank to $lines lines (recorded $recorded): run scripts/ci/size-gate.sh --update to tighten the ratchet"
 		fi
@@ -216,14 +339,8 @@ check() {
 		else
 			echo "$path: allowlisted but missing: remove its allowlist entry" >&2
 		fi
-		violations=$((violations + 1))
+		VIOLATIONS=$((VIOLATIONS + 1))
 	done
-
-	if [ "$violations" -ne 0 ]; then
-		echo "size-gate: $violations violation(s)" >&2
-		return 1
-	fi
-	return 0
 }
 
 # Lowers recorded counts to match reality and drops stale entries. It never
@@ -250,25 +367,64 @@ update() {
 	done | LC_ALL=C sort | write_allowlist
 }
 
-case "${1-}" in
-"")
-	load_allowlist
-	check
+MODE=check
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--list) MODE=list ;;
+	--update) MODE=update ;;
+	-h | --help) MODE=help ;;
+	--base)
+		shift
+		if [ $# -eq 0 ]; then
+			echo "size-gate: --base needs a git ref" >&2
+			exit 2
+		fi
+		BASE_REF=$1
+		BASE_EXPLICIT=1
+		;;
+	--base=*)
+		BASE_REF=${1#--base=}
+		BASE_EXPLICIT=1
+		if [ -z "$BASE_REF" ]; then
+			echo "size-gate: --base needs a git ref" >&2
+			exit 2
+		fi
+		;;
+	*)
+		echo "size-gate: unknown argument: $1" >&2
+		usage >&2
+		exit 2
+		;;
+	esac
+	shift
+done
+
+case "$MODE" in
+help)
+	usage
 	;;
---list)
+list)
 	collect_offenders
 	cat "$OFFENDERS_FILE"
 	;;
---update)
+update)
 	load_allowlist
 	update
 	;;
--h | --help)
-	usage
-	;;
-*)
-	echo "size-gate: unknown argument: $1" >&2
-	usage >&2
-	exit 2
+check)
+	load_allowlist
+	# The base comparison guards the allowlist itself; the tree check guards the
+	# files. Both run before anything is reported, so one run names every problem.
+	if [ -z "$BASE_REF" ]; then
+		BASE_REF=origin/master
+	fi
+	if load_base_allowlist; then
+		compare_with_base
+	fi
+	check
+	if [ "$VIOLATIONS" -ne 0 ]; then
+		echo "size-gate: $VIOLATIONS violation(s)" >&2
+		exit 1
+	fi
 	;;
 esac
