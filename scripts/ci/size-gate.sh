@@ -9,6 +9,12 @@
 # recorded count, and when an entry has gone stale (its file is back under the
 # ceiling, or gone). So the list only ever shrinks and the godfiles stop growing.
 #
+# A line is a newline, so the gate also rejects the two shapes whose size it cannot
+# measure rather than merely dislikes: a symlink, whose target the walk never
+# reads, and any file holding a CR byte, since lone CR separators hide every line
+# from a newline count. Neither is a size the allowlist can record, so neither has
+# an exemption.
+#
 # Renaming or moving an allowlisted file is the one hand-edit the list takes: move
 # the entry to the new path with the same or a lower count, never a new entry.
 #
@@ -101,12 +107,19 @@ usage() {
 	USAGE
 }
 
-# A file counts as a test when its name or its directory says so. Tests get the
-# higher ceiling because table-driven Go tests and per-concern vitest files are
-# legitimately long, but they stay capped so splitting one stays cheap.
+# Tests get the higher ceiling because table-driven Go tests and per-concern vitest
+# files are legitimately long, but they stay capped so splitting one stays cheap.
+#
+# What counts as a test is decided by DIRECTORY on the TypeScript side, never by
+# the filename: a .test.ts suffix is something a production file can be given, and
+# that would hand it the 2000-line ceiling. A suite therefore lives in a
+# __tests__/ directory or in an app's test/ directory, which is where this repo
+# keeps them anyway; a .test.ts or .spec.ts anywhere else is production code and
+# gets the production ceiling. Go keeps its suffix rule because the toolchain
+# enforces it: _test.go files are compiled only into the test binary.
 is_test_file() {
 	case "$1" in
-	*_test.go | *.test.ts | *.test.tsx | *.spec.ts | *.spec.tsx) return 0 ;;
+	*_test.go) return 0 ;;
 	*/__tests__/*) return 0 ;;
 	web/src/test/* | frontdesk/web/src/test/*) return 0 ;;
 	esac
@@ -129,7 +142,9 @@ OFFENDERS_FILE=$(mktemp)
 PARSED_FILE=$(mktemp)
 BASE_FILE=$(mktemp)
 RENAME_FILE=$(mktemp)
-trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE" "$PARSED_FILE" "$BASE_FILE" "$RENAME_FILE"' EXIT
+LINK_FILE=$(mktemp)
+CR_FILE=$(mktemp)
+trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE" "$PARSED_FILE" "$BASE_FILE" "$RENAME_FILE" "$LINK_FILE" "$CR_FILE"' EXIT
 
 # A gate that scans less than it claims and still reports clean is worse than no
 # gate, so a scope root that is not a directory is a hard error, not a warning.
@@ -143,9 +158,13 @@ require_scope_roots() {
 	done
 }
 
-# Writes every in-scope path, repo-relative and sorted, to $SCOPE_FILE. Both find
-# runs report through one status, so an unreadable subdirectory in the FIRST of
-# them cannot be masked by the second one succeeding.
+# Writes every in-scope path, repo-relative and sorted, to $SCOPE_FILE, and every
+# in-scope symlink to $LINK_FILE. Both find runs report through one status, so an
+# unreadable subdirectory in the FIRST of them cannot be masked by the second one
+# succeeding.
+#
+# -type f skips symlinks, which would otherwise let a source path stand in for a
+# file outside the scan, so they are collected here and rejected in check().
 walk_scope() {
 	local status=0
 	(
@@ -161,6 +180,39 @@ walk_scope() {
 	fi
 	LC_ALL=C sort "$SCOPE_FILE.raw" >"$SCOPE_FILE"
 	rm -f "$SCOPE_FILE.raw"
+
+	status=0
+	(
+		cd "$ROOT" || exit 3
+		find "${GO_ROOTS[@]}" "${TS_ROOTS[@]}" -type l -print
+	) >"$LINK_FILE" || status=$?
+	if [ "$status" -ne 0 ]; then
+		echo "size-gate: could not scan the scope roots for symlinks (find exited $status)" >&2
+		exit 2
+	fi
+}
+
+# Writes every in-scope file holding a CR byte to $CR_FILE. Line counts are
+# newline counts, so a file separated by lone CRs measures zero lines however long
+# it is, which is the last way a file could dictate its own measurement. Rejecting
+# CR outright is the structural answer, and the repo wants LF everywhere regardless
+# (.gitattributes pins it, biome enforces it for TypeScript). One grep over the
+# whole list, so this costs a single process rather than one per file.
+scan_line_endings() {
+	local status=0
+	local -a files=()
+	mapfile -t files <"$SCOPE_FILE"
+	if [ ${#files[@]} -eq 0 ]; then
+		: >"$CR_FILE"
+		return
+	fi
+	(cd "$ROOT" && LC_ALL=C grep -lU -e "$(printf '\r')" -- "${files[@]}") >"$CR_FILE" 2>/dev/null || status=$?
+	# grep exits 1 when nothing matches, which is the clean case; anything above
+	# that is a real failure and must not read as "no CR anywhere".
+	if [ "$status" -gt 1 ]; then
+		echo "size-gate: could not scan the scope for CR line endings (grep exited $status)" >&2
+		exit 2
+	fi
 }
 
 # Writes path<TAB>lines to $OFFENDERS_FILE for every file above its ceiling,
@@ -389,6 +441,26 @@ compare_with_base() {
 	done
 }
 
+# Rejects the two shapes that would make a file's size unmeasurable rather than
+# merely large: a symlink, whose target the walk never reads, and a CR byte, which
+# hides lines from a newline count. Neither is a size the allowlist can record, so
+# neither has an exemption; the fix is to check in a real LF-separated file.
+check_scope_hygiene() {
+	local path
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		echo "$path: symlink in the scope roots: the gate measures files, so check in the file itself" >&2
+		VIOLATIONS=$((VIOLATIONS + 1))
+	done <"$LINK_FILE"
+
+	scan_line_endings
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		echo "$path: CR line endings are not accepted in source: normalize the file to LF" >&2
+		VIOLATIONS=$((VIOLATIONS + 1))
+	done <"$CR_FILE"
+}
+
 # Compares the tree against the allowlist. Violations go to stderr, shrink hints
 # to stdout, and a clean run prints nothing at all.
 check() {
@@ -503,6 +575,7 @@ check)
 		BASE_REF=origin/master
 	fi
 	collect_offenders
+	check_scope_hygiene
 	load_base_allowlist
 	compare_with_base
 	check
