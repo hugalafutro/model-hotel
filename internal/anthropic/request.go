@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -197,7 +198,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 	// Plain string content: straight passthrough. Only a genuine JSON string
 	// short-circuits here — an array of blocks must fall through to block
 	// handling, or non-text blocks (images, tool_use, tool_result) are dropped.
-	if s, ok := asJSONString(m.Content); ok {
+	if s, ok := egress.AsJSONString(m.Content); ok {
 		return []oaiMessage{{Role: m.Role, Content: s}}, nil
 	}
 
@@ -268,26 +269,12 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 	return out, nil
 }
 
-// asJSONString returns the value when raw is a JSON string literal, ok=false
-// otherwise (including arrays/objects). Used to distinguish plain-string message
-// content from a content-block array.
-func asJSONString(raw json.RawMessage) (string, bool) {
-	if len(raw) == 0 {
-		return "", false
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s, true
-	}
-	return "", false
-}
-
 // decodeText returns the string when raw is a JSON string, or the concatenation
 // of the text blocks when raw is a content-block array. ok is false when raw is
 // neither (e.g. an empty/absent field). Used for fields where flattening to text
 // is correct (system prompt, tool_result content).
 func decodeText(raw json.RawMessage) (string, bool) {
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		return s, true
 	}
 	var blocks []reqBlock

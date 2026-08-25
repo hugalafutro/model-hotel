@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // scriptedBody yields its script one entry per Read call, simulating SSE
@@ -284,7 +286,7 @@ func TestStreamAdapter_OverlongLineFailsStream(t *testing.T) {
 	// grow the line buffer without bound.
 	upstream := &scriptedBody{script: []string{
 		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" +
-			strings.Repeat("a", maxSSELineBytes+1),
+			strings.Repeat("a", egress.MaxSSELineBytes+1),
 	}}
 	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
 	if err == nil {

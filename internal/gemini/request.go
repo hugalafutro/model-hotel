@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -290,7 +291,7 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 		FrequencyPenalty: req.FrequencyPenalty,
 		PresencePenalty:  req.PresencePenalty,
 		Seed:             req.Seed,
-		StopSequences:    decodeStop(req.Stop),
+		StopSequences:    egress.DecodeStop(req.Stop),
 	}
 	// max_completion_tokens is the modern OpenAI field and wins over the
 	// deprecated max_tokens when both are present.
@@ -401,25 +402,6 @@ func toolResponseValue(raw json.RawMessage) any {
 		return obj
 	}
 	return map[string]any{"result": text}
-}
-
-// decodeStop accepts OpenAI's string-or-array stop field.
-func decodeStop(raw json.RawMessage) []string {
-	if len(raw) == 0 {
-		return nil
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		if s == "" {
-			return nil
-		}
-		return []string{s}
-	}
-	var list []string
-	if json.Unmarshal(raw, &list) == nil {
-		return list
-	}
-	return nil
 }
 
 // translateToolChoice maps the OpenAI tool_choice union onto Gemini's
