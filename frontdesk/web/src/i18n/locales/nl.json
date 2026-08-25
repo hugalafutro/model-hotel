@@ -13,6 +13,7 @@
 		"never": "Nooit",
 		"copy": "Kopiëren",
 		"copied": "Gekopieerd",
+		"failedToCopy": "Kopiëren mislukt",
 		"yes": "Ja",
 		"no": "Nee",
 		"none": "Geen",

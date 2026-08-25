@@ -13,6 +13,7 @@
 		"never": "Nie",
 		"copy": "Kopieren",
 		"copied": "Kopiert",
+		"failedToCopy": "Fehler beim Kopieren",
 		"yes": "Ja",
 		"no": "Nein",
 		"none": "Keine",

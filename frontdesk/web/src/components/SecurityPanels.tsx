@@ -318,11 +318,14 @@ function TotpPanel() {
 	const { copy } = useCopyToClipboard({ trackCopied: false });
 
 	// copyValue puts one secret on the clipboard and says which way it went. A
-	// refused clipboard is a message rather than a silent no-op, because the
-	// operator is mid-enrolment and has to know to select the text by hand.
+	// refused clipboard toasts the failure rather than passing silently, because
+	// the operator is mid-enrolment and has to know to select the text by hand.
 	const copyValue = (value: string, okMessage: string) => {
 		void copy(value).then((ok) => {
-			toast(ok ? okMessage : t("common.copy"), ok ? "success" : "error");
+			toast(
+				ok ? okMessage : t("common.failedToCopy"),
+				ok ? "success" : "error",
+			);
 		});
 	};
 

@@ -59,7 +59,12 @@ export function useCopyToClipboard(
 			if (!alive.current || !trackCopied) return true;
 			setCopied(true);
 			if (timer.current !== null) clearTimeout(timer.current);
-			timer.current = setTimeout(() => setCopied(false), resetAfterMs);
+			// The handle is dropped as the timer fires, so neither the unmount
+			// cleanup nor the next copy clears an id that has already expired.
+			timer.current = setTimeout(() => {
+				timer.current = null;
+				setCopied(false);
+			}, resetAfterMs);
 			return true;
 		},
 		[resetAfterMs, trackCopied],

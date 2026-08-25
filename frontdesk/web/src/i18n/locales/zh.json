@@ -13,6 +13,7 @@
 		"never": "从未",
 		"copy": "复制",
 		"copied": "已复制",
+		"failedToCopy": "复制失败",
 		"yes": "是",
 		"no": "否",
 		"none": "无",

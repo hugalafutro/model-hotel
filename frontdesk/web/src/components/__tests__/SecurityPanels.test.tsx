@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { registerPasskey } from "../../utils/webauthn";
 import { SecurityPanels } from "../SecurityPanels";
@@ -392,12 +393,25 @@ describe("TotpPanel", () => {
 		);
 		const copyButton = await screen.findByRole("button", { name: /^Secret$/i });
 
+		// Both outcomes are asserted through the toast region and the i18n keys
+		// themselves, so neither a reworded string nor another "Copy" elsewhere
+		// on the page can decide the result.
+		const toasts = () => within(screen.getByRole("status"));
+
 		await userEvent.click(copyButton);
 		expect(writeText).toHaveBeenCalledWith("JBSWY3DPEHPK3PXP");
-		expect(await screen.findByText(/Secret copied/i)).toBeInTheDocument();
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("settings.totp.secretCopied")),
+			).toBeInTheDocument(),
+		);
 
 		// A refused clipboard says so instead of leaving the operator to guess.
 		await userEvent.click(copyButton);
-		expect(await screen.findByText(/^Copy$/)).toBeInTheDocument();
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("common.failedToCopy")),
+			).toBeInTheDocument(),
+		);
 	});
 });

@@ -12,10 +12,12 @@ export function CopyRow({
 }: {
 	/** The text shown and copied. An empty value renders nothing. */
 	value: string;
-	// Set: the compact labelled line the alerts wizard uses, where the name of
-	// the field sits beside its monospace value and the button carries both in
-	// its accessible name. Unset: the full-width monospace field-style box the
-	// sync wizard uses for an endpoint URL, which has its own heading above it.
+	/**
+	 * Set: the compact labelled line the alerts wizard uses, where the name of
+	 * the field sits beside its monospace value and the button carries both in
+	 * its accessible name. Unset: the full-width monospace field-style box the
+	 * sync wizard uses for an endpoint URL, which has its own heading above it.
+	 */
 	label?: string;
 	/** data-testid for the copy button; omitted when unset. */
 	testId?: string;
