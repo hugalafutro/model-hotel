@@ -45,9 +45,9 @@ linters:
       # Length ceiling for prod functions, counted in lines only: statements: -1
       # disables the second dimension so one long switch does not read as two
       # violations. Comments do not count toward the limit, so documenting a
-      # function never pushes it over. 200 is the current ratchet (the two
-      # functions still above it are excluded by name below); lower it as
-      # further refactors land.
+      # function never pushes it over. 200 is the current ratchet: the one prod
+      # function still above it, cmd/server's main at 298 lines, is excluded by
+      # name below. Lower this as further refactors land.
       lines: 200
       statements: -1
       ignore-comments: true

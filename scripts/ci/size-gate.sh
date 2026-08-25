@@ -26,9 +26,11 @@ TEST_CEILING=2000
 
 # Trees the gate covers. These are the source roots only, so build output,
 # vendored dependencies, locale catalogs and the generated SQL migrations are
-# out of scope by construction rather than by exclusion pattern.
+# out of scope by construction rather than by exclusion pattern. web-shared/ is
+# in scope because both SPAs compile it through their @quota-shared alias, which
+# makes it shipped frontend code like anything under either src/.
 GO_ROOTS=(internal cmd)
-TS_ROOTS=(web/src frontdesk/web/src)
+TS_ROOTS=(web/src frontdesk/web/src web-shared)
 
 usage() {
 	cat <<-'USAGE'
@@ -62,8 +64,9 @@ ceiling_for() {
 }
 
 # Machine-written files are exempt: their length is decided by their generator,
-# not by anyone who could split them. Only files already past their ceiling are
-# sniffed, so the common case reads no file contents at all.
+# not by anyone who could split them. The content sniff reads the first three
+# lines, where both conventions put the marker, and runs only on files already
+# past their ceiling, so the common case reads no file contents at all.
 is_generated() {
 	case "$1" in
 	*.pb.go | *_gen.go | *.gen.go | *.gen.ts | *.gen.tsx) return 0 ;;
@@ -71,19 +74,52 @@ is_generated() {
 	head -n 3 "$ROOT/$1" 2>/dev/null | grep -qE 'Code generated .* DO NOT EDIT|@generated'
 }
 
-# Every in-scope path, repo-relative, one per line.
-list_scope() {
-	(
-		cd "$ROOT"
-		find "${GO_ROOTS[@]}" -type f -name '*.go' -print
-		find "${TS_ROOTS[@]}" -type f \( -name '*.ts' -o -name '*.tsx' \) -print
-	)
+# Scratch files for the scope walk and the offender list. They are read back in
+# the main shell rather than through a process substitution, so a failure inside
+# either step can exit the whole script instead of just a subshell.
+SCOPE_FILE=$(mktemp)
+OFFENDERS_FILE=$(mktemp)
+trap 'rm -f "$SCOPE_FILE" "$SCOPE_FILE.raw" "$OFFENDERS_FILE"' EXIT
+
+# A gate that scans less than it claims and still reports clean is worse than no
+# gate, so a scope root that is not a directory is a hard error, not a warning.
+require_scope_roots() {
+	local dir
+	for dir in "${GO_ROOTS[@]}" "${TS_ROOTS[@]}"; do
+		if [ ! -d "$ROOT/$dir" ]; then
+			echo "size-gate: scope root missing: $dir" >&2
+			exit 2
+		fi
+	done
 }
 
-# path<TAB>lines for every file currently above its ceiling, sorted by path.
-# Line counts are newline counts, exactly what `wc -l` reports.
-list_offenders() {
+# Writes every in-scope path, repo-relative and sorted, to $SCOPE_FILE. Both find
+# runs report through one status, so an unreadable subdirectory in the FIRST of
+# them cannot be masked by the second one succeeding.
+walk_scope() {
+	local status=0
+	(
+		cd "$ROOT" || exit 3
+		rc=0
+		find "${GO_ROOTS[@]}" -type f -name '*.go' -print || rc=$?
+		find "${TS_ROOTS[@]}" -type f \( -name '*.ts' -o -name '*.tsx' \) -print || rc=$?
+		exit "$rc"
+	) >"$SCOPE_FILE.raw" || status=$?
+	if [ "$status" -ne 0 ]; then
+		echo "size-gate: could not walk the scope roots (find exited $status)" >&2
+		exit 2
+	fi
+	LC_ALL=C sort "$SCOPE_FILE.raw" >"$SCOPE_FILE"
+	rm -f "$SCOPE_FILE.raw"
+}
+
+# Writes path<TAB>lines to $OFFENDERS_FILE for every file above its ceiling,
+# sorted by path. Line counts are newline counts, exactly what `wc -l` reports.
+collect_offenders() {
 	local path lines ceiling
+	require_scope_roots
+	walk_scope
+	: >"$OFFENDERS_FILE"
 	while IFS= read -r path; do
 		lines=$(wc -l <"$ROOT/$path")
 		ceiling=$(ceiling_for "$path")
@@ -93,8 +129,8 @@ list_offenders() {
 		if is_generated "$path"; then
 			continue
 		fi
-		printf '%s\t%s\n' "$path" "$lines"
-	done < <(list_scope | LC_ALL=C sort)
+		printf '%s\t%s\n' "$path" "$lines" >>"$OFFENDERS_FILE"
+	done <"$SCOPE_FILE"
 }
 
 # Writes an allowlist file from the path<TAB>lines pairs on stdin, header included.
@@ -148,6 +184,7 @@ load_allowlist() {
 check() {
 	local violations=0 path lines ceiling recorded
 	local -A seen=()
+	collect_offenders
 
 	while IFS=$'\t' read -r path lines; do
 		seen[$path]=1
@@ -162,7 +199,7 @@ check() {
 		elif [ "$lines" -lt "$recorded" ]; then
 			echo "$path shrank to $lines lines (recorded $recorded): run scripts/ci/size-gate.sh --update to tighten the ratchet"
 		fi
-	done < <(list_offenders)
+	done <"$OFFENDERS_FILE"
 
 	# Leftover entries: the file is back under its ceiling, generated, or gone.
 	# All three mean the entry buys nothing, so it has to go and the list cannot
@@ -191,9 +228,10 @@ check() {
 update() {
 	local path lines
 	local -A current=()
+	collect_offenders
 	while IFS=$'\t' read -r path lines; do
 		current[$path]=$lines
-	done < <(list_offenders)
+	done <"$OFFENDERS_FILE"
 
 	for path in "${!RECORDED[@]}"; do
 		lines=${current[$path]-}
@@ -215,7 +253,8 @@ case "${1-}" in
 	check
 	;;
 --list)
-	list_offenders
+	collect_offenders
+	cat "$OFFENDERS_FILE"
 	;;
 --update)
 	load_allowlist

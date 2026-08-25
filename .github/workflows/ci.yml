@@ -210,8 +210,10 @@ jobs:
 
   # File-size ratchet: 800 lines of production code, 2000 of tests, with every
   # current offender pinned to its recorded count in scripts/ci/size-allowlist.txt.
-  # Gated on the three surfaces it reads (Go, web/, frontdesk/web/) plus the gate's
-  # own files, since dropping an allowlist entry is itself something to adjudicate.
+  # Gated on the surfaces it reads: go covers internal/ and cmd/, web and fdweb
+  # cover both SPA sources and the web-shared/ code they compile, and sizegate
+  # covers the gate's own files, since dropping an allowlist entry is itself
+  # something to adjudicate.
   size-check:
     name: Size Check
     needs: changes

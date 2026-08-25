@@ -14,3 +14,9 @@ Dockerfile text eol=lf
 # bash scripts, so the *.sh rule above misses them. A CRLF checkout would break
 # their shebang and silently disable the hooks on Windows.
 scripts/* text eol=lf
+
+# gitattributes patterns do not recurse into subdirectories, so the rule above
+# stops at scripts/ itself. The size gate parses its allowlist as path<TAB>lines
+# and reads a trailing CR as part of the number, so a CRLF checkout turns every
+# entry into a parse error. Pin the file the parser reads.
+scripts/ci/size-allowlist.txt text eol=lf

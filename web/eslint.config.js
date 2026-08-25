@@ -66,6 +66,7 @@ export default defineConfig([
 		// unit of logic. Test length is capped by the file-size gate instead.
 		files: [
 			"**/*.test.{ts,tsx}",
+			"**/*.spec.{ts,tsx}",
 			"**/__tests__/**/*.{ts,tsx}",
 			"src/test/**/*.{ts,tsx}",
 		],
