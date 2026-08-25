@@ -1,5 +1,5 @@
+import { generateTopic } from "@web-shared/ntfy";
 import { describe, expect, it } from "vitest";
-import { generateTopic } from "../ntfy";
 
 describe("generateTopic", () => {
 	it("returns 20 url-safe alphanumerics, different each call", () => {

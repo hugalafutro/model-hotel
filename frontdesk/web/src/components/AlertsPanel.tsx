@@ -1,10 +1,10 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
+import { ntfyAppriseURL } from "@web-shared/ntfy";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { ntfyAppriseURL } from "../utils/ntfy";
 import { AlertsWizard } from "./alerts/AlertsWizard";
 import { APPRISE_SERVICES_URL, ntfyServerOf } from "./alerts/composers";
 import { DestinationList } from "./alerts/DestinationList";

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { startIdleLogout } from "@web-shared/idle-logout";
 import { useEffect, useRef } from "react";
 import { api } from "../api/client";
 import { SETTING_DEFAULTS } from "../pages/Settings/defaults";
-import { startIdleLogout } from "../utils/idleLogout";
 
 /**
  * useIdleLogout signs the admin out after a configurable period of inactivity.

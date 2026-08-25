@@ -1,3 +1,4 @@
+import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
 import { type Dispatch, Fragment, type ReactNode, useState } from "react";
 import {
@@ -18,7 +19,6 @@ import {
 } from "@/lib/icons";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { CopyButton } from "../../../components/CopyButton";
-import { generateTopic } from "../../../utils/ntfy";
 import { AlertEventPicker, eventLabel } from "../AlertEventPicker";
 import {
 	type Action,

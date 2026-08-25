@@ -1,3 +1,4 @@
+import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
 import {
 	type Dispatch,
@@ -7,7 +8,6 @@ import {
 	useState,
 } from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
-import { generateTopic } from "../../utils/ntfy";
 import { CopyRow } from "../CopyRow";
 import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
 import {
