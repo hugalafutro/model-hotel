@@ -22,6 +22,12 @@
 # oversized file swapped in for a dropped one are all new entries and all fail.
 # Lowered counts and removed entries always pass.
 #
+# A base with no allowlist at all is only legitimate while the gate is being
+# introduced, so it is an error unless the base has no size-gate.sh either. In
+# that bootstrap case the base is empty and snapshot mode applies instead: every
+# entry has to record its file's exact current size, so the first list can only
+# ever be a photograph of the tree, taken in the diff that introduces it.
+#
 # Usage:
 #   size-gate.sh                check; quiet on success, one line per violation
 #   size-gate.sh --base <ref>   also compare the allowlist against that ref's copy
@@ -41,6 +47,11 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 ALLOWLIST_REL="scripts/ci/size-allowlist.txt"
 ALLOWLIST="$ROOT/$ALLOWLIST_REL"
+GATE_REL="scripts/ci/size-gate.sh"
+
+# Set when the base predates the gate itself, which turns the comparison into an
+# exact snapshot of the tree rather than a shrink-only diff.
+BOOTSTRAP=0
 
 # The ref whose allowlist the working-tree one is compared against. A base that
 # does not resolve to a commit is a hard error either way: skipping there would
@@ -231,7 +242,7 @@ parse_allowlist() {
 load_allowlist() {
 	local path lines
 	if [ ! -f "$ALLOWLIST" ]; then
-		echo "size-gate: missing allowlist $ALLOWLIST" >&2
+		echo "size-gate: missing allowlist $ALLOWLIST; restore it from the base branch" >&2
 		exit 2
 	fi
 	parse_allowlist "$ALLOWLIST" "$ALLOWLIST"
@@ -240,8 +251,10 @@ load_allowlist() {
 	done <"$PARSED_FILE"
 }
 
-# Fills BASE_RECORDED from the allowlist at $BASE_REF. Returns 1 when there is
-# nothing to compare against, having said why on stdout.
+# Fills BASE_RECORDED from the allowlist at $BASE_REF, or sets BOOTSTRAP when the
+# base predates the gate. Anything else it cannot read is a hard error: a base
+# whose allowlist the gate cannot see is a comparison that did not happen, and
+# skipping one is how a branch would exempt whatever it just grew.
 load_base_allowlist() {
 	local path lines
 	# ^{commit} is load-bearing: rev-parse --verify accepts any full 40-hex string
@@ -256,14 +269,23 @@ load_base_allowlist() {
 		fi
 		exit 2
 	fi
-	if ! git -C "$ROOT" show "$BASE_REF:$ALLOWLIST_REL" >"$BASE_FILE" 2>/dev/null; then
-		echo "size-gate: no allowlist at $BASE_REF, skipping the shrink-only comparison"
-		return 1
+	if git -C "$ROOT" show "$BASE_REF:$ALLOWLIST_REL" >"$BASE_FILE" 2>/dev/null; then
+		parse_allowlist "$BASE_FILE" "$BASE_REF:$ALLOWLIST_REL"
+		while IFS=$'\t' read -r path lines; do
+			BASE_RECORDED[$path]=$lines
+		done <"$PARSED_FILE"
+		return 0
 	fi
-	parse_allowlist "$BASE_FILE" "$BASE_REF:$ALLOWLIST_REL"
-	while IFS=$'\t' read -r path lines; do
-		BASE_RECORDED[$path]=$lines
-	done <"$PARSED_FILE"
+	# The base has no allowlist. That is only the truth while the gate is being
+	# introduced, which the base's own copy of the script settles: if the script
+	# is there, the allowlist belongs beside it and its absence means the branch
+	# deleted it or the base is the wrong ref.
+	if git -C "$ROOT" cat-file -e "$BASE_REF:$GATE_REL" 2>/dev/null; then
+		echo "size-gate: $BASE_REF carries $GATE_REL but no $ALLOWLIST_REL; the allowlist comes from the base branch, so restore it or name the right base" >&2
+		exit 2
+	fi
+	BOOTSTRAP=1
+	echo "size-gate: $BASE_REF predates the gate; comparing against an empty base in bootstrap snapshot mode, where every entry records its file's exact current size"
 	return 0
 }
 
@@ -293,6 +315,26 @@ load_renames() {
 compare_with_base() {
 	local path count apath acount origin
 	local -a added=()
+	local -A actual=()
+
+	# Bootstrap: the base is empty, so every entry is new and the rename rule would
+	# reject the whole list. Snapshot mode takes its place. Each entry must name the
+	# file's exact size, not merely a size the file is under, so the first list is a
+	# photograph rather than a set of headroom grants. Entries for files that are
+	# not over their ceiling are caught by the stale-entry rule in check().
+	if [ "$BOOTSTRAP" -eq 1 ]; then
+		while IFS=$'\t' read -r path count; do
+			actual[$path]=$count
+		done <"$OFFENDERS_FILE"
+		for path in "${!RECORDED[@]}"; do
+			count=${actual[$path]-}
+			if [ -n "$count" ] && [ "${RECORDED[$path]}" -ne "$count" ]; then
+				echo "$path: recorded ${RECORDED[$path]}, $count lines on disk: a bootstrap snapshot records each file's exact current size" >&2
+				VIOLATIONS=$((VIOLATIONS + 1))
+			fi
+		done
+		return
+	fi
 
 	for path in "${!RECORDED[@]}"; do
 		count=${RECORDED[$path]}
@@ -333,7 +375,6 @@ compare_with_base() {
 check() {
 	local path lines ceiling recorded
 	local -A seen=()
-	collect_offenders
 
 	while IFS=$'\t' read -r path lines; do
 		seen[$path]=1
@@ -437,13 +478,14 @@ update)
 check)
 	load_allowlist
 	# The base comparison guards the allowlist itself; the tree check guards the
-	# files. Both run before anything is reported, so one run names every problem.
+	# files. Both read the same single walk of the tree, and both run before
+	# anything is decided, so one run names every problem.
 	if [ -z "$BASE_REF" ]; then
 		BASE_REF=origin/master
 	fi
-	if load_base_allowlist; then
-		compare_with_base
-	fi
+	collect_offenders
+	load_base_allowlist
+	compare_with_base
 	check
 	if [ "$VIOLATIONS" -ne 0 ]; then
 		echo "size-gate: $VIOLATIONS violation(s)" >&2

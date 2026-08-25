@@ -42,9 +42,11 @@ fmt:
 # Shrink-only is checked, not just documented: the allowlist is compared against
 # its copy at origin/master, so an edit that adds an entry or raises a count fails
 # here as it does in CI. Pass another ref with SIZE_GATE_BASE or --base. A base
-# that does not resolve to a commit is an error, since skipping would turn a
-# missing base into a silent pass; a base that does not carry the allowlist yet
-# says so and skips, and the file checks still run.
+# that does not resolve to a commit is an error, and so is a base that carries the
+# gate but no allowlist, since skipping either would turn a missing base into a
+# silent pass. A base that predates the gate entirely is the bootstrap case: the
+# comparison runs against an empty base and every entry has to record its file's
+# exact current size.
 size-check:
 	scripts/ci/size-gate.sh
 
