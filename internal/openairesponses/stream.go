@@ -288,9 +288,10 @@ func (t *StreamTranslator) Finish() ([]byte, error) { return nil, nil }
 // (event assembly, EOF flush, framing) are shared with the other dialects; see
 // egress.StreamAdapter.
 //
-// This is an alias, not a defined type: openairesponses.StreamAdapter,
-// gemini.StreamAdapter and anthropicegress.StreamAdapter are the same type, so
-// a type switch cannot tell them apart.
+// StreamAdapter is the shared egress adapter driving this dialect's
+// StreamTranslator. It is an alias, not a defined type: gemini,
+// anthropicegress and openairesponses all alias it, so a type switch cannot
+// tell them apart.
 type StreamAdapter = egress.StreamAdapter
 
 // NewStreamAdapter builds an adapter for one streaming response. model is

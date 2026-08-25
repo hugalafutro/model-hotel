@@ -10,11 +10,13 @@ import (
 )
 
 // MaxSSEEventBytes caps the SSE event an adapter will buffer: the data fields
-// joined so far plus the line still being read. Vendor deltas are orders of
-// magnitude smaller than this, so an upstream that never closes an event is a
-// broken peer, not a large response — the stream fails instead of growing the
-// buffer until the process suffers.
-const MaxSSEEventBytes = 1 << 20
+// joined so far plus the line still being read. The Responses dialect sets the
+// floor — its response.completed event embeds the whole generated output, so a
+// 128k-token generation with JSON escaping approaches 1 MiB — and 4 MiB clears
+// that with headroom while still bounding a runaway upstream: one that never
+// closes an event fails the stream instead of growing the buffer until the
+// process suffers.
+const MaxSSEEventBytes = 4 << 20
 
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
