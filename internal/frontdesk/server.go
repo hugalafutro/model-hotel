@@ -306,6 +306,23 @@ func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) 
 	return true
 }
 
+// StartBackgroundTimeout is StartBackground for detached work that needs its own
+// deadline: it derives a time-bounded context from parent, hands it to fn, and
+// releases it exactly once whichever way the registration goes. fn's own run
+// releases it on the way out; a refusal releases it here, so a caller that is too
+// late to start work never leaks the context it prepared.
+func (s *Server) StartBackgroundTimeout(parent context.Context, d time.Duration, fn func(context.Context)) (started bool) {
+	ctx, cancel := context.WithTimeout(parent, d)
+	if !s.StartBackground(ctx, func(c context.Context) {
+		defer cancel()
+		fn(c)
+	}) {
+		cancel()
+		return false
+	}
+	return true
+}
+
 // Shutdown drains the server's background goroutines and then closes the store,
 // in that order: a goroutine still mid-query would otherwise be reading a store
 // that is already closed, which is the same unowned-read race a convergence pass

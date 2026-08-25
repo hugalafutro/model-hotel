@@ -193,6 +193,18 @@ func TestStartBackgroundRefusedOnceShutdownBegins(t *testing.T) {
 		t.Error("refused background work ran anyway")
 	default:
 	}
+
+	// The timeout variant prepares a context before it registers, so a refusal has
+	// to release it rather than leave it to the deadline. govet's lostcancel and
+	// the race detector both watch this path; the assertion here is that the
+	// refusal is reported, and that the context comes back already cancelled.
+	var kickCtx context.Context
+	if srv.StartBackgroundTimeout(t.Context(), time.Minute, func(c context.Context) { kickCtx = c }) {
+		t.Error("StartBackgroundTimeout reported the work started after Shutdown; want a refusal")
+	}
+	if kickCtx != nil {
+		t.Error("refused timed background work ran anyway")
+	}
 }
 
 // TestShutdownWaitsForTheSSEReauthTicker: a stream's re-auth ticker reads the
