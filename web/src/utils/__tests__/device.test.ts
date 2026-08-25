@@ -1,5 +1,5 @@
+import { deviceSummary } from "@web-shared/device";
 import { describe, expect, it } from "vitest";
-import { deviceSummary } from "../device";
 
 describe("deviceSummary", () => {
 	it("pairs browser and system when both are recognizable", () => {

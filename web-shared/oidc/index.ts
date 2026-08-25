@@ -2,6 +2,8 @@
 // sets the session cookie pair and redirects to a clean `/` (no token in the URL
 // at all), so the app boots logged in purely from the cookie. On failure it
 // redirects to `/#oidc_error=<code>`; consumeOidcError turns that into a message.
+// The code travels in the URL *fragment* (never the query string) so it is not
+// sent on to the server on the follow-up request and stays out of request logs.
 
 const ERROR_PREFIX = "#oidc_error=";
 
