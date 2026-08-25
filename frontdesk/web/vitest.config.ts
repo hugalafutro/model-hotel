@@ -7,10 +7,9 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
-			"@quota-shared": path.resolve(
-				__dirname,
-				"../../web-shared/quota/index.ts",
-			),
+			// Same prefix alias as vite.config.ts: a vitest config replaces the vite
+			// config wholesale, so the two have to be kept in step.
+			"@web-shared": path.resolve(__dirname, "../../web-shared"),
 		},
 	},
 	test: {

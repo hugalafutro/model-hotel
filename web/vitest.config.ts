@@ -7,7 +7,9 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
-			"@quota-shared": path.resolve(__dirname, "../web-shared/quota/index.ts"),
+			// Same prefix alias as vite.config.ts: a vitest config replaces the vite
+			// config wholesale, so the two have to be kept in step.
+			"@web-shared": path.resolve(__dirname, "../web-shared"),
 		},
 	},
 	test: {
@@ -21,8 +23,8 @@ export default defineConfig({
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "html", "lcov", "json-summary"],
-			// web-shared/ holds the quota parsing both SPAs import through
-			// @quota-shared, and web/ is its owning app for coverage. It sits
+			// web-shared/ holds the pure helpers both SPAs import through
+			// @web-shared/*, and web/ is its owning app for coverage. It sits
 			// outside this project's root, so it needs allowExternal plus a
 			// pattern that matches an ABSOLUTE path: vitest tests coverage.include
 			// against the resolved filename (picomatch, `contains: true`), where a

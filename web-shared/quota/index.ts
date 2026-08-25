@@ -3,8 +3,8 @@
 // either app. Presentation (pill prefixes, brand colours, modals, reset labels)
 // stays in the app that renders it.
 //
-// Both apps reach this module through the `@quota-shared` alias, wired in their
-// tsconfig `paths`, vite and vitest configs.
+// Both apps reach this module as `@web-shared/quota`, through the `@web-shared`
+// prefix alias wired in their tsconfig `paths`, vite and vitest configs.
 
 export {
 	getKimiCodeFiveHourLimit,

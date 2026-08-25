@@ -11,14 +11,15 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
-			"@quota-shared": path.resolve(
-				__dirname,
-				"../../web-shared/quota/index.ts",
-			),
+			// One prefix alias for the whole cross-app module: "@web-shared/quota"
+			// resolves to web-shared/quota/index.ts, "@web-shared/alerts/composers"
+			// to that file. A string alias matches the bare id and anything under
+			// it, so a module added to web-shared/ needs no config change here.
+			"@web-shared": path.resolve(__dirname, "../../web-shared"),
 		},
 	},
 	server: {
-		// The quota helpers live outside this project root, so the dev server has
+		// The shared modules live outside this project root, so the dev server has
 		// to be allowed to serve them alongside the app's own files.
 		fs: { allow: [__dirname, path.resolve(__dirname, "../../web-shared")] },
 		// `pnpm dev` proxies the API to a locally running frontdesk binary so the
