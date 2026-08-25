@@ -278,8 +278,12 @@ describe("Providers", () => {
 			});
 			await user.click(confirmButton);
 
+			// api.providers.delete discards the response body, so the toast carries
+			// the client's own fixed message rather than the server's error text.
 			await waitFor(() => {
-				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
+				expect(
+					screen.getByText("Failed to delete: Failed to delete provider"),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -1017,7 +1021,11 @@ describe("Providers", () => {
 			renderWithProviders(<Providers />);
 
 			await waitFor(() => {
-				expect(screen.getByText(/No providers configured/)).toBeInTheDocument();
+				expect(
+					screen.getByText(
+						"No providers configured. Add your first provider to get started.",
+					),
+				).toBeInTheDocument();
 			});
 		});
 	});
