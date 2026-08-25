@@ -96,13 +96,36 @@ describe("api.providers", () => {
 			);
 		});
 
-		it("throws fixed error on failure", async () => {
+		it("carries the server's error text on failure", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("provider is still referenced", { status: 409 }),
+			);
+			await expect(api.providers.delete("123")).rejects.toThrow(
+				"Failed to delete provider: 409 provider is still referenced",
+			);
+		});
+
+		it("reports the status even when the failure body is empty", async () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
 				new Response(null, { status: 500 }),
 			);
 			await expect(api.providers.delete("123")).rejects.toThrow(
-				"Failed to delete provider",
+				"Failed to delete provider: 500",
 			);
+		});
+
+		it("carries the status and code of a coded error body", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(
+					JSON.stringify({ code: "provider_in_use", error: "still in use" }),
+					{ status: 409 },
+				),
+			);
+			await expect(api.providers.delete("123")).rejects.toMatchObject({
+				message: "Failed to delete provider: 409 still in use",
+				status: 409,
+				code: "provider_in_use",
+			});
 		});
 	});
 

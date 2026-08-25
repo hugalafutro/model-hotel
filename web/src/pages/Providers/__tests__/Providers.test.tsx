@@ -278,11 +278,13 @@ describe("Providers", () => {
 			});
 			await user.click(confirmButton);
 
-			// api.providers.delete discards the response body, so the toast carries
-			// the client's own fixed message rather than the server's error text.
+			// api.providers.delete reads the failure body, so the toast carries the
+			// status and the server's own wording, not just a client-side label.
 			await waitFor(() => {
 				expect(
-					screen.getByText("Failed to delete: Failed to delete provider"),
+					screen.getByText(
+						'Failed to delete: Failed to delete provider: 500 {"error":"Delete failed"}',
+					),
 				).toBeInTheDocument();
 			});
 		});
