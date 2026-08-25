@@ -50,6 +50,7 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
       deps: ${{ steps.filter.outputs.deps }}
       i18n: ${{ steps.filter.outputs.i18n }}
+      sizegate: ${{ steps.filter.outputs.sizegate }}
       image: ${{ steps.filter.outputs.image }}
       measurable: ${{ steps.filter.outputs.measurable }}
       all_coverage: ${{ steps.filter.outputs.all_coverage }}
@@ -206,6 +207,28 @@ jobs:
       # intentional English goes into tools/i18n-translate/allow-english.json.
       - name: locale sync check
         run: make i18n-check
+
+  # File-size ratchet: 800 lines of production code, 2000 of tests, with every
+  # current offender pinned to its recorded count in scripts/ci/size-allowlist.txt.
+  # Gated on the three surfaces it reads (Go, web/, frontdesk/web/) plus the gate's
+  # own files, since dropping an allowlist entry is itself something to adjudicate.
+  size-check:
+    name: Size Check
+    needs: changes
+    if: >-
+      needs.changes.outputs.go != 'false' ||
+      needs.changes.outputs.web != 'false' ||
+      needs.changes.outputs.fdweb != 'false' ||
+      needs.changes.outputs.sizegate != 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Fails when a file crosses its ceiling with no allowlist entry, when an
+      # allowlisted file grows past its recorded count, or when an entry has gone
+      # stale. Split the file; the allowlist takes no new entries.
+      - name: size gate
+        run: make size-check
 
   workflow-lint:
     name: Workflow Lint
