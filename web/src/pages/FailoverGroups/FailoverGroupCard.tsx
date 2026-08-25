@@ -20,6 +20,7 @@ import type {
 	FailoverGroup,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatTokens } from "../../utils/format";
 import { SortableEntry } from "./SortableEntry";
 
@@ -67,6 +68,7 @@ export function FailoverGroupCard({
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { copy } = useCopyToClipboard();
 
 	// Optimistic local state: reorders immediately on dragEnd so the DOM
 	// order matches the visual drag position. key-based reset ensures
@@ -112,16 +114,11 @@ export function FailoverGroupCard({
 		}
 	};
 
-	const handleCopyModel = () => {
+	const handleCopyModel = async () => {
 		const modelRef = `hotel/${group.display_model}`;
-		// Promise-wrap so a missing Clipboard API (undefined in non-secure/HTTP
-		// contexts) rejects into the failure toast instead of throwing synchronously.
-		Promise.resolve()
-			.then(() => navigator.clipboard.writeText(modelRef))
-			.then(() =>
-				toast(t("failover.copied_model", { model: modelRef }), "success"),
-			)
-			.catch(() => toast(t("common.failedToCopy"), "error"));
+		if (await copy(modelRef))
+			toast(t("failover.copied_model", { model: modelRef }), "success");
+		else toast(t("common.failedToCopy"), "error");
 	};
 
 	return (

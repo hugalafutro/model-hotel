@@ -1,12 +1,5 @@
 import type { TFunction } from "i18next";
-import {
-	type Dispatch,
-	Fragment,
-	type ReactNode,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type Dispatch, Fragment, type ReactNode, useState } from "react";
 import {
 	Bell,
 	CheckCircle2,
@@ -24,6 +17,7 @@ import {
 	XCircle,
 } from "@/lib/icons";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
+import { CopyButton } from "../../../components/CopyButton";
 import { generateTopic } from "../../../utils/ntfy";
 import { AlertEventPicker, eventLabel } from "../AlertEventPicker";
 import {
@@ -835,27 +829,6 @@ function CopyRow({
 	value: string;
 	t: TFunction;
 }) {
-	const [copied, setCopied] = useState(false);
-	// The "Copied" label reverts on a timer, which has to be dropped if the step
-	// is left first: the wizard swaps steps under it, and firing then would set
-	// state on an unmounted row.
-	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(
-		() => () => {
-			if (timer.current !== null) clearTimeout(timer.current);
-		},
-		[],
-	);
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(value);
-			setCopied(true);
-			if (timer.current !== null) clearTimeout(timer.current);
-			timer.current = setTimeout(() => setCopied(false), 2000);
-		} catch {
-			/* clipboard blocked: the value stays selectable */
-		}
-	};
 	if (value === "") return null;
 	return (
 		<div className="flex items-center gap-2 flex-wrap">
@@ -866,15 +839,12 @@ function CopyRow({
 			>
 				{value}
 			</code>
-			<button
-				type="button"
-				className="ui-btn ui-btn-secondary"
-				data-testid={testId}
-				aria-label={`${t("common.copy")}: ${label}`}
-				onClick={copy}
-			>
-				{copied ? t("common.copied") : t("common.copy")}
-			</button>
+			<CopyButton
+				variant="label"
+				text={value}
+				testId={testId}
+				ariaLabel={`${t("common.copy")}: ${label}`}
+			/>
 		</div>
 	);
 }

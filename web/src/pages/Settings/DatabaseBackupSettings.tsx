@@ -21,6 +21,7 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatDateTimeShort } from "../../utils/format";
 
 interface DatabaseBackupSettingsProps {
@@ -179,6 +180,7 @@ export function DatabaseBackupSettings({
 			throw new Error(t("common.failedToCopy"));
 		}
 	};
+	const { copy } = useCopyToClipboard({ write: writeClipboard });
 
 	// Puts the backup's signature sidecar on the clipboard for the restore
 	// form. The download hands over the dump alone, and without shell access to
@@ -187,7 +189,9 @@ export function DatabaseBackupSettings({
 	const copySignature = async (filename: string) => {
 		try {
 			const { signature } = await api.backups.signature(filename);
-			await writeClipboard(signature);
+			if (!(await copy(signature))) {
+				throw new Error(t("common.failedToCopy"));
+			}
 			toast(t("settings.backup.signatureCopied"), "success");
 		} catch (err) {
 			toast(
