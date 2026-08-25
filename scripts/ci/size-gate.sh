@@ -16,11 +16,13 @@
 # it just grew. --base makes shrink-only a check rather than a comment: it reads
 # the allowlist as it exists at a trusted ref and fails on any entry whose count
 # is higher than at that ref, and on any entry the base does not have. A rename is
-# the one exception: a new entry is accepted only for a path git detects as a
-# rename of a removed entry, at the same or a lower count. Git adjudicates that at
-# 50% similarity, so a file rewritten past that point, a copy, and an unrelated
-# oversized file swapped in for a dropped one are all new entries and all fail.
-# Lowered counts and removed entries always pass.
+# the one exception: a new entry is accepted only for a path git detects as an
+# EXACT rename of a removed entry (--find-renames=100%, byte-identical content),
+# at the same or a lower count. So an exemption follows a file only through a pure
+# move: edit the file in the same commit that moves it, copy it, or swap an
+# unrelated oversized file in for a dropped one, and the new path is an addition
+# and fails. Move the file first and edit it after, keep it where it is, or split
+# it under the ceiling. Lowered counts and removed entries always pass.
 #
 # A base with no allowlist at all is only legitimate while the gate is being
 # introduced, so it is an error unless the base has no size-gate.sh either. In
@@ -78,6 +80,11 @@ TEST_CEILING=2000
 # out of scope by construction rather than by exclusion pattern. web-shared/ is
 # in scope because both SPAs compile it through their @quota-shared alias, which
 # makes it shipped frontend code like anything under either src/.
+#
+# Every .go, .ts and .tsx file under these roots is measured. Nothing a file says
+# about itself exempts it, because a marker a file carries is a marker any file
+# can add. Should a generator ever write into one of these roots, its output is
+# exempted by an explicit path list here, reviewed like any other script change.
 GO_ROOTS=(internal cmd)
 TS_ROOTS=(web/src frontdesk/web/src web-shared)
 
@@ -112,17 +119,6 @@ ceiling_for() {
 	else
 		echo "$PROD_CEILING"
 	fi
-}
-
-# Machine-written files are exempt: their length is decided by their generator,
-# not by anyone who could split them. The content sniff reads the first three
-# lines, where both conventions put the marker, and runs only on files already
-# past their ceiling, so the common case reads no file contents at all.
-is_generated() {
-	case "$1" in
-	*.pb.go | *_gen.go | *.gen.go | *.gen.ts | *.gen.tsx) return 0 ;;
-	esac
-	head -n 3 "$ROOT/$1" 2>/dev/null | grep -qE 'Code generated .* DO NOT EDIT|@generated'
 }
 
 # Scratch files for the scope walk and the offender list. They are read back in
@@ -178,9 +174,6 @@ collect_offenders() {
 		lines=$(wc -l <"$ROOT/$path")
 		ceiling=$(ceiling_for "$path")
 		if [ "$lines" -le "$ceiling" ]; then
-			continue
-		fi
-		if is_generated "$path"; then
 			continue
 		fi
 		printf '%s\t%s\n' "$path" "$lines" >>"$OFFENDERS_FILE"
@@ -292,14 +285,16 @@ load_base_allowlist() {
 }
 
 # Renames git detects between the base and the working tree, keyed by new path.
-# --diff-filter=R keeps renames only and copy detection stays off, so a file
-# copied to a second path is an addition here and never inherits an entry. The
-# diff has no second ref on purpose: it compares the tree, which is the PR head in
-# CI and picks up a staged `git mv` locally.
+# --find-renames=100% means byte-identical content, so only a pure move carries an
+# entry across: edit as much as one line while moving and the new path is an
+# addition. --diff-filter=R keeps renames only and copy detection stays off, so a
+# file copied to a second path is an addition too. The diff has no second ref on
+# purpose: it compares the tree, which is the PR head in CI and picks up a staged
+# `git mv` locally.
 load_renames() {
 	local status old new
 	if ! git -C "$ROOT" -c core.quotePath=false diff --name-status \
-		--find-renames=50% --diff-filter=R "$BASE_REF" -- \
+		--find-renames=100% --diff-filter=R "$BASE_REF" -- \
 		"${GO_ROOTS[@]}" "${TS_ROOTS[@]}" >"$RENAME_FILE" 2>/dev/null; then
 		echo "size-gate: could not diff the scope roots against $BASE_REF" >&2
 		exit 2
@@ -379,7 +374,7 @@ compare_with_base() {
 		acount=${RECORDED[$apath]}
 		origin=${RENAMED_FROM[$apath]-}
 		if [ -z "$origin" ]; then
-			echo "$apath: new entry at $acount lines: the allowlist takes an entry for a new path only when git detects it as a rename of an allowlisted file, so split it instead" >&2
+			echo "$apath: new entry at $acount lines: the allowlist takes an entry for a new path only when git detects an EXACT rename of an allowlisted file into it, so split it, or move it in one commit and edit it in the next" >&2
 			VIOLATIONS=$((VIOLATIONS + 1))
 		elif [ -z "${BASE_RECORDED[$origin]+set}" ]; then
 			echo "$apath: renamed from $origin, which $BASE_REF does not allowlist: an entry moves with a file that already had one" >&2
@@ -415,9 +410,9 @@ check() {
 		fi
 	done <"$OFFENDERS_FILE"
 
-	# Leftover entries: the file is back under its ceiling, generated, or gone.
-	# All three mean the entry buys nothing, so it has to go and the list cannot
-	# quietly accumulate exemptions nobody needs.
+	# Leftover entries: the file is back under its ceiling, or gone. Either way the
+	# entry buys nothing, so it has to go and the list cannot quietly accumulate
+	# exemptions nobody needs.
 	for path in "${!RECORDED[@]}"; do
 		if [ -n "${seen[$path]+set}" ]; then
 			continue
