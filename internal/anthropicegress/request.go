@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -247,7 +248,7 @@ func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body
 		Temperature:   req.Temperature,
 		TopP:          req.TopP,
 		TopK:          req.TopK,
-		StopSequences: decodeStop(req.Stop),
+		StopSequences: egress.DecodeStop(req.Stop),
 	}
 
 	system, messages, err := translateMessages(req.Messages)
@@ -426,7 +427,7 @@ func contentBlocks(content any) []antBlock {
 func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 	// Plain string content stays a plain string — but only when nothing else
 	// has to ride along in the same turn.
-	if s, ok := asJSONString(m.Content); ok && len(m.ToolCalls) == 0 {
+	if s, ok := egress.AsJSONString(m.Content); ok && len(m.ToolCalls) == 0 {
 		if s == "" {
 			return nil, nil
 		}
@@ -458,7 +459,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil
 	}
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		if s == "" {
 			return nil, nil
 		}
@@ -627,7 +628,7 @@ func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
 	if len(raw) == 0 {
 		return nil, true
 	}
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		switch s {
 		case "auto":
 			return &antToolChoice{Type: "auto"}, true
@@ -662,26 +663,10 @@ func toolInput(arguments string) json.RawMessage {
 	return raw
 }
 
-// asJSONString returns the value when raw is a JSON string literal, and
-// ok=false for arrays, objects and an absent field. JSON null decodes into a
-// string without error, so it yields ("", true) — which every caller wants,
-// since a null content field carries nothing either way. Used to tell
-// plain-string message content from a content-part array.
-func asJSONString(raw json.RawMessage) (string, bool) {
-	if len(raw) == 0 {
-		return "", false
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s, true
-	}
-	return "", false
-}
-
 // flattenText reduces a content field (string or part array) to plain text, for
 // the fields Anthropic types as text: the system prompt and tool_result content.
 func flattenText(raw json.RawMessage) string {
-	if s, ok := asJSONString(raw); ok {
+	if s, ok := egress.AsJSONString(raw); ok {
 		return s
 	}
 	var parts []oaiContentPart
@@ -695,22 +680,4 @@ func flattenText(raw json.RawMessage) string {
 		return sb.String()
 	}
 	return ""
-}
-
-// decodeStop accepts OpenAI's string-or-array stop field.
-func decodeStop(raw json.RawMessage) []string {
-	if len(raw) == 0 {
-		return nil
-	}
-	if s, ok := asJSONString(raw); ok {
-		if s == "" {
-			return nil
-		}
-		return []string{s}
-	}
-	var list []string
-	if json.Unmarshal(raw, &list) == nil {
-		return list
-	}
-	return nil
 }

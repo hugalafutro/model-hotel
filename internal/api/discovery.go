@@ -788,7 +788,7 @@ type DismissDiscoveryClaimsRequest struct {
 // healthy model cannot be pre-dismissed; those affect zero rows and fall
 // through the 404 path below like any other unmatched model ID.
 //
-// Deliberately NOT added to isReadOnlyExemptPost: unlike the discovery-change
+// Deliberately NOT added to httpx.IsReadOnlyExemptPost: unlike the discovery-change
 // ack it sits beside, this suppresses a real discrepancy from every operator's
 // view, which is a genuine state change.
 func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
@@ -851,7 +851,7 @@ type UnpinDiscoveryClaimsRequest struct {
 // reason. What does change on the next scan — the model being disabled — flows
 // through the same path any auto-disable does.
 //
-// Deliberately NOT added to isReadOnlyExemptPost: it hands a model back to
+// Deliberately NOT added to httpx.IsReadOnlyExemptPost: it hands a model back to
 // automatic management, which is a genuine state change.
 func (h *Handler) UnpinDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
 	var req UnpinDiscoveryClaimsRequest

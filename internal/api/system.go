@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -228,10 +227,7 @@ func cachedSystemFor(since string) (*SystemStats, bool) {
 }
 
 func writeSystemJSON(w http.ResponseWriter, stats *SystemStats) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, stats)
 }
 
 // requestsSince returns the number of request_logs rows at or after `since`,

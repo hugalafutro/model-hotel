@@ -11,8 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 // Role separates full operators from grant-limited users.
@@ -204,7 +205,7 @@ func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, 
 		if _, err := tx.Exec(ctx,
 			`UPDATE users SET sso_provider = $2, sso_subject = $3 WHERE id = $1`,
 			u.ID, provider, subject); err != nil {
-			if isUniqueViolation(err) {
+			if db.IsUniqueViolation(err) {
 				return nil, false, ErrSSOMismatch
 			}
 			return nil, false, err
@@ -220,15 +221,6 @@ func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, 
 		return nil, false, err
 	}
 	return u, bound, nil
-}
-
-// isUniqueViolation reports whether err is a PostgreSQL unique-constraint
-// violation (SQLSTATE 23505).
-func isUniqueViolation(err error) bool {
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-		return pgErr.Code == "23505"
-	}
-	return false
 }
 
 // HasEnabled reports whether at least one enabled user exists, so the login

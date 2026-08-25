@@ -271,10 +271,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 		HasAfter:  hasAfter,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, response)
 }
 
 // logEntrySelectColumns is the shared 37-column request_logs projection plus the
@@ -749,9 +746,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * perPage
 
 	if cached, ok := globalLogsCache.get(cacheKey); ok {
-		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Cache", "HIT")
-		_ = json.NewEncoder(w).Encode(cached)
+		writeJSON(w, cached)
 		return
 	}
 
@@ -809,8 +805,5 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	globalLogsCache.set(cacheKey, &response)
 	w.Header().Set("X-Cache", "MISS")
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	writeJSON(w, response)
 }

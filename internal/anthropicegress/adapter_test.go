@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // scriptedBody yields its script one entry per Read call, simulating SSE
@@ -98,6 +100,31 @@ func TestStreamAdapter_TranslatesFullStream(t *testing.T) {
 	}
 	if last.Usage == nil || last.Usage.PromptTokens != 11 || last.Usage.CompletionTokens != 4 {
 		t.Errorf("usage = %+v, want prompt 11 / completion 4", last.Usage)
+	}
+}
+
+// TestStreamAdapter_FoldedEventTranslatesCleanly folds one content_block_delta
+// across two "data:" fields, which SSE allows. The payload is their
+// newline-join, so the event must translate once rather than as two JSON
+// fragments that would poison the stream.
+func TestStreamAdapter_FoldedEventTranslatesCleanly(t *testing.T) {
+	upstream := &scriptedBody{script: []string{
+		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":2}}}\n\n",
+		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\n" +
+			"data: \"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+	}}
+
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err != nil {
+		t.Fatalf("a folded event failed the stream: %v", err)
+	}
+	s := string(out)
+	if !strings.Contains(s, `"content":"hi"`) {
+		t.Errorf("folded event lost its text:\n%s", s)
+	}
+	if n := strings.Count(s, "data: [DONE]"); n != 1 {
+		t.Errorf("[DONE] count = %d, want 1:\n%s", n, s)
 	}
 }
 
@@ -279,12 +306,12 @@ func TestStreamAdapter_TruncatedResidualAfterMessageStopIgnored(t *testing.T) {
 	}
 }
 
-func TestStreamAdapter_OverlongLineFailsStream(t *testing.T) {
+func TestStreamAdapter_OverlongEventFailsStream(t *testing.T) {
 	// An upstream that never emits a newline must fail the stream rather than
 	// grow the line buffer without bound.
 	upstream := &scriptedBody{script: []string{
 		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" +
-			strings.Repeat("a", maxSSELineBytes+1),
+			strings.Repeat("a", egress.MaxSSEEventBytes+1),
 	}}
 	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
 	if err == nil {

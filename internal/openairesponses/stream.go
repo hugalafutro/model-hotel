@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -254,85 +255,47 @@ func (t *StreamTranslator) frame(chunk chatChunk) []byte {
 // Finished reports whether the terminal sequence has been emitted.
 func (t *StreamTranslator) Finished() bool { return t.finished }
 
-// StreamAdapter wraps the upstream /v1/responses SSE body as an io.ReadCloser
-// that yields chat.completion.chunk SSE bytes. Wrapping the UPSTREAM body (not
-// the client writer) lets the whole existing streaming pipeline — TTFT probe,
-// stall watchdog, transforms, metering, and any client-side writer such as the
-// Anthropic one — run unchanged on what it already understands.
-//
-// A truncated upstream (EOF before response.completed) surfaces as a stream
-// without [DONE], which the pipeline already classifies as a truncation.
-type StreamAdapter struct {
-	upstream io.ReadCloser
-	tr       *StreamTranslator
-
-	lineBuf []byte // partial SSE line carried across reads
-	pending []byte // translated bytes not yet handed to the caller
-	readBuf []byte
-	srcErr  error
+// Translate satisfies egress.Translator, and carries the two dispatch rules
+// that belong to this dialect rather than to the shared adapter. A "[DONE]"
+// payload is ignored: Responses streams do not use that sentinel, so one
+// arriving is an upstream quirk rather than data. A malformed event is logged
+// and skipped rather than failing the stream, because a Responses stream stays
+// readable across a single bad event.
+func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
+	if bytes.Equal(payload, []byte("[DONE]")) {
+		return nil, nil
+	}
+	out, err := t.TranslateEvent(payload)
+	if err != nil {
+		debuglog.Warn("openairesponses: stream event translate failed", "error", err)
+		return nil, nil
+	}
+	return out, nil
 }
+
+// Finish satisfies egress.Translator. It adds nothing: the Responses stream
+// carries its own terminal chunk and [DONE], both emitted by TranslateEvent on
+// response.completed. A truncated upstream (EOF before response.completed)
+// therefore surfaces as a stream without [DONE], which the pipeline already
+// classifies as a truncation.
+func (t *StreamTranslator) Finish() ([]byte, error) { return nil, nil }
+
+// StreamAdapter re-frames the upstream /v1/responses SSE body as
+// chat.completion.chunk SSE bytes. Wrapping the UPSTREAM body (not the client
+// writer) lets the whole existing streaming pipeline — TTFT probe, stall
+// watchdog, transforms, metering, and any client-side writer such as the
+// Anthropic one — run unchanged on what it already understands. The mechanics
+// (event assembly, EOF flush, framing) are shared with the other dialects; see
+// egress.StreamAdapter.
+//
+// StreamAdapter is the shared egress adapter driving this dialect's
+// StreamTranslator. It is an alias, not a defined type: gemini,
+// anthropicegress and openairesponses all alias it, so a type switch cannot
+// tell them apart.
+type StreamAdapter = egress.StreamAdapter
 
 // NewStreamAdapter builds an adapter for one streaming response. model is
 // echoed in every emitted chunk.
 func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
-	return &StreamAdapter{
-		upstream: upstream,
-		tr:       NewStreamTranslator(model),
-		readBuf:  make([]byte, 32*1024),
-	}
-}
-
-// Read refills the pending buffer from upstream (translating as it goes) and
-// copies out. Upstream errors are surfaced only after all translated bytes
-// have been drained.
-func (a *StreamAdapter) Read(p []byte) (int, error) {
-	for len(a.pending) == 0 {
-		if a.srcErr != nil {
-			return 0, a.srcErr
-		}
-		n, err := a.upstream.Read(a.readBuf)
-		if n > 0 {
-			a.consume(a.readBuf[:n])
-		}
-		if err != nil {
-			a.srcErr = err
-		}
-	}
-	n := copy(p, a.pending)
-	a.pending = a.pending[n:]
-	return n, nil
-}
-
-// consume splits incoming bytes into SSE lines and feeds each data payload to
-// the translator. "event:"/comment/blank lines are dropped: the payload's own
-// "type" field drives dispatch, and the adapter generates its own framing.
-func (a *StreamAdapter) consume(p []byte) {
-	a.lineBuf = append(a.lineBuf, p...)
-	for {
-		idx := bytes.IndexByte(a.lineBuf, '\n')
-		if idx < 0 {
-			return
-		}
-		line := bytes.TrimRight(a.lineBuf[:idx], "\r")
-		a.lineBuf = a.lineBuf[idx+1:]
-		if !bytes.HasPrefix(line, []byte("data:")) {
-			continue
-		}
-		payload := bytes.TrimSpace(line[len("data:"):])
-		if len(payload) == 0 || bytes.Equal(payload, []byte("[DONE]")) {
-			continue // Responses streams do not use the [DONE] sentinel; ignore defensively
-		}
-		out, err := a.tr.TranslateEvent(payload)
-		if err != nil {
-			debuglog.Warn("openairesponses: stream event translate failed", "error", err)
-			continue
-		}
-		a.pending = append(a.pending, out...)
-	}
-}
-
-// Close closes the upstream body. The stall watchdog calls this to unblock a
-// hung read, so it must propagate to the wrapped connection.
-func (a *StreamAdapter) Close() error {
-	return a.upstream.Close()
+	return egress.NewStreamAdapter("openairesponses", upstream, NewStreamTranslator(model))
 }

@@ -213,10 +213,7 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Ring buffer mode (default, backward compatible)
 	if appLogBuffer == nil {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode([]AppLogEntry{}); err != nil {
-			debuglog.Error("applogs: failed to encode empty response", "error", err)
-		}
+		writeJSON(w, []AppLogEntry{})
 		return
 	}
 
@@ -237,10 +234,7 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 		entries = entries[len(entries)-limit:]
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(entries); err != nil {
-		debuglog.Error("applogs: failed to encode entries", "error", err)
-	}
+	writeJSON(w, entries)
 }
 
 // getAppLogCounts returns cached unfiltered level and source counts.
@@ -549,9 +543,7 @@ func buildAppLogHistoryQuery(p appLogHistoryParams, q url.Values) (string, []any
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
-		if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{}); err != nil {
-			debuglog.Error("applogs: failed to encode response", "error", err)
-		}
+		writeJSON(w, appLogsHistoryResponse{})
 		return
 	}
 
@@ -566,18 +558,14 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	total, err := h.appLogTotal(ctx, q, levelCounts)
 	if err != nil {
-		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
-			debuglog.Error("applogs: failed to encode error response", "error", encErr)
-		}
+		writeJSON(w, map[string]string{"error": "failed to count logs"})
 		return
 	}
 
 	query, args := buildAppLogHistoryQuery(p, q)
 	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
-		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"}); err != nil {
-			debuglog.Error("applogs: failed to encode error response", "error", err)
-		}
+		writeJSON(w, map[string]string{"error": "failed to query logs"})
 		return
 	}
 	defer rows.Close()
@@ -594,17 +582,14 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, e)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{
+	writeJSON(w, appLogsHistoryResponse{
 		Entries:      entries,
 		Total:        total,
 		Page:         p.page,
 		PerPage:      p.perPage,
 		LevelCounts:  levelCounts,
 		SourceCounts: sourceCounts,
-	}); err != nil {
-		debuglog.Error("applogs: failed to encode history response", "error", err)
-	}
+	})
 }
 
 // appLogCursor is the keyset cursor for cursor-based app log pagination.
@@ -646,8 +631,7 @@ type AppLogsCursorResponse struct {
 //   - sort_dir: "desc" (default) or "asc"
 func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(AppLogsCursorResponse{})
+		writeJSON(w, AppLogsCursorResponse{})
 		return
 	}
 
@@ -684,17 +668,14 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 	total, _ := h.appLogTotal(ctx, q, levelCounts) // best-effort
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(AppLogsCursorResponse{
+	writeJSON(w, AppLogsCursorResponse{
 		Entries:      entries,
 		Total:        total,
 		HasBefore:    hasBefore,
 		HasAfter:     hasAfter,
 		LevelCounts:  levelCounts,
 		SourceCounts: sourceCounts,
-	}); err != nil {
-		debuglog.Error("applogs-cursor: failed to encode response", "error", err)
-	}
+	})
 }
 
 // ClearAppLogs clears application logs from the ring buffer and DB, returning
@@ -738,8 +719,5 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 			invalidateAppLogCountCache()
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]int{"deleted": deleted}); err != nil {
-		debuglog.Error("applogs: failed to encode delete response", "error", err)
-	}
+	writeJSON(w, map[string]int{"deleted": deleted})
 }

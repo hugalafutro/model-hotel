@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -203,7 +204,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits(), req.AllowedProviders)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			http.Error(w, "a user with this username or email already exists", http.StatusConflict)
 			return
 		}
@@ -268,7 +269,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "user not found", http.StatusNotFound)
 			return
 		}
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			http.Error(w, "a user with this username or email already exists", http.StatusConflict)
 			return
 		}
