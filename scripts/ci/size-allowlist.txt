@@ -33,7 +33,7 @@ internal/proxy/multimodal.go	1071
 internal/proxy/proxy.go	976
 internal/proxy/proxy_failover.go	1380
 internal/proxy/upstream_classify.go	804
-web/src/api/client.ts	1761
+web/src/api/client.ts	1759
 web/src/api/types.ts	1058
 web/src/components/Layout.tsx	1583
 web/src/components/ModelDiscrepancyModal.tsx	1276

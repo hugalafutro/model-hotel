@@ -23,6 +23,27 @@ export default defineConfig([
 		// `pnpm lint` silently, so genuine missing deps would never block CI.
 		rules: {
 			"react-hooks/exhaustive-deps": "error",
+			// Function-length ratchet, the per-function half of the file-size
+			// gate in scripts/ci/size-gate.sh. Blank lines and comments do not
+			// count, so a documented function is never penalised for its
+			// documentation; IIFEs are measured like any other function.
+			"max-lines-per-function": [
+				"error",
+				{ max: 500, skipBlankLines: true, skipComments: true, IIFEs: true },
+			],
+		},
+	},
+	{
+		// A vitest file is one describe() call, so the whole suite reads as a
+		// single arrow function and the rule measures the file rather than any
+		// unit of logic. Test length is capped by the file-size gate instead.
+		files: [
+			"**/*.test.{ts,tsx}",
+			"**/__tests__/**/*.{ts,tsx}",
+			"src/test/**/*.{ts,tsx}",
+		],
+		rules: {
+			"max-lines-per-function": "off",
 		},
 	},
 ]);
