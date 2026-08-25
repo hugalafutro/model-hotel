@@ -168,3 +168,26 @@ export const SlidersHorizontal = withId(
 export const ArrowLeftRight = withId(Ph.ArrowsLeftRightIcon, "ArrowLeftRight");
 export const ArrowDownToLine = withId(Ph.ArrowLineDownIcon, "ArrowDownToLine");
 export const ArrowUpFromLine = withId(Ph.ArrowLineUpIcon, "ArrowUpFromLine");
+
+// A Brain struck through, for "reasoning is stripped". Composed here rather
+// than mapped to a Ph.* glyph because Phosphor has no brain-slash: the bar is
+// an overlay sized to the icon box and inherits the surrounding text color.
+export function BrainSlashIcon({
+	size = 14,
+	className = "",
+}: {
+	size?: number;
+	className?: string;
+}) {
+	return (
+		<span
+			className={`relative inline-block ${className}`}
+			style={{ width: size, height: size }}
+		>
+			<Brain size={size} />
+			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+				<span className="w-full h-[1.5px] bg-current rotate-45" />
+			</span>
+		</span>
+	);
+}

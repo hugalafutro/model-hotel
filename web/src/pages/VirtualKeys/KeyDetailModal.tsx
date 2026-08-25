@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-	Brain,
+	BrainSlashIcon,
 	CalendarPlus,
 	Clock,
 	Coins,
@@ -44,26 +44,6 @@ function SectionHeader({
 				{label}
 			</span>
 		</div>
-	);
-}
-
-function BrainSlashIcon({
-	size = 14,
-	className = "",
-}: {
-	size?: number;
-	className?: string;
-}) {
-	return (
-		<span
-			className={`relative inline-block ${className}`}
-			style={{ width: size, height: size }}
-		>
-			<Brain size={size} />
-			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-				<span className="w-full h-[1.5px] bg-current rotate-45" />
-			</span>
-		</span>
 	);
 }
 
