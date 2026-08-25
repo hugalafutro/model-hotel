@@ -1,3 +1,11 @@
+import {
+	APPRISE_SERVICES_URL,
+	type DestinationKind,
+	FIELDS,
+	type FieldDef,
+	parseDiscordWebhook,
+} from "@web-shared/alerts/composers";
+import { eventLabel, parseCsv } from "@web-shared/alerts/events";
 import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
 import { type Dispatch, Fragment, type ReactNode, useState } from "react";
@@ -19,20 +27,8 @@ import {
 } from "@/lib/icons";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { CopyButton } from "../../../components/CopyButton";
-import { AlertEventPicker, eventLabel } from "../AlertEventPicker";
-import {
-	type Action,
-	isDuplicate,
-	parseCsv,
-	type WizardState,
-} from "./AlertsWizard";
-import {
-	APPRISE_SERVICES_URL,
-	type DestinationKind,
-	FIELDS,
-	type FieldDef,
-	parseDiscordWebhook,
-} from "./composers";
+import { AlertEventPicker } from "../AlertEventPicker";
+import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
 import { DestinationList } from "./DestinationList";
 
 // The seven step bodies of the alerts wizard: prove apprise-api answers, pick

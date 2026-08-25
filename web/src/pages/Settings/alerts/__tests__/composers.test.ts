@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
 import {
 	compose,
 	describeTarget,
 	ntfyServerOf,
 	parseDiscordWebhook,
 	parseUnifiedPushEndpoint,
-} from "../composers";
+} from "@web-shared/alerts/composers";
+import { describe, expect, it } from "vitest";
 
 describe("compose", () => {
 	it("composes ntfy from server + topic and stays empty while invalid", () => {

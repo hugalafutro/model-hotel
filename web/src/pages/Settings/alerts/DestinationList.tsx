@@ -1,8 +1,8 @@
+import { describeTarget } from "@web-shared/alerts/composers";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { CopyButton } from "../../../components/CopyButton";
-import { describeTarget } from "./composers";
 
 // DestinationList renders the saved Apprise targets as one readable row each:
 // which service it points at, which host, and the identifying segment (topic,
