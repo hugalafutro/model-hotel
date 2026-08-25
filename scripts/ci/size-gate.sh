@@ -9,6 +9,9 @@
 # recorded count, and when an entry has gone stale (its file is back under the
 # ceiling, or gone). So the list only ever shrinks and the godfiles stop growing.
 #
+# Renaming or moving an allowlisted file is the one hand-edit the list takes: move
+# the entry to the new path with the same or a lower count, never a new entry.
+#
 # Usage:
 #   size-gate.sh            check; quiet on success, one line per violation
 #   size-gate.sh --list     print every current offender as path<TAB>lines
