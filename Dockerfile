@@ -22,7 +22,7 @@ COPY web/ ./
 RUN pnpm run build:docker
 
 # Stage 2: Build Go binary with embedded frontend + migrations
-FROM golang:1.26-alpine AS backend-builder
+FROM golang:1.27-alpine AS backend-builder
 
 WORKDIR /app
 

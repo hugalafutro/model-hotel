@@ -21,8 +21,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.20.0 | Go | Apache-2.0 |
-| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.2 | Go | MIT |
-| [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.1 | Go | MIT |
+| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.3 | Go | MIT |
+| [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.4 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
@@ -92,8 +92,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.101.4 | npm | MIT |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.101.4 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.9 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.7 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.10 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.8 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -175,9 +175,9 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.3.6 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.4.0 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
-| [immer](https://github.com/immerjs/immer#readme) | 11.1.16 | npm | MIT |
+| [immer](https://github.com/immerjs/immer#readme) | 11.1.18 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
 | [internmap](https://github.com/mbostock/internmap/) | 2.0.3 | npm | ISC |
 | [is-alphabetical](https://github.com/wooorm/is-alphabetical#readme) | 2.0.1 | npm | MIT |
@@ -252,7 +252,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.2.8 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.0 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.2.8 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.11 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.12 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
@@ -1064,7 +1064,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.101.4`, `@tanstack/react-query@5.101.4`, `@tanstack/react-virtual@3.14.9`, `@tanstack/virtual-core@3.17.7`
+Applies to: `@tanstack/query-core@5.101.4`, `@tanstack/react-query@5.101.4`, `@tanstack/react-virtual@3.14.10`, `@tanstack/virtual-core@3.17.8`
 
 ```
 MIT License
@@ -1790,7 +1790,7 @@ This product includes software developed at CoreOS, Inc.
 
 Copyright (c) 2019-present Faye Amacker
 
-Applies to: `github.com/fxamacker/cbor/v2@v2.9.2`
+Applies to: `github.com/fxamacker/cbor/v2@v2.9.3`
 
 ```
 MIT License
@@ -1820,7 +1820,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
 
-Applies to: `github.com/go-chi/chi/v5@v5.3.1`
+Applies to: `github.com/go-chi/chi/v5@v5.3.2`
 
 ```
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
@@ -5203,7 +5203,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.3.6`
+Applies to: `i18next@26.4.0`
 
 ```
 The MIT License (MIT)
@@ -5263,7 +5263,7 @@ SOFTWARE.
 
 Copyright (c) 2017 Michel Weststrate
 
-Applies to: `immer@11.1.16`
+Applies to: `immer@11.1.18`
 
 ```
 MIT License
@@ -5589,7 +5589,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.11`
+Applies to: `react-i18next@17.0.12`
 
 ```
 The MIT License (MIT)
