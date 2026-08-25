@@ -153,12 +153,15 @@ func main() {
 		CookieSecure: config.NormalizeCookieSecure(os.Getenv("COOKIE_SECURE")),
 	})
 
-	go poller.Run(ctx)
-	go srv.RunAutoSync(ctx)
-	go srv.RunQuotaDistribute(ctx)
-	go srv.RunFleetState(ctx)
-	go srv.RunBackupWatch(ctx)
-	go srv.RunAlerts(ctx)
+	// Every process-lifetime loop runs on the server's background group, so the
+	// drain below joins them before the store closes. Each returns when ctx is
+	// done, which the signal handler above does on SIGINT/SIGTERM.
+	srv.StartBackground(ctx, poller.Run)
+	srv.StartBackground(ctx, srv.RunAutoSync)
+	srv.StartBackground(ctx, srv.RunQuotaDistribute)
+	srv.StartBackground(ctx, srv.RunFleetState)
+	srv.StartBackground(ctx, srv.RunBackupWatch)
+	srv.StartBackground(ctx, srv.RunAlerts)
 
 	httpServer := &http.Server{
 		Addr:              port,
@@ -184,6 +187,16 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		debuglog.Error("frontdesk: graceful shutdown failed", "error", err)
 	}
+	// Nothing accepts requests any more, so no new background work can start:
+	// drain what is in flight and close the store. Its own budget, not
+	// shutdownCtx, which the HTTP drain may already have spent. Bounded, so a
+	// loop that ignores its cancellation delays exit rather than hanging it.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer drainCancel()
+	if err := srv.Shutdown(drainCtx); err != nil {
+		debuglog.Error("frontdesk: store shutdown failed", "error", err)
+	}
+	debuglog.Info("frontdesk: stopped")
 	// Flush and close the OTLP log exporter so batched records aren't lost. Use a
 	// fresh context, not shutdownCtx: a slow HTTP drain can consume most or all of
 	// that budget, leaving the exporter no time to flush (or an already-expired

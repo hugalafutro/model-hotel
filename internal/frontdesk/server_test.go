@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -109,6 +110,66 @@ func do(t *testing.T, srv *Server, method, path, body string, auth bool) *httpte
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	return rec
+}
+
+// TestShutdownDrainsBackgroundBeforeClosingTheStore: the ordering Shutdown
+// exists for. A tracked background goroutine finishing its last store read must
+// find the store still open; closing first would leave that read querying a
+// closed handle, which is the unowned-read race the rearm watcher's join avoids
+// inside a pass.
+func TestShutdownDrainsBackgroundBeforeClosingTheStore(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{})
+	var readErr error
+	srv.StartBackground(ctx, func(c context.Context) {
+		close(started)
+		<-c.Done()
+		// The last read on the way out, as every poll loop does.
+		_, readErr = store.AutoSyncGen(context.Background())
+	})
+	<-started
+	cancel() // what the signal handler does before the process winds down
+
+	if err := srv.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if readErr != nil {
+		t.Errorf("background read on the way out failed: %v; the store closed before the drain finished", readErr)
+	}
+	if _, err := store.AutoSyncGen(context.Background()); err == nil {
+		t.Error("store still usable after Shutdown; want it closed")
+	}
+}
+
+// TestShutdownBoundsTheDrain: a background goroutine that ignores its
+// cancellation delays exit by the caller's budget, not forever. Shutdown returns
+// when the context does and closes the store regardless, so a stuck loop cannot
+// hang the process.
+func TestShutdownBoundsTheDrain(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	release := make(chan struct{})
+	releaseStuck := sync.OnceFunc(func() { close(release) })
+	// The server's own Wait cleanup joins this goroutine, so it is released on
+	// every exit from the test, failing ones included.
+	defer releaseStuck()
+	started := make(chan struct{})
+	srv.StartBackground(context.Background(), func(context.Context) {
+		close(started)
+		<-release
+	})
+	<-started
+
+	drainCtx, drainCancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer drainCancel()
+	if err := srv.Shutdown(drainCtx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if _, err := store.AutoSyncGen(context.Background()); err == nil {
+		t.Error("store still usable after a timed-out drain; want it closed anyway")
+	}
 }
 
 func TestServerAuthGate(t *testing.T) {

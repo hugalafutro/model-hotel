@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"crypto/subtle"
 	"io/fs"
 	"net"
@@ -263,11 +264,56 @@ func NewServer(cfg ServerConfig) *Server {
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.router.ServeHTTP(w, r) }
 
-// Wait blocks until every detached background goroutine the server has spawned
-// (currently the auto-sync kick) has returned. Use it on graceful shutdown, or
-// in tests before tearing down the backing store, so a still-running kick can't
-// write into a store or temp dir that is being removed.
+// Wait blocks until every background goroutine the server tracks has returned:
+// the detached auto-sync kick, and every process-lifetime loop started through
+// StartBackground. Use it on graceful shutdown, or in tests before tearing down
+// the backing store, so a still-running goroutine can't write into a store or
+// temp dir that is being removed. Shutdown is the bounded version callers should
+// prefer at process exit.
 func (s *Server) Wait() { s.bgWG.Wait() }
+
+// StartBackground runs fn as a tracked background goroutine, so Wait and Shutdown
+// cover it. The registration happens on the caller's goroutine, before fn is
+// spawned, so a shutdown racing startup still waits for fn rather than missing a
+// counter that had not been incremented yet.
+//
+// fn owns its exit: it is expected to return when ctx is done, which is how
+// Shutdown's drain ever completes.
+func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) {
+	s.bgWG.Go(func() { fn(ctx) })
+}
+
+// Shutdown drains the server's background goroutines and then closes the store,
+// in that order: a goroutine still mid-query would otherwise be reading a store
+// that is already closed, which is the same unowned-read race a convergence pass
+// avoids by joining its rearm watcher.
+//
+// The drain is bounded by ctx. A goroutine that ignores its own cancellation
+// therefore delays exit by the caller's budget rather than hanging the process
+// forever; the store is closed either way and the timed-out drain is logged, so
+// the operator sees which shutdown was untidy.
+//
+// Callers stop accepting new work first (the HTTP server's own Shutdown), so
+// nothing can register another goroutine while this drains.
+func (s *Server) Shutdown(ctx context.Context) error {
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		s.Wait()
+	}()
+	select {
+	case <-drained:
+		debuglog.Info("frontdesk: background goroutines drained")
+	case <-ctx.Done():
+		debuglog.Warn("frontdesk: background goroutines still running at shutdown; closing the store anyway",
+			"error", ctx.Err())
+	}
+	// Closing is last and unconditional: the drain above only decides whether it
+	// happens with goroutines still live. The caller logs a failure, which is all
+	// that is left to do at this point in the process's life.
+	debuglog.Info("frontdesk: closing store")
+	return s.store.Close()
+}
 
 // SessionManager exposes the session manager (used by callers wiring background
 // cleanup of expired sessions).
