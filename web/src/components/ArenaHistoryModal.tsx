@@ -26,6 +26,7 @@ import {
 	type HistoryMode,
 	type HistoryResponse,
 } from "../utils/arenaHistory";
+import { formatDate, formatTime } from "../utils/format";
 
 interface ArenaHistoryModalProps {
 	onClose: () => void;
@@ -52,21 +53,6 @@ function roundLabel(
 
 function shortModelName(modelId: string): string {
 	return modelId.split("/").pop() ?? modelId;
-}
-
-function formatDate(timestamp: number): string {
-	return new Date(timestamp).toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	});
-}
-
-function formatTime(timestamp: number): string {
-	return new Date(timestamp).toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-	});
 }
 
 function findPromptPreset(id: string | null) {

@@ -6,8 +6,8 @@ import { MarkdownContent } from "../../components/MarkdownContent";
 import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { CHAT_PERSONAS } from "../../data/presets";
 import { useDisableModel } from "../../hooks/useDisableModel";
+import { formatTime } from "../../utils/format";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
-import { formatTime } from "./chatStreaming";
 
 export interface ChatMessageListProps {
 	messages: ChatMessage[];

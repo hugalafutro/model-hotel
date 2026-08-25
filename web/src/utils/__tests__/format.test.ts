@@ -10,6 +10,7 @@ import {
 	formatNumber,
 	formatPercent,
 	formatRelativeTime,
+	formatTime,
 	formatTimestamp,
 	formatTimeUntil,
 	formatTokens,
@@ -217,6 +218,39 @@ describe("formatDate", () => {
 		const now = new Date();
 		const result = formatDate(now.toISOString());
 		expect(result).toContain(now.getFullYear().toString());
+	});
+});
+
+describe("formatTime", () => {
+	it("formats timestamp as HH:MM", () => {
+		const ts = new Date("2024-01-15T14:30:00Z").getTime();
+		const result = formatTime(ts);
+
+		expect(result).toMatch(/\d{1,2}:\d{2}/);
+		expect(result).toContain(":");
+	});
+
+	it("formats midnight correctly", () => {
+		const ts = new Date("2024-01-15T00:00:00Z").getTime();
+		const result = formatTime(ts);
+
+		// Matches 00:00 (24h) or 12:00 AM (12h)
+		expect(result).toMatch(/00:00|12:00\s*AM/i);
+	});
+
+	it("formats noon correctly", () => {
+		const ts = new Date("2024-01-15T12:00:00Z").getTime();
+		const result = formatTime(ts);
+
+		// Matches 12:00 (24h) or 12:00 PM (12h)
+		expect(result).toMatch(/12:00/);
+	});
+
+	it("accepts a date string as well as a numeric timestamp", () => {
+		const result = formatTime("2024-01-15T14:30:00Z");
+
+		expect(typeof result).toBe("string");
+		expect(result).toContain(":");
 	});
 });
 
