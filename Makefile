@@ -45,8 +45,9 @@ fmt:
 # that does not resolve to a commit is an error, and so is a base that carries the
 # gate but no allowlist, since skipping either would turn a missing base into a
 # silent pass. A base that predates the gate entirely is the bootstrap case: the
-# comparison runs against an empty base and every entry has to record its file's
-# exact current size.
+# comparison runs against an empty base, and every entry then has to name a file
+# the base branch already carried over the ceiling and record its exact current
+# size, no larger than it measured there.
 size-check:
 	scripts/ci/size-gate.sh
 

@@ -224,34 +224,47 @@ jobs:
       needs.changes.outputs.sizegate != 'false'
     runs-on: ubuntu-latest
     steps:
+      # The base commit is fetched explicitly below, so the default shallow
+      # checkout is all this job needs of the branch's own history.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Two commits, so a push to master can compare the allowlist against
-          # its parent. A pull request fetches its base SHA in the next step.
-          fetch-depth: 2
 
       # The allowlist ships in the branch, so a branch could exempt whatever it
       # just grew by editing it. The gate therefore compares it against the base
       # commit's copy, which is what makes "the list only shrinks" a check rather
-      # than a comment. A pull request compares against its base SHA; a push (to
-      # master, or a manual dispatch) compares against the previous commit, so a
-      # direct push cannot loosen it either.
+      # than a comment.
+      #
+      # A pull request compares against its base SHA. A push compares against the
+      # SHA master carried BEFORE the push, not against HEAD~1: a push can carry
+      # several commits, and HEAD~1 would only cover the last of them, so an
+      # earlier commit in the same push could loosen the allowlist unseen. A push
+      # that reports no previous SHA (branch creation, or the shape a force push
+      # takes) has no state to compare with and fails rather than falling back.
       - name: resolve the base for the allowlist comparison
         id: base
         env:
+          EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
-          if [ -n "$PR_BASE_SHA" ]; then
-            git fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
-            echo "ref=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
-          elif git rev-parse --verify --quiet HEAD~1 >/dev/null; then
-            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
-          else
-            # A checkout with no parent commit has nothing to compare against,
-            # so the base is HEAD and the comparison is a no-op. fetch-depth: 2
-            # gives every push a parent, so this is the belt to that suspenders.
-            echo "ref=HEAD" >> "$GITHUB_OUTPUT"
-          fi
+          case "$EVENT_NAME" in
+            pull_request)
+              git fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
+              echo "ref=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+              ;;
+            push)
+              if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                echo "size gate: this push reports no previous SHA, so the allowlist cannot be compared against the state it replaced" >&2
+                exit 1
+              fi
+              git fetch --no-tags --depth=1 origin "$BEFORE_SHA"
+              echo "ref=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # A manual dispatch replaces nothing, so there is no earlier state
+              # to compare with. The file checks still run against the tree.
+              echo "ref=HEAD" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       # Fails when a file crosses its ceiling with no allowlist entry, when an
       # allowlisted file grows past its recorded count, when an entry has gone

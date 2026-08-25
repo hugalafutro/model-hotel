@@ -80,7 +80,6 @@ function parseParams(raw: string): Record<string, unknown> | null {
 		return null;
 	}
 }
-
 // eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function ModelDetailModal({
 	model,

@@ -589,7 +589,6 @@ function ReadOnlyBanner() {
 		</div>
 	);
 }
-
 // eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();

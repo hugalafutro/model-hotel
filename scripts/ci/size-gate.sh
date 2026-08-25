@@ -24,9 +24,11 @@
 #
 # A base with no allowlist at all is only legitimate while the gate is being
 # introduced, so it is an error unless the base has no size-gate.sh either. In
-# that bootstrap case the base is empty and snapshot mode applies instead: every
-# entry has to record its file's exact current size, so the first list can only
-# ever be a photograph of the tree, taken in the diff that introduces it.
+# that bootstrap case the base is empty and snapshot mode applies instead: an entry
+# has to name a file the base branch already carried over the ceiling, record that
+# file's exact size now, and record no more than it measured at the base. So the
+# first list can only inherit debt that predates the gate, in the diff that
+# introduces it, and the branch cannot exempt a file it adds or grows itself.
 #
 # Usage:
 #   size-gate.sh                check; quiet on success, one line per violation
@@ -313,23 +315,45 @@ load_renames() {
 # entry the list is dropping. Git decides what a rename is, so an unrelated
 # oversized file cannot take a dropped entry's place by matching its line count.
 compare_with_base() {
-	local path count apath acount origin
+	local path count base_lines apath acount origin
 	local -a added=()
 	local -A actual=()
 
 	# Bootstrap: the base is empty, so every entry is new and the rename rule would
-	# reject the whole list. Snapshot mode takes its place. Each entry must name the
-	# file's exact size, not merely a size the file is under, so the first list is a
-	# photograph rather than a set of headroom grants. Entries for files that are
-	# not over their ceiling are caught by the stale-entry rule in check().
+	# reject the whole list. Snapshot mode takes its place, and it photographs the
+	# BASE tree, not this one. An entry has to name a file the base branch already
+	# carried over the ceiling, record that file's exact size now, and record no
+	# more than it measured at the base. So the first list can only ever inherit
+	# debt that predates the gate: a file the branch itself adds or grows past the
+	# ceiling has no entry available to it, and no entry grants headroom. Entries
+	# for files that are not over their ceiling now are caught by the stale-entry
+	# rule in check(), and a file over its ceiling with no entry by rule one.
 	if [ "$BOOTSTRAP" -eq 1 ]; then
 		while IFS=$'\t' read -r path count; do
 			actual[$path]=$count
 		done <"$OFFENDERS_FILE"
 		for path in "${!RECORDED[@]}"; do
 			count=${actual[$path]-}
-			if [ -n "$count" ] && [ "${RECORDED[$path]}" -ne "$count" ]; then
+			if [ -z "$count" ]; then
+				continue
+			fi
+			if ! git -C "$ROOT" cat-file -e "$BASE_REF:$path" 2>/dev/null; then
+				echo "$path: not in $BASE_REF: a bootstrap snapshot exempts only files the base branch already carried over the ceiling" >&2
+				VIOLATIONS=$((VIOLATIONS + 1))
+				continue
+			fi
+			base_lines=$(git -C "$ROOT" cat-file -p "$BASE_REF:$path" | wc -l)
+			if [ "$base_lines" -le "$(ceiling_for "$path")" ]; then
+				echo "$path: $base_lines lines at $BASE_REF, under its ceiling there: a bootstrap snapshot exempts only files the base branch already carried over the ceiling" >&2
+				VIOLATIONS=$((VIOLATIONS + 1))
+				continue
+			fi
+			if [ "${RECORDED[$path]}" -ne "$count" ]; then
 				echo "$path: recorded ${RECORDED[$path]}, $count lines on disk: a bootstrap snapshot records each file's exact current size" >&2
+				VIOLATIONS=$((VIOLATIONS + 1))
+			fi
+			if [ "${RECORDED[$path]}" -gt "$base_lines" ]; then
+				echo "$path: recorded ${RECORDED[$path]}, $base_lines lines at $BASE_REF: a bootstrap snapshot may not record more than the base branch carried" >&2
 				VIOLATIONS=$((VIOLATIONS + 1))
 			fi
 		done
