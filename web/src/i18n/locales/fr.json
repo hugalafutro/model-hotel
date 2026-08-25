@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Cliquez pour basculer entre la pagination et le défilement infini.",
-			"scrolling": "Défilement infini",
-			"pagination": "Pagination"
+			"switchToScroll": "Passer en mode défilement",
+			"switchToPagination": "Passer en mode pagination"
 		}
 	},
 	"failoverGroups": {

@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Кликните да бисте прешли између страничења и бесконачног скроловања.",
-			"scrolling": "Бесконачно скроловање",
-			"pagination": "Страничење"
+			"switchToScroll": "Пређите у режим скроловања",
+			"switchToPagination": "Пређите у режим страничења"
 		}
 	},
 	"failoverGroups": {

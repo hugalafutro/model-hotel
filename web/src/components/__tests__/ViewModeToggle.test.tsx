@@ -11,7 +11,9 @@ describe("ViewModeToggle", () => {
 		renderWithProviders(
 			<ViewModeToggle viewMode="scroll" onChange={vi.fn()} />,
 		);
-		const button = screen.getByRole("button", { name: "Infinite scrolling" });
+		const button = screen.getByRole("button", {
+			name: "Switch to pagination mode",
+		});
 		expect(button.querySelector(".icon-infinite-scroll")).toBeInTheDocument();
 		expect(button.querySelector(".icon-pages")).not.toBeInTheDocument();
 	});
@@ -20,21 +22,21 @@ describe("ViewModeToggle", () => {
 		renderWithProviders(
 			<ViewModeToggle viewMode="paginate" onChange={vi.fn()} />,
 		);
-		const button = screen.getByRole("button", { name: "Pagination" });
+		const button = screen.getByRole("button", {
+			name: "Switch to scroll mode",
+		});
 		expect(button.querySelector(".icon-pages")).toBeInTheDocument();
 		expect(
 			button.querySelector(".icon-infinite-scroll"),
 		).not.toBeInTheDocument();
 	});
 
-	it("carries no visible text: the mode name is screen-reader only", () => {
+	it("carries no visible text: the action label is aria only", () => {
 		renderWithProviders(
 			<ViewModeToggle viewMode="scroll" onChange={vi.fn()} />,
 		);
 		const button = screen.getByRole("button");
-		const hidden = button.querySelector(".sr-only");
-		expect(hidden?.textContent).toBe("Infinite scrolling");
-		expect(button.textContent).toBe(hidden?.textContent);
+		expect(button.textContent).toBe("");
 		expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
 	});
 

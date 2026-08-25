@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Faceți clic pentru a comuta între paginare și derulare infinită.",
-			"scrolling": "Derulare infinită",
-			"pagination": "Paginare"
+			"switchToScroll": "Comutați la modul derulare",
+			"switchToPagination": "Comutați la modul paginare"
 		}
 	},
 	"failoverGroups": {

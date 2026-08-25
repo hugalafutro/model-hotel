@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Klik om te wisselen tussen paginering en oneindig scrollen.",
-			"scrolling": "Oneindig scrollen",
-			"pagination": "Paginering"
+			"switchToScroll": "Overschakelen naar scrollmodus",
+			"switchToPagination": "Schakel naar pagineringsmodus"
 		}
 	},
 	"failoverGroups": {

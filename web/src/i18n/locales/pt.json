@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Clique para alternar entre paginação e rolagem infinita.",
-			"scrolling": "Rolagem infinita",
-			"pagination": "Paginação"
+			"switchToScroll": "Alternar para o modo de rolagem",
+			"switchToPagination": "Alternar para modo de paginação"
 		}
 	},
 	"failoverGroups": {

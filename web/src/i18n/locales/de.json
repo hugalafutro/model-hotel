@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Klicken, um zwischen Seitenmodus und endlosem Scrollen zu wechseln.",
-			"scrolling": "Endloses Scrollen",
-			"pagination": "Seitenmodus"
+			"switchToScroll": "Zum Scroll-Modus wechseln",
+			"switchToPagination": "Zum Seitenmodus wechseln"
 		}
 	},
 	"failoverGroups": {

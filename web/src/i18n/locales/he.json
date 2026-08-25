@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "לחץ כדי לעבור בין חלוקה לעמודים לגלילה אינסופית.",
-			"scrolling": "גלילה אינסופית",
-			"pagination": "חלוקה לעמודים"
+			"switchToScroll": "עבור למצב גלילה",
+			"switchToPagination": "עבור למצב חלוקה לעמודים"
 		}
 	},
 	"failoverGroups": {

@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Klik om tussen bladsyverdeling en oneindige blaai te wissel.",
-			"scrolling": "Oneindige blaai",
-			"pagination": "Bladsyverdeling"
+			"switchToScroll": "Skakel na blaaimodus",
+			"switchToPagination": "Skakel oor na bladsyverdelingsmodus"
 		}
 	},
 	"failoverGroups": {

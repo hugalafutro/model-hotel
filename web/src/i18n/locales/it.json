@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Clicca per passare dalla paginazione allo scorrimento infinito e viceversa.",
-			"scrolling": "Scorrimento infinito",
-			"pagination": "Paginazione"
+			"switchToScroll": "Passa alla modalità di scorrimento",
+			"switchToPagination": "Passa alla modalità di paginazione"
 		}
 	},
 	"failoverGroups": {

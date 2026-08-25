@@ -2932,8 +2932,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Fes clic per alternar entre paginació i desplaçament infinit.",
-			"scrolling": "Desplaçament infinit",
-			"pagination": "Paginació"
+			"switchToScroll": "Canvia al mode de desplaçament",
+			"switchToPagination": "Canvia al mode de pàgina"
 		}
 	},
 	"failoverGroups": {

@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "클릭하여 페이지 나누기와 무한 스크롤 사이를 전환합니다.",
-			"scrolling": "무한 스크롤",
-			"pagination": "페이지 나누기"
+			"switchToScroll": "스크롤 모드로 전환",
+			"switchToPagination": "페이지 나누기 모드로 전환"
 		}
 	},
 	"failoverGroups": {

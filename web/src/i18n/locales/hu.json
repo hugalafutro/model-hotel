@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Kattints az oldalszámozás és a végtelen görgetés közötti váltáshoz.",
-			"scrolling": "Végtelen görgetés",
-			"pagination": "Oldalszámozás"
+			"switchToScroll": "Válts át görgetési módra",
+			"switchToPagination": "Válts át oldalszámozási módra"
 		}
 	},
 	"failoverGroups": {

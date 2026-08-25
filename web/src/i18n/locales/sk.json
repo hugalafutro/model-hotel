@@ -2993,8 +2993,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Kliknutím prepnete medzi stránkovaním a nekonečným posúvaním.",
-			"scrolling": "Nekonečné posúvanie",
-			"pagination": "Stránkovanie"
+			"switchToScroll": "Prejsť do režimu posúvania",
+			"switchToPagination": "Prejsť do režimu stránkovania"
 		}
 	},
 	"failoverGroups": {

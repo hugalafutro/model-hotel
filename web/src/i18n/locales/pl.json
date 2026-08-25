@@ -2993,8 +2993,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Kliknij, aby przełączyć między paginacją a nieskończonym przewijaniem.",
-			"scrolling": "Nieskończone przewijanie",
-			"pagination": "Paginacja"
+			"switchToScroll": "Przełącz na tryb przewijania",
+			"switchToPagination": "Przełącz na tryb paginacji"
 		}
 	},
 	"failoverGroups": {

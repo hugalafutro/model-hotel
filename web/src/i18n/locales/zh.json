@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "点击以在分页和无限滚动之间切换。",
-			"scrolling": "无限滚动",
-			"pagination": "分页"
+			"switchToScroll": "切换到滚动模式",
+			"switchToPagination": "切换到分页模式"
 		}
 	},
 	"failoverGroups": {

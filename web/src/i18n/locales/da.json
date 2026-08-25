@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Klik for at skifte mellem paginering og uendelig rulning.",
-			"scrolling": "Uendelig rulning",
-			"pagination": "Paginering"
+			"switchToScroll": "Skift til rulletilstand",
+			"switchToPagination": "Skift til pagineringstilstand"
 		}
 	},
 	"failoverGroups": {

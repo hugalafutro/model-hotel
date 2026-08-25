@@ -2871,8 +2871,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "Nhấp để chuyển đổi giữa phân trang và cuộn vô hạn.",
-			"scrolling": "Cuộn vô hạn",
-			"pagination": "Phân trang"
+			"switchToScroll": "Chuyển sang chế độ cuộn",
+			"switchToPagination": "Chuyển sang chế độ phân trang"
 		}
 	},
 	"failoverGroups": {

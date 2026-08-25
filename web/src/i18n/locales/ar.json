@@ -3115,8 +3115,8 @@
 		},
 		"viewModeToggle": {
 			"tooltip": "انقر للتبديل بين تحديد الصفحات والتمرير اللانهائي.",
-			"scrolling": "التمرير اللانهائي",
-			"pagination": "تحديد الصفحات"
+			"switchToScroll": "التبديل إلى وضع التمرير",
+			"switchToPagination": "التبديل إلى وضع تحديد الصفحات"
 		}
 	},
 	"failoverGroups": {
