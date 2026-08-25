@@ -32,7 +32,8 @@ type Translator interface {
 // yields chat.completion.chunk SSE bytes. Wrapping the UPSTREAM body (not the
 // client writer) lets the whole existing streaming pipeline — TTFT probe, stall
 // watchdog, transforms, metering — run unchanged on what it already
-// understands.
+// understands. openairesponses.StreamAdapter plays the same trick with a
+// simpler shape: its translator has no Finish(), so it stays outside this type.
 //
 // Vendor streams carry no [DONE] sentinel of their own, so the translator's
 // Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives. Any

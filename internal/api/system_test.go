@@ -371,8 +371,8 @@ func TestGetSystem_CachedJSONEncodeError(t *testing.T) {
 	// handler must not fabricate a second status: it logs the failure and
 	// leaves the truncated stream for the client to detect. Writing a 500 here
 	// would be a superfluous WriteHeader on a committed response.
-	if w.code == http.StatusInternalServerError {
-		t.Error("encode failure wrote a superfluous 500 after the body started")
+	if w.code != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", w.code)
 	}
 }
 
@@ -391,8 +391,8 @@ func TestGetSystem_FreshJSONEncodeError(t *testing.T) {
 	// handler must not fabricate a second status: it logs the failure and
 	// leaves the truncated stream for the client to detect. Writing a 500 here
 	// would be a superfluous WriteHeader on a committed response.
-	if w.code == http.StatusInternalServerError {
-		t.Error("encode failure wrote a superfluous 500 after the body started")
+	if w.code != 0 {
+		t.Errorf("encode failure wrote status %d after the body started; want none", w.code)
 	}
 }
 

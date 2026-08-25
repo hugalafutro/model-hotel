@@ -108,7 +108,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 			// and must be refused like the rest of the admin CRUD surface —
 			// otherwise a visitor holding the (published) admin token could
 			// register, rename, or delete passkeys. Logout is exempt (see
-			// isReadOnlyExemptPost) and the unauthenticated login flow lives in
+			// httpx.IsReadOnlyExemptPost) and the unauthenticated login flow lives in
 			// the separate group below, so neither is blocked.
 			if h.demoReadOnly {
 				r.Use(readOnlyGuard)

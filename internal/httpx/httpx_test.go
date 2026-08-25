@@ -243,10 +243,60 @@ func TestWriteJSON(t *testing.T) {
 	}
 }
 
-func TestWriteJSON_EncodeFailureIsLogged(t *testing.T) {
+// TestWriteJSON_WriteFailureIsLogOnly pins the post-commit half of the split:
+// the value marshalled, so bytes were on their way out and the status line is
+// already gone. A second WriteHeader could never reach the client, so the
+// failure is logged and nothing else.
+func TestWriteJSON_WriteFailureIsLogOnly(t *testing.T) {
 	capt := captureLogs(t)
 	w := newErrWriter(errors.New("boom"))
 	WriteJSON(w, "api", map[string]string{"a": "b"})
+	if capt.msg != "api: failed to encode JSON response" {
+		t.Errorf("log message = %q", capt.msg)
+	}
+	if capt.last != slog.LevelError {
+		t.Errorf("log level = %v, want error", capt.last)
+	}
+	if w.code != 0 {
+		t.Errorf("wrote status %d after the body started; want none", w.code)
+	}
+}
+
+// TestWriteJSON_MarshalFailureIs500 pins the pre-commit half: json.Marshal
+// fails having written nothing, so a real 500 is still deliverable and must be
+// sent rather than letting net/http emit a 200 with an empty body.
+func TestWriteJSON_MarshalFailureIs500(t *testing.T) {
+	capt := captureLogs(t)
+	w := httptest.NewRecorder()
+	WriteJSON(w, "api", map[string]any{"ch": make(chan int)})
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
+	}
+	if got := strings.TrimSpace(w.Body.String()); got != "failed to encode response" {
+		t.Errorf("body = %q, want the sanitized encode-failure message", got)
+	}
+	if capt.msg != "api: failed to encode response" {
+		t.Errorf("log message = %q", capt.msg)
+	}
+	if capt.last != slog.LevelError {
+		t.Errorf("log level = %v, want error", capt.last)
+	}
+}
+
+// TestWriteJSONStatus_MarshalFailureKeepsStatus pins the deliberate difference
+// from WriteJSON: the caller already chose a status that carries the meaning
+// (409 duplicate, 422 schema mismatch), so an unmarshalable body loses the body
+// and nothing more.
+func TestWriteJSONStatus_MarshalFailureKeepsStatus(t *testing.T) {
+	capt := captureLogs(t)
+	w := httptest.NewRecorder()
+	WriteJSONStatus(w, "api", http.StatusConflict, map[string]any{"ch": make(chan int)})
+	if w.Code != http.StatusConflict {
+		t.Errorf("status = %d, want the caller's 409", w.Code)
+	}
+	if w.Body.Len() != 0 {
+		t.Errorf("body = %q, want empty", w.Body.String())
+	}
 	if capt.msg != "api: failed to encode JSON response" {
 		t.Errorf("log message = %q", capt.msg)
 	}

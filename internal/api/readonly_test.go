@@ -29,6 +29,8 @@ func TestReadOnlyGuard(t *testing.T) {
 	}{
 		{http.MethodGet, "/providers", true, http.StatusOK},
 		{http.MethodPost, "/providers", false, http.StatusForbidden},
+		// The ack only flips a per-row "seen" flag, so it stays allowed in
+		// read-only mode and a demo instance can clear the Models nav badge.
 		{http.MethodPost, "/api/discovery/changes/ack", true, http.StatusOK},
 	}
 	for _, tc := range cases {

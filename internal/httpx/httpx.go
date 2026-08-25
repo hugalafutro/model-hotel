@@ -72,20 +72,54 @@ func ParseUUIDParam(w http.ResponseWriter, r *http.Request, key string, label ..
 	return id, true
 }
 
-// WriteJSON sets the Content-Type header and encodes the response as JSON.
+// marshalBody renders v as a response body. Marshalling separately from writing
+// is what lets the writers below tell the two failure modes apart: a marshal
+// failure (an unmarshalable value — NaN/Inf, a chan or func field, a cycle) has
+// put nothing on the wire, so a real status is still deliverable, whereas a
+// write failure has already committed the response. The trailing newline
+// matches what json.Encoder.Encode emits, which callers and tests rely on.
+func marshalBody(v any) ([]byte, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
+}
+
+// WriteJSON sets the Content-Type header and writes v as a JSON body with an
+// implicit 200. A value that cannot be marshalled is a server fault caught
+// before any byte is written, so it becomes a logged 500; a write that fails
+// mid-body is only logged, since the response is already committed and a second
+// WriteHeader could never reach the client.
 func WriteJSON(w http.ResponseWriter, component string, v any) {
+	b, err := marshalBody(v)
+	if err != nil {
+		RespondError(w, component, "failed to encode response", err, http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if _, err := w.Write(b); err != nil {
 		LogEncodeError(component, err)
 	}
 }
 
 // WriteJSONStatus sets the Content-Type header, writes an explicit status code,
-// and encodes the response as JSON.
+// and writes v as the JSON body. Unlike WriteJSON it keeps the caller's status
+// when the value cannot be marshalled: that status is usually the whole message
+// (a 409 the dashboard routes on, a 422 the config-sync import checks), so
+// replacing it with a 500 would lose more than the body already lost. Either
+// failure is logged.
 func WriteJSONStatus(w http.ResponseWriter, component string, status int, v any) {
+	b, err := marshalBody(v)
+	if err != nil {
+		LogEncodeError(component, err)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if b == nil {
+		return
+	}
+	if _, err := w.Write(b); err != nil {
 		LogEncodeError(component, err)
 	}
 }

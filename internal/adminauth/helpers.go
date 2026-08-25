@@ -39,6 +39,11 @@ func writeJSON(w http.ResponseWriter, v any) {
 	httpx.WriteJSON(w, logComponent, v)
 }
 
+// writeJSONStatus encodes v as JSON under an explicit status code.
+func writeJSONStatus(w http.ResponseWriter, status int, v any) {
+	httpx.WriteJSONStatus(w, logComponent, status, v)
+}
+
 // respondError writes an error response, logging server faults.
 func respondError(w http.ResponseWriter, message string, err error, code int) {
 	httpx.RespondError(w, logComponent, message, err, code)

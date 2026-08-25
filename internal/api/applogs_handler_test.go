@@ -1011,6 +1011,11 @@ func TestGetAppLogs_HistoryWithDB(t *testing.T) {
 func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
+	// getAppLogCounts caches whatever the counts query returned, failure
+	// included, so a run on a dead context would leave every level at zero for
+	// the rest of the TTL and skew any later test reading the unfiltered total.
+	t.Cleanup(invalidateAppLogCountCache)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // the COUNT query cannot run on a dead context
 

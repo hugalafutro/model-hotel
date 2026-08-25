@@ -108,6 +108,30 @@ func TestStreamAdapter_MalformedChunkPoisonsStream(t *testing.T) {
 	}
 }
 
+// TestStreamAdapter_TruncatedFinalLineFailsStream pins the direction of the
+// EOF partial-line flush that matters most: a connection cut mid-chunk leaves a
+// truncated JSON fragment with no newline. It is flushed through the translator
+// at EOF, which rejects it, so the stream ends as an error with no [DONE] and
+// the proxy classifies it as the truncation it is instead of recording a short
+// but clean success.
+func TestStreamAdapter_TruncatedFinalLineFailsStream(t *testing.T) {
+	upstream := &slowReader{script: []string{
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"ok\"}]}}]}\n\n",
+		"data: {\"candidates\":[{\"content\":{\"role\":\"mo",
+	}}
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err == nil {
+		t.Fatal("expected a truncated final chunk to fail the stream")
+	}
+	s := string(out)
+	if !strings.Contains(s, `"content":"ok"`) {
+		t.Errorf("content translated before the cut was lost:\n%s", s)
+	}
+	if strings.Contains(s, "[DONE]") || strings.Contains(s, `"finish_reason":"`) {
+		t.Errorf("terminal chunks fabricated over a truncated tail:\n%s", s)
+	}
+}
+
 func TestStreamAdapter_UpstreamErrorAfterDrain(t *testing.T) {
 	boom := errors.New("boom")
 	a := NewStreamAdapter(&errReader{data: "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"x\"}]}}]}\n\n", err: boom}, "m")

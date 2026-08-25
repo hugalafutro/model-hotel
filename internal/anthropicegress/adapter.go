@@ -19,6 +19,9 @@ import (
 // so the translator emits the terminal chunk + [DONE] on message_stop. An
 // upstream that reaches EOF without message_stop gets that terminal pair from
 // Finish() instead.
+// This is an alias, not a defined type: anthropicegress.StreamAdapter and
+// gemini.StreamAdapter are the same type, so a type switch cannot tell them
+// apart.
 type StreamAdapter = egress.StreamAdapter
 
 // NewStreamAdapter builds an adapter for one streaming response. model is

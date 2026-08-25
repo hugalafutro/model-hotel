@@ -18,6 +18,9 @@ import (
 // Vertex streams carry no [DONE] sentinel: EOF is the natural end, so the
 // terminal chunk + [DONE] come from the translator's Finish() when upstream EOF
 // arrives.
+// This is an alias, not a defined type: gemini.StreamAdapter and
+// anthropicegress.StreamAdapter are the same type, so a type switch cannot tell
+// them apart.
 type StreamAdapter = egress.StreamAdapter
 
 // NewStreamAdapter builds an adapter for one streaming response. model is
