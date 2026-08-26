@@ -47,25 +47,6 @@ import {
 // state rather than silently resuming auto-sync. The token gate on a *change*
 // runs before the destructive push, so a wrong token fails with nothing
 // overwritten.
-// FleetSyncWizard is the single control for designating a source-of-truth member
-// and keeping the fleet converged on it. It has two faces:
-//
-//   - Resting screen (a primary is already designated): shows which member is
-//     primary, the automatic-sync state with a Pause/Resume switch, where to send
-//     traffic, and a red, token-gated "Re-run" that re-designates the primary and
-//     overwrites the fleet.
-//   - Wizard (no primary yet, or a re-run): the gated flow choose -> verify
-//     MASTER_KEY -> sync. A step unlocks only once the previous one is satisfied
-//     for every reachable member, so config can never be pushed before MASTER_KEY
-//     is verified. A single probe (GET /api/fleet/status) drives every gate.
-//
-// Completing the wizard persists {enabled: true, primary_id} so "a primary is
-// set" means "the wizard converged the fleet at least once", and auto-sync then
-// keeps the fleet matched. The one exception is a re-run that re-selects the
-// same primary: that is a manual re-sync and preserves the operator's paused
-// state rather than silently resuming auto-sync. The token gate on a *change*
-// runs before the destructive push, so a wrong token fails with nothing
-// overwritten.
 
 type View = "loading" | "wizard" | "resting";
 type ConfirmKind = "config" | "change" | null;
