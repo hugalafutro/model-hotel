@@ -30,7 +30,6 @@ web/src/components/Layout.tsx	1065
 web/src/components/VirtualModelTable.tsx	858
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
 web/src/pages/Chat/useChat.ts	846
-web/src/pages/FailoverGroups.tsx	1096
 web/src/pages/Logs.tsx	971
 web/src/pages/Models/ModelDetailModal.tsx	823
 web/src/pages/Settings/alerts/AlertsWizard.tsx	801
