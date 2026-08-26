@@ -14,10 +14,8 @@ internal/failover/circuitbreaker_test.go	2056
 internal/frontdesk/autosync_test.go	4254
 internal/model/model_crud_test.go	2399
 internal/provider/discovery_test.go	2235
-internal/proxy/model_gone.go	1163
 internal/proxy/model_gone_test.go	2739
 internal/proxy/models_test.go	2307
-internal/proxy/upstream_classify.go	804
 web/src/api/types.ts	1058
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
 web/src/pages/Settings/alerts/AlertsWizard.tsx	801
