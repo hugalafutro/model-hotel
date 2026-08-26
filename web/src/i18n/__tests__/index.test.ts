@@ -1,4 +1,8 @@
-import { createLocaleBackend, lazyLocaleBackend } from "../index";
+import { lazyLocaleBackend } from "../index";
+
+// The dashboard's own backend, wired to the real catalogs: proves the glob and
+// the alias table are hooked up. The backend's own branches are covered against
+// web-shared/i18n directly.
 
 function read(
 	language: string,
@@ -29,21 +33,6 @@ describe("lazyLocaleBackend", () => {
 		const { err, data } = await read("zz");
 		expect(err).toBeInstanceOf(Error);
 		expect((err as Error).message).toContain("zz");
-		expect(data).toBeNull();
-	});
-
-	it("passes a failed catalog import through as an error", async () => {
-		const boom = new Error("chunk fetch failed");
-		const failing = createLocaleBackend({
-			"./locales/de.json": () => Promise.reject(boom),
-		});
-		const { err, data } = await new Promise<{
-			err: unknown;
-			data: object | null;
-		}>((resolve) => {
-			failing.read("de", "translation", (err, data) => resolve({ err, data }));
-		});
-		expect(err).toBe(boom);
 		expect(data).toBeNull();
 	});
 });

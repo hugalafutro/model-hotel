@@ -12,8 +12,8 @@ COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir=/pnpm-store
 
-# The quota parsing helpers live outside the app tree and are pulled in through
-# the @quota-shared alias, so the build needs them beside it.
+# The shared frontend modules live outside the app tree and are pulled in
+# through the @web-shared/* alias, so the build needs them beside it.
 COPY web-shared/ /app/web-shared/
 
 COPY web/ ./

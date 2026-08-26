@@ -1,3 +1,13 @@
+import {
+	APPRISE_SERVICES_URL,
+	type DestinationKind,
+	FIELDS,
+	type FieldDef,
+	parseDiscordWebhook,
+	parseUnifiedPushEndpoint,
+} from "@web-shared/alerts/composers";
+import { eventLabel } from "@web-shared/alerts/events";
+import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
 import {
 	type Dispatch,
@@ -7,19 +17,10 @@ import {
 	useState,
 } from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
-import { generateTopic } from "../../utils/ntfy";
 import { CopyRow } from "../CopyRow";
 import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
-import {
-	APPRISE_SERVICES_URL,
-	type DestinationKind,
-	FIELDS,
-	type FieldDef,
-	parseDiscordWebhook,
-	parseUnifiedPushEndpoint,
-} from "./composers";
 import { DestinationList } from "./DestinationList";
-import { eventLabel, SEVERITY_COLOR } from "./events";
+import { SEVERITY_COLOR } from "./events";
 
 // The seven step bodies of the alerts wizard: prove apprise-api answers, pick
 // what kind of destination this is, fill in the parts that kind needs, deliver

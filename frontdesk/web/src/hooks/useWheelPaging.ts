@@ -1,3 +1,4 @@
+import { wheelPagingIntent } from "@web-shared/wheel-paging";
 import { useEffect, useRef } from "react";
 
 interface WheelPagingOptions {
@@ -16,16 +17,6 @@ interface WheelPagingOptions {
 	 */
 	enabled?: boolean;
 }
-
-// A discrete wheel nudge / tilt-paddle click pages immediately on its leading
-// edge; anything that arrives within IDLE_GAP_MS of the previous wheel event is
-// treated as the same gesture and ignored, so holding the paddle (or a trackpad
-// momentum stream) advances exactly one page instead of autoscrolling.
-const IDLE_GAP_MS = 200;
-// Rough px-per-line factor for line-mode (deltaMode === 1) wheel events.
-const LINE_HEIGHT = 16;
-// Ignore sub-pixel horizontal jitter / momentum dribble (normalized px).
-const MIN_DELTA = 2;
 
 /**
  * Pages a scroll container with the mouse's horizontal scroll wheel / tilt
@@ -56,52 +47,28 @@ export function useWheelPaging<T extends HTMLElement = HTMLDivElement>({
 		const el = ref.current;
 		if (!el || !enabled) return;
 
-		// Timestamp of the previous horizontal wheel event (scroll or page). A
-		// gap larger than IDLE_GAP_MS marks the start of a fresh gesture.
+		// The gesture clock wheelPagingIntent reads and hands back: a gap larger
+		// than its idle threshold marks the start of a fresh gesture.
 		let lastEventAt = 0;
 
 		const onWheel = (e: WheelEvent) => {
-			// Only horizontal intent: a dedicated horizontal wheel, tilt buttons,
-			// or a trackpad horizontal swipe. A plain vertical wheel has deltaX 0
-			// and is ignored, so up/down scrolling keeps working.
-			if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-
-			// Normalize to ~pixels so the jitter floor and direction hold across
-			// wheel delta modes: line-mode (1) scales by LINE_HEIGHT, page-mode
-			// (2) by the container's visible width (rare hardware, but a raw
-			// page-mode deltaX of 1 would otherwise fall under MIN_DELTA).
-			let dx = e.deltaX;
-			if (e.deltaMode === 1) dx *= LINE_HEIGHT;
-			else if (e.deltaMode === 2) dx *= el.clientWidth || LINE_HEIGHT;
-			if (Math.abs(dx) < MIN_DELTA) return;
-			const forward = dx > 0;
-
-			const now = Date.now();
-			const isNewGesture = now - lastEventAt > IDLE_GAP_MS;
-			lastEventAt = now;
-
-			// Scrolling wins: if the table can still scroll sideways in this
-			// direction, let the browser scroll it natively. We only page once
-			// the container has no horizontal overflow (it fits) or we're pinned
-			// at the corresponding edge. The 1px slack absorbs fractional
-			// scrollLeft values on high-DPI displays.
-			const maxScrollLeft = el.scrollWidth - el.clientWidth;
-			const canScrollThisWay = forward
-				? el.scrollLeft < maxScrollLeft - 1
-				: el.scrollLeft > 1;
-			if (canScrollThisWay) return;
+			const intent = wheelPagingIntent(e, el, lastEventAt, Date.now());
+			if (intent.action === "ignore") return;
+			lastEventAt = intent.lastEventAt;
+			// The browser still owns the scroll while the container has somewhere
+			// to go sideways.
+			if (intent.action === "scroll") return;
 
 			// At the horizontal boundary: turn the gesture into paging and stop
-			// the container from rubber-banding sideways.
+			// the container from rubber-banding sideways. This happens for an
+			// absorbed event too, which is what keeps a held paddle from
+			// rubber-banding between page turns.
 			e.preventDefault();
-
-			// One page per discrete nudge: ignore the rest of a held paddle or a
-			// trackpad momentum stream until the wheel goes idle again.
-			if (!isNewGesture) return;
+			if (intent.action !== "page") return;
 
 			const s = stateRef.current;
-			if (forward && s.canNext) s.onNext();
-			else if (!forward && s.canPrev) s.onPrev();
+			if (intent.forward && s.canNext) s.onNext();
+			else if (!intent.forward && s.canPrev) s.onPrev();
 		};
 
 		el.addEventListener("wheel", onWheel, { passive: false });

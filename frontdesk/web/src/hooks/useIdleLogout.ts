@@ -1,6 +1,6 @@
+import { startIdleLogout } from "@web-shared/idle-logout";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import { startIdleLogout } from "../utils/idleLogout";
 
 // Fallback used until the settings fetch resolves (and if it fails). Matches the
 // server-side default in internal/frontdesk (session_idle_timeout_minutes).

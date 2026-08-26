@@ -1,52 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { createLocaleBackend } from "../index";
+import { lazyLocaleBackend } from "../index";
 
-// createLocaleBackend wraps a map of lazy locale loaders in the shape i18next's
-// backend plugin expects. Exercise read() for a present catalog, a missing one,
-// and a loader that rejects — the three branches of the async read path.
+// Front Desk's own backend, wired to the real catalogs: proves the glob is
+// hooked up and that a language it does not ship is reported rather than
+// silently answered with an empty catalog. The backend's own branches are
+// covered against web-shared/i18n directly, in web/.
 
-function readAsync(
-	backend: ReturnType<typeof createLocaleBackend>,
+function read(
 	language: string,
 ): Promise<{ err: unknown; data: object | null }> {
 	return new Promise((resolve) => {
-		backend.read(language, "translation", (err, data) =>
+		lazyLocaleBackend.read(language, "translation", (err, data) =>
 			resolve({ err, data }),
 		);
 	});
 }
 
-describe("createLocaleBackend", () => {
-	it("resolves the loaded catalog for a known language", async () => {
-		const catalog = { greeting: "hallo" };
-		const backend = createLocaleBackend({
-			"./locales/de.json": () => Promise.resolve({ default: catalog }),
-		});
-
-		const { err, data } = await readAsync(backend, "de");
-
+describe("lazyLocaleBackend", () => {
+	it("loads a catalog lazily for a language Front Desk ships", async () => {
+		const { err, data } = await read("de");
 		expect(err).toBeNull();
-		expect(data).toEqual(catalog);
+		expect(Object.keys(data as object).length).toBeGreaterThan(0);
 	});
 
-	it("reports an error for a language with no catalog", async () => {
-		const backend = createLocaleBackend({});
-
-		const { err, data } = await readAsync(backend, "xx");
-
+	it("errors for a language with no catalog file", async () => {
+		const { err, data } = await read("zz");
 		expect(err).toBeInstanceOf(Error);
-		expect(data).toBeNull();
-	});
-
-	it("propagates a rejected loader to the callback", async () => {
-		const boom = new Error("chunk load failed");
-		const backend = createLocaleBackend({
-			"./locales/fr.json": () => Promise.reject(boom),
-		});
-
-		const { err, data } = await readAsync(backend, "fr");
-
-		expect(err).toBe(boom);
+		expect((err as Error).message).toContain("zz");
 		expect(data).toBeNull();
 	});
 });

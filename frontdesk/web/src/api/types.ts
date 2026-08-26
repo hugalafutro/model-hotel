@@ -336,7 +336,7 @@ export interface TotpEnrollVerify {
 // QuotaSnapshot.payload, so the field names are the providers', not ours.
 
 /** The provider families that expose a quota or balance endpoint. */
-export type { QuotaProviderType } from "@quota-shared";
+export type { QuotaProviderType } from "@web-shared/quota";
 
 /**
  * One provider's quota snapshot as proxied from the fleet primary.
@@ -435,7 +435,7 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
-} from "@quota-shared";
+} from "@web-shared/quota";
 
 export interface DeepSeekBalanceInfo {
 	currency: "CNY" | "USD";

@@ -1,4 +1,5 @@
-import type { QuotaProviderType } from "@quota-shared";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QuotaProviderType } from "@web-shared/quota";
 import {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
@@ -14,8 +15,7 @@ import {
 	isOllamaCloudQuotaVisible,
 	isOpenRouterQuotaVisible,
 	isZaiCodingQuotaVisible,
-} from "@quota-shared";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+} from "@web-shared/quota";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -37,7 +37,7 @@ import type {
 // The payload parsing behind these helpers lives in web-shared/quota so Front
 // Desk derives identical numbers from identical payloads. Re-exported here
 // because app code has always reached them through this hook module.
-export type { QuotaProviderType } from "@quota-shared";
+export type { QuotaProviderType } from "@web-shared/quota";
 export {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
@@ -46,7 +46,7 @@ export {
 	getMiniMaxWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
-} from "@quota-shared";
+} from "@web-shared/quota";
 
 // ── Cache helpers (shared across consumers) ──────────────────────────────
 

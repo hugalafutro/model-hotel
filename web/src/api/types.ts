@@ -721,7 +721,7 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
-} from "@quota-shared";
+} from "@web-shared/quota";
 
 export interface NeuralWattQuotaBalance {
 	/** Absent when the provider omitted the balance; never coerce to 0. */

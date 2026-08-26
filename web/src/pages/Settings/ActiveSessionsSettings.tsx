@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deviceSummary } from "@web-shared/device";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { AuthSession } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
-import { deviceSummary } from "../../utils/device";
 import { formatRelativeTime } from "../../utils/format";
 
 /**

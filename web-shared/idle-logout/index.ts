@@ -1,11 +1,7 @@
-// Dependency-free inactivity auto-logout timer.
-//
-// SHARED HELPER: an identical copy lives in both frontends
-// (web/src/utils/idleLogout.ts and frontdesk/web/src/utils/idleLogout.ts).
-// The two apps are separate Vite roots with their own `@` aliases, so the
-// module cannot be imported across them — keep the two copies in sync. The
-// helper is pure DOM (no React, no i18n, no app imports) precisely so the two
-// copies stay trivially identical.
+// Dependency-free inactivity auto-logout timer, shared by both frontends as
+// `@web-shared/idle-logout`. Pure DOM: no React, no i18n, no app imports, so
+// the two apps' React wrappers (each `hooks/useIdleLogout.ts`) hold nothing but
+// the effect wiring.
 //
 // Behaviour: arm a timer that fires `onTimeout` once after `timeoutMs` of no
 // user activity. Activity is any of a set of DOM events (pointer/key/scroll/

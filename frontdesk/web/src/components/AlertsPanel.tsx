@@ -1,14 +1,18 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
+import {
+	APPRISE_SERVICES_URL,
+	ntfyServerOf,
+} from "@web-shared/alerts/composers";
+import { eventLabel, parseCsv } from "@web-shared/alerts/events";
+import { ntfyAppriseURL } from "@web-shared/ntfy";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { ntfyAppriseURL } from "../utils/ntfy";
 import { AlertsWizard } from "./alerts/AlertsWizard";
-import { APPRISE_SERVICES_URL, ntfyServerOf } from "./alerts/composers";
 import { DestinationList } from "./alerts/DestinationList";
-import { eventLabel, parseCsv, SEVERITY_COLOR } from "./alerts/events";
+import { SEVERITY_COLOR } from "./alerts/events";
 
 // The failure codes /api/alert/test returns with a 502 that map to an
 // actionable sentence; anything else falls back to the generic error.

@@ -9,7 +9,7 @@
 		"moduleResolution": "bundler",
 		"paths": {
 			"@/*": ["./src/*"],
-			"@quota-shared": ["../web-shared/quota/index.ts"]
+			"@web-shared/*": ["../web-shared/*"]
 		},
 		"allowImportingTsExtensions": true,
 		"resolveJsonModule": true,

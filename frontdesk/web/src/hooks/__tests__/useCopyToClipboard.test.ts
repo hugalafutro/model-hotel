@@ -12,6 +12,10 @@ function stubClipboard(writeText: (text: string) => Promise<void>) {
 	return writeText;
 }
 
+// The write itself -- a missing Clipboard API, a refusal -- is
+// web-shared/clipboard's writeClipboard and is covered against it directly in
+// web/, which owns web-shared/ for coverage. What is left here is the hook's own
+// half: the flag, the reset timer, and what an unmount does to both.
 describe("useCopyToClipboard", () => {
 	afterEach(() => {
 		vi.useRealTimers();
@@ -80,21 +84,8 @@ describe("useCopyToClipboard", () => {
 		expect(result.current.copied).toBe(false);
 	});
 
-	it("resolves false and flags nothing when the clipboard refuses", async () => {
+	it("leaves the flag alone when the write fails", async () => {
 		stubClipboard(vi.fn().mockRejectedValue(new Error("denied")));
-		const { result } = renderHook(() => useCopyToClipboard());
-
-		await act(async () => {
-			await expect(result.current.copy("hello")).resolves.toBe(false);
-		});
-		expect(result.current.copied).toBe(false);
-	});
-
-	it("resolves false when there is no clipboard at all", async () => {
-		Object.defineProperty(navigator, "clipboard", {
-			value: undefined,
-			configurable: true,
-		});
 		const { result } = renderHook(() => useCopyToClipboard());
 
 		await act(async () => {

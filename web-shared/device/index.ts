@@ -2,8 +2,8 @@
 // Linux", "Chrome · Android". Deliberately a handful of substring checks, not
 // a UA-parsing library — the label only has to help an operator recognize
 // their own devices, and the raw string is available in the row's tooltip.
-// Mirrors the main dashboard's utils/device.ts (the two frontends do not
-// share code).
+// Returns null when nothing recognizable is found (or the UA is empty), so the
+// caller can fall back to a translated "unknown device" label.
 
 // Order matters in both lists: several engines impersonate their ancestors
 // (Edge and Opera carry "Chrome", Chrome carries "Safari", Android carries

@@ -2,6 +2,13 @@ import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWheelPaging } from "../useWheelPaging";
 
+// The React half of horizontal-wheel paging: attaching the listener, keeping it
+// pointed at the latest callbacks, and turning a paging decision into
+// preventDefault + a page turn. The decision itself (delta modes, jitter floor,
+// gesture clock, edge detection) is arithmetic shared with the other frontend
+// and is covered against web-shared/wheel-paging directly, in web/, which owns
+// web-shared/ for coverage.
+
 interface HarnessProps {
 	canPrev: boolean;
 	canNext: boolean;
@@ -56,21 +63,22 @@ describe("useWheelPaging", () => {
 		vi.useRealTimers();
 	});
 
-	it("pages forward on a dominant rightward (positive deltaX) wheel", () => {
+	it("pages forward on a dominant rightward wheel and suppresses sideways scroll", () => {
 		const { container, onNext, onPrev } = setup();
-		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
+		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		expect(onNext).toHaveBeenCalledTimes(1);
 		expect(onPrev).not.toHaveBeenCalled();
+		expect(notCanceled).toBe(false);
 	});
 
-	it("pages backward on a dominant leftward (negative deltaX) wheel", () => {
+	it("pages backward on a dominant leftward wheel", () => {
 		const { container, onNext, onPrev } = setup();
 		fireEvent.wheel(container, { deltaX: -120, deltaY: 0 });
 		expect(onPrev).toHaveBeenCalledTimes(1);
 		expect(onNext).not.toHaveBeenCalled();
 	});
 
-	it("ignores a dominant vertical wheel so normal scrolling is preserved", () => {
+	it("leaves a dominant vertical wheel untouched so normal scrolling is preserved", () => {
 		const { container, onNext, onPrev } = setup();
 		const notCanceled = fireEvent.wheel(container, { deltaX: 0, deltaY: 200 });
 		expect(onNext).not.toHaveBeenCalled();
@@ -79,62 +87,48 @@ describe("useWheelPaging", () => {
 		expect(notCanceled).toBe(true);
 	});
 
-	it("prevents default for horizontal gestures so the table does not scroll sideways", () => {
-		const { container } = setup();
+	it("suppresses sideways scroll at a boundary it cannot page past", () => {
+		const { container, onNext } = setup({ canNext: false });
 		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
+		expect(onNext).not.toHaveBeenCalled();
 		expect(notCanceled).toBe(false);
 	});
 
-	it("pages on a single small nudge without waiting to cross a threshold", () => {
+	it("hands a scrollable container back to the browser", () => {
 		const { container, onNext } = setup();
-		// A discrete tilt-paddle click sends a small deltaX; it should page at
-		// once on the leading edge rather than needing several to accumulate.
-		fireEvent.wheel(container, { deltaX: 8, deltaY: 0 });
-		expect(onNext).toHaveBeenCalledTimes(1);
+		setGeometry(container, {
+			clientWidth: 100,
+			scrollWidth: 300,
+			scrollLeft: 0,
+		});
+		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
+		expect(onNext).not.toHaveBeenCalled();
+		expect(notCanceled).toBe(true);
 	});
 
-	it("advances only one page per gesture until the wheel goes idle", () => {
+	it("absorbs the rest of a held paddle, then pages again once the wheel goes idle", () => {
 		const { container, onNext } = setup();
-		// A held paddle / momentum stream arrives as back-to-back events with no
-		// idle gap: only the leading edge pages, so it never autoscrolls.
 		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		expect(onNext).toHaveBeenCalledTimes(1);
-		// After an idle gap a fresh nudge pages again.
 		vi.advanceTimersByTime(250);
 		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		expect(onNext).toHaveBeenCalledTimes(2);
 	});
 
-	it("recognizes line-mode deltas (deltaMode 1)", () => {
-		const { container, onNext } = setup();
-		// 5 lines * 16px = 80px normalized, comfortably above the jitter floor.
-		fireEvent.wheel(container, { deltaX: 5, deltaY: 0, deltaMode: 1 });
-		expect(onNext).toHaveBeenCalledTimes(1);
-	});
-
-	it("recognizes page-mode deltas (deltaMode 2)", () => {
-		const { container, onNext } = setup();
-		// A page-mode tick has raw deltaX 1; normalization keeps it above the
-		// jitter floor so it still registers as a nudge.
-		fireEvent.wheel(container, { deltaX: 1, deltaY: 0, deltaMode: 2 });
-		expect(onNext).toHaveBeenCalledTimes(1);
-	});
-
-	it("ignores sub-pixel horizontal jitter and lets it scroll natively", () => {
-		const { container, onNext } = setup();
-		const notCanceled = fireEvent.wheel(container, { deltaX: 1, deltaY: 0 });
-		expect(onNext).not.toHaveBeenCalled();
-		// Below MIN_DELTA -> default untouched, tiny native scroll still happens.
-		expect(notCanceled).toBe(true);
-	});
-
-	it("does not page past a boundary but still suppresses sideways scroll", () => {
-		const { container, onNext } = setup({ canNext: false });
-		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
-		expect(onNext).not.toHaveBeenCalled();
-		expect(notCanceled).toBe(false);
+	it("calls the callbacks from the latest render, not the ones it was mounted with", () => {
+		// The listener is bound once and reads its props through a ref, which is
+		// the whole reason a page change does not reset the gesture clock.
+		const first = vi.fn();
+		const second = vi.fn();
+		const { getByTestId, rerender } = render(
+			<Harness canPrev canNext onPrev={vi.fn()} onNext={first} />,
+		);
+		rerender(<Harness canPrev canNext onPrev={vi.fn()} onNext={second} />);
+		fireEvent.wheel(getByTestId("container"), { deltaX: 120, deltaY: 0 });
+		expect(first).not.toHaveBeenCalled();
+		expect(second).toHaveBeenCalledTimes(1);
 	});
 
 	it("does not attach the listener when disabled", () => {
@@ -145,73 +139,11 @@ describe("useWheelPaging", () => {
 		expect(notCanceled).toBe(true);
 	});
 
-	it("defers to native scroll while horizontal content remains to the right", () => {
-		const { container, onNext } = setup();
-		setGeometry(container, {
-			clientWidth: 100,
-			scrollWidth: 300,
-			scrollLeft: 0,
-		});
+	it("removes the listener when the component unmounts", () => {
+		const { container, onNext, unmount } = setup();
+		unmount();
 		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
 		expect(onNext).not.toHaveBeenCalled();
 		expect(notCanceled).toBe(true);
-	});
-
-	it("pages forward only once pinned at the right edge", () => {
-		const { container, onNext } = setup();
-		// scrollLeft === scrollWidth - clientWidth -> nothing left to scroll right.
-		setGeometry(container, {
-			clientWidth: 100,
-			scrollWidth: 300,
-			scrollLeft: 200,
-		});
-		const notCanceled = fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
-		expect(onNext).toHaveBeenCalledTimes(1);
-		expect(notCanceled).toBe(false);
-	});
-
-	it("defers to native scroll while horizontal content remains to the left", () => {
-		const { container, onPrev } = setup();
-		setGeometry(container, {
-			clientWidth: 100,
-			scrollWidth: 300,
-			scrollLeft: 200,
-		});
-		const notCanceled = fireEvent.wheel(container, { deltaX: -120, deltaY: 0 });
-		expect(onPrev).not.toHaveBeenCalled();
-		expect(notCanceled).toBe(true);
-	});
-
-	it("pages backward only once pinned at the left edge", () => {
-		const { container, onPrev } = setup();
-		setGeometry(container, {
-			clientWidth: 100,
-			scrollWidth: 300,
-			scrollLeft: 0,
-		});
-		const notCanceled = fireEvent.wheel(container, { deltaX: -120, deltaY: 0 });
-		expect(onPrev).toHaveBeenCalledTimes(1);
-		expect(notCanceled).toBe(false);
-	});
-
-	it("does not flip pages mid-scroll; a separate nudge at the edge pages", () => {
-		const { container, onNext } = setup();
-		setGeometry(container, {
-			clientWidth: 100,
-			scrollWidth: 300,
-			scrollLeft: 0,
-		});
-		// Fling rightward while there is still room: scrolls natively, no page.
-		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
-		expect(onNext).not.toHaveBeenCalled();
-		// The browser scrolls us to the right edge; the same continuous fling
-		// continues (no idle gap) and must not flip the page.
-		container.scrollLeft = 200;
-		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
-		expect(onNext).not.toHaveBeenCalled();
-		// Once the wheel goes idle, a fresh nudge at the edge pages.
-		vi.advanceTimersByTime(250);
-		fireEvent.wheel(container, { deltaX: 120, deltaY: 0 });
-		expect(onNext).toHaveBeenCalledTimes(1);
 	});
 });

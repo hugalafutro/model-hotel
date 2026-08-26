@@ -1,3 +1,4 @@
+import { readCookie } from "@web-shared/cookies";
 import type {
 	AlertEventDef,
 	AlertStatus,
@@ -187,9 +188,7 @@ export function buildQueryString(
 ): string {
 	const sp = new URLSearchParams();
 	for (const [key, value] of Object.entries(params)) {
-		if (value !== undefined && value !== null) {
-			sp.set(key, String(value));
-		}
+		if (value !== undefined && value !== null) sp.set(key, String(value));
 	}
 	return sp.toString();
 }
@@ -210,12 +209,13 @@ export function buildUrl(
 // companion readable `mh_csrf` cookie is the client-visible "is logged in"
 // signal and is echoed back in the X-CSRF-Token header on mutating requests so
 // the server can reject cross-site writes. No bearer token is ever stored or
-// sent.
+// sent. CSRF_COOKIE names that readable cookie once, so the read below and the
+// expiry write in clearAuth cannot come to mean different cookies.
+const CSRF_COOKIE = "mh_csrf";
 
 /** getCsrfToken reads the readable `mh_csrf` cookie, or null when absent. */
 export function getCsrfToken(): string | null {
-	const m = document.cookie.match(/(?:^|;\s*)mh_csrf=([^;]+)/);
-	return m ? decodeURIComponent(m[1]) : null;
+	return readCookie(CSRF_COOKIE);
 }
 
 /** isAuthenticated reports whether the dashboard session cookie pair is present,
@@ -237,7 +237,7 @@ export function isAuthenticated(): boolean {
  * page load. */
 export function clearAuth(): void {
 	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
-	document.cookie = "mh_csrf=; path=/; max-age=0";
+	document.cookie = `${CSRF_COOKIE}=; path=/; max-age=0`;
 }
 
 /** getAuthHeaders returns the headers for an authenticated mutating request:

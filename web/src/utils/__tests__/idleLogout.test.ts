@@ -1,5 +1,5 @@
+import { startIdleLogout } from "@web-shared/idle-logout";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { startIdleLogout } from "../idleLogout";
 
 // Pure-timer behaviour, driven by fake timers in the jsdom window. A unique
 // storage key per test keeps the cross-tab coordination isolated.

@@ -1,16 +1,16 @@
-import { type Dispatch, useCallback, useEffect, useReducer } from "react";
-import { useTranslation } from "react-i18next";
-import { ApiError, api } from "../../api/client";
-import type { AlertEventDef, AlertStatus } from "../../api/types";
-import { Modal } from "../Modal";
 import {
 	compose,
 	type DestinationFields,
 	type DestinationKind,
 	FIELDS,
 	ntfyServerOf,
-} from "./composers";
-import { parseCsv } from "./events";
+} from "@web-shared/alerts/composers";
+import { parseCsv } from "@web-shared/alerts/events";
+import { type Dispatch, useCallback, useEffect, useReducer } from "react";
+import { useTranslation } from "react-i18next";
+import { ApiError, api } from "../../api/client";
+import type { AlertEventDef, AlertStatus } from "../../api/types";
+import { Modal } from "../Modal";
 import {
 	StepApprise,
 	StepDestinations,

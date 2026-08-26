@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ntfyAppriseURL } from "@web-shared/ntfy";
 import { HttpResponse, http } from "msw";
 import { beforeEach, expect, it } from "vitest";
 import type { AlertEventDef, AlertStatus, Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
-import { ntfyAppriseURL } from "../../utils/ntfy";
 import { AlertsPanel } from "../AlertsPanel";
 
 // The phone-push (ntfy) convenience block inside the Alerts panel: composes an

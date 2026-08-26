@@ -1,4 +1,4 @@
-import { ntfyAppriseURL } from "../../utils/ntfy";
+import { ntfyAppriseURL } from "../ntfy";
 
 // The destination kinds the Alerts setup wizard offers. Every one of them ends
 // up as a single Apprise target URL; the wizard only ever asks for the parts an

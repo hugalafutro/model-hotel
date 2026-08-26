@@ -1,3 +1,11 @@
+import {
+	compose,
+	type DestinationFields,
+	type DestinationKind,
+	FIELDS,
+	ntfyServerOf,
+} from "@web-shared/alerts/composers";
+import { parseCsv } from "@web-shared/alerts/events";
 import type { TFunction } from "i18next";
 import { type Dispatch, useCallback, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,13 +14,6 @@ import { ApiError, api } from "../../../api/client";
 import type { AlertEventDef, AlertStatus } from "../../../api/types";
 import { Modal } from "../../../components/Modal";
 import { stripApiHead } from "./apiText";
-import {
-	compose,
-	type DestinationFields,
-	type DestinationKind,
-	FIELDS,
-	ntfyServerOf,
-} from "./composers";
 import {
 	StepApprise,
 	StepDestinations,
@@ -210,17 +211,6 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 		tested: false,
 		acceptedUrl: null,
 	};
-}
-
-/** parseCsv turns an alert_events CSV into a membership Set. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function parseCsv(csv: string): Set<string> {
-	return new Set(
-		csv
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean),
-	);
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

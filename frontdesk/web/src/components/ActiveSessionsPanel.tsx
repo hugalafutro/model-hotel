@@ -1,9 +1,9 @@
+import { deviceSummary } from "@web-shared/device";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { AuthSession } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { deviceSummary } from "../utils/device";
 import { formatRelative } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
 

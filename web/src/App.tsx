@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { consumeOidcError } from "@web-shared/oidc";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
@@ -16,7 +17,6 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
-import { consumeOidcError } from "./utils/oidc";
 import { canUsePasskeyLogin, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>

@@ -2,6 +2,10 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopyToClipboard } from "../useCopyToClipboard";
 
+// The write itself -- a missing Clipboard API, a refusal, a caller-supplied
+// writer that throws -- is web-shared/clipboard's writeClipboard and is covered
+// against it directly. What is left here is the hook's own half: the flag, the
+// reset timer, and what an unmount does to both.
 describe("useCopyToClipboard", () => {
 	const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>;
 
@@ -139,7 +143,7 @@ describe("useCopyToClipboard", () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 
-	it("reports failure without throwing when the write rejects", async () => {
+	it("leaves the flag alone when the write fails", async () => {
 		writeText.mockRejectedValueOnce(new Error("denied"));
 		const { result } = renderHook(() => useCopyToClipboard());
 
@@ -150,28 +154,6 @@ describe("useCopyToClipboard", () => {
 
 		expect(ok).toBe(false);
 		expect(result.current.copied).toBe(false);
-	});
-
-	it("reports failure when the Clipboard API is missing", async () => {
-		const original = navigator.clipboard;
-		Object.defineProperty(navigator, "clipboard", {
-			value: undefined,
-			configurable: true,
-			writable: true,
-		});
-		const { result } = renderHook(() => useCopyToClipboard());
-
-		let ok: boolean | undefined;
-		await act(async () => {
-			ok = await result.current.copy("hello");
-		});
-
-		expect(ok).toBe(false);
-		Object.defineProperty(navigator, "clipboard", {
-			value: original,
-			configurable: true,
-			writable: true,
-		});
 	});
 
 	it("uses a caller-supplied writer instead of the Clipboard API", async () => {
@@ -186,20 +168,5 @@ describe("useCopyToClipboard", () => {
 		expect(ok).toBe(true);
 		expect(write).toHaveBeenCalledWith("hello");
 		expect(writeText).not.toHaveBeenCalled();
-	});
-
-	it("reports failure when the caller-supplied writer throws", async () => {
-		const write = vi.fn(() => {
-			throw new Error("no clipboard");
-		});
-		const { result } = renderHook(() => useCopyToClipboard({ write }));
-
-		let ok: boolean | undefined;
-		await act(async () => {
-			ok = await result.current.copy("hello");
-		});
-
-		expect(ok).toBe(false);
-		expect(result.current.copied).toBe(false);
 	});
 });

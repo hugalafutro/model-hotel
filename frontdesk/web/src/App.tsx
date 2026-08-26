@@ -5,6 +5,7 @@ import {
 	SignOutIcon,
 	UsersThreeIcon,
 } from "@phosphor-icons/react";
+import { consumeOidcError } from "@web-shared/oidc";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,7 +26,6 @@ import { useIdleLogout } from "./hooks/useIdleLogout";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { consumeOidcError } from "./utils/oidc";
 
 // Traffic carries recharts (the one heavy dependency), so it loads lazily to
 // keep the initial bundle small; the other tabs are cheap and stay eager.

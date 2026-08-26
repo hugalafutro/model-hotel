@@ -1,3 +1,6 @@
+// ntfy target helpers for the alert destinations both frontends configure.
+// Pure: URL parsing plus crypto.getRandomValues, no React and no app imports.
+
 // ntfyAppriseURL composes the Apprise target URL for an ntfy topic: https
 // servers map to ntfys://host[:port]/topic, plain http to ntfy://. Returns ""
 // while the inputs don't form a valid pair yet. Used by the Alerts panel's

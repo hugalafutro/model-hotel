@@ -1,4 +1,4 @@
-import { isQuotaPayloadVisible } from "@quota-shared";
+import { isQuotaPayloadVisible } from "@web-shared/quota";
 import type { QuotaProviderType, QuotaSnapshot } from "../api/types";
 
 // Front Desk's quota glue. The payload parsing itself lives in
@@ -19,7 +19,7 @@ export {
 	getMiniMaxWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
-} from "@quota-shared";
+} from "@web-shared/quota";
 
 // ── Provider type ────────────────────────────────────────────────────────
 

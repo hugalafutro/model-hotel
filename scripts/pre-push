@@ -276,7 +276,7 @@ fi
 # than in the Docker image build, catching type errors before the push, and is
 # incremental (tsbuildinfo). Covers web/ only; frontdesk/web is not linted here.
 # web-shared/ counts as a web/ change: the dashboard imports it through the
-# @quota-shared alias, so its types are checked by web/'s tsc -b.
+# @web-shared/* alias, so its types are checked by web/'s tsc -b.
 if ! touched '^web/|^web-shared/'; then
 	echo "pre-push: no web/ or web-shared/ changes, skipping pnpm lint + tsc -b"
 elif [ -d "$REPO_ROOT/web/node_modules" ]; then
@@ -288,11 +288,11 @@ elif [ -d "$REPO_ROOT/web/node_modules" ]; then
 else
 	echo "pre-push: pnpm lint + tsc -b (Docker)..."
 	if ! docker run --rm \
-		-v "$REPO_ROOT/web":/app \
+		-v "$REPO_ROOT":/app \
 		-v model-hotel-pnpm-store:/pnpm/store \
-		--tmpfs /app/node_modules:exec \
+		--tmpfs /app/web/node_modules:exec \
 		-e PNPM_HOME=/root/.local/share/pnpm \
-		-w /app \
+		-w /app/web \
 		node:22-alpine \
 		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
 		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
@@ -388,7 +388,7 @@ else
 	fi
 
 	# Front Desk frontend. A web-shared/ change runs this suite too - Front Desk
-	# imports the same modules through @quota-shared - but the report regex stays
+	# imports the same modules through @web-shared/* - but the report regex stays
 	# frontdesk-only: those lines are measured by web/'s report, and asking for
 	# them here would fail the instrumentation guard on every push. The broader
 	# seed regex still hands them to test selection, so a web-shared change runs
