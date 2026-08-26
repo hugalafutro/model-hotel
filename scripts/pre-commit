@@ -11,6 +11,14 @@ current_branch=$(git rev-parse --abbrev-ref HEAD)
 if [ "$current_branch" != "master" ] && [ "$current_branch" != "HEAD" ]; then
 	git fetch origin master --quiet 2>/dev/null || true
 	behind=$(git rev-list --count HEAD..origin/master 2>/dev/null || echo "0")
+	# A conflicted merge of master is concluded with `git commit`, and at that
+	# point HEAD is still the pre-merge tip, so the count above is never zero
+	# even though the commit in progress is exactly what brings master in.
+	# Recognise that case by MERGE_HEAD carrying origin/master and let it through.
+	merge_head=$(git rev-parse -q --verify MERGE_HEAD 2>/dev/null || true)
+	if [ -n "$merge_head" ] && git merge-base --is-ancestor origin/master "$merge_head" 2>/dev/null; then
+		behind=0
+	fi
 	if [ "$behind" -gt 0 ]; then
 		echo "" >&2
 		echo "⛔ STOP. BRANCH BEHIND MASTER. STOP EVERYTHING." >&2
