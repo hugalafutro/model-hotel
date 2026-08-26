@@ -9,7 +9,6 @@
 # Format: path<TAB>lines
 cmd/server/main.go	860
 internal/api/applogs_test.go	2083
-internal/api/configsync_apply.go	1161
 internal/api/discovery.go	885
 internal/api/discovery_integration_quota_test.go	2735
 internal/api/failover.go	929
