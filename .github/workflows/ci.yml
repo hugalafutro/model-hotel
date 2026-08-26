@@ -213,14 +213,16 @@ jobs:
   # Gated on the surfaces it reads: go covers internal/ and cmd/, web and fdweb
   # cover both SPA sources and the web-shared/ code they compile, and sizegate
   # covers the gate's own files, since dropping an allowlist entry is itself
-  # something to adjudicate. workflows is in the list because this job is defined
-  # here: the base it compares against and the command it runs are decided by the
-  # steps below, so a change to them has to be adjudicated by the job it changes
-  # rather than skip on a PR that touches nothing else.
+  # something to adjudicate. On pull requests the job runs unconditionally: the
+  # changed-surfaces classifier is checked out from the pull request itself, so a
+  # PR could edit the classifier to report nothing changed and skip the very job
+  # that adjudicates it. The gating applies to pushes, where the classifier comes
+  # from the merged tree.
   size-check:
     name: Size Check
     needs: changes
     if: >-
+      github.event_name == 'pull_request' ||
       needs.changes.outputs.go != 'false' ||
       needs.changes.outputs.web != 'false' ||
       needs.changes.outputs.fdweb != 'false' ||
