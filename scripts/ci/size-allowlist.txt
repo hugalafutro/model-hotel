@@ -20,7 +20,6 @@ internal/failover/failover.go	1091
 internal/frontdesk/autosync.go	1171
 internal/frontdesk/autosync_test.go	4254
 internal/frontdesk/poller.go	930
-internal/model/model.go	983
 internal/model/model_crud_test.go	2399
 internal/provider/discovery_test.go	2235
 internal/proxy/model_gone.go	1163
