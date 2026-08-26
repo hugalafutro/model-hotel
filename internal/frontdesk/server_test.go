@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -109,6 +110,131 @@ func do(t *testing.T, srv *Server, method, path, body string, auth bool) *httpte
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	return rec
+}
+
+// TestShutdownDrainsBackgroundBeforeClosingTheStore: the ordering Shutdown
+// exists for. A tracked background goroutine finishing its last store read must
+// find the store still open; closing first would leave that read querying a
+// closed handle, which is the unowned-read race the rearm watcher's join avoids
+// inside a pass.
+func TestShutdownDrainsBackgroundBeforeClosingTheStore(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{})
+	var readErr error
+	srv.StartBackground(ctx, func(c context.Context) {
+		close(started)
+		<-c.Done()
+		// The last read on the way out, as every poll loop does.
+		_, readErr = store.AutoSyncGen(context.Background())
+	})
+	<-started
+	cancel() // what the signal handler does before the process winds down
+
+	if err := srv.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if readErr != nil {
+		t.Errorf("background read on the way out failed: %v; the store closed before the drain finished", readErr)
+	}
+	if _, err := store.AutoSyncGen(context.Background()); err == nil {
+		t.Error("store still usable after Shutdown; want it closed")
+	}
+}
+
+// TestShutdownBoundsTheDrain: a background goroutine that ignores its
+// cancellation delays exit by the caller's budget, not forever. Shutdown returns
+// when the context does and closes the store regardless, so a stuck loop cannot
+// hang the process.
+func TestShutdownBoundsTheDrain(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	release := make(chan struct{})
+	releaseStuck := sync.OnceFunc(func() { close(release) })
+	// The server's own Wait cleanup joins this goroutine, so it is released on
+	// every exit from the test, failing ones included.
+	defer releaseStuck()
+	started := make(chan struct{})
+	srv.StartBackground(context.Background(), func(context.Context) {
+		close(started)
+		<-release
+	})
+	<-started
+
+	drainCtx, drainCancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer drainCancel()
+	if err := srv.Shutdown(drainCtx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if _, err := store.AutoSyncGen(context.Background()); err == nil {
+		t.Error("store still usable after a timed-out drain; want it closed anyway")
+	}
+}
+
+// TestStartBackgroundRefusedOnceShutdownBegins: an http.Server drain returns on
+// its own deadline without stopping the handlers still in flight, so a handler
+// can reach a registration after Shutdown has parked its waiter. Registering then
+// would trip sync.WaitGroup's "Add called concurrently with Wait" panic, so the
+// answer is a refusal: the work is not started and the caller is told.
+func TestStartBackgroundRefusedOnceShutdownBegins(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	if err := srv.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	ran := make(chan struct{})
+	if srv.StartBackground(t.Context(), func(context.Context) { close(ran) }) {
+		t.Error("StartBackground reported the work started after Shutdown; want a refusal")
+	}
+	select {
+	case <-ran:
+		t.Error("refused background work ran anyway")
+	default:
+	}
+
+	// The timeout variant prepares a context before it registers, so a refusal has
+	// to release it rather than leave it to the deadline. govet's lostcancel and
+	// the race detector both watch this path; the assertion here is that the
+	// refusal is reported, and that the context comes back already cancelled.
+	var kickCtx context.Context
+	if srv.StartBackgroundTimeout(t.Context(), time.Minute, func(c context.Context) { kickCtx = c }) {
+		t.Error("StartBackgroundTimeout reported the work started after Shutdown; want a refusal")
+	}
+	if kickCtx != nil {
+		t.Error("refused timed background work ran anyway")
+	}
+}
+
+// TestShutdownWaitsForTheSSEReauthTicker: a stream's re-auth ticker reads the
+// session and device tables, so the drain has to cover it. Shutdown must not
+// return, and so must not close the store, while one is still ticking; the
+// request context is what ends it, exactly as a disconnecting client would.
+func TestShutdownWaitsForTheSSEReauthTicker(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	req, cancelReq := sseRequest(t)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := newSSERecorder()
+	streamDone := startStreamWith(t, srv, req, rec, sseTick)
+	awaitWrite(t, rec, "keep-alive") // the ticker is running and re-checking
+
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- srv.Shutdown(t.Context()) }()
+	// t.Context() outlives the test body, so this drain has no deadline of its own
+	// to escape through: only the ticker returning can release it.
+	select {
+	case <-shutdownDone:
+		t.Fatal("Shutdown returned while an SSE re-auth ticker was still running")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancelReq()
+	awaitClosed(t, streamDone, "after its request context was cancelled")
+	if err := <-shutdownDone; err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
 }
 
 func TestServerAuthGate(t *testing.T) {

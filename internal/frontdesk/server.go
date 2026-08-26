@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"crypto/subtle"
 	"io/fs"
 	"net"
@@ -154,11 +155,54 @@ type Server struct {
 	// staleness window has passed since this process started.
 	startedAt time.Time
 	router    http.Handler
-	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
-	// callers can drain them on shutdown. Without it, a kick fired by an enable
-	// keeps writing to the store after a caller (or a test) has moved on, which
-	// races store teardown.
-	bgWG sync.WaitGroup
+	// bgWG tracks every background goroutine the server owns: the detached
+	// auto-sync kick, the process-lifetime poll loops, and an SSE stream's re-auth
+	// ticker. Without it, work fired by a request keeps reading the store after a
+	// caller (or a test) has moved on, which races store teardown.
+	//
+	// bgMu guards bgClosing and pairs registration with it. A sync.WaitGroup panics
+	// on an Add that lifts the counter off zero while a Wait is parked, so
+	// registration and the "are we draining yet" decision have to be one atomic
+	// step: StartBackground holds bgMu across both, and Shutdown takes it to set
+	// bgClosing before it parks. bgClosing stays set; the server is not restartable.
+	bgMu      sync.Mutex
+	bgClosing bool
+	bgWG      sync.WaitGroup
+	// shutdownCtx is cancelled at the top of Shutdown, before the drain parks.
+	// Work a request starts but the server owns (the manual config sync, the
+	// auto-sync kick) takes its lifetime from here, so a fleet-wide run that is
+	// still going when shutdown begins stops at its next cancellation point
+	// instead of outliving the drain budget and recording itself against a store
+	// Shutdown has already closed. It is never cancelled anywhere else: the server
+	// is not restartable, so this is a one-way end-of-life signal.
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelFunc
+}
+
+// detachedCtx pairs one context's lifetime with another's values: Deadline, Done
+// and Err come from the embedded context, Value from values. Neither standard
+// combinator does both, which is why this type exists — context.WithoutCancel
+// keeps a request's values but yields a context nothing can ever cancel, and a
+// plain child of the server's shutdown context can be cancelled but has lost the
+// request's values (the actor a manual sync is attributed to).
+type detachedCtx struct {
+	context.Context                 // lifetime only
+	values          context.Context // values only
+}
+
+// Value answers from the request. The lifetime context carries no values, so
+// there is nothing to fall through to.
+func (d detachedCtx) Value(key any) any { return d.values.Value(key) }
+
+// detachedContext returns the context for work a request starts and the server
+// owns: the request's values with the server's lifetime. Dropping the request's
+// cancellation is what stops a client hanging up from aborting a run half-way;
+// keeping the server's is what stops that same run from writing into a store
+// Shutdown has closed. Hand it to StartBackground (or StartBackgroundTimeout, to
+// bound the run as well), never to a bare goroutine: the lifetime only helps if
+// the drain waits for the work it ends.
+func (s *Server) detachedContext(r *http.Request) context.Context {
+	return detachedCtx{Context: s.shutdownCtx, values: r.Context()}
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -222,6 +266,11 @@ func NewServer(cfg ServerConfig) *Server {
 		backupStale:     make(map[string]bool),
 		startedAt:       time.Now(),
 	}
+	// The server's own lifetime, handed to detached request work. Cancelled by
+	// Shutdown and by nothing else, so a server that is never shut down simply
+	// never ends it.
+	//nolint:gosec // G118: the cancel func is stored on the server and called by Shutdown
+	s.shutdownCtx, s.shutdownCancel = context.WithCancel(context.Background())
 
 	// Bind the scrape-time member-fleet collector to this server's store and
 	// poller so /metrics always reflects current state (one server per process
@@ -263,11 +312,106 @@ func NewServer(cfg ServerConfig) *Server {
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.router.ServeHTTP(w, r) }
 
-// Wait blocks until every detached background goroutine the server has spawned
-// (currently the auto-sync kick) has returned. Use it on graceful shutdown, or
-// in tests before tearing down the backing store, so a still-running kick can't
-// write into a store or temp dir that is being removed.
+// Wait blocks until every background goroutine the server tracks has returned:
+// the detached auto-sync kick, and every process-lifetime loop started through
+// StartBackground. Use it on graceful shutdown, or in tests before tearing down
+// the backing store, so a still-running goroutine can't write into a store or
+// temp dir that is being removed. Shutdown is the bounded version callers should
+// prefer at process exit.
 func (s *Server) Wait() { s.bgWG.Wait() }
+
+// StartBackground runs fn as a tracked background goroutine and reports whether it
+// started, so Wait and Shutdown cover it. The registration happens on the caller's
+// goroutine, before fn is spawned, so a shutdown racing startup still waits for fn
+// rather than missing a counter that had not been incremented yet.
+//
+// It refuses once Shutdown has begun, and that refusal is the whole point of the
+// lock: an http.Server drain returns on its own deadline without stopping the
+// handlers still in flight, so a handler outliving it and registering here would
+// otherwise trip the WaitGroup's "Add called concurrently with Wait" panic.
+// Refusing is also the right answer on its own terms, since anything started at
+// that moment is cancelled milliseconds later. The caller decides what to do
+// without the goroutine; false is a normal shutdown-time answer, not an error.
+//
+// fn owns its exit: it is expected to return when ctx is done, which is how
+// Shutdown's drain ever completes.
+func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) (started bool) {
+	s.bgMu.Lock()
+	defer s.bgMu.Unlock()
+	if s.bgClosing {
+		debuglog.Debug("frontdesk: background work refused, server is shutting down")
+		return false
+	}
+	s.bgWG.Go(func() { fn(ctx) })
+	return true
+}
+
+// StartBackgroundTimeout is StartBackground for detached work that needs its own
+// deadline: it derives a time-bounded context from parent, hands it to fn, and
+// releases it exactly once whichever way the registration goes. fn's own run
+// releases it on the way out; a refusal releases it here, so a caller that is too
+// late to start work never leaks the context it prepared.
+func (s *Server) StartBackgroundTimeout(parent context.Context, d time.Duration, fn func(context.Context)) (started bool) {
+	ctx, cancel := context.WithTimeout(parent, d)
+	if !s.StartBackground(ctx, func(c context.Context) {
+		defer cancel()
+		fn(c)
+	}) {
+		cancel()
+		return false
+	}
+	return true
+}
+
+// Shutdown drains the server's background goroutines and then closes the store,
+// in that order: a goroutine still mid-query would otherwise be reading a store
+// that is already closed, which is the same unowned-read race a convergence pass
+// avoids by joining its rearm watcher.
+//
+// The drain is bounded by ctx. A goroutine that ignores its own cancellation
+// therefore delays exit by the caller's budget rather than hanging the process
+// forever; the store is closed either way and the timed-out drain is logged, so
+// the operator sees which shutdown was untidy.
+//
+// Work that took the server's lifetime rather than a caller's (see
+// detachedContext) is cancelled here as well, before the waiter parks, so it
+// stops on its own instead of racing that budget.
+//
+// It takes ownership of the store it was configured with and closes it, so a
+// caller holding the same *Store must not keep using it afterwards.
+//
+// Nothing can register another goroutine while this drains: the closing flag is
+// set before the waiter parks, and StartBackground refuses from that point on.
+// Callers should still stop accepting requests first (the HTTP server's own
+// Shutdown), so in-flight work has its chance to finish rather than being refused.
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.bgMu.Lock()
+	s.bgClosing = true
+	s.bgMu.Unlock()
+	// Ending the server's lifetime before the waiter parks is what keeps the drain
+	// short for work that carries no deadline of its own: a manual config sync
+	// pushing the fleet on a detached context stops at its next cancellation point
+	// rather than spending the whole budget while the store waits to close.
+	s.shutdownCancel()
+
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		s.Wait()
+	}()
+	select {
+	case <-drained:
+		debuglog.Info("frontdesk: background goroutines drained")
+	case <-ctx.Done():
+		debuglog.Warn("frontdesk: background goroutines still running at shutdown; closing the store anyway",
+			"error", ctx.Err())
+	}
+	// Closing is last and unconditional: the drain above only decides whether it
+	// happens with goroutines still live. The caller logs a failure, which is all
+	// that is left to do at this point in the process's life.
+	debuglog.Info("frontdesk: closing store")
+	return s.store.Close()
+}
 
 // SessionManager exposes the session manager (used by callers wiring background
 // cleanup of expired sessions).

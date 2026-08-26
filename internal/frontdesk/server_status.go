@@ -140,25 +140,31 @@ func (s *Server) revalidate(r *http.Request) bool {
 }
 
 // reauthLoop re-checks the caller's credentials on every tick and reports the
-// verdict on out. Exits when the request context is cancelled.
+// verdict on out. Exits when ctx is cancelled.
+//
+// ctx is the stream's own child of the request context, not r.Context() itself:
+// the parked send below escapes only on a cancel, and the request context does not
+// fire until after the handler has returned, which is too late for the handler to
+// wait on this goroutine. Cancelling the child first is what lets streamEvents
+// join it.
 //
 // Runs off the read loop deliberately. revalidate makes a store round-trip, and
 // the event bus drops events for any subscriber that is not draining its channel
 // (internal/events/bus.go), so doing this inline would trade a slow credential
 // lookup for lost live events on a busy control plane.
-func (s *Server) reauthLoop(r *http.Request, every time.Duration, out chan<- bool) {
+func (s *Server) reauthLoop(ctx context.Context, r *http.Request, every time.Duration, out chan<- bool) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-r.Context().Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			valid := s.revalidate(r)
 			select {
 			case out <- valid:
-			case <-r.Context().Done():
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -186,7 +192,26 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatE
 	// Buffered so a re-auth verdict never parks its goroutine while this loop is
 	// busy writing an event; the loop drains it on the next pass.
 	reauth := make(chan bool, 1)
-	go s.reauthLoop(r, heartbeatEvery, reauth)
+	// The ticker reads the session and device tables, so it is tracked (Shutdown's
+	// drain covers it, even when the HTTP drain gave up on this stream) and joined
+	// (the handler does not return while a store read of its own is still in
+	// flight). Cancelling loopCtx before the join is what unparks a ticker sitting
+	// on the send above.
+	loopCtx, cancelLoop := context.WithCancel(r.Context())
+	loopDone := make(chan struct{})
+	if !s.StartBackground(loopCtx, func(ctx context.Context) {
+		defer close(loopDone)
+		s.reauthLoop(ctx, r, heartbeatEvery, reauth)
+	}) {
+		// Shutting down: nothing will re-check this caller or drive the keep-alive,
+		// so end the stream now rather than serve one that cannot expire.
+		cancelLoop()
+		return
+	}
+	defer func() {
+		cancelLoop()
+		<-loopDone
+	}()
 
 	failures := 0
 	for {
