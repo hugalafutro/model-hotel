@@ -39,6 +39,13 @@ export default defineConfig({
 		fs: { allow: [__dirname, path.resolve(__dirname, "../web-shared")] },
 	},
 	build: {
+		// Fonts are never inlined. Vite's default turns any asset under 4 kB into
+		// a base64 data: URI, which put the two smallest woff2 faces straight into
+		// the CSS; the CSP is default-src 'self' with no font-src data:, so the
+		// browser blocked them and fell back to the next face. Emitting them as
+		// files keeps every font behind the same 'self' rule as the rest of the
+		// bundle. Images keep the default: img-src allows data:.
+		assetsInlineLimit: (file) => (file.endsWith(".woff2") ? false : undefined),
 		// The two chunks over Vite's default 500 kB warning line are both benign:
 		// the per-language Shiki grammars (cpp is the largest at ~640 kB raw but
 		// ~50 kB gzip) are lazy-loaded on demand via SHIKI_LAZY below and never
