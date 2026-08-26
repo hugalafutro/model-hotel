@@ -30,14 +30,6 @@
 # and fails. Move the file first and edit it after, keep it where it is, or split
 # it under the ceiling. Lowered counts and removed entries always pass.
 #
-# A base with no allowlist at all is only legitimate while the gate is being
-# introduced, so it is an error unless the base has no size-gate.sh either. In
-# that bootstrap case the base is empty and snapshot mode applies instead: an entry
-# has to name a file the base branch already carried over the ceiling, record that
-# file's exact size now, and record no more than it measured at the base. So the
-# first list can only inherit debt that predates the gate, in the diff that
-# introduces it, and the branch cannot exempt a file it adds or grows itself.
-#
 # Usage:
 #   size-gate.sh                check; quiet on success, one line per violation
 #   size-gate.sh --base <ref>   also compare the allowlist against that ref's copy
@@ -46,9 +38,9 @@
 #
 # The base ref also comes from SIZE_GATE_BASE, which is how CI passes the pull
 # request's base commit. With neither set the comparison runs against
-# origin/master. A base that does not resolve to a commit is exit 2; a base that
-# resolves but does not carry the allowlist yet is the one case that says so and
-# skips, and the working-tree checks still run.
+# origin/master. The comparison needs the allowlist at the base, so both a base
+# that does not resolve to a commit and a base that resolves without carrying the
+# allowlist are exit 2: a comparison that cannot happen is never waved through.
 #
 # Exit codes: 0 clean, 1 violations found, 2 bad usage or unreadable allowlist.
 
@@ -57,11 +49,6 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 ALLOWLIST_REL="scripts/ci/size-allowlist.txt"
 ALLOWLIST="$ROOT/$ALLOWLIST_REL"
-GATE_REL="scripts/ci/size-gate.sh"
-
-# Set when the base predates the gate itself, which turns the comparison into an
-# exact snapshot of the tree rather than a shrink-only diff.
-BOOTSTRAP=0
 
 # The ref whose allowlist the working-tree one is compared against. A base that
 # does not resolve to a commit is a hard error either way: skipping there would
@@ -298,10 +285,10 @@ load_allowlist() {
 	done <"$PARSED_FILE"
 }
 
-# Fills BASE_RECORDED from the allowlist at $BASE_REF, or sets BOOTSTRAP when the
-# base predates the gate. Anything else it cannot read is a hard error: a base
-# whose allowlist the gate cannot see is a comparison that did not happen, and
-# skipping one is how a branch would exempt whatever it just grew.
+# Fills BASE_RECORDED from the allowlist at $BASE_REF. Anything it cannot read is
+# a hard error: a base whose allowlist the gate cannot see is a comparison that
+# did not happen, and skipping one is how a branch would exempt whatever it just
+# grew.
 load_base_allowlist() {
 	local path lines
 	# ^{commit} is load-bearing: rev-parse --verify accepts any full 40-hex string
@@ -323,17 +310,10 @@ load_base_allowlist() {
 		done <"$PARSED_FILE"
 		return 0
 	fi
-	# The base has no allowlist. That is only the truth while the gate is being
-	# introduced, which the base's own copy of the script settles: if the script
-	# is there, the allowlist belongs beside it and its absence means the branch
-	# deleted it or the base is the wrong ref.
-	if git -C "$ROOT" cat-file -e "$BASE_REF:$GATE_REL" 2>/dev/null; then
-		echo "size-gate: $BASE_REF carries $GATE_REL but no $ALLOWLIST_REL; the allowlist comes from the base branch, so restore it or name the right base" >&2
-		exit 2
-	fi
-	BOOTSTRAP=1
-	echo "size-gate: $BASE_REF predates the gate; bootstrap snapshot mode, where an entry names only a file already over its ceiling at $BASE_REF, at its exact current size and no more than it measured there"
-	return 0
+	# No allowlist at the base, so there is nothing to compare against: either the
+	# branch deleted it or the base is the wrong ref.
+	echo "size-gate: $BASE_REF carries no $ALLOWLIST_REL; the allowlist comes from the base branch, so restore it or name the right base" >&2
+	exit 2
 }
 
 # Renames git detects between the base and the working tree, keyed by new path.
@@ -362,50 +342,8 @@ load_renames() {
 # entry the list is dropping. Git decides what a rename is, so an unrelated
 # oversized file cannot take a dropped entry's place by matching its line count.
 compare_with_base() {
-	local path count base_lines apath acount origin
+	local path count apath acount origin
 	local -a added=()
-	local -A actual=()
-
-	# Bootstrap: the base is empty, so every entry is new and the rename rule would
-	# reject the whole list. Snapshot mode takes its place, and it photographs the
-	# BASE tree, not this one. An entry has to name a file the base branch already
-	# carried over the ceiling, record that file's exact size now, and record no
-	# more than it measured at the base. So the first list can only ever inherit
-	# debt that predates the gate: a file the branch itself adds or grows past the
-	# ceiling has no entry available to it, and no entry grants headroom. Entries
-	# for files that are not over their ceiling now are caught by the stale-entry
-	# rule in check(), and a file over its ceiling with no entry by rule one.
-	if [ "$BOOTSTRAP" -eq 1 ]; then
-		while IFS=$'\t' read -r path count; do
-			actual[$path]=$count
-		done <"$OFFENDERS_FILE"
-		for path in "${!RECORDED[@]}"; do
-			count=${actual[$path]-}
-			if [ -z "$count" ]; then
-				continue
-			fi
-			if ! git -C "$ROOT" cat-file -e "$BASE_REF:$path" 2>/dev/null; then
-				echo "$path: not in $BASE_REF: a bootstrap snapshot exempts only files the base branch already carried over the ceiling" >&2
-				VIOLATIONS=$((VIOLATIONS + 1))
-				continue
-			fi
-			base_lines=$(git -C "$ROOT" cat-file -p "$BASE_REF:$path" | wc -l)
-			if [ "$base_lines" -le "$(ceiling_for "$path")" ]; then
-				echo "$path: $base_lines lines at $BASE_REF, under its ceiling there: a bootstrap snapshot exempts only files the base branch already carried over the ceiling" >&2
-				VIOLATIONS=$((VIOLATIONS + 1))
-				continue
-			fi
-			if [ "${RECORDED[$path]}" -ne "$count" ]; then
-				echo "$path: recorded ${RECORDED[$path]}, $count lines on disk: a bootstrap snapshot records each file's exact current size" >&2
-				VIOLATIONS=$((VIOLATIONS + 1))
-			fi
-			if [ "${RECORDED[$path]}" -gt "$base_lines" ]; then
-				echo "$path: recorded ${RECORDED[$path]}, $base_lines lines at $BASE_REF: a bootstrap snapshot may not record more than the base branch carried" >&2
-				VIOLATIONS=$((VIOLATIONS + 1))
-			fi
-		done
-		return
-	fi
 
 	for path in "${!RECORDED[@]}"; do
 		count=${RECORDED[$path]}
