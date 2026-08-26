@@ -1,0 +1,248 @@
+import { screen, waitFor } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { server } from "../../test/mocks/server";
+import { renderWithProviders } from "../../test/utils";
+import { Layout } from "../Layout";
+
+describe("Layout", () => {
+	const mockChildren = <div data-testid="main-content">Page Content</div>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		// Auth is the readable mh_csrf cookie (seeded once in setup.ts). The logout
+		// tests clear it, so re-seed before every test to keep the suite
+		// order-independent.
+		document.cookie = "mh_csrf=test-csrf; path=/";
+	});
+
+	describe("Failover Circuit Breaker Badge", () => {
+		it("does not show CB badge when all counts are zero", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({ closed: 0, half_open: 0, open: 0 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			// "Failover" link exists but no colored count spans
+			const failoverLink = screen.getByText("Failover").closest("a");
+			expect(failoverLink).toBeInTheDocument();
+			// No colored count elements (they have title attributes)
+			const countElements = failoverLink?.querySelectorAll("[title]");
+			expect(countElements?.length).toBe(0);
+		});
+
+		it("shows CB badge with half-open/open counts when breakers are active", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({ closed: 3, half_open: 1, open: 2 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				// Amber half-open count
+				const halfOpenCounts = screen.getAllByText("1");
+				expect(halfOpenCounts.length).toBeGreaterThan(0);
+				// Red open count
+				const openCounts = screen.getAllByText("2");
+				expect(openCounts.length).toBeGreaterThan(0);
+			});
+
+			// The healthy (closed) count is no longer surfaced in the badge —
+			// it was almost always just the provider count and confused users.
+			const failoverLink = screen.getByText("Failover").closest("a");
+			expect(failoverLink?.textContent).not.toContain("3");
+		});
+
+		it("does not show the badge when only healthy (closed) providers exist", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({ closed: 5, half_open: 0, open: 0 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			// The badge only appears when something is recovering or tripped, so a
+			// fully-healthy fleet shows no badge and never surfaces the count "5".
+			const failoverLink = screen.getByText("Failover").closest("a");
+			await waitFor(() => {
+				expect(failoverLink?.querySelectorAll("[title]").length).toBe(0);
+			});
+			expect(failoverLink?.textContent).not.toContain("5");
+		});
+
+		it("shows tooltip with open/half-open provider names", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 1,
+						half_open: 1,
+						open: 2,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Healthy Provider",
+								state: "closed",
+								consecutive_fails: 0,
+							},
+							{
+								provider_id: "p-2",
+								provider_name: "Wobbly Provider",
+								state: "half-open",
+								consecutive_fails: 2,
+							},
+							{
+								provider_id: "p-3",
+								provider_name: "Down Provider",
+								state: "open",
+								consecutive_fails: 5,
+							},
+							{
+								provider_id: "p-4",
+								provider_name: "Also Down",
+								state: "open",
+								consecutive_fails: 3,
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				// The badge pill should have a title listing only unhealthy providers
+				const badge = screen
+					.getByText("Failover")
+					.closest("a")
+					?.querySelector("[title]");
+				expect(badge).toBeInTheDocument();
+				const tooltip = badge?.getAttribute("title");
+				expect(tooltip).toContain("Wobbly Provider");
+				expect(tooltip).toContain("Down Provider");
+				expect(tooltip).toContain("Also Down");
+				expect(tooltip).not.toContain("Healthy Provider");
+			});
+		});
+
+		/** The badge tooltip, split into its lines. */
+		function badgeTooltipLines(): string[] {
+			const tooltip = screen
+				.getByText("Failover")
+				.closest("a")
+				?.querySelector("[title]")
+				?.getAttribute("title");
+			return tooltip?.split("\n") ?? [];
+		}
+
+		async function renderWithProviderStatuses(
+			providers: Record<string, unknown>[],
+		) {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 0,
+						half_open: providers.filter((p) => p.state === "half-open").length,
+						open: providers.filter((p) => p.state === "open").length,
+						providers,
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(badgeTooltipLines().length).toBeGreaterThan(1);
+			});
+		}
+
+		it("lists quota-pinned providers on their own tooltip line", async () => {
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Down Provider",
+					state: "open",
+					consecutive_fails: 5,
+				},
+				{
+					provider_id: "p-2",
+					provider_name: "Quota Provider",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+				},
+			]);
+
+			// Explanation line, ordinary-cooldown line, quota-pinned line. The two
+			// provider lines must be distinct so a week-long pin is not read as a
+			// sixty-second cooldown.
+			const lines = badgeTooltipLines();
+			expect(lines).toHaveLength(3);
+			const pinnedLine = lines.find((l) => l.includes("Quota Provider"));
+			const ordinaryLine = lines.find((l) => l.includes("Down Provider"));
+			expect(pinnedLine).toBeDefined();
+			expect(ordinaryLine).toBeDefined();
+			expect(pinnedLine).not.toContain("Down Provider");
+			expect(ordinaryLine).not.toContain("Quota Provider");
+		});
+
+		it("moves a pinned provider off the quota line once its pin has expired", async () => {
+			// The backend keeps quota_pinned set for the whole life of the pinned
+			// circuit and re-reports it as half-open once the deadline passes, with
+			// no next_retry_at. Reading quota_pinned alone would keep claiming the
+			// provider is waiting on a quota window that has already reset.
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Still Pinned",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+				},
+				{
+					provider_id: "p-2",
+					provider_name: "Pin Expired",
+					state: "half-open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+				},
+			]);
+
+			const lines = badgeTooltipLines();
+			expect(lines).toHaveLength(3);
+			const pinnedLine = lines.find((l) => l.includes("Still Pinned"));
+			const ordinaryLine = lines.find((l) => l.includes("Pin Expired"));
+			expect(pinnedLine).toBeDefined();
+			expect(ordinaryLine).toBeDefined();
+			// The expired pin belongs with the ordinary ready-to-probe providers,
+			// not with the ones still waiting on a reset.
+			expect(pinnedLine).not.toContain("Pin Expired");
+			expect(ordinaryLine).not.toContain("Still Pinned");
+		});
+
+		it("omits the ordinary-cooldown line when every unhealthy provider is pinned", async () => {
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Quota One",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+				},
+				{
+					provider_id: "p-2",
+					provider_name: "Quota Two",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+				},
+			]);
+
+			// Explanation line plus the quota line only: an empty ordinary bucket
+			// must not render a line claiming zero providers.
+			const lines = badgeTooltipLines();
+			expect(lines).toHaveLength(2);
+			expect(lines[1]).toContain("Quota One");
+			expect(lines[1]).toContain("Quota Two");
+		});
+	});
+});

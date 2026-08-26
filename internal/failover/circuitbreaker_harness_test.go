@@ -1,0 +1,226 @@
+package failover
+
+import (
+	"context"
+	"log/slog"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
+)
+
+// Fixtures the circuit-breaker tests share.
+
+func newTestCB(threshold int, cooldown time.Duration) *CircuitBreaker {
+	cb := NewCircuitBreaker(nil)
+	cb.Threshold = threshold
+	cb.Cooldown = cooldown
+	cb.HalfOpenMaxProbes = 1
+	return cb
+}
+
+// stubSettings implements SettingsReader for tests.
+type stubSettings struct {
+	threshold int
+	cooldown  time.Duration
+	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
+	pinEnabled *bool
+	// pinMax overrides circuit_breaker_quota_pin_max when positive.
+	pinMax time.Duration
+}
+
+func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
+	if key == "circuit_breaker_threshold" && s.threshold > 0 {
+		return s.threshold
+	}
+	return def
+}
+
+func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+	if key == "circuit_breaker_cooldown" && s.cooldown > 0 {
+		return s.cooldown
+	}
+	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
+		return s.pinMax
+	}
+	return def
+}
+
+func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
+	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
+		return *s.pinEnabled
+	}
+	return def
+}
+
+type stubAdvisor struct {
+	at time.Time
+	ok bool
+}
+
+func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
+
+// openBreaker drives a fresh breaker to the Open state using real failures.
+func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+	t.Helper()
+	for i := 0; i < cb.effectiveThreshold(); i++ {
+		cb.RecordFailure(id, "test-provider")
+	}
+	if got := cb.GetState(id); got != StateOpen {
+		t.Fatalf("setup: got state %v, want open", got)
+	}
+}
+
+// waitForOpenEvent reads from sub until it sees a "circuit_breaker.open" event
+// whose provider_id metadata matches id, or the deadline elapses. Filtering by
+// type and provider makes the assertion deterministic even though the shared
+// DefaultBus channel could otherwise carry events from a different provider
+// or a different transition first.
+func waitForOpenEvent(t *testing.T, sub chan events.Event, id uuid.UUID) events.Event {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-sub:
+			if ev.Type != "circuit_breaker.open" {
+				continue
+			}
+			if pid, _ := ev.Metadata["provider_id"].(string); pid != id.String() {
+				continue
+			}
+			return ev
+		case <-deadline:
+			t.Fatalf("no circuit_breaker.open event for provider %s published within timeout", id)
+			return events.Event{}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Open-transition log trail
+// ---------------------------------------------------------------------------
+
+// capturedLog is one slog record reduced to what these assertions care about.
+type capturedLog struct {
+	level slog.Level
+	msg   string
+	attrs map[string]any
+}
+
+// logCaptureHandler records every slog record emitted while it is installed.
+type logCaptureHandler struct {
+	mu      sync.Mutex
+	records []capturedLog
+}
+
+func (h *logCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *logCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	rec := capturedLog{level: r.Level, msg: r.Message, attrs: make(map[string]any, r.NumAttrs())}
+	r.Attrs(func(a slog.Attr) bool {
+		rec.attrs[a.Key] = a.Value.Any()
+		return true
+	})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, rec)
+	return nil
+}
+
+func (h *logCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *logCaptureHandler) WithGroup(string) slog.Handler      { return h }
+
+// forProvider returns the records whose provider_id attribute matches id, so an
+// assertion can never be satisfied by a line another test or another provider
+// emitted onto the process-wide logger.
+func (h *logCaptureHandler) forProvider(id uuid.UUID) []capturedLog {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []capturedLog
+	for _, r := range h.records {
+		if pid, ok := r.attrs["provider_id"].(uuid.UUID); ok && pid == id {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// last returns the most recent record with the given message. Used where the
+// line's own provider_id is a plain string (the circuits map is keyed by the
+// provider's UUID string), which forProvider's uuid.UUID assertion cannot match.
+func (h *logCaptureHandler) last(msg string) (slog.Level, map[string]any, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i := len(h.records) - 1; i >= 0; i-- {
+		if h.records[i].msg == msg {
+			return h.records[i].level, h.records[i].attrs, true
+		}
+	}
+	return 0, nil, false
+}
+
+// captureLogs installs a capturing slog handler for the duration of the test.
+// SetHandler swaps the process-wide default, so the previous one is restored.
+func captureLogs(t *testing.T) *logCaptureHandler {
+	t.Helper()
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	capt := &logCaptureHandler{}
+	debuglog.SetHandler(capt)
+	return capt
+}
+
+// waitForOnOpen returns the provider the open callback reported, or fails the
+// test if nothing arrives. The callback runs on its own goroutine, so a channel
+// with a deadline is the only sound way to observe it.
+func waitForOnOpen(t *testing.T, got <-chan uuid.UUID) uuid.UUID {
+	t.Helper()
+	select {
+	case id := <-got:
+		return id
+	case <-time.After(2 * time.Second):
+		t.Fatal("open transition did not invoke the open callback")
+		return uuid.Nil
+	}
+}
+
+// backdateOpen moves a circuit's open instant into the past, so a cooldown
+// computed from openedAt is distinguishable from one computed from now without
+// the test waiting out real time.
+func backdateOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, by time.Duration) {
+	t.Helper()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	c, ok := cb.circuits[id.String()]
+	if !ok {
+		t.Fatalf("setup: no circuit tracked for %s", id)
+	}
+	c.openedAt = c.openedAt.Add(-by)
+}
+
+// overrideFor reads a circuit's stored quota override. Status reports the
+// cooldown actually governing the circuit, which hides the override whenever
+// pinning is switched off, so assertions about the override itself read it here.
+func overrideFor(t *testing.T, cb *CircuitBreaker, id uuid.UUID) time.Duration {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	c, ok := cb.circuits[id.String()]
+	if !ok {
+		t.Fatalf("no circuit tracked for %s", id)
+	}
+	return c.cooldownOverride
+}
+
+func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {
+	t.Helper()
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Fatalf("got %d statuses, want 1", len(statuses))
+	}
+	return statuses[0]
+}
