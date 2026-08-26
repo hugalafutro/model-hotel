@@ -21,8 +21,6 @@ internal/provider/discovery_test.go	2235
 internal/proxy/model_gone.go	1163
 internal/proxy/model_gone_test.go	2739
 internal/proxy/models_test.go	2307
-internal/proxy/multimodal.go	1071
-internal/proxy/proxy.go	976
 internal/proxy/upstream_classify.go	804
 web/src/api/types.ts	1058
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
