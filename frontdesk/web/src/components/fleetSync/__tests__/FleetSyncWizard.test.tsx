@@ -2,9 +2,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { FleetMemberStatus, MemberView } from "../../api/types";
-import { ToastProvider } from "../../context/ToastContext";
-import { server } from "../../test/server";
+import type { FleetMemberStatus, MemberView } from "../../../api/types";
+import { ToastProvider } from "../../../context/ToastContext";
+import { server } from "../../../test/server";
 import { FleetSyncWizard } from "../FleetSyncWizard";
 
 function member(id: string, name: string): MemberView {

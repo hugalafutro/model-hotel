@@ -8,7 +8,8 @@
 #
 # Format: path<TAB>lines
 cmd/server/main.go	860
-frontdesk/web/src/components/FleetSyncWizard.tsx	1238
+internal/api/admin.go	1096
+internal/api/admin_test.go	2332
 internal/api/applogs_test.go	2083
 internal/api/configsync_apply.go	1161
 internal/api/discovery.go	885
@@ -31,7 +32,6 @@ internal/proxy/multimodal.go	1071
 internal/proxy/proxy.go	976
 internal/proxy/proxy_failover.go	1380
 internal/proxy/upstream_classify.go	804
-web/src/api/client.ts	1759
 web/src/api/types.ts	1058
 web/src/components/Layout.tsx	1065
 web/src/components/ModelDiscrepancyModal.tsx	1276
