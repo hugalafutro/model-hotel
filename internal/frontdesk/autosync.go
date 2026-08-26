@@ -371,15 +371,15 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	// passCtx is the cancellation point the pre-import gates cannot provide: a
 	// watcher cancels it the instant a rearm moves the generation, aborting an
 	// import already in flight. Every member HTTP call below runs under it, and the
-	// deferred cancel stops the watcher when the pass returns.
+	// deferred stop cancels the watcher and waits for it when the pass returns.
 	//
 	// rearmCh is captured before watchRearm re-reads the generation, so a rearm
 	// landing in that gap still wakes the watcher: the channel is closed, not
 	// missed.
 	rearmCh := s.rearmChan()
 	passCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go s.watchRearm(passCtx, rearmCh, gen, cancel)
+	stopWatch := s.startRearmWatch(passCtx, rearmCh, gen, cancel)
+	defer stopWatch()
 
 	// The primary's export is fetched on demand: a settled fleet never needs it, and
 	// building and shipping the whole envelope every tick is the bulk of what an idle
@@ -1130,31 +1130,6 @@ func (s *Server) resetIncompleteRetries() {
 	for id, st := range s.syncIncomplete {
 		st.lastAttempt = time.Time{}
 		s.syncIncomplete[id] = st
-	}
-}
-
-// watchRearm cancels a convergence pass the moment its rearm generation goes
-// stale, so a rearm landing while applyMemberConfig is mid-flight aborts the HTTP
-// request instead of finishing a now-stale write.
-//
-// rearmCh is the in-process broadcast closed by signalRearm, so the wake is
-// synchronous with the generation bump rather than gated on a poll. The generation
-// is re-read first to close the gap between the caller capturing gen and this
-// watcher starting, where the channel close may predate the capture. The watcher
-// exits as soon as ctx is done, so it never outlives the pass. A transient read
-// error is ignored; the pass's own stale() gates remain.
-func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelFunc) {
-	if cur, err := s.store.AutoSyncGen(ctx); err == nil && cur != gen {
-		cancel()
-		return
-	}
-	select {
-	case <-ctx.Done():
-	case <-rearmCh:
-		// A rearm broadcast woke us: the fleet's sync inputs changed (a gen-bumping
-		// rearm/repoint, or a disband that cleared the designation without touching
-		// the gen), so this pass is stale either way: cancel it.
-		cancel()
 	}
 }
 

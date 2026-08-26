@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -28,7 +29,24 @@ type stubConfigMember struct {
 	gotImport   bool
 	gotDryRun   bool
 	gotBackup   bool
-	srv         *httptest.Server
+	// importHeld, when set, holds a real (non dry-run) import open: entry is
+	// announced on importEntered and the answer waits for importGate, so a test can
+	// park a sync mid-import and act while it is in flight. A caller that hangs up
+	// (a cancelled context) releases the handler too, which is how a real member
+	// behaves when Front Desk abandons the push.
+	importHeld    bool
+	importEntered chan struct{}
+	importGate    chan struct{}
+	srv           *httptest.Server
+}
+
+// holdRealImport parks the stub's real import until the returned release func is
+// called, and returns the channel closed when the import is entered.
+func (sm *stubConfigMember) holdRealImport() (entered <-chan struct{}, release func()) {
+	sm.importHeld = true
+	sm.importEntered = make(chan struct{})
+	sm.importGate = make(chan struct{})
+	return sm.importEntered, sync.OnceFunc(func() { close(sm.importGate) })
 }
 
 func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
@@ -50,6 +68,14 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			sm.gotImport = true
 			sm.gotDryRun = r.URL.Query().Get("dryRun") != ""
+			if sm.importHeld && !sm.gotDryRun {
+				close(sm.importEntered)
+				select {
+				case <-sm.importGate:
+				case <-r.Context().Done():
+					return
+				}
+			}
 			if sm.importDelay > 0 {
 				time.Sleep(sm.importDelay)
 			}

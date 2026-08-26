@@ -79,6 +79,13 @@ services:
                 COMMIT: ${COMMIT:-unknown}
         # Prebuilt image (uncomment to pin a published tag instead of building):
         # image: ghcr.io/hugalafutro/model-hotel-frontdesk:latest
+        # Front Desk winds down in stages on SIGTERM: up to 10s draining HTTP
+        # (an open SSE tab ends at once, so this is usually instant), up to 5s
+        # joining the background poll loops before the SQLite store closes, and
+        # up to 5s flushing the OTLP log exporter. Docker's default grace is 10s,
+        # which would SIGKILL partway through and cut off both the store close and
+        # the final log lines.
+        stop_grace_period: 30s
         labels:
             app.group: model-hotel-ha
         environment:

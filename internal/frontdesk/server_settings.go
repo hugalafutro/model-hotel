@@ -388,12 +388,14 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// context (which ends when we respond) but time-bounded so a stuck pass cannot
 	// leak the goroutine. A no-op when nothing has drifted; the loop still owns the
 	// steady-state watch. Disabling (or no primary) never kicks.
+	// Registering through the server's background group rather than a bare
+	// goroutine is what keeps this safe during shutdown: a handler can still be
+	// running after the HTTP drain gave up, and the kick is refused from that point
+	// on, its context released for it. A kick that is already running takes the
+	// server's lifetime from detachedContext, so shutdown ends it instead of
+	// leaving the drain to wait out a fifteen-minute pass.
 	if status.Enabled && status.PrimaryID != "" {
-		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
-		s.bgWG.Go(func() {
-			defer cancel()
-			s.forceAutoSyncNow(kickCtx)
-		})
+		s.StartBackgroundTimeout(s.detachedContext(r), autoSyncKickTimeout, s.forceAutoSyncNow)
 	}
 	writeJSON(w, http.StatusOK, status)
 }
