@@ -15,6 +15,7 @@ linters:
     - gocritic     # Style and performance checks (unchecked range values, sloppy realloc)
     - revive       # Drop-in golint replacement with extra rules
     - gocyclo      # Cyclomatic complexity (prod code only; tests + generated migrations excluded below)
+    - funlen       # Function length (prod code only; tests excluded below)
     - errorlint    # Proper error wrapping/inspection (errors.Is, errors.As)
     - nilerr       # Checks for returning nil even if err != nil
     - bodyclose    # HTTP response body must be closed
@@ -40,6 +41,17 @@ linters:
       # function is currently 29); lower this as further refactors land.
       min-complexity: 30
 
+    funlen:
+      # Length ceiling for prod functions, counted in lines only: statements: -1
+      # disables the second dimension so one long switch does not read as two
+      # violations. Comments do not count toward the limit, so documenting a
+      # function never pushes it over. 200 is the current ratchet: the one prod
+      # function still above it, cmd/server's main at 298 lines, is excluded by
+      # name below. Lower this as further refactors land.
+      lines: 200
+      statements: -1
+      ignore-comments: true
+
     gocritic:
       enabled-tags:
         - diagnostic
@@ -55,12 +67,16 @@ linters:
     rules:
       # Test files: errcheck noise from defer os.RemoveAll, w.Write in httptest, etc.
       # Also exclude gosec G104 (unhandled errors) in test files - os.Setenv, json.Decode, etc.
+      # The size linters (gocyclo, funlen) are prod-only too: a table-driven test
+      # is one long function by design, and its size is capped by the file-size
+      # gate in scripts/ci/size-gate.sh instead.
       - path: _test\.go
         linters:
           - errcheck
           - bodyclose
           - gosec
           - gocyclo
+          - funlen
 
       # SA5011 (possible nil deref) is noise in tests: constructors that never
       # return nil are routinely nil-checked then used, and values guarded by a
@@ -92,6 +108,16 @@ linters:
       - path: internal/db/migrations/
         linters:
           - gocyclo
+
+      # The one prod function still above the funlen ratchet: cmd/server's main
+      # is a linear wiring sequence (config, db, migrations, every repository and
+      # service, routes, signal handling) where each step needs the ones before
+      # it. Named explicitly rather than raising the limit, so it is the only
+      # exception and it disappears the moment main is split.
+      - path: cmd/server/main\.go
+        linters:
+          - funlen
+        text: "Function 'main' is too long"
 
       # gocritic style/performance suggestions are advisory
       - linters:

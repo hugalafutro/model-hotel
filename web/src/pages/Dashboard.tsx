@@ -36,6 +36,7 @@ import { ModelDetailModal } from "./Models/ModelDetailModal";
 /* =====================================================
    DASHBOARD
    ===================================================== */
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Dashboard() {
 	const { t } = useTranslation();
 	// Owner filter is admin-only: non-admins are already server-scoped to

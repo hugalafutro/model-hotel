@@ -195,6 +195,7 @@ const deserializeRange = (stored: string, fallback: Range): Range =>
 const deserializeMetric = (stored: string, fallback: MetricType): MetricType =>
 	VALID_METRICS.has(stored as MetricType) ? (stored as MetricType) : fallback;
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this hook
 export function useDashboard(): UseDashboardReturn {
 	// Global state with localStorage persistence
 	const [globalRange, setGlobalRange] = useLocalStorage<Range>(

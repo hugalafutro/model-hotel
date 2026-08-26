@@ -18,6 +18,7 @@ function errMessage(err: unknown, fallback: string): string {
 	return fallback;
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function UserModal({
 	user,
 	managed = false,
