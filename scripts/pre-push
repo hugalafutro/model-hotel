@@ -288,11 +288,11 @@ elif [ -d "$REPO_ROOT/web/node_modules" ]; then
 else
 	echo "pre-push: pnpm lint + tsc -b (Docker)..."
 	if ! docker run --rm \
-		-v "$REPO_ROOT/web":/app \
+		-v "$REPO_ROOT":/app \
 		-v model-hotel-pnpm-store:/pnpm/store \
-		--tmpfs /app/node_modules:exec \
+		--tmpfs /app/web/node_modules:exec \
 		-e PNPM_HOME=/root/.local/share/pnpm \
-		-w /app \
+		-w /app/web \
 		node:22-alpine \
 		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
 		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
