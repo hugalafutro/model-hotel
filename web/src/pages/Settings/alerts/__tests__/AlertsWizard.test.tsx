@@ -5,13 +5,8 @@ import type { AlertEventDef } from "../../../../api/types";
 import i18n from "../../../../i18n";
 import { server } from "../../../../test/mocks/server";
 import { renderWithProviders } from "../../../../test/utils";
-import {
-	AlertsWizard,
-	type AlertsWizardProps,
-	initialState,
-	isDuplicate,
-	reducer,
-} from "../AlertsWizard";
+import { AlertsWizard, type AlertsWizardProps } from "../AlertsWizard";
+import { initialState, isDuplicate, reducer } from "../wizardState";
 
 // The same catalog the mocked GET /api/alert/events serves, because step 6
 // renders the card's own picker: the wizard is handed the catalog for the
