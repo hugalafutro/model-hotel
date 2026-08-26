@@ -19,6 +19,7 @@ import { isBreachedPasswordError } from "../../utils/passwordPolicy";
  * session the caller already holds. Reuses the settings.totp.* strings so the
  * two panels stay word-for-word consistent across locales.
  */
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Security() {
 	const { t } = useTranslation();
 	const { toast } = useToast();

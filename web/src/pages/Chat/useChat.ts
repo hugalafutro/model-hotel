@@ -19,7 +19,7 @@ import { useChatPersistence } from "./useChatPersistence";
 import { useChatRandomActions } from "./useChatRandom";
 import { useConversationRunner } from "./useConversationRunner";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
-
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this hook
 export function useChat() {
 	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
 	// False while the chat model list is doing its first load. Actions that would

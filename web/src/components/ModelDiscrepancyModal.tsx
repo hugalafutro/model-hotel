@@ -93,7 +93,7 @@ export interface ModelDiscrepancyModalProps {
 	 * take this: everything else in here is per-member listing evidence. */
 	managed?: boolean;
 }
-
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function ModelDiscrepancyModal({
 	providers,
 	groupClaims,

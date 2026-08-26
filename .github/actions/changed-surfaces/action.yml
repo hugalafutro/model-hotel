@@ -28,6 +28,9 @@ outputs:
   i18n:
     description: anything the offline locale gate reads changed
     value: ${{ steps.filter.outputs.i18n }}
+  sizegate:
+    description: the size gate's own script or allowlist changed
+    value: ${{ steps.filter.outputs.sizegate }}
   image:
     description: something the Docker images actually carry changed
     value: ${{ steps.filter.outputs.image }}
@@ -76,7 +79,7 @@ runs:
         # workflow_dispatch answer: a manual run is an explicit "test it all".
         run_everything() {
           echo "running everything: $1"
-          for k in go web fdweb workflows deps i18n image python android measurable all_coverage; do
+          for k in go web fdweb workflows deps i18n sizegate image python android measurable all_coverage; do
             echo "$k=true" >> "$GITHUB_OUTPUT"
           done
           echo "codeql_langs=$ALL_LANGS" >> "$GITHUB_OUTPUT"
@@ -158,6 +161,10 @@ runs:
         # The coverage jobs run the coverage scripts' own self-tests, so a change
         # to those scripts has to reach them even with no code change.
         covtools=$(match '^scripts/coverage/')
+        # An allowlist edit is exactly what the size gate exists to adjudicate
+        # (dropping an entry for a file still over its ceiling has to fail), so a
+        # change to the gate's own files runs it even with no source change.
+        sizegate=$(match '^scripts/ci/size-')
         python=$(match '\.py$')
         # Bellhop's quota tests read the same testdata/quota-contract/ fixtures
         # the two SPAs do, so a fixture change is an android change too.
@@ -235,6 +242,7 @@ runs:
           echo "workflows=$workflows"
           echo "deps=$deps"
           echo "i18n=$i18n"
+          echo "sizegate=$sizegate"
           echo "image=$image"
           echo "python=$python"
           echo "android=$android"
@@ -254,6 +262,7 @@ runs:
           echo "| workflows | $workflows |"
           echo "| dependencies | $deps |"
           echo "| i18n | $i18n |"
+          echo "| size gate | $sizegate |"
           echo "| image | $image |"
           echo "| Python | $python |"
           echo "| android/ | $android |"

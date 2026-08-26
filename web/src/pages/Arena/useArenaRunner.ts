@@ -69,6 +69,7 @@ export interface ArenaRunner {
 	abortMapRef: React.RefObject<Map<string, AbortController>>;
 }
 
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this hook
 export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	const {
 		arenaModeRef,
