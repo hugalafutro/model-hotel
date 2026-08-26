@@ -7,7 +7,6 @@
 # over the ceiling gets split instead.
 #
 # Format: path<TAB>lines
-cmd/server/main.go	860
 internal/api/applogs_test.go	2083
 internal/api/discovery_integration_quota_test.go	2735
 internal/failover/circuitbreaker_test.go	2056
@@ -16,5 +15,4 @@ internal/model/model_crud_test.go	2399
 internal/provider/discovery_test.go	2235
 internal/proxy/model_gone_test.go	2739
 internal/proxy/models_test.go	2307
-web/src/api/types.ts	1058
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
