@@ -1,0 +1,47 @@
+# Files above the size gate's ceiling (800 lines of production code, 2000 of
+# tests), each with the line count that is its personal ceiling.
+#
+# This list only shrinks. A recorded count may be lowered when its file gets
+# smaller (scripts/ci/size-gate.sh --update does that), and an entry is dropped
+# once its file is back under the ceiling. Nothing may be added: a new file
+# over the ceiling gets split instead.
+#
+# Format: path<TAB>lines
+cmd/server/main.go	860
+frontdesk/web/src/components/FleetSyncWizard.tsx	1238
+internal/api/admin.go	1096
+internal/api/admin_test.go	2332
+internal/api/applogs_test.go	2083
+internal/api/configsync_apply.go	1161
+internal/api/discovery.go	885
+internal/api/discovery_integration_quota_test.go	2735
+internal/api/failover.go	929
+internal/api/logs.go	809
+internal/api/stats.go	843
+internal/failover/circuitbreaker_test.go	2056
+internal/failover/failover.go	1091
+internal/frontdesk/autosync.go	1196
+internal/frontdesk/autosync_test.go	4254
+internal/frontdesk/poller.go	930
+internal/model/model.go	983
+internal/model/model_crud_test.go	2399
+internal/provider/discovery_test.go	2235
+internal/proxy/model_gone.go	1163
+internal/proxy/model_gone_test.go	2739
+internal/proxy/models_test.go	2307
+internal/proxy/multimodal.go	1071
+internal/proxy/proxy.go	976
+internal/proxy/proxy_failover.go	1380
+internal/proxy/upstream_classify.go	804
+web/src/api/client.ts	1759
+web/src/api/types.ts	1058
+web/src/components/Layout.tsx	1583
+web/src/components/ModelDiscrepancyModal.tsx	1276
+web/src/components/VirtualModelTable.tsx	858
+web/src/components/__tests__/Layout.navigation.test.tsx	2558
+web/src/pages/Chat/useChat.ts	846
+web/src/pages/FailoverGroups.tsx	1096
+web/src/pages/Logs.tsx	972
+web/src/pages/Models/ModelDetailModal.tsx	823
+web/src/pages/Settings/alerts/AlertsWizard.tsx	811
+web/src/pages/Settings/alerts/steps.tsx	850
