@@ -9,8 +9,6 @@
 # Format: path<TAB>lines
 cmd/server/main.go	860
 frontdesk/web/src/components/FleetSyncWizard.tsx	1238
-internal/api/admin.go	1096
-internal/api/admin_test.go	2332
 internal/api/applogs_test.go	2083
 internal/api/configsync_apply.go	1161
 internal/api/discovery.go	885
