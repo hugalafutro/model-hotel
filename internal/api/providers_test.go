@@ -1327,3 +1327,70 @@ func TestListProviders_ClosedDBPool(t *testing.T) {
 		t.Errorf("expected 200 or 500, got %d", w.Code)
 	}
 }
+
+func TestCreateProvider_UnknownProviderType(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"test","base_url":"https://api.example.com/v1","api_key":"sk-key","provider_type":"not-a-real-type"}`))
+	req, w := newChiRequest(http.MethodPost, "/providers", body)
+
+	h.CreateProvider(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "unknown provider_type") {
+		t.Fatalf("expected the unknown-type reason, got %q", w.Body.String())
+	}
+}
+
+// A type-only update re-checks the stored address against the current URL
+// rules: a legacy plain-HTTP address that predates the HTTPS requirement must
+// be rejected rather than probed.
+func TestUpdateProvider_TypeChangeRechecksStoredURL(t *testing.T) {
+	id := uuid.New()
+	h := &Handler{
+		cfg: &config.Config{
+			AllowHTTPProviders:   false,
+			AllowedProviderHosts: []string{"example.com"},
+		},
+		providerRepo: &mockProviderStore{
+			getFn: func(_ context.Context, got uuid.UUID) (*provider.Provider, error) {
+				return &provider.Provider{ID: got, Name: "legacy", BaseURL: "http://example.com/v1", ProviderType: "openai"}, nil
+			},
+		},
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	body := bytes.NewReader([]byte(`{"provider_type":"anthropic"}`))
+	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateProvider(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "HTTPS") {
+		t.Fatalf("expected the HTTPS reason, got %q", w.Body.String())
+	}
+}
+
+func TestIsForeignKeyViolation(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"plain error", errors.New("boom"), false},
+		{"other pg code", &pgconn.PgError{Code: "23505"}, false},
+		{"fk violation", &pgconn.PgError{Code: "23503"}, true},
+		{"wrapped fk violation", fmt.Errorf("delete: %w", &pgconn.PgError{Code: "23503"}), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isForeignKeyViolation(tc.err); got != tc.want {
+				t.Fatalf("isForeignKeyViolation(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
