@@ -269,6 +269,7 @@ func NewServer(cfg ServerConfig) *Server {
 	// The server's own lifetime, handed to detached request work. Cancelled by
 	// Shutdown and by nothing else, so a server that is never shut down simply
 	// never ends it.
+	//nolint:gosec // G118: the cancel func is stored on the server and called by Shutdown
 	s.shutdownCtx, s.shutdownCancel = context.WithCancel(context.Background())
 
 	// Bind the scrape-time member-fleet collector to this server's store and
