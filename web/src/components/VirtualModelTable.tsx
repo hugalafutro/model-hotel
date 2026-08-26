@@ -69,7 +69,7 @@ const HEADER_BASE =
 	"px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
 
 const EDGE_THRESHOLD_PX = 500;
-
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function VirtualModelTable({
 	providers,
 	providerFilter = "",

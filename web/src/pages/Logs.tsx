@@ -51,9 +51,8 @@ import {
 import { AppLogs } from "./AppLogs";
 import { formatMs, formatTPS } from "./Logs/utils";
 
-/* =========================================================
-   Main Logs page
-   ===================================================== */
+/* ===== Main Logs page ===== */
+// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 function RequestLogs() {
 	const { t } = useTranslation();
 	type LogSortField =

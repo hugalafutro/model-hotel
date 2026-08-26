@@ -50,6 +50,7 @@ jobs:
       workflows: ${{ steps.filter.outputs.workflows }}
       deps: ${{ steps.filter.outputs.deps }}
       i18n: ${{ steps.filter.outputs.i18n }}
+      sizegate: ${{ steps.filter.outputs.sizegate }}
       image: ${{ steps.filter.outputs.image }}
       measurable: ${{ steps.filter.outputs.measurable }}
       all_coverage: ${{ steps.filter.outputs.all_coverage }}
@@ -206,6 +207,79 @@ jobs:
       # intentional English goes into tools/i18n-translate/allow-english.json.
       - name: locale sync check
         run: make i18n-check
+
+  # File-size ratchet: 800 lines of production code, 2000 of tests, with every
+  # current offender pinned to its recorded count in scripts/ci/size-allowlist.txt.
+  # Gated on the surfaces it reads: go covers internal/ and cmd/, web and fdweb
+  # cover both SPA sources and the web-shared/ code they compile, and sizegate
+  # covers the gate's own files, since dropping an allowlist entry is itself
+  # something to adjudicate. On pull requests the job runs unconditionally: the
+  # changed-surfaces classifier is checked out from the pull request itself, so a
+  # PR could edit the classifier to report nothing changed and skip the very job
+  # that adjudicates it. The gating applies to pushes, where the classifier comes
+  # from the merged tree.
+  size-check:
+    name: Size Check
+    needs: changes
+    if: >-
+      github.event_name == 'pull_request' ||
+      needs.changes.outputs.go != 'false' ||
+      needs.changes.outputs.web != 'false' ||
+      needs.changes.outputs.fdweb != 'false' ||
+      needs.changes.outputs.sizegate != 'false' ||
+      needs.changes.outputs.workflows != 'false'
+    runs-on: ubuntu-latest
+    steps:
+      # The base commit is fetched explicitly below, so the default shallow
+      # checkout is all this job needs of the branch's own history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The allowlist ships in the branch, so a branch could exempt whatever it
+      # just grew by editing it. The gate therefore compares it against the base
+      # commit's copy, which is what makes "the list only shrinks" a check rather
+      # than a comment.
+      #
+      # A pull request compares against its base SHA. A push compares against the
+      # SHA master carried BEFORE the push, not against HEAD~1: a push can carry
+      # several commits, and HEAD~1 would only cover the last of them, so an
+      # earlier commit in the same push could loosen the allowlist unseen. A push
+      # that reports no previous SHA (branch creation, or the shape a force push
+      # takes) has no state to compare with and fails rather than falling back.
+      - name: resolve the base for the allowlist comparison
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          case "$EVENT_NAME" in
+            pull_request)
+              git fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
+              echo "ref=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+              ;;
+            push)
+              if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                echo "size gate: this push reports no previous SHA, so the allowlist cannot be compared against the state it replaced" >&2
+                exit 1
+              fi
+              git fetch --no-tags --depth=1 origin "$BEFORE_SHA"
+              echo "ref=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # A manual dispatch replaces nothing, so there is no earlier state
+              # to compare with. The file checks still run against the tree.
+              echo "ref=HEAD" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      # Fails when a file crosses its ceiling with no allowlist entry, when an
+      # allowlisted file grows past its recorded count, when an entry has gone
+      # stale, and when the allowlist itself gained an entry or raised a count
+      # since the base. Split the file; the allowlist takes no new entries.
+      - name: size gate
+        env:
+          SIZE_GATE_BASE: ${{ steps.base.outputs.ref }}
+        run: make size-check
 
   workflow-lint:
     name: Workflow Lint

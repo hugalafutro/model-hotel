@@ -1,4 +1,4 @@
-.PHONY: build run clean test test-parallel lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs android-build android-test android-lint android-install
+.PHONY: build run clean test test-parallel lint fmt size-check deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs android-build android-test android-lint android-install
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Full SHA of the commit this binary is built from, stamped into the API package
@@ -33,6 +33,21 @@ lint:
 fmt:
 	find ./internal ./cmd -name '*.go' -type f | xargs gci write -s standard -s default -s "Prefix(github.com/hugalafutro/model-hotel)"
 	go fmt ./...
+
+# File-size ratchet: 800 lines of production code, 2000 of tests. Files already
+# over the ceiling carry their current count in scripts/ci/size-allowlist.txt and
+# may only shrink; the list takes no new entries. `size-gate.sh --update` lowers
+# the recorded counts once files get smaller.
+#
+# Shrink-only is checked, not just documented: the allowlist is compared against
+# its copy at origin/master, so an edit that adds an entry or raises a count fails
+# here as it does in CI, and an entry follows a file to a new path only through an
+# exact rename (byte-identical, so move it in one commit and edit it in the next).
+# Pass another ref with SIZE_GATE_BASE or --base. A base that does not resolve to
+# a commit is an error, and so is a base that resolves without carrying the
+# allowlist, since skipping either would turn a missing base into a silent pass.
+size-check:
+	scripts/ci/size-gate.sh
 
 deps:
 	go mod tidy
