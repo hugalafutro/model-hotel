@@ -9,18 +9,14 @@
 # Format: path<TAB>lines
 cmd/server/main.go	860
 internal/api/applogs_test.go	2083
-internal/api/configsync_apply.go	1161
 internal/api/discovery.go	885
 internal/api/discovery_integration_quota_test.go	2735
 internal/api/failover.go	929
 internal/api/logs.go	809
 internal/api/stats.go	843
 internal/failover/circuitbreaker_test.go	2056
-internal/failover/failover.go	1091
 internal/frontdesk/autosync.go	1171
 internal/frontdesk/autosync_test.go	4254
-internal/frontdesk/poller.go	930
-internal/model/model.go	983
 internal/model/model_crud_test.go	2399
 internal/provider/discovery_test.go	2235
 internal/proxy/model_gone.go	1163
