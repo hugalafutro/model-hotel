@@ -1,19 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ComponentProps, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	CheckSquare,
-	ChevronRight,
-	ShieldOff,
-	Shuffle,
-	Square,
-} from "@/lib/icons";
+import { ShieldOff, Shuffle } from "@/lib/icons";
 import { api } from "../api/client";
 import type { CircuitBreakerProviderStatus, FailoverGroup } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
-import { EmptyState } from "../components/EmptyState";
-import { FilterDropdown } from "../components/FilterDropdown";
-import { FilterInput } from "../components/FilterInput";
 import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
@@ -22,10 +13,32 @@ import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel, formatTimestamp } from "../utils/format";
+import { AlphabetSidebar } from "./FailoverGroups/AlphabetSidebar";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
+import { EmptyGroups } from "./FailoverGroups/EmptyGroups";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
+import { FiltersBar } from "./FailoverGroups/FiltersBar";
+import { GroupSection } from "./FailoverGroups/GroupSection";
+import {
+	deriveDisabledProviders,
+	filterGroups,
+	type GroupFilters,
+	groupsMatchingProvider,
+	providerNamesOf,
+	splitByOrigin,
+} from "./FailoverGroups/groupDerivations";
+import { ProviderBulkBar } from "./FailoverGroups/ProviderBulkBar";
 import { ProviderDisableModal } from "./FailoverGroups/ProviderDisableModal";
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
+import { useBulkToggles } from "./FailoverGroups/useBulkToggles";
+import { useFailoverGroupMutations } from "./FailoverGroups/useFailoverGroupMutations";
+
+const NO_FILTERS: GroupFilters = {
+	searchQuery: "",
+	providerFilter: "",
+	enabledFilter: "",
+	originFilter: "",
+};
+
 export function FailoverGroups() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
@@ -48,10 +61,7 @@ export function FailoverGroups() {
 	const [deleteGroup, setDeleteGroup] = useState<FailoverGroup | null>(null);
 	const [bulkDeleteIds, setBulkDeleteIds] = useState<Set<string> | null>(null);
 	const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [providerFilter, setProviderFilter] = useState("");
-	const [enabledFilter, setEnabledFilter] = useState<string>("");
-	const [originFilter, setOriginFilter] = useState<string>("");
+	const [filters, setFilters] = useState<GroupFilters>(NO_FILTERS);
 	const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -59,7 +69,6 @@ export function FailoverGroups() {
 		new Set(),
 	);
 	const [showProviderModal, setShowProviderModal] = useState(false);
-	const [isProviderToggling, setIsProviderToggling] = useState(false);
 
 	const toggleLetterCollapse = (letter: string) => {
 		setCollapsedLetters((prev) => {
@@ -92,82 +101,22 @@ export function FailoverGroups() {
 	}
 
 	const allGroups = listData?.groups;
-
-	// A provider is considered disabled when it has failover entries and every
-	// one of them is disabled. Derived from server data so the modal reflects
-	// the real state on open (and after each toggle re-fetches the groups).
-	const disabledProviders = useMemo(() => {
-		const result = new Set<string>();
-		if (!allGroups) return result;
-		const anyEnabled = new Set<string>();
-		const seen = new Set<string>();
-		for (const g of allGroups) {
-			for (const e of g.entries) {
-				seen.add(e.provider_name);
-				if (e.enabled) anyEnabled.add(e.provider_name);
-			}
-		}
-		for (const name of seen) {
-			if (!anyEnabled.has(name)) result.add(name);
-		}
-		return result;
-	}, [allGroups]);
-
-	// Unique provider names for dropdown
-	const providerNames = allGroups
-		? [
-				...new Set(
-					allGroups.flatMap((g) => g.entries.map((e) => e.provider_name)),
-				),
-			].sort()
-		: [];
-
-	const groups = allGroups?.filter((g) => {
-		const matchesModel = g.display_model
-			.toLowerCase()
-			.includes(searchQuery.toLowerCase());
-		const matchesProvider =
-			!providerFilter ||
-			g.entries.some((e) =>
-				e.provider_name.toLowerCase().includes(providerFilter.toLowerCase()),
-			);
-		const matchesEnabled =
-			enabledFilter === "" ||
-			(enabledFilter === "enabled" && g.group_enabled) ||
-			(enabledFilter === "disabled" && !g.group_enabled);
-		const matchesOrigin =
-			originFilter === "" ||
-			(originFilter === "auto" && g.auto_created) ||
-			(originFilter === "manual" && !g.auto_created);
-		return matchesModel && matchesProvider && matchesEnabled && matchesOrigin;
-	});
+	const disabledProviders = useMemo(
+		() => deriveDisabledProviders(allGroups),
+		[allGroups],
+	);
+	const providerNames = providerNamesOf(allGroups);
+	const groups = allGroups ? filterGroups(allGroups, filters) : undefined;
 	const lastSyncedAt = listData?.last_synced_at;
 
 	const totalEnabled = allGroups?.filter((g) => g.group_enabled).length ?? 0;
 	const totalDisabled = (allGroups?.length ?? 0) - totalEnabled;
 	const allSameState = totalEnabled === 0 || totalDisabled === 0;
 
-	// Separate custom groups (manually created) from auto groups
-	const customGroups = [...(groups ?? [])]
-		.filter((g) => !g.auto_created)
-		.sort((a, b) => a.display_model.localeCompare(b.display_model));
-	const autoGroups = [...(groups ?? [])]
-		.filter((g) => g.auto_created)
-		.sort((a, b) => a.display_model.localeCompare(b.display_model));
-
-	// Auto groups grouped by first letter
-	const letterGroups = autoGroups.reduce<Record<string, typeof autoGroups>>(
-		(acc, group) => {
-			const letter = group.display_model.charAt(0).toUpperCase();
-			if (!acc[letter]) acc[letter] = [];
-			acc[letter].push(group);
-			return acc;
-		},
-		{},
+	const { customGroups, letterGroups, sortedLetters } = splitByOrigin(
+		groups ?? [],
 	);
-	const sortedLetters = Object.keys(letterGroups).sort();
 
-	// Bulk model enable/disable
 	const toggleGroupSelect = (groupId: string, checked: boolean) => {
 		setSelectedGroupIds((prev) => {
 			const next = new Set(prev);
@@ -177,168 +126,28 @@ export function FailoverGroups() {
 		});
 	};
 
-	// A failover group needs 2+ routable members (enabled flag + live model + live
-	// provider). Mirror the backend's floor in the bulk/provider toggles: count how
-	// many members would remain routable after the toggle, so we disable a group
-	// the moment it drops under two instead of leaving an invalid, still-enabled
-	// group for the next List to silently self-heal.
-	const routableAfterToggle = (
-		group: FailoverGroup,
-		entryEnabledMap: Record<string, boolean>,
-	) =>
-		group.entries.filter(
-			(e) =>
-				entryEnabledMap[e.model_uuid] && e.model_enabled && e.provider_enabled,
-		).length;
+	const {
+		sync: syncMutation,
+		remove: deleteMutation,
+		resetCircuit: resetCircuitMutation,
+		handleResetCircuit,
+		handleToggleGroup,
+		handleToggleEntry,
+		handleReorder,
+	} = useFailoverGroupMutations(refreshGroups);
 
-	const handleBulkModelToggle = async (enabled: boolean) => {
-		if (!allGroups) return;
-		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
-		if (targets.length === 0) return;
-
-		const promises = targets.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = enabled;
-			});
-			// Disable a group that would drop below the 2-routable-member floor, and
-			// symmetrically re-enable one that regains it, so the group state matches
-			// the backend's rule immediately instead of after the next List heal.
-			const routable = routableAfterToggle(group, entryEnabledMap);
-			const alsoDisableGroup = routable < 2 && group.group_enabled;
-			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
-			return api.failoverGroups.update(group.id, {
-				entry_enabled: entryEnabledMap,
-				...(alsoDisableGroup ? { group_enabled: false } : {}),
-				...(alsoEnableGroup ? { group_enabled: true } : {}),
-			});
-		});
-
-		try {
-			await Promise.all(promises);
-			refreshGroups();
-			setSelectedGroupIds(new Set());
-			toast(
-				t("failover.toast_bulk_toggle_success", {
-					action: enabled ? t("common.enabled") : t("common.disabled"),
-					count: targets.length,
-				}),
-				"success",
-			);
-		} catch {
-			refreshGroups();
-			toast(t("failover.toast_bulk_toggle_failed"), "error");
-		}
-	};
-
-	// Bulk provider enable/disable
-	const handleBulkProviderToggle = async (enabled: boolean) => {
-		if (!allGroups || !providerFilter) return;
-		const providerLower = providerFilter.toLowerCase();
-		const affectedGroups = allGroups.filter((g) =>
-			g.entries.some((e) =>
-				e.provider_name.toLowerCase().includes(providerLower),
-			),
-		);
-		if (affectedGroups.length === 0) return;
-
-		const promises = affectedGroups.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = e.provider_name
-					.toLowerCase()
-					.includes(providerLower)
-					? enabled
-					: e.enabled;
-			});
-			// Disable a group that would drop below the 2-routable-member floor, and
-			// symmetrically re-enable one that regains it, matching the backend rule
-			// immediately instead of waiting for the next List heal.
-			const routable = routableAfterToggle(group, entryEnabledMap);
-			const alsoDisableGroup = routable < 2 && group.group_enabled;
-			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
-			return api.failoverGroups.update(group.id, {
-				entry_enabled: entryEnabledMap,
-				...(alsoDisableGroup ? { group_enabled: false } : {}),
-				...(alsoEnableGroup ? { group_enabled: true } : {}),
-			});
-		});
-
-		try {
-			await Promise.all(promises);
-			refreshGroups();
-			toast(
-				t("failover.toast_provider_toggle_success", {
-					action: enabled ? t("common.enabled") : t("common.disabled"),
-					provider: providerFilter,
-					count: affectedGroups.length,
-				}),
-				"success",
-			);
-		} catch {
-			refreshGroups();
-			toast(t("failover.toast_provider_toggle_failed"), "error");
-		}
-	};
-
-	// Provider modal toggle
-	const handleProviderToggle = async (
-		providerName: string,
-		enabled: boolean,
-	) => {
-		if (!allGroups) return;
-		const affectedGroups = allGroups.filter((g) =>
-			g.entries.some((e) => e.provider_name === providerName),
-		);
-		if (affectedGroups.length === 0) {
-			toast(
-				t("failover.toast_provider_toggle_no_groups", {
-					provider: providerName,
-				}),
-				"info",
-			);
-			return;
-		}
-
-		setIsProviderToggling(true);
-		const promises = affectedGroups.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] =
-					e.provider_name === providerName ? enabled : e.enabled;
-			});
-			// Disable a group that would drop below the 2-routable-member floor, and
-			// symmetrically re-enable one that regains it, matching the backend rule
-			// immediately instead of waiting for the next List heal.
-			const routable = routableAfterToggle(group, entryEnabledMap);
-			const alsoDisableGroup = routable < 2 && group.group_enabled;
-			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
-			return api.failoverGroups.update(group.id, {
-				entry_enabled: entryEnabledMap,
-				...(alsoDisableGroup ? { group_enabled: false } : {}),
-				...(alsoEnableGroup ? { group_enabled: true } : {}),
-			});
-		});
-
-		try {
-			await Promise.all(promises);
-			// Re-fetch groups; disabledProviders is derived from the result.
-			refreshGroups();
-			toast(
-				t("failover.toast_provider_toggle_success", {
-					action: enabled ? t("common.enabled") : t("common.disabled"),
-					provider: providerName,
-					count: affectedGroups.length,
-				}),
-				"success",
-			);
-		} catch {
-			refreshGroups();
-			toast(t("failover.toast_provider_toggle_failed"), "error");
-		} finally {
-			setIsProviderToggling(false);
-		}
-	};
+	const {
+		handleBulkModelToggle,
+		handleBulkProviderToggle,
+		handleProviderToggle,
+		isProviderToggling,
+	} = useBulkToggles({
+		allGroups,
+		providerFilter: filters.providerFilter,
+		selectedGroupIds,
+		clearSelection: () => setSelectedGroupIds(new Set()),
+		refreshGroups,
+	});
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -349,198 +158,6 @@ export function FailoverGroups() {
 		queryKey: ["failover-candidates"],
 		queryFn: () => api.failoverGroups.candidates(),
 	});
-
-	const syncMutation = useMutation({
-		mutationFn: () => api.failoverGroups.sync(),
-		onSuccess: (data) => {
-			if (data.deleted_groups && data.deleted_groups.length > 0) {
-				for (const g of data.deleted_groups) {
-					const provs =
-						g.provider_names.length > 0
-							? ` (${g.provider_names.join(", ")})`
-							: "";
-					toast(
-						t("failover.toast_sync_deleted", {
-							model: g.display_model,
-							reason: g.reason,
-							providers: provs,
-						}),
-						"warning",
-					);
-				}
-			}
-			if (data.purged_entries && data.purged_entries.length > 0) {
-				for (const p of data.purged_entries) {
-					toast(
-						t("failover.toast_sync_purged", {
-							group: p.group_display_model,
-							count: p.pruned_model_ids.length,
-						}),
-						"info",
-					);
-				}
-			}
-			if (data.disabled_groups && data.disabled_groups.length > 0) {
-				for (const g of data.disabled_groups) {
-					toast(
-						t("failover.toast_sync_disabled", {
-							group: g.display_model,
-							count: g.effective_count,
-						}),
-						"warning",
-					);
-				}
-			}
-			if (
-				(!data.deleted_groups || data.deleted_groups.length === 0) &&
-				(!data.purged_entries || data.purged_entries.length === 0) &&
-				(!data.disabled_groups || data.disabled_groups.length === 0)
-			) {
-				toast(t("failover.toast_sync_success"), "success");
-			}
-		},
-		onError: (err: Error) => {
-			toast(t("failover.toast_sync_failed", { message: err.message }), "error");
-		},
-		// Sync applies partially by design: it reports the groups it deleted,
-		// purged and disabled, so a run that errors after any of that has still
-		// changed what the list and the badge should say.
-		onSettled: () => {
-			refreshGroups();
-		},
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: ({
-			id,
-			data,
-		}: {
-			id: string;
-			data: Parameters<typeof api.failoverGroups.update>[1];
-		}) => api.failoverGroups.update(id, data),
-		onError: (err: Error) => {
-			toast(
-				t("failover.toast_update_failed", { message: err.message }),
-				"error",
-			);
-		},
-		// `onSettled`, matching the bulk handlers above, which re-read from both
-		// their try and their catch: a rejected write can still have landed.
-		onSettled: () => {
-			refreshGroups();
-		},
-	});
-
-	const deleteMutation = useMutation({
-		mutationFn: (id: string) => api.failoverGroups.delete(id),
-		onSuccess: () => {
-			toast(t("failover.toast_delete_success"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("failover.toast_delete_failed", { message: err.message }),
-				"error",
-			);
-		},
-		// See updateMutation: a rejected DELETE can still have landed.
-		onSettled: () => {
-			refreshGroups();
-		},
-	});
-
-	// Forces one provider's circuit closed. Available while `managed` on purpose:
-	// a circuit is this instance's own runtime health, not config the fleet
-	// primary owns, and a quota-pinned circuit can otherwise stay open for up to
-	// 24 hours. Hidden only in read-only demo mode, where the server refuses it.
-	const resetCircuitMutation = useMutation({
-		mutationFn: ({
-			providerId,
-		}: {
-			providerId: string;
-			providerName: string;
-		}) => api.failoverGroups.resetCircuitBreaker(providerId),
-		onSuccess: (result, { providerName }) => {
-			// Prefix key: refreshes both this page's detail query and the sidebar
-			// badge's aggregate one, so the cleared circuit disappears at once.
-			queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
-			if (result.reset) {
-				toast(
-					t("failover.toast_cb_reset_success", { provider: providerName }),
-					"success",
-				);
-			} else {
-				// Honest no-op: the circuit had already closed on its own.
-				toast(
-					t("failover.toast_cb_reset_noop", { provider: providerName }),
-					"info",
-				);
-			}
-		},
-		onError: (err: Error) => {
-			toast(
-				t("failover.toast_cb_reset_failed", { message: err.message }),
-				"error",
-			);
-		},
-	});
-
-	const handleResetCircuit = (providerId: string, providerName: string) => {
-		resetCircuitMutation.mutate({ providerId, providerName });
-	};
-
-	const handleToggleGroup = (group: FailoverGroup, enabled: boolean) => {
-		updateMutation.mutate({
-			id: group.id,
-			data: { group_enabled: enabled },
-		});
-	};
-
-	const handleToggleEntry = (
-		group: FailoverGroup,
-		uuid: string,
-		enabled: boolean,
-	) => {
-		// Count *effective* members (the toggle plus a live model and provider),
-		// matching the card's "active" tally. Counting the raw enabled flag let an
-		// already-N/A member (enabled flag true, model/provider dead) pad the total,
-		// so the user could toggle the last live members off and reach a 0/X group.
-		// A group needs 2+ routable members. Only block when this toggle actually
-		// removes an active member: switching off an N/A member (already not active)
-		// can't drop the count, so it must stay allowed.
-		const toggled = group.entries.find((e) => e.model_uuid === uuid);
-		const togglingOffActiveMember =
-			!enabled &&
-			!!toggled?.enabled &&
-			toggled.model_enabled &&
-			toggled.provider_enabled;
-		const activeCount = group.entries.filter(
-			(e) => e.enabled && e.model_enabled && e.provider_enabled,
-		).length;
-		if (togglingOffActiveMember && activeCount <= 2) {
-			toast(t("failover.toast_entry_min_two"), "error");
-			return;
-		}
-		const entryEnabledMap: Record<string, boolean> = {};
-		group.entries.forEach((e) => {
-			entryEnabledMap[e.model_uuid] = e.enabled;
-		});
-		entryEnabledMap[uuid] = enabled;
-		updateMutation.mutate({
-			id: group.id,
-			data: { entry_enabled: entryEnabledMap },
-		});
-	};
-
-	const handleReorder = (group: FailoverGroup, newOrder: string[]) => {
-		updateMutation.mutate({
-			id: group.id,
-			data: { priority_order: newOrder },
-		});
-	};
-
-	const handleDelete = (group: FailoverGroup) => {
-		setDeleteGroup(group);
-	};
 
 	const confirmDelete = () => {
 		if (deleteGroup) {
@@ -578,6 +195,26 @@ export function FailoverGroups() {
 		setBulkDeleteIds(null);
 		setSelectedGroupIds(new Set());
 	};
+
+	// Everything a card needs that does not depend on which group it shows.
+	// The custom section adds onEdit: auto groups are not editable.
+	const cardProps = (
+		group: FailoverGroup,
+	): ComponentProps<typeof FailoverGroupCard> => ({
+		group,
+		selected: selectedGroupIds.has(group.id),
+		onToggleSelect: (checked) => toggleGroupSelect(group.id, checked),
+		onToggleGroup: (enabled) => handleToggleGroup(group, enabled),
+		onToggleEntry: (uuid, enabled) => handleToggleEntry(group, uuid, enabled),
+		onReorder: (newOrder) => handleReorder(group, newOrder),
+		onDelete: () => setDeleteGroup(group),
+		managed,
+		cbProviderMap,
+		onResetCircuit: readOnly ? undefined : handleResetCircuit,
+		resetPendingProviderId: resetCircuitMutation.isPending
+			? resetCircuitMutation.variables?.providerId
+			: undefined,
+	});
 
 	if (isLoading) {
 		return (
@@ -674,366 +311,79 @@ export function FailoverGroups() {
 
 			<ManagedBanner />
 
-			<div className="flex items-center gap-3 flex-wrap">
-				<FilterInput
-					value={searchQuery}
-					onChange={setSearchQuery}
-					placeholder={t("failover.filter_hotel_model")}
-					className="w-[260px]"
-					autoFocus
-				/>
-				<FilterDropdown
-					value={providerFilter}
-					onChange={setProviderFilter}
-					placeholder={t("failover.filter_providers", {
-						count: providerNames.length,
-					})}
-					allLabel={t("failover.filter_providers", {
-						count: providerNames.length,
-					})}
-					options={providerNames.map((name) => ({ value: name, label: name }))}
-					className="w-[220px] shrink-0"
-				/>
-				<FilterDropdown
-					value={enabledFilter}
-					onChange={setEnabledFilter}
-					placeholder={t("failover.filter_states", { count: 2 })}
-					allLabel={t("failover.filter_states", { count: 2 })}
-					options={[
-						{ value: "enabled", label: t("failover.filter_state_enabled") },
-						{ value: "disabled", label: t("failover.filter_state_disabled") },
-					]}
-					className="w-[160px] shrink-0"
-				/>
-				<FilterDropdown
-					value={originFilter}
-					onChange={setOriginFilter}
-					placeholder={t("failover.filter_origins", { count: 2 })}
-					allLabel={t("failover.filter_origins", { count: 2 })}
-					options={[
-						{ value: "auto", label: t("failover.filter_origin_auto") },
-						{ value: "manual", label: t("failover.filter_origin_manual") },
-					]}
-					className="w-[160px] shrink-0"
-				/>
-				{/* Selection only feeds the bulk config mutations below (enable /
-				    disable / delete), all of which sync overwrites, so the whole
-				    select + bulk toolbar is hidden while managed. */}
-				{!managed && (
-					<button
-						type="button"
-						onClick={() => {
-							if (selectedGroupIds.size > 0) {
-								setSelectedGroupIds(new Set());
-							} else if (groups) {
-								setSelectedGroupIds(new Set(groups.map((g) => g.id)));
-							}
-						}}
-						className="ui-icon-btn ml-auto"
-						aria-label={
-							selectedGroupIds.size > 0
-								? t("failover.deselect_all")
-								: t("failover.select_all")
-						}
-						title={
-							selectedGroupIds.size > 0
-								? t("failover.deselect_all")
-								: t("failover.select_all")
-						}
-					>
-						{selectedGroupIds.size > 0 ? (
-							<CheckSquare size={18} />
-						) : (
-							<Square size={18} />
-						)}
-					</button>
-				)}
-				{!managed && selectedGroupIds.size > 0 && (
-					<>
-						<span className="text-sm text-gray-400">
-							{t("failover.selected_count", { count: selectedGroupIds.size })}
-						</span>
-						<button
-							type="button"
-							onClick={() => handleBulkModelToggle(true)}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("failover.btn_enable_all")}
-						</button>
-						<button
-							type="button"
-							onClick={() => handleBulkModelToggle(false)}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("failover.btn_disable_all")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setBulkDeleteIds(new Set(selectedGroupIds))}
-							className="ui-btn ui-btn-danger"
-						>
-							{t("failover.btn_delete_all")}
-						</button>
-					</>
-				)}
-			</div>
+			<FiltersBar
+				filters={filters}
+				onFilterChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+				providerNames={providerNames}
+				managed={managed}
+				selectedCount={selectedGroupIds.size}
+				onToggleSelectAll={() => {
+					if (selectedGroupIds.size > 0) {
+						setSelectedGroupIds(new Set());
+					} else if (groups) {
+						setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+					}
+				}}
+				onBulkToggle={handleBulkModelToggle}
+				onBulkDelete={() => setBulkDeleteIds(new Set(selectedGroupIds))}
+			/>
 
-			{providerFilter && allGroups && (
-				<div className="flex items-center justify-between bg-gray-800/50 rounded-lg px-4 py-2 border border-gray-700">
-					<span className="text-sm text-gray-300">
-						{(() => {
-							const count = allGroups.filter((g) =>
-								g.entries.some((e) =>
-									e.provider_name
-										.toLowerCase()
-										.includes(providerFilter.toLowerCase()),
-								),
-							).length;
-							return t("failover.bulk_provider_count", {
-								count,
-								provider: providerFilter,
-							});
-						})()}
-					</span>
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => handleBulkProviderToggle(true)}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("failover.bulk_provider_enable", { provider: providerFilter })}
-						</button>
-						<button
-							type="button"
-							onClick={() => handleBulkProviderToggle(false)}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("failover.bulk_provider_disable", {
-								provider: providerFilter,
-							})}
-						</button>
-					</div>
-				</div>
+			{filters.providerFilter && allGroups && (
+				<ProviderBulkBar
+					providerFilter={filters.providerFilter}
+					count={
+						groupsMatchingProvider(allGroups, filters.providerFilter).length
+					}
+					onToggle={handleBulkProviderToggle}
+				/>
 			)}
 
 			{groups && groups.length === 0 ? (
-				originFilter && !searchQuery && !providerFilter && !enabledFilter ? (
-					<EmptyState
-						message={
-							originFilter === "auto"
-								? t("failover.empty_no_auto")
-								: t("failover.empty_no_manual")
-						}
-						action={{
-							label:
-								originFilter === "manual"
-									? t("failover.empty_create_group")
-									: t("failover.empty_clear_filters"),
-							onClick: () =>
-								originFilter === "manual"
-									? setShowCreateModal(true)
-									: setOriginFilter(""),
-						}}
-					/>
-				) : searchQuery || providerFilter || enabledFilter || originFilter ? (
-					<EmptyState
-						message={t("failover.empty_no_match")}
-						action={{
-							label: t("failover.empty_clear_filters"),
-							onClick: () => {
-								setSearchQuery("");
-								setProviderFilter("");
-								setEnabledFilter("");
-								setOriginFilter("");
-							},
-						}}
-					/>
-				) : (
-					<EmptyState
-						message={t("failover.empty_no_groups")}
-						action={{
-							label: t("failover.empty_auto_discover"),
-							onClick: () => syncMutation.mutate(),
-						}}
-					/>
-				)
+				<EmptyGroups
+					filters={filters}
+					onCreate={() => setShowCreateModal(true)}
+					onClearFilters={() => setFilters(NO_FILTERS)}
+					onSync={() => syncMutation.mutate()}
+				/>
 			) : (
 				<div className="relative flex gap-4">
 					<div className="flex-1 space-y-6">
-						{/* Custom groups section (manually created) */}
 						{customGroups.length > 0 && (
-							<section id="failover-section-custom">
-								<button
-									type="button"
-									onClick={() => toggleLetterCollapse("custom")}
-									className="flex items-center gap-3 mb-3 w-full text-left group"
-								>
-									<ChevronRight
-										size={16}
-										className={`ui-icon-btn-in-group text-gray-500 transition-transform ${collapsedLetters.has("custom") ? "" : "rotate-90"}`}
+							<GroupSection
+								id="failover-section-custom"
+								title={t("failover.section_custom")}
+								count={customGroups.length}
+								collapsed={collapsedLetters.has("custom")}
+								onToggle={() => toggleLetterCollapse("custom")}
+							>
+								{customGroups.map((group) => (
+									<FailoverGroupCard
+										key={group.id}
+										{...cardProps(group)}
+										onEdit={() => setEditGroup(group)}
 									/>
-									<span className="ui-link-accent-in-group text-lg font-bold text-(--accent)">
-										{t("failover.section_custom")}
-									</span>
-									<div className="flex-1 h-px bg-gray-700/50" />
-									<span className="text-xs text-gray-500">
-										{t("failover.group_count", {
-											count: customGroups.length,
-										})}
-									</span>
-								</button>
-								<div
-									className="grid transition-[grid-template-rows] duration-200 ease-in-out"
-									style={{
-										gridTemplateRows: collapsedLetters.has("custom")
-											? "0fr"
-											: "1fr",
-									}}
-								>
-									<div className="overflow-hidden">
-										<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-											{customGroups.map((group) => (
-												<FailoverGroupCard
-													key={group.id}
-													group={group}
-													selected={selectedGroupIds.has(group.id)}
-													onToggleSelect={(checked) =>
-														toggleGroupSelect(group.id, checked)
-													}
-													onToggleGroup={(enabled) =>
-														handleToggleGroup(group, enabled)
-													}
-													onToggleEntry={(uuid, enabled) =>
-														handleToggleEntry(group, uuid, enabled)
-													}
-													onReorder={(newOrder) =>
-														handleReorder(group, newOrder)
-													}
-													onDelete={() => handleDelete(group)}
-													onEdit={() => setEditGroup(group)}
-													managed={managed}
-													cbProviderMap={cbProviderMap}
-													onResetCircuit={
-														readOnly ? undefined : handleResetCircuit
-													}
-													resetPendingProviderId={
-														resetCircuitMutation.isPending
-															? resetCircuitMutation.variables?.providerId
-															: undefined
-													}
-												/>
-											))}
-										</div>
-									</div>
-								</div>
-							</section>
+								))}
+							</GroupSection>
 						)}
-
-						{/* Auto groups grouped by first letter */}
 						{sortedLetters.map((letter) => (
-							<section key={letter} id={`failover-section-${letter}`}>
-								<button
-									type="button"
-									onClick={() => toggleLetterCollapse(letter)}
-									className="flex items-center gap-3 mb-3 w-full text-left group"
-								>
-									<ChevronRight
-										size={16}
-										className={`ui-icon-btn-in-group text-gray-500 transition-transform ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
-									/>
-									<span className="ui-link-accent-in-group text-lg font-bold text-(--accent)">
-										{letter}
-									</span>
-									<div className="flex-1 h-px bg-gray-700/50" />
-									<span className="text-xs text-gray-500">
-										{t("failover.group_count", {
-											count: letterGroups[letter].length,
-										})}
-									</span>
-								</button>
-								<div
-									className="grid transition-[grid-template-rows] duration-200 ease-in-out"
-									style={{
-										gridTemplateRows: collapsedLetters.has(letter)
-											? "0fr"
-											: "1fr",
-									}}
-								>
-									<div className="overflow-hidden">
-										<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-											{letterGroups[letter].map((group) => (
-												<FailoverGroupCard
-													key={group.id}
-													group={group}
-													selected={selectedGroupIds.has(group.id)}
-													onToggleSelect={(checked) =>
-														toggleGroupSelect(group.id, checked)
-													}
-													onToggleGroup={(enabled) =>
-														handleToggleGroup(group, enabled)
-													}
-													onToggleEntry={(uuid, enabled) =>
-														handleToggleEntry(group, uuid, enabled)
-													}
-													onReorder={(newOrder) =>
-														handleReorder(group, newOrder)
-													}
-													onDelete={() => handleDelete(group)}
-													managed={managed}
-													cbProviderMap={cbProviderMap}
-													onResetCircuit={
-														readOnly ? undefined : handleResetCircuit
-													}
-													resetPendingProviderId={
-														resetCircuitMutation.isPending
-															? resetCircuitMutation.variables?.providerId
-															: undefined
-													}
-												/>
-											))}
-										</div>
-									</div>
-								</div>
-							</section>
+							<GroupSection
+								key={letter}
+								id={`failover-section-${letter}`}
+								title={letter}
+								count={letterGroups[letter].length}
+								collapsed={collapsedLetters.has(letter)}
+								onToggle={() => toggleLetterCollapse(letter)}
+							>
+								{letterGroups[letter].map((group) => (
+									<FailoverGroupCard key={group.id} {...cardProps(group)} />
+								))}
+							</GroupSection>
 						))}
 					</div>
-
-					{/* Alphabet sidebar */}
-					{(sortedLetters.length > 3 || customGroups.length > 0) && (
-						<nav
-							aria-label={t("failoverGroups.alphabetSidebar")}
-							className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start"
-						>
-							{customGroups.length > 0 && (
-								<button
-									type="button"
-									onClick={() =>
-										document
-											.getElementById("failover-section-custom")
-											?.scrollIntoView({ behavior: "smooth", block: "start" })
-									}
-									className="ui-link-accent text-xs font-medium text-(--accent) px-1.5 py-0.5 rounded"
-									aria-label={t("failover.nav_custom")}
-								>
-									★
-								</button>
-							)}
-							{sortedLetters.map((letter) => (
-								<button
-									key={letter}
-									type="button"
-									onClick={() =>
-										document
-											.getElementById(`failover-section-${letter}`)
-											?.scrollIntoView({ behavior: "smooth", block: "start" })
-									}
-									className="ui-link-accent text-xs font-medium text-gray-500 px-1.5 py-0.5 rounded"
-								>
-									{letter}
-								</button>
-							))}
-						</nav>
-					)}
+					<AlphabetSidebar
+						letters={sortedLetters}
+						hasCustom={customGroups.length > 0}
+					/>
 				</div>
 			)}
 
