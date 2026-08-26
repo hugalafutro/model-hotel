@@ -16,5 +16,3 @@ internal/provider/discovery_test.go	2235
 internal/proxy/model_gone_test.go	2739
 internal/proxy/models_test.go	2307
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
-web/src/pages/Settings/alerts/AlertsWizard.tsx	801
-web/src/pages/Settings/alerts/steps.tsx	846
