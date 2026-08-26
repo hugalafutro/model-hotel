@@ -38,6 +38,11 @@ export function useVirtualRows<T extends { id: string }>({
 	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
 	const virtualizer = useVirtualizer({
 		count: entries.length,
+		// Measurements follow the ROW, not its index: after a prepend every row
+		// shifts to a new index, and index-keyed measurements would describe the
+		// old rows' heights under the new rows' slots, which is exactly the data
+		// the prepend correction below reads.
+		getItemKey: (index) => entries[index]?.id ?? index,
 		getScrollElement: () => scrollEl,
 		estimateSize: () => 45,
 		overscan: 20,
@@ -54,8 +59,9 @@ export function useVirtualRows<T extends { id: string }>({
 	// scrollTop stays the same, so the virtualizer maps the old scroll
 	// position to different items. Push scrollTop down by the height the new
 	// rows occupy: the start offset of the row that used to be first, which
-	// the virtualizer computes from measured sizes where it has them and
-	// estimateSize where it does not. Read measurementsCache BY INDEX: it is
+	// the virtualizer computes from measured sizes where it has them (rows are
+	// keyed by id, so a measurement survives the shift) and estimateSize where
+	// it does not. Read measurementsCache BY INDEX: it is
 	// a lazy view, not an array, so Array.prototype iteration (reduce, slice)
 	// over it sees nothing and an averaged size came out as 0. Then force a
 	// synchronous re-render so the virtualizer recomputes before the browser
@@ -65,6 +71,10 @@ export function useVirtualRows<T extends { id: string }>({
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
 			if (entries[newItemCount]?.id === prev[0]?.id && scrollEl) {
+				// The rows committed in this same pass were measured by their ref
+				// callbacks a moment ago; getVirtualItems() folds those sizes into
+				// the measurements before they are read.
+				virtualizer.getVirtualItems();
 				const cache = virtualizer.measurementsCache;
 				const first = cache[0];
 				const oldFirst = cache[newItemCount];
@@ -77,7 +87,7 @@ export function useVirtualRows<T extends { id: string }>({
 			}
 		}
 		prevEntriesRef.current = entries;
-	}, [entries, virtualizer.measurementsCache, scrollEl]);
+	}, [entries, virtualizer, scrollEl]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0
