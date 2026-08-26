@@ -4,7 +4,7 @@ import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
 import { ActiveSessionsPanel } from "../components/ActiveSessionsPanel";
 import { AlertsPanel } from "../components/AlertsPanel";
-import { FleetSyncWizard } from "../components/FleetSyncWizard";
+import { FleetSyncWizard } from "../components/fleetSync/FleetSyncWizard";
 import { ObservabilityPanel } from "../components/ObservabilityPanel";
 import { OidcPanel } from "../components/OidcPanel";
 import { PairedDevicesPanel } from "../components/PairedDevicesPanel";
