@@ -26,7 +26,6 @@ internal/proxy/multimodal.go	1071
 internal/proxy/proxy.go	976
 internal/proxy/upstream_classify.go	804
 web/src/api/types.ts	1058
-web/src/components/Layout.tsx	1065
 web/src/components/VirtualModelTable.tsx	858
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
 web/src/pages/Models/ModelDetailModal.tsx	823
