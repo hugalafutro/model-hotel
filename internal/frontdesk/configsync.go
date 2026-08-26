@@ -135,9 +135,33 @@ func (d memberConfigDiff) counts() (added, updated, removed int) {
 	return added, updated, removed
 }
 
+// errPrimaryExportUnreadable stops a run before any member is touched: the
+// primary's config could not be read, so there is nothing to push. It is a
+// sentinel rather than a message because the run happens away from the handler
+// that renders it, and this is the one failure that is a 502 (the primary
+// answered badly) rather than a store error.
+var errPrimaryExportUnreadable = errors.New("could not read the primary's config")
+
+// configSyncRun is one manual sync run's outcome, handed back to the handler
+// parked on it: the per-member results, or the error that ended the run before
+// any member was touched.
+type configSyncRun struct {
+	primaryID string
+	results   []syncResultItem
+	err       error
+}
+
 // configSync pulls the primary's config and applies it to every other member
 // Front Desk can authenticate to. Each member is independent: a failure leaves
 // that member untouched and is reported.
+//
+// The run itself happens on a goroutine registered with the server's background
+// group, and the handler parks on it so the operator still gets the per-member
+// results on this request. Detaching the run from the request context is what
+// keeps a client with a short HTTP timeout (Bellhop, a proxy) from cancelling
+// member imports, event emits and sync stamps half-way; registering it is what
+// keeps that same detached run from outliving Shutdown's drain and recording
+// itself against a closed store.
 func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		PrimaryID string `json:"primary_id"`
@@ -145,31 +169,58 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	// Once the sync is requested it runs to completion detached from the
-	// client's connection: a caller with a short HTTP timeout (Bellhop, a
-	// proxy) hanging up would otherwise cancel r.Context() mid-run and abort
-	// member imports, event emits and sync stamps half-way, leaving no trace
-	// of the run at all.
-	ctx := context.WithoutCancel(r.Context())
-	// Attribute the run to whoever authenticated it (a paired device or the
-	// dashboard). WithoutCancel keeps the context values, so the device is still
-	// resolvable off ctx. Stamped on each member and carried in the audit event.
-	reason := manualSyncReason(actorFromContext(ctx))
-	primary, primaryToken, err := s.memberTokenOrErr(ctx, req.PrimaryID)
-	if err != nil {
-		writeError(w, err)
+
+	var run configSyncRun
+	done := make(chan struct{})
+	if !s.StartBackground(s.detachedContext(r), func(ctx context.Context) {
+		defer close(done)
+		run = s.runConfigSync(ctx, req.PrimaryID)
+	}) {
+		// Shutdown has begun. The auto-sync kick simply goes unfired at this point;
+		// here the run is the response, so say so instead: a fleet-wide write started
+		// now would be cancelled a moment later with nowhere to record what it did.
+		http.Error(w, "front desk is shutting down; run the sync again once it is back", http.StatusServiceUnavailable)
 		return
+	}
+	// Bounded by the run itself: every member call carries the sync client's
+	// deadline, and the server's lifetime ends the whole run at shutdown, which is
+	// the same goroutine the drain is waiting on.
+	<-done
+
+	switch {
+	case errors.Is(run.err, errPrimaryExportUnreadable):
+		http.Error(w, run.err.Error(), http.StatusBadGateway)
+	case run.err != nil:
+		writeError(w, run.err)
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"primary_id": run.primaryID, "results": run.results})
+	}
+}
+
+// runConfigSync is the manual sync run: pull the primary's config, push it to
+// every other member, record the run. It carries no ResponseWriter because it
+// executes on the server's background group rather than on the handler's
+// goroutine; the handler renders what it returns.
+//
+// ctx ends when the server shuts down, so a fleet-wide push stops between
+// members rather than continuing into a store that is about to close.
+func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSyncRun {
+	// Attribute the run to whoever authenticated it (a paired device or the
+	// dashboard). The detached context keeps the request's values, so the device is
+	// still resolvable off ctx. Stamped on each member and carried in the audit event.
+	reason := manualSyncReason(actorFromContext(ctx))
+	primary, primaryToken, err := s.memberTokenOrErr(ctx, primaryID)
+	if err != nil {
+		return configSyncRun{err: err}
 	}
 	export, err := s.fetchMemberExport(ctx, primary, primaryToken)
 	if err != nil {
-		http.Error(w, "could not read the primary's config", http.StatusBadGateway)
-		return
+		return configSyncRun{err: errPrimaryExportUnreadable}
 	}
 
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
-		writeError(w, err)
-		return
+		return configSyncRun{err: err}
 	}
 
 	// Stamp this manual sync with the current source generation so it advances the
@@ -179,8 +230,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	// auto-sync applied, and an equal generation still applies (not refused).
 	gen, err := s.store.AutoSyncGen(ctx)
 	if err != nil {
-		writeError(w, err)
-		return
+		return configSyncRun{err: err}
 	}
 
 	// The primary's config hash keys any lost-answer push so a later verification
@@ -196,6 +246,14 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	results := make([]syncResultItem, 0)
 	for _, m := range members {
+		if ctx.Err() != nil {
+			// The server is shutting down. Stop between members rather than push a
+			// config whose outcome nothing can record: the store is waiting on this
+			// goroutine to close, and the members left over are reported unsynced,
+			// which is what they are. The operator re-runs the sync after the restart.
+			debuglog.Info("frontdesk: manual config sync stopped by shutdown", "primary", primary.Name)
+			break
+		}
 		if m.ID == primary.ID || !m.HasToken {
 			continue // the source, and token-less members (flagged in preview), are skipped
 		}
@@ -221,8 +279,13 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen, pushedHash))
 	}
-	s.recordFleetSyncRun(ctx, primary, results)
-	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
+	// The run marker is a write like any other, so it is skipped once the server is
+	// going: a cancelled run is not a run the fleet's staleness watchdog should
+	// count, and the store it would be written to is about to close.
+	if ctx.Err() == nil {
+		s.recordFleetSyncRun(ctx, primary, results)
+	}
+	return configSyncRun{primaryID: primary.ID, results: results}
 }
 
 // prepareMemberSync runs the dry-run that gates the wizard's destructive replace

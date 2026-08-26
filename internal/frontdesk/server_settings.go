@@ -391,9 +391,11 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// Registering through the server's background group rather than a bare
 	// goroutine is what keeps this safe during shutdown: a handler can still be
 	// running after the HTTP drain gave up, and the kick is refused from that point
-	// on, its context released for it.
+	// on, its context released for it. A kick that is already running takes the
+	// server's lifetime from detachedContext, so shutdown ends it instead of
+	// leaving the drain to wait out a fifteen-minute pass.
 	if status.Enabled && status.PrimaryID != "" {
-		s.StartBackgroundTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout, s.forceAutoSyncNow)
+		s.StartBackgroundTimeout(s.detachedContext(r), autoSyncKickTimeout, s.forceAutoSyncNow)
 	}
 	writeJSON(w, http.StatusOK, status)
 }

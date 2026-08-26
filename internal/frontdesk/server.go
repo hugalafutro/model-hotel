@@ -168,6 +168,41 @@ type Server struct {
 	bgMu      sync.Mutex
 	bgClosing bool
 	bgWG      sync.WaitGroup
+	// shutdownCtx is cancelled at the top of Shutdown, before the drain parks.
+	// Work a request starts but the server owns (the manual config sync, the
+	// auto-sync kick) takes its lifetime from here, so a fleet-wide run that is
+	// still going when shutdown begins stops at its next cancellation point
+	// instead of outliving the drain budget and recording itself against a store
+	// Shutdown has already closed. It is never cancelled anywhere else: the server
+	// is not restartable, so this is a one-way end-of-life signal.
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelFunc
+}
+
+// detachedCtx pairs one context's lifetime with another's values: Deadline, Done
+// and Err come from the embedded context, Value from values. Neither standard
+// combinator does both, which is why this type exists — context.WithoutCancel
+// keeps a request's values but yields a context nothing can ever cancel, and a
+// plain child of the server's shutdown context can be cancelled but has lost the
+// request's values (the actor a manual sync is attributed to).
+type detachedCtx struct {
+	context.Context                 // lifetime only
+	values          context.Context // values only
+}
+
+// Value answers from the request. The lifetime context carries no values, so
+// there is nothing to fall through to.
+func (d detachedCtx) Value(key any) any { return d.values.Value(key) }
+
+// detachedContext returns the context for work a request starts and the server
+// owns: the request's values with the server's lifetime. Dropping the request's
+// cancellation is what stops a client hanging up from aborting a run half-way;
+// keeping the server's is what stops that same run from writing into a store
+// Shutdown has closed. Hand it to StartBackground (or StartBackgroundTimeout, to
+// bound the run as well), never to a bare goroutine: the lifetime only helps if
+// the drain waits for the work it ends.
+func (s *Server) detachedContext(r *http.Request) context.Context {
+	return detachedCtx{Context: s.shutdownCtx, values: r.Context()}
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -231,6 +266,10 @@ func NewServer(cfg ServerConfig) *Server {
 		backupStale:     make(map[string]bool),
 		startedAt:       time.Now(),
 	}
+	// The server's own lifetime, handed to detached request work. Cancelled by
+	// Shutdown and by nothing else, so a server that is never shut down simply
+	// never ends it.
+	s.shutdownCtx, s.shutdownCancel = context.WithCancel(context.Background())
 
 	// Bind the scrape-time member-fleet collector to this server's store and
 	// poller so /metrics always reflects current state (one server per process
@@ -333,6 +372,10 @@ func (s *Server) StartBackgroundTimeout(parent context.Context, d time.Duration,
 // forever; the store is closed either way and the timed-out drain is logged, so
 // the operator sees which shutdown was untidy.
 //
+// Work that took the server's lifetime rather than a caller's (see
+// detachedContext) is cancelled here as well, before the waiter parks, so it
+// stops on its own instead of racing that budget.
+//
 // It takes ownership of the store it was configured with and closes it, so a
 // caller holding the same *Store must not keep using it afterwards.
 //
@@ -344,6 +387,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.bgMu.Lock()
 	s.bgClosing = true
 	s.bgMu.Unlock()
+	// Ending the server's lifetime before the waiter parks is what keeps the drain
+	// short for work that carries no deadline of its own: a manual config sync
+	// pushing the fleet on a detached context stops at its next cancellation point
+	// rather than spending the whole budget while the store waits to close.
+	s.shutdownCancel()
 
 	drained := make(chan struct{})
 	go func() {
