@@ -16,7 +16,6 @@ internal/api/failover.go	929
 internal/api/logs.go	809
 internal/api/stats.go	843
 internal/failover/circuitbreaker_test.go	2056
-internal/failover/failover.go	1091
 internal/frontdesk/autosync.go	1171
 internal/frontdesk/autosync_test.go	4254
 internal/frontdesk/poller.go	930
