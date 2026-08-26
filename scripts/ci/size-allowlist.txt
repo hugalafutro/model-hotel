@@ -35,7 +35,7 @@ internal/proxy/proxy_failover.go	1380
 internal/proxy/upstream_classify.go	804
 web/src/api/client.ts	1759
 web/src/api/types.ts	1058
-web/src/components/Layout.tsx	1583
+web/src/components/Layout.tsx	1065
 web/src/components/ModelDiscrepancyModal.tsx	1276
 web/src/components/VirtualModelTable.tsx	858
 web/src/components/__tests__/Layout.navigation.test.tsx	2558
