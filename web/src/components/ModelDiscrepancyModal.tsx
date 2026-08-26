@@ -1,41 +1,19 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type {
-	DiscoveryChangeEntry,
-	DiscoveryDiff,
-	GroupClaim,
-} from "../api/types";
+import type { DiscoveryChangeEntry, GroupClaim } from "../api/types";
 import {
-	type MergedClaim,
 	type MergedProvider,
 	providerHasNoPending,
 	retestProvesNothing,
 } from "../hooks/useDiscrepancies";
-import { ChevronDown, ChevronRight, ChevronUp, RefreshCw } from "../lib/icons";
-import { formatFieldValue } from "../pages/Providers/discoveryFormat";
-import {
-	CategoryGroup,
-	Chip,
-	DetailRow,
-} from "../pages/Providers/discoveryPrimitives";
-import { formatDateTimeShort, formatRelativeTime } from "../utils/format";
+import { ChevronUp, RefreshCw } from "../lib/icons";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ProviderPill } from "./discrepancy/ProviderPill";
+import type { ClaimRowActions } from "./discrepancy/ClaimRow";
+import { GroupClaimsSection } from "./discrepancy/GroupClaimsSection";
+import { ALL_GROUPS, actionableIn, type Group } from "./discrepancy/groups";
+import { InformationalJournal } from "./discrepancy/InformationalJournal";
+import { ProviderSection } from "./discrepancy/ProviderSection";
 import { Modal } from "./Modal";
-
-/**
- * Which bucket a claim is rendered under.
- *
- * Passed down explicitly instead of being read back off `claim.state`, because a
- * `MergedClaim` carries BOTH `state` (gone/stale/suspect, from the server) and
- * `status` (pending/resolved/new, session-local). `state` decides which group a
- * claim belongs to and therefore which controls it gets; `status` decides only
- * how the row is styled. Threading the group through as an argument makes it
- * impossible for a row to be rendered under one heading and act like another.
- */
-type Group = "gone" | "stale" | "suspect" | "retired" | "pinned";
-
-const ALL_GROUPS: Group[] = ["gone", "stale", "suspect", "retired", "pinned"];
 
 /** Which provider is unrolled, and which of its bucket lines. */
 type OpenPath = { providerID: string; bucket: Group | null };
@@ -93,7 +71,6 @@ export interface ModelDiscrepancyModalProps {
 	 * take this: everything else in here is per-member listing evidence. */
 	managed?: boolean;
 }
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function ModelDiscrepancyModal({
 	providers,
 	groupClaims,
@@ -326,617 +303,22 @@ export function ModelDiscrepancyModal({
 		: managed
 			? managedNoteId
 			: undefined;
-	const unpinTitle = () => {
-		if (readOnly) return t("providers.discrepancies.readOnlyTooltip");
-		if (managed) return t("providers.discrepancies.unpinManagedTooltip");
-		return t("providers.discrepancies.unpinTooltip");
-	};
+	const unpinTitle = readOnly
+		? t("providers.discrepancies.readOnlyTooltip")
+		: managed
+			? t("providers.discrepancies.unpinManagedTooltip")
+			: t("providers.discrepancies.unpinTooltip");
 
-	const flapChip = (c: MergedClaim) => {
-		// Primary number is "since your last visit"; the 30-day total is shown
-		// in the tooltip as extra context beyond that count.
-		if (c.flap_since_review > 0) {
-			return (
-				<span
-					className="ui-badge ui-badge-warning shrink-0 tabular-nums"
-					data-testid="discrepancy-flap"
-					title={t("providers.discrepancies.flapWindowTooltip", {
-						count: c.flap_window,
-					})}
-				>
-					{t("providers.discrepancies.flapped", { count: c.flap_since_review })}
-				</span>
-			);
-		}
-		if (c.flap_window > 1) {
-			// Nothing has flapped since the last visit here (flap_since_review is
-			// 0), so there is no complementary count worth surfacing. The tooltip
-			// instead names the window the visible count is scoped to, since the
-			// chip label itself never states a timeframe.
-			return (
-				<span
-					className="ui-badge ui-badge-warning shrink-0 tabular-nums"
-					data-testid="discrepancy-flap"
-					title={t("providers.discrepancies.flapWindowTooltip", {
-						count: c.flap_window,
-					})}
-				>
-					{t("providers.discrepancies.flapped", { count: c.flap_window })}
-				</span>
-			);
-		}
-		return null;
-	};
-
-	/**
-	 * Tooltip for a row's Dismiss control.
-	 *
-	 * The ordinary promise — "it comes back if the provider lists it again" — is
-	 * specifically untrue for a retired model. The provider lists it on every
-	 * scan, and the dismissal is deliberately kept through that (see the Upsert
-	 * exception), or the claim could never be silenced at all.
-	 *
-	 * Written as separate statements with literal keys rather than as one t()
-	 * call picking a key: the i18n source-key check only follows literal
-	 * arguments, so a key chosen inside the call is invisible to it and could go
-	 * missing from en.json with nothing failing.
-	 */
-	const dismissTitle = (group: Group) => {
-		if (readOnly) return t("providers.discrepancies.readOnlyTooltip");
-		if (group === "retired") {
-			return t("providers.discrepancies.dismissRetiredTooltip");
-		}
-		return t("providers.discrepancies.dismissTooltip");
-	};
-
-	const claimMeta = (c: MergedClaim, group: Group) => {
-		if (group === "suspect") {
-			return t("providers.discrepancies.suspectMeta", {
-				count: c.missing_scans,
-			});
-		}
-		// A retired model is still listed, so it was "last seen" moments ago and
-		// that reading would contradict the row it sits on. Date it by when the
-		// proxy retired it instead.
-		//
-		// The whole branch is on the group, not on the timestamp: the server sets
-		// retired_at on every retired claim, but if one ever arrived without it,
-		// falling through would print the "last seen" wording this state exists to
-		// avoid. Better to say nothing about the timing than to say that.
-		if (group === "retired") {
-			return c.retired_at
-				? t("providers.discrepancies.retiredMeta", {
-						when: formatRelativeTime(c.retired_at),
-					})
-				: "";
-		}
-		// A pinned model IS missing from the listing, so "last seen" is true but
-		// says nothing about why the row exists. Date it by the operator's decision
-		// instead, and stay silent rather than fall through to the wrong wording if
-		// a claim ever arrives without the stamp.
-		if (group === "pinned") {
-			return c.pinned_at
-				? t("providers.discrepancies.pinnedMeta", {
-						when: formatRelativeTime(c.pinned_at),
-					})
-				: "";
-		}
-		return t("providers.discrepancies.lastSeenMeta", {
-			when: formatRelativeTime(c.last_seen_at),
-		});
-	};
-
-	/**
-	 * One model, as a TIGHT single line rather than a bordered card.
-	 *
-	 * The card treatment was the whole cost of this list: a bucket with 52 rows
-	 * meant 52 rounded, bordered, separately-filled boxes, each two lines tall
-	 * because the meta sat under the id. Dropping to one line with a hairline
-	 * divider between rows (the container owns those, see renderBucket) roughly
-	 * halves the height and removes the per-row paint work that made unrolling
-	 * stutter. Same idiom as Bellhop's event list.
-	 */
-	const renderClaim = (p: MergedProvider, c: MergedClaim, group: Group) => {
-		// `status`, never `state`: this is styling only.
-		const isCleared = c.status === "resolved" || c.status === "dismissed";
-		return (
-			<div
-				key={c.model_id}
-				data-testid="discrepancy-claim"
-				data-model-id={c.model_id}
-				data-status={c.status}
-				data-state={c.state}
-				className="flex items-baseline gap-2 py-1 pl-1 pr-0.5"
-			>
-				{c.status === "new" ? (
-					<span
-						className="ui-badge ui-badge-accent shrink-0"
-						data-testid="discrepancy-new"
-					>
-						{t("providers.discrepancies.new")}
-					</span>
-				) : null}
-				<span
-					className={`min-w-0 flex-1 truncate font-mono text-xs ${
-						isCleared
-							? "text-(--text-muted) line-through"
-							: "text-(--text-primary)"
-					}`}
-					title={c.model_id}
-				>
-					{c.model_id}
-				</span>
-				<span
-					className={`shrink-0 text-[11px] ${
-						isCleared ? "text-(--text-muted)" : "text-(--text-tertiary)"
-					}`}
-				>
-					{claimMeta(c, group)}
-				</span>
-				{flapChip(c)}
-				{group === "pinned" && !isCleared ? (
-					<button
-						type="button"
-						onClick={() => onUnpin(p.provider_id, c.model_id)}
-						disabled={unpinBlocked}
-						title={unpinTitle()}
-						aria-describedby={unpinNoteId}
-						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
-						data-testid="discrepancy-unpin"
-					>
-						{t("providers.discrepancies.unpin")}
-					</button>
-				) : null}
-				{(group === "gone" || group === "retired") && !isCleared ? (
-					<button
-						type="button"
-						onClick={() => onDismiss(p.provider_id, c.model_id)}
-						disabled={readOnly}
-						title={dismissTitle(group)}
-						aria-describedby={describedByReadOnly}
-						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0"
-						data-testid="discrepancy-dismiss"
-					>
-						{t("providers.discrepancies.dismiss")}
-					</button>
-				) : null}
-			</div>
-		);
-	};
-
-	const BUCKET_SIGN: Record<Group, string> = {
-		gone: "×",
-		suspect: "?",
-		retired: "!",
-		stale: "·",
-		// "+" as in "you put these back", the same sign the journal uses for models
-		// that appeared. Deliberately not one of the alarm signs: a pin is a
-		// decision the operator made, not something that went wrong.
-		pinned: "+",
-	};
-	const BUCKET_VARIANT: Record<Group, string> = {
-		gone: "ui-badge-error",
-		suspect: "ui-badge-warning",
-		retired: "ui-badge-error",
-		stale: "ui-badge-neutral",
-		pinned: "ui-badge-info",
-	};
-
-	/**
-	 * Level 2: one collapsible line per bucket, all closed when a provider opens.
-	 *
-	 * Gone and suspect previously rendered fully expanded via CategoryGroup while
-	 * only stale had a toggle, which is how a provider with 42 gone models produced
-	 * 42 rows on sight. All three now use the stale pattern, so the operator opens
-	 * exactly the list they asked for.
-	 *
-	 * The rows are MOUNTED ONLY WHILE OPEN, and there is no height animation. Both
-	 * are deliberate, and both are why unrolling is cheap:
-	 *
-	 *   - The animated `grid-template-rows: 0fr -> 1fr` this used to share with the
-	 *     journal zone forces the browser to lay out the entire subtree on every
-	 *     frame of the transition. With 52 rows that is the stutter, and it is paid
-	 *     on a machine fast enough to spin its fans doing it.
-	 *   - Keeping collapsed rows mounted only existed to give that transition
-	 *     something to animate. Nothing else needs them: the single-open rule means
-	 *     at most one bucket in the whole modal is ever open, so the modal now holds
-	 *     one bucket's rows instead of every bucket's rows of every provider (179 on
-	 *     the dev fleet).
-	 *
-	 * Unmounting also strictly beats the old `inert` trick for screen readers: rows
-	 * that do not exist cannot be announced under an aria-expanded="false" toggle.
-	 * The region wrapper stays rendered either way so `aria-controls` always
-	 * resolves to a real element.
-	 */
-	const renderBucket = (p: MergedProvider, group: Group) => {
-		// `?? []`: a server predating the operator pin omits the bucket entirely,
-		// which a rolling deploy puts behind this dashboard.
-		const claims = p[group] ?? [];
-		if (claims.length === 0) return null;
-		const open =
-			openPath?.providerID === p.provider_id && openPath.bucket === group;
-		const regionId = `${regionIdBase}-${group}-${p.provider_id}`;
-		return (
-			<section data-testid={`discrepancy-group-${group}`} className="space-y-1">
-				<button
-					type="button"
-					onClick={() => toggleBucket(p.provider_id, group)}
-					aria-expanded={open}
-					aria-controls={regionId}
-					className="flex w-full items-center gap-2 text-left"
-					data-testid={`discrepancy-group-${group}-toggle`}
-				>
-					{open ? (
-						<ChevronDown size={14} className="shrink-0" />
-					) : (
-						<ChevronRight size={14} className="shrink-0" />
-					)}
-					<span
-						className={`ui-badge ${BUCKET_VARIANT[group]} shrink-0 tabular-nums`}
-					>
-						{BUCKET_SIGN[group]} {claims.length}
-					</span>
-					<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
-						{/* Literal key for the pinned bucket rather than another entry under
-						    `group`: the i18n source-key check only follows literal
-						    arguments, and the label is the operator's own decision read
-						    back to them, not a discovery verdict like its neighbours. */}
-						{group === "pinned"
-							? t("providers.discrepancies.pinnedGroup")
-							: t(`providers.discrepancies.group.${group}`)}
-					</span>
-					<span className="h-px flex-1 bg-white/30" />
-				</button>
-				<div id={regionId}>
-					{open ? (
-						// The divider belongs to the container, not to each row: one
-						// hairline between neighbours reads tighter than 52 outlined boxes
-						// and costs a border instead of a filled, rounded surface each.
-						<div className="divide-y divide-(--border-subtle)">
-							{claims.map((c) => renderClaim(p, c, group))}
-						</div>
-					) : null}
-				</div>
-			</section>
-		);
-	};
-
-	/**
-	 * Headline over a cleared provider's buckets, reporting the TWO causes
-	 * separately and both at once for a provider that had some of each.
-	 *
-	 * Dismissed rows get a count, not one line each: sixty lines saying "model X
-	 * dismissed" is the wall of text this redesign removes, and the rows are one
-	 * click away in their bucket. Resolved rows keep their per-model line, because
-	 * "is listed again" says something the count cannot.
-	 */
-	const renderClearedSummary = (p: MergedProvider) => {
-		const all = ALL_GROUPS.flatMap((g) => p[g] ?? []);
-		const dismissed = all.filter((c) => c.status === "dismissed");
-		const relisted = all.filter((c) => c.status === "resolved");
-		return (
-			<div
-				data-testid="discrepancy-resolved"
-				className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
-			>
-				{dismissed.length > 0 ? (
-					<div className="flex items-center gap-2">
-						<span className="ui-badge ui-badge-neutral shrink-0">✓</span>
-						<span
-							className="text-sm text-(--text-secondary)"
-							data-testid="discrepancy-dismissed-summary"
-						>
-							{t("providers.discrepancies.dismissedSummary", {
-								count: dismissed.length,
-							})}
-						</span>
-					</div>
-				) : null}
-				{relisted.length > 0 ? (
-					<div className="flex items-center gap-2">
-						<span className="ui-badge ui-badge-success shrink-0">✓</span>
-						<span className="text-sm text-(--text-secondary)">
-							{t("providers.discrepancies.resolved")}
-						</span>
-					</div>
-				) : null}
-				{relisted.map((c) => (
-					<p
-						key={c.model_id}
-						className="text-[11px] text-(--text-tertiary)"
-						data-testid="discrepancy-resolved-detail"
-					>
-						{/* A retired model was never missing from the listing, so "listed
-						    again" would be false for it — what changed is that it serves
-						    again. The flap variant is skipped too: flapping counts a model
-						    entering and leaving the listing, which this one never did. */}
-						{c.state === "retired"
-							? t("providers.discrepancies.resolvedRetiredPlain", {
-									model: c.model_id,
-								})
-							: c.flap_since_review > 0
-								? t("providers.discrepancies.resolvedDetail", {
-										model: c.model_id,
-										count: c.flap_since_review,
-									})
-								: t("providers.discrepancies.resolvedPlain", {
-										model: c.model_id,
-									})}
-					</p>
-				))}
-			</div>
-		);
-	};
-
-	/** Rows that still need the operator: `pending` or `new`, never cleared. */
-	const actionableIn = (p: MergedProvider, group: Group) =>
-		(p[group] ?? []).filter(
-			(c) => c.status === "pending" || c.status === "new",
-		);
-
-	const renderProvider = (p: MergedProvider) => {
-		const expanded = openPath?.providerID === p.provider_id;
-		const spinning = retestingProviderId === p.provider_id;
-		const error = errors[p.provider_id];
-		const gone = actionableIn(p, "gone");
-		const stale = actionableIn(p, "stale");
-		const suspect = actionableIn(p, "suspect");
-		const retired = actionableIn(p, "retired");
-		// One predicate behind the pill's either-or controls and behind whether the
-		// cleared summary renders, so the two can never disagree and offer a
-		// re-probe with nothing to probe.
-		const isCleared = providerHasNoPending(p);
-		// Suspect ids are deliberately excluded: setModelsDismissed only touches
-		// `enabled = false` rows, and a suspect model is still enabled, so sending
-		// one would undercount `updated` and report an unknown model.
-		const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
-		const pointlessRetest = retestProvesNothing(p);
-		const all = ALL_GROUPS.flatMap((g) => p[g] ?? []);
-		const regionId = `${regionIdBase}-provider-${p.provider_id}`;
-		return (
-			<section
-				key={p.provider_id}
-				data-testid="discrepancy-provider"
-				data-provider-id={p.provider_id}
-				className="space-y-2"
-			>
-				{/* The ref goes on a wrapper around the PILL ROW, never on the section.
-				    An unrolled section is as tall as its open bucket, so it keeps
-				    intersecting the scroll container long after its header has left the
-				    viewport, and the return-to-top control would never appear. */}
-				<div ref={expanded ? openHeaderRef : undefined}>
-					<ProviderPill
-						providerName={p.provider_name}
-						expanded={expanded}
-						onToggle={() => toggleProvider(p.provider_id)}
-						// Pinned rows are deliberately absent: the chips are this
-						// provider's problem count, and a pin is a decision the operator
-						// made. Counting it would put a number on the pill (and, one level
-						// up, on the badge) for something nobody needs to act on.
-						counts={{
-							gone: gone.length,
-							stale: stale.length,
-							suspect: suspect.length,
-							retired: retired.length,
-						}}
-						cleared={{
-							dismissed: all.filter((c) => c.status === "dismissed").length,
-							resolved: all.filter((c) => c.status === "resolved").length,
-						}}
-						isCleared={isCleared}
-						canDismiss={dismissable.length > 0}
-						retestDisabled={retestBlocked || pointlessRetest}
-						retestProvesNothing={pointlessRetest}
-						retesting={spinning}
-						onRetest={() => onRetest(p.provider_id, p.provider_name)}
-						onDismissAll={() =>
-							setConfirmDismiss({
-								providerID: p.provider_id,
-								providerName: p.provider_name,
-								modelIDs: dismissable,
-							})
-						}
-						onClean={() => onClean(p.provider_id)}
-						describedByReadOnly={describedByReadOnly}
-						readOnly={readOnly}
-						regionId={regionId}
-					/>
-				</div>
-				{/* A failed retest banners inside the section and keeps its claims: a
-				    toast fades before it is read, and dropping the claims would read as
-				    "fixed". OUTSIDE the collapsible region, so it is visible on a
-				    collapsed pill, which is where the operator clicked Retest. */}
-				{error ? (
-					<div
-						className="flex items-start gap-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2 text-sm"
-						data-testid="discrepancy-error"
-					>
-						<span className="ui-badge ui-badge-error shrink-0">
-							{t("providers.discrepancies.error")}
-						</span>
-						<span className="break-words text-(--text-secondary)">{error}</span>
-					</div>
-				) : null}
-				{/* Mounted only while open, and unanimated, for the same reason as the
-				    bucket bodies: closing a provider that has a bucket open would
-				    otherwise animate the whole open list collapsing, which is the most
-				    expensive frame in the modal. See renderBucket. */}
-				<div id={regionId}>
-					{expanded ? (
-						// A cleared provider KEEPS its buckets: the struck-through rows are
-						// the log of what the operator did, and they stay reachable until
-						// Clean. Dropping them here would be the vanishing-rows complaint
-						// one level up.
-						<div className="space-y-2 pl-5">
-							{isCleared ? renderClearedSummary(p) : null}
-							{renderBucket(p, "retired")}
-							{renderBucket(p, "gone")}
-							{renderBucket(p, "suspect")}
-							{renderBucket(p, "stale")}
-							{/* Last: the only bucket that is not a problem. */}
-							{renderBucket(p, "pinned")}
-						</div>
-					) : null}
-				</div>
-			</section>
-		);
-	};
-
-	// Failover groups discovery disabled: `hotel/<model>` routing for them is
-	// dead. No Retest (a retest is provider-scoped and a group is not) and no
-	// dismiss (the claim clears itself when the group is routable again).
-	const renderGroupClaims = () => {
-		if (groupClaims.length === 0) return null;
-		return (
-			<CategoryGroup
-				sign="⊘"
-				count={groupClaims.length}
-				badgeVariant="ui-badge-orange"
-				label={t("providers.discrepancies.groupClaims")}
-				testId="discrepancy-group-claims"
-			>
-				<div className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
-					{groupClaims.map((g) => (
-						<div
-							key={g.display_model}
-							data-testid="discrepancy-group-claim"
-							data-display-model={g.display_model}
-						>
-							<DetailRow
-								stacked
-								primary={g.display_model}
-								secondary={
-									<>
-										{t("providers.discrepancies.groupRoutable", {
-											routable: g.routable_count,
-											members: g.member_count,
-										})}
-										{" · "}
-										{t("providers.discrepancies.groupDisabledAt", {
-											when: formatDateTimeShort(g.disabled_at),
-										})}
-									</>
-								}
-							/>
-						</div>
-					))}
-				</div>
-			</CategoryGroup>
-		);
-	};
-
-	const chipCategory = (
-		items: DiscoveryDiff["added"],
-		sign: string,
-		badgeVariant: string,
-		label: string,
-		testId: string,
-	) =>
-		items?.length ? (
-			<CategoryGroup
-				sign={sign}
-				count={items.length}
-				badgeVariant={badgeVariant}
-				label={label}
-				testId={testId}
-			>
-				<div className="flex flex-wrap gap-1.5">
-					{items.map((c) => (
-						<Chip key={c.model_id} label={c.model_id} mono />
-					))}
-				</div>
-			</CategoryGroup>
-		) : null;
-
-	const renderInformationalEntry = (
-		entry: DiscoveryChangeEntry,
-		key: string,
-	) => {
-		const diff = entry.diff;
-		const failover = [
-			...(diff.failover_deleted_groups ?? []),
-			...(diff.failover_updated_groups ?? []),
-			...(diff.failover_disabled_groups ?? []),
-		];
-		return (
-			<div
-				key={key}
-				data-testid="discrepancy-informational-entry"
-				className="space-y-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
-			>
-				<div className="flex items-baseline justify-between gap-2">
-					<span className="truncate text-xs font-semibold text-(--accent)">
-						{entry.provider_name ||
-							t("providers.discoverySummary.failover", "Failover")}
-					</span>
-					<span className="shrink-0 text-[11px] text-(--text-tertiary)">
-						{formatRelativeTime(entry.detected_at)}
-					</span>
-				</div>
-				{chipCategory(
-					diff.added,
-					"+",
-					"ui-badge-success",
-					t("providers.discrepancies.added"),
-					"discrepancy-informational-added",
-				)}
-				{chipCategory(
-					diff.reenabled,
-					"↺",
-					"ui-badge-info",
-					t("providers.discrepancies.reenabled"),
-					"discrepancy-informational-reenabled",
-				)}
-				{diff.updated?.length ? (
-					<CategoryGroup
-						sign="±"
-						count={diff.updated.length}
-						badgeVariant="ui-badge-accent"
-						label={t("providers.discrepancies.updated")}
-						testId="discrepancy-informational-updated"
-					>
-						<div className="space-y-1">
-							{diff.updated.map((u) => (
-								<DetailRow
-									key={u.model_id}
-									stacked
-									primary={u.model_id}
-									secondary={u.changes
-										.map(
-											(c) =>
-												`${t(`providers.discoverySummary.field.${c.field}`, c.field)}: ${formatFieldValue(
-													c.field,
-													c.old,
-													t("providers.discoverySummary.unset"),
-												)} → ${formatFieldValue(
-													c.field,
-													c.new,
-													t("providers.discoverySummary.unset"),
-												)}`,
-										)
-										.join(", ")}
-								/>
-							))}
-						</div>
-					</CategoryGroup>
-				) : null}
-				{failover.length ? (
-					<CategoryGroup
-						sign="⇄"
-						count={failover.length}
-						badgeVariant="ui-badge-orange"
-						label={t("providers.discrepancies.failover")}
-						testId="discrepancy-informational-failover"
-					>
-						<div className="flex flex-wrap gap-1.5">
-							{failover.map((g) => (
-								<Chip key={g.display_model} label={g.display_model} mono />
-							))}
-						</div>
-					</CategoryGroup>
-				) : null}
-			</div>
-		);
+	// Everything a claim row needs to gate and route its two actions, computed
+	// once here because the reasons are modal-wide (see the notes above).
+	const claimActions: ClaimRowActions = {
+		readOnly,
+		unpinBlocked,
+		unpinTitle,
+		unpinNoteId,
+		describedByReadOnly,
+		onUnpin,
+		onDismiss,
 	};
 
 	const retestableProviders = visibleProviders.filter(
@@ -1098,8 +480,38 @@ export function ModelDiscrepancyModal({
 				    under the cursor mid-session. */}
 					{hasContent ? (
 						<div className="space-y-5">
-							{visibleProviders.map(renderProvider)}
-							{renderGroupClaims()}
+							{visibleProviders.map((p) => (
+								<ProviderSection
+									key={p.provider_id}
+									provider={p}
+									expanded={openPath?.providerID === p.provider_id}
+									openBucket={
+										openPath?.providerID === p.provider_id
+											? openPath.bucket
+											: null
+									}
+									spinning={retestingProviderId === p.provider_id}
+									error={errors[p.provider_id]}
+									retestBlocked={retestBlocked}
+									readOnly={readOnly}
+									describedByReadOnly={describedByReadOnly}
+									regionIdBase={regionIdBase}
+									headerRef={openHeaderRef}
+									onToggleProvider={() => toggleProvider(p.provider_id)}
+									onToggleBucket={(group) => toggleBucket(p.provider_id, group)}
+									onRetest={() => onRetest(p.provider_id, p.provider_name)}
+									onDismissAll={(modelIDs) =>
+										setConfirmDismiss({
+											providerID: p.provider_id,
+											providerName: p.provider_name,
+											modelIDs,
+										})
+									}
+									onClean={() => onClean(p.provider_id)}
+									actions={claimActions}
+								/>
+							))}
+							<GroupClaimsSection groupClaims={groupClaims} />
 						</div>
 					) : loadError ? null : loading ? (
 						/* Distinct from both neighbours on purpose: the error says "we
@@ -1124,81 +536,12 @@ export function ModelDiscrepancyModal({
 					)}
 
 					{/* Zone 2: the informational journal. Never holds the badge open. */}
-					{informational.length > 0 ? (
-						<section
-							data-testid="discrepancy-informational"
-							className="space-y-2"
-						>
-							<button
-								type="button"
-								onClick={toggleInfo}
-								aria-expanded={infoOpen}
-								aria-controls={`${regionIdBase}-informational`}
-								className="flex w-full items-center gap-2 text-left"
-								data-testid="discrepancy-informational-toggle"
-							>
-								{infoOpen ? (
-									<ChevronDown size={14} className="shrink-0" />
-								) : (
-									<ChevronRight size={14} className="shrink-0" />
-								)}
-								<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
-									{t("providers.discrepancies.recentChanges")}
-								</span>
-								<span className="h-px flex-1 bg-white/30" />
-								<span className="ui-badge ui-badge-neutral shrink-0 tabular-nums">
-									{informational.length}
-								</span>
-							</button>
-							{/* Collapsed, the header said only "Recent changes" and a count,
-						    nothing about what the entries are. The zone starts collapsed
-						    whenever the claims zone has content, so this line is where the
-						    operator actually meets it. Newest and oldest come straight off
-						    the array ends: both journal queries end ORDER BY
-						    detected_at DESC. Hidden when expanded, where the entries speak
-						    for themselves. */}
-							{!infoOpen ? (
-								<p
-									className="pl-5 text-[11px] text-(--text-tertiary)"
-									data-testid="discrepancy-journal-summary"
-								>
-									{informational.length === 1
-										? t("providers.discrepancies.journalSummaryOne", {
-												when: formatRelativeTime(informational[0].detected_at),
-											})
-										: t("providers.discrepancies.journalSummary", {
-												count: informational.length,
-												newest: formatRelativeTime(
-													informational[0].detected_at,
-												),
-												oldest: formatRelativeTime(
-													informational[informational.length - 1].detected_at,
-												),
-											})}
-								</p>
-							) : null}
-							<div
-								id={`${regionIdBase}-informational`}
-								className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-									infoOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-								}`}
-							>
-								{/* Same reason as the stale zone: collapsed here is a visual
-							    state only, so the journal must be made inert or it is read
-							    out in full under an aria-expanded="false" toggle. */}
-								<div className="overflow-hidden" inert={!infoOpen}>
-									<div className="space-y-2">
-										{informational.map((entry, i) =>
-											renderInformationalEntry(
-												entry,
-												`${entry.provider_name}-${entry.detected_at}-${i}`,
-											),
-										)}
-									</div>
-								</div>
-							</div>
-						</section>
-					) : null}
+					<InformationalJournal
+						informational={informational}
+						open={infoOpen}
+						onToggle={toggleInfo}
+						regionId={`${regionIdBase}-informational`}
+					/>
 
 					{/* Sticky inside the scrolling body, so it rides the bottom-right of the
 				    modal rather than the page. Only exists while a provider is open:
