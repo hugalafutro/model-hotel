@@ -10,6 +10,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -110,8 +112,9 @@ func main() {
 		debuglog.Fatal("frontdesk: failed to initialize admin token", "error", err)
 	}
 	if isNew {
-		// Printed once so the operator can capture the generated UI login token.
-		debuglog.Info("frontdesk: generated Front Desk login token", "token", adminMgr.Token())
+		// Straight to stdout, never through the structured logger: see
+		// announceGeneratedToken.
+		announceGeneratedToken(os.Stdout, adminMgr.Token())
 	}
 
 	bus := events.NewBus()
@@ -228,6 +231,28 @@ const (
 	defaultIPRPS   = 5
 	defaultIPBurst = 10
 )
+
+// announceGeneratedToken writes a freshly generated login token to w and logs
+// only the fact that one was generated.
+//
+// The token deliberately never passes through debuglog. Its handler fans out to
+// every configured channel, including the JSON stdout handler (where the value
+// becomes an indexed, queryable field) and the OTLP exporter (which ships it to
+// the operator's log store and retains it there under that store's policy). A
+// one-time admin credential written into log infrastructure is a credential
+// that outlives its one use, in a place chosen for searchability.
+//
+// The gateway has always printed its own token straight to stdout for exactly
+// this reason (printAdminTokenBoxStdout); Front Desk logged it as a structured
+// attribute instead. Same credential, same requirement.
+func announceGeneratedToken(w io.Writer, token string) {
+	// One Fprintf so the block cannot interleave with other Docker log output.
+	// Write failure is not actionable here: the process is booting, this is the
+	// only copy of the token, and there is nowhere safe to report the failure to
+	// (the logger is exactly what must not receive it).
+	_, _ = fmt.Fprintf(w, "\n  Front Desk login token (shown once):\n\n      %s\n\n", token)
+	debuglog.Info("frontdesk: generated a Front Desk login token, printed to stdout once")
+}
 
 // sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
 // matching the gateway's hourly sweep in cmd/server. A var, not a const, so a

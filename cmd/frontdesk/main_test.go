@@ -217,3 +217,45 @@ func waitForSweeps(t *testing.T, c *fakeSessionCleaner, want int) {
 	}
 	t.Fatalf("cleanup ran %d times, want at least %d", c.count(), want)
 }
+
+// TestGeneratedTokenNeverReachesTheStructuredLogger is the whole point of
+// printing the token to stdout directly.
+//
+// debuglog's handler fans out to every configured channel: the JSON stdout
+// handler, where the token becomes an indexed queryable field, and the OTLP
+// exporter, which ships it to whatever log store the operator runs and retains
+// it there. A one-time login credential must not be persisted in log
+// infrastructure. The gateway has always printed its own token straight to
+// stdout for this reason; Front Desk logged it as a structured attribute.
+func TestGeneratedTokenNeverReachesTheStructuredLogger(t *testing.T) {
+	const token = "fd-secret-token-do-not-log"
+
+	logs := &recordingHandler{}
+	prev := slog.Default()
+	debuglog.SetHandler(logs)
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	var out strings.Builder
+	announceGeneratedToken(&out, token)
+
+	if !strings.Contains(out.String(), token) {
+		t.Errorf("the token must still reach stdout so the operator can capture it; got %q", out.String())
+	}
+
+	logs.mu.Lock()
+	defer logs.mu.Unlock()
+	for _, r := range logs.records {
+		if strings.Contains(r.Message, token) {
+			t.Errorf("token leaked into a log message: %q", r.Message)
+		}
+		r.Attrs(func(a slog.Attr) bool {
+			if strings.Contains(a.Value.String(), token) {
+				t.Errorf("token leaked into log attribute %q", a.Key)
+			}
+			return true
+		})
+	}
+	if len(logs.records) == 0 {
+		t.Error("expected a (token-free) log line noting that a token was generated")
+	}
+}

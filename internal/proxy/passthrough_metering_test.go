@@ -178,3 +178,94 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 		t.Errorf("status = %d, want 200", rec.Code)
 	}
 }
+
+// TestPassthrough_NoUsageBlockStillMeters is the sibling of the oversized case,
+// and the half the first fix left behind. A normal-sized pass-through response
+// that carries no "usage" block extracts (0,0), and the guard below it only
+// charged when one of them was non-zero, so nothing was metered at all.
+//
+// Image generation and text-to-speech routinely report no usage, so this is not
+// a corner: those two families were unmetered on every ordinary request, not
+// merely on the oversized ones.
+func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"tts-1","input":"` + strings.Repeat("s", 400) + `","voice":"alloy"}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "tts-1",
+		endpointType:    endpointTypeTTS,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeTTS),
+	}
+	if logData.promptTextBytes != 400 {
+		t.Fatalf("probe body sized %d, want 400", logData.promptTextBytes)
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	// A perfectly ordinary provider response with no usage block.
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1,"data":[{"b64":"AAAA"}]}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "tts-1"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	const wantCharge = 100 // 400 prompt bytes at 4 bytes per token
+	if got := singleAddTokens(t, vkRepo); got != wantCharge {
+		t.Errorf("charged %d tokens, want %d: a response without usage must still meter", got, wantCharge)
+	}
+	if logData.tokensPrompt != 0 {
+		t.Errorf("request log prompt = %d, want 0: an estimate is not measured usage", logData.tokensPrompt)
+	}
+}
+
+// TestPassthrough_ReportedUsageWinsOverEstimate keeps the estimate from
+// displacing a real figure: when the provider does report usage, that is what
+// gets charged and what the request log records.
+func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-x",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 4000, // an estimate here would be 1000 tokens
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"usage":{"prompt_tokens":7,"total_tokens":7}}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	if got := singleAddTokens(t, vkRepo); got != 7 {
+		t.Errorf("charged %d, want the provider's reported 7", got)
+	}
+	if logData.tokensPrompt != 7 {
+		t.Errorf("request log prompt = %d, want the measured 7", logData.tokensPrompt)
+	}
+}

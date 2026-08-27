@@ -435,11 +435,25 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	if _, writeErr := w.Write(body); writeErr != nil {
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}
+	// The log records what the provider measured, which may be nothing.
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-	if promptTokens > 0 || completionTokens > 0 {
-		h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
+
+	// Charge the quota even when the provider reported no usage at all. Image
+	// generation and text-to-speech routinely omit the usage block, so guarding
+	// the debit on "did it report something" left those families unmetered on
+	// every ordinary request, not merely on the oversized ones the sibling
+	// branch above handles. Reported figures always win; the estimate only
+	// fills a total absence, and only for the prompt, for the same reason the
+	// oversized branch does not size a response of vectors or base64 as text.
+	chargePrompt, chargeCompletion := promptTokens, completionTokens
+	estimatedPrompt := false
+	if chargePrompt == 0 && chargeCompletion == 0 {
+		chargePrompt, estimatedPrompt = estimateTokens(logData.promptTextBytes), true
 	}
-	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+	if chargePrompt > 0 || chargeCompletion > 0 {
+		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)
+	}
+	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_prompt_tokens", chargePrompt, "prompt_estimated", estimatedPrompt)
 }
 
 // serveStreamedPassthrough handles SSE and binary shapes: probe the first
