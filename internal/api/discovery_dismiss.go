@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -40,8 +39,7 @@ type DismissDiscoveryClaimsRequest struct {
 // view, which is a genuine state change.
 func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
 	var req DismissDiscoveryClaimsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	providerID, err := uuid.Parse(req.ProviderID)
@@ -102,8 +100,7 @@ type UnpinDiscoveryClaimsRequest struct {
 // automatic management, which is a genuine state change.
 func (h *Handler) UnpinDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
 	var req UnpinDiscoveryClaimsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	providerID, err := uuid.Parse(req.ProviderID)

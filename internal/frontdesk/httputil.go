@@ -1,7 +1,6 @@
 package frontdesk
 
 import (
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"net/http"
@@ -42,14 +41,15 @@ func writeError(w http.ResponseWriter, err error) {
 	}
 }
 
-// decodeJSON decodes the request body, writing a 400 and returning false on
-// failure.
+// decodeJSON bounds the request body to httpx.MaxJSONBody and decodes it,
+// writing the 400/413 response itself and reporting whether the handler may
+// continue. The bound matters most for the pairing exchange, which is
+// unauthenticated by design (only the per-IP limiter stands in front of it), so
+// without a ceiling any caller that can reach Front Desk could make it read an
+// arbitrarily large body. Every handler in this package decodes through here;
+// internal/httpx's TestNoUnboundedJSONDecode guard keeps it that way.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
-		return false
-	}
-	return true
+	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
 }
 
 func atoiDefault(s string, def int) int {

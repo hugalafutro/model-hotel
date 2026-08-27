@@ -181,8 +181,7 @@ func (req *userRequest) validate() (user.Role, error) {
 // CreateUser adds a user account.
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req userRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	role, err := req.validate()
@@ -224,8 +223,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req userRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	role, err := req.validate()
@@ -292,8 +290,7 @@ func (h *Handler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.validateNewPassword(r.Context(), req.Password); err != nil {

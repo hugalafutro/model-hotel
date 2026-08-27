@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,8 +23,7 @@ import (
 // CreateProvider creates a new provider.
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req provider.CreateProviderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -350,8 +348,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req provider.UpdateProviderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

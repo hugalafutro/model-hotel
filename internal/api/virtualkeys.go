@@ -326,8 +326,7 @@ func cond(val string, condition bool) string {
 // CreateVirtualKey creates a new virtual API key.
 func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	var req CreateVirtualKeyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -477,8 +476,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateVirtualKeyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

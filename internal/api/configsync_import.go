@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -20,11 +19,8 @@ import (
 // single transaction: all-or-nothing.
 func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	r.Body = http.MaxBytesReader(w, r.Body, maxConfigImportBody)
-
 	var env ConfigEnvelope
-	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+	if !decodeJSONLimit(w, r, maxConfigImportBody, &env) {
 		return
 	}
 	if env.SchemaVersion != configSchemaVersion {

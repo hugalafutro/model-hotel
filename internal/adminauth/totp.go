@@ -2,7 +2,6 @@ package adminauth
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
@@ -233,8 +232,7 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Code string `json:"code"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	ok, err := h.totpRepo.Verify(r.Context(), req.Code)
@@ -305,8 +303,7 @@ func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Code string `json:"code"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	// Authorize and disable atomically: the code is only spent if the whole
@@ -347,8 +344,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Token string `json:"token"`
 		Code  string `json:"code"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	// Check the admin-token first factor, then the second factor ONLY when the

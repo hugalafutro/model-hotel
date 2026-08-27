@@ -203,3 +203,66 @@ func IsReadOnlyExemptPost(path string) bool {
 	return strings.HasSuffix(path, "/discovery/changes/ack") ||
 		strings.HasSuffix(path, "/webauthn/logout")
 }
+
+// MaxJSONBody is the default ceiling on a control-plane JSON request body.
+// Every admin, auth and Front Desk payload is a small settings/credential/ID
+// document, so a megabyte is orders of magnitude more than any of them needs
+// while still bounding what an unauthenticated caller (a login attempt, a
+// device pairing exchange) can make the server read and buffer. Endpoints that
+// legitimately carry more (a config-sync import, a backup upload) pass their
+// own limit instead of using this one.
+const MaxJSONBody = 1 << 20 // 1 MiB
+
+// DecodeJSON bounds r.Body to limit bytes and decodes it into v, reporting
+// whether the caller may continue. On failure it has already written the
+// response: 413 when the body ran past the limit, 400 when it is malformed.
+//
+// The bound is applied with http.MaxBytesReader rather than by checking
+// Content-Length, so a chunked or lying request is cut off mid-read instead of
+// being trusted, and the ResponseWriter is told the request was oversized so
+// the connection is closed rather than left waiting for the rest of a body
+// nobody will read.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		return rejectDecode(w, r, component, limit, err)
+	}
+	return true
+}
+
+// DecodeJSONOptional is DecodeJSON for an endpoint whose body is optional: a
+// missing or malformed body leaves v at its zero value and the request
+// continues, so the caller keeps its documented default. An oversized body is
+// still refused, because tolerating a malformed body must not become a way to
+// make the server read an unbounded stream.
+func DecodeJSONOptional(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	err := json.NewDecoder(r.Body).Decode(v)
+	if err == nil || !isBodyTooLarge(err) {
+		return true
+	}
+	return rejectDecode(w, r, component, limit, err)
+}
+
+// rejectDecode writes the response for a failed decode and always reports
+// false, so a caller can return it directly. An oversized body is a 413 logged
+// with the limit it broke (never the body itself); anything else is the
+// existing 400.
+func rejectDecode(w http.ResponseWriter, r *http.Request, component string, limit int64, err error) bool {
+	if isBodyTooLarge(err) {
+		debuglog.Info(component+": rejected oversized request body",
+			"path", r.URL.Path, "method", r.Method, "limit_bytes", limit)
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return false
+	}
+	RespondBadRequest(w, component, "invalid request body", err)
+	return false
+}
+
+// isBodyTooLarge reports whether err is MaxBytesReader's over-the-limit error.
+// json.Decoder surfaces a read error unwrapped, but errors.As keeps this
+// correct if a future decode path wraps it.
+func isBodyTooLarge(err error) bool {
+	var tooLarge *http.MaxBytesError
+	return errors.As(err, &tooLarge)
+}

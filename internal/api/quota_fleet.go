@@ -120,8 +120,7 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 	var in struct {
 		Snapshots []QuotaSnapshotWire `json:"snapshots"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		http.Error(w, "invalid body", http.StatusBadRequest)
+	if !decodeJSON(w, r, &in) {
 		return
 	}
 

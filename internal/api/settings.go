@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -219,8 +218,7 @@ func validateSettingIntRange(key string, v int, lo, hi float64) string {
 // UpdateSettings updates user settings in the database.
 func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -353,8 +351,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Keys []string `json:"keys"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

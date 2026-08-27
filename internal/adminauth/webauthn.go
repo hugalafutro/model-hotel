@@ -208,8 +208,7 @@ type registerFinishRequest struct {
 // POST /webauthn/register/finish (admin auth required)
 func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
 	var req registerFinishRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -357,8 +356,7 @@ type loginFinishRequest struct {
 // POST /webauthn/login/finish (no auth required)
 func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	var req loginFinishRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -584,8 +582,7 @@ func (h *WebAuthnHandler) RenameCredential(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req renameCredentialRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

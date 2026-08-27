@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -234,8 +233,7 @@ type CreateFailoverGroupRequest struct {
 // Create creates a new failover group.
 func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateFailoverGroupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -423,8 +421,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateFailoverGroupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

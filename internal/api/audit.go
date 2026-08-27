@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -114,8 +113,7 @@ func (h *Handler) PurgeAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req PurgeLogsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	cutoff, all, ok := olderThanCutoff(req.OlderThan)

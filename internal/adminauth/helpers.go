@@ -59,3 +59,13 @@ func respondBadRequest(w http.ResponseWriter, message string, err error) {
 func readOnlyGuard(next http.Handler) http.Handler {
 	return httpx.ReadOnlyGuard(logComponent, next)
 }
+
+// decodeJSON bounds the request body to httpx.MaxJSONBody and decodes it,
+// writing the 400/413 response itself and reporting whether the handler may
+// continue. It matters most here: every login, TOTP and WebAuthn ceremony in
+// this package is reachable before authentication, so their bodies are the ones
+// an anonymous caller controls. internal/httpx's TestNoUnboundedJSONDecode
+// guard keeps new ceremonies on this path.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
+}

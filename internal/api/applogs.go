@@ -684,8 +684,12 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 // "all", preserving the original clear-everything behaviour.
 func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
-	// Body is optional: a clear-all request may send nothing.
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	// Body is optional: a clear-all request may send nothing, and a malformed
+	// one keeps the older_than default rather than failing the clear. Oversized
+	// is still refused, so the tolerance is not an unbounded read.
+	if !decodeJSONOptional(w, r, &req) {
+		return
+	}
 	if req.OlderThan == "" {
 		req.OlderThan = "all"
 	}
