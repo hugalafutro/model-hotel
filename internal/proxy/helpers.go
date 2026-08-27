@@ -341,6 +341,24 @@ func estimateTokens(textBytes int) int {
 // bytesPerToken is the conventional text-to-token ratio the estimates above use.
 const bytesPerToken = 4
 
+// minPassthroughTokens is the floor chargePassthroughUsage applies to a
+// pass-through request that was delivered but whose prompt sizes to nothing. It exists because the multipart
+// families (speech-to-text, image edits and variations) carry their payload as
+// an uploaded file, which is deliberately not measured, and their only promptable
+// field is optional or absent — so the honest estimate is zero and the request
+// would otherwise be free.
+//
+// One token, not a guess at the upload's real cost. Anything proportional to
+// file bytes would invent a charge: audio is billed by duration and images by
+// dimension, neither of which a byte count approximates. The floor's job is to
+// stop a served request metering as nothing, so it reaches tokens_used and the
+// TPM bucket at all; a provider that reports real usage always displaces it.
+//
+// It does NOT reach the request log, which continues to report only what the
+// provider measured, so a metered-by-floor request still shows 0 tokens there.
+// That is the same split the chat and streaming estimates keep.
+const minPassthroughTokens = 1
+
 // estimateMissingUsage fills in token counts the provider did not report, so a
 // request that delivered output is always charged against the TPM budget and
 // the key's tokens_used counter. Usage arrives in the LAST chunk of an OpenAI

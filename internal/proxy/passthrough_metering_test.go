@@ -380,12 +380,18 @@ func TestMultipartPromptTextBytes_SizesFormFieldsNotTheUpload(t *testing.T) {
 	}
 }
 
-// TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing is the overcharge
+// TestMultipartPromptTextBytes_MetadataOnlyFormSizesNothing is the overcharge
 // guard. Every field on these forms except "prompt" is configuration, so a
-// request that sends only options and a file must cost the caller nothing: an
+// request that sends only options and a file must size to zero PROMPT BYTES: an
 // allowlist keeps a newly added provider parameter from silently becoming
 // billable text.
-func TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing(t *testing.T) {
+//
+// Zero bytes is not zero charge. This is the exact shape that made a served
+// transcription free, so the charge path applies minPassthroughTokens on top —
+// see TestMultipartPassthrough_NoPromptFieldStillMeters. The two are separate
+// on purpose: the sizer says what text the caller sent, the charge decides what
+// a delivered request costs.
+func TestMultipartPromptTextBytes_MetadataOnlyFormSizesNothing(t *testing.T) {
 	parts := []multipartPart{
 		{fieldName: "model", data: []byte("whisper-1")},
 		{fieldName: "language", data: []byte("en")},
@@ -398,5 +404,287 @@ func TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing(t *testing.T) {
 	}
 	if got := multipartPromptTextBytes(parts); got != 0 {
 		t.Errorf("sized %d, want 0: configuration fields are not prompt text and must not be charged", got)
+	}
+}
+
+// TestMultipartPassthrough_NoPromptFieldStillMeters closes the free-request
+// hole the allowlist above left behind.
+//
+// multipartPromptTextBytes counts only the "prompt" form field, correctly: every
+// other field is configuration and charging for it bills the caller for their
+// own options. But "prompt" is OPTIONAL on transcriptions and translations, and
+// /images/variations has no such field at all, so the ordinary shape of these
+// requests sizes as zero. The estimate then came out zero, nothing was debited,
+// and a served transcription cost the key nothing at all — no tokens_used, no
+// TPM draw — on every request.
+//
+// A served pass-through request is never free. The upload still is not measured
+// (see multipartPromptTextBytes: it is the payload, not the prompt, and sizing
+// it would invent an enormous charge), so what is charged is a floor, not a
+// proportional estimate.
+func TestMultipartPassthrough_NoPromptFieldStillMeters(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	// Exactly what ingestMultipartRequest produces for a transcription that
+	// sends only a file and its options: no prompt field, so zero prompt bytes.
+	parts := []multipartPart{
+		{fieldName: "model", data: []byte("whisper-1")},
+		{fieldName: "response_format", data: []byte("json")},
+		{fieldName: "file", fileName: "audio.mp3", data: make([]byte, 3<<20)},
+	}
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "whisper-1",
+		endpointType:    endpointTypeSTT,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: multipartPromptTextBytes(parts),
+	}
+	if logData.promptTextBytes != 0 {
+		t.Fatalf("probe sized %d prompt bytes, want 0 (the case under test)", logData.promptTextBytes)
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	// A real transcription answer, with no usage block (the common case).
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"text":"hello there"}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	got := singleAddTokens(t, vkRepo)
+	if got == 0 {
+		t.Fatal("charged 0 tokens: a served transcription with no prompt field is free, evading tokens_used and the TPM budget")
+	}
+	// Literal, not minPassthroughTokens: comparing the charge against the same
+	// constant the code uses would pass for any value of it, including one large
+	// enough to overcharge every zero-prompt request. The floor is a
+	// billing-visible number, so changing it should break a test.
+	if got != 1 {
+		t.Errorf("charged %d tokens, want 1 (minPassthroughTokens)", got)
+	}
+	if logData.tokensPrompt != 0 {
+		t.Errorf("request log prompt = %d, want 0: a floor is not measured usage", logData.tokensPrompt)
+	}
+}
+
+// TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures keeps the floor from
+// becoming a ceiling or a substitute: a request that does carry prompt text is
+// charged its estimate, and a provider that reports usage is charged that.
+func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
+	newLog := func(promptBytes int) *requestLogData {
+		return &requestLogData{
+			id:              uuid.New().String(),
+			modelID:         "whisper-1",
+			endpointType:    endpointTypeSTT,
+			virtualKeyName:  "test-key",
+			virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+			state:           "streaming",
+			promptTextBytes: promptBytes,
+		}
+	}
+
+	t.Run("a sized prompt is charged its estimate, not the floor", func(t *testing.T) {
+		h := newIntegrationHandler()
+		t.Cleanup(func() { stopUnitHandler(h) })
+		vkRepo := &mockVirtualKeyRepo{}
+		h.virtualKeyRepo = vkRepo
+
+		logData := newLog(400) // 100 tokens, far above the floor
+		st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+		h.insertRequestLogAsync(logData)
+		time.Sleep(20 * time.Millisecond)
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"text":"ok"}`)),
+		}
+		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
+			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+		}, resp, "application/json", 1, 10.0)
+
+		if got := singleAddTokens(t, vkRepo); got != 100 {
+			t.Errorf("charged %d, want 100: the floor must not replace a real estimate", got)
+		}
+	})
+
+	t.Run("reported usage wins over the floor", func(t *testing.T) {
+		h := newIntegrationHandler()
+		t.Cleanup(func() { stopUnitHandler(h) })
+		vkRepo := &mockVirtualKeyRepo{}
+		h.virtualKeyRepo = vkRepo
+
+		logData := newLog(0)
+		st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+		h.insertRequestLogAsync(logData)
+		time.Sleep(20 * time.Millisecond)
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"text":"ok","usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}}`)),
+		}
+		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
+			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+		}, resp, "application/json", 1, 10.0)
+
+		if got := singleAddTokens(t, vkRepo); got != 10 {
+			t.Errorf("charged %d, want 10: a reported figure always wins", got)
+		}
+	})
+}
+
+// TestPassthroughFloor_StaysBehindTheDeliveryGate keeps the floor from undoing
+// the gate it sits behind. An aggregator in front of a retired model answering
+// 200 with `{"data":[]}` served nothing, and charging even one token there would
+// bill the caller on every empty answer — the regression the gate was added to
+// prevent.
+//
+// Embeddings is the endpoint this can be shown on: passthroughAnswered only
+// inspects the body for that type. For the multipart and binary families any
+// non-empty 200 body counts as delivered, so a junk answer there does draw the
+// floor. That is the intended trade — one token is the price of not being able
+// to tell a bad transcription from a good one, and per-key RPS limiting bounds
+// how often it can be paid.
+func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-3-small",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 0,
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	if n := len(vkRepo.addTokensCalls); n != 0 {
+		t.Errorf("charged %d times for an empty answer, want 0: the floor must not defeat the delivery gate", n)
+	}
+}
+
+// TestOversizedPassthrough_ZeroPromptStillMeters covers the sibling branch the
+// first attempt at the floor missed.
+//
+// serveBufferedJSONPassthrough charges in two places: the ordinary path, and an
+// oversized path that streams past the 8 MiB cap with usage extraction skipped.
+// The oversized one hand-rolled its own estimate behind the identical
+// `if estimated > 0` guard, so the zero-prompt families were still free there
+// after the floor was added below it. /images/variations has no prompt field at
+// all and four b64_json images clear the cap routinely, so the endpoint that
+// motivated the fix stayed free on exactly the requests that cost the most.
+func TestOversizedPassthrough_ZeroPromptStillMeters(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "dall-e-2",
+		endpointType:    endpointTypeImage,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 0, // /images/variations carries no prompt field
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	// A body past passthroughJSONBufferCap, as four b64_json images produce.
+	huge := `{"created":1,"data":[{"b64_json":"` + strings.Repeat("A", passthroughJSONBufferCap+16) + `"}]}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(huge)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-2"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	got := singleAddTokens(t, vkRepo)
+	if got == 0 {
+		t.Fatal("charged 0 tokens: an oversized answer with no prompt text is free, on the costliest requests")
+	}
+	if got != 1 {
+		t.Errorf("charged %d tokens, want 1 (minPassthroughTokens)", got)
+	}
+}
+
+// TestStreamedPassthrough_ZeroPromptStillMeters pins the floor on the OTHER
+// serve path. A transcription with response_format=text|srt|vtt answers
+// text/plain, which is neither JSON nor SSE, so it routes to
+// serveStreamedPassthrough — a branch none of the other floor tests touch.
+// Without this, a refactor that inlined the floor into the buffered branch
+// would keep the suite green while re-freeing every non-JSON transcription.
+func TestStreamedPassthrough_ZeroPromptStillMeters(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "whisper-1",
+		endpointType:    endpointTypeSTT,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 0,
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/plain"}},
+		Body:       io.NopCloser(strings.NewReader("hello there, this is the transcript")),
+	}
+	h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/v1/audio/transcriptions", http.NoBody),
+		st, modelCandidate{
+			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
+			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+		}, resp, "text/plain", false, 1, 10.0)
+
+	got := singleAddTokens(t, vkRepo)
+	if got == 0 {
+		t.Fatal("charged 0 tokens: a response_format=text transcription answers text/plain and is free on the streamed path")
+	}
+	if got != 1 {
+		t.Errorf("charged %d tokens, want 1 (minPassthroughTokens)", got)
 	}
 }

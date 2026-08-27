@@ -420,11 +420,16 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 		// quota WITHOUT being reported as measured usage, matching what the
 		// chat and streaming paths do (they update the log before calling
 		// estimateMissingUsage) and keeping the stats pages honest.
-		estimated := estimateTokens(logData.promptTextBytes)
+		//
+		// Charged through the same helper as every other pass-through branch,
+		// rather than hand-rolled here. Hand-rolling it is what left this branch
+		// free: it carried its own `if estimated > 0` guard, so the zero-prompt
+		// families skipped the debit exactly as they did below. /images/variations
+		// has no prompt field at all, and four b64_json images clear the 8 MiB cap
+		// routinely, so the endpoint that motivated the floor was still free on
+		// precisely the requests the provider bills most for.
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
-		if estimated > 0 {
-			h.recordTokenUsage(st.vkHash, logData, estimated, 0, 0)
-		}
+		estimated, _ := h.chargePassthroughUsage(st, 0, 0, answered)
 		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
 		return
 	}
@@ -471,6 +476,21 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 // vectors or base64 or audio, not text, so sizing it the way the streaming path
 // sizes delivered text would invent an enormous completion charge.
 //
+// A delivered request that reaches this helper is never charged zero. (Every
+// pass-through branch does reach it -- the oversized-JSON one was hand-rolling
+// its own debit and was the last exception.) The estimate legitimately sizes to
+// nothing on the multipart families: multipartPromptTextBytes counts only the
+// "prompt" form field, which is optional on transcriptions and translations and
+// absent entirely from /images/variations, so the ordinary shape of those
+// requests carries no promptable text at all. Without the floor a served
+// transcription cost the key nothing — no tokens_used, no TPM draw — on every
+// request. The upload is still not measured, for the reason given on
+// multipartPromptTextBytes, so this is deliberately a floor and not a
+// proportional estimate: it makes the request countable, not priced. A provider
+// that reports real usage always displaces it, and per-key RPS limiting -- on by
+// default over the whole /v1 group, though an operator can set rps <= 0 for
+// unlimited -- bounds request volume independently.
+//
 // Returns what was charged and whether the prompt was estimated, for the log.
 func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, completionTokens int, delivered bool) (charged int, estimated bool) {
 	logData := st.logData
@@ -480,6 +500,9 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 			return 0, false
 		}
 		chargePrompt, estimated = estimateTokens(logData.promptTextBytes), true
+		if chargePrompt < minPassthroughTokens {
+			chargePrompt = minPassthroughTokens
+		}
 	}
 	if chargePrompt > 0 || chargeCompletion > 0 {
 		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)
