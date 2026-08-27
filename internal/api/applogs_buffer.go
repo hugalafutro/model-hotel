@@ -111,28 +111,34 @@ const dbLogChannelSize = 5000
 const dbLogSendTimeout = 5 * time.Second
 
 type dbLogWriter struct {
-	pool *pgxpool.Pool
-	ch   chan AppLogEntry
-	done chan struct{}
+	pool          *pgxpool.Pool
+	ch            chan AppLogEntry
+	done          chan struct{}
+	flushInterval time.Duration
 }
 
-func newDBLogWriter(pool *pgxpool.Pool) *dbLogWriter {
+// newDBLogWriter starts a writer that drains a partial batch every
+// flushInterval. The interval is a parameter rather than a package var a test
+// can shrink: the writer goroutine reads it while another test is assigning to
+// it, which the race detector reports (and which is a real race, not a test
+// artifact, because the goroutine outlives the test that started it).
+func newDBLogWriter(pool *pgxpool.Pool, flushInterval time.Duration) *dbLogWriter {
 	w := &dbLogWriter{
-		pool: pool,
-		ch:   make(chan AppLogEntry, dbLogChannelSize),
-		done: make(chan struct{}),
+		pool:          pool,
+		ch:            make(chan AppLogEntry, dbLogChannelSize),
+		done:          make(chan struct{}),
+		flushInterval: flushInterval,
 	}
 	go w.run()
 	return w
 }
 
-// dbLogFlushInterval controls how often the dbLogWriter flushes entries.
-// Can be reduced in tests for faster execution.
-var dbLogFlushInterval = 500 * time.Millisecond
+// dbLogFlushInterval is how often the writer flushes a partial batch.
+const dbLogFlushInterval = 500 * time.Millisecond
 
 func (w *dbLogWriter) run() {
 	batch := make([]AppLogEntry, 0, 50)
-	ticker := time.NewTicker(dbLogFlushInterval)
+	ticker := time.NewTicker(w.flushInterval)
 	defer ticker.Stop()
 
 	for {
@@ -220,7 +226,7 @@ func InitAppLogBuffer(pool *pgxpool.Pool) {
 		entries: make([]AppLogEntry, appLogBufferSize),
 	}
 	if pool != nil {
-		dbWriter = newDBLogWriter(pool)
+		dbWriter = newDBLogWriter(pool, dbLogFlushInterval)
 	}
 	log.SetOutput(io.MultiWriter(&stderrLogFilter{dst: os.Stderr}, appLogBuffer))
 }

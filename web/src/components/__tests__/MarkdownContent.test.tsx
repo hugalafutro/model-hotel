@@ -113,3 +113,67 @@ describe("MarkdownContent", () => {
 		expect(inline?.querySelector("span")).toBeNull();
 	});
 });
+
+// The markdown here is model output, so it is reachable by prompt injection or
+// by a hostile upstream provider. Three defaults keep that safe and each is one
+// config line from being switched off: react-markdown's urlTransform blanks
+// unsafe hrefs, raw HTML stays unrendered without rehype-raw, and rehype-katex
+// refuses \href while KaTeX's trust option is at its default. These pin the
+// behaviour rather than the config so any of those switches fails a test.
+describe("MarkdownContent sanitization", () => {
+	it("blanks a javascript: link href", () => {
+		const { container } = render(
+			<MarkdownContent>{"[click me](javascript:alert(1))"}</MarkdownContent>,
+		);
+		const link = container.querySelector("a");
+		expect(link).not.toBeNull();
+		expect(link?.getAttribute("href")).toBe("");
+		expect(screen.getByText("click me")).toBeInTheDocument();
+	});
+
+	it("blanks other script-capable link schemes", () => {
+		for (const href of [
+			"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+			"vbscript:msgbox(1)",
+			"JaVaScRiPt:alert(1)",
+		]) {
+			const { container, unmount } = render(
+				<MarkdownContent>{`[x](${href})`}</MarkdownContent>,
+			);
+			expect(container.querySelector("a")?.getAttribute("href")).toBe("");
+			unmount();
+		}
+	});
+
+	it("keeps ordinary links intact", () => {
+		const { container } = render(
+			<MarkdownContent>{"[ok](https://example.com/a?b=c)"}</MarkdownContent>,
+		);
+		expect(container.querySelector("a")?.getAttribute("href")).toBe(
+			"https://example.com/a?b=c",
+		);
+	});
+
+	it("does not render raw HTML embedded in the markdown", () => {
+		const { container } = render(
+			<MarkdownContent>
+				{'<img src="x" onerror="alert(1)"> and <b>bold</b>'}
+			</MarkdownContent>,
+		);
+		expect(container.querySelector("img")).toBeNull();
+		expect(container.querySelector("b")).toBeNull();
+		// The tags survive as literal text, which is what proves they were
+		// escaped rather than parsed. rehype-raw would turn them into elements
+		// and this text would be gone.
+		expect(container.textContent).toContain(
+			'<img src="x" onerror="alert(1)"> and <b>bold</b>',
+		);
+	});
+
+	it("does not honour \\href inside math", () => {
+		const { container } = render(
+			<MarkdownContent>{"$\\href{javascript:alert(1)}{x}$"}</MarkdownContent>,
+		);
+		expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
+	});
+});

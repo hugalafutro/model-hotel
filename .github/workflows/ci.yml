@@ -141,6 +141,56 @@ jobs:
           path: coverage.out
           retention-days: 1
 
+  # The race detector, over every package. Nothing is excluded for cost: the
+  # slow suites are slow on database round-trips, which instrumentation does not
+  # multiply, so the whole tree races in about the time internal/proxy takes on
+  # its own.
+  #
+  # Un-raced, the suites written for exactly this (internal/failover/
+  # circuitbreaker_race_test.go among them) pass while a data race goes
+  # unreported. The first run of this job found one, in the app-log writer's
+  # flush interval.
+  go-race:
+    name: Go Race
+    needs: changes
+    if: needs.changes.outputs.go != 'false'
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: changeme
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: modelhotel
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: testdb
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # internal/api's backup tests exec these; without them ~26 tests skip and
+      # the race job silently stops covering the backup round-trip.
+      - name: Install pg_dump / pg_restore for backup tests
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # A longer clock than go-test's 10m: the detector's slowdown lands on
+      # internal/api, the one package already near that limit.
+      - name: go test -race
+        env:
+          TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
+        run: go test -race -count=1 -timeout 20m ./...
+
   go-lint:
     name: Go Lint
     needs: changes
@@ -744,9 +794,10 @@ jobs:
   # is a drop-in for the other.
   #
   # This is a dedicated job (not a step in docker-build) so it can `needs:` the
-  # full required gate set: a master commit that fails Go tests, lint, vet,
-  # vulncheck, coverage, i18n, the workflow lint, the frontend gates, or the
-  # Docker build + Trivy scan never becomes a staging image. It runs only on
+  # full required gate set: a master commit that fails Go tests, the race
+  # detector, lint, vet, vulncheck, coverage, i18n, the workflow lint, the
+  # frontend gates, or the Docker build + Trivy scan never becomes a staging
+  # image. It runs only on
   # direct pushes to master (never PRs, which can't see secrets) and skips if
   # master HEAD has already moved past this commit, so a slow older run can't
   # overwrite :dev with a stale image after a newer commit already published it.
@@ -772,6 +823,7 @@ jobs:
       # as "nothing went wrong" and publish an entirely untested image.
       - changes
       - go-test
+      - go-race
       - go-lint
       - go-vet
       - govulncheck
