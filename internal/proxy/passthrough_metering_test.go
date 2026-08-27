@@ -178,3 +178,225 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 		t.Errorf("status = %d, want 200", rec.Code)
 	}
 }
+
+// TestPassthrough_NoUsageBlockStillMeters is the sibling of the oversized case,
+// and the half the first fix left behind. A normal-sized pass-through response
+// that carries no "usage" block extracts (0,0), and the guard below it only
+// charged when one of them was non-zero, so nothing was metered at all.
+//
+// Image generation returns JSON and routinely reports no usage, so it is the
+// family this branch actually rescues. Text-to-speech does NOT reach here: it
+// answers audio/mpeg and routes to serveStreamedPassthrough, which is covered
+// by TestStreamedPassthrough_BinaryResponseIsMetered. Labelling this case as
+// TTS, as an earlier version did, described a JSON response TTS never returns.
+func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"dall-e-3","prompt":"` + strings.Repeat("s", 400) + `"}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "dall-e-3",
+		endpointType:    endpointTypeImage,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeImage),
+	}
+	if logData.promptTextBytes != 400 {
+		t.Fatalf("probe body sized %d, want 400", logData.promptTextBytes)
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	// A perfectly ordinary provider response with no usage block.
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"created":1,"data":[{"b64":"AAAA"}]}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-3"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	const wantCharge = 100 // 400 prompt bytes at 4 bytes per token
+	if got := singleAddTokens(t, vkRepo); got != wantCharge {
+		t.Errorf("charged %d tokens, want %d: a response without usage must still meter", got, wantCharge)
+	}
+	if logData.tokensPrompt != 0 {
+		t.Errorf("request log prompt = %d, want 0: an estimate is not measured usage", logData.tokensPrompt)
+	}
+}
+
+// TestPassthrough_ReportedUsageWinsOverEstimate keeps the estimate from
+// displacing a real figure: when the provider does report usage, that is what
+// gets charged and what the request log records.
+func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-x",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 4000, // an estimate here would be 1000 tokens
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"usage":{"prompt_tokens":7,"total_tokens":7}}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	if got := singleAddTokens(t, vkRepo); got != 7 {
+		t.Errorf("charged %d, want the provider's reported 7", got)
+	}
+	if logData.tokensPrompt != 7 {
+		t.Errorf("request log prompt = %d, want the measured 7", logData.tokensPrompt)
+	}
+}
+
+// TestStreamedPassthrough_BinaryResponseIsMetered covers where text-to-speech
+// actually lands. /v1/audio/speech answers audio/mpeg, which is neither JSON nor
+// SSE, so it routes to serveStreamedPassthrough — and there the SSE tail that
+// carries usage is only allocated for SSE, so the usage report is structurally
+// always absent for audio. Guarding the debit on a report that can never arrive
+// left TTS unmetered on every single request.
+//
+// A previous version of this fix claimed to have rescued TTS while only touching
+// the JSON branch, and its test constructed a JSON response TTS never returns.
+func TestStreamedPassthrough_BinaryResponseIsMetered(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"tts-1","input":"` + strings.Repeat("s", 400) + `","voice":"alloy"}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "tts-1",
+		endpointType:    endpointTypeTTS,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeTTS),
+	}
+	if logData.promptTextBytes != 400 {
+		t.Fatalf("probe body sized %d, want 400", logData.promptTextBytes)
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	// Real shape: binary audio, no usage anywhere.
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"audio/mpeg"}},
+		Body:       io.NopCloser(strings.NewReader("ID3\x04\x00\x00\x00fake mp3 payload")),
+	}
+	req := httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody)
+	h.serveStreamedPassthrough(httptest.NewRecorder(), req, st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "tts-1"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "audio/mpeg", false, 1, 10.0)
+
+	const wantCharge = 100 // 400 prompt bytes at 4 bytes per token
+	if got := singleAddTokens(t, vkRepo); got != wantCharge {
+		t.Errorf("charged %d tokens for a TTS request, want %d: binary passthrough must meter too", got, wantCharge)
+	}
+}
+
+// TestPassthrough_EmptyAnswerIsNotCharged is the gate on the estimate. An
+// aggregator in front of a retired model answers 200 with `{"data":[]}` — the
+// case passthroughAnswered exists to detect — and that costs the operator
+// nothing, so charging a full prompt estimate for it would bill the caller for
+// every empty reply. estimateMissingUsage states the same rule for streams:
+// nothing is estimated when nothing was delivered.
+func TestPassthrough_EmptyAnswerIsNotCharged(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-x",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: 4000,
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0)
+
+	if len(vkRepo.addTokensCalls) != 0 {
+		t.Errorf("charged %d times for an empty answer, want 0", len(vkRepo.addTokensCalls))
+	}
+}
+
+// TestMultipartPromptTextBytes_SizesFormFieldsNotTheUpload keeps the multipart
+// families from being the next silent no-op: their prompt is a form field, and
+// leaving promptTextBytes at zero would make every estimate downstream charge
+// nothing, exactly as the chat-only sizer did for the JSON families.
+func TestMultipartPromptTextBytes_SizesFormFieldsNotTheUpload(t *testing.T) {
+	parts := []multipartPart{
+		{fieldName: "model", data: []byte("whisper-1")},                       // routing
+		{fieldName: "language", data: []byte("en")},                           // config
+		{fieldName: "response_format", data: []byte("verbose_json")},          // config
+		{fieldName: "temperature", data: []byte("0")},                         // config
+		{fieldName: "prompt", data: []byte("transcribe carefully")},           // 20 bytes, the only prompt
+		{fieldName: "file", fileName: "audio.mp3", data: make([]byte, 5<<20)}, // the upload
+	}
+	if got, want := multipartPromptTextBytes(parts), 20; got != want {
+		t.Errorf("sized %d, want %d: only the prompt field counts", got, want)
+	}
+}
+
+// TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing is the overcharge
+// guard. Every field on these forms except "prompt" is configuration, so a
+// request that sends only options and a file must cost the caller nothing: an
+// allowlist keeps a newly added provider parameter from silently becoming
+// billable text.
+func TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing(t *testing.T) {
+	parts := []multipartPart{
+		{fieldName: "model", data: []byte("whisper-1")},
+		{fieldName: "language", data: []byte("en")},
+		{fieldName: "response_format", data: []byte("verbose_json")},
+		{fieldName: "temperature", data: []byte("0")},
+		{fieldName: "timestamp_granularities[]", data: []byte("word")},
+		{fieldName: "size", data: []byte("1024x1024")},
+		{fieldName: "n", data: []byte("1")},
+		{fieldName: "file", fileName: "audio.mp3", data: make([]byte, 1<<20)},
+	}
+	if got := multipartPromptTextBytes(parts); got != 0 {
+		t.Errorf("sized %d, want 0: configuration fields are not prompt text and must not be charged", got)
+	}
+}

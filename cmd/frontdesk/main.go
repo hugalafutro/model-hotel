@@ -10,6 +10,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -110,8 +112,9 @@ func main() {
 		debuglog.Fatal("frontdesk: failed to initialize admin token", "error", err)
 	}
 	if isNew {
-		// Printed once so the operator can capture the generated UI login token.
-		debuglog.Info("frontdesk: generated Front Desk login token", "token", adminMgr.Token())
+		// Straight to stdout, never through the structured logger: see
+		// announceGeneratedToken.
+		announceGeneratedToken(os.Stdout, adminMgr.Token())
 	}
 
 	bus := events.NewBus()
@@ -228,6 +231,38 @@ const (
 	defaultIPRPS   = 5
 	defaultIPBurst = 10
 )
+
+// announceGeneratedToken writes a freshly generated login token to w and logs
+// only the fact that one was generated.
+//
+// The token deliberately never passes through debuglog. Its handler fans out to
+// every configured channel, including the JSON stdout handler (where the value
+// becomes an indexed, queryable FIELD) and the OTLP exporter (which ships it off
+// the host to the operator's log store and retains it there under that store's
+// policy).
+//
+// To be precise about what this does and does not achieve: in a container,
+// stdout IS the log stream, so the token still reaches whatever collects
+// container output. What it stops is the token becoming a structured, indexed,
+// queryable attribute, and crossing the OTLP hop into a remote store. That is a
+// real reduction in reach and retention, not a guarantee the value never lands
+// in a log file.
+//
+// The gateway has always printed its own token straight to stdout for exactly
+// this reason (printAdminTokenBoxStdout); Front Desk logged it as a structured
+// attribute instead. Same credential, same requirement.
+func announceGeneratedToken(w io.Writer, token string) {
+	// One Fprintf so the block cannot interleave with other Docker log output.
+	// This write is the ONLY copy the operator will ever get: the token is
+	// persisted as a hash, so a lost write means recovering it requires deleting
+	// the token file and restarting. The token itself must not be logged, but
+	// the FAILURE must be, or the loss is silent.
+	if _, err := fmt.Fprintf(w, "\n  Front Desk login token (shown once):\n\n      %s\n\n", token); err != nil {
+		debuglog.Error("frontdesk: failed to print the generated login token; delete the admin token file and restart to generate a new one", "error", err)
+		return
+	}
+	debuglog.Info("frontdesk: generated a Front Desk login token, printed to stdout once")
+}
 
 // sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
 // matching the gateway's hourly sweep in cmd/server. A var, not a const, so a

@@ -124,6 +124,36 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 	}
 }
 
+// multipartPromptFields are the form fields that carry prompt TEXT on the
+// multipart endpoints. "prompt" is the only one: an image edit's prompt is the
+// same string /v1/images/generations sends as JSON, and a transcription's
+// prompt is the context hint the model conditions on.
+//
+// An allowlist rather than a denylist, because everything else on these forms is
+// configuration -- language, temperature, response_format, size, n, voice,
+// timestamp_granularities -- and charging for it would bill the caller for their
+// own options. A denylist gets that wrong by default every time a provider adds
+// a parameter, which is the wrong direction for a billing decision to fail in.
+var multipartPromptFields = map[string]bool{"prompt": true}
+
+// multipartPromptTextBytes sizes the prompt text a multipart request carries.
+//
+// The uploaded file is never measured: it is the payload (audio to transcribe,
+// an image to edit) and is orders of magnitude larger than the tokens it costs,
+// so sizing it would invent a colossal charge. That is the same rule
+// promptTextBytes applies to image_url parts and passthroughPromptTextBytes
+// applies to an upload.
+func multipartPromptTextBytes(parts []multipartPart) int {
+	n := 0
+	for _, p := range parts {
+		if p.fileName != "" || !multipartPromptFields[p.fieldName] {
+			continue
+		}
+		n += len(p.data)
+	}
+	return n
+}
+
 // ingestMultipartRequest performs phase A for multipart endpoints: read the
 // (middleware-cached) body, parse the multipart form, extract the `model`
 // field, create the early "pending" request-log entry, publish the
@@ -185,6 +215,12 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	// bodyBytes stays nil: the parsed parts are the upstream-body source for
 	// multipart requests (via makeUpstreamBody), so retaining the raw body
 	// would pin a redundant full copy of the upload for the request lifetime.
+	// Size the text form fields, skipping the upload itself. Without this
+	// logData.promptTextBytes stays at its zero value for every multipart
+	// request, so the metering estimate downstream silently charges nothing --
+	// the same no-op that the chat-only sizer produced for the JSON families.
+	logData.promptTextBytes = multipartPromptTextBytes(parts)
+
 	return &requestState{
 		startTime: startTime,
 		reqModel:  reqModel,
