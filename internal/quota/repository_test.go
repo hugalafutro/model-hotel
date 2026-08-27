@@ -499,3 +499,38 @@ func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 		t.Errorf("payload = %v, want the later real poll to have replaced the poisoned row", after)
 	}
 }
+
+// TestUpsertIfNewer_SmallSkewStillDedupes is the other half of the clamp, and
+// the reason it has a tolerance. Front Desk redistributes the same snapshot
+// every 60s while the primary polls every ~5 minutes, and relies on "skip if not
+// newer" to make the repeats free. If the clamp rewrote every future-looking
+// stamp to now, a member whose clock trails the primary by a second would apply
+// each repeat instead of skipping it, re-stamping the row as freshly fetched and
+// suppressing its own polling of a provider nobody is refreshing any more.
+func TestUpsertIfNewer_SmallSkewStillDedupes(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-small-skew")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	// A primary one second ahead of this member: ordinary NTP drift.
+	skewed := time.Now().Add(1 * time.Second)
+	snap := quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: skewed,
+	}
+
+	applied, err := repo.UpsertIfNewer(ctx, snap)
+	if err != nil || !applied {
+		t.Fatalf("first distribution should apply: applied=%v err=%v", applied, err)
+	}
+	// The same snapshot redistributed a minute later must be a no-op write.
+	applied, err = repo.UpsertIfNewer(ctx, snap)
+	if err != nil {
+		t.Fatalf("second distribution: %v", err)
+	}
+	if applied {
+		t.Error("an identical redistributed snapshot applied again; the clamp rewrote its timestamp and broke skip-if-newer")
+	}
+}

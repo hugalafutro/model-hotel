@@ -1,8 +1,11 @@
 package api
 
 import (
+	"net/http"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // TestSnapshotFreshness_FutureStampIsNeverFresh is the bug these guards exist
@@ -52,5 +55,33 @@ func TestSnapshotFreshness_BoundariesUnchanged(t *testing.T) {
 	}
 	if !snapshotWithinAge(now, atWindow, window) {
 		t.Error("snapshotWithinAge at exactly maxAge = false, want true (was >, so equal was kept)")
+	}
+}
+
+// TestDriftEligible_FutureStampIsNotEligible pins the guard at its call site
+// rather than only on the helper. driftEligible was the third site with this
+// bug and was missed by the first pass at the fix, so a helper-only test would
+// have gone on passing while the site itself stayed broken.
+func TestDriftEligible_FutureStampIsNotEligible(t *testing.T) {
+	now := time.Now()
+	const maxAge = 15 * time.Minute
+	ok := quota.Snapshot{HTTPStatus: http.StatusOK, Payload: []byte(`{"a":1}`)}
+
+	fresh := ok
+	fresh.FetchedAt = now.Add(-1 * time.Minute)
+	if !driftEligible(fresh, maxAge, now) {
+		t.Error("a recent snapshot should be drift-eligible")
+	}
+
+	stale := ok
+	stale.FetchedAt = now.Add(-1 * time.Hour)
+	if driftEligible(stale, maxAge, now) {
+		t.Error("an old snapshot should not be drift-eligible")
+	}
+
+	future := ok
+	future.FetchedAt = now.Add(48 * time.Hour)
+	if driftEligible(future, maxAge, now) {
+		t.Error("a future-dated snapshot is drift-eligible forever; the negative-age guard is missing at this site")
 	}
 }

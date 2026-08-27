@@ -128,7 +128,14 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 			continue
 		}
 		newest, found := newestScheduledBackup(entries)
-		if !found || time.Since(newest) > memberBackupStaleAfter {
+		// The timestamp is parsed straight out of the member's own listing, so a
+		// member with a fast clock (or a bad created_at) can report a backup
+		// dated in the future. time.Since then returns a NEGATIVE duration,
+		// which never exceeds the threshold, so the staleness alert would be
+		// permanently silenced for exactly the member most likely to be
+		// misconfigured. An impossible age is treated as stale, not as fresh.
+		age := time.Since(newest)
+		if !found || age < 0 || age > memberBackupStaleAfter {
 			s.markBackupStale(ctx, m, newest, found)
 			continue
 		}

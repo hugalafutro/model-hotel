@@ -130,10 +130,6 @@ func main() {
 	trustedProxies := config.LoadTrustedProxies()
 	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, trustedProxies, nil)
 
-	// Prune expired WebAuthn sessions for as long as the process runs. Tied to
-	// ctx so it stops with the rest of the process rather than outliving it.
-	go webauthnSessionCleanupLoop(ctx, frontdesk.NewWebAuthnStore(store))
-
 	srv := frontdesk.NewServer(frontdesk.ServerConfig{
 		Store:          store,
 		Poller:         poller,
@@ -157,6 +153,14 @@ func main() {
 		// and its normalization with the dashboard so one fleet-wide knob covers
 		// both surfaces.
 		CookieSecure: config.NormalizeCookieSecure(os.Getenv("COOKIE_SECURE")),
+	})
+
+	// Prune expired WebAuthn sessions for as long as the process runs. On the
+	// background group, not a bare goroutine: the drain below has to join it
+	// before Shutdown closes the store, or a sweep mid-DELETE would be reading a
+	// handle that is already closed.
+	srv.StartBackground(ctx, func(c context.Context) {
+		webauthnSessionCleanupLoop(c, frontdesk.NewWebAuthnStore(store))
 	})
 
 	// Every process-lifetime loop runs on the server's background group, so the
@@ -226,8 +230,10 @@ const (
 )
 
 // sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
-// matching the gateway's hourly sweep in cmd/server.
-const sessionCleanupInterval = time.Hour
+// matching the gateway's hourly sweep in cmd/server. A var, not a const, so a
+// test can prove the loop KEEPS sweeping after a failure rather than only that
+// it swept once and exited.
+var sessionCleanupInterval = time.Hour
 
 // sessionCleaner is the slice of the WebAuthn store the cleanup loop needs.
 // An interface rather than the concrete store so the loop is testable without
@@ -252,6 +258,9 @@ type sessionCleaner interface {
 func webauthnSessionCleanupLoop(ctx context.Context, store sessionCleaner) {
 	sweep := func() {
 		if n, err := store.CleanupExpiredSessions(ctx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return // shutting down, not a fault
+			}
 			debuglog.Error("frontdesk: webauthn session cleanup failed", "error", err)
 		} else if n > 0 {
 			debuglog.Info("frontdesk: cleaned up expired webauthn sessions", "count", n)

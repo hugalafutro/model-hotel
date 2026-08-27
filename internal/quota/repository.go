@@ -129,9 +129,24 @@ func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 // recording: only its claim about when it was fetched is impossible, and a
 // fetch cannot have happened in the future. Same shape as the fix applied to
 // the fleet rate-limit divisor, which had this bug in its own staleness check.
+//
+// The skew tolerance is what keeps the cure from causing the disease. Fleet
+// members do not share a clock, and Front Desk redistributes the SAME snapshot
+// every 60s against a ~5 minute poll cycle, relying on "skip if not newer" to
+// make the repeats free. Clamping any future stamp to now would rewrite each
+// repeat to the receiving member's own clock, so every redistribution would
+// look newer, apply instead of skip, and re-stamp the row as freshly fetched.
+// A provider whose primary had stopped polling would then look permanently
+// fresh on every member, suppressing their own polls: precisely the wedge this
+// function exists to prevent, reached through a second of NTP drift instead of
+// a hostile timestamp. Ordinary skew therefore passes through untouched (the
+// read-side age >= 0 guards cover the residue), and only stamps too far ahead
+// to be a clock difference are corrected.
+const fetchedAtSkewTolerance = 2 * time.Minute
+
 func sanitizeFetchedAt(t time.Time) time.Time {
 	now := time.Now()
-	if t.IsZero() || t.After(now) {
+	if t.IsZero() || t.After(now.Add(fetchedAtSkewTolerance)) {
 		return now
 	}
 	return t

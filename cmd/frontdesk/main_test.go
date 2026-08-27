@@ -143,7 +143,15 @@ func TestWebauthnSessionCleanupLoop_SweepsImmediately(t *testing.T) {
 // ending the loop: a transient SQLite error must not silently disable cleanup
 // for the rest of the process's life, which is the failure mode that would
 // recreate the unbounded growth this fixes.
+//
+// It waits for SEVERAL sweeps on a shortened interval. Waiting for one would
+// pass against a loop that bailed out on its first error, which is exactly the
+// implementation the test is supposed to reject.
 func TestWebauthnSessionCleanupLoop_SurvivesStoreError(t *testing.T) {
+	restore := sessionCleanupInterval
+	sessionCleanupInterval = 5 * time.Millisecond
+	t.Cleanup(func() { sessionCleanupInterval = restore })
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := &fakeSessionCleaner{err: errors.New("database is locked")}
@@ -154,13 +162,47 @@ func TestWebauthnSessionCleanupLoop_SurvivesStoreError(t *testing.T) {
 		close(done)
 	}()
 
-	waitForSweeps(t, c, 1)
+	waitForSweeps(t, c, 3)
 	cancel()
 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("cleanup loop did not return after a failing sweep")
+	}
+}
+
+// TestWebauthnSessionCleanupLoop_ShutdownIsNotAFault pins the quiet half.
+// Shutdown cancels the context while the loop is registered on the server's
+// background group, so a sweep racing the drain gets its query cancelled. That
+// is the ordinary way this loop ends and it must not be reported as a failure,
+// or every clean shutdown would log an error.
+func TestWebauthnSessionCleanupLoop_ShutdownIsNotAFault(t *testing.T) {
+	logs := &recordingHandler{}
+	prev := slog.Default()
+	debuglog.SetHandler(logs)
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // shutdown has already begun when the sweep runs
+
+	done := make(chan struct{})
+	go func() {
+		webauthnSessionCleanupLoop(ctx, &fakeSessionCleaner{err: context.Canceled})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("loop did not return once the context was cancelled")
+	}
+	logs.mu.Lock()
+	defer logs.mu.Unlock()
+	for _, r := range logs.records {
+		if r.Level >= slog.LevelError {
+			t.Errorf("clean shutdown logged an error: %q", r.Message)
+		}
 	}
 }
 

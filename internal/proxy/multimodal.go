@@ -88,6 +88,11 @@ func (h *Handler) serveJSONPassthrough(w http.ResponseWriter, r *http.Request, e
 	}
 	st.endpointPath = endpointPath
 	st.longRunning = isLongRunningEndpoint(endpointType)
+	// ingestRequest sizes the prompt with the chat rule, which finds no
+	// "messages" in these bodies and so returns zero for every one of them.
+	// Size them by their own shape instead, or the metering estimate below is
+	// silently no charge at all.
+	st.logData.promptTextBytes = passthroughPromptTextBytes(st.bodyBytes, endpointType)
 	st.makeUpstreamBody = makeJSONModelRewriter(st.bodyBytes, st.reqModel)
 	h.servePassthroughPipeline(w, r, st)
 }
@@ -409,12 +414,17 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 		// roughly two million completion tokens for one 8 MiB embeddings
 		// response. Undercharging the output is the deliberate choice, and it
 		// is still strictly better than charging nothing.
-		promptTokens := estimateTokens(logData.promptTextBytes)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, 0, "completed", "")
-		if promptTokens > 0 {
-			h.recordTokenUsage(st.vkHash, logData, promptTokens, 0, 0)
+		// The log keeps the provider's figures, which here are none: usage was
+		// never extracted, so nothing was measured. The estimate charges the
+		// quota WITHOUT being reported as measured usage, matching what the
+		// chat and streaming paths do (they update the log before calling
+		// estimateMissingUsage) and keeping the stats pages honest.
+		estimated := estimateTokens(logData.promptTextBytes)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
+		if estimated > 0 {
+			h.recordTokenUsage(st.vkHash, logData, estimated, 0, 0)
 		}
-		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "prompt_tokens", promptTokens, "prompt_estimated", true)
+		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
 		return
 	}
 
