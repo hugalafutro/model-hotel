@@ -376,7 +376,8 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// embeddings 200 says nothing about the chat surface and an image or TTS 200
 	// says nothing about either. And gated on bytes having arrived, judged by the
 	// same rule the probe uses — see passthroughAnswered.
-	if passthroughAnswered(logData.endpointType, body) {
+	answered := passthroughAnswered(logData.endpointType, body)
+	if answered {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
 	// Oversized is judged on the bytes read, before masking can shrink a
@@ -445,15 +446,45 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// branch above handles. Reported figures always win; the estimate only
 	// fills a total absence, and only for the prompt, for the same reason the
 	// oversized branch does not size a response of vectors or base64 as text.
+	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, answered)
+	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
+}
+
+// chargePassthroughUsage debits a completed pass-through request, estimating
+// the prompt when the provider reported no usage at all.
+//
+// Every pass-through family needs this and they do not share a branch: JSON
+// bodies are metered in serveBufferedJSONPassthrough, while audio/mpeg and
+// other binary shapes go to serveStreamedPassthrough, where the SSE tail that
+// carries usage is not even allocated. Guarding the debit on "did the provider
+// report something" therefore left image generation unmetered on the JSON side
+// and text-to-speech unmetered on the binary side, on every ordinary request.
+//
+// delivered gates the estimate, not the reported figures: a provider that
+// answers 200 with nothing (an aggregator in front of a retired model returning
+// `{"data":[]}`) has cost nothing, and charging a full prompt estimate for it
+// would bill the caller for every empty answer. This is the same rule
+// estimateMissingUsage states for streams: nothing is estimated when no output
+// was delivered.
+//
+// Only the prompt is ever estimated. A pass-through response body is float
+// vectors or base64 or audio, not text, so sizing it the way the streaming path
+// sizes delivered text would invent an enormous completion charge.
+//
+// Returns what was charged and whether the prompt was estimated, for the log.
+func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, completionTokens int, delivered bool) (charged int, estimated bool) {
+	logData := st.logData
 	chargePrompt, chargeCompletion := promptTokens, completionTokens
-	estimatedPrompt := false
 	if chargePrompt == 0 && chargeCompletion == 0 {
-		chargePrompt, estimatedPrompt = estimateTokens(logData.promptTextBytes), true
+		if !delivered {
+			return 0, false
+		}
+		chargePrompt, estimated = estimateTokens(logData.promptTextBytes), true
 	}
 	if chargePrompt > 0 || chargeCompletion > 0 {
 		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)
 	}
-	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_prompt_tokens", chargePrompt, "prompt_estimated", estimatedPrompt)
+	return chargePrompt + chargeCompletion, estimated
 }
 
 // serveStreamedPassthrough handles SSE and binary shapes: probe the first
@@ -553,18 +584,17 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
-		// The provider billed whatever usage the SSE tail already reported,
-		// whether or not the client stayed to receive it.
-		if promptTokens > 0 || completionTokens > 0 {
-			h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
-		}
+		// The provider billed whatever it produced, whether or not the client
+		// stayed to receive it. Bytes reached the client, so an absent usage
+		// report is estimated rather than treated as free: this is the path
+		// audio/mpeg takes, where the SSE tail that would carry usage is never
+		// even allocated, so the report is structurally always absent.
+		h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
 		return
 	}
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-	if promptTokens > 0 || completionTokens > 0 {
-		h.recordTokenUsage(st.vkHash, logData, promptTokens, completionTokens, 0)
-	}
-	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
+	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 }
 
 // copyPassthroughHeaders sets the upstream Content-Type and (when present)

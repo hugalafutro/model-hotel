@@ -124,6 +124,30 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 	}
 }
 
+// multipartPromptTextBytes sizes the text a multipart request carries: the form
+// fields, never the uploaded file.
+//
+// A part with a filename is the payload (audio to transcribe, an image to edit)
+// and is orders of magnitude larger than the tokens it costs, so measuring it
+// would invent a colossal charge -- the same reason promptTextBytes skips
+// image_url parts and passthroughPromptTextBytes refuses to size an upload. The
+// text fields are the prompt: an image edit's "prompt" is the same string the
+// JSON image endpoint sends, and it was being counted as zero purely because it
+// arrived as form data.
+//
+// The "model" field is excluded: it is routing metadata, not prompt text, and
+// it is already recorded separately on the log row.
+func multipartPromptTextBytes(parts []multipartPart) int {
+	n := 0
+	for _, p := range parts {
+		if p.fileName != "" || p.fieldName == "model" {
+			continue
+		}
+		n += len(p.data)
+	}
+	return n
+}
+
 // ingestMultipartRequest performs phase A for multipart endpoints: read the
 // (middleware-cached) body, parse the multipart form, extract the `model`
 // field, create the early "pending" request-log entry, publish the
@@ -185,6 +209,12 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	// bodyBytes stays nil: the parsed parts are the upstream-body source for
 	// multipart requests (via makeUpstreamBody), so retaining the raw body
 	// would pin a redundant full copy of the upload for the request lifetime.
+	// Size the text form fields, skipping the upload itself. Without this
+	// logData.promptTextBytes stays at its zero value for every multipart
+	// request, so the metering estimate downstream silently charges nothing --
+	// the same no-op that the chat-only sizer produced for the JSON families.
+	logData.promptTextBytes = multipartPromptTextBytes(parts)
+
 	return &requestState{
 		startTime: startTime,
 		reqModel:  reqModel,

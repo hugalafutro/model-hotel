@@ -237,20 +237,30 @@ const (
 //
 // The token deliberately never passes through debuglog. Its handler fans out to
 // every configured channel, including the JSON stdout handler (where the value
-// becomes an indexed, queryable field) and the OTLP exporter (which ships it to
-// the operator's log store and retains it there under that store's policy). A
-// one-time admin credential written into log infrastructure is a credential
-// that outlives its one use, in a place chosen for searchability.
+// becomes an indexed, queryable FIELD) and the OTLP exporter (which ships it off
+// the host to the operator's log store and retains it there under that store's
+// policy).
+//
+// To be precise about what this does and does not achieve: in a container,
+// stdout IS the log stream, so the token still reaches whatever collects
+// container output. What it stops is the token becoming a structured, indexed,
+// queryable attribute, and crossing the OTLP hop into a remote store. That is a
+// real reduction in reach and retention, not a guarantee the value never lands
+// in a log file.
 //
 // The gateway has always printed its own token straight to stdout for exactly
 // this reason (printAdminTokenBoxStdout); Front Desk logged it as a structured
 // attribute instead. Same credential, same requirement.
 func announceGeneratedToken(w io.Writer, token string) {
 	// One Fprintf so the block cannot interleave with other Docker log output.
-	// Write failure is not actionable here: the process is booting, this is the
-	// only copy of the token, and there is nowhere safe to report the failure to
-	// (the logger is exactly what must not receive it).
-	_, _ = fmt.Fprintf(w, "\n  Front Desk login token (shown once):\n\n      %s\n\n", token)
+	// This write is the ONLY copy the operator will ever get: the token is
+	// persisted as a hash, so a lost write means recovering it requires deleting
+	// the token file and restarting. The token itself must not be logged, but
+	// the FAILURE must be, or the loss is silent.
+	if _, err := fmt.Fprintf(w, "\n  Front Desk login token (shown once):\n\n      %s\n\n", token); err != nil {
+		debuglog.Error("frontdesk: failed to print the generated login token; delete the admin token file and restart to generate a new one", "error", err)
+		return
+	}
 	debuglog.Info("frontdesk: generated a Front Desk login token, printed to stdout once")
 }
 
