@@ -1,10 +1,13 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
@@ -71,9 +74,12 @@ func TestConfigSyncImport_AcceptsBodyAboveDefaultLimit(t *testing.T) {
 	}
 }
 
-// TestClearAppLogs_OptionalBodyStaysOptionalButBounded pins both halves of the
-// tolerant decode: no body still means "clear everything", and an oversized one
-// is still refused.
+// TestClearAppLogs_OptionalBodyStaysOptionalButBounded pins all three halves of
+// the optional decode on the one endpoint that uses it. No body still means
+// "clear everything"; an oversized body is refused; and a body that was sent but
+// cannot be read is refused rather than falling back to the clear-everything
+// default, which is the difference between clearing an hour of logs and
+// clearing all of them.
 func TestClearAppLogs_OptionalBodyStaysOptionalButBounded(t *testing.T) {
 	h := testHandler(nil, nil, nil, &mockAdminAuth{}, nil)
 
@@ -88,5 +94,42 @@ func TestClearAppLogs_OptionalBodyStaysOptionalButBounded(t *testing.T) {
 	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodPost, "/api/logs/app/clear", strings.NewReader(body)))
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("oversized body status = %d, want 413; body=%q", rec.Code, rec.Body.String())
+	}
+
+	// A truncated "clear the last hour" must not become "clear everything".
+	rec = httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodPost, "/api/logs/app/clear", strings.NewReader(`{"older_than":"1h"`)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("truncated body status = %d, want 400; body=%q", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBulkDeleteWorstCaseFitsDefaultLimit ties together the two numbers that
+// have to stay in step. A full bulk model delete is the largest body any route
+// bounded by the package default can legitimately carry, so raising
+// maxBulkDeleteIDs without revisiting httpx.MaxJSONBody would start answering
+// 413 to a request the Models page can really send: the user selects everything
+// and the clear silently fails. Sized with the real encoder rather than an
+// estimate of how long a UUID is.
+func TestBulkDeleteWorstCaseFitsDefaultLimit(t *testing.T) {
+	ids := make([]string, maxBulkDeleteIDs)
+	for i := range ids {
+		ids[i] = uuid.New().String()
+	}
+	body, err := json.Marshal(BulkDeleteRequest{IDs: ids})
+	if err != nil {
+		t.Fatalf("marshal worst-case bulk delete: %v", err)
+	}
+
+	// Decoded through the real helper at the real limit, so this fails the same
+	// way the endpoint would.
+	rec := httptest.NewRecorder()
+	var got BulkDeleteRequest
+	if !decodeJSON(rec, httptest.NewRequest(http.MethodPost, "/api/models/bulk-delete", strings.NewReader(string(body))), &got) {
+		t.Fatalf("a full %d-ID bulk delete (%d bytes) does not fit the %d-byte default limit; status %d",
+			maxBulkDeleteIDs, len(body), httpx.MaxJSONBody, rec.Code)
+	}
+	if len(got.IDs) != maxBulkDeleteIDs {
+		t.Errorf("decoded %d ids, want %d", len(got.IDs), maxBulkDeleteIDs)
 	}
 }

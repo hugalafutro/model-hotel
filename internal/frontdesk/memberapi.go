@@ -22,6 +22,12 @@ import (
 // the small JSON documents routine calls return (a config hash, a settings object,
 // a stats series); a response that grows with the member's own history passes its
 // own limit to callMemberLimited.
+//
+// Quota distribution relays a response read under this ceiling straight back to
+// the other members, whose receiving handler bounds its own request body at
+// internal/api's maxQuotaSnapshotsBody. That constant is deliberately larger
+// than this one; raising this one past it would make members answer 413 to a
+// payload Front Desk considers legal.
 const maxMemberRespBody = 1 << 20
 
 // errMemberRespTooLarge reports a member response that did not fit its read limit.

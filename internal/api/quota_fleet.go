@@ -112,6 +112,17 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, map[string]any{"snapshots": wire})
 }
 
+// maxQuotaSnapshotsBody bounds a fleet quota distribution. This body is not
+// client-written: Front Desk reads the primary's snapshot export and relays it
+// verbatim, so the producer's own read ceiling (internal/frontdesk's
+// maxMemberRespBody, 1 MiB) is what actually caps what can arrive here. Keeping
+// this strictly above it means that if Front Desk ever needs a bigger ceiling
+// for quota, as it already did for one config-sync endpoint, members do not
+// start answering 413 to a payload Front Desk considers legal. The failure
+// would be near-silent: the distributor logs a non-200 at debug level and each
+// member quietly falls back to polling upstream itself.
+const maxQuotaSnapshotsBody = 4 << 20
+
 // ReceiveSnapshots stores fleet-distributed snapshots, mapping each by provider
 // name onto this member's own provider IDs and writing with UpsertIfNewer so an
 // older fleet write never clobbers a fresher local (e.g. manual) snapshot. A
@@ -120,7 +131,7 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 	var in struct {
 		Snapshots []QuotaSnapshotWire `json:"snapshots"`
 	}
-	if !decodeJSON(w, r, &in) {
+	if !decodeJSONLimit(w, r, maxQuotaSnapshotsBody, &in) {
 		return
 	}
 

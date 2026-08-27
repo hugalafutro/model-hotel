@@ -17,14 +17,37 @@ import (
 // Members
 // ---------------------------------------------------------------------------
 
+// maxMemberNameLen caps a member's display name. The name is not decoration:
+// the primary's copy rides in every fleet announce, whose receiving handler
+// bounds that body at 1 KiB. An unbounded name therefore breaks announces
+// fleet-wide, and near-silently, since the poller logs a failed announce at
+// debug level only. 200 characters is far beyond any real hostname-shaped label
+// and leaves the announce most of its budget.
+const maxMemberNameLen = 200
+
+// validMemberName trims a display name and rejects one that is empty or past
+// maxMemberNameLen. Rejected rather than truncated, unlike a paired device's
+// label: a member's name identifies it across the fleet, so silently storing a
+// different name than the operator typed would be worse than refusing.
+func validMemberName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("%w: name is required", ErrValidation)
+	}
+	if len(name) > maxMemberNameLen {
+		return "", fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxMemberNameLen)
+	}
+	return name, nil
+}
+
 // CreateMember validates and inserts a new member. name must be non-empty and
 // rawURL must be a valid http(s) URL with a host; the URL is normalized (scheme
 // lowercased, trailing slash trimmed) and deduped. token is optional; when set
 // it is encrypted at rest with the store master key.
 func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, fmt.Errorf("%w: name is required", ErrValidation)
+	name, err := validMemberName(name)
+	if err != nil {
+		return nil, err
 	}
 	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
 	if err != nil {
@@ -90,9 +113,9 @@ func (s *Store) GetMember(ctx context.Context, id string) (*Member, error) {
 
 // RenameMember updates a member's display name.
 func (s *Store) RenameMember(ctx context.Context, id, name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("%w: name is required", ErrValidation)
+	name, err := validMemberName(name)
+	if err != nil {
+		return err
 	}
 	return s.touchMember(ctx, `UPDATE members SET name = ?, updated_at = ? WHERE id = ?`, id, name)
 }

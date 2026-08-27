@@ -919,3 +919,49 @@ func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 		t.Errorf("fleet_sync_state still names deleted member %q", gm.ID)
 	}
 }
+
+// TestMemberNameLengthCapped covers the coupling that makes an unbounded name
+// dangerous rather than merely untidy: the primary's name rides in every fleet
+// announce, and the receiving handler bounds that body at 1 KiB, so a long
+// enough name breaks announces for the whole fleet and does it at debug-log
+// volume. Both write paths are capped, and the cap rejects rather than
+// truncates, since a member's name identifies it across the fleet.
+func TestMemberNameLengthCapped(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	long := strings.Repeat("n", maxMemberNameLen+1)
+	if _, err := s.CreateMember(ctx, long, "http://member.example.com", "tok"); !errors.Is(err, ErrValidation) {
+		t.Errorf("CreateMember with an over-long name err = %v, want ErrValidation", err)
+	}
+
+	m, err := s.CreateMember(ctx, strings.Repeat("n", maxMemberNameLen), "http://member.example.com", "tok")
+	if err != nil {
+		t.Fatalf("CreateMember at exactly the cap: %v", err)
+	}
+
+	if err := s.RenameMember(ctx, m.ID, long); !errors.Is(err, ErrValidation) {
+		t.Errorf("RenameMember to an over-long name err = %v, want ErrValidation", err)
+	}
+	stored, err := s.GetMember(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if len(stored.Name) != maxMemberNameLen {
+		t.Errorf("stored name len = %d, want the rejected rename to have changed nothing", len(stored.Name))
+	}
+}
+
+// TestMemberNameFitsAnnounceBudget ties the cap to the constraint it exists for,
+// so raising it without revisiting the announce body fails here rather than in
+// the field. maxAnnounceBody lives in internal/api and cannot be imported, so
+// its value is restated: 1 KiB.
+func TestMemberNameFitsAnnounceBudget(t *testing.T) {
+	const announceBodyLimit = 1 << 10
+	// The announce carries the name plus is_primary, frontdesk_id and the JSON
+	// scaffolding; leave that comfortably more room than it needs.
+	if maxMemberNameLen > announceBodyLimit/2 {
+		t.Errorf("maxMemberNameLen = %d leaves too little of the %d-byte announce budget for the rest of the payload",
+			maxMemberNameLen, announceBodyLimit)
+	}
+}
