@@ -141,17 +141,15 @@ jobs:
           path: coverage.out
           retention-days: 1
 
-  # The race detector. Everything except the two packages it cannot pay for:
-  # internal/api, whose ~1,450 Postgres-backed tests already sit at a 10m
-  # timeout without instrumentation, and internal/frontdesk, whose autosync
-  # suites are timer-sensitive, so a 2-10x slowdown there yields flakes rather
-  # than findings. Excluding two rather than enumerating the rest keeps a newly
-  # added package covered the day it lands instead of the day someone
-  # remembers this list.
+  # The race detector, over every package. Nothing is excluded for cost: the
+  # slow suites are slow on database round-trips, which instrumentation does not
+  # multiply, so the whole tree races in about the time internal/proxy takes on
+  # its own.
   #
   # Un-raced, the suites written for exactly this (internal/failover/
   # circuitbreaker_race_test.go among them) pass while a data race goes
-  # unreported.
+  # unreported. The first run of this job found one, in the app-log writer's
+  # flush interval.
   go-race:
     name: Go Race
     needs: changes
@@ -181,16 +179,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # No pg_dump/pg_restore install: the tests that shell out to them live in
-      # internal/api, which this job does not run.
+      # internal/api's backup tests exec these; without them ~26 tests skip and
+      # the race job silently stops covering the backup round-trip.
+      - name: Install pg_dump / pg_restore for backup tests
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # A longer clock than go-test's 10m: the detector's slowdown lands on
+      # internal/api, the one package already near that limit.
       - name: go test -race
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        run: |
-          set -euo pipefail
-          go list ./... \
-            | grep -vE '/internal/(api|frontdesk)$' \
-            | xargs go test -race -count=1 -timeout 10m
+        run: go test -race -count=1 -timeout 20m ./...
 
   go-lint:
     name: Go Lint

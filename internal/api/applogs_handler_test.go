@@ -228,7 +228,7 @@ func TestRingBufferClearOlderThan_KeepsUnparseable(t *testing.T) {
 
 func TestNewDBLogWriter(t *testing.T) {
 	// Test constructor - just verify it doesn't panic and returns non-nil
-	writer := newDBLogWriter(nil)
+	writer := newDBLogWriter(nil, dbLogFlushInterval)
 	if writer == nil {
 		t.Error("newDBLogWriter should return non-nil writer")
 	}
@@ -237,7 +237,7 @@ func TestNewDBLogWriter(t *testing.T) {
 
 func TestDBLogWriterWrite_Timeout(t *testing.T) {
 	// Create a writer with a nil pool (no DB)
-	writer := newDBLogWriter(nil)
+	writer := newDBLogWriter(nil, dbLogFlushInterval)
 	defer writer.stop()
 
 	entry := AppLogEntry{
@@ -696,7 +696,7 @@ func TestStopAppLogWriter(t *testing.T) {
 
 	// Create a writer
 	InitAppLogBuffer(nil)
-	writer := newDBLogWriter(nil)
+	writer := newDBLogWriter(nil, dbLogFlushInterval)
 	dbWriter = writer
 
 	// Stop it

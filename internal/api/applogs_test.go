@@ -239,7 +239,7 @@ func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'test'")
 	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'test'")
 
-	w := newDBLogWriter(pool)
+	w := newDBLogWriter(pool, dbLogFlushInterval)
 	defer w.stop()
 
 	// Send 50 entries to trigger the batch-size flush path (lines 127-130)
@@ -287,7 +287,7 @@ func TestDBLogWriter_TickerFlush(t *testing.T) {
 	// Clean up before test
 	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'ticker-test'")
 
-	w := newDBLogWriter(pool)
+	w := newDBLogWriter(pool, dbLogFlushInterval)
 	defer w.stop()
 
 	// Send a few entries (less than 50) and wait for the ticker to flush
@@ -324,11 +324,6 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Fatal("apiTestDBURL not set: test database required")
 	}
-	// Reduce flush interval for faster test
-	orig := dbLogFlushInterval
-	dbLogFlushInterval = 10 * time.Millisecond
-	defer func() { dbLogFlushInterval = orig }()
-
 	// Create a writer with a closed pool to trigger the Exec error path (lines 160-164)
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
@@ -336,7 +331,7 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 	}
 	pool.Close() // Close immediately to cause DB errors
 
-	w := newDBLogWriter(pool)
+	w := newDBLogWriter(pool, 10*time.Millisecond)
 	defer w.stop()
 
 	// Send entries — they'll be flushed but the DB write will fail silently
@@ -360,11 +355,6 @@ func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
-	// Reduce flush interval for faster test
-	orig := dbLogFlushInterval
-	dbLogFlushInterval = 10 * time.Millisecond
-	defer func() { dbLogFlushInterval = orig }()
-
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
 		t.Fatalf("failed to create pool: %v", err)
@@ -373,7 +363,7 @@ func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 
 	// Save and restore global dbWriter
 	origDBWriter := dbWriter
-	dbWriter = newDBLogWriter(pool)
+	dbWriter = newDBLogWriter(pool, 10*time.Millisecond)
 	defer func() {
 		dbWriter.stop()
 		dbWriter = origDBWriter
