@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // AuthTokenTTL is the idle lifetime of an auth-token session: how long it
@@ -188,7 +189,18 @@ func (m *SessionManager) authenticate(ctx context.Context, token string, slide b
 	// still in use, and slide the expiry on the same beat, both throttled so
 	// the hot path does not gain a write per request. Best-effort: a failed
 	// stamp or extension must not fail an otherwise valid authentication.
-	if session.LastSeenAt == nil || now.Sub(*session.LastSeenAt) >= lastSeenThrottle {
+	// A future last_seen_at (this host's clock stepped back after the row was
+	// written; the column carries no monotonic reading) would make the raw
+	// subtraction negative, hold the throttle closed forever, and stop the
+	// session sliding while it is in active use - an unexplained logout. The
+	// touch below is the only writer of the column, so nothing else corrects it.
+	// util.TrustedAge keeps ordinary skew throttled and treats an impossible
+	// stamp as no stamp at all.
+	lastSeenAge, aged := time.Duration(0), false
+	if session.LastSeenAt != nil {
+		lastSeenAge, aged = util.TrustedAge(now, *session.LastSeenAt)
+	}
+	if !aged || lastSeenAge >= lastSeenThrottle {
 		if err := m.store.TouchSessionLastSeen(ctx, session.ID, now); err != nil {
 			debuglog.Error("webauthn: failed to stamp session last-seen", "error", err)
 		}

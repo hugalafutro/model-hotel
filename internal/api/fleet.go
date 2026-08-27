@@ -12,6 +12,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // maxAnnounceBody bounds the announce request body. The payload is a handful of
@@ -156,7 +157,32 @@ func computeFleetStatus(ctx context.Context, s fleetSettings, now time.Time) (*F
 		debuglog.Warn("fleet: unparseable managed-seen-at; treating as standalone", "value", seen)
 		return nil, nil //nolint:nilerr // corrupt value means standalone, not error
 	}
-	age := now.Sub(seenAt)
+	// The stamp is written by this member and read back out of settings, so it
+	// carries no monotonic reading: a backwards step of the member's own clock
+	// leaves it dated ahead of now, and a raw subtraction then reports a
+	// negative age that is below every threshold below. util.TrustedAge absorbs
+	// ordinary skew and refuses to measure an impossible stamp.
+	age, aged := util.TrustedAge(now, seenAt)
+	if !aged {
+		// Same answer as the unparseable case above: a stamp describing a moment
+		// that has not happened says nothing about being managed, and treating it
+		// as fresh would pin the badge on forever for a member pulled out of the
+		// fleet.
+		//
+		// Deliberately not logged. Unlike a corrupt value, this condition
+		// persists until Front Desk announces again, and this function runs on
+		// /api/system (polled every 10s per open dashboard tab) and on
+		// isManagedMember for every synced-entity write, so a warning here would
+		// repeat several times a minute for as long as it lasted.
+		//
+		// The second caller is worth stating: isManagedMember reads this, so a
+		// member whose stamp is unusable also stops being treated as managed by
+		// managedWriteGuard and accepts local writes again. That is the same
+		// fail-open direction the guard already takes when Front Desk is away,
+		// and it is strictly better than the alternative this replaces, where a
+		// future stamp left those writes refused with 403 indefinitely.
+		return nil, nil
+	}
 	if age >= fleetForgetTTL {
 		return nil, nil // long gone: forget the fleet, behave as standalone again
 	}
@@ -331,8 +357,16 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 }
 
 // ownerStale reports whether the current owner's last-heartbeat timestamp is
-// older than fleetManagedTTL (or absent/unparseable), meaning the owning Front
-// Desk is gone and its member may be adopted by a new one.
+// older than fleetManagedTTL (or absent, unparseable, or dated in the future),
+// meaning the owning Front Desk is gone and its member may be adopted by a new
+// one.
+//
+// The future case matters most here. A negative age is below fleetManagedTTL,
+// so a departed Front Desk would read as still live and every announce from its
+// replacement would be refused with 409. Nothing recovers from that on its own:
+// the only writer of a fresher stamp is the Front Desk that is gone. An
+// unusable stamp therefore gets the same answer as an absent one, which is
+// already the function's policy for anything it cannot trust.
 func ownerStale(seen string, now time.Time) bool {
 	if seen == "" {
 		return true
@@ -341,7 +375,11 @@ func ownerStale(seen string, now time.Time) bool {
 	if err != nil {
 		return true
 	}
-	return now.Sub(seenAt) >= fleetManagedTTL
+	age, aged := util.TrustedAge(now, seenAt)
+	if !aged {
+		return true
+	}
+	return age >= fleetManagedTTL
 }
 
 // rejectConflict surfaces a rejected ownership claim: a debounced Warn plus a

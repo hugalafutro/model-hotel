@@ -561,3 +561,45 @@ func TestPollTraefikOnceMatchesStrippedLegacyURL(t *testing.T) {
 		t.Errorf("legacy member traefik status = %q, want UP", got)
 	}
 }
+
+// TestTraefikStalenessInputsKeepMonotonicReadings guards the exemption stated
+// above checkConfigStaleness in poller_versions.go.
+//
+// The three Traefik staleness checks subtract raw, without the util.TrustedAge
+// guard every settings- and database-backed staleness check in this codebase
+// uses. That is only safe while both operands carry Go monotonic readings, so
+// that Sub uses the monotonic clock and cannot go negative under a wall-clock
+// step. The whole risk of the exemption is a later refactor writing
+// `startedAt: time.Now().UTC()`, or wrapping p.now, or routing the stamp
+// through a store - each of which silently strips the reading and reinstates
+// the bug with no test failing. This is that test.
+//
+// Round(0) drops the monotonic reading, so a Time that differs from its own
+// Round(0) as a STRUCT still has one. (Equal would compare wall clocks, which
+// agree either way.)
+func TestTraefikStalenessInputsKeepMonotonicReadings(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+
+	p.RecordConfigPoll()
+	p.mu.RLock()
+	last := p.lastConfigPollAt
+	p.mu.RUnlock()
+	if last.IsZero() {
+		t.Fatal("RecordConfigPoll left lastConfigPollAt zero")
+	}
+	if last == last.Round(0) { //nolint:staticcheck // QF1009: identity, not temporal equality
+		t.Error("lastConfigPollAt lost its monotonic reading: ConfigPollStale and " +
+			"checkConfigStaleness now compare wall clocks and need util.TrustedAge")
+	}
+
+	// p.now is the other operand of all three comparisons.
+	if n := p.now(); n == n.Round(0) { //nolint:staticcheck // QF1009: identity, not temporal equality
+		t.Error("p.now() lost its monotonic reading; the raw subtractions are no longer safe")
+	}
+
+	// Server.startedAt is ConfigPollWarm's second operand (fleetstate.go).
+	srv, _ := newTestServer(t)
+	if srv.startedAt == srv.startedAt.Round(0) { //nolint:staticcheck // QF1009: identity, not temporal equality
+		t.Error("Server.startedAt lost its monotonic reading; ConfigPollWarm now compares wall clocks")
+	}
+}

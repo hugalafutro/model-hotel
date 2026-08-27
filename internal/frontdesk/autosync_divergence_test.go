@@ -839,6 +839,15 @@ func TestAutoSyncStaleTier(t *testing.T) {
 		{"just over a day", off, now.Add(-25 * time.Hour), true, 1},
 		{"just under three days", off, now.Add(-71 * time.Hour), true, 1},
 		{"over three days", off, now.Add(-73 * time.Hour), true, 2},
+		// LastRunAt comes back from SQLite as time.Unix(0, at).UTC() (store_fleet.go),
+		// so it carries no monotonic reading and a backwards step of Front Desk's own
+		// clock leaves it dated ahead of now. A raw subtraction then goes negative,
+		// which is under both thresholds, so a fleet that stopped syncing would report
+		// tier 0 - perfectly fresh - for as long as the step lasts. That silences the
+		// config.autosync_stale watchdog and the degraded/faulty fleet state at once,
+		// which is the whole point of the tier.
+		{"a second ahead cannot vouch for freshness", off, now.Add(time.Second), true, 1},
+		{"years ahead cannot vouch for freshness", off, now.Add(9 * 365 * 24 * time.Hour), true, 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

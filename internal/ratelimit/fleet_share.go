@@ -3,6 +3,8 @@ package ratelimit
 import (
 	"context"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // settingsKeyFleetActiveMembers is the instance-local count of StateActive fleet
@@ -60,8 +62,10 @@ func fleetDivisor(ctx context.Context, s SettingsReader) int {
 	if at == 0 {
 		return 1
 	}
-	// Negative age == future stamp; both ends of the range are untrustworthy.
-	if age := time.Since(time.Unix(int64(at), 0)); age < 0 || age > fleetDivisorTTL {
+	// Both ends of the range are untrustworthy: util.TrustedAge refuses a future
+	// stamp, and anything past the TTL has aged out.
+	age, aged := util.TrustedAge(time.Now(), time.Unix(int64(at), 0))
+	if !aged || age > fleetDivisorTTL {
 		return 1
 	}
 	return n

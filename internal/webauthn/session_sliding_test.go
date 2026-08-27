@@ -333,3 +333,62 @@ func TestListAuthSessions_IncludesSlidSession(t *testing.T) {
 		t.Errorf("listed expiry %v, want the slid %v", rows[0].ExpiresAt, res.ExpiresAt)
 	}
 }
+
+// TestAuthenticate_FutureLastSeenStillSlides covers the negative-duration hole
+// in the throttle. last_seen_at is a timestamptz read back off the row, so a
+// backwards step of the server's clock can leave it dated ahead of now.
+// `now.Sub(*LastSeenAt) >= lastSeenThrottle` is then FALSE for the resulting
+// negative duration, so the touch never fires - and because that touch is the
+// only writer of last_seen_at, nothing corrects the stamp either. The session
+// stops sliding entirely and expires at its original deadline while in active
+// use, which for a user is an unexplained logout.
+func TestAuthenticate_FutureLastSeenStillSlides(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token := mintSession(t, repo, mgr, "admin-future-lastseen")
+	// A negative "ago" puts last_seen_at in the future.
+	ageSession(t, repo, token, 48*time.Hour, AuthTokenTTL-time.Hour, -2*time.Hour)
+	before := sessionByToken(t, repo, token).ExpiresAt
+
+	res, ok := mgr.Authenticate(ctx, token)
+	if !ok {
+		t.Fatal("token should validate")
+	}
+	if !res.Extended {
+		t.Fatal("Extended = false: a future last_seen_at froze the slide, so the session expires while in use")
+	}
+	if after := sessionByToken(t, repo, token).ExpiresAt; !after.After(before) {
+		t.Errorf("expires_at %v did not move past %v", after, before)
+	}
+}
+
+// TestAuthenticate_FutureLastSeenSelfCorrects pins why refusing a future stamp
+// costs at most one extra write per session rather than a write per request:
+// the touch it releases rewrites last_seen_at with the current clock, so the
+// throttle closes again immediately. Without this the guard would look like a
+// write-amplification risk under a fleet-wide clock step.
+func TestAuthenticate_FutureLastSeenSelfCorrects(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token := mintSession(t, repo, mgr, "admin-selfcorrect-lastseen")
+	ageSession(t, repo, token, 48*time.Hour, AuthTokenTTL-time.Hour, -2*time.Hour)
+
+	if res, ok := mgr.Authenticate(ctx, token); !ok || !res.Extended {
+		t.Fatalf("first call: ok=%v extended=%v, want both true", ok, res.Extended)
+	}
+	if seen := sessionByToken(t, repo, token).LastSeenAt; seen == nil || seen.After(time.Now().Add(time.Minute)) {
+		t.Fatalf("the touch must rewrite last_seen_at to the current clock, got %v", seen)
+	}
+	// Second call: the stamp is sane again, so the throttle holds.
+	res, ok := mgr.Authenticate(ctx, token)
+	if !ok {
+		t.Fatal("second call should validate")
+	}
+	if res.Extended {
+		t.Error("Extended = true on the second call: the corrected stamp must re-close the throttle")
+	}
+}
