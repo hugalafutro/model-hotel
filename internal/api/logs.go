@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -303,8 +302,7 @@ func olderThanCutoff(olderThan string) (cutoff time.Time, all, ok bool) {
 // PurgeLogs deletes old request logs based on the specified time range.
 func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

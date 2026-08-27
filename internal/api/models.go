@@ -231,8 +231,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req model.UpdateModelRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -356,8 +355,7 @@ type BulkDeleteResponse struct {
 // that trips the admin IP rate limiter and surfaces spurious "N failed" toasts.
 func (h *Handler) BulkDeleteModels(w http.ResponseWriter, r *http.Request) {
 	var req BulkDeleteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.IDs) == 0 {

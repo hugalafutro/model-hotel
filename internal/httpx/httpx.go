@@ -11,6 +11,7 @@ package httpx
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -202,4 +203,143 @@ func ReadOnlyGuard(component string, next http.Handler) http.Handler {
 func IsReadOnlyExemptPost(path string) bool {
 	return strings.HasSuffix(path, "/discovery/changes/ack") ||
 		strings.HasSuffix(path, "/webauthn/logout")
+}
+
+// MaxJSONBody is the default ceiling on a control-plane JSON request body.
+// Every admin, auth and Front Desk payload is a small settings/credential/ID
+// document, so a megabyte is orders of magnitude more than any of them needs
+// while still bounding what an unauthenticated caller (a login attempt, a
+// device pairing exchange) can make the server read and buffer. The largest
+// legitimate payload on any route that uses it is a full bulk model delete, at
+// roughly 400 KiB; TestBulkDeleteWorstCaseFitsDefaultLimit pins that headroom
+// so raising the ID cap cannot silently outgrow this one. Endpoints that
+// legitimately carry more (a config-sync import, a backup upload) pass their
+// own limit instead of using this one.
+//
+// This is a second, much tighter ceiling on the main server, whose router
+// already caps every request at MAX_REQUEST_SIZE (50 MB by default) for the
+// sake of the proxy's multimodal uploads: 50 MB is the right bound for a
+// base64 image and a badly wrong one for a login body. The Front Desk binary
+// mounts no such global cap at all, so for its handlers this is the only
+// ceiling there is.
+const MaxJSONBody = 1 << 20 // 1 MiB
+
+// DecodeJSON bounds r.Body to limit bytes and decodes exactly one JSON value
+// into v, reporting whether the caller may continue. On failure it has already
+// written the response: 413 when the body ran past the limit, 400 when it is
+// malformed or carries anything after that value.
+//
+// The bound is applied with http.MaxBytesReader rather than by checking
+// Content-Length, so a chunked or lying request is cut off mid-read instead of
+// being trusted. MaxBytesReader also tries to tell the ResponseWriter the
+// request was oversized, but it does that through an unexported interface that
+// no wrapped writer in either binary implements (chi's logger and compressor
+// both wrap it), so in practice the connection is closed by net/http's own
+// post-handler drain instead. Either way the handler never reads past the
+// limit, which is the property that matters.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(v); err != nil {
+		return rejectDecode(w, r, component, limit, err)
+	}
+	return checkNothingFollows(w, r, component, limit, dec)
+}
+
+// DecodeJSONOptional is DecodeJSON for an endpoint whose body is optional: no
+// body at all leaves v at its zero value and the request continues, so the
+// caller keeps its documented default.
+//
+// Only an entirely absent body is tolerated. A body that is present but
+// malformed is rejected exactly as DecodeJSON rejects it, because "the client
+// sent nothing, so use the default" and "the client asked for something and we
+// could not read it, so use the default" are different situations, and
+// treating the second as the first silently substitutes the default for what
+// was actually asked. On a purge endpoint that is the difference between
+// deleting an hour of logs and deleting all of them.
+func DecodeJSONOptional(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(v)
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	if err != nil {
+		return rejectDecode(w, r, component, limit, err)
+	}
+	return checkNothingFollows(w, r, component, limit, dec)
+}
+
+// checkNothingFollows rejects a request that carries anything after its one
+// JSON value. It is what makes the ceiling real rather than nominal:
+// json.Decoder stops reading the moment it has a complete value, so a small
+// object followed by a huge tail would decode happily and never trip
+// MaxBytesReader. Draining to the end forces the tail through the limit, and a
+// tail that is under the limit but non-empty is a smuggled second payload, so
+// it earns the same 400 a malformed body does.
+//
+// Trailing whitespace is not a tail: Token skips it, and a client that ends its
+// body with a newline is well behaved.
+func checkNothingFollows(w http.ResponseWriter, r *http.Request, component string, limit int64, dec *json.Decoder) bool {
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return rejectDecode(w, r, component, limit, err)
+	}
+	return true
+}
+
+// rejectDecode writes the response for a failed decode and always reports
+// false, so a caller can return it directly. An oversized body is a 413;
+// anything else is a 400.
+//
+// Neither log line carries any of the body. The obvious thing to log is the
+// decoder error, but json.SyntaxError's message embeds the offending byte, and
+// these routes include the pre-authentication ones, so that would put
+// caller-controlled content into the log of a gateway whose whole premise is
+// that request content is never logged. Normalising every failure to a fixed
+// phrase means no decoder message can reach a log line by accident either. The
+// phrase and the byte offset say everything an operator needs.
+func rejectDecode(w http.ResponseWriter, r *http.Request, component string, limit int64, err error) bool {
+	if isBodyTooLarge(err) {
+		debuglog.Info(component+": rejected oversized request body",
+			"path", r.URL.Path, "method", r.Method, "limit_bytes", limit)
+		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+		return false
+	}
+	kind, offset := decodeFailure(err)
+	debuglog.Info(component+": rejected malformed request body",
+		"path", r.URL.Path, "method", r.Method, "reason", kind, "offset", offset)
+	http.Error(w, "invalid request body", http.StatusBadRequest)
+	return false
+}
+
+// decodeFailure classifies a decode failure into a fixed phrase and a byte
+// offset, both safe to log: the phrase is one of these constants and the offset
+// is a position, never a value from the body. A nil error is the
+// something-follows case, where the decoder read a valid token that should not
+// have been there.
+func decodeFailure(err error) (kind string, offset int64) {
+	var syntax *json.SyntaxError
+	var wrongType *json.UnmarshalTypeError
+	switch {
+	case err == nil:
+		return "trailing data after JSON value", 0
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "truncated JSON value", 0
+	case errors.Is(err, io.EOF):
+		return "empty body", 0
+	case errors.As(err, &syntax):
+		return "malformed JSON", syntax.Offset
+	case errors.As(err, &wrongType):
+		return "wrong JSON type for field", wrongType.Offset
+	default:
+		return "unreadable body", 0
+	}
+}
+
+// isBodyTooLarge reports whether err is MaxBytesReader's over-the-limit error.
+// json.Decoder surfaces a read error unwrapped, but errors.As keeps this
+// correct if a future decode path wraps it.
+func isBodyTooLarge(err error) bool {
+	var tooLarge *http.MaxBytesError
+	return errors.As(err, &tooLarge)
 }

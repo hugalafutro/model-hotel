@@ -316,9 +316,13 @@ This provides smoother handling of bursty traffic while still enforcing limits.
 
 ## Request Size Limiting
 
-All requests are subject to `MAX_REQUEST_SIZE` (default: 50 MB, sized for multipart audio uploads to the `/v1/audio/*` endpoints). The middleware uses `http.MaxBytesReader` which enforces the limit at the stream level - the entire request body is never buffered beyond this limit.
+Two ceilings apply, and the tighter one wins.
 
-Exceeded limits return HTTP 413 (Payload Too Large).
+The gateway's router caps every request at `MAX_REQUEST_SIZE` (default: 50 MB, sized for multipart audio uploads to the `/v1/audio/*` endpoints). The middleware uses `http.MaxBytesReader` which enforces the limit at the stream level - the entire request body is never buffered beyond this limit.
+
+Control-plane JSON routes (the dashboard API, the auth ceremonies, and every Front Desk endpoint) are bounded again at 1 MB, because 50 MB is sized for an audio upload and is the wrong bound for a login body. Two routes carry their own ceiling instead: a config-sync import (8 MB) and the fleet announce heartbeat (1 KB). Front Desk runs as its own binary and mounts no global size middleware, so for its handlers the per-route ceiling is the only one.
+
+Exceeded limits return HTTP 413 (Payload Too Large). A body that is malformed, truncated, or carries anything after its one JSON value returns HTTP 400.
 
 ---
 

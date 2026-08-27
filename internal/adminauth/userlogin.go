@@ -2,7 +2,6 @@ package adminauth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -123,8 +122,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// enabled (the missing-code response tells the login UI to ask).
 		Code string `json:"code"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.Username == "" || req.Password == "" {

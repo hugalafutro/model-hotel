@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,16 +47,15 @@ func streamUsageHarness(t *testing.T, upstreamBody string, cancelAfterFirstChunk
 	t.Cleanup(cancel)
 
 	var body io.ReadCloser
-	var served chan struct{}
 	if cancelAfterFirstChunk {
 		// Deliver the first event, then block until the client context is
 		// cancelled so the rest (usage chunk included) never arrives.
 		first, _, _ := strings.Cut(upstreamBody, "\n\n")
-		served = make(chan struct{})
-		body = &blockingReader{first: first + "\n\n", ctx: ctx, served: served}
+		body = &blockingReader{first: first + "\n\n", ctx: ctx}
 	} else {
 		body = io.NopCloser(strings.NewReader(upstreamBody))
 	}
+	rec := newDeliveredRecorder()
 	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx))
 
@@ -73,11 +73,11 @@ func streamUsageHarness(t *testing.T, upstreamBody string, cancelAfterFirstChunk
 
 	done := make(chan struct{})
 	go func() {
-		h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
+		h.handleStreamingResponse(rec, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 		close(done)
 	}()
 	if cancelAfterFirstChunk {
-		<-served
+		<-rec.served
 		cancel()
 	}
 	select {
@@ -88,23 +88,19 @@ func streamUsageHarness(t *testing.T, upstreamBody string, cancelAfterFirstChunk
 	return vkRepo, logData
 }
 
-// blockingReader serves `first` (closing `served` once it is fully read), then
-// blocks until ctx is cancelled and returns context.Canceled, the error the
+// blockingReader serves `first`, then blocks until ctx is cancelled and returns
+// context.Canceled, the error the
 // transport surfaces when the client goes away.
 type blockingReader struct {
-	first  string
-	ctx    context.Context
-	served chan struct{}
-	off    int
+	first string
+	ctx   context.Context
+	off   int
 }
 
 func (r *blockingReader) Read(p []byte) (int, error) {
 	if r.off < len(r.first) {
 		n := copy(p, r.first[r.off:])
 		r.off += n
-		if r.off == len(r.first) {
-			close(r.served)
-		}
 		return n, nil
 	}
 	<-r.ctx.Done()
@@ -112,6 +108,32 @@ func (r *blockingReader) Read(p []byte) (int, error) {
 }
 
 func (r *blockingReader) Close() error { return nil }
+
+// deliveredRecorder signals the first byte written to the client.
+//
+// A disconnect test has to cancel after the chunk has been DELIVERED, not after
+// its bytes reached the scanner. Those are two different moments: the stream
+// loop reads, parses, and only then writes to the client, so cancelling on the
+// earlier signal races the write and the stream ends with deliveredBytes == 0.
+// The estimate is computed from delivered bytes, so it comes out as zero, no
+// debit lands, and the assertion fails intermittently for a reason that has
+// nothing to do with the property under test. Signalling on the write removes
+// the window: by then the byte count these tests measure exists.
+type deliveredRecorder struct {
+	*httptest.ResponseRecorder
+	once   sync.Once
+	served chan struct{}
+}
+
+func newDeliveredRecorder() *deliveredRecorder {
+	return &deliveredRecorder{ResponseRecorder: httptest.NewRecorder(), served: make(chan struct{})}
+}
+
+func (d *deliveredRecorder) Write(b []byte) (int, error) {
+	n, err := d.ResponseRecorder.Write(b)
+	d.once.Do(func() { close(d.served) })
+	return n, err
+}
 
 // singleAddTokens returns the one charge recorded against the key.
 // recordTokenUsage always reaches the repo, with 0 when nothing is owed, so a
@@ -212,8 +234,8 @@ func TestHandleStreamingResponse_EstimateDebitsTPMBudget(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	served := make(chan struct{})
-	resp := &http.Response{StatusCode: http.StatusOK, Body: &blockingReader{first: contentChunk, ctx: ctx, served: served}}
+	rec := newDeliveredRecorder()
+	resp := &http.Response{StatusCode: http.StatusOK, Body: &blockingReader{first: contentChunk, ctx: ctx}}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx))
 	logData := &requestLogData{id: uuid.New().String(), modelID: "test-model", streaming: true, virtualKeyName: "test-key", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "streaming", promptTextBytes: 40}
 	h.insertRequestLogAsync(logData)
@@ -221,10 +243,10 @@ func TestHandleStreamingResponse_EstimateDebitsTPMBudget(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
+		h.handleStreamingResponse(rec, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 		close(done)
 	}()
-	<-served
+	<-rec.served
 	cancel()
 	<-done
 

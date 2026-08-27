@@ -54,3 +54,26 @@ func writeJSONCreated(w http.ResponseWriter, v any) {
 func writeCodedError(w http.ResponseWriter, status int, code, msg string) {
 	httpx.WriteCodedError(w, logComponent, status, code, msg)
 }
+
+// decodeJSON bounds the request body to httpx.MaxJSONBody and decodes it,
+// writing the 400/413 response itself and reporting whether the handler may
+// continue. Every handler in this package decodes through here (or through
+// decodeJSONLimit) so no route can be added with an unbounded body, which
+// internal/httpx's TestNoUnboundedJSONDecode guard enforces.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
+}
+
+// decodeJSONLimit is decodeJSON with an endpoint-specific ceiling, for the two
+// routes whose payload is legitimately larger or smaller than the default: a
+// config-sync import and the fleet announce heartbeat.
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, limit int64, v any) bool {
+	return httpx.DecodeJSON(w, r, logComponent, limit, v)
+}
+
+// decodeJSONOptional is decodeJSON for a body the endpoint treats as optional:
+// a missing or malformed body leaves the request struct at its defaults, but an
+// oversized one is still refused.
+func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
+	return httpx.DecodeJSONOptional(w, r, logComponent, httpx.MaxJSONBody, v)
+}

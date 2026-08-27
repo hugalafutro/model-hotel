@@ -684,8 +684,13 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 // "all", preserving the original clear-everything behaviour.
 func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
-	// Body is optional: a clear-all request may send nothing.
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	// Body is optional: a clear-all request may send nothing, and older_than
+	// then defaults to "all". A body that was sent but cannot be read is a 400,
+	// not a silent fall back to that default, which would turn a request to
+	// clear one hour into clearing everything.
+	if !decodeJSONOptional(w, r, &req) {
+		return
+	}
 	if req.OlderThan == "" {
 		req.OlderThan = "all"
 	}

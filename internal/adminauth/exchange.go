@@ -1,7 +1,6 @@
 package adminauth
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
@@ -28,7 +27,10 @@ func TokenExchange(
 		var req struct {
 			AdminToken string `json:"admin_token"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.AdminToken == "" {
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+		if req.AdminToken == "" {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
 			return
 		}

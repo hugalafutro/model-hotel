@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -17,14 +18,50 @@ import (
 // Members
 // ---------------------------------------------------------------------------
 
+// maxMemberNameLen caps a member's display name, in characters.
+//
+// The name is not decoration: the primary's copy rides in every fleet announce,
+// whose receiving handler bounds that body at 1 KiB. An unbounded name
+// therefore breaks announces fleet-wide, and near-silently, since the poller
+// logs a failed announce at debug level only.
+//
+// The budget is in bytes and the cap is in characters, so the number has to
+// survive the worst ratio between them: an astral-plane character is 4 bytes of
+// UTF-8, and a character JSON has to escape is 6. 128 characters is therefore
+// at most 768 bytes on the wire, which still leaves the announce's other fields
+// room inside the kilobyte, while staying far beyond any real hostname-shaped
+// label. TestMemberNameFitsAnnounceBudget marshals the actual worst case rather
+// than trusting this arithmetic.
+//
+// Counted in characters and not bytes because that is what the operator is told
+// and what they can see. Measuring bytes would silently give a shorter name to
+// anyone not writing in ASCII, which this codebase deliberately does not do to
+// identifiers elsewhere either.
+const maxMemberNameLen = 128
+
+// validMemberName trims a display name and rejects one that is empty or past
+// maxMemberNameLen. Rejected rather than truncated, unlike a paired device's
+// label: a member's name identifies it across the fleet, so silently storing a
+// different name than the operator typed would be worse than refusing.
+func validMemberName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("%w: name is required", ErrValidation)
+	}
+	if utf8.RuneCountInString(name) > maxMemberNameLen {
+		return "", fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxMemberNameLen)
+	}
+	return name, nil
+}
+
 // CreateMember validates and inserts a new member. name must be non-empty and
 // rawURL must be a valid http(s) URL with a host; the URL is normalized (scheme
 // lowercased, trailing slash trimmed) and deduped. token is optional; when set
 // it is encrypted at rest with the store master key.
 func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, fmt.Errorf("%w: name is required", ErrValidation)
+	name, err := validMemberName(name)
+	if err != nil {
+		return nil, err
 	}
 	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
 	if err != nil {
@@ -90,9 +127,9 @@ func (s *Store) GetMember(ctx context.Context, id string) (*Member, error) {
 
 // RenameMember updates a member's display name.
 func (s *Store) RenameMember(ctx context.Context, id, name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("%w: name is required", ErrValidation)
+	name, err := validMemberName(name)
+	if err != nil {
+		return err
 	}
 	return s.touchMember(ctx, `UPDATE members SET name = ?, updated_at = ? WHERE id = ?`, id, name)
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -23,8 +22,11 @@ type adminTokenExchangeRequest struct {
 // callers to the /api/totp/login flow instead.
 func (h *Handler) AdminTokenExchange(w http.ResponseWriter, r *http.Request) {
 	var req adminTokenExchangeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.AdminToken == "" {
-		respondBadRequest(w, "invalid request body", err)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.AdminToken == "" {
+		respondBadRequest(w, "invalid request body", nil)
 		return
 	}
 

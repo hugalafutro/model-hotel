@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -255,10 +254,8 @@ type announceRequest struct {
 // the (non-allowlisted) keys are accepted; the same property keeps them out of
 // config-sync's declarative replace.
 func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxAnnounceBody)
 	var req announceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+	if !decodeJSONLimit(w, r, maxAnnounceBody, &req) {
 		return
 	}
 
