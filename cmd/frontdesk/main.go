@@ -155,6 +155,14 @@ func main() {
 		CookieSecure: config.NormalizeCookieSecure(os.Getenv("COOKIE_SECURE")),
 	})
 
+	// Prune expired WebAuthn sessions for as long as the process runs. On the
+	// background group, not a bare goroutine: the drain below has to join it
+	// before Shutdown closes the store, or a sweep mid-DELETE would be reading a
+	// handle that is already closed.
+	srv.StartBackground(ctx, func(c context.Context) {
+		webauthnSessionCleanupLoop(c, frontdesk.NewWebAuthnStore(store))
+	})
+
 	// Every process-lifetime loop runs on the server's background group, so the
 	// drain below joins them before the store closes. Each returns when ctx is
 	// done, which the signal handler above does on SIGINT/SIGTERM.
@@ -220,6 +228,57 @@ const (
 	defaultIPRPS   = 5
 	defaultIPBurst = 10
 )
+
+// sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
+// matching the gateway's hourly sweep in cmd/server. A var, not a const, so a
+// test can prove the loop KEEPS sweeping after a failure rather than only that
+// it swept once and exited.
+var sessionCleanupInterval = time.Hour
+
+// sessionCleaner is the slice of the WebAuthn store the cleanup loop needs.
+// An interface rather than the concrete store so the loop is testable without
+// a database.
+type sessionCleaner interface {
+	CleanupExpiredSessions(ctx context.Context) (int64, error)
+}
+
+// webauthnSessionCleanupLoop prunes expired WebAuthn sessions until ctx is done.
+//
+// Front Desk had the store method and a SessionManager accessor documented as
+// existing for exactly this wiring, but nothing ever ran it, so the table only
+// grew. That matters here more than on the gateway: the OIDC login start is
+// unauthenticated and writes a session row per request, so anyone able to reach
+// Front Desk could grow its embedded SQLite database without limit.
+//
+// The first sweep runs immediately rather than after a full interval: any
+// deployment upgrading into this fix already carries a backlog, and waiting an
+// hour to touch it serves nobody. A failed sweep is logged and the loop
+// continues, because a transient SQLite error must not disable cleanup for the
+// remaining life of the process.
+func webauthnSessionCleanupLoop(ctx context.Context, store sessionCleaner) {
+	sweep := func() {
+		if n, err := store.CleanupExpiredSessions(ctx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return // shutting down, not a fault
+			}
+			debuglog.Error("frontdesk: webauthn session cleanup failed", "error", err)
+		} else if n > 0 {
+			debuglog.Info("frontdesk: cleaned up expired webauthn sessions", "count", n)
+		}
+	}
+
+	sweep()
+	ticker := time.NewTicker(sessionCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
+}
 
 // newRelyingParty builds the WebAuthn relying party from PUBLIC_ORIGIN: the RP
 // ID is the hostname and the expected origin is scheme://host.

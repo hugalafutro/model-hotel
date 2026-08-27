@@ -88,6 +88,11 @@ func (h *Handler) serveJSONPassthrough(w http.ResponseWriter, r *http.Request, e
 	}
 	st.endpointPath = endpointPath
 	st.longRunning = isLongRunningEndpoint(endpointType)
+	// ingestRequest sizes the prompt with the chat rule, which finds no
+	// "messages" in these bodies and so returns zero for every one of them.
+	// Size them by their own shape instead, or the metering estimate below is
+	// silently no charge at all.
+	st.logData.promptTextBytes = passthroughPromptTextBytes(st.bodyBytes, endpointType)
 	st.makeUpstreamBody = makeJSONModelRewriter(st.bodyBytes, st.reqModel)
 	h.servePassthroughPipeline(w, r, st)
 }
@@ -396,8 +401,30 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 			written += n
 			_ = ew.Flush()
 		}
+		// Skipping usage EXTRACTION must not mean skipping metering: the
+		// provider billed for this request and the client got the whole
+		// response, so recording (0,0) here charged it against nothing — not
+		// the key's tokens_used counter, not its TPM budget. The cap is 8 MiB
+		// and a batch embeddings call clears it at around 140 inputs, so the
+		// free requests were the routine ones, not the exotic ones.
+		//
+		// Only the prompt is estimated. The streaming path derives output from
+		// delivered bytes because those bytes are text; here they are float
+		// vectors or base64 image data, so the same arithmetic would invent
+		// roughly two million completion tokens for one 8 MiB embeddings
+		// response. Undercharging the output is the deliberate choice, and it
+		// is still strictly better than charging nothing.
+		// The log keeps the provider's figures, which here are none: usage was
+		// never extracted, so nothing was measured. The estimate charges the
+		// quota WITHOUT being reported as measured usage, matching what the
+		// chat and streaming paths do (they update the log before calling
+		// estimateMissingUsage) and keeping the stats pages honest.
+		estimated := estimateTokens(logData.promptTextBytes)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
-		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written)
+		if estimated > 0 {
+			h.recordTokenUsage(st.vkHash, logData, estimated, 0, 0)
+		}
+		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
 		return
 	}
 

@@ -93,7 +93,10 @@ func driftEligible(s quota.Snapshot, maxAge time.Duration, now time.Time) bool {
 	if maxAge <= 0 || s.HTTPStatus != http.StatusOK || len(s.Payload) == 0 {
 		return false
 	}
-	return now.Sub(s.FetchedAt) <= maxAge
+	// Negative age (a future stamp) is untrustworthy, not eligible: see
+	// snapshotWithinAge. This is the same field and the same repository feed as
+	// the two staleness checks in quota_snapshot.go.
+	return snapshotWithinAge(now, s.FetchedAt, maxAge)
 }
 
 // driftDecision is the whole per-provider decision, kept pure so the debounce

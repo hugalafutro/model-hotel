@@ -335,8 +335,11 @@ func breakerRecordAction(statusCode int) breakerAction {
 // least one token. The ratio is tuned for Latin text; multi-byte scripts run
 // closer to one token per character and estimate low.
 func estimateTokens(textBytes int) int {
-	return (textBytes + 3) / 4
+	return (textBytes + bytesPerToken - 1) / bytesPerToken
 }
+
+// bytesPerToken is the conventional text-to-token ratio the estimates above use.
+const bytesPerToken = 4
 
 // estimateMissingUsage fills in token counts the provider did not report, so a
 // request that delivered output is always charged against the TPM budget and
@@ -366,6 +369,94 @@ func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, l
 	}
 	debuglog.Info("proxy: charging estimated tokens for usage the provider did not report", "model", logData.modelID, "provider", logData.providerName, "prompt_estimated", promptEstimated, "completion_estimated", completionEstimated, "prompt_text_bytes", logData.promptTextBytes, "delivered_bytes", deliveredBytes, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "reasoning_tokens", reasoningTokens)
 	return promptTokens, completionTokens, reasoningTokens
+}
+
+// passthroughPromptTextBytes sizes the prompt text of a multimodal pass-through
+// request body, the way promptTextBytes does for a chat body. Those endpoints
+// carry no "messages", so promptTextBytes sizes every one of them as zero and
+// any estimate derived from it is silently no charge at all.
+//
+// Only text is counted, never a file or a blob: an audio upload or a base64
+// image is orders of magnitude larger than the tokens it costs, and sizing it
+// by bytes would invent a colossal charge. That is the same rule promptTextBytes
+// applies when it skips image_url and input_audio parts.
+//
+// Embeddings input may also arrive pre-tokenised as arrays of token ids. Those
+// are a token count already, so they are converted back to the byte scale the
+// caller divides by (bytesPerToken) rather than measured as JSON text, which
+// would charge for the digits.
+func passthroughPromptTextBytes(body []byte, endpointType string) int {
+	switch endpointType {
+	case endpointTypeEmbeddings:
+		return embeddingsInputBytes(body)
+	case endpointTypeRerank:
+		var req struct {
+			Query     string   `json:"query"`
+			Documents []string `json:"documents"`
+		}
+		if json.Unmarshal(body, &req) != nil {
+			return 0
+		}
+		n := len(req.Query)
+		for _, d := range req.Documents {
+			n += len(d)
+		}
+		return n
+	case endpointTypeImage, endpointTypeTTS:
+		// Image generation prompts and text-to-speech input are both a single
+		// text field; TTS uses "input", images use "prompt".
+		var req struct {
+			Prompt string `json:"prompt"`
+			Input  string `json:"input"`
+		}
+		if json.Unmarshal(body, &req) != nil {
+			return 0
+		}
+		return len(req.Prompt) + len(req.Input)
+	default:
+		// Multipart families (speech-to-text, image edits) carry their payload
+		// as an uploaded file, which has no honest text size, so they are left
+		// unsized rather than guessed at.
+		return 0
+	}
+}
+
+// embeddingsInputBytes sizes an embeddings "input", which the OpenAI schema
+// allows as a string, an array of strings, an array of token ids, or an array of
+// token-id arrays.
+func embeddingsInputBytes(body []byte) int {
+	var req struct {
+		Input json.RawMessage `json:"input"`
+	}
+	if json.Unmarshal(body, &req) != nil || len(req.Input) == 0 {
+		return 0
+	}
+	var text string
+	if json.Unmarshal(req.Input, &text) == nil {
+		return len(text)
+	}
+	var texts []string
+	if json.Unmarshal(req.Input, &texts) == nil {
+		n := 0
+		for _, t := range texts {
+			n += len(t)
+		}
+		return n
+	}
+	// Pre-tokenised: a flat token array, or one array per input.
+	var tokens []int
+	if json.Unmarshal(req.Input, &tokens) == nil {
+		return len(tokens) * bytesPerToken
+	}
+	var batches [][]int
+	if json.Unmarshal(req.Input, &batches) == nil {
+		n := 0
+		for _, b := range batches {
+			n += len(b)
+		}
+		return n * bytesPerToken
+	}
+	return 0
 }
 
 // promptTextBytes sizes the prompt text of an OpenAI-shaped request body: the
