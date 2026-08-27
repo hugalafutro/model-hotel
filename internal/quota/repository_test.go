@@ -448,3 +448,54 @@ func TestList(t *testing.T) {
 		t.Fatalf("list did not contain the inserted snapshot (got %d rows)", len(all))
 	}
 }
+
+// TestUpsertIfNewer_ClampsFutureFetchedAt covers a wedge, not a cosmetic oddity.
+// FetchedAt arrives from the wire on the fleet distribution path (internal/api
+// ReceiveSnapshots) and was stored unvalidated, which broke two things at once:
+// every "is this still fresh" check uses time.Since, which goes negative for a
+// future stamp and so reads as permanently fresh; and the upsert keeps the newer
+// row, so a future-dated snapshot outranks every real poll that follows it. One
+// poisoned row therefore froze a provider's quota data indefinitely.
+//
+// A fetch cannot have happened in the future, so the honest repair is to clamp
+// rather than reject: the row is still recorded, just not with a timestamp that
+// wins forever.
+func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-future-fetched-at")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	future := time.Now().Add(48 * time.Hour)
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"poisoned":true}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: future,
+	}); err != nil {
+		t.Fatalf("UpsertIfNewer(future): %v", err)
+	}
+
+	stored, err := repo.Get(ctx, provID, "usage")
+	if err != nil || stored == nil {
+		t.Fatalf("Get after future upsert: %v", err)
+	}
+	if stored.FetchedAt.After(time.Now().Add(time.Minute)) {
+		t.Errorf("stored fetched_at = %v, want clamped to about now, not %v", stored.FetchedAt, future)
+	}
+
+	// The point of the clamp: an ordinary poll landing afterwards must still win.
+	applied, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"real":true}`),
+		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("UpsertIfNewer(real): %v", err)
+	}
+	if !applied {
+		t.Fatal("a real poll after a future-dated row was rejected; the poisoned row still outranks it")
+	}
+	after, _ := repo.Get(ctx, provID, "usage")
+	if after == nil || !jsonEqual(t, after.Payload, json.RawMessage(`{"real":true}`)) {
+		t.Errorf("payload = %v, want the later real poll to have replaced the poisoned row", after)
+	}
+}

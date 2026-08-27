@@ -14,6 +14,32 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
+// snapshotFresherThan and snapshotWithinAge exist so a future-dated snapshot can
+// never read as fresh.
+//
+// Both questions used to be asked with a bare time.Since/Sub comparison, which
+// returns a NEGATIVE duration when the stamp is in the future. Negative
+// satisfies every "< interval" and fails every "> maxAge", so a single
+// future-dated row silently made a provider permanently fresh: its upstream poll
+// was skipped forever, and its stale quota kept counting as evidence. The
+// repository now clamps on write, so these guards are defence in depth for rows
+// that predate the clamp or arrive by another path (a direct database write, a
+// restored backup).
+//
+// Same class of bug, and the same repair, as the fleet rate-limit divisor's
+// staleness check: treat a negative age as untrustworthy rather than as fresh.
+func snapshotFresherThan(now, fetchedAt time.Time, within time.Duration) bool {
+	age := now.Sub(fetchedAt)
+	return age >= 0 && age < within
+}
+
+// snapshotWithinAge reports whether a snapshot is recent enough to be trusted as
+// evidence. A future stamp is not.
+func snapshotWithinAge(now, fetchedAt time.Time, maxAge time.Duration) bool {
+	age := now.Sub(fetchedAt)
+	return age >= 0 && age <= maxAge
+}
+
 // quotaKindFor maps a provider type to the snapshot kind it produces, or
 // ok=false when the type exposes no quota/usage/balance/account endpoint.
 func quotaKindFor(providerType string) (string, bool) {
@@ -144,7 +170,7 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		// never worse than standalone.
 		interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
 		if interval > 0 {
-			if snap, _ := h.quotaRepo.Get(ctx, prov.ID, kind); snap != nil && snap.Source == "fleet" && time.Since(snap.FetchedAt) < interval {
+			if snap, _ := h.quotaRepo.Get(ctx, prov.ID, kind); snap != nil && snap.Source == "fleet" && snapshotFresherThan(time.Now(), snap.FetchedAt, interval) {
 				continue
 			}
 		}
@@ -441,7 +467,7 @@ func buildQuotaAdvice(
 		return advice, recovered
 	}
 	for _, s := range snaps {
-		if now.Sub(s.FetchedAt) > maxAge {
+		if !snapshotWithinAge(now, s.FetchedAt, maxAge) {
 			continue
 		}
 		a := quota.Assess(typeByID[s.ProviderID], s)

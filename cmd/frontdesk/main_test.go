@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -83,4 +85,93 @@ func TestWarnWeakMasterKey(t *testing.T) {
 	if len(rec.records) != 0 {
 		t.Errorf("strong key: unexpected log %q", rec.records[0].Message)
 	}
+}
+
+// fakeSessionCleaner records sweeps and can fail on demand.
+type fakeSessionCleaner struct {
+	mu      sync.Mutex
+	calls   int
+	removed int64
+	err     error
+}
+
+func (f *fakeSessionCleaner) CleanupExpiredSessions(context.Context) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	return f.removed, f.err
+}
+
+func (f *fakeSessionCleaner) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
+}
+
+// TestWebauthnSessionCleanupLoop_SweepsImmediately covers the gap this exists to
+// close. The gateway prunes expired WebAuthn sessions hourly; Front Desk had the
+// store method and an accessor documented as being "used by callers wiring
+// background cleanup of expired sessions", and nothing ever called it. Front
+// Desk's OIDC login start is unauthenticated and writes a session row per
+// request, so the table only ever grew.
+//
+// The sweep runs once at startup rather than waiting a full interval, because
+// any Front Desk upgrading into this fix already carries a backlog that a
+// tick-first loop would leave in place until the next hour.
+func TestWebauthnSessionCleanupLoop_SweepsImmediately(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c := &fakeSessionCleaner{removed: 3}
+
+	done := make(chan struct{})
+	go func() {
+		webauthnSessionCleanupLoop(ctx, c)
+		close(done)
+	}()
+
+	waitForSweeps(t, c, 1)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cleanup loop did not return after context cancel")
+	}
+}
+
+// TestWebauthnSessionCleanupLoop_SurvivesStoreError keeps one failed sweep from
+// ending the loop: a transient SQLite error must not silently disable cleanup
+// for the rest of the process's life, which is the failure mode that would
+// recreate the unbounded growth this fixes.
+func TestWebauthnSessionCleanupLoop_SurvivesStoreError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c := &fakeSessionCleaner{err: errors.New("database is locked")}
+
+	done := make(chan struct{})
+	go func() {
+		webauthnSessionCleanupLoop(ctx, c)
+		close(done)
+	}()
+
+	waitForSweeps(t, c, 1)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cleanup loop did not return after a failing sweep")
+	}
+}
+
+func waitForSweeps(t *testing.T, c *fakeSessionCleaner, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.count() >= want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("cleanup ran %d times, want at least %d", c.count(), want)
 }

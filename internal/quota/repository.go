@@ -37,9 +37,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: po
 // Upsert writes a fresh snapshot (used by poll and manual refresh), replacing
 // any prior row for the provider+kind and clearing any recorded failure.
 func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
-	if s.FetchedAt.IsZero() {
-		s.FetchedAt = time.Now()
-	}
+	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
@@ -116,6 +114,29 @@ func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 	return out, rows.Err()
 }
 
+// sanitizeFetchedAt normalises a snapshot's fetch time. Unset means "now"; a
+// time in the future is clamped to now.
+//
+// The clamp is load-bearing, not tidiness. FetchedAt crosses the wire on the
+// fleet distribution path, and a future value broke two mechanisms at once:
+// every staleness check measures with time.Since, which returns a NEGATIVE
+// duration for a future stamp and so satisfies any "still fresh" comparison
+// forever; and the upsert below keeps whichever row is newer, so the poisoned
+// row outranked every genuine poll that followed. One bad timestamp froze a
+// provider's quota data permanently, and near-silently.
+//
+// Clamped rather than rejected because the snapshot itself is still worth
+// recording: only its claim about when it was fetched is impossible, and a
+// fetch cannot have happened in the future. Same shape as the fix applied to
+// the fleet rate-limit divisor, which had this bug in its own staleness check.
+func sanitizeFetchedAt(t time.Time) time.Time {
+	now := time.Now()
+	if t.IsZero() || t.After(now) {
+		return now
+	}
+	return t
+}
+
 // UpsertIfNewer writes only when there is no existing row or the incoming
 // fetched_at is strictly newer, so an older fleet write never clobbers a
 // member's fresher manual refresh. Returns whether the write applied.
@@ -136,9 +157,7 @@ func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 // never release one, and it is idempotent once applied. Clearing a marker still
 // requires a strictly newer row, i.e. an actual successful refresh.
 func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error) {
-	if s.FetchedAt.IsZero() {
-		s.FetchedAt = time.Now()
-	}
+	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
 	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
