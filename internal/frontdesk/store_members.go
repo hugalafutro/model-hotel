@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -17,13 +18,26 @@ import (
 // Members
 // ---------------------------------------------------------------------------
 
-// maxMemberNameLen caps a member's display name. The name is not decoration:
-// the primary's copy rides in every fleet announce, whose receiving handler
-// bounds that body at 1 KiB. An unbounded name therefore breaks announces
-// fleet-wide, and near-silently, since the poller logs a failed announce at
-// debug level only. 200 characters is far beyond any real hostname-shaped label
-// and leaves the announce most of its budget.
-const maxMemberNameLen = 200
+// maxMemberNameLen caps a member's display name, in characters.
+//
+// The name is not decoration: the primary's copy rides in every fleet announce,
+// whose receiving handler bounds that body at 1 KiB. An unbounded name
+// therefore breaks announces fleet-wide, and near-silently, since the poller
+// logs a failed announce at debug level only.
+//
+// The budget is in bytes and the cap is in characters, so the number has to
+// survive the worst ratio between them: an astral-plane character is 4 bytes of
+// UTF-8, and a character JSON has to escape is 6. 128 characters is therefore
+// at most 768 bytes on the wire, which still leaves the announce's other fields
+// room inside the kilobyte, while staying far beyond any real hostname-shaped
+// label. TestMemberNameFitsAnnounceBudget marshals the actual worst case rather
+// than trusting this arithmetic.
+//
+// Counted in characters and not bytes because that is what the operator is told
+// and what they can see. Measuring bytes would silently give a shorter name to
+// anyone not writing in ASCII, which this codebase deliberately does not do to
+// identifiers elsewhere either.
+const maxMemberNameLen = 128
 
 // validMemberName trims a display name and rejects one that is empty or past
 // maxMemberNameLen. Rejected rather than truncated, unlike a paired device's
@@ -34,7 +48,7 @@ func validMemberName(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("%w: name is required", ErrValidation)
 	}
-	if len(name) > maxMemberNameLen {
+	if utf8.RuneCountInString(name) > maxMemberNameLen {
 		return "", fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxMemberNameLen)
 	}
 	return name, nil

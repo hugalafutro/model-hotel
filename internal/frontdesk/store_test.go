@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -954,14 +955,57 @@ func TestMemberNameLengthCapped(t *testing.T) {
 
 // TestMemberNameFitsAnnounceBudget ties the cap to the constraint it exists for,
 // so raising it without revisiting the announce body fails here rather than in
-// the field. maxAnnounceBody lives in internal/api and cannot be imported, so
-// its value is restated: 1 KiB.
+// the field. The cap counts characters and the budget counts bytes, so this
+// marshals the real worst case instead of doing the arithmetic: a name of
+// nothing but 4-byte characters, beside a full-length Front Desk id. Anything
+// that widens the gap between the two units shows up here.
+//
+// maxAnnounceBody lives in internal/api and cannot be imported from here, so its
+// value is restated.
 func TestMemberNameFitsAnnounceBudget(t *testing.T) {
 	const announceBodyLimit = 1 << 10
-	// The announce carries the name plus is_primary, frontdesk_id and the JSON
-	// scaffolding; leave that comfortably more room than it needs.
-	if maxMemberNameLen > announceBodyLimit/2 {
-		t.Errorf("maxMemberNameLen = %d leaves too little of the %d-byte announce budget for the rest of the payload",
-			maxMemberNameLen, announceBodyLimit)
+
+	worstName := strings.Repeat("\U0001F600", maxMemberNameLen)
+	if len(worstName) != 4*maxMemberNameLen {
+		t.Fatalf("probe is stale: expected 4 bytes per character, got %d for %d characters", len(worstName), maxMemberNameLen)
+	}
+	body, err := json.Marshal(memberAnnounce{
+		IsPrimary:     true,
+		PrimaryName:   worstName,
+		FrontdeskID:   strings.Repeat("f", 36), // a UUID
+		ActiveMembers: 9999,
+	})
+	if err != nil {
+		t.Fatalf("marshal worst-case announce: %v", err)
+	}
+	if len(body) > announceBodyLimit {
+		t.Errorf("a worst-case announce is %d bytes, over the %d-byte limit the member enforces; maxMemberNameLen (%d) is too high",
+			len(body), announceBodyLimit, maxMemberNameLen)
+	}
+}
+
+// TestMemberNameCapCountsCharactersNotBytes is the operator-facing half of the
+// cap. The error says "characters", so a name of 128 Chinese characters has to
+// be as acceptable as 128 Latin ones; measuring bytes would quietly hand a
+// shorter name to anyone not writing in ASCII.
+func TestMemberNameCapCountsCharactersNotBytes(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	atCap := strings.Repeat("\u754c", maxMemberNameLen) // 3 bytes each, well over the cap in bytes
+	m, err := s.CreateMember(ctx, atCap, "http://wide.example.com", "tok")
+	if err != nil {
+		t.Fatalf("CreateMember with %d multibyte characters: %v", maxMemberNameLen, err)
+	}
+	if m.Name != atCap {
+		t.Errorf("stored name was altered; want the name as typed")
+	}
+
+	overCap := strings.Repeat("\u754c", maxMemberNameLen+1)
+	if _, err := s.CreateMember(ctx, overCap, "http://wider.example.com", "tok"); !errors.Is(err, ErrValidation) {
+		t.Errorf("CreateMember one character over the cap err = %v, want ErrValidation", err)
+	}
+	if err := s.RenameMember(ctx, m.ID, overCap); !errors.Is(err, ErrValidation) {
+		t.Errorf("RenameMember one character over the cap err = %v, want ErrValidation", err)
 	}
 }

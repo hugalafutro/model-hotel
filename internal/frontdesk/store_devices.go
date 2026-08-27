@@ -42,8 +42,8 @@ type PairedDevice struct {
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 }
 
-// maxDeviceLabelLen bounds the device label so a hostile pairing request can't
-// store unbounded text.
+// maxDeviceLabelLen bounds the device label, in characters, so a hostile pairing
+// request can't store unbounded text.
 const maxDeviceLabelLen = 100
 
 // CreatePairedDevice inserts a new paired device holding tokenHash. The label
@@ -56,8 +56,12 @@ func (s *Store) CreatePairedDevice(ctx context.Context, label, tokenHash string,
 	if label == "" {
 		label = "Paired device"
 	}
-	if len(label) > maxDeviceLabelLen {
-		label = label[:maxDeviceLabelLen]
+	// Cut on a character boundary, not a byte one. Slicing bytes splits a
+	// multibyte character in half and stores the broken half, which every
+	// consumer then renders as a replacement glyph. The label arrives from the
+	// unauthenticated pairing request, so its content is entirely the caller's.
+	if runes := []rune(label); len(runes) > maxDeviceLabelLen {
+		label = string(runes[:maxDeviceLabelLen])
 	}
 	if tokenHash == "" {
 		return nil, fmt.Errorf("%w: token hash is required", ErrValidation)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,22 @@ func TestCreatePairedDeviceValidation(t *testing.T) {
 	}
 	if len(d2.Label) != maxDeviceLabelLen {
 		t.Errorf("label len = %d, want %d", len(d2.Label), maxDeviceLabelLen)
+	}
+
+	// Truncation cuts characters, not bytes. Slicing bytes would split the last
+	// character in half and store the broken half, which renders as a
+	// replacement glyph everywhere the label is shown. The label comes from the
+	// unauthenticated pairing request, so its content is the caller's entirely.
+	wide := strings.Repeat("\u754c", maxDeviceLabelLen+50)
+	d3, err := store.CreatePairedDevice(ctx, wide, "hash-3", RoleMonitor)
+	if err != nil {
+		t.Fatalf("CreatePairedDevice wide label: %v", err)
+	}
+	if !utf8.ValidString(d3.Label) {
+		t.Errorf("truncated label is not valid UTF-8: %q", d3.Label)
+	}
+	if got := utf8.RuneCountInString(d3.Label); got != maxDeviceLabelLen {
+		t.Errorf("label = %d characters, want %d", got, maxDeviceLabelLen)
 	}
 	if d2.Role != RoleOperator {
 		t.Errorf("role = %q", d2.Role)
