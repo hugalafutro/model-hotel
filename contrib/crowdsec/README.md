@@ -219,11 +219,13 @@ Let it run for a day or two of representative traffic, then read what would have
 ```bash
 cscli alerts list
 cscli alerts list --scenario hugalafutro/model-hotel-vk-bf
-cscli decisions list                       # stays empty while all three are simulated
+cscli decisions list                       # simulated entries are prefixed (simul)
 ```
 
-Simulated overflows are listed like any other alert, marked `(simul)`. `cscli decisions list`
-staying empty is the proof that nothing is being banned yet.
+A simulated overflow is recorded and listed like any other, with `(simul)` in front of it:
+`(simul)ban:1` in the `decisions` column of `cscli alerts list`, `(simul)ban` as the action in
+`cscli decisions list`. It is the prefix, not an empty list, that tells you nothing is being acted
+on. A decision carrying it is never served to a bouncer.
 
 Check every address that shows up. A monitoring probe, a CI job with a stale key, or your own
 reverse proxy appearing here is the signal to fix the cause before arming anything. When the list
@@ -284,6 +286,66 @@ An instance older than **v0.9.99** logs the peer address with the TCP port attac
 trusted-proxy resolution, so behind a proxy the source address is unusable no matter what
 `TRUSTED_PROXIES` says. Update the instance before arming the scenarios. The parser strips the port
 either way, so an old build produces a plausible-looking address that is simply the wrong one.
+
+## Prove it bans before you trust it
+
+An armed engine and a broken pipeline look identical from the outside: both leave
+`cscli decisions list` empty on a gateway nobody is attacking. Replay a fixture through the
+**running** engine to watch a bucket overflow become a real decision, rather than waiting for an
+attacker to answer the question for you.
+
+Use an address from a reserved documentation range (`198.51.100.0/24`, TEST-NET-2). No real client
+can hold one, so the ban it earns costs nothing.
+
+```bash
+# inside the security engine container
+for i in 1 2 3 4 5 6 7 8; do
+  echo "$(date +'%Y/%m/%d %H:%M:%S') level=WARNING auth: key not found remote_addr=198.51.100.42"
+done > /tmp/vk-bf-test.log
+
+crowdsec -dsn file:///tmp/vk-bf-test.log -type model-hotel -no-api
+```
+
+`-no-api` is not optional. Without it the replay starts a second local API, which cannot have the
+port the running one already holds:
+
+```
+level=fatal msg="local API server stopped with error: listening on 0.0.0.0:8080: bind: address already in use"
+```
+
+With it, the replay reports to the API that is already running, which is what writes the decision to
+the database the bouncer reads. A run that works announces the overflow:
+
+```
+level=info msg="Ip 198.51.100.42 performed 'hugalafutro/model-hotel-vk-bf' (6 events over 0s)"
+```
+
+Confirm the alert carried a decision, then take it back out:
+
+```bash
+cscli alerts list --ip 198.51.100.42        # reason model-hotel-vk-bf, decisions ban:1
+cscli decisions list --ip 198.51.100.42     # action ban
+cscli decisions delete --ip 198.51.100.42
+rm /tmp/vk-bf-test.log
+```
+
+Read the failures as follows:
+
+- An alert or a decision printed as `(simul)ban` means the scenario is still simulated, and no
+  bouncer will act on it. `cscli simulation status` names the ones that are.
+- No alert, but the replay printed the overflow line: the engine you replayed against is not the
+  one the bouncer subscribes to.
+- No overflow line at all: the events never classified. Return to `cscli explain` on a single line
+  before changing anything else.
+
+The other two scenarios are exercised the same way, with an admin-token or a throttling line in
+place of the key failure. `tests/` holds a ready fixture per scenario, whose timestamps are fixed in
+the past, which is why the loop above stamps fresh ones instead of replaying a fixture verbatim.
+
+`cscli hubtest` is not a substitute for this. The official container carries no hub index, so
+`cscli hubtest list` fails with `unable to read index file: open /.index.json`; the fixtures under
+`tests/` are meant for a machine with a full hub checkout, and they prove the scenarios, not the
+deployment.
 
 ## The opt-in access-log parser
 

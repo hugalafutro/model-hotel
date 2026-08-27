@@ -31,8 +31,9 @@ An opt-in parser maps the gateway's request log onto CrowdSec's generic HTTP acc
 1. Run a CrowdSec security engine, 1.7 or newer, with `/var/run/docker.sock` mounted read-only. Model Hotel logs only to the container's stdout and stderr, so the Docker datasource is the acquisition.
 2. Copy the parser, the three scenarios and the example acquisition out of `contrib/crowdsec/` into `/etc/crowdsec/`, adjust the container name regexp to match your containers, and restart the engine.
 3. Verify with `cscli parsers list`, `cscli metrics show acquisition parsers scenarios`, and `cscli explain` on one real log line.
-4. **Start in simulation.** `cscli simulation enable <scenario>` runs the buckets and records alerts without producing decisions. Watch for a day or two, check every address that shows up, then `cscli simulation disable` to arm.
+4. **Start in simulation.** `cscli simulation enable <scenario>` runs the buckets and records the overflows with a `(simul)` prefix, which keeps them off every bouncer. Watch for a day or two, check every address that shows up, then `cscli simulation disable` to arm.
 5. Run the bouncer at the edge (a Traefik bouncer, or the firewall bouncer), not in front of the application. The point is to drop the connection before it costs the gateway anything.
+6. **Prove it bans.** An armed engine and a broken one both leave `cscli decisions list` empty until somebody attacks you, so do not read an empty list as proof. Replay a fixture through the running engine against a documentation address (`198.51.100.42`, which no real client can hold) with `crowdsec -dsn file:///tmp/test.log -type model-hotel -no-api`, check that the alert carried a `ban`, then `cscli decisions delete --ip 198.51.100.42`. `-no-api` is what makes the replay report to the engine that is already running instead of failing to start a second one on its port.
 
 Exact commands and file paths are in the [README](https://github.com/hugalafutro/model-hotel/blob/master/contrib/crowdsec/README.md).
 
