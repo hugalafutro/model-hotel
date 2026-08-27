@@ -124,23 +124,29 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 	}
 }
 
-// multipartPromptTextBytes sizes the text a multipart request carries: the form
-// fields, never the uploaded file.
+// multipartPromptFields are the form fields that carry prompt TEXT on the
+// multipart endpoints. "prompt" is the only one: an image edit's prompt is the
+// same string /v1/images/generations sends as JSON, and a transcription's
+// prompt is the context hint the model conditions on.
 //
-// A part with a filename is the payload (audio to transcribe, an image to edit)
-// and is orders of magnitude larger than the tokens it costs, so measuring it
-// would invent a colossal charge -- the same reason promptTextBytes skips
-// image_url parts and passthroughPromptTextBytes refuses to size an upload. The
-// text fields are the prompt: an image edit's "prompt" is the same string the
-// JSON image endpoint sends, and it was being counted as zero purely because it
-// arrived as form data.
+// An allowlist rather than a denylist, because everything else on these forms is
+// configuration -- language, temperature, response_format, size, n, voice,
+// timestamp_granularities -- and charging for it would bill the caller for their
+// own options. A denylist gets that wrong by default every time a provider adds
+// a parameter, which is the wrong direction for a billing decision to fail in.
+var multipartPromptFields = map[string]bool{"prompt": true}
+
+// multipartPromptTextBytes sizes the prompt text a multipart request carries.
 //
-// The "model" field is excluded: it is routing metadata, not prompt text, and
-// it is already recorded separately on the log row.
+// The uploaded file is never measured: it is the payload (audio to transcribe,
+// an image to edit) and is orders of magnitude larger than the tokens it costs,
+// so sizing it would invent a colossal charge. That is the same rule
+// promptTextBytes applies to image_url parts and passthroughPromptTextBytes
+// applies to an upload.
 func multipartPromptTextBytes(parts []multipartPart) int {
 	n := 0
 	for _, p := range parts {
-		if p.fileName != "" || p.fieldName == "model" {
+		if p.fileName != "" || !multipartPromptFields[p.fieldName] {
 			continue
 		}
 		n += len(p.data)

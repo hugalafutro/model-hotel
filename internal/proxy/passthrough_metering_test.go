@@ -368,11 +368,35 @@ func TestPassthrough_EmptyAnswerIsNotCharged(t *testing.T) {
 // nothing, exactly as the chat-only sizer did for the JSON families.
 func TestMultipartPromptTextBytes_SizesFormFieldsNotTheUpload(t *testing.T) {
 	parts := []multipartPart{
-		{fieldName: "model", data: []byte("whisper-1")},                       // routing, not prompt
-		{fieldName: "prompt", data: []byte("transcribe carefully")},           // 20 bytes
+		{fieldName: "model", data: []byte("whisper-1")},                       // routing
+		{fieldName: "language", data: []byte("en")},                           // config
+		{fieldName: "response_format", data: []byte("verbose_json")},          // config
+		{fieldName: "temperature", data: []byte("0")},                         // config
+		{fieldName: "prompt", data: []byte("transcribe carefully")},           // 20 bytes, the only prompt
 		{fieldName: "file", fileName: "audio.mp3", data: make([]byte, 5<<20)}, // the upload
 	}
 	if got, want := multipartPromptTextBytes(parts), 20; got != want {
-		t.Errorf("sized %d, want %d: only non-file, non-model fields count", got, want)
+		t.Errorf("sized %d, want %d: only the prompt field counts", got, want)
+	}
+}
+
+// TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing is the overcharge
+// guard. Every field on these forms except "prompt" is configuration, so a
+// request that sends only options and a file must cost the caller nothing: an
+// allowlist keeps a newly added provider parameter from silently becoming
+// billable text.
+func TestMultipartPromptTextBytes_MetadataOnlyFormChargesNothing(t *testing.T) {
+	parts := []multipartPart{
+		{fieldName: "model", data: []byte("whisper-1")},
+		{fieldName: "language", data: []byte("en")},
+		{fieldName: "response_format", data: []byte("verbose_json")},
+		{fieldName: "temperature", data: []byte("0")},
+		{fieldName: "timestamp_granularities[]", data: []byte("word")},
+		{fieldName: "size", data: []byte("1024x1024")},
+		{fieldName: "n", data: []byte("1")},
+		{fieldName: "file", fileName: "audio.mp3", data: make([]byte, 1<<20)},
+	}
+	if got := multipartPromptTextBytes(parts); got != 0 {
+		t.Errorf("sized %d, want 0: configuration fields are not prompt text and must not be charged", got)
 	}
 }
