@@ -857,3 +857,53 @@ func TestRecordMissingModelsUntrustedWhenSuspect(t *testing.T) {
 		t.Error("a suspect scan must not record a miss")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Startup-discovery recency guard
+// ---------------------------------------------------------------------------
+
+// TestAnyRecentlyDiscovered covers the predicate maybeStartupDiscovery uses to
+// decide whether a restart loop is hammering providers.
+//
+// It is also where the negative-duration bug class is deliberately NOT guarded:
+// a future LastDiscoveredAt counts as "recently discovered" and suppresses the
+// startup run. See the function's comment for why under-discovering is the safe
+// direction here - the scheduler loop runs regardless, and refusing the stamp
+// would rescan every provider on every restart of a crash-looping process.
+func TestAnyRecentlyDiscovered(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	const window = 5 * time.Minute
+	at := func(d time.Duration) *time.Time { u := now.Add(d); return &u }
+
+	cases := []struct {
+		name      string
+		providers []*provider.Provider
+		want      bool
+	}{
+		{"no providers", nil, false},
+		{"never discovered", []*provider.Provider{{}}, false},
+		{"discovered just now", []*provider.Provider{{LastDiscoveredAt: at(-time.Second)}}, true},
+		{"discovered outside the window", []*provider.Provider{{LastDiscoveredAt: at(-window - time.Second)}}, false},
+		{"exactly at the window is outside it", []*provider.Provider{{LastDiscoveredAt: at(-window)}}, false},
+		{
+			name: "any one recent provider is enough",
+			providers: []*provider.Provider{
+				{LastDiscoveredAt: at(-time.Hour)},
+				{LastDiscoveredAt: at(-time.Second)},
+			},
+			want: true,
+		},
+		// A future stamp suppresses the run, on purpose. Pinned so the choice is
+		// visible: converting this to util.TrustedAge would flip both of these
+		// to false and rescan on every restart under a stepped clock.
+		{"a few seconds ahead counts as recent", []*provider.Provider{{LastDiscoveredAt: at(3 * time.Second)}}, true},
+		{"years ahead still counts as recent", []*provider.Provider{{LastDiscoveredAt: at(9 * 365 * 24 * time.Hour)}}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := anyRecentlyDiscovered(c.providers, now, window); got != c.want {
+				t.Errorf("anyRecentlyDiscovered = %v, want %v", got, c.want)
+			}
+		})
+	}
+}

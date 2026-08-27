@@ -573,3 +573,102 @@ func TestFleetStatusJSONOmitsWhenStandalone(t *testing.T) {
 		t.Errorf("standalone payload contains fleet key: %s", b)
 	}
 }
+
+// --------------------------------------------------------------------------
+// Future-dated heartbeats. _fleet_managed_seen_at is written by the member
+// itself (time.Now().UTC() in the announce handler) and read back out of the
+// settings table, so it carries no monotonic reading. A backwards step of the
+// member's own clock - an NTP correction, a VM restore, an RTC fixed up at boot
+// - leaves a stamp dated after "now", and every duration measured from it comes
+// out negative. See internal/util.TrustedAge.
+// --------------------------------------------------------------------------
+
+// TestOwnerStale_ImpossibleStampIsAdoptable covers the worst consequence: a
+// negative age is below fleetManagedTTL, so the departed Front Desk reads as
+// still live and its replacement is refused with 409 on every announce. Nothing
+// clears it, because the only writer of a fresher stamp is the Front Desk that
+// is gone. The wedge lasts as long as the clock step, which for a dead RTC
+// jumping years ahead is indistinguishable from forever.
+func TestOwnerStale_ImpossibleStampIsAdoptable(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	rfc := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
+
+	cases := []struct {
+		name string
+		seen string
+		want bool
+	}{
+		{"fresh heartbeat holds ownership", rfc(-10 * time.Second), false},
+		{"aged past the TTL is adoptable", rfc(-(fleetManagedTTL + time.Second)), true},
+		{"absent is adoptable", "", true},
+		{"unparseable is adoptable", "not-a-timestamp", true},
+		// Any future stamp is evidence of nothing and must be treated like an
+		// absent one rather than as a live owner. There is no tolerance band:
+		// this member writes the stamp itself with a whole-second RFC3339
+		// truncation, so it cannot legitimately land ahead of its own later now.
+		{"a second ahead is adoptable", rfc(time.Second), true},
+		{"years ahead is adoptable", rfc(9 * 365 * 24 * time.Hour), true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ownerStale(c.seen, now); got != c.want {
+				t.Errorf("ownerStale(%q) = %v, want %v", c.seen, got, c.want)
+			}
+		})
+	}
+}
+
+// TestComputeFleetStatus_ImpossibleStampIsStandalone pins the read side. A
+// future stamp never reaches fleetForgetTTL, so a member pulled out of the
+// fleet would sit on a "member"/"primary" badge forever instead of self-
+// clearing to standalone. An unusable stamp is treated exactly like the
+// unparseable one the function already handles.
+func TestComputeFleetStatus_ImpossibleStampIsStandalone(t *testing.T) {
+	now := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+	f := newFakeFleetSettings()
+	f.values[keyFleetManagedSeenAt] = now.Add(time.Hour).Format(time.RFC3339)
+	f.values[keyFleetIsPrimary] = "true"
+
+	got, err := computeFleetStatus(context.Background(), f, now)
+	if err != nil {
+		t.Fatalf("computeFleetStatus: %v", err)
+	}
+	if got != nil {
+		t.Errorf("an impossible heartbeat must read as standalone, got %+v", got)
+	}
+}
+
+// TestComputeFleetStatus_ManagedWindowIsNotWidened pins the fleet badge's own
+// version of the rule in util.TrustedAge's tests: a member reads as actively
+// managed for exactly fleetManagedTTL after the recorded announce, and never
+// before it. A tolerance band on the age would light the badge up for stamps
+// dated ahead of now, widening the window past the TTL the constant promises -
+// which mattered here in particular, since the tolerance first written was 2
+// minutes against a 90-second TTL.
+func TestComputeFleetStatus_ManagedWindowIsNotWidened(t *testing.T) {
+	stamp := time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC)
+
+	managed := func(now time.Time) bool {
+		f := newFakeFleetSettings()
+		f.values[keyFleetManagedSeenAt] = stamp.Format(time.RFC3339)
+		f.values[keyFleetIsPrimary] = "false"
+		got, err := computeFleetStatus(context.Background(), f, now)
+		if err != nil {
+			t.Fatalf("computeFleetStatus: %v", err)
+		}
+		return got != nil && got.State == "member"
+	}
+
+	if managed(stamp.Add(-time.Second)) {
+		t.Error("a stamp one second ahead of now read as actively managed; the announce has not happened yet")
+	}
+	if !managed(stamp) {
+		t.Error("the announce instant itself must read as managed")
+	}
+	if !managed(stamp.Add(fleetManagedTTL - time.Second)) {
+		t.Error("still inside fleetManagedTTL must read as managed")
+	}
+	if managed(stamp.Add(fleetManagedTTL)) {
+		t.Error("at fleetManagedTTL the member must drop to warning, not stay managed")
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // HA auto config sync: the "set and forget" half of fleet config replication.
@@ -106,7 +107,21 @@ func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, no
 	if !haveSync {
 		return 1
 	}
-	switch age := now.Sub(lastSync); {
+	// lastSync comes back from SQLite as time.Unix(0, at).UTC() (store_fleet.go),
+	// so it has no monotonic reading and a backwards step of this host's clock
+	// leaves it dated after now. A raw subtraction would then be negative, which
+	// is under both thresholds, and a fleet that stopped syncing entirely would
+	// report tier 0 for as long as the step lasted - silencing the
+	// config.autosync_stale watchdog and the degraded/faulty fleet state
+	// together. util.TrustedAge absorbs ordinary skew and refuses the rest.
+	age, aged := util.TrustedAge(now, lastSync)
+	if !aged {
+		// Same answer as a fleet with no recorded sync at all: the timestamp
+		// cannot vouch for freshness, but neither can it honestly age far enough
+		// to claim tier 2.
+		return 1
+	}
+	switch {
 	case age > autoSyncFaultyThreshold:
 		return 2
 	case age > autoSyncStaleThreshold:

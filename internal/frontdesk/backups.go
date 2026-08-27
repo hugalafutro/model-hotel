@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // This file holds the watchdog for a member with no recent scheduled backup. It
@@ -130,12 +131,12 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 		newest, found := newestScheduledBackup(entries)
 		// The timestamp is parsed straight out of the member's own listing, so a
 		// member with a fast clock (or a bad created_at) can report a backup
-		// dated in the future. time.Since then returns a NEGATIVE duration,
-		// which never exceeds the threshold, so the staleness alert would be
-		// permanently silenced for exactly the member most likely to be
-		// misconfigured. An impossible age is treated as stale, not as fresh.
-		age := time.Since(newest)
-		if !found || age < 0 || age > memberBackupStaleAfter {
+		// dated in the future. A raw subtraction then returns a NEGATIVE
+		// duration, which never exceeds the threshold, so the staleness alert
+		// would be permanently silenced for exactly the member most likely to be
+		// misconfigured. util.TrustedAge treats an impossible age as stale.
+		age, aged := util.TrustedAge(time.Now(), newest)
+		if !found || !aged || age > memberBackupStaleAfter {
 			s.markBackupStale(ctx, m, newest, found)
 			continue
 		}

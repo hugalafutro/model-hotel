@@ -144,6 +144,17 @@ func (p *Poller) fetchMemberBuild(ctx context.Context, baseURL, token string) (m
 	return out, nil
 }
 
+// The three Traefik staleness checks below subtract raw, without the
+// util.TrustedAge guard the settings- and database-backed staleness checks use,
+// and that is deliberate. Both operands are time.Time values taken by
+// time.Now() in THIS process (p.now is time.Now; lastConfigPollAt is assigned in
+// RecordConfigPoll; Server.startedAt in NewServer), so each carries a monotonic
+// reading and Sub uses the monotonic clock. No wall-clock step can make those
+// differences negative, which is the failure the guard exists for. Anything
+// that crosses a boundary - parsed from RFC3339, read back from a row, or
+// passed through .UTC()/.Round()/.Truncate() - loses the reading and does need
+// the guard. util.TrustedAge's doc comment carries the full rule.
+
 // checkConfigStaleness emits a single warning when Traefik has not polled the
 // dynamic config within the configured threshold. It resets on the next poll
 // (RecordConfigPoll), so a recovered provider re-arms the warning.

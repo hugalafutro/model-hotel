@@ -423,9 +423,44 @@ func syncFailoverAfterDiscovery(ctx context.Context, deps discoveryDeps, source 
 	return changed
 }
 
+// startupDiscoveryWindow is how recently a provider must have been discovered
+// for startup discovery to be skipped. It bounds a restart loop: without it a
+// crash-looping process would rescan every provider on each start.
+const startupDiscoveryWindow = 5 * time.Minute
+
+// anyRecentlyDiscovered reports whether any provider was discovered within
+// window of now.
+//
+// LastDiscoveredAt is read back off the providers row, so it carries no
+// monotonic reading: a backwards step of this host's clock leaves it dated
+// after now, and the raw `now.Sub(t) < window` this preserves is TRUE for the
+// resulting negative duration. That is the negative-duration bug class
+// (util.TrustedAge), and here the resulting answer - "recently discovered, skip
+// the startup run" - is deliberately kept rather than guarded.
+//
+// Skipping costs nothing. discoverySchedulerLoop (background.go) runs discovery
+// on its own timer without consulting this column, the per-provider and manual
+// endpoints write it too, and runDiscovery stamps each provider as it goes, so
+// the value self-corrects the moment any run touches a provider. Refusing the
+// stamp instead would rescan every provider on every restart of a crash-looping
+// process with a stepped clock, which is the exact upstream hammering
+// startupDiscoveryWindow exists to prevent. The safe direction at this site is
+// to under-discover, not to over-discover.
+func anyRecentlyDiscovered(providers []*provider.Provider, now time.Time, window time.Duration) bool {
+	for _, p := range providers {
+		if p.LastDiscoveredAt == nil {
+			continue
+		}
+		if now.Sub(*p.LastDiscoveredAt) < window {
+			return true
+		}
+	}
+	return false
+}
+
 // maybeStartupDiscovery launches the initial discovery run in the background,
 // unless discovery_on_startup is off or any provider was already discovered
-// within the last 5 minutes (a restart loop must not hammer providers).
+// within startupDiscoveryWindow (a restart loop must not hammer providers).
 func maybeStartupDiscovery(deps discoveryDeps, settingsRepo *settings.Repository) {
 	if !settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
 		return
@@ -433,12 +468,7 @@ func maybeStartupDiscovery(deps discoveryDeps, settingsRepo *settings.Repository
 	recentlyDiscovered := false
 	providers, err := deps.providerRepo.List(context.Background())
 	if err == nil {
-		for _, p := range providers {
-			if p.LastDiscoveredAt != nil && time.Since(*p.LastDiscoveredAt) < 5*time.Minute {
-				recentlyDiscovered = true
-				break
-			}
-		}
+		recentlyDiscovered = anyRecentlyDiscovered(providers, time.Now(), startupDiscoveryWindow)
 	}
 	if recentlyDiscovered {
 		debuglog.Info("discovery: skipping startup — last discovery within 5 minutes")
