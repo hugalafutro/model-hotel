@@ -136,8 +136,13 @@ func (d *deliveredRecorder) Write(b []byte) (int, error) {
 }
 
 // singleAddTokens returns the one charge recorded against the key.
-// recordTokenUsage always reaches the repo, with 0 when nothing is owed, so a
-// zero here means "nothing charged", not "nothing recorded".
+//
+// On the chat and streaming paths recordTokenUsage always reaches the repo,
+// with 0 when nothing is owed, so a zero here means "nothing charged", not
+// "nothing recorded". The pass-through path differs: chargePassthroughUsage
+// skips the call entirely when nothing is owed, so a caller asserting "not
+// charged" there must check the call count rather than expect a zero from this
+// helper (see TestPassthroughFloor_StaysBehindTheDeliveryGate).
 func singleAddTokens(t *testing.T, repo *mockVirtualKeyRepo) int {
 	t.Helper()
 	require.Len(t, repo.addTokensCalls, 1, "AddTokens should be called exactly once")
