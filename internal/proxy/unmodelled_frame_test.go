@@ -204,3 +204,43 @@ func TestHandleStreamingResponse_UnmodelledErrorFrameMasksKeyShapedTokens(t *tes
 		t.Errorf("a key-shaped token in a forwarded error frame must be redacted, got: %s", out)
 	}
 }
+
+// A stream delivered entirely in unmodelled frames must still be metered.
+// observeDataChunk never sees them, so without the payload standing in for the
+// output it carries, estimateMissingUsage bails on its first line and the
+// request is charged nothing against quota or TPM while the provider bills for
+// it. That is the motivating case for this whole change: an agentic tool call
+// from a provider that both sends arguments as an object and omits usage.
+func TestHandleStreamingResponse_UnmodelledFramesAreStillMetered(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	logs := captureProxyLogs(t)
+
+	logData := streamingLog()
+	logData.providerName = "shape-provider"
+	h.insertRequestLogAsync(logData)
+
+	// Unmodelled (arguments as an object), no usage chunk anywhere.
+	frame := `{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n"))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10, providerID: uuid.New(), providerName: "shape-provider",
+		vkHash: "test-hash", attempt: 1,
+	})
+
+	if !strings.Contains(w.Body.String(), "get_weather") {
+		t.Fatalf("test assumption broken: the frame must be delivered, got %s", w.Body.String())
+	}
+	// The estimate is asserted through its log line, not logData: it runs after
+	// logData.tokensCompletion is assigned and its result goes to the meter and
+	// quota, never back onto the request-log row.
+	est := logs.find("charging estimated tokens")
+	if len(est) == 0 {
+		t.Fatal("a delivered answer with no usage chunk must be estimated, not metered at zero")
+	}
+	if got := est[0].attrs["delivered_bytes"]; got == "0" || got == "" {
+		t.Errorf("delivered_bytes = %q, want > 0: the frame's output was invisible to the meter", got)
+	}
+}
