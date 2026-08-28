@@ -238,6 +238,10 @@ func TestNormalizeToolArguments(t *testing.T) {
 		"no tool calls": {`{"choices":[{"delta":{"content":"hi"}}]}`, "", false},
 		"not a chunk":   {`{"error":"boom"}`, "", false},
 		"malformed":     {`{"choices":`, "", false},
+		// The three shapes the walk has to step over rather than trip on.
+		"delta is not an object":    {`{"choices":[{"delta":"nope"}]}`, "", false},
+		"function is not an object": {`{"choices":[{"delta":{"tool_calls":[{"function":"nope"}]}}]}`, "", false},
+		"no arguments member":       {`{"choices":[{"delta":{"tool_calls":[{"function":{"name":"f"}}]}}]}`, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, changed := normalizeToolArguments(tc.payload)
