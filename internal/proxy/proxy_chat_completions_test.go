@@ -643,8 +643,15 @@ func TestChatCompletions_StreamingPartialStream(t *testing.T) {
 	}
 }
 
-// TestChatCompletions_StreamingSSEFormatError tests the case where upstream sends malformed SSE
-
+// TestChatCompletions_StreamingSSEFormatError tests the case where upstream sends
+// malformed SSE and then terminates without ever producing a chunk.
+//
+// This used to be forwarded to the caller as an empty 200. It is now a 502: the
+// probe treats a bare [DONE] as "the provider produced nothing", which is the
+// same verdict it gives an error frame, so the attempt fails over instead of
+// committing. With no other candidate the request is exhausted. The caller
+// receives nothing either way — the difference is that it is now TOLD so
+// instead of getting a silent empty success.
 func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 
 	env := newTestProxyHandler(t)
@@ -673,9 +680,10 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	// Should complete but with error in stream
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
+	// No chunk was ever produced, so the provider is refused rather than
+	// credited with an empty success.
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

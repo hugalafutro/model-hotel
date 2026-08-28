@@ -364,6 +364,20 @@ type upstreamFrameError struct{ msg string }
 
 func (e *upstreamFrameError) Error() string { return e.msg }
 
+// emptyStreamError reports that the provider's stream ended at its very FIRST
+// data frame — a bare [DONE] with no chunk before it — so it produced nothing at
+// all. Like upstreamFrameError it means the provider answered, so it is charged
+// to the provider rather than blamed on the client.
+//
+// The bar is deliberately "no chunks whatever". A provider that sends any real
+// frame and then finishes has answered, even if the answer is empty, and keeps
+// its win.
+type emptyStreamError struct{}
+
+func (e *emptyStreamError) Error() string {
+	return "provider ended the stream without producing any content"
+}
+
 // errorEnvelopeMessage reports the provider's own message when an SSE data frame
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
@@ -411,6 +425,10 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 // neither "[DONE]" nor an error envelope. Keepalive comments (":"), empty lines,
 // "event:", "id:", and "retry:" directives are skipped but still captured in
 // probeBuf for replay.
+//
+// Both exclusions exist for the same reason and have the same consequence: a
+// provider that reports an error, and one that finishes without producing a
+// single chunk, have each given the caller nothing.
 //
 // The error-envelope case exists because this probe picks the winner of a hedged
 // race. Treating a provider's error frame as a first token means the fastest
@@ -482,10 +500,15 @@ func (h *Handler) probeFirstToken(
 			probeSucceeded.Store(true)
 			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			if content == "[DONE]" {
-				// Stream ended before any real token.
-				debuglog.Info("proxy: TTFT probe saw [DONE] before first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				// The stream ended before producing a single chunk. This used to
+				// count as a win, which meant an instantly-empty provider beat a
+				// slower one that would really have answered — the same way an
+				// error frame did, and with the same consequence: every healthy
+				// rival still racing is cancelled and the caller gets nothing.
+				// Nothing is as good as an error, so it loses the same way.
+				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
 				closeProbe()
-				return &buf, 0, nil
+				return nil, 0, &emptyStreamError{}
 			}
 			if msg, isErr := errorEnvelopeMessage(content); isErr {
 				// The provider answered, but with its own failure. Counting
@@ -535,7 +558,12 @@ func (h *Handler) probeFirstToken(
 						continue
 					}
 					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
-					if content != "[DONE]" {
+					if content == "[DONE]" {
+						// Same verdict as the main loop: the only frame in the
+						// buffer is the terminator, so nothing was produced.
+						return nil, 0, &emptyStreamError{}
+					}
+					{
 						// Same envelope check as the main loop: a frame
 						// recovered from the buffer is no more a token than
 						// one read straight off the scanner.

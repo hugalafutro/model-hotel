@@ -78,22 +78,21 @@ func TestProbeFirstToken_KeepaliveThenData(t *testing.T) {
 	}
 }
 
+// A bare [DONE] as the first frame is a stream that produced nothing. It used to
+// count as a probe win; it now fails, so an instantly-empty provider cannot beat
+// a slower one that would really have answered. See
+// TestProbeFirstToken_ImmediateDoneIsNotAToken for the reasoning.
 func TestProbeFirstToken_DoneFirst(t *testing.T) {
 	h := &Handler{}
 	body := makeSSEBody(t, "data: [DONE]\n\n")
-	startTime := time.Now()
 
-	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, time.Now())
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected [DONE]-first to fail the probe, got ttft=%f", trueTtftMs)
 	}
-	if probeBuf == nil {
-		t.Fatal("expected probeBuf to be non-nil")
-		return
-	}
-	if trueTtftMs != 0 {
-		t.Errorf("expected trueTtftMs == 0 for [DONE] first, got %f", trueTtftMs)
+	if probeBuf != nil {
+		t.Error("expected no probe buffer on a failed probe")
 	}
 }
 
@@ -1152,18 +1151,15 @@ func TestProbeFirstToken_DataWithSpaces(t *testing.T) {
 
 func TestProbeFirstToken_DoneWithDataAfter(t *testing.T) {
 	h := &Handler{}
-	// [DONE] first, then data (shouldn't happen normally but tests the short-circuit)
+	// [DONE] first, then data (shouldn't happen normally but tests the
+	// short-circuit): the terminator still decides, and it decides against the
+	// provider. Anything after a [DONE] is past the end of the stream.
 	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[]}\n\n")
-	startTime := time.Now()
 
-	_, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+	_, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, time.Now())
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// [DONE] before any real token means trueTtftMs should be 0
-	if trueTtftMs != 0 {
-		t.Errorf("expected trueTtftMs == 0 for [DONE] first, got %f", trueTtftMs)
+	if err == nil {
+		t.Fatalf("expected [DONE]-first to fail the probe, got ttft=%f", trueTtftMs)
 	}
 }
 

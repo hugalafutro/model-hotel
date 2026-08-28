@@ -568,3 +568,118 @@ func TestProbeErrorFrame_NeverLogsTheProviderCredential(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// An empty completion is as good as an error: it must not win a hedged race
+// either. A provider whose FIRST data frame is the [DONE] sentinel produced no
+// chunks at all, and letting it win cancels every healthy rival still in flight
+// and hands the caller nothing. Same mechanism as the error frame above, same
+// verdict. Decided 2026-08-28.
+// ---------------------------------------------------------------------------
+
+const emptyStreamSSE = "data: [DONE]\n\n"
+
+func TestProbeFirstToken_ImmediateDoneIsNotAToken(t *testing.T) {
+	h := &Handler{}
+
+	if _, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, emptyStreamSSE), 5*time.Second, time.Now()); err == nil {
+		t.Fatalf("a stream that ends at its first frame must fail the probe, got a token at ttft=%.1f", ttft)
+	}
+}
+
+// The guard stays narrow. Only a BARE first [DONE] means "no chunks at all" —
+// a provider that sends any real frame first and then finishes has answered,
+// even if the answer is empty, and must keep winning.
+func TestProbeFirstToken_DoneAfterAFrameStillWins(t *testing.T) {
+	h := &Handler{}
+	for name, body := range map[string]string{
+		"role delta then done":    "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + emptyStreamSSE,
+		"empty choices then done": "data: {\"choices\":[]}\n\n" + emptyStreamSSE,
+		"keepalive then frame":    ": ping\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, _, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now()); err != nil {
+				t.Fatalf("a stream that produced a frame must win the probe, got %v", err)
+			}
+		})
+	}
+}
+
+// The race, end to end: a provider that finishes instantly with nothing must
+// lose to one that takes longer and actually answers.
+func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterEmptyStream(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		time.Sleep(100 * time.Millisecond)
+		_, _ = io.WriteString(w, emptyStreamSSE)
+	}))
+	defer empty.Close()
+
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		time.Sleep(250 * time.Millisecond)
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer healthy.Close()
+
+	st, logData := newHedgeState(10 * time.Millisecond)
+	st.bodyBytes = []byte(`{"model":"test-model","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+	cands := []modelCandidate{
+		liveCandidate("empty", empty.URL),
+		liveCandidate("healthy", healthy.URL),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.runHedgedStreaming(w, req, st, cands, h.probeStreamingCandidate)
+
+	if body := w.Body.String(); !strings.Contains(body, `"content":"hi"`) {
+		t.Fatalf("the caller must receive the healthy provider's token, got: %s", body)
+	}
+	if logData.providerName != "healthy" {
+		t.Errorf("winner = %q, want %q: an empty stream must not win the race", logData.providerName, "healthy")
+	}
+}
+
+// An empty stream is charged to the provider exactly as an error frame is:
+// "nothing is as good as error".
+func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, emptyStreamSSE)
+	}))
+	defer srv.Close()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.circuitBreakerEnabled = true
+
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if res.resp != nil {
+		_ = res.resp.Body.Close()
+	}
+	if res.won {
+		t.Fatal("a stream that produced no content must not win the race")
+	}
+	if res.reqErr.Kind != KindProviderError {
+		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
+	}
+	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open", got)
+	}
+}

@@ -269,10 +269,22 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 // attempt and whether the provider is charged for it. It is the single entry
 // point both the sequential and the hedged path use, so the two cannot drift.
 //
-// An error envelope in the first frame is split out from the zero-token cases
-// below: the provider did answer, so this is its failure and never the client's,
-// and it is charged whatever the downstream connection was doing.
+// An error envelope in the first frame, and a stream that ends at that frame,
+// are split out from the zero-token cases below: the provider did answer, so
+// this is its failure and never the client's.
 func classifyProbeError(probeErr error, providerName string, masker credentialMasker, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+	// The provider answered, but with nothing the caller can use: either it
+	// reported an error, or it ended the stream without a single chunk. Both are
+	// always its fault, never the client's, so both are charged whatever the
+	// downstream connection was doing.
+	answered := func(underlying string) (reqError, bool) {
+		return reqError{
+			Kind:       KindProviderError,
+			Attempt:    attempt,
+			Provider:   providerName,
+			Underlying: underlying,
+		}, true
+	}
 	var frameErr *upstreamFrameError
 	if errors.As(probeErr, &frameErr) {
 		// This text is durable: on the last candidate it becomes the request
@@ -280,12 +292,12 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 		// other path that moves provider error text into that row masks the
 		// credential first, and a provider is free to quote the key back inside
 		// its error. Same treatment here.
-		return reqError{
-			Kind:       KindProviderError,
-			Attempt:    attempt,
-			Provider:   providerName,
-			Underlying: util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500),
-		}, true
+		return answered(util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500))
+	}
+	var emptyErr *emptyStreamError
+	if errors.As(probeErr, &emptyErr) {
+		// Gateway-authored text, so nothing to mask.
+		return answered(emptyErr.Error())
 	}
 	return classifyProbeFailure(providerName, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 }
