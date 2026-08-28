@@ -243,40 +243,64 @@ func TestErrLogAttr_MasksAndBounds(t *testing.T) {
 }
 
 // The same, through the pipeline, because the masking is only worth anything at
-// the call site that actually logs.
+// the call site that actually logs — and there is more than one. A whole error
+// frame goes to the observer; a truncated one goes to the accumulator, whose
+// flush had its own copy of the logging and its own copy of the leak.
 func TestHandleStreamingResponse_ErrorFrameLogIsMasked(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
-
-	capture := captureProxyLogs(t)
-
 	const quoted = "sk-theirs-1234567890abcdefghij"
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`data: {"error":"invalid key ` + quoted + `"}` + "\n\n")),
-		Header:     make(http.Header),
-	}
-	w := httptest.NewRecorder()
-	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
-	logData := newErrorFrameLog()
-	logData.masker = newCredentialMasker("sk-ours-0000000000000000000000")
+	for _, tc := range []struct {
+		name    string
+		body    string
+		wantLog string
+	}{
+		{
+			name:    "whole frame",
+			body:    `data: {"error":"invalid key ` + quoted + `"}` + "\n\n",
+			wantLog: "SSE error chunk",
+		},
+		{
+			name:    "truncated fragment",
+			body:    `data: {"error":{"message":"invalid key ` + quoted,
+			wantLog: "accumulated SSE error",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
 
-	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
-		cancelOrigin: "failover_timeout",
-		masker:       logData.masker,
-	})
+			capture := captureProxyLogs(t)
 
-	if len(capture.find("SSE error chunk")) == 0 {
-		t.Fatal("the error frame was not logged at all, so nothing was masked")
-	}
-	// Every record, not just that one: the site the fix was written for was
-	// masked while a second one beside it still logged the credential raw.
-	for _, rec := range capture.all() {
-		for key, val := range rec.attrs {
-			if strings.Contains(val, quoted) {
-				t.Errorf("credential reached the application log: %q attr %q = %q", rec.msg, key, val)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(tc.body)),
+				Header:     make(http.Header),
 			}
-		}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			logData := newErrorFrameLog()
+			logData.masker = newCredentialMasker("sk-ours-0000000000000000000000")
+
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				cancelOrigin: "failover_timeout",
+				masker:       logData.masker,
+			})
+
+			if len(capture.find(tc.wantLog)) == 0 {
+				t.Fatalf("%q was never logged, so nothing was masked", tc.wantLog)
+			}
+			// Every record, not just that one: the site the fix was written for
+			// was masked while others beside it still logged the text raw.
+			for _, rec := range capture.all() {
+				for key, val := range rec.attrs {
+					if strings.Contains(val, quoted) {
+						t.Errorf("credential reached the application log: %q attr %q = %q", rec.msg, key, val)
+					}
+				}
+			}
+			if strings.Contains(logData.errorMessage, quoted) {
+				t.Errorf("credential reached the request log: %q", logData.errorMessage)
+			}
+		})
 	}
 }
 
