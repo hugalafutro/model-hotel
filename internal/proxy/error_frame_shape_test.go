@@ -280,6 +280,42 @@ func TestHandleStreamingResponse_ErrorFrameLogIsMasked(t *testing.T) {
 	}
 }
 
+// The key-shape regex matches prose, which is why it is gated on the frame
+// being an error at all. Several relays put "error":null (or an empty member)
+// on every ordinary frame, so a gate that fires on the member's mere presence
+// runs the regex over the model's answer — and an assistant writing out an API
+// key format, a Bearer header or an AWS access key id has its output silently
+// rewritten to [redacted] mid-stream.
+func TestHandleStreamingResponse_ContentIsNeverKeyShapeMasked(t *testing.T) {
+	for _, member := range []string{`null`, `""`, `{}`, `[]`, `false`, `0`} {
+		t.Run(member, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			const answer = `set OPENAI_API_KEY=sk-proj-ABCDEFGHIJKLMNOP123 then run it`
+			frame := `{"error":` + member + `,"choices":[{"delta":{"content":"` + answer + `"}}]}`
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			logData := newErrorFrameLog()
+			logData.masker = newCredentialMasker("sk-ours-0000000000000000000000")
+
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				cancelOrigin: "failover_timeout",
+				masker:       logData.masker,
+			})
+
+			if !strings.Contains(w.Body.String(), answer) {
+				t.Errorf("the model's answer was rewritten in flight: %q", w.Body.String())
+			}
+		})
+	}
+}
+
 // An error frame is the provider reporting its own failure, so it charges the
 // breaker until the circuit opens. The payload puts a key before "error", the
 // case the P1-B accumulator is blind to: with the frame also dropped as
