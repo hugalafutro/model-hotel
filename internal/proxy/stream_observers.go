@@ -18,7 +18,17 @@ import (
 // from the preceding "event:" line and is consumed (reset) here. No client output.
 func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
 	// P1-B: accumulate error JSON split across data lines; flush on a non-error line.
-	if strings.HasPrefix(payload, `{"error"`) {
+	//
+	// Only a FRAGMENT is accumulated. A payload that parses is a whole frame,
+	// whatever it starts with, and the observer reads its error member properly;
+	// handing it to the accumulator instead put it in front of
+	// parseAccumulatedError, whose last resort is to return the entire payload
+	// as the error message. A frame like
+	// {"error":"","choices":[{"delta":{"content":…}}]} — an empty error member
+	// riding alongside a real delta — therefore wrote the model's output into
+	// request_logs.error_message, and marked the request failed for an error no
+	// reader of that member agrees is there.
+	if strings.HasPrefix(payload, `{"error"`) && !json.Valid([]byte(payload)) {
 		st.errAccum = append(st.errAccum, []byte(payload)...)
 	} else {
 		st.flushAccumulatedError(chunkCount, logData)
@@ -41,7 +51,7 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 			st.lastErrMsg = anthErr.Error.Message
 			anthropicErrorCounted = true
 			st.errorChunkCount++
-			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", st.errLogAttr(anthErr.Error.Message), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
 	return anthropicErrorCounted
@@ -58,9 +68,26 @@ func (st *streamState) flushAccumulatedError(chunkCount int, logData *requestLog
 	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
 		st.lastErrMsg = accumulatedMsg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: accumulated SSE error", "error_message", st.errLogAttr(accumulatedMsg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 	}
 	st.errAccum = nil
+}
+
+// errLogAttr prepares provider error text for an application-log attribute:
+// masked, then bounded.
+//
+// The request log gets both of those at finalize, but the app log had neither.
+// It is a different audience and a different store — the live log viewer, the
+// app-logs API, the OTLP export — and provider error text is exactly where a
+// relay quotes a credential ("invalid key sk-…") or runs to whatever length it
+// likes. The observers also run BEFORE the stream's masking block, so the text
+// they hold has been scrubbed by nothing at all.
+//
+// 500 characters, matching the probe's own error sanitizer, rather than the
+// request log's 10000: a log attribute is for recognising the failure, and the
+// full text is already on the row.
+func (st *streamState) errLogAttr(msg string) string {
+	return util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500)
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at
@@ -210,7 +237,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		msg := errorMemberMessage(chunk.Error)
 		st.lastErrMsg = msg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", msg, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", st.errLogAttr(msg), "chunk_number", chunkCount)
 		// Clear st.errAccum: chunk.Error already captured this error,
 		// so P1-B's next flush must not re-count it.
 		st.errAccum = nil

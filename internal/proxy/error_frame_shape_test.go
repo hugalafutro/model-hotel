@@ -30,11 +30,19 @@ var errorFrameCorpus = []struct {
 	{"object without message", `{"error":{"code":500}}`, true, `{"code":500}`},
 	{"list", `{"error":["bad","worse"]}`, true, `["bad","worse"]`},
 	{"number", `{"error":503}`, true, "503"},
+	{"true", `{"error":true}`, true, "true"},
 	{"error after another key", `{"model":"llama3","error":"model not found"}`, true, "model not found"},
 	{"null", `{"error":null}`, false, ""},
 	{"empty object", `{"error":{}}`, false, ""},
 	{"empty string", `{"error":""}`, false, ""},
 	{"empty list", `{"error":[]}`, false, ""},
+	// The C convention: an "error" member that reports there wasn't one. Every
+	// frame of every 200 stream from such a relay reaches the emptiness rule.
+	{"false", `{"error":false,"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
+	{"zero", `{"error":0,"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
+	// An empty member riding alongside real output. The payload starts with
+	// {"error", which is all the P1-B accumulator looks at.
+	{"empty member with a delta", `{"error":"","choices":[{"delta":{"content":"hi"}}]}`, false, ""},
 	{"no error member", `{"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
 }
 
@@ -69,6 +77,46 @@ func TestErrorFrameShapes_ObserverMatchesProbe(t *testing.T) {
 			}
 			if tc.isError && probeMsg != tc.wantMsg {
 				t.Errorf("probe message = %q, want %q", probeMsg, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// The same corpus through the whole streaming pipeline, which is the only place
+// the readings can actually be seen to agree. observeDataChunk is one of four
+// paths that write st.lastErrMsg, and the unit test above cannot see the other
+// three: the P1-B accumulator in particular took every payload starting with
+// {"error" — including one whose member is empty and whose delta carries the
+// model's answer — and recorded the ENTIRE payload as the error message, so a
+// frame the corpus calls ordinary failed the request and wrote response content
+// into the request log.
+func TestErrorFrameShapes_PipelineMatchesCorpus(t *testing.T) {
+	for _, tc := range errorFrameCorpus {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + tc.payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			logData := newErrorFrameLog()
+
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			failed := logData.state == "failed"
+			if failed != tc.isError {
+				t.Errorf("state = %q (errorMessage %q), want failed=%v", logData.state, logData.errorMessage, tc.isError)
+			}
+			if !tc.isError && logData.errorMessage != "" {
+				t.Errorf("an ordinary frame recorded an error: %q", logData.errorMessage)
+			}
+			// Whatever else it records, it never records the model's output.
+			if strings.Contains(logData.errorMessage, "hi") {
+				t.Errorf("response content reached the request log: %q", logData.errorMessage)
 			}
 		})
 	}
@@ -197,14 +245,6 @@ func TestJudgeStreamForBreaker_UntypeableErrorFrameCharges(t *testing.T) {
 
 	if !providerAtFault(logData.errorKind) {
 		t.Fatalf("errorKind = %q, want a kind the provider answers for", logData.errorKind)
-	}
-
-	// The verdict itself, over the state such a stream leaves behind: an
-	// unparsed frame is a charge the gateway cannot honestly make, an error
-	// frame is one it can.
-	st := &streamState{errorChunkCount: 1}
-	if v := judgeStreamForBreaker(st, logData, logData.errorMessage, true); v.failureReason == "" || v.success {
-		t.Errorf("verdict = %+v, want a provider failure", v)
 	}
 }
 

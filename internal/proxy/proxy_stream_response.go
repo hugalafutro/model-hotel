@@ -361,7 +361,12 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		if errorMemberCarries(chunk.Error) {
+		// Presence, not errorMemberCarries: what the member MEANS decides the
+		// request log and the breaker, but a frame that names an error can
+		// quote a credential whether or not this gateway judges the member
+		// populated, and the shape pass is the only layer that catches a key
+		// which is not our own.
+		if len(chunk.Error) > 0 {
 			masked = maskKeyShapedTokens(masked)
 		}
 		if string(masked) != payload {

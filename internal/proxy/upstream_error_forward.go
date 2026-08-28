@@ -316,10 +316,19 @@ func carriesErrorObject(body []byte) bool {
 // member (a nil or empty raw) carries nothing, which is what makes the missing
 // key and the null-valued key the same answer.
 //
-// Every reading of an error member goes through here: the whole-body check
-// above, the probe that decides a hedged race, and the streaming observer that
-// decides what the request log and the circuit breaker are told. They read the
-// same bytes, so a second opinion is only ever a way for them to disagree.
+// Every reading of an error member's MEANING goes through here: the whole-body
+// check above, the probe that decides a hedged race, and the streaming observer
+// that decides what the request log and the circuit breaker are told. They read
+// the same bytes, so a second opinion is only ever a way for them to disagree.
+// (parseAccumulatedError reads error bytes too, but only ever a truncated
+// fragment, which is a member no reader can judge.)
+//
+// The zero value of every JSON type carries nothing — including `false` and `0`,
+// which are not a peculiar error but the C convention for its absence, and
+// which reach here on every frame of every 200 stream now that the streaming
+// observer shares this rule. Reading `"error":false` as a failure would mark
+// every request from such a relay failed, suppress its terminal frame, and lose
+// it every hedged race it was in fact winning.
 func errorMemberCarries(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false
@@ -337,9 +346,13 @@ func errorMemberCarries(raw json.RawMessage) bool {
 		return len(v) > 0
 	case []any:
 		return len(v) > 0
+	case bool:
+		return v
+	case float64:
+		return v != 0
 	default:
-		// A number or a bool: peculiar, but the provider put a value there and
-		// a client can render it.
+		// Nothing else survives a decode into `any`; a shape that somehow did
+		// is a value the provider put there, and a client can render it.
 		return true
 	}
 }
@@ -350,8 +363,8 @@ func errorMemberCarries(raw json.RawMessage) bool {
 // provider sent, because dropping a frame's only explanation to preserve a
 // shape preference helps nobody reading a request log.
 //
-// The result is provider text, not response content, and every caller bounds
-// and masks it before it is stored or forwarded.
+// The result is raw provider text: unbounded, and scrubbed by nothing. Every
+// caller masks and bounds it before storing, forwarding or logging it.
 func errorMemberMessage(raw json.RawMessage) string {
 	var obj struct {
 		Message string `json:"message"`
