@@ -989,3 +989,89 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
 	}
 }
+
+// A tool call IS output. A completion whose only product is a function call has
+// answered — that is the whole point of tool use — and must never be charged as
+// an empty response, or a provider answering correctly would be taken out of
+// rotation for every tenant after five such requests.
+//
+// Driven through the real streaming pipeline rather than a hand-built
+// streamState, because the thing under test is whether the pipeline's own
+// accounting (observeDataChunk -> deliveredBytes) registers tool calls at all.
+func TestHandleStreamingResponse_ToolCallOnlyIsNotAnEmptyResponse(t *testing.T) {
+	streams := map[string]string{
+		// Tool calls arrive incrementally: the name in one chunk, argument
+		// fragments after it. No content delta appears anywhere.
+		"tool call in fragments": "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"city\\\":\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"\\\"Prague\\\"}\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+		// Reasoning with no visible content is output too.
+		"reasoning only": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking about it\"}}]}\n\ndata: [DONE]\n\n",
+	}
+	for name, body := range streams {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "tool-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "tool-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if logData.state != "completed" {
+				t.Errorf("state = %q, want completed", logData.state)
+			}
+			// Threshold is 1, so a single stray charge shows immediately.
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Error("a completion whose only output is a tool call or reasoning is not empty and must not break the circuit")
+			}
+		})
+	}
+}
+
+// The counterpart: a stream carrying frames that deliver nothing at all really
+// is empty, and is charged. Without this the guard above could be satisfied by
+// simply never charging.
+func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	logData := streamingLog()
+	logData.providerName = "silent-provider"
+	h.insertRequestLogAsync(logData)
+
+	// A role delta and a finish reason: well-formed frames, zero output.
+	body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
+		"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10,
+		providerID:       providerID,
+		providerName:     "silent-provider",
+		circuitBreakerOn: true,
+		vkHash:           "test-hash",
+		attempt:          1,
+	})
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: the caller received nothing", got)
+	}
+}
