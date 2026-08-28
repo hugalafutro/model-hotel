@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 // ---------------------------------------------------------------------------
@@ -127,5 +130,77 @@ func TestHandleStreamingResponse_MasksCredentialInAnUnmodelledFrame(t *testing.T
 	}
 	if !strings.Contains(w.Body.String(), "get_weather") && !strings.Contains(w.Body.String(), `"f"`) {
 		t.Errorf("the frame itself must still be forwarded, got: %s", w.Body.String())
+	}
+}
+
+// strip_reasoning is a per-virtual-key contract: that caller must never receive
+// reasoning. The transform lives inside the typed-parse branch, so a frame
+// forwarded around it delivers reasoning anyway. Dropping the frame used to
+// satisfy the guarantee by accident; forwarding it must satisfy the guarantee on
+// purpose.
+func TestHandleStreamingResponse_UnmodelledFrameStillStripsReasoning(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const secret = "SECRET-CHAIN-OF-THOUGHT"
+	// Unmodelled (content as parts) AND carrying reasoning.
+	frame := `{"choices":[{"index":0,"delta":{"reasoning_content":"` + secret + `","content":[{"type":"text","text":"hi"}]}}]}`
+
+	logData := streamingLog()
+	logData.providerName = "shape-provider"
+	h.insertRequestLogAsync(logData)
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n"))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).
+		WithContext(context.WithValue(context.Background(), ctxkeys.VirtualKeyStripReasoningKey, true))
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10, providerID: uuid.New(), providerName: "shape-provider",
+		vkHash: "test-hash", attempt: 1,
+	})
+
+	out := w.Body.String()
+	if strings.Contains(out, secret) {
+		t.Errorf("reasoning reached a caller that asked for it to be stripped: %s", out)
+	}
+	// And the content it rode with must survive the strip.
+	if !strings.Contains(out, "hi") {
+		t.Errorf("stripping reasoning must not take the content with it, got: %s", out)
+	}
+}
+
+// json.Valid admits any JSON value, but a client decodes every data: event into
+// a chunk struct. Relaying a bare number or an array turns a one-frame loss into
+// a decode exception that kills the whole stream, so only objects are forwarded.
+func TestHandleStreamingResponse_NonObjectPayloadsAreStillDropped(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	for name, frame := range map[string]string{
+		"bare number": `123`,
+		"bare string": `"just a string"`,
+		"bare bool":   `true`,
+		"array":       `[{"choices":[]}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			out := streamThrough(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+			if strings.Contains(out, "data: "+frame) {
+				t.Errorf("a non-object payload must not be relayed, got: %s", out)
+			}
+		})
+	}
+}
+
+// The key-shape pass is what catches a THIRD-PARTY key the provider quoted in
+// its error — the gateway's own credential is handled by the exact mask. It runs
+// only when the frame carries an error member, matching the typed branch's
+// policy.
+func TestHandleStreamingResponse_UnmodelledErrorFrameMasksKeyShapedTokens(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Unmodelled because error is a bare string, not our {message} object.
+	out := streamThrough(t, h, `data: {"error":"upstream rejected key sk-abc123def456ghi789xyz"}`+"\n\ndata: [DONE]\n\n")
+	if strings.Contains(out, "sk-abc123def456ghi789xyz") {
+		t.Errorf("a key-shaped token in a forwarded error frame must be redacted, got: %s", out)
 	}
 }

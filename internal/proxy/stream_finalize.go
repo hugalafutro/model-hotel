@@ -82,6 +82,11 @@ type streamState struct {
 	errAccum               []byte // P1-B split-error accumulation
 	lastFinishReason       string // P2-2 duplicate-finish suppression + normalization carry
 	lastAnthropicEvent     string // P1-C: last "event:" type, consumed by the next data line
+	// warnedUnmodelled keeps the "cannot model this frame" warning to one line
+	// per stream. Forwarding made the unmodelled shape a normal operating mode
+	// for some providers, so a per-frame Warn would ship thousands of lines per
+	// request to Loki/OTLP.
+	warnedUnmodelled bool
 }
 
 // streamBreakerVerdict is what a finished stream tells the circuit breaker about
@@ -170,10 +175,11 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 		// sibling, the one that produced frames carrying no output and was
 		// already committed to by the time that became clear.
 		//
-		// unparsedChunks holds the charge back: those frames were dropped by
-		// THIS gateway's parser, not left out by the provider, so their contents
-		// are unknown and emptiness cannot be pinned on the upstream. Recording
-		// nothing is the honest verdict — neither a charge nor a credit.
+		// unparsedChunks holds the charge back: this gateway's parser could not
+		// read those frames, so their contents are unknown and emptiness cannot
+		// be pinned on the upstream — whether they were forwarded verbatim or
+		// dropped. Recording nothing is the honest verdict: neither a charge nor
+		// a credit.
 		if st.unparsedChunks > 0 {
 			return streamBreakerVerdict{}
 		}

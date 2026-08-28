@@ -419,35 +419,8 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		}
 	}
 	if !written && !jsonValid {
-		// Valid JSON this gateway has no Go type for is still the provider's
-		// answer, and must reach the caller.
-		//
-		// streamChunk types delta.content as *string and tool-call arguments as
-		// string. A provider sending either in a wider — but perfectly valid —
-		// shape fails the typed unmarshal above, and used to be discarded here
-		// as though the bytes were corrupt. The caller silently lost real
-		// output; on a tool call it lost the call while finish_reason, which
-		// rides a separate parseable frame, survived to announce it.
-		//
-		// The masking that every other frame gets lives inside the typed branch
-		// above, so it is applied here or not at all: exact-key always, and the
-		// key-shape pass when the frame carries an error member, matching the
-		// policy there. carriesErrorObject rather than a second opinion about
-		// what an error frame is.
-		if json.Valid([]byte(payload)) {
-			masked := st.masker.maskExact([]byte(payload))
-			if carriesErrorObject(masked) {
-				masked = maskKeyShapedTokens(masked)
-			}
-			// Still counted: forwarding the bytes does not tell us whether they
-			// carried output, so the end-of-stream verdict keeps withholding
-			// its judgement rather than charging the provider for an emptiness
-			// it cannot vouch for.
-			st.unparsedChunks++
-			debuglog.Warn("proxy: forwarding an SSE frame the gateway cannot model",
-				"model", logData.modelID, "provider", logData.providerName,
-				"chunk_number", chunkCount, "payload_bytes", len(payload))
-			return !st.emitData(sink, masked, "unmodelled frame", chunkCount, logData)
+		if handled, stopStream := st.forwardUnmodelledFrame(sink, payload, stripReasoning, chunkCount, logData); handled {
+			return stopStream
 		}
 		// Drop invalid/truncated JSON instead of forwarding broken bytes.
 		preview := payload
@@ -484,4 +457,76 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		sink.swallowBlank = true
 	}
 	return false
+}
+
+// topLevelJSONObject reports whether an SSE payload is a JSON object.
+// Deliberately stricter than json.Valid, which also admits `123`, `"text"`,
+// `true` and arrays: a client decodes every data: event into a chunk struct, so
+// relaying one of those turns a one-frame loss into a decode exception that
+// kills the whole stream. It is also what keeps carriesErrorObject meaningful,
+// since that reports false for anything which is not a top-level object.
+func topLevelJSONObject(payload string) bool {
+	var probe map[string]json.RawMessage
+	return json.Unmarshal([]byte(payload), &probe) == nil
+}
+
+// forwardUnmodelledFrame relays an SSE frame that failed the typed streamChunk
+// unmarshal but is still a JSON object — valid JSON in a shape this gateway has
+// no Go type for. handled is false when the payload is not one, leaving the
+// caller to drop it as malformed; stop reports a client write failure.
+//
+// streamChunk types delta.content as *string and tool-call arguments as string.
+// A provider sending either in a wider but perfectly valid shape failed that
+// unmarshal and had its answer discarded as though the bytes were corrupt. On a
+// tool call the caller lost the call itself while finish_reason, which rides a
+// separate parseable frame, survived to announce it.
+func (st *streamState) forwardUnmodelledFrame(sink *streamSink, payload string, stripReasoning bool, chunkCount int, logData *requestLogData) (handled, stop bool) {
+	if !topLevelJSONObject(payload) {
+		return false, false
+	}
+	// The masking every other frame gets lives inside the typed branch this one
+	// skipped, so it is applied here or not at all: exact-key always, and the
+	// key-shape pass when the frame carries an error member, matching the policy
+	// there. carriesErrorObject rather than a second opinion about what an error
+	// frame is.
+	masked := st.masker.maskExact([]byte(payload))
+	if carriesErrorObject(masked) {
+		masked = maskKeyShapedTokens(masked)
+	}
+	// Counted as unparsed either way: forwarding the bytes does not tell us
+	// whether they carried output, so the end-of-stream breaker verdict keeps
+	// withholding its judgement.
+	st.unparsedChunks++
+	if !st.warnedUnmodelled {
+		// Once per stream. Forwarding makes this shape a normal operating mode
+		// for some providers, and a per-frame Warn would ship thousands of lines
+		// per request to Loki/OTLP.
+		st.warnedUnmodelled = true
+		debuglog.Warn("proxy: forwarding SSE frames the gateway cannot model",
+			"model", logData.modelID, "provider", logData.providerName,
+			"first_chunk_number", chunkCount, "payload_bytes", len(payload))
+	}
+	// strip_reasoning is a per-virtual-key contract, and it also lives inside the
+	// branch this frame skipped. Forwarding without it delivers reasoning to a
+	// caller configured never to receive any — dropping the frame used to satisfy
+	// that guarantee by accident. computeStripReasoning works here because
+	// parseChunkPayload is map-based and does not care about field types.
+	if stripReasoning {
+		switch decision, stripped := computeStripReasoning(string(masked), &st.lastFinishReason, logData); decision {
+		case stripDrop:
+			return true, false
+		case stripKeepalive, stripForward:
+			st.deliveredBytes += len(stripped)
+			return true, !st.emitData(sink, stripped, "unmodelled frame", chunkCount, logData)
+		case stripPassthrough:
+			// No choices/delta to strip, so there is nothing to withhold.
+		}
+	}
+	// The delivery accounting cannot see inside this frame, so the whole payload
+	// stands in for the output it carries. An overestimate is the safe direction:
+	// counting zero left a request that really was served — an agentic tool call
+	// from a provider that omits the usage chunk — metered at nothing against
+	// both quota and TPM while the provider billed for it.
+	st.deliveredBytes += len(masked)
+	return true, !st.emitData(sink, masked, "unmodelled frame", chunkCount, logData)
 }
