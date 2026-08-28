@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -177,40 +178,74 @@ func parseChunkPayload(payload string) (parsedChunk, bool) {
 	return p, true
 }
 
-// parseAccumulatedError attempts to extract a human-readable error message
-// from accumulated SSE error bytes. Some providers (e.g. OpenAI, go-openai)
-// split error JSON across multiple SSE data lines. This function tries to
-// parse the accumulated bytes as a complete JSON error object, supporting
-// both the OpenAI format ({"error":{"message":"..."}}) and the Anthropic
-// format ({"type":"error","error":{"message":"..."}}).
+// parseAccumulatedError extracts a human-readable message from accumulated SSE
+// error bytes: a frame the gateway saw begin with {"error" and could not parse,
+// because the provider cut it short or split it across data lines.
+//
+// It reads only the "error" member, never the rest of the frame. Returning the
+// raw bytes was how the model's own answer reached request_logs.error_message:
+// a stream cut mid-frame on a provider that puts "error" first hands this
+// function a fragment like {"error":null,"choices":[{"delta":{"content":"…
+// and the whole thing was recorded. The member cannot contain another key's
+// value, so reading only it is the bound that makes the no-content-logging rule
+// hold on bytes nobody can parse.
+//
+// The complete member is preferred, and errorMemberMessage renders it whatever
+// its shape. When the member itself is what got truncated there is nothing to
+// decode, and its own bytes stand as the message — everything after {"error":
+// belongs to it, since nothing else can have started yet.
 func parseAccumulatedError(data []byte) string {
-	if len(data) == 0 {
+	member, complete := accumulatedErrorMember(data)
+	if len(member) == 0 {
 		return ""
 	}
-	// Try OpenAI error format: {"error":{"message":"..."}}
-	var openaiErr struct {
-		Error *struct{ Message string } `json:"error"`
+	if complete {
+		return errorMemberMessage(member)
 	}
-	if json.Unmarshal(data, &openaiErr) == nil && openaiErr.Error != nil {
-		return openaiErr.Error.Message
+	return string(member)
+}
+
+// accumulatedErrorMember returns the bytes of the "error" member of a fragment
+// the accumulator collected, and whether they decode as a whole JSON value.
+//
+// It walks the object key by key rather than assuming a position, so it finds
+// the member under the Anthropic wrapper ({"type":"error","error":{…}}) as well
+// as first. Every other key's value is decoded and thrown away: a walk that
+// stops at a truncated key it does not want returns nothing at all, which is
+// what keeps a frame cut off mid-content from yielding that content.
+func accumulatedErrorMember(data []byte) (member []byte, complete bool) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token()
+	if err != nil || tok != json.Delim('{') {
+		return nil, false
 	}
-	// Try Anthropic error format: {"type":"error","error":{"type":"...","message":"..."}}
-	var anthErr struct {
-		Type  string `json:"type"`
-		Error *struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		} `json:"error"`
+	for dec.More() {
+		keyTok, err := dec.Token()
+		if err != nil {
+			return nil, false
+		}
+		key, _ := keyTok.(string)
+		// Offset of the colon that follows the key; the value begins after it.
+		valueStart := dec.InputOffset()
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			if key != "error" {
+				return nil, false
+			}
+			// The member itself is where the bytes ran out. Nothing else can
+			// have started, so the remainder is the member and nothing more.
+			rest := bytes.TrimSpace(data[valueStart:])
+			rest = bytes.TrimSpace(bytes.TrimPrefix(rest, []byte(":")))
+			if len(rest) == 0 {
+				return nil, false
+			}
+			return rest, false
+		}
+		if key == "error" {
+			return value, true
+		}
 	}
-	if json.Unmarshal(data, &anthErr) == nil && anthErr.Error != nil {
-		return anthErr.Error.Message
-	}
-	// Can't parse as structured error — return raw bytes if they start with
-	// { (heuristic for truncated JSON).
-	if data[0] == '{' {
-		return string(data)
-	}
-	return ""
+	return nil, false
 }
 
 func generateRequestHash() string {

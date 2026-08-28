@@ -31,7 +31,7 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	if strings.HasPrefix(payload, `{"error"`) && !json.Valid([]byte(payload)) {
 		st.errAccum = append(st.errAccum, []byte(payload)...)
 	} else {
-		st.flushAccumulatedError(chunkCount, logData)
+		st.flushAccumulatedError("proxy: accumulated SSE error", chunkCount, logData)
 	}
 
 	// P1-C: a data line after "event: error" is an Anthropic error payload,
@@ -59,16 +59,19 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 
 // flushAccumulatedError parses and records any P1-B accumulated split-error bytes
 // (an {"error":…} object split across SSE data lines), then clears the buffer. A
-// no-op when nothing is accumulated. Shared by the comment-line handler and
-// captureSSEError's non-error data-line branch so the two flush sites co-evolve.
-func (st *streamState) flushAccumulatedError(chunkCount int, logData *requestLogData) {
+// no-op when nothing is accumulated. Every flush site goes through here — the
+// comment-line handler, captureSSEError's non-error data-line branch, and the
+// stream-end sweep — so they cannot drift; `what` is the only thing that differs
+// between them, and a copy of this body is how the stream-end sweep came to log
+// the provider's error text unmasked while the other two did not.
+func (st *streamState) flushAccumulatedError(what string, chunkCount int, logData *requestLogData) {
 	if len(st.errAccum) == 0 {
 		return
 	}
 	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
 		st.lastErrMsg = accumulatedMsg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: accumulated SSE error", "error_message", st.errLogAttr(accumulatedMsg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		debuglog.Warn(what, "error_message", st.errLogAttr(accumulatedMsg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 	}
 	st.errAccum = nil
 }
@@ -83,9 +86,15 @@ func (st *streamState) flushAccumulatedError(chunkCount int, logData *requestLog
 // likes. The observers also run BEFORE the stream's masking block, so the text
 // they hold has been scrubbed by nothing at all.
 //
-// 500 characters, matching the probe's own error sanitizer, rather than the
-// request log's 10000: a log attribute is for recognising the failure, and the
-// full text is already on the row.
+// 500 bytes — SanitizeLogBody's limit is a byte count, so CJK error text from
+// MiniMax or Z.ai is cut at roughly a third of that in characters. It matches
+// the probe's own error sanitizer rather than the request log's 10000: a log
+// attribute is for recognising the failure, and the full text is already on the
+// row. SanitizeLogBody also redacts UUIDs, so a provider echoing a request id
+// back inside its error does not put one in the app log.
+//
+// A zero-value masker (a keyless local provider) masks by shape only, which is
+// what every other site on those paths does too.
 func (st *streamState) errLogAttr(msg string) string {
 	return util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500)
 }

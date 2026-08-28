@@ -320,8 +320,10 @@ func carriesErrorObject(body []byte) bool {
 // check above, the probe that decides a hedged race, and the streaming observer
 // that decides what the request log and the circuit breaker are told. They read
 // the same bytes, so a second opinion is only ever a way for them to disagree.
-// (parseAccumulatedError reads error bytes too, but only ever a truncated
-// fragment, which is a member no reader can judge.)
+// Two readers stand outside it, both by necessity: parseAccumulatedError, whose
+// input is a truncated fragment no reader can judge, and the P1-C Anthropic
+// branch, which is keyed on the preceding "event: error" line rather than on
+// the member at all.
 //
 // The zero value of every JSON type carries nothing — including `false` and `0`,
 // which are not a peculiar error but the C convention for its absence, and
@@ -329,6 +331,12 @@ func carriesErrorObject(body []byte) bool {
 // observer shares this rule. Reading `"error":false` as a failure would mark
 // every request from such a relay failed, suppress its terminal frame, and lose
 // it every hedged race it was in fact winning.
+//
+// A container carries whatever its values carry, because the same convention
+// appears one level down: `{"code":0,"message":""}` and `{"code":null}` are a
+// relay stamping its no-error struct on every frame, and stopping the rule at
+// the top level made every one of those requests a provider_error — which also
+// feeds the retirement machinery — while the provider answered perfectly.
 func errorMemberCarries(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false
@@ -337,19 +345,36 @@ func errorMemberCarries(raw json.RawMessage) bool {
 	if err := json.Unmarshal(raw, &content); err != nil {
 		return false
 	}
-	switch v := content.(type) {
+	return valueCarries(content)
+}
+
+// valueCarries is the emptiness rule over a decoded JSON value. Recursion is
+// bounded by the value's own nesting, which encoding/json has already capped
+// while building it.
+func valueCarries(v any) bool {
+	switch v := v.(type) {
 	case nil:
 		return false
 	case string:
 		return strings.TrimSpace(v) != ""
-	case map[string]any:
-		return len(v) > 0
-	case []any:
-		return len(v) > 0
 	case bool:
 		return v
 	case float64:
 		return v != 0
+	case map[string]any:
+		for _, val := range v {
+			if valueCarries(val) {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, val := range v {
+			if valueCarries(val) {
+				return true
+			}
+		}
+		return false
 	default:
 		// Nothing else survives a decode into `any`; a shape that somehow did
 		// is a value the provider put there, and a client can render it.

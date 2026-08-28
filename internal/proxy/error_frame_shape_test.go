@@ -3,7 +3,6 @@ package proxy
 import (
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 // errorFrameCorpus is the set of "error" member shapes providers actually send,
@@ -237,7 +238,7 @@ func TestErrLogAttr_MasksAndBounds(t *testing.T) {
 	}
 
 	if bounded := st.errLogAttr(strings.Repeat("x", 5000)); len(bounded) > 1000 {
-		t.Errorf("unbounded provider text: %d chars", len(bounded))
+		t.Errorf("unbounded provider text: %d bytes", len(bounded))
 	}
 }
 
@@ -247,10 +248,7 @@ func TestHandleStreamingResponse_ErrorFrameLogIsMasked(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	var logged strings.Builder
-	restore := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelWarn})))
-	t.Cleanup(func() { slog.SetDefault(restore) })
+	capture := captureProxyLogs(t)
 
 	const quoted = "sk-theirs-1234567890abcdefghij"
 	resp := &http.Response{
@@ -268,38 +266,61 @@ func TestHandleStreamingResponse_ErrorFrameLogIsMasked(t *testing.T) {
 		masker:       logData.masker,
 	})
 
-	out := logged.String()
-	if !strings.Contains(out, "SSE error chunk") {
-		t.Fatalf("the error frame was not logged at all, so nothing was masked: %q", out)
+	if len(capture.find("SSE error chunk")) == 0 {
+		t.Fatal("the error frame was not logged at all, so nothing was masked")
 	}
-	if strings.Contains(out, quoted) {
-		t.Errorf("credential reached the application log: %q", out)
+	// Every record, not just that one: the site the fix was written for was
+	// masked while a second one beside it still logged the credential raw.
+	for _, rec := range capture.all() {
+		for key, val := range rec.attrs {
+			if strings.Contains(val, quoted) {
+				t.Errorf("credential reached the application log: %q attr %q = %q", rec.msg, key, val)
+			}
+		}
 	}
 }
 
 // An error frame is the provider reporting its own failure, so it charges the
-// breaker. The payload here puts a key before "error", which is the case the
-// P1-B accumulator is blind to: with the frame also dropped as unparseable, a
-// provider erroring on every single request produced a stream this gateway read
-// as a clean, merely empty one — and unparsedChunks then held even the
-// empty-stream charge back, so the circuit never opened.
-func TestJudgeStreamForBreaker_UntypeableErrorFrameCharges(t *testing.T) {
+// breaker until the circuit opens. The payload puts a key before "error", the
+// case the P1-B accumulator is blind to: with the frame also dropped as
+// unparseable, a provider erroring on every single request produced a stream
+// this gateway read as clean and merely empty — and unparsedChunks then held
+// even the empty-stream charge back, so the circuit stayed closed forever.
+func TestJudgeStreamForBreaker_UntypeableErrorFrameOpensTheCircuit(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
+	h.circuitBreaker = failover.NewCircuitBreaker(nil)
 
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`data: {"model":"llama3","error":"model not found"}` + "\n\ndata: [DONE]\n\n")),
-		Header:     make(http.Header),
+	providerID := uuid.New()
+	const providerName = "mock"
+	if h.circuitBreaker.IsOpen(providerID, providerName) {
+		t.Fatal("circuit is open before any request")
 	}
-	w := httptest.NewRecorder()
-	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
-	logData := newErrorFrameLog()
 
-	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+	// One under the threshold, then the one that trips it.
+	for i := range h.circuitBreaker.Threshold {
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`data: {"model":"llama3","error":"model not found"}` + "\n\ndata: [DONE]\n\n")),
+			Header:     make(http.Header),
+		}
+		w := httptest.NewRecorder()
+		req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+		logData := newErrorFrameLog()
 
-	if !providerAtFault(logData.errorKind) {
-		t.Fatalf("errorKind = %q, want a kind the provider answers for", logData.errorKind)
+		h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+			cancelOrigin:     "failover_timeout",
+			circuitBreakerOn: true,
+			providerID:       providerID,
+			providerName:     providerName,
+		})
+
+		if !providerAtFault(logData.errorKind) {
+			t.Fatalf("request %d: errorKind = %q, want a kind the provider answers for", i+1, logData.errorKind)
+		}
+		if open := h.circuitBreaker.IsOpen(providerID, providerName); open != (i+1 >= h.circuitBreaker.Threshold) {
+			t.Errorf("after %d failures: open = %v, threshold %d", i+1, open, h.circuitBreaker.Threshold)
+		}
 	}
 }
 

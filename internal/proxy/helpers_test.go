@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -527,11 +528,29 @@ func TestParseAccumulatedError_AnthropicOverloaded(t *testing.T) {
 	}
 }
 
+// A truncated member yields its own bytes — the best that can be said about
+// bytes nothing can parse — and not the frame that wrapped it.
 func TestParseAccumulatedError_TruncatedJSON(t *testing.T) {
 	data := []byte(`{"error":{"message":"Rate limi`)
 	got := parseAccumulatedError(data)
-	if got != `{"error":{"message":"Rate limi` {
-		t.Errorf("parseAccumulatedError(truncated JSON) = %q, want raw string", got)
+	if got != `{"message":"Rate limi` {
+		t.Errorf("parseAccumulatedError(truncated JSON) = %q, want the member's bytes", got)
+	}
+}
+
+// The reason the member is read rather than the payload: a frame cut off
+// mid-content, on a provider that puts "error" first, used to record the
+// model's answer as the error message.
+func TestParseAccumulatedError_TruncatedFrameKeepsContentOut(t *testing.T) {
+	for _, data := range []string{
+		`{"error":null,"choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"error":"","choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"choices":[{"delta":{"content":"THE SECRET ANSWER"}}],"error":`,
+	} {
+		if got := parseAccumulatedError([]byte(data)); strings.Contains(got, "SECRET") {
+			t.Errorf("content escaped into the error message: %q", got)
+		}
 	}
 }
 
@@ -626,12 +645,12 @@ func TestParseAccumulatedError_NonAccumulated(t *testing.T) {
 		t.Errorf("expected empty string for non-JSON error, got %q", result)
 	}
 
-	// Test with JSON that doesn't match error formats - returns raw JSON
+	// JSON with no error member has no error message to report; returning the
+	// body would be reporting whatever else the provider put in it.
 	jsonData := []byte(`{"foo":"bar"}`)
 	result = parseAccumulatedError(jsonData)
-	// Function returns raw bytes if they start with { (heuristic for truncated JSON)
-	if result != `{"foo":"bar"}` {
-		t.Errorf("expected raw JSON string, got %q", result)
+	if result != "" {
+		t.Errorf("expected empty string for a body with no error member, got %q", result)
 	}
 }
 
