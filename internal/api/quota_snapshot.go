@@ -154,7 +154,7 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		h.ClearQuotaAdvice(ctx)
 		return
 	}
-	disc := newDiscoveryService()
+	disc := h.discoveryService()
 	for _, prov := range providers {
 		if !prov.Enabled {
 			continue
@@ -257,7 +257,7 @@ func (h *Handler) NudgeQuotaPoll(providerID uuid.UUID) {
 		return
 	}
 
-	disc := newDiscoveryService()
+	disc := h.discoveryService()
 	go func() {
 		pollCtx, pollCancel := context.WithTimeout(context.Background(), quotaNudgeTimeout)
 		defer pollCancel()

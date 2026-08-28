@@ -268,14 +268,10 @@ func TestGetOllamaCloudAccount_NonOllamaCloud(t *testing.T) {
 // TestGetProviderUsage_ZAICodingError tests that GetProviderUsage handles
 // z.ai API errors (note: z.ai returns 200 with error JSON for invalid keys).
 func TestGetProviderUsage_ZAICodingError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -337,14 +333,10 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 // LegacyTypeFromURL still routes purely by hostname, so the provider row's
 // base_url must be an api.kimi.com URL to select the kimi-code arm.
 func TestGetProviderUsage_KimiCodeError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -401,14 +393,10 @@ func TestGetProviderUsage_KimiCodeError(t *testing.T) {
 // TestGetProviderUsage_NanoGPTError tests that GetProviderUsage returns 500
 // when the NanoGPT API call fails with an invalid key.
 func TestGetProviderUsage_NanoGPTError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -464,14 +452,10 @@ func TestGetProviderUsage_NanoGPTError(t *testing.T) {
 // TestGetProviderUsage_OpenRouterError tests that GetProviderUsage returns 500
 // when the OpenRouter API call fails with an invalid key.
 func TestGetProviderUsage_OpenRouterError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -528,14 +512,10 @@ func TestGetProviderUsage_OpenRouterError(t *testing.T) {
 // TestGetProviderBalance_DeepSeekError tests that GetProviderBalance returns 500
 // when the DeepSeek API call fails with an invalid key.
 func TestGetProviderBalance_DeepSeekError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -591,14 +571,10 @@ func TestGetProviderBalance_DeepSeekError(t *testing.T) {
 // TestGetOllamaCloudAccount_Error tests that GetOllamaCloudAccount returns 500
 // when the Ollama Cloud API call fails with an invalid key.
 func TestGetOllamaCloudAccount_Error(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -657,12 +633,9 @@ func TestGetOllamaCloudAccount_Error(t *testing.T) {
 // written back as JSON. The mock transport intercepts the api.kimi.com request
 // so no real network call is made while LegacyTypeFromURL still routes by host.
 func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -726,14 +699,10 @@ func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
 // a 401 upstream response is classified by quotaAuthError into the
 // dependency-failure envelope rather than the generic 500 error path.
 func TestGetProviderUsage_MiniMaxError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -793,12 +762,9 @@ func TestGetProviderUsage_MiniMaxError(t *testing.T) {
 // The mock transport intercepts the api.minimax.io request so no real
 // network call is made while LegacyTypeFromURL still routes by host.
 func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -859,11 +825,9 @@ func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
 func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 	// DB-backed handler so the read-through cold-fill has a real quota store and
 	// the provider row satisfies the snapshot FK.
-	_, r := newTestHandlerWithRouter(t)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
+	h, r := newTestHandlerWithRouter(t)
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -896,12 +860,10 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 
 func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid NanoGPT JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -939,12 +901,10 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 
 func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid OpenRouter JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -995,12 +955,10 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 
 func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid DeepSeek JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1042,12 +1000,10 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 
 func TestGetOllamaCloudAccount_Success(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid Ollama Cloud JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1089,11 +1045,9 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 
 func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
+	h, r := newTestHandlerWithRouter(t)
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1131,11 +1085,9 @@ func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 
 func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
+	h, r := newTestHandlerWithRouter(t)
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1163,11 +1115,9 @@ func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
 
 func TestGetProviderUsage_NeuralWattError(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
-	_, r := newTestHandlerWithRouter(t)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
+	h, r := newTestHandlerWithRouter(t)
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1211,9 +1161,7 @@ func TestGetProviderUsage_ServesStoredSnapshot(t *testing.T) {
 
 	// Any upstream call means the read-through incorrectly fell through to a
 	// live fetch — fail loudly. This replaces the invented panicOnCallDiscovery.
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 				t.Fatalf("unexpected upstream call to %s", req.URL.String())
@@ -1261,9 +1209,7 @@ func TestGetProviderUsage_ColdLazyFill(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 				if strings.Contains(req.URL.Host, "nano-gpt.com") {

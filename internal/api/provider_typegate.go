@@ -95,7 +95,7 @@ func (h *Handler) confirmLocalServerType(w http.ResponseWriter, r *http.Request,
 		return true
 	}
 
-	identity, err := newDiscoveryService().IdentifyLocalServer(r.Context(), baseURL, apiKey)
+	identity, err := h.discoveryService().IdentifyLocalServer(r.Context(), baseURL, apiKey)
 	if err != nil {
 		if !errors.Is(err, provider.ErrLocalServerUnreachable) {
 			debuglog.Warn("provider: local server probe failed", "type", providerType, "error", err)

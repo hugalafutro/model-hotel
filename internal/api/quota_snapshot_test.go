@@ -183,9 +183,7 @@ func TestPollQuotasOnce_SuppressesWhenRecentFleetSnapshot(t *testing.T) {
 	}
 
 	called := false
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
 				called = true
@@ -218,9 +216,7 @@ func TestPollQuotasOnce_PollsWhenFleetSnapshotStale(t *testing.T) {
 		t.Fatalf("seed stale fleet snapshot: %v", err)
 	}
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(2) }
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(2) }
 
 	h.PollQuotasOnce(context.Background())
 
@@ -234,9 +230,7 @@ func TestPollQuotasOnce_UpsertsEnabledProviders(t *testing.T) {
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-poll", "https://api.nano-gpt.com/v1", true)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
 
 	h.PollQuotasOnce(context.Background())
 
@@ -274,9 +268,7 @@ func TestPollQuotasOnce_SkipsDisabled(t *testing.T) {
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-disabled", "https://api.nano-gpt.com/v1", false)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 				t.Fatalf("disabled provider should not trigger an upstream call to %s", req.URL.String())
@@ -1057,9 +1049,7 @@ func TestNudgeQuotaPoll_DebouncesRepeatOpens(t *testing.T) {
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-nudge-debounce", "https://api.nano-gpt.com/v1", true)
 
 	var admitted atomic.Int64
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		admitted.Add(1)
 		return nanoGPTPollDiscovery(7)
 	}
@@ -1095,9 +1085,7 @@ func TestNudgeQuotaPoll_SkipsProvidersWithNothingToPoll(t *testing.T) {
 			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nudge-"+c.name, c.baseURL, c.enabled)
 
 			var admitted atomic.Int64
-			orig := newDiscoveryService
-			defer func() { newDiscoveryService = orig }()
-			newDiscoveryService = func() *provider.DiscoveryService {
+			h.newDiscovery = func() *provider.DiscoveryService {
 				admitted.Add(1)
 				return nanoGPTPollDiscovery(1)
 			}
@@ -1123,9 +1111,7 @@ func TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading(t *testing.T) {
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-nudge", "https://api.z.ai/api/coding/paas/v4", true)
 
 	resetsAt := time.Now().Add(4 * time.Hour)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+	h.newDiscovery = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
 
 	h.NudgeQuotaPoll(id)
 
@@ -1169,9 +1155,7 @@ func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-repin", "https://api.z.ai/api/coding/paas/v4", true)
 
 	resetsAt := time.Now().Add(4 * time.Hour)
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
+	h.newDiscovery = func() *provider.DiscoveryService { return exhaustedZaiCodingDiscovery(resetsAt) }
 
 	// The advisor is empty until the nudge refreshes it, so this open is
 	// necessarily unpinned and lands on the 60s default cooldown.

@@ -13,15 +13,13 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// withDiscoveryAgainst points the package's discovery-service factory at a test
-// server for the duration of a test.
-func withDiscoveryAgainst(t *testing.T, client *http.Client) {
-	t.Helper()
-	orig := newDiscoveryService
-	newDiscoveryService = func() *provider.DiscoveryService {
+// withDiscoveryAgainst points one handler's discovery-service factory at a test
+// server. Scoped to the handler rather than the package, so tests that run in
+// parallel cannot overwrite each other's transport.
+func withDiscoveryAgainst(h *Handler, client *http.Client) {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		return provider.NewDiscoveryServiceWithHTTPClient(client)
 	}
-	t.Cleanup(func() { newDiscoveryService = orig })
 }
 
 func gateBody(t *testing.T, rec *httptest.ResponseRecorder) providerTypeGateResponse {
@@ -42,9 +40,9 @@ func TestConfirmLocalServerType_SkipsNonLocalTypes(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	h := &Handler{}
+	withDiscoveryAgainst(h, srv.Client())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
 	if !h.confirmLocalServerType(rec, req, "openai", "https://api.openai.com/v1", "") {
@@ -62,9 +60,9 @@ func TestConfirmLocalServerType_Match(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	h := &Handler{}
+	withDiscoveryAgainst(h, srv.Client())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
 	if !h.confirmLocalServerType(rec, req, "koboldcpp", srv.URL+"/v1", "") {
@@ -84,9 +82,9 @@ func TestConfirmLocalServerType_Mismatch(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	h := &Handler{}
+	withDiscoveryAgainst(h, srv.Client())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
 	if h.confirmLocalServerType(rec, req, "lmstudio", srv.URL+"/v1", "") {
@@ -114,9 +112,9 @@ func TestConfirmLocalServerType_Unconfirmed(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	h := &Handler{}
+	withDiscoveryAgainst(h, srv.Client())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
 	if h.confirmLocalServerType(rec, req, "ollama", srv.URL+"/v1", "") {
@@ -136,9 +134,9 @@ func TestConfirmLocalServerType_Unreachable(t *testing.T) {
 	url := srv.URL
 	client := srv.Client()
 	srv.Close()
-	withDiscoveryAgainst(t, client)
 
 	h := &Handler{}
+	withDiscoveryAgainst(h, client)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
 	if h.confirmLocalServerType(rec, req, "lmstudio", url+"/v1", "") {

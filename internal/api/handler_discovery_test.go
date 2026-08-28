@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -250,8 +251,7 @@ func TestRefreshAllQuotasIntegration(t *testing.T) {
 // Events Handler Tests
 
 func TestDiscoverProviderModels_Success(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-	_ = h // Use h to avoid unused variable error
+	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with OpenAI URL (will fail with test API key but tests the handler path)
 	providerData := fmt.Sprintf(`{"name": "test-discover-success-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
@@ -294,14 +294,9 @@ func TestDiscoverProviderModels_Success(t *testing.T) {
 
 func TestGetProviderUsage_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-	_ = h // Use h to avoid unused variable error
 
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -355,14 +350,9 @@ func TestGetProviderUsage_Success(t *testing.T) {
 
 func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-	_ = h // Use h to avoid unused variable error
 
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -848,14 +838,10 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 // Test for admin.go - CreateProvider_KeylessProvider
 
 func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1080,14 +1066,10 @@ func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
 // TestListProviders_WithSearchFilter tests the search filter functionality
 
 func TestGetProviderUsage_Error(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1171,15 +1153,13 @@ func TestGetProviderBalance_Error(t *testing.T) {
 // TestListProviders_WithPaginationAndModelCounts tests pagination query params
 
 func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// The point of the test is the unrecognised base URL, not the network: left
 	// to itself this resolved a name that does not exist and then retried,
 	// costing tens of seconds and depending on the runner's DNS. Must be
 	// overridden after newTestHandlerWithRouter, which installs its own factory.
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = unreachableDiscovery
+	h.newDiscovery = unreachableDiscovery
 
 	// Create a provider with a custom/self-hosted base URL
 	body := `{"name":"test-custom-provider","base_url":"https://custom.example.com","api_key":"sk-custom"}`
@@ -1352,11 +1332,9 @@ func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
 func TestGetProviderUsage_OpenRouterError_Integration(t *testing.T) {
 	// OpenRouter maps to the "usage" kind and is served from /usage. An upstream
 	// failure surfaces as a 500 from the read-through cold-fill.
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 				if strings.Contains(req.URL.Host, "openrouter.ai") {
@@ -1403,3 +1381,59 @@ func TestGetProviderUsage_OpenRouterError_Integration(t *testing.T) {
 }
 
 // TestListModels_WithModels tests listing models with provider_id filter
+
+// TestNewHandler_KeepsItsDiscoveryFactoryToItself pins the fix for a data race
+// that failed CI on master.
+//
+// NewHandler used to assign the PACKAGE-level newDiscoveryService, so building
+// a handler mutated global state. Two handlers built concurrently — which is
+// what parallel tests in this package do, several of them via newTestHandler —
+// raced on that write. Worse than the race: the last handler constructed won,
+// so in a process with more than one handler every discovery call used the last
+// one's SSRF dial and redirect hooks regardless of which handler served the
+// request.
+//
+// The factory now lives on the handler. This test fails on the old code at the
+// first assertion, and the concurrent subtest below trips -race there.
+func TestNewHandler_KeepsItsDiscoveryFactoryToItself(t *testing.T) {
+	before := fmt.Sprintf("%p", newDiscoveryService)
+	h := newTestHandler(t)
+	if got := fmt.Sprintf("%p", newDiscoveryService); got != before {
+		t.Errorf("NewHandler reassigned the package factory (%s -> %s); it must configure its own", before, got)
+	}
+	if h.newDiscovery == nil {
+		t.Fatal("handler has no discovery factory of its own")
+	}
+	if h.discoveryService() == nil {
+		t.Error("discoveryService() returned nil")
+	}
+
+	// A bare handler still resolves, via the package default: plenty of tests
+	// build &Handler{} directly and call discovery paths on it.
+	if (&Handler{}).discoveryService() == nil {
+		t.Error("a handler with no factory must fall back to the package default")
+	}
+}
+
+// TestNewHandler_ConcurrentConstructionIsRaceFree is the -race half. On the old
+// code this is the exact shape that failed: several goroutines in NewHandler,
+// all writing one package variable.
+func TestNewHandler_ConcurrentConstructionIsRaceFree(t *testing.T) {
+	const handlers = 4
+	var wg sync.WaitGroup
+	built := make([]*Handler, handlers)
+	for i := range handlers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			built[i] = newTestHandler(t)
+		}()
+	}
+	wg.Wait()
+
+	for i, h := range built {
+		if h == nil || h.newDiscovery == nil {
+			t.Fatalf("handler %d built without its own discovery factory", i)
+		}
+	}
+}
