@@ -39,9 +39,16 @@ type streamState struct {
 	promptCacheMissTokens int
 	chunkCount            int
 	errorChunkCount       int
-	lastErrMsg            string
-	sawDone               bool
-	sawMessageStop        bool // native Anthropic passthrough: terminal message_stop event seen
+	// unparsedChunks counts data frames the gateway could not unmarshal into a
+	// streamChunk. They are dropped rather than forwarded, so the caller does
+	// lose them — but the provider may have answered perfectly well in a shape
+	// this gateway's types do not cover (tool-call arguments as an object,
+	// content as an array of parts). The delivery accounting cannot see into
+	// such a frame, so it must not conclude the response was empty.
+	unparsedChunks int
+	lastErrMsg     string
+	sawDone        bool
+	sawMessageStop bool // native Anthropic passthrough: terminal message_stop event seen
 	// sawContent records that at least one non-empty content or reasoning delta
 	// reached the client. It is the only signal that a stream actually answered
 	// which does not depend on optional behaviour: usage chunks are omitted by
@@ -98,12 +105,29 @@ func providerAtFault(kind ErrorKind) bool {
 }
 
 // streamDeliveredOutput reports whether the caller actually received model
-// output. deliveredContent alone is not enough: st.sawContent is set by
-// observeDataChunk, which never runs on the native Anthropic passthrough, so on
-// that path a truncated stream that delivered thousands of tokens would look
-// empty. deliveredBytes is counted on both paths and is the honest signal.
-func streamDeliveredOutput(st *streamState, logData *requestLogData) bool {
-	return logData.deliveredContent || st.deliveredBytes > 0 || st.completionTokens > 0
+// output, from the signals that answer that question and only those:
+//
+//   - st.sawContent — a non-empty content or reasoning delta reached the client.
+//   - st.deliveredBytes — the bytes of content, reasoning, reasoning_details and
+//     tool-call arguments the model produced. Counted on BOTH the translated and
+//     the native Anthropic path, so it is the one signal that catches a native
+//     stream which really did deliver.
+//   - st.completionTokens — the provider reported usage even if this gateway
+//     never parsed content out of the deltas.
+//
+// Deliberately NOT logData.deliveredContent, and deliberately NOT
+// st.sawMessageStop. deliveredContent is derived as sawContent||sawMessageStop
+// for the RETIREMENT verdict, where a terminal message_stop is allowed to stand
+// in for "the model answered". Here it cannot: message_stop is a TERMINATION
+// signal, present on every native stream that ends cleanly, including one that
+// ended having produced nothing. Reading it as delivery is what let a completely
+// empty /v1/messages response escape the charge entirely.
+//
+// A tool call is output. So is reasoning. The cost of missing one of these is a
+// charge against a provider that answered correctly, which after five requests
+// takes it out of rotation for every tenant — so this errs toward "delivered".
+func streamDeliveredOutput(st *streamState) bool {
+	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0
 }
 
 // judgeStreamForBreaker decides what a finished stream tells the circuit
@@ -118,11 +142,13 @@ func streamDeliveredOutput(st *streamState, logData *requestLogData) bool {
 // therefore inert in production. Move a success back to the probe and they go
 // inert again.
 //
-// Failure has two shapes. A stall is the provider going silent; an error is the
-// provider saying it failed. The stall charge is unconditional (as it has always
-// been), but an error is only charged when the caller received nothing: a stream
-// that delivered real output before dying did part of its job, and charging it
-// would break the circuit on every truncated-but-useful response.
+// Failure has three shapes. A stall is the provider going silent; an error is
+// the provider saying it failed; an empty finish is the provider completing
+// having said nothing at all. The stall charge is unconditional (as it has
+// always been); the other two are charged only when the caller received
+// nothing, because a stream that delivered real output before dying did part of
+// its job and charging it would break the circuit on every
+// truncated-but-useful response.
 //
 // The error charge matters because the probe has already committed to this
 // provider by the time a later frame turns out to be an error, and the hedged
@@ -134,10 +160,35 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 		return streamBreakerVerdict{}
 	}
 	if errMsg == "" {
+		// A clean finish still has to have finished something. A stream that
+		// got past the probe, completed without error and handed the caller
+		// nothing is a completely empty response, and counts against the
+		// provider rather than clearing its failures — which is what recording
+		// a success here used to do.
+		//
+		// The probe catches the stream that never produced a chunk; this is its
+		// sibling, the one that produced frames carrying no output and was
+		// already committed to by the time that became clear.
+		//
+		// unparsedChunks holds the charge back: those frames were dropped by
+		// THIS gateway's parser, not left out by the provider, so their contents
+		// are unknown and emptiness cannot be pinned on the upstream. Recording
+		// nothing is the honest verdict — neither a charge nor a credit.
+		if st.unparsedChunks > 0 {
+			return streamBreakerVerdict{}
+		}
+		if !streamDeliveredOutput(st) {
+			return streamBreakerVerdict{failureReason: "stream completed without delivering content"}
+		}
 		// Includes the stream whose absent [DONE] was injected above: the
 		// sentinel was missing, the answer was not.
 		return streamBreakerVerdict{success: true}
 	}
+	// Reached only with a non-empty errMsg, so errorKind is always set:
+	// deriveStreamError writes the two together. The clean-finish charge above
+	// sits ABOVE this gate deliberately — it has no errMsg and therefore no
+	// kind, and the two non-provider causes that could reach it (interrupted,
+	// clientDisconnected) are already short-circuited at the top.
 	if !providerAtFault(logData.errorKind) {
 		return streamBreakerVerdict{}
 	}
@@ -147,7 +198,7 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	if st.stalled && !st.sawDone && !st.sawMessageStop {
 		return streamBreakerVerdict{failureReason: "stream stalled"}
 	}
-	if !streamDeliveredOutput(st, logData) {
+	if !streamDeliveredOutput(st) {
 		return streamBreakerVerdict{failureReason: "stream failed without delivering content"}
 	}
 	return streamBreakerVerdict{}

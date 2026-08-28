@@ -653,11 +653,9 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterEmptyStream(t *testing.T
 	}
 }
 
-// An empty stream loses the race exactly as an error frame does, but is NOT
-// charged to the breaker. Whether a model emits anything depends on the prompt,
-// which the caller controls, so charging it would let one virtual key blackhole
-// a healthy provider for every tenant.
-func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
+// An empty stream loses the race exactly as an error frame does, and is charged
+// exactly as one too: a zero-token answer is not a valid answer.
+func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 	withBreakerThresholdOne(t, h)
@@ -682,9 +680,9 @@ func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
 	if res.reqErr.Kind != KindProviderError {
 		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
 	}
-	// Threshold is 1 here, so a single charge would show immediately.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got == failover.StateOpen {
-		t.Error("an empty stream must not break the circuit: the prompt, not the provider, decides whether a model emits anything")
+	// Threshold is 1 here, so a single charge shows immediately.
+	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: a provider that produced nothing is charged", got)
 	}
 }
 
@@ -865,4 +863,328 @@ func TestRecoverFirstToken(t *testing.T) {
 			})
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// A completely empty response counts against the provider. A zero-token answer
+// is not a valid one in almost any real use, and a caller deliberately coercing
+// a model into silence is not a case worth protecting a provider from. Decided
+// 2026-08-28, reversing the narrower call made when the empty-stream guard
+// first shipped.
+//
+// Two paths produce a completely empty response and both charge:
+//   - the stream never produced a chunk at all (caught by the probe)
+//   - the stream produced frames but delivered no output (caught by the
+//     finalizer, after the provider was already committed to)
+// ---------------------------------------------------------------------------
+
+func TestClassifyProbeError_ChargesAnEmptyStream(t *testing.T) {
+	re, charged := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), false, time.Second, 30*time.Second, 60*time.Second, 1)
+	if !charged {
+		t.Error("a stream that produced nothing must be charged to the provider")
+	}
+	if re.Kind != KindProviderError {
+		t.Errorf("kind = %s, want %s", re.Kind, KindProviderError)
+	}
+	// A client hanging up cannot excuse it either: the provider had already
+	// finished saying nothing.
+	if _, chargedGone := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1); !chargedGone {
+		t.Error("an empty stream must be charged even when the client is gone")
+	}
+}
+
+// The finalizer half: a stream that got past the probe, completed cleanly, and
+// still handed the caller nothing. Previously recorded as a SUCCESS, which
+// actively cleared any accumulated failures for that provider.
+func TestJudgeStreamForBreaker_CompletedButEmptyIsCharged(t *testing.T) {
+	st := &streamState{sawDone: true}
+	logData := &requestLogData{}
+	v := judgeStreamForBreaker(st, logData, "", true)
+	if v.failureReason == "" {
+		t.Error("a stream that completed having delivered nothing must be charged")
+	}
+	if v.success {
+		t.Error("an empty stream must not be recorded as a success")
+	}
+}
+
+// The guard that keeps the above from swallowing every ordinary stream: any
+// evidence the caller actually received output means success, and the three
+// signals are checked because no single one is available on every path.
+func TestJudgeStreamForBreaker_DeliveredStreamsStillSucceed(t *testing.T) {
+	for name, tc := range map[string]struct {
+		st      *streamState
+		logData *requestLogData
+	}{
+		"content seen":    {&streamState{sawDone: true, sawContent: true}, &requestLogData{}},
+		"bytes delivered": {&streamState{sawDone: true, deliveredBytes: 42}, &requestLogData{}},
+		"usage reported":  {&streamState{sawDone: true, completionTokens: 7}, &requestLogData{}},
+		// The native Anthropic path never runs observeDataChunk, so sawContent
+		// is unreachable there; deliveredBytes (from the event's TextBytes) is
+		// what proves it answered.
+		"anthropic delivered": {&streamState{sawMessageStop: true, deliveredBytes: 120}, &requestLogData{deliveredContent: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			v := judgeStreamForBreaker(tc.st, tc.logData, "", true)
+			if v.failureReason != "" {
+				t.Errorf("charged %q, want a success", v.failureReason)
+			}
+			if !v.success {
+				t.Error("a stream that delivered output must be recorded as a success")
+			}
+		})
+	}
+}
+
+// A client that hangs up before anything arrives is not the provider's doing,
+// and must not charge it under the new rule either.
+func TestJudgeStreamForBreaker_EmptyOnClientHangupIsNotCharged(t *testing.T) {
+	for name, st := range map[string]*streamState{
+		"client hung up":     {clientDisconnected: true},
+		"gateway restarting": {interrupted: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			v := judgeStreamForBreaker(st, &requestLogData{}, "", true)
+			if v.failureReason != "" {
+				t.Errorf("charged %q, want no charge", v.failureReason)
+			}
+		})
+	}
+}
+
+// End to end at the production default threshold, through the real probe: five
+// providers-that-say-nothing take the provider out of rotation.
+func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	providerID := uuid.New()
+	const attempts = 5
+	for i := range attempts {
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(emptyStreamSSE)),
+		}
+		logData := streamingLog()
+		logData.providerName = "empty-provider"
+		h.insertRequestLogAsync(logData)
+
+		st := &requestState{
+			startTime:             time.Now(),
+			reqModel:              "test-model",
+			isStreaming:           true,
+			circuitBreakerEnabled: true,
+			logData:               logData,
+		}
+		cand := modelCandidate{
+			model:    &model.Model{ModelID: "test-model"},
+			provider: &provider.Provider{ID: providerID, Name: "empty-provider"},
+			apiKey:   "sk-test",
+		}
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeFailover {
+			t.Fatalf("attempt %d: outcome = %v, want failover", i, got)
+		}
+	}
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
+	}
+}
+
+// A tool call IS output. A completion whose only product is a function call has
+// answered — that is the whole point of tool use — and must never be charged as
+// an empty response, or a provider answering correctly would be taken out of
+// rotation for every tenant after five such requests.
+//
+// Driven through the real streaming pipeline rather than a hand-built
+// streamState, because the thing under test is whether the pipeline's own
+// accounting (observeDataChunk -> deliveredBytes) registers tool calls at all.
+func TestHandleStreamingResponse_ToolCallOnlyIsNotAnEmptyResponse(t *testing.T) {
+	streams := map[string]string{
+		// Tool calls arrive incrementally: the name in one chunk, argument
+		// fragments after it. No content delta appears anywhere.
+		"tool call in fragments": "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"city\\\":\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"\\\"Prague\\\"}\"}}]}}]}\n\n" +
+			"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+		// Reasoning with no visible content is output too.
+		"reasoning only": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking about it\"}}]}\n\ndata: [DONE]\n\n",
+	}
+	for name, body := range streams {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "tool-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "tool-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if logData.state != "completed" {
+				t.Errorf("state = %q, want completed", logData.state)
+			}
+			// Threshold is 1, so a single stray charge shows immediately.
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Error("a completion whose only output is a tool call or reasoning is not empty and must not break the circuit")
+			}
+		})
+	}
+}
+
+// The counterpart: a stream carrying frames that deliver nothing at all really
+// is empty, and is charged. Without this the guard above could be satisfied by
+// simply never charging.
+func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	logData := streamingLog()
+	logData.providerName = "silent-provider"
+	h.insertRequestLogAsync(logData)
+
+	// A role delta and a finish reason: well-formed frames, zero output.
+	body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
+		"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10,
+		providerID:       providerID,
+		providerName:     "silent-provider",
+		circuitBreakerOn: true,
+		vkHash:           "test-hash",
+		attempt:          1,
+	})
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: the caller received nothing", got)
+	}
+}
+
+// message_stop is a TERMINATION signal, not a delivery one: it is present on
+// every native stream that ends cleanly, including one that ended having
+// produced nothing. Treating it as delivery let a completely empty
+// /v1/messages response escape the charge entirely.
+func TestJudgeStreamForBreaker_EmptyNativeStreamIsCharged(t *testing.T) {
+	st := &streamState{sawMessageStop: true}
+	// What finalizeStream derives for the retirement verdict, where
+	// message_stop IS allowed to stand in for "the model answered". The breaker
+	// verdict must not inherit that.
+	logData := &requestLogData{deliveredContent: true}
+
+	v := judgeStreamForBreaker(st, logData, "", true)
+	if v.failureReason == "" {
+		t.Error("a native stream that terminated having delivered nothing must be charged")
+	}
+	if v.success {
+		t.Error("message_stop alone must not be recorded as a success")
+	}
+}
+
+// A frame this gateway could not parse is not evidence the provider sent
+// nothing — it may have answered in a shape our types do not cover (tool-call
+// arguments as an object, content as an array of parts). The contents are
+// unknown, so the verdict is neither a charge nor a credit.
+func TestJudgeStreamForBreaker_UnparseableFramesWithholdTheVerdict(t *testing.T) {
+	st := &streamState{sawDone: true, unparsedChunks: 1}
+	v := judgeStreamForBreaker(st, &requestLogData{}, "", true)
+	if v.failureReason != "" {
+		t.Errorf("charged %q: emptiness cannot be pinned on the provider when our own parser dropped a frame", v.failureReason)
+	}
+	if v.success {
+		t.Error("an unreadable stream is not evidence of health either")
+	}
+}
+
+// The reasoning spellings the observers never saw. normalizeReasoningChunk
+// rewrites "reasoning" and "reasoning_details" into reasoning_content for the
+// client, but it runs AFTER the observers — so the caller received a real
+// answer while the accounting saw nothing, and the provider was charged for it.
+func TestHandleStreamingResponse_ReasoningSpellingsAreDelivery(t *testing.T) {
+	for name, body := range map[string]string{
+		"reasoning_content": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\ndata: [DONE]\n\n",
+		"reasoning":         "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"thinking hard\"}}]}\n\ndata: [DONE]\n\n",
+		"reasoning_details": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"thinking\"}]}}]}\n\ndata: [DONE]\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "reasoning-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "reasoning-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Errorf("a reasoning answer spelled %q is output and must not break the circuit", name)
+			}
+		})
+	}
+}
+
+// A chunk this gateway's types cannot represent: the provider answered, we
+// dropped the frame, and the provider must not be charged for our parser.
+func TestHandleStreamingResponse_UnparseableChunkDoesNotCharge(t *testing.T) {
+	for name, body := range map[string]string{
+		"tool arguments as an object": "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"name\":\"f\",\"arguments\":{\"city\":\"Prague\"}}}]}}]}\n\ndata: [DONE]\n\n",
+		"content as parts":            "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}]}\n\ndata: [DONE]\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "wide-shape-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "wide-shape-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Error("a frame our own parser dropped must not be charged to the provider")
+			}
+		})
+	}
 }
