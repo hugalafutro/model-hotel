@@ -756,3 +756,47 @@ func TestClassifyProbeFrame(t *testing.T) {
 		})
 	}
 }
+
+// recoverProbeFrame is the scanner-error recovery branch's decision, lifted out
+// so it can be tested. The branch itself needs the watchdog to close the body in
+// the same instant the scanner yields a line, which no test can arrange
+// deterministically — see TestProbeFirstToken_ScannerErrorRecovery_PipeRace.
+// Before the extraction, every verdict that branch could reach was untested and
+// a revert of it left the whole package green.
+func TestRecoverProbeFrame(t *testing.T) {
+	tests := []struct {
+		name    string
+		buf     string
+		want    probeFrame
+		wantMsg string
+		found   bool
+	}{
+		{"a real token", "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
+		{"terminator only", "data: [DONE]\n", probeFrameEmptyStream, "", true},
+		{"error envelope", "data: {\"error\":{\"message\":\"boom\"}}\n", probeFrameError, "boom", true},
+		{"empty field then token", "data:\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		{"empty field then terminator", "data:\ndata: [DONE]\n", probeFrameEmptyStream, "", true},
+		{"keepalive then token", ": ping\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		// A mid-line network fragment has no trailing newline in the buffer and
+		// must not be mistaken for a complete frame.
+		{"partial line rejected", "data: {\"choices\":[{\"delta\":", probeFrameNotAToken, "", false},
+		{"nothing usable", ": ping\nevent: message\n", probeFrameNotAToken, "", false},
+		{"empty buffer", "", probeFrameNotAToken, "", false},
+		// The first meaningful frame decides, not the last.
+		{"first frame wins", "data: [DONE]\ndata: {\"choices\":[]}\n", probeFrameEmptyStream, "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict, msg, found := recoverProbeFrame(tc.buf)
+			if found != tc.found {
+				t.Fatalf("found = %v, want %v", found, tc.found)
+			}
+			if verdict != tc.want {
+				t.Errorf("verdict = %d, want %d", verdict, tc.want)
+			}
+			if msg != tc.wantMsg {
+				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
+			}
+		})
+	}
+}

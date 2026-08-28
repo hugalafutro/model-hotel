@@ -459,6 +459,37 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 	return probeFrameToken, ""
 }
 
+// recoverProbeFrame finds the first COMPLETE, meaningful SSE data line in a
+// probe buffer and classifies it. found is false when the buffer holds none.
+//
+// Extracted from probeFirstToken's scanner-error recovery branch so the logic
+// can be tested at all: that branch needs the watchdog to close the body in the
+// same instant the scanner yields a line, which no test can arrange
+// deterministically. The decision is testable even where the path is not.
+func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
+	for rawLine := range strings.SplitSeq(bufStr, "\n") {
+		l := strings.TrimSpace(rawLine)
+		if !strings.HasPrefix(l, "data:") {
+			continue
+		}
+		// Reject partial lines: a complete SSE line must be followed by \n in
+		// the buffer. Without this guard a mid-line network fragment like
+		// "data: hel" (no \n) would pass HasPrefix but represent malformed data.
+		if !strings.Contains(bufStr, rawLine+"\n") {
+			continue
+		}
+		// Same classifier as the main loop, so a frame recovered from the buffer
+		// is judged exactly as one read straight off the scanner.
+		v, m := classifyProbeFrame(strings.TrimSpace(strings.TrimPrefix(l, "data:")))
+		if v == probeFrameNotAToken {
+			// Carries nothing; keep looking for a frame that does.
+			continue
+		}
+		return v, m, true
+	}
+	return probeFrameNotAToken, "", false
+}
+
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
@@ -598,40 +629,24 @@ func (h *Handler) probeFirstToken(
 		// returning success would give the caller a closed body, causing
 		// handleStreamingResponse to truncate the stream after buffer replay.
 		if probeCtx.Err() == nil {
-			probeSucceeded.Store(true) // mirror line 1680: store before any processing
-			bufStr := buf.String()
-			for rawLine := range strings.SplitSeq(bufStr, "\n") {
-				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
-					// Reject partial lines: a complete SSE line must be
-					// followed by \n in the buffer. Without this guard a
-					// mid-line network fragment like "data: hel" (no \n)
-					// would pass HasPrefix but represent malformed data.
-					if !strings.Contains(bufStr, rawLine+"\n") {
-						continue
-					}
-					// Same classifier as the main loop, so a frame recovered
-					// from the buffer is judged exactly as one read straight
-					// off the scanner. Every outcome logs, including the ones
-					// that refuse: this branch is unreachable from any test, so
-					// the log is the only way an operator learns it fired.
-					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
-					switch verdict, msg := classifyProbeFrame(content); verdict {
-					case probeFrameNotAToken:
-						// Carries nothing; keep looking for a frame that does.
-						continue
-					case probeFrameEmptyStream:
-						debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
-						return nil, 0, &emptyStreamError{}
-					case probeFrameError:
-						// Text withheld for the same reason as the main loop.
-						debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
-						return nil, 0, &upstreamFrameError{msg: msg}
-					case probeFrameToken:
-						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
-						return &buf, ttft, nil
-					}
-				}
+			probeSucceeded.Store(true) // mirror the main loop: store before any processing
+			// Every outcome logs, including the ones that refuse. This branch
+			// cannot be reached from a test (see
+			// TestProbeFirstToken_ScannerErrorRecovery_PipeRace), so the log is
+			// the only way an operator ever learns it fired.
+			verdict, msg, found := recoverProbeFrame(buf.String())
+			switch {
+			case found && verdict == probeFrameEmptyStream:
+				debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
+				return nil, 0, &emptyStreamError{}
+			case found && verdict == probeFrameError:
+				// Text withheld for the same reason as the main loop.
+				debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
+				return nil, 0, &upstreamFrameError{msg: msg}
+			case found:
+				ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+				debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+				return &buf, ttft, nil
 			}
 		}
 		if probeCtx.Err() == context.DeadlineExceeded {
