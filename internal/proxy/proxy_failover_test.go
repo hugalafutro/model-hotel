@@ -715,6 +715,14 @@ func TestForwardUpstreamError_Non2xxWithoutErrorObjectGetsEnvelope(t *testing.T)
 		"empty error list":      `{"id":"chatcmpl_u5tt67g6rmf","error":[]}`,
 		"not an object":         `["upstream said no"]`,
 		"not json at all":       `<html><body>400 Bad Request</body></html>`,
+		// The C convention: an "error" member reporting there wasn't one. The
+		// body may still carry detail, but not where a client reads `.error`,
+		// which is the same position as any other body without an error member.
+		"false error": `{"id":"chatcmpl_u5tt67g6rmf","error":false,"message":"context_length_exceeded"}`,
+		"zero error":  `{"id":"chatcmpl_u5tt67g6rmf","error":0}`,
+		// The same convention one level down: a relay's no-error struct.
+		"zeroed error struct": `{"error":{"code":0,"message":"","type":""}}`,
+		"all-null error":      `{"error":{"code":null,"message":null,"type":null}}`,
 	}
 
 	for name, upstreamBody := range bodies {

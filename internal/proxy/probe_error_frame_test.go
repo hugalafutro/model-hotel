@@ -427,41 +427,43 @@ func withBreakerThresholdOne(t *testing.T, h *Handler) {
 // the existing tests document as impossible to trigger deterministically
 // (see TestProbeFirstToken_ScannerErrorRecovery_PipeRace). Testing the decision
 // covers both callers of it.
+// It is driven from errorFrameCorpus rather than a table of its own. The whole
+// point of the shared emptiness rule is that the probe and the stream observer
+// cannot disagree about a shape, and two hand-maintained tables is precisely
+// how they would: a shape added to one and not the other reintroduces the drift
+// by the back door. Only payloads that are not JSON objects at all are listed
+// here, because the corpus is a corpus of frames.
 func TestErrorEnvelopeMessage(t *testing.T) {
-	tests := []struct {
-		name    string
-		frame   string
-		wantMsg string
-		wantOk  bool
-	}{
-		{"provider error", `{"error":{"message":"boom"}}`, "boom", true},
-		{"anthropic error event", `{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}`, "overloaded", true},
-		// Ollama answers with a bare string. carriesErrorObject has always
-		// counted that as an error; the first version of this check unmarshalled
-		// the frame into a streamChunk, which fails outright on this shape, so a
-		// local Ollama box in a hedged group reproduced the whole incident.
-		{"ollama bare string", `{"error":"model not found"}`, "model not found", true},
-		{"object without a message", `{"error":{"code":500}}`, `{"code":500}`, true},
-		{"ordinary token", `{"choices":[{"delta":{"content":"hi"}}]}`, "", false},
-		{"explicit null error", `{"error":null,"choices":[]}`, "", false},
-		{"unparseable frame", `{not json`, "", false},
-		// Empty of every shape leaves a caller nothing to read, so it is not an
-		// error frame — the same judgement carriesErrorObject makes.
-		{"empty error object", `{"error":{}}`, "", false},
-		{"empty error string", `{"error":""}`, "", false},
-		{"empty error list", `{"error":[]}`, "", false},
-		{"json array", `[1,2,3]`, "", false},
-	}
-	for _, tc := range tests {
+	for _, tc := range errorFrameCorpus {
 		t.Run(tc.name, func(t *testing.T) {
-			msg, ok := errorEnvelopeMessage(tc.frame)
-			if ok != tc.wantOk {
-				t.Fatalf("ok = %v, want %v (msg %q)", ok, tc.wantOk, msg)
+			msg, ok := errorEnvelopeMessage(tc.payload)
+			if ok != tc.isError {
+				t.Fatalf("ok = %v, want %v (msg %q)", ok, tc.isError, msg)
 			}
 			if msg != tc.wantMsg {
 				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
 			}
 		})
+	}
+
+	// A frame with no object to hold a member at all.
+	for _, frame := range []string{`{not json`, `[1,2,3]`, `"a string"`, ``} {
+		t.Run("not an object: "+frame, func(t *testing.T) {
+			if msg, ok := errorEnvelopeMessage(frame); ok {
+				t.Errorf("ok = true (msg %q), want false", msg)
+			}
+		})
+	}
+}
+
+// The Anthropic wrapper is the same member one level in, and the probe reads it
+// through the same rule. It is not in the corpus because the observer sees this
+// shape through the P1-C branch instead, keyed on the preceding "event: error"
+// line rather than on the member.
+func TestErrorEnvelopeMessage_AnthropicWrapper(t *testing.T) {
+	msg, ok := errorEnvelopeMessage(`{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}`)
+	if !ok || msg != "overloaded" {
+		t.Errorf("got (%q, %v), want (overloaded, true)", msg, ok)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
@@ -116,13 +117,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}
 
 	// Flush any remaining accumulated error bytes at stream end.
-	if len(st.errAccum) > 0 {
-		if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
-			st.lastErrMsg = accumulatedMsg
-			st.errorChunkCount++
-			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", reader.chunkCount)
-		}
-	}
+	st.flushAccumulatedError("proxy: accumulated SSE error (stream end)", reader.chunkCount, logData)
 
 logUpdate:
 	// Stop the watchdog before reading its stall flag, matching the prior
@@ -224,7 +219,7 @@ func (h *Handler) emitComment(sink *streamSink, st *streamState, ev sseEvent, ch
 	}
 	// Flush any accumulated error when a non-data line arrives
 	// (the error payload has already been captured in the data line).
-	st.flushAccumulatedError(chunkCount, logData)
+	st.flushAccumulatedError("proxy: accumulated SSE error", chunkCount, logData)
 	if err := sink.write(line); err != nil {
 		st.clientDisconnected = true
 		debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
@@ -361,7 +356,17 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		if chunk.Error != nil {
+		// util.ErrorMemberCarries, not the member's mere presence. The regex runs
+		// over the WHOLE frame, and it can match prose — so on a frame that is
+		// not really an error it rewrites the model's answer. "error":null
+		// alongside a delta is an ordinary per-frame shape for several
+		// relays, and gating on presence redacted a key-shaped token out of
+		// the content those frames carry: an assistant explaining an AIza… or
+		// a Bearer header had its answer altered mid-stream. That is a worse
+		// failure than missing the third masking layer on a frame whose error
+		// member is empty, where the credential could only be in the content
+		// the regex must not touch anyway.
+		if util.ErrorMemberCarries(chunk.Error) {
 			masked = maskKeyShapedTokens(masked)
 		}
 		if string(masked) != payload {
@@ -436,20 +441,21 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	}
 	if !written && !jsonValid {
 		// Drop invalid/truncated JSON instead of forwarding broken bytes.
-		preview := payload
-		if len(preview) > 80 {
-			runes := []rune(preview)
-			if len(runes) > 80 {
-				preview = string(runes[:80]) + "..."
-			}
-		}
+		//
+		// The size, not the bytes. This used to log an 80-rune preview of the
+		// payload, and the commonest reason a frame fails to parse is that the
+		// stream was cut mid-delta — so the preview was the model's answer,
+		// written into the app log, the live viewer and the OTLP export. The
+		// length is what an operator can act on ("frames are arriving
+		// truncated"); the content is the provider's to keep.
+		//
 		// Counted so the end-of-stream verdict knows its view of what was
 		// delivered is incomplete, and does not charge the provider for an
 		// emptiness it cannot actually vouch for.
 		st.unparsedChunks++
 		debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
 			"model", logData.modelID, "provider", logData.providerName,
-			"chunk_number", chunkCount, "payload_preview", preview)
+			"chunk_number", chunkCount, "payload_bytes", len(payload))
 		sink.swallowBlank = true
 		return false
 	}

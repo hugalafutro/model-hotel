@@ -141,7 +141,7 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 		if info.ErrorMessage != "" {
 			st.lastErrMsg = info.ErrorMessage
 			st.errorChunkCount++
-			debuglog.Warn("proxy: native anthropic SSE error event", "error_message", info.ErrorMessage, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			debuglog.Warn("proxy: native anthropic SSE error event", "error_message", st.errLogAttr(info.ErrorMessage), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
 	line := ev.raw

@@ -1,6 +1,10 @@
 package anthropic
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
+)
 
 // RewriteModel rewrites the top-level "model" field of an Anthropic Messages
 // request body to the resolved upstream model id, leaving every other field
@@ -180,9 +184,13 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 			Usage *antUsage `json:"usage"`
 		} `json:"message"`
 		Usage *antUsage `json:"usage"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
+		// json.RawMessage, not a typed object: a relay is free to send a bare
+		// string here, and a typed field failed the WHOLE event unmarshal — so
+		// the event lost its type too, the error went uncounted, and the frame
+		// was forwarded to the caller with no key-shape masking at all,
+		// credential included. util.ErrorMemberCarries is the same rule the
+		// OpenAI-compatible path reads this member with.
+		Error json.RawMessage `json:"error"`
 		Delta *struct {
 			Text        string `json:"text"`
 			Thinking    string `json:"thinking"`
@@ -211,8 +219,8 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 			info.OutputTokens, info.HasOutput = ev.Usage.OutputTokens, true
 		}
 	case "error":
-		if ev.Error != nil {
-			info.ErrorMessage = ev.Error.Message
+		if util.ErrorMemberCarries(ev.Error) {
+			info.ErrorMessage = util.ErrorMemberMessage(ev.Error)
 		}
 	case "content_block_delta":
 		if ev.Delta != nil {

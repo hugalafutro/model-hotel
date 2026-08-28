@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -229,15 +228,6 @@ func (m credentialMasker) maskExact(body []byte) []byte {
 	return body
 }
 
-// maskKeyShapedTokens scrubs credential-looking substrings from upstream error
-// text before it reaches a client or the request log. Auth-class errors never
-// forward at all, and credentialMasker has already removed this gateway's own
-// key by exact value; this is the third layer, for a provider quoting some
-// other credential inside an otherwise forwardable payload error. A match with no
-// digit in it is an identifier or prose ("sk_business_unit_identifier",
-// "Bearer authentication-required") rather than a credential, and stays -
-// real keys carry digits. The replacement carries no JSON metacharacters, so
-// a valid body stays valid.
 // exactMaskWriter applies credentialMasker.maskExact to a byte stream whose
 // writes may split the key: it holds back the last len(key)-1 bytes of each
 // write until the next one arrives, so a key straddling two writes is still
@@ -282,6 +272,15 @@ func (e *exactMaskWriter) Flush() error {
 	return err
 }
 
+// maskKeyShapedTokens scrubs credential-looking substrings from upstream error
+// text before it reaches a client or the request log. Auth-class errors never
+// forward at all, and credentialMasker has already removed this gateway's own
+// key by exact value; this is the third layer, for a provider quoting some
+// other credential inside an otherwise forwardable payload error. A match with no
+// digit in it is an identifier or prose ("sk_business_unit_identifier",
+// "Bearer authentication-required") rather than a credential, and stays -
+// real keys carry digits. The replacement carries no JSON metacharacters, so
+// a valid body stays valid.
 func maskKeyShapedTokens(body []byte) []byte {
 	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
 		if !bytes.ContainsAny(m, "0123456789") {
@@ -295,39 +294,14 @@ func maskKeyShapedTokens(body []byte) []byte {
 // "error" member that actually carries something, which is what decides between
 // forwarding that body verbatim and synthesising an envelope over it.
 //
-// The test is emptiness, not shape. What a provider puts inside its error is not
-// this gateway's to judge, so any populated value counts: an object with fields,
-// Ollama's bare string ("model not found"), a list, even a number. What does not
-// count is a member that leaves a client with nothing to read - `null`, `{}`,
-// `""`, `[]` - because a body carrying one of those is, from the caller's side,
-// the same body with no error member at all, which is exactly the case this
-// function exists to catch. A body that is not a JSON object (an array, a bare
-// string, HTML) can carry no member and reports false.
+// util.ErrorMemberCarries holds the rule and documents it: emptiness, not shape,
+// applied at every depth, with `false` and `0` counting as empty like every
+// other zero value. A body that is not a JSON object (an array, a bare string,
+// HTML) can carry no member and reports false.
 func carriesErrorObject(body []byte) bool {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
-	raw, present := envelope["error"]
-	if !present {
-		return false
-	}
-	var content any
-	if err := json.Unmarshal(raw, &content); err != nil {
-		return false
-	}
-	switch v := content.(type) {
-	case nil:
-		return false
-	case string:
-		return strings.TrimSpace(v) != ""
-	case map[string]any:
-		return len(v) > 0
-	case []any:
-		return len(v) > 0
-	default:
-		// A number or a bool: peculiar, but the provider put a value there and
-		// a client can render it.
-		return true
-	}
+	return util.ErrorMemberCarries(envelope["error"])
 }

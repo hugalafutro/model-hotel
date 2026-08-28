@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -527,11 +528,64 @@ func TestParseAccumulatedError_AnthropicOverloaded(t *testing.T) {
 	}
 }
 
+// A truncated member yields its own bytes — the best that can be said about
+// bytes nothing can parse — and not the frame that wrapped it.
 func TestParseAccumulatedError_TruncatedJSON(t *testing.T) {
 	data := []byte(`{"error":{"message":"Rate limi`)
 	got := parseAccumulatedError(data)
-	if got != `{"error":{"message":"Rate limi` {
-		t.Errorf("parseAccumulatedError(truncated JSON) = %q, want raw string", got)
+	if got != `{"message":"Rate limi` {
+		t.Errorf("parseAccumulatedError(truncated JSON) = %q, want the member's bytes", got)
+	}
+}
+
+// The reason the member is read rather than the payload: a frame cut off
+// mid-content, on a provider that puts "error" first, used to record the
+// model's answer as the error message.
+func TestParseAccumulatedError_TruncatedFrameKeepsContentOut(t *testing.T) {
+	for _, data := range []string{
+		`{"error":null,"choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"error":"","choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"choices":[{"delta":{"content":"THE SECRET ANSWER`,
+		`{"choices":[{"delta":{"content":"THE SECRET ANSWER"}}],"error":`,
+		// Not truncated — MALFORMED. A raw tab in the provider's error string
+		// is enough (JSON forbids it unescaped), and so is an ANSI escape from
+		// a local server echoing stderr. The decode fails in the same place a
+		// truncation does, but here the bytes after the member really are the
+		// rest of the frame.
+		"{\"error\":\"rate limit\thit\",\"choices\":[{\"delta\":{\"content\":\"THE SECRET ANSWER\"}}]}",
+		"{\"error\":\"\x1b[31mred\",\"choices\":[{\"delta\":{\"content\":\"THE SECRET ANSWER\"}}]}",
+		`{"error":"bad \q escape","choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
+		`{"error":NaN,"choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
+		`{"error":'single',"choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
+	} {
+		if got := parseAccumulatedError([]byte(data)); strings.Contains(got, "SECRET") {
+			t.Errorf("content escaped into the error message: %q", got)
+		}
+	}
+}
+
+// A frame truncated around a relay's no-error stamp is not a failed request.
+// The member decoded whole, so the shared emptiness rule judges it, exactly as
+// it would on a frame that arrived intact.
+func TestParseAccumulatedError_EmptyMemberInTruncatedFrame(t *testing.T) {
+	for _, data := range []string{
+		`{"error":false,"choices":[{"delta":{"content":"hi`,
+		`{"error":0,"choices":[{"delta":{"content":"hi`,
+		`{"error":[],"choices":[{"delta":{"content":"hi`,
+		`{"error":{},"choices":[{"delta":{"content":"hi`,
+		`{"error":{"code":0,"message":"","type":""},"choices":[{"delta":{"content":"hi`,
+	} {
+		if got := parseAccumulatedError([]byte(data)); got != "" {
+			t.Errorf("%s recorded an error: %q", data, got)
+		}
+	}
+}
+
+// A duplicate key resolves the way json.Unmarshal resolves it everywhere else
+// this member is read: the last one wins.
+func TestParseAccumulatedError_LastErrorKeyWins(t *testing.T) {
+	if got := parseAccumulatedError([]byte(`{"error":"first","error":"second","x":`)); got != "second" {
+		t.Errorf("got %q, want second", got)
 	}
 }
 
@@ -626,12 +680,12 @@ func TestParseAccumulatedError_NonAccumulated(t *testing.T) {
 		t.Errorf("expected empty string for non-JSON error, got %q", result)
 	}
 
-	// Test with JSON that doesn't match error formats - returns raw JSON
+	// JSON with no error member has no error message to report; returning the
+	// body would be reporting whatever else the provider put in it.
 	jsonData := []byte(`{"foo":"bar"}`)
 	result = parseAccumulatedError(jsonData)
-	// Function returns raw bytes if they start with { (heuristic for truncated JSON)
-	if result != `{"foo":"bar"}` {
-		t.Errorf("expected raw JSON string, got %q", result)
+	if result != "" {
+		t.Errorf("expected empty string for a body with no error member, got %q", result)
 	}
 }
 

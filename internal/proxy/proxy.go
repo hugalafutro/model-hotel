@@ -382,38 +382,28 @@ func (e *emptyStreamError) Error() string {
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
 //
-// Whether the frame IS an error is carriesErrorObject's question, not a second
+// Whether the frame IS an error is util.ErrorMemberCarries. question, not a second
 // opinion: this package already decided what counts (a populated error member of
-// any shape, including Ollama's bare string; not null/{}/""/[], which leave a
-// caller nothing to read). Answering it twice is how the two drift, and either
-// direction is a bug — a miss lets a broken provider win a hedged race, a false
-// positive fails over a healthy stream.
+// any shape, including Ollama's bare string; not null/{}/""/[]/false/0, which
+// leave a caller nothing to read). Answering it twice is how the two drift, and
+// either direction is a bug — a miss lets a broken provider win a hedged race, a
+// false positive fails over a healthy stream.
 //
-// Only the message is extracted here, and the shapes carriesErrorObject accepts
-// are wider than {"error":{"message":...}}, so the fallbacks are not decoration.
+// Only the message is extracted here, and util.ErrorMemberMessage renders shapes
+// wider than {"error":{"message":...}}, so its fallbacks are not decoration.
 func errorEnvelopeMessage(content string) (msg string, ok bool) {
-	raw := []byte(content)
-	if !carriesErrorObject(raw) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(content), &envelope); err != nil {
 		return "", false
 	}
-	var chunk streamChunk
-	if err := json.Unmarshal(raw, &chunk); err == nil && chunk.Error != nil && chunk.Error.Message != "" {
-		return chunk.Error.Message, true
+	raw := envelope["error"]
+	if !util.ErrorMemberCarries(raw) {
+		return "", false
 	}
 	// A bare string, a list, a number, or an object without a "message": render
 	// what the provider put there rather than dropping a frame already judged to
 	// be an error. Bounded by the caller's sanitizer.
-	var envelope struct {
-		Error json.RawMessage `json:"error"`
-	}
-	if err := json.Unmarshal(raw, &envelope); err == nil && len(envelope.Error) > 0 {
-		var bare string
-		if json.Unmarshal(envelope.Error, &bare) == nil {
-			return bare, true
-		}
-		return string(envelope.Error), true
-	}
-	return "provider reported an error with no message", true
+	return util.ErrorMemberMessage(raw), true
 }
 
 // probeFrame is what one SSE data payload means to the first-token probe.

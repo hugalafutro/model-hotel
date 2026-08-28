@@ -316,7 +316,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
-		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", statusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
+		// errLogAttr, not errMsg: the row above it is masked, the client frame
+		// beside it is masked, and this line was the one place the provider's
+		// raw text — a relayed credential included — reached the app log.
+		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", st.errLogAttr(errMsg), "upstream_status", statusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
 	} else {
 		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
 	}

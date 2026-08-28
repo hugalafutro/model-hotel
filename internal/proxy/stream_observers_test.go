@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -103,19 +104,40 @@ func TestCaptureSSEError(t *testing.T) {
 	t.Run("P1-B accumulate then flush on non-error line", func(t *testing.T) {
 		st := &streamState{}
 		ev := ""
-		if counted := st.captureSSEError(`{"error":{"message":"boom"}}`, &ev, 1, ld); counted {
+		// A FRAGMENT: what P1-B exists for, and the only thing it takes. A
+		// whole frame is the observer's to read, however it starts — routing
+		// one here instead put it in front of parseAccumulatedError's raw
+		// fallback, which records the entire payload as the error message.
+		if counted := st.captureSSEError(`{"error":{"message":"bo`, &ev, 1, ld); counted {
 			t.Error("error-prefixed line should accumulate, not count as Anthropic")
 		}
 		if st.lastErrMsg != "" || len(st.errAccum) == 0 {
 			t.Errorf("after accumulate: lastErrMsg=%q errAccum=%q (want empty msg, non-empty accum)", st.lastErrMsg, st.errAccum)
 		}
-		// A non-error line flushes the accumulated error.
+		// A non-error line flushes the accumulated error. Nothing can parse a
+		// truncated object, so the fragment itself is the best available
+		// message — recovering that is the whole point of the accumulator.
 		st.captureSSEError(`{"id":"x","choices":[]}`, &ev, 2, ld)
-		if st.lastErrMsg != "boom" || st.errorChunkCount != 1 {
-			t.Errorf("after flush: lastErrMsg=%q errorChunkCount=%d, want boom/1", st.lastErrMsg, st.errorChunkCount)
+		if !strings.Contains(st.lastErrMsg, "bo") || st.errorChunkCount != 1 {
+			t.Errorf("after flush: lastErrMsg=%q errorChunkCount=%d, want the fragment/1", st.lastErrMsg, st.errorChunkCount)
 		}
 		if st.errAccum != nil {
 			t.Errorf("errAccum should be cleared, got %q", st.errAccum)
+		}
+	})
+
+	// A complete error frame is not a fragment, whatever it starts with: it
+	// goes to the observer, and the accumulator must not also hold it.
+	t.Run("P1-B ignores a whole frame", func(t *testing.T) {
+		st := &streamState{}
+		ev := ""
+		st.captureSSEError(`{"error":"","choices":[{"delta":{"content":"secret"}}]}`, &ev, 1, ld)
+		if len(st.errAccum) != 0 {
+			t.Errorf("a parseable frame must not accumulate, got %q", st.errAccum)
+		}
+		st.captureSSEError(`{"id":"x","choices":[]}`, &ev, 2, ld)
+		if st.lastErrMsg != "" || st.errorChunkCount != 0 {
+			t.Errorf("nothing to flush, got lastErrMsg=%q count=%d", st.lastErrMsg, st.errorChunkCount)
 		}
 	})
 

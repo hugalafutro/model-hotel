@@ -9,19 +9,34 @@ import (
 )
 
 // captureSSEError handles the two error-extraction quirks over a data line:
-// P1-B split-error accumulation (providers that split an {"error":…} object
-// across multiple SSE data lines — accumulate until a non-error line arrives,
-// then parse) and P1-C Anthropic typed error events (a data line following an
-// "event: error" line). Any extracted message is recorded into streamState; it
+// P1-B truncated-error salvage (a data line the provider cut short, held until
+// a line arrives that is not one, then parsed) and P1-C Anthropic typed error
+// events (a data line following an "event: error" line).
+//
+// P1-B is named for split errors, and its comments long claimed to reassemble
+// one, but it cannot: a CONTINUATION line does not start with {"error", so it
+// takes the flush branch rather than the append. What the buffer actually holds
+// is the last {"error"-prefixed line that would not parse — a truncated frame,
+// which is the case worth salvaging and the only one it ever sees. Any extracted message is recorded into streamState; it
 // returns whether it counted an Anthropic error for this line so the later
 // chunk.Error observer does not double-count it. lastAnthropicEvent is the carry
 // from the preceding "event:" line and is consumed (reset) here. No client output.
 func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
-	// P1-B: accumulate error JSON split across data lines; flush on a non-error line.
-	if strings.HasPrefix(payload, `{"error"`) {
+	// P1-B: hold a truncated error line; flush on any other line.
+	//
+	// Only a FRAGMENT is held. A payload that parses is a whole frame,
+	// whatever it starts with, and the observer reads its error member properly;
+	// handing it to the accumulator instead put it in front of
+	// parseAccumulatedError, whose last resort is to return the entire payload
+	// as the error message. A frame like
+	// {"error":"","choices":[{"delta":{"content":…}}]} — an empty error member
+	// riding alongside a real delta — therefore wrote the model's output into
+	// request_logs.error_message, and marked the request failed for an error no
+	// reader of that member agrees is there.
+	if strings.HasPrefix(payload, `{"error"`) && !json.Valid([]byte(payload)) {
 		st.errAccum = append(st.errAccum, []byte(payload)...)
 	} else {
-		st.flushAccumulatedError(chunkCount, logData)
+		st.flushAccumulatedError("proxy: accumulated SSE error", chunkCount, logData)
 	}
 
 	// P1-C: a data line after "event: error" is an Anthropic error payload,
@@ -41,26 +56,52 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 			st.lastErrMsg = anthErr.Error.Message
 			anthropicErrorCounted = true
 			st.errorChunkCount++
-			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", st.errLogAttr(anthErr.Error.Message), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
 	return anthropicErrorCounted
 }
 
-// flushAccumulatedError parses and records any P1-B accumulated split-error bytes
-// (an {"error":…} object split across SSE data lines), then clears the buffer. A
-// no-op when nothing is accumulated. Shared by the comment-line handler and
-// captureSSEError's non-error data-line branch so the two flush sites co-evolve.
-func (st *streamState) flushAccumulatedError(chunkCount int, logData *requestLogData) {
+// flushAccumulatedError parses and records any P1-B held error bytes (a
+// truncated {"error":…} line), then clears the buffer. A
+// no-op when nothing is accumulated. Every flush site goes through here — the
+// comment-line handler, captureSSEError's non-error data-line branch, and the
+// stream-end sweep — so they cannot drift; `what` is the only thing that differs
+// between them, and a copy of this body is how the stream-end sweep came to log
+// the provider's error text unmasked while the other two did not.
+func (st *streamState) flushAccumulatedError(what string, chunkCount int, logData *requestLogData) {
 	if len(st.errAccum) == 0 {
 		return
 	}
 	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
 		st.lastErrMsg = accumulatedMsg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		debuglog.Warn(what, "error_message", st.errLogAttr(accumulatedMsg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 	}
 	st.errAccum = nil
+}
+
+// errLogAttr prepares provider error text for an application-log attribute:
+// masked, then bounded.
+//
+// The request log gets both of those at finalize, but the app log had neither.
+// It is a different audience and a different store — the live log viewer, the
+// app-logs API, the OTLP export — and provider error text is exactly where a
+// relay quotes a credential ("invalid key sk-…") or runs to whatever length it
+// likes. The observers also run BEFORE the stream's masking block, so the text
+// they hold has been scrubbed by nothing at all.
+//
+// 500 bytes — SanitizeLogBody's limit is a byte count, so CJK error text from
+// MiniMax or Z.ai is cut at roughly a third of that in characters. It matches
+// the probe's own error sanitizer rather than the request log's 10000: a log
+// attribute is for recognising the failure, and the full text is already on the
+// row. SanitizeLogBody also redacts UUIDs, so a provider echoing a request id
+// back inside its error does not put one in the app log.
+//
+// A zero-value masker (a keyless local provider) masks by shape only, which is
+// what every other site on those paths does too.
+func (st *streamState) errLogAttr(msg string) string {
+	return util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500)
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at
@@ -99,8 +140,15 @@ type streamChunk struct {
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 	} `json:"choices"`
-	Usage *Usage                    `json:"usage"`
-	Error *struct{ Message string } `json:"error"`
+	Usage *Usage `json:"usage"`
+	// json.RawMessage, not a typed object: providers put an error of any shape
+	// here — Ollama's bare string, a list, a number — and a typed field failed
+	// the WHOLE chunk unmarshal, so the frame was dropped as corrupt bytes
+	// instead of forwarded, and the error it reported was recorded only when
+	// the payload happened to START with {"error" (the P1-B prefix). What the
+	// member means is util.ErrorMemberCarries/ErrorMemberMessage's answer, shared
+	// with the probe so the two readings cannot drift.
+	Error json.RawMessage `json:"error"`
 }
 
 // observeDataChunk applies the four non-emitting, side-channel observers over a
@@ -197,12 +245,13 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		st.lastContent = currentContent
 	}
-	if chunk.Error != nil && !anthropicErrorCounted {
+	if !anthropicErrorCounted && util.ErrorMemberCarries(chunk.Error) {
 		// Only count if P1-C didn't already handle this as an
 		// Anthropic error event (which shares the same data line).
-		st.lastErrMsg = chunk.Error.Message
+		msg := util.ErrorMemberMessage(chunk.Error)
+		st.lastErrMsg = msg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", st.errLogAttr(msg), "chunk_number", chunkCount)
 		// Clear st.errAccum: chunk.Error already captured this error,
 		// so P1-B's next flush must not re-count it.
 		st.errAccum = nil

@@ -37,8 +37,12 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 		_ = vkRepo.Delete(ctx, vk.ID)
 	}()
 
-	// Build an upstream that streams tokens, sends usage, then delays
-	// so the client has time to disconnect.
+	// disconnected is closed once the test has cancelled the client context;
+	// the upstream holds the stream open until then.
+	disconnected := make(chan struct{})
+
+	// Build an upstream that streams tokens, sends usage, then waits so the
+	// client disconnects mid-stream.
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -55,8 +59,9 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5,\"total_tokens\":15}}\n\n")
 		flusher.Flush()
 
-		// Delay so the client can disconnect after seeing the usage chunk.
-		time.Sleep(200 * time.Millisecond)
+		// Hold the stream open until the test has disconnected, so the
+		// disconnect always lands mid-stream rather than after [DONE].
+		<-disconnected
 
 		// Send [DONE] — may or may not be received by the client.
 		fmt.Fprint(w, "data: [DONE]\n\n")
@@ -79,7 +84,14 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(cancelCtx)
 
-	inner := httptest.NewRecorder()
+	// The usage chunk is the second data frame the proxy forwards, and the
+	// observers run BEFORE the emit — so a write carrying "usage" proves the
+	// token counts are already in streamState. Waiting on that instead of on a
+	// sleep is what makes the disconnect land at a known point: an 80ms guess
+	// was enough locally and not on a loaded runner under -race, where the
+	// stream had not reached the usage chunk yet and the test read tokens=0.
+	usageSeen := make(chan struct{})
+	inner := &notifyOnMatchWriter{inner: httptest.NewRecorder(), match: "usage", seen: usageSeen}
 	logData := &requestLogData{
 		modelID:         "test-model",
 		streaming:       true,
@@ -98,9 +110,14 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 		close(done)
 	}()
 
-	// Let the content + usage chunks be processed, then disconnect.
-	time.Sleep(80 * time.Millisecond)
+	// Disconnect once the usage chunk has actually been forwarded.
+	select {
+	case <-usageSeen:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the usage chunk was never forwarded")
+	}
 	cancel()
+	close(disconnected)
 
 	// Wait for the handler to finish.
 	select {
@@ -163,3 +180,28 @@ func TestTokenUsage_RecordedOnNonStreamingSuccess(t *testing.T) {
 		t.Errorf("expected tokens_used=75 (50 prompt + 25 completion), got %d", refreshed.TokensUsed)
 	}
 }
+
+// notifyOnMatchWriter closes seen the first time a written chunk contains match.
+// It exists so a streaming test can act at a point in the stream rather than at
+// a point in time.
+type notifyOnMatchWriter struct {
+	inner http.ResponseWriter
+	match string
+	seen  chan struct{}
+	fired bool
+}
+
+func (w *notifyOnMatchWriter) Header() http.Header { return w.inner.Header() }
+
+func (w *notifyOnMatchWriter) Write(p []byte) (int, error) {
+	n, err := w.inner.Write(p)
+	if !w.fired && strings.Contains(string(p), w.match) {
+		w.fired = true
+		close(w.seen)
+	}
+	return n, err
+}
+
+func (w *notifyOnMatchWriter) WriteHeader(statusCode int) { w.inner.WriteHeader(statusCode) }
+
+func (w *notifyOnMatchWriter) Flush() {}
