@@ -40,11 +40,11 @@ type streamState struct {
 	chunkCount            int
 	errorChunkCount       int
 	// unparsedChunks counts data frames the gateway could not unmarshal into a
-	// streamChunk. They are dropped rather than forwarded, so the caller does
-	// lose them — but the provider may have answered perfectly well in a shape
-	// this gateway's types do not cover (tool-call arguments as an object,
-	// content as an array of parts). The delivery accounting cannot see into
-	// such a frame, so it must not conclude the response was empty.
+	// streamChunk. Valid JSON in a shape this gateway's types do not cover
+	// (tool-call arguments as an object, content as an array of parts) is
+	// forwarded to the caller verbatim; only genuinely malformed bytes are
+	// dropped. Either way the delivery accounting cannot see inside such a
+	// frame, so it must not conclude the response was empty.
 	unparsedChunks int
 	lastErrMsg     string
 	sawDone        bool
