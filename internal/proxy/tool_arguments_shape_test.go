@@ -149,9 +149,15 @@ func TestToolArguments_ObjectFormIsNormalisedBeforeItLeaves(t *testing.T) {
 }
 
 // What the caller stores has to survive a round trip back through the gateway's
-// own request translators, which is the failure the normalisation prevents: a
+// own request decoders, which is the failure the normalisation prevents: a
 // failover group whose next turn lands on an Anthropic or Gemini member would
 // otherwise 400 for the rest of the conversation.
+//
+// The emitted frame is decoded here with a STRICT `Arguments string`, matching
+// anthropicegress/gemini/openairesponses on the request side. Decoding it with
+// the gateway's own streamChunk would prove nothing: util.ToolArguments absorbs
+// the object form, so that version of this test passed with the normalisation
+// switched off.
 func TestToolArguments_NormalisedOutputIsAcceptedBackAsARequest(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
@@ -159,60 +165,41 @@ func TestToolArguments_NormalisedOutputIsAcceptedBackAsARequest(t *testing.T) {
 	frame := `{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
 	w, _ := streamToolArgs(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
 
-	// Lift the assistant turn out of what the caller received, the way a client
-	// building its next request would.
-	var args string
+	// The shape a request-side translator insists on.
+	type strictChunk struct {
+		Choices []struct {
+			Delta struct {
+				ToolCalls []struct {
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"delta"`
+		} `json:"choices"`
+	}
+
+	var seen string
 	for _, line := range strings.Split(w.Body.String(), "\n") {
 		payload, ok := strings.CutPrefix(strings.TrimSpace(line), "data: ")
 		if !ok || payload == "[DONE]" {
 			continue
 		}
-		var chunk streamChunk
-		if json.Unmarshal([]byte(payload), &chunk) != nil {
-			continue
+		var c strictChunk
+		if err := json.Unmarshal([]byte(payload), &c); err != nil {
+			t.Fatalf("a request decoder could not read back what we emitted: %v\nframe: %s", err, payload)
 		}
-		for _, c := range chunk.Choices {
-			if c.Delta == nil {
-				continue
-			}
-			for _, tc := range c.Delta.ToolCalls {
-				if tc.Function != nil && tc.Function.Arguments != "" {
-					args = string(tc.Function.Arguments)
+		for _, ch := range c.Choices {
+			for _, tc := range ch.Delta.ToolCalls {
+				if tc.Function.Arguments != "" {
+					seen = tc.Function.Arguments
 				}
 			}
 		}
 	}
-	if args != `{"city":"Prague"}` {
-		t.Fatalf("arguments = %q, want the call's own JSON", args)
+	if seen != `{"city":"Prague"}` {
+		t.Errorf("arguments = %q, want the call's own JSON", seen)
 	}
-
-	// The shape the translators need: arguments as a JSON STRING.
-	req := `{"model":"m","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":` +
-		mustJSONString(t, args) + `}}]}]}`
-	var probe struct {
-		Messages []struct {
-			ToolCalls []struct {
-				Function struct {
-					Arguments string `json:"arguments"`
-				} `json:"function"`
-			} `json:"tool_calls"`
-		} `json:"messages"`
-	}
-	if err := json.Unmarshal([]byte(req), &probe); err != nil {
-		t.Fatalf("the caller's next request must decode where arguments is typed as a string: %v", err)
-	}
-	if got := probe.Messages[0].ToolCalls[0].Function.Arguments; got != `{"city":"Prague"}` {
-		t.Errorf("round-tripped arguments = %q, want the original", got)
-	}
-}
-
-func mustJSONString(t *testing.T, s string) string {
-	t.Helper()
-	b, err := json.Marshal(s)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	return string(b)
 }
 
 // A pretty-printed object must not carry its whitespace into the string the

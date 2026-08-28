@@ -477,10 +477,22 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 // whether anything changed. The spec form is left untouched, so an ordinary
 // frame is neither reparsed nor re-emitted.
 //
+// A JSON null counts as already-fine and is forwarded as-is: every request
+// decoder reads null into a string without complaint, and rewriting it to ""
+// would invent an empty-arguments call the provider did not send.
+//
 // It works on the raw map rather than the typed chunk because the frame is
 // forwarded as bytes: rebuilding it from streamChunk would drop every field
 // this gateway does not model.
 func normalizeToolArguments(payload string) (string, bool) {
+	// Cheap reject first. Without it every frame of every stream paid for three
+	// json.Unmarshal calls (~5us and ~1.8KB of garbage each) to discover it has
+	// no tool calls — several megabytes of garbage over a long stream, for
+	// nothing. This is also what makes "an ordinary frame is neither reparsed
+	// nor re-emitted" true rather than aspirational.
+	if !strings.Contains(payload, "tool_calls") {
+		return payload, false
+	}
 	var root map[string]json.RawMessage
 	if json.Unmarshal([]byte(payload), &root) != nil {
 		return payload, false
