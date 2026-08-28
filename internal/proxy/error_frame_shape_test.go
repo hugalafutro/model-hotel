@@ -163,16 +163,18 @@ func TestHandleStreamingResponse_BareStringErrorIsMasked(t *testing.T) {
 }
 
 // An error frame is the provider reporting its own failure, so it charges the
-// breaker. It used to be dropped as unparseable instead, and unparsedChunks
-// holds the empty-stream charge back — so a provider erroring on every request
-// in a shape the gateway could not type never opened its circuit.
+// breaker. The payload here puts a key before "error", which is the case the
+// P1-B accumulator is blind to: with the frame also dropped as unparseable, a
+// provider erroring on every single request produced a stream this gateway read
+// as a clean, merely empty one — and unparsedChunks then held even the
+// empty-stream charge back, so the circuit never opened.
 func TestJudgeStreamForBreaker_UntypeableErrorFrameCharges(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`data: {"error":"model not found"}` + "\n\ndata: [DONE]\n\n")),
+		Body:       io.NopCloser(strings.NewReader(`data: {"model":"llama3","error":"model not found"}` + "\n\ndata: [DONE]\n\n")),
 		Header:     make(http.Header),
 	}
 	w := httptest.NewRecorder()
@@ -181,8 +183,16 @@ func TestJudgeStreamForBreaker_UntypeableErrorFrameCharges(t *testing.T) {
 
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
 
-	if logData.errorKind == "" {
-		t.Errorf("an error frame must produce an error kind, got none (state %q)", logData.state)
+	if !providerAtFault(logData.errorKind) {
+		t.Fatalf("errorKind = %q, want a kind the provider answers for", logData.errorKind)
+	}
+
+	// The verdict itself, over the state such a stream leaves behind: an
+	// unparsed frame is a charge the gateway cannot honestly make, an error
+	// frame is one it can.
+	st := &streamState{errorChunkCount: 1}
+	if v := judgeStreamForBreaker(st, logData, logData.errorMessage, true); v.failureReason == "" || v.success {
+		t.Errorf("verdict = %+v, want a provider failure", v)
 	}
 }
 
