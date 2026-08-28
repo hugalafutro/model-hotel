@@ -159,13 +159,20 @@ type Handler struct {
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
-	circuitBreaker         CircuitBreakerControl
-	audit                  *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
-	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
-	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
-	quotaRepo              *quota.Repository // read-through store for polled provider quota snapshots
-	quotaAdvisor           *QuotaAdvisor     // nil until SetQuotaAdvisor; populated by RefreshQuotaAdvice
-	pwnedChecker           PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
+	// newDiscovery builds this handler's DiscoveryService. Per-handler rather
+	// than package-level: NewHandler used to assign a global here, which made
+	// two handlers built concurrently a data race (parallel tests each build
+	// one) and silently coupled every handler in the process to whichever was
+	// constructed last. Nil falls back to the package default, for the handlers
+	// tests build as bare structs.
+	newDiscovery   func() *provider.DiscoveryService
+	circuitBreaker CircuitBreakerControl
+	audit          *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
+	totpStatus     TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpEnabled    atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	quotaRepo      *quota.Repository // read-through store for polled provider quota snapshots
+	quotaAdvisor   *QuotaAdvisor     // nil until SetQuotaAdvisor; populated by RefreshQuotaAdvice
+	pwnedChecker   PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
 
 	// Debounce state for the quota schema-drift watch: a per-provider shape
 	// that has been seen but not yet confirmed by a second consecutive poll.
@@ -209,7 +216,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 	}
 	// Wire the discovery service factory to use the SSRF-protected dial/redirect
 	// functions so admin-API discovery endpoints are also protected.
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		return provider.NewDiscoveryService(h.discoveryDialCtx, h.discoveryCheckRedirect)
 	}
 	return h

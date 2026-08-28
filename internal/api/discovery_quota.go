@@ -56,7 +56,7 @@ func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provi
 		// disconnect does not abort the in-flight upstream call mid-fetch.
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
 		defer cancel()
-		disc := newDiscoveryService()
+		disc := h.discoveryService()
 		k, payload, status, ferr := fetchQuotaSnapshot(ctx, disc, prov, h.cfg.MasterKey)
 		if ferr != nil {
 			respondQuotaError(w, prov.Name, kind, ferr)
@@ -153,7 +153,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := newDiscoveryService()
+	discovery := h.discoveryService()
 
 	var results []QuotaRefreshResult
 	refreshed := 0

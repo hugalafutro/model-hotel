@@ -129,9 +129,7 @@ func TestRefreshAllQuotas_UpsertErrorReportsFailure(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Mock a successful DeepSeek balance fetch so the flow reaches the Upsert.
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -197,14 +195,10 @@ func TestRefreshAllQuotas_UpsertErrorReportsFailure(t *testing.T) {
 // TestRefreshAllQuotas_WithSupportedTypes tests that RefreshAllQuotas handles
 // multiple provider types with errors for unsupported types.
 func TestRefreshAllQuotas_WithSupportedTypes(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -319,14 +313,10 @@ func TestRefreshAllQuotas_WithSupportedTypes(t *testing.T) {
 // TestRefreshAllQuotas_DeepSeekError tests that RefreshAllQuotas handles
 // DeepSeek API errors correctly.
 func TestRefreshAllQuotas_DeepSeekError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -398,14 +388,10 @@ func TestRefreshAllQuotas_DeepSeekError(t *testing.T) {
 // TestRefreshAllQuotas_OllamaCloudError tests that RefreshAllQuotas handles
 // Ollama Cloud API errors correctly.
 func TestRefreshAllQuotas_OllamaCloudError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -477,14 +463,10 @@ func TestRefreshAllQuotas_OllamaCloudError(t *testing.T) {
 // TestRefreshAllQuotas_OpenRouterError tests that RefreshAllQuotas handles
 // OpenRouter API errors correctly.
 func TestRefreshAllQuotas_OpenRouterError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -557,14 +539,10 @@ func TestRefreshAllQuotas_OpenRouterError(t *testing.T) {
 // Kimi Code API errors correctly, exercising the kimi-code arm of the
 // provider-type switch in RefreshAllQuotas.
 func TestRefreshAllQuotas_KimiCodeError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	// Point this handler's discovery at a mock transport, so no real API is called.
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -637,12 +615,9 @@ func TestRefreshAllQuotas_KimiCodeError(t *testing.T) {
 // kimi-code case in RefreshAllQuotas: a 200 /usages response records the
 // provider as refreshed rather than failed.
 func TestRefreshAllQuotas_KimiCodeSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -714,14 +689,10 @@ func TestRefreshAllQuotas_KimiCodeSuccess(t *testing.T) {
 // rather than surfacing a Go error, matching the read-through model where a 424
 // is a valid stored state served back to the dashboard.
 func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
-	// Override newDiscoveryService with mock transport to avoid real API calls
-	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -792,12 +763,9 @@ func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
 // minimax case in RefreshAllQuotas: a 200 /token_plan/remains response
 // records the provider as refreshed, not failed.
 func TestRefreshAllQuotas_MiniMaxSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -894,13 +862,11 @@ func TestRefreshAllQuotas_ListError(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning valid NanoGPT JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -940,13 +906,11 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning error for z.ai
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -987,13 +951,11 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning valid ZAI JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1035,13 +997,11 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning valid OpenRouter JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1090,13 +1050,11 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning valid DeepSeek JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1138,13 +1096,11 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Override newDiscoveryService with mock transport returning valid Ollama Cloud JSON
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
 
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1192,12 +1148,9 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 // TestRefreshAllQuotas_MixedResults tests that RefreshAllQuotas continues
 // processing all providers even when one fails, returning partial results.
 func TestRefreshAllQuotas_MixedResults(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1263,12 +1216,9 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1307,12 +1257,9 @@ func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -1356,9 +1303,7 @@ func TestRefreshAllQuotas_PersistsSnapshot(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, _ := createQuotaProvider(t, r, "https://nano-gpt.com")
 
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = func() *provider.DiscoveryService {
+	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 				if strings.Contains(req.URL.Host, "nano-gpt.com") {

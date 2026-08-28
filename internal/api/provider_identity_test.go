@@ -54,7 +54,6 @@ func doUpdate(t *testing.T, h *Handler, id uuid.UUID, body string) *httptest.Res
 func TestUpdateProvider_CorrectsABackfilledType(t *testing.T) {
 	srv := koboldcppTestServer(t)
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	stored := &provider.Provider{
 		ID:           uuid.New(),
@@ -64,6 +63,7 @@ func TestUpdateProvider_CorrectsABackfilledType(t *testing.T) {
 	}
 	var captured provider.UpdateProviderRequest
 	h, id := identityHandler(t, stored, &captured)
+	withDiscoveryAgainst(h, srv.Client())
 
 	w := doUpdate(t, h, id, `{"provider_type":"koboldcpp"}`)
 	if w.Code != http.StatusOK {
@@ -79,7 +79,6 @@ func TestUpdateProvider_CorrectsABackfilledType(t *testing.T) {
 func TestUpdateProvider_TypeCorrectionIsProbed(t *testing.T) {
 	srv := koboldcppTestServer(t)
 	defer srv.Close()
-	withDiscoveryAgainst(t, srv.Client())
 
 	stored := &provider.Provider{
 		ID:           uuid.New(),
@@ -89,6 +88,7 @@ func TestUpdateProvider_TypeCorrectionIsProbed(t *testing.T) {
 	}
 	var captured provider.UpdateProviderRequest
 	h, id := identityHandler(t, stored, &captured)
+	withDiscoveryAgainst(h, srv.Client())
 
 	w := doUpdate(t, h, id, `{"provider_type":"lmstudio"}`)
 	if w.Code != http.StatusBadRequest {
@@ -122,7 +122,6 @@ func TestUpdateProvider_RenameDoesNotProbe(t *testing.T) {
 	url := srv.URL
 	client := srv.Client()
 	srv.Close()
-	withDiscoveryAgainst(t, client)
 
 	stored := &provider.Provider{
 		ID:           uuid.New(),
@@ -132,6 +131,7 @@ func TestUpdateProvider_RenameDoesNotProbe(t *testing.T) {
 	}
 	var captured provider.UpdateProviderRequest
 	h, id := identityHandler(t, stored, &captured)
+	withDiscoveryAgainst(h, client)
 
 	for _, body := range []string{
 		`{"name":"KoboldCpp renamed"}`,

@@ -200,13 +200,11 @@ func unreachableDiscovery() *provider.DiscoveryService {
 // TestDiscoverAllModels_DiscoveryError tests that DiscoverAllModels handles
 // discovery errors gracefully.
 func TestDiscoverAllModels_DiscoveryError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Must be overridden after newTestHandlerWithRouter: NewHandler installs its
 	// own SSRF-protected factory.
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = unreachableDiscovery
+	h.newDiscovery = unreachableDiscovery
 
 	// Create a provider with an unreachable URL; the stubbed transport above is
 	// what actually makes the discovery call fail.
@@ -400,13 +398,11 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 // TestDiscoverProviderModels_DiscoveryError tests that DiscoverProviderModels
 // returns 500 when model discovery fails due to unreachable URL.
 func TestDiscoverProviderModels_DiscoveryError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Must be overridden after newTestHandlerWithRouter: NewHandler installs its
 	// own SSRF-protected factory.
-	orig := newDiscoveryService
-	defer func() { newDiscoveryService = orig }()
-	newDiscoveryService = unreachableDiscovery
+	h.newDiscovery = unreachableDiscovery
 
 	// Create a provider with an unreachable URL; the stubbed transport above is
 	// what actually makes the discovery call fail.

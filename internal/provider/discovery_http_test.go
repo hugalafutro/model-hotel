@@ -33,9 +33,11 @@ func TestDiscoverOllama(t *testing.T) {
 		"model_info": {"llama3.context_length": 8192}
 	}`
 
-	callCount := 0
+	// No request counter here: discoverOllama fetches /api/tags once and then
+	// /api/show per model CONCURRENTLY, so a plain int incremented in this
+	// handler is a data race across those goroutines. The previous one was
+	// written and never read, so it bought nothing and cost a flaky -race run.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/tags":

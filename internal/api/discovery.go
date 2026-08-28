@@ -20,11 +20,24 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// newDiscoveryService creates a DiscoveryService. NewHandler overwrites this
-// with an SSRF-protected version; the default avoids nil-panics if a discovery
-// call races ahead of initialization.
+// newDiscoveryService is the fallback DiscoveryService factory, used only by a
+// Handler that has no factory of its own (a bare &Handler{} in a test). It is
+// never reassigned: NewHandler sets Handler.newDiscovery instead, because a
+// package-level assignment from a constructor is a data race as soon as two
+// handlers are built concurrently, which parallel tests do.
 var newDiscoveryService = func() *provider.DiscoveryService {
 	return provider.NewDiscoveryService(nil, nil)
+}
+
+// discoveryService returns this handler's DiscoveryService. Every caller inside
+// the package goes through it rather than the package variable, so a handler's
+// SSRF-protected dial and redirect hooks cannot be swapped out from under it by
+// another handler's construction.
+func (h *Handler) discoveryService() *provider.DiscoveryService {
+	if h.newDiscovery != nil {
+		return h.newDiscovery()
+	}
+	return newDiscoveryService()
 }
 
 // Injectable variables for test overrides.
@@ -258,7 +271,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	discovery := newDiscoveryService()
+	discovery := h.discoveryService()
 	// Use a context decoupled from the HTTP request deadline for discovery.
 	// Provider availability tests (especially for slow/unreachable providers)
 	// can exhaust the 60s chi middleware timeout before DB upserts run.
@@ -410,7 +423,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 		return nil, 0, 0, 0, err
 	}
 
-	discovery := newDiscoveryService()
+	discovery := h.discoveryService()
 	modelRepo := newModelRepo(h.dbPool.Pool())
 	failoverRepo := newFailoverRepo(h.dbPool.Pool())
 
