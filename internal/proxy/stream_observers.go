@@ -9,17 +9,22 @@ import (
 )
 
 // captureSSEError handles the two error-extraction quirks over a data line:
-// P1-B split-error accumulation (providers that split an {"error":…} object
-// across multiple SSE data lines — accumulate until a non-error line arrives,
-// then parse) and P1-C Anthropic typed error events (a data line following an
-// "event: error" line). Any extracted message is recorded into streamState; it
+// P1-B truncated-error salvage (a data line the provider cut short, held until
+// a line arrives that is not one, then parsed) and P1-C Anthropic typed error
+// events (a data line following an "event: error" line).
+//
+// P1-B is named for split errors, and its comments long claimed to reassemble
+// one, but it cannot: a CONTINUATION line does not start with {"error", so it
+// takes the flush branch rather than the append. What the buffer actually holds
+// is the last {"error"-prefixed line that would not parse — a truncated frame,
+// which is the case worth salvaging and the only one it ever sees. Any extracted message is recorded into streamState; it
 // returns whether it counted an Anthropic error for this line so the later
 // chunk.Error observer does not double-count it. lastAnthropicEvent is the carry
 // from the preceding "event:" line and is consumed (reset) here. No client output.
 func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
-	// P1-B: accumulate error JSON split across data lines; flush on a non-error line.
+	// P1-B: hold a truncated error line; flush on any other line.
 	//
-	// Only a FRAGMENT is accumulated. A payload that parses is a whole frame,
+	// Only a FRAGMENT is held. A payload that parses is a whole frame,
 	// whatever it starts with, and the observer reads its error member properly;
 	// handing it to the accumulator instead put it in front of
 	// parseAccumulatedError, whose last resort is to return the entire payload
@@ -57,8 +62,8 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	return anthropicErrorCounted
 }
 
-// flushAccumulatedError parses and records any P1-B accumulated split-error bytes
-// (an {"error":…} object split across SSE data lines), then clears the buffer. A
+// flushAccumulatedError parses and records any P1-B held error bytes (a
+// truncated {"error":…} line), then clears the buffer. A
 // no-op when nothing is accumulated. Every flush site goes through here — the
 // comment-line handler, captureSSEError's non-error data-line branch, and the
 // stream-end sweep — so they cannot drift; `what` is the only thing that differs
@@ -141,7 +146,7 @@ type streamChunk struct {
 	// the WHOLE chunk unmarshal, so the frame was dropped as corrupt bytes
 	// instead of forwarded, and the error it reported was recorded only when
 	// the payload happened to START with {"error" (the P1-B prefix). What the
-	// member means is errorMemberCarries/errorMemberMessage's answer, shared
+	// member means is util.ErrorMemberCarries/ErrorMemberMessage's answer, shared
 	// with the probe so the two readings cannot drift.
 	Error json.RawMessage `json:"error"`
 }
@@ -240,10 +245,10 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		st.lastContent = currentContent
 	}
-	if !anthropicErrorCounted && errorMemberCarries(chunk.Error) {
+	if !anthropicErrorCounted && util.ErrorMemberCarries(chunk.Error) {
 		// Only count if P1-C didn't already handle this as an
 		// Anthropic error event (which shares the same data line).
-		msg := errorMemberMessage(chunk.Error)
+		msg := util.ErrorMemberMessage(chunk.Error)
 		st.lastErrMsg = msg
 		st.errorChunkCount++
 		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", st.errLogAttr(msg), "chunk_number", chunkCount)

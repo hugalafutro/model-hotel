@@ -382,14 +382,14 @@ func (e *emptyStreamError) Error() string {
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
 //
-// Whether the frame IS an error is errorMemberCarries' question, not a second
+// Whether the frame IS an error is util.ErrorMemberCarries. question, not a second
 // opinion: this package already decided what counts (a populated error member of
 // any shape, including Ollama's bare string; not null/{}/""/[]/false/0, which
 // leave a caller nothing to read). Answering it twice is how the two drift, and
 // either direction is a bug — a miss lets a broken provider win a hedged race, a
 // false positive fails over a healthy stream.
 //
-// Only the message is extracted here, and errorMemberMessage renders shapes
+// Only the message is extracted here, and util.ErrorMemberMessage renders shapes
 // wider than {"error":{"message":...}}, so its fallbacks are not decoration.
 func errorEnvelopeMessage(content string) (msg string, ok bool) {
 	var envelope map[string]json.RawMessage
@@ -397,13 +397,13 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 		return "", false
 	}
 	raw := envelope["error"]
-	if !errorMemberCarries(raw) {
+	if !util.ErrorMemberCarries(raw) {
 		return "", false
 	}
 	// A bare string, a list, a number, or an object without a "message": render
 	// what the provider put there rather than dropping a frame already judged to
 	// be an error. Bounded by the caller's sanitizer.
-	return errorMemberMessage(raw), true
+	return util.ErrorMemberMessage(raw), true
 }
 
 // probeFrame is what one SSE data payload means to the first-token probe.

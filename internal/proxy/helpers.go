@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func extractStreamingUsage(data string) *Usage {
@@ -179,28 +181,28 @@ func parseChunkPayload(payload string) (parsedChunk, bool) {
 }
 
 // parseAccumulatedError extracts a human-readable message from accumulated SSE
-// error bytes: a frame the gateway saw begin with {"error" and could not parse,
-// because the provider cut it short or split it across data lines.
+// error bytes: one line the gateway saw begin with {"error" and could not
+// parse, because the provider cut it short.
 //
 // It reads only the "error" member, never the rest of the frame. Returning the
 // raw bytes was how the model's own answer reached request_logs.error_message:
 // a stream cut mid-frame on a provider that puts "error" first hands this
 // function a fragment like {"error":null,"choices":[{"delta":{"content":"…
-// and the whole thing was recorded. The member cannot contain another key's
-// value, so reading only it is the bound that makes the no-content-logging rule
-// hold on bytes nobody can parse.
+// and the whole thing was recorded.
 //
-// The complete member is preferred, and errorMemberMessage renders it whatever
-// its shape. When the member itself is what got truncated there is nothing to
-// decode, and its own bytes stand as the message — everything after {"error":
-// belongs to it, since nothing else can have started yet.
+// A member that decoded whole is judged by the same emptiness rule as everywhere
+// else, so a relay's no-error stamp — false, 0, {}, an all-zero struct — does
+// not fail a request merely because the frame around it was truncated.
 func parseAccumulatedError(data []byte) string {
 	member, complete := accumulatedErrorMember(data)
 	if len(member) == 0 {
 		return ""
 	}
 	if complete {
-		return errorMemberMessage(member)
+		if !util.ErrorMemberCarries(member) {
+			return ""
+		}
+		return util.ErrorMemberMessage(member)
 	}
 	return string(member)
 }
@@ -208,11 +210,21 @@ func parseAccumulatedError(data []byte) string {
 // accumulatedErrorMember returns the bytes of the "error" member of a fragment
 // the accumulator collected, and whether they decode as a whole JSON value.
 //
-// It walks the object key by key rather than assuming a position, so it finds
-// the member under the Anthropic wrapper ({"type":"error","error":{…}}) as well
-// as first. Every other key's value is decoded and thrown away: a walk that
-// stops at a truncated key it does not want returns nothing at all, which is
-// what keeps a frame cut off mid-content from yielding that content.
+// It walks the object key by key rather than assuming a position, and every
+// other key's value is decoded and thrown away. Two rules keep another key's
+// value from ever being returned as the member:
+//
+//   - a decode failure on a key that is not "error" ends the walk with nothing;
+//   - a decode failure on "error" itself yields the remaining bytes ONLY when
+//     the input simply ran out (an unexpected EOF). Any other failure means the
+//     value is malformed rather than incomplete — a raw tab or an ANSI escape
+//     inside the provider's error string is enough, and JSON forbids both
+//     unescaped — and the bytes after it are then the REST OF THE FRAME, which
+//     is how the model's answer got into the log in the first place. There is
+//     no message worth salvaging at that price.
+//
+// The last "error" wins, matching what json.Unmarshal does with a duplicate key
+// everywhere else this member is read.
 func accumulatedErrorMember(data []byte) (member []byte, complete bool) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	tok, err := dec.Token()
@@ -222,30 +234,30 @@ func accumulatedErrorMember(data []byte) (member []byte, complete bool) {
 	for dec.More() {
 		keyTok, err := dec.Token()
 		if err != nil {
-			return nil, false
+			return member, complete
 		}
 		key, _ := keyTok.(string)
 		// Offset of the colon that follows the key; the value begins after it.
 		valueStart := dec.InputOffset()
 		var value json.RawMessage
 		if err := dec.Decode(&value); err != nil {
-			if key != "error" {
-				return nil, false
+			if key != "error" || !errors.Is(err, io.ErrUnexpectedEOF) {
+				return member, complete
 			}
-			// The member itself is where the bytes ran out. Nothing else can
-			// have started, so the remainder is the member and nothing more.
+			// The member is where the bytes ran out. Nothing else can have
+			// started, so the remainder is the member and nothing more.
 			rest := bytes.TrimSpace(data[valueStart:])
 			rest = bytes.TrimSpace(bytes.TrimPrefix(rest, []byte(":")))
 			if len(rest) == 0 {
-				return nil, false
+				return member, complete
 			}
 			return rest, false
 		}
 		if key == "error" {
-			return value, true
+			member, complete = value, true
 		}
 	}
-	return nil, false
+	return member, complete
 }
 
 func generateRequestHash() string {

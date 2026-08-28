@@ -40,12 +40,16 @@ var errorFrameCorpus = []struct {
 	{"empty list", `{"error":[]}`, false, ""},
 	// The C convention: an "error" member that reports there wasn't one. Every
 	// frame of every 200 stream from such a relay reaches the emptiness rule.
-	{"false", `{"error":false,"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
-	{"zero", `{"error":0,"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
+	{"false", `{"error":false,"choices":[{"delta":{"content":"CONTENTMARKER"}}]}`, false, ""},
+	{"zero", `{"error":0,"choices":[{"delta":{"content":"CONTENTMARKER"}}]}`, false, ""},
+	// The same convention one level down, which is where a relay actually puts
+	// it: a no-error struct stamped on every frame.
+	{"zeroed error struct", `{"error":{"code":0,"message":"","type":""},"choices":[{"delta":{"content":"CONTENTMARKER"}}]}`, false, ""},
+	{"all-null error", `{"error":{"code":null,"message":null}}`, false, ""},
 	// An empty member riding alongside real output. The payload starts with
 	// {"error", which is all the P1-B accumulator looks at.
-	{"empty member with a delta", `{"error":"","choices":[{"delta":{"content":"hi"}}]}`, false, ""},
-	{"no error member", `{"choices":[{"delta":{"content":"hi"}}]}`, false, ""},
+	{"empty member with a delta", `{"error":"","choices":[{"delta":{"content":"CONTENTMARKER"}}]}`, false, ""},
+	{"no error member", `{"choices":[{"delta":{"content":"CONTENTMARKER"}}]}`, false, ""},
 }
 
 // A frame the probe calls an error must also be counted as one by the stream
@@ -117,22 +121,10 @@ func TestErrorFrameShapes_PipelineMatchesCorpus(t *testing.T) {
 				t.Errorf("an ordinary frame recorded an error: %q", logData.errorMessage)
 			}
 			// Whatever else it records, it never records the model's output.
-			if strings.Contains(logData.errorMessage, "hi") {
+			if strings.Contains(logData.errorMessage, "CONTENTMARKER") {
 				t.Errorf("response content reached the request log: %q", logData.errorMessage)
 			}
 		})
-	}
-}
-
-// Every reading in the package hands errorMemberCarries a member that came out
-// of a successful unmarshal, so bytes that are not JSON at all cannot arrive
-// through them. The guard is the helper's contract for anyone who calls it
-// with a raw member of their own: garbage carries nothing, rather than
-// counting as an error the provider never reported.
-func TestErrorMemberCarries_MalformedRaw(t *testing.T) {
-	t.Parallel()
-	if errorMemberCarries(json.RawMessage(`{"message":"trunc`)) {
-		t.Error("unparseable bytes must not count as an error member")
 	}
 }
 
@@ -237,8 +229,10 @@ func TestErrLogAttr_MasksAndBounds(t *testing.T) {
 		t.Errorf("credential survived: %q", got)
 	}
 
-	if bounded := st.errLogAttr(strings.Repeat("x", 5000)); len(bounded) > 1000 {
-		t.Errorf("unbounded provider text: %d bytes", len(bounded))
+	// The cap is 500 bytes; a little slack for whatever the sanitizer appends,
+	// but not enough for a widening to go unnoticed.
+	if bounded := st.errLogAttr(strings.Repeat("x", 5000)); len(bounded) > 550 {
+		t.Errorf("provider text bounded at %d bytes, want ~500", len(bounded))
 	}
 }
 
@@ -396,4 +390,40 @@ func newErrorFrameLog() *requestLogData {
 	}
 	ld.insertWg.Add(1)
 	return ld
+}
+
+// The native Anthropic passthrough reads the same member with its own decoder,
+// and it forwards the frame's bytes rather than rebuilding them — so a shape it
+// could not type cost the event its TYPE as well, and the key-shape scrub is
+// gated on that type. The frame then reached the caller verbatim, with whatever
+// credential a relay had quoted inside it, while the error itself went
+// uncounted and the request log recorded a truncated stream instead.
+func TestHandleStreamingResponse_NativeAnthropicBareStringError(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	const quoted = "sk-theirs-1234567890abcdefghij"
+	body := "event: error\ndata: " + `{"type":"error","error":"overloaded ` + quoted + `"}` + "\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/messages", http.NoBody))
+	logData := newErrorFrameLog()
+	logData.masker = newCredentialMasker("sk-ours-0000000000000000000000")
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		cancelOrigin:   "failover_timeout",
+		masker:         logData.masker,
+		rawPassthrough: true,
+	})
+
+	if strings.Contains(w.Body.String(), quoted) {
+		t.Errorf("relayed credential reached the caller: %q", w.Body.String())
+	}
+	if !strings.Contains(logData.errorMessage, "overloaded") {
+		t.Errorf("errorMessage = %q, want the provider's own error", logData.errorMessage)
+	}
 }

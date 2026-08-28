@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
@@ -355,7 +356,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		// errorMemberCarries, not the member's mere presence. The regex runs
+		// util.ErrorMemberCarries, not the member's mere presence. The regex runs
 		// over the WHOLE frame, and it can match prose — so on a frame that is
 		// not really an error it rewrites the model's answer. "error":null
 		// alongside a delta is an ordinary per-frame shape for several
@@ -365,7 +366,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// failure than missing the third masking layer on a frame whose error
 		// member is empty, where the credential could only be in the content
 		// the regex must not touch anyway.
-		if errorMemberCarries(chunk.Error) {
+		if util.ErrorMemberCarries(chunk.Error) {
 			masked = maskKeyShapedTokens(masked)
 		}
 		if string(masked) != payload {

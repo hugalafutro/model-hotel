@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -229,15 +228,6 @@ func (m credentialMasker) maskExact(body []byte) []byte {
 	return body
 }
 
-// maskKeyShapedTokens scrubs credential-looking substrings from upstream error
-// text before it reaches a client or the request log. Auth-class errors never
-// forward at all, and credentialMasker has already removed this gateway's own
-// key by exact value; this is the third layer, for a provider quoting some
-// other credential inside an otherwise forwardable payload error. A match with no
-// digit in it is an identifier or prose ("sk_business_unit_identifier",
-// "Bearer authentication-required") rather than a credential, and stays -
-// real keys carry digits. The replacement carries no JSON metacharacters, so
-// a valid body stays valid.
 // exactMaskWriter applies credentialMasker.maskExact to a byte stream whose
 // writes may split the key: it holds back the last len(key)-1 bytes of each
 // write until the next one arrives, so a key straddling two writes is still
@@ -282,6 +272,15 @@ func (e *exactMaskWriter) Flush() error {
 	return err
 }
 
+// maskKeyShapedTokens scrubs credential-looking substrings from upstream error
+// text before it reaches a client or the request log. Auth-class errors never
+// forward at all, and credentialMasker has already removed this gateway's own
+// key by exact value; this is the third layer, for a provider quoting some
+// other credential inside an otherwise forwardable payload error. A match with no
+// digit in it is an identifier or prose ("sk_business_unit_identifier",
+// "Bearer authentication-required") rather than a credential, and stays -
+// real keys carry digits. The replacement carries no JSON metacharacters, so
+// a valid body stays valid.
 func maskKeyShapedTokens(body []byte) []byte {
 	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
 		if !bytes.ContainsAny(m, "0123456789") {
@@ -295,111 +294,14 @@ func maskKeyShapedTokens(body []byte) []byte {
 // "error" member that actually carries something, which is what decides between
 // forwarding that body verbatim and synthesising an envelope over it.
 //
-// The test is emptiness, not shape. What a provider puts inside its error is not
-// this gateway's to judge, so any populated value counts: an object with fields,
-// Ollama's bare string ("model not found"), a list, even a number. What does not
-// count is a member that leaves a client with nothing to read - `null`, `{}`,
-// `""`, `[]` - because a body carrying one of those is, from the caller's side,
-// the same body with no error member at all, which is exactly the case this
-// function exists to catch. A body that is not a JSON object (an array, a bare
-// string, HTML) can carry no member and reports false.
+// util.ErrorMemberCarries holds the rule and documents it: emptiness, not shape,
+// applied at every depth, with `false` and `0` counting as empty like every
+// other zero value. A body that is not a JSON object (an array, a bare string,
+// HTML) can carry no member and reports false.
 func carriesErrorObject(body []byte) bool {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
-	return errorMemberCarries(envelope["error"])
-}
-
-// errorMemberCarries is that emptiness test over the member itself, so a caller
-// already holding the raw "error" value does not re-derive the rule. An absent
-// member (a nil or empty raw) carries nothing, which is what makes the missing
-// key and the null-valued key the same answer.
-//
-// Every reading of an error member's MEANING goes through here: the whole-body
-// check above, the probe that decides a hedged race, and the streaming observer
-// that decides what the request log and the circuit breaker are told. They read
-// the same bytes, so a second opinion is only ever a way for them to disagree.
-// Two readers stand outside it, both by necessity: parseAccumulatedError, whose
-// input is a truncated fragment no reader can judge, and the P1-C Anthropic
-// branch, which is keyed on the preceding "event: error" line rather than on
-// the member at all.
-//
-// The zero value of every JSON type carries nothing — including `false` and `0`,
-// which are not a peculiar error but the C convention for its absence, and
-// which reach here on every frame of every 200 stream now that the streaming
-// observer shares this rule. Reading `"error":false` as a failure would mark
-// every request from such a relay failed, suppress its terminal frame, and lose
-// it every hedged race it was in fact winning.
-//
-// A container carries whatever its values carry, because the same convention
-// appears one level down: `{"code":0,"message":""}` and `{"code":null}` are a
-// relay stamping its no-error struct on every frame, and stopping the rule at
-// the top level made every one of those requests a provider_error — which also
-// feeds the retirement machinery — while the provider answered perfectly.
-func errorMemberCarries(raw json.RawMessage) bool {
-	if len(raw) == 0 {
-		return false
-	}
-	var content any
-	if err := json.Unmarshal(raw, &content); err != nil {
-		return false
-	}
-	return valueCarries(content)
-}
-
-// valueCarries is the emptiness rule over a decoded JSON value. Recursion is
-// bounded by the value's own nesting, which encoding/json has already capped
-// while building it.
-func valueCarries(v any) bool {
-	switch v := v.(type) {
-	case nil:
-		return false
-	case string:
-		return strings.TrimSpace(v) != ""
-	case bool:
-		return v
-	case float64:
-		return v != 0
-	case map[string]any:
-		for _, val := range v {
-			if valueCarries(val) {
-				return true
-			}
-		}
-		return false
-	case []any:
-		for _, val := range v {
-			if valueCarries(val) {
-				return true
-			}
-		}
-		return false
-	default:
-		// Nothing else survives a decode into `any`; a shape that somehow did
-		// is a value the provider put there, and a client can render it.
-		return true
-	}
-}
-
-// errorMemberMessage renders the provider's own text out of an error member
-// already judged to carry something. The conventional {"message":…} wins; a
-// bare string is the message; anything else is rendered as the JSON the
-// provider sent, because dropping a frame's only explanation to preserve a
-// shape preference helps nobody reading a request log.
-//
-// The result is raw provider text: unbounded, and scrubbed by nothing. Every
-// caller masks and bounds it before storing, forwarding or logging it.
-func errorMemberMessage(raw json.RawMessage) string {
-	var obj struct {
-		Message string `json:"message"`
-	}
-	if json.Unmarshal(raw, &obj) == nil && obj.Message != "" {
-		return obj.Message
-	}
-	var bare string
-	if json.Unmarshal(raw, &bare) == nil {
-		return bare
-	}
-	return string(raw)
+	return util.ErrorMemberCarries(envelope["error"])
 }
