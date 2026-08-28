@@ -99,8 +99,15 @@ type streamChunk struct {
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 	} `json:"choices"`
-	Usage *Usage                    `json:"usage"`
-	Error *struct{ Message string } `json:"error"`
+	Usage *Usage `json:"usage"`
+	// json.RawMessage, not a typed object: providers put an error of any shape
+	// here — Ollama's bare string, a list, a number — and a typed field failed
+	// the WHOLE chunk unmarshal, so the frame was dropped as corrupt bytes
+	// instead of forwarded, and the error it reported was recorded only when
+	// the payload happened to START with {"error" (the P1-B prefix). What the
+	// member means is errorMemberCarries/errorMemberMessage's answer, shared
+	// with the probe so the two readings cannot drift.
+	Error json.RawMessage `json:"error"`
 }
 
 // observeDataChunk applies the four non-emitting, side-channel observers over a
@@ -197,12 +204,13 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		st.lastContent = currentContent
 	}
-	if chunk.Error != nil && !anthropicErrorCounted {
+	if !anthropicErrorCounted && errorMemberCarries(chunk.Error) {
 		// Only count if P1-C didn't already handle this as an
 		// Anthropic error event (which shares the same data line).
-		st.lastErrMsg = chunk.Error.Message
+		msg := errorMemberMessage(chunk.Error)
+		st.lastErrMsg = msg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", msg, "chunk_number", chunkCount)
 		// Clear st.errAccum: chunk.Error already captured this error,
 		// so P1-B's next flush must not re-count it.
 		st.errAccum = nil

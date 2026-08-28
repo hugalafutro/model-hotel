@@ -308,8 +308,20 @@ func carriesErrorObject(body []byte) bool {
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
-	raw, present := envelope["error"]
-	if !present {
+	return errorMemberCarries(envelope["error"])
+}
+
+// errorMemberCarries is that emptiness test over the member itself, so a caller
+// already holding the raw "error" value does not re-derive the rule. An absent
+// member (a nil or empty raw) carries nothing, which is what makes the missing
+// key and the null-valued key the same answer.
+//
+// Every reading of an error member goes through here: the whole-body check
+// above, the probe that decides a hedged race, and the streaming observer that
+// decides what the request log and the circuit breaker are told. They read the
+// same bytes, so a second opinion is only ever a way for them to disagree.
+func errorMemberCarries(raw json.RawMessage) bool {
+	if len(raw) == 0 {
 		return false
 	}
 	var content any
@@ -330,4 +342,26 @@ func carriesErrorObject(body []byte) bool {
 		// a client can render it.
 		return true
 	}
+}
+
+// errorMemberMessage renders the provider's own text out of an error member
+// already judged to carry something. The conventional {"message":…} wins; a
+// bare string is the message; anything else is rendered as the JSON the
+// provider sent, because dropping a frame's only explanation to preserve a
+// shape preference helps nobody reading a request log.
+//
+// The result is provider text, not response content, and every caller bounds
+// and masks it before it is stored or forwarded.
+func errorMemberMessage(raw json.RawMessage) string {
+	var obj struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(raw, &obj) == nil && obj.Message != "" {
+		return obj.Message
+	}
+	var bare string
+	if json.Unmarshal(raw, &bare) == nil {
+		return bare
+	}
+	return string(raw)
 }

@@ -361,7 +361,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		if chunk.Error != nil {
+		if errorMemberCarries(chunk.Error) {
 			masked = maskKeyShapedTokens(masked)
 		}
 		if string(masked) != payload {
