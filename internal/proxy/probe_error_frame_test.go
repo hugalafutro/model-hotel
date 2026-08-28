@@ -187,21 +187,27 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterErrorFrame(t *testing.T)
 // breaker is the only thing left that can keep the next request away.
 // ---------------------------------------------------------------------------
 
-func TestHandleStreamingResponse_ErrorWithNoContentOpensTheCircuit(t *testing.T) {
+func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	// Deliberately at the PRODUCTION default threshold (5), not a threshold of
-	// 1. The first version of this fix passed at 1 and was completely inert at
-	// 5: the TTFT probe recorded a breaker SUCCESS on every request before the
-	// stream ran, which zeroed consecutiveFails, so the failure charged here
-	// could only ever bring the count back to 1. Pinning the threshold to 1 is
-	// the one value at which that bug is invisible.
+	// Two things about this test are load-bearing, and an earlier version of it
+	// had neither.
+	//
+	// It goes through dispatchStreaming, NOT straight to handleStreamingResponse,
+	// so the TTFT probe really runs. The bug being pinned lives in what the probe
+	// tells the breaker, so a test that skips the probe cannot see it — the first
+	// version of this test passed with the bug fully restored.
+	//
+	// And it runs at the PRODUCTION default threshold of 5. The bug is that a
+	// probe success zeroes consecutiveFails on every request, so each failure can
+	// only bring the count back to 1. A threshold of 1 is the single value at
+	// which that is invisible.
 	providerID := uuid.New()
 	const attempts = 5
 	for i := range attempts {
-		// A valid opening frame (so the probe would pass), then the error.
-		// Nothing is ever delivered to the caller.
+		// A valid opening frame, so the probe passes and the provider is
+		// committed to; then the error. Nothing reaches the caller.
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
 			Body: io.NopCloser(strings.NewReader(
@@ -213,23 +219,30 @@ func TestHandleStreamingResponse_ErrorWithNoContentOpensTheCircuit(t *testing.T)
 		logData.providerName = "error-frame-provider"
 		h.insertRequestLogAsync(logData)
 
+		st := &requestState{
+			startTime:             time.Now(),
+			reqModel:              "test-model",
+			isStreaming:           true,
+			circuitBreakerEnabled: true,
+			logData:               logData,
+		}
+		cand := modelCandidate{
+			model:    &model.Model{ModelID: "test-model"},
+			provider: &provider.Provider{ID: providerID, Name: "error-frame-provider"},
+			apiKey:   "sk-test",
+		}
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
-		h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
-			responseHeaderMs: 10,
-			providerID:       providerID,
-			providerName:     "error-frame-provider",
-			circuitBreakerOn: true,
-			vkHash:           "test-hash",
-			attempt:          1,
-		})
+		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeServed {
+			t.Fatalf("attempt %d: outcome = %v, want served (the probe must pass on a healthy first frame)", i, got)
+		}
 		if logData.state != "failed" {
 			t.Fatalf("attempt %d: state = %q, want failed", i, logData.state)
 		}
 	}
 
 	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
-		t.Errorf("circuit = %s after %d zero-content failures, want open", got, attempts)
+		t.Errorf("circuit = %s after %d committed-then-failed streams, want open", got, attempts)
 	}
 }
 
