@@ -271,16 +271,20 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 //
 // An error envelope in the first frame is split out from the zero-token cases
 // below: the provider did answer, so this is its failure and never the client's,
-// and it is charged whatever the downstream connection was doing. The message is
-// sanitized because it is the provider's text, not ours.
-func classifyProbeError(probeErr error, providerName string, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+// and it is charged whatever the downstream connection was doing.
+func classifyProbeError(probeErr error, providerName string, masker credentialMasker, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
 	var frameErr *upstreamFrameError
 	if errors.As(probeErr, &frameErr) {
+		// This text is durable: on the last candidate it becomes the request
+		// log's error_message, which the virtual key's owner can read. Every
+		// other path that moves provider error text into that row masks the
+		// credential first, and a provider is free to quote the key back inside
+		// its error. Same treatment here.
 		return reqError{
 			Kind:       KindProviderError,
 			Attempt:    attempt,
 			Provider:   providerName,
-			Underlying: util.SanitizeLogBody(frameErr.msg, 500),
+			Underlying: util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500),
 		}, true
 	}
 	return classifyProbeFailure(providerName, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
@@ -345,7 +349,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
 			elapsed := time.Since(st.startTime)
-			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
@@ -355,15 +359,13 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "provider_stalled", recordFailure, "error", probeErr)
 			return outcomeFailover
 		}
-		// First token confirmed (or [DONE] received).
-		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-		}
+		// First token confirmed (or [DONE] received). No breaker success is
+		// recorded here: a first token is not a served stream, and recording one
+		// zeroes consecutiveFails on every request, which left the finalizer's
+		// own failure charges unable to ever reach the threshold. finalizeStream
+		// owns the verdict for a streaming 200 — see judgeStreamForBreaker.
 		opts.preReadBuf = probeBuf
 		opts.trueTtftMs = trueTtftMs
-	} else if st.circuitBreakerEnabled {
-		// Disabled — immediate commit (backward compat).
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 
 	h.handleStreamingResponse(w, r, logData, resp, st.startTime, opts)

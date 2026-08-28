@@ -344,9 +344,6 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 
 	if ttftTimeout <= 0 {
 		// No TTFT probe configured: a 200 is an immediate win (backward compat).
-		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-		}
 		return commitHedgeWin(ctx, res, resp, nil, 0, candidate)
 	}
 
@@ -359,7 +356,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// past the floor is a provider fault. Mirrors dispatchStreaming.
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
-		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", errString(probeErr))
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
@@ -368,9 +365,9 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		return res
 	}
 
-	if st.circuitBreakerEnabled {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-	}
+	// No breaker success here either: the winner's stream is judged by
+	// finalizeStream, and a runner-up whose stream is never read is no evidence
+	// of anything. See judgeStreamForBreaker.
 	return commitHedgeWin(ctx, res, resp, probeBuf, trueTtftMs, candidate)
 }
 
@@ -378,8 +375,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 // (which already carries the attempt's timing fields). If the attempt's context
 // was cancelled in the meantime (the orchestrator already picked another winner),
 // the open body is closed and the result is downgraded to a client-disconnect drop
-// so no runner-up connection leaks. The breaker success recorded by the caller is
-// left intact: the provider really did produce a first token.
+// so no runner-up connection leaks.
 func commitHedgeWin(ctx context.Context, res hedgeResult, resp *http.Response, preReadBuf *bytes.Buffer, trueTtftMs float64, candidate modelCandidate) hedgeResult {
 	if ctx.Err() != nil {
 		_ = resp.Body.Close()

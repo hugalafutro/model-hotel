@@ -368,24 +368,46 @@ func (e *upstreamFrameError) Error() string { return e.msg }
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
 //
-// A frame that does not parse is deliberately NOT an error envelope: the job
-// here is to spot a provider REPORTING a failure, not to validate its JSON, and
-// the streaming path downstream already handles malformed frames. Narrowness
-// matters in this direction — a false positive fails over a healthy stream.
+// Whether the frame IS an error is carriesErrorObject's question, not a second
+// opinion: this package already decided what counts (a populated error member of
+// any shape, including Ollama's bare string; not null/{}/""/[], which leave a
+// caller nothing to read). Answering it twice is how the two drift, and either
+// direction is a bug — a miss lets a broken provider win a hedged race, a false
+// positive fails over a healthy stream.
+//
+// Only the message is extracted here, and the shapes carriesErrorObject accepts
+// are wider than {"error":{"message":...}}, so the fallbacks are not decoration.
 func errorEnvelopeMessage(content string) (msg string, ok bool) {
+	raw := []byte(content)
+	if !carriesErrorObject(raw) {
+		return "", false
+	}
 	var chunk streamChunk
-	if err := json.Unmarshal([]byte(content), &chunk); err != nil {
-		return "", false
+	if err := json.Unmarshal(raw, &chunk); err == nil && chunk.Error != nil && chunk.Error.Message != "" {
+		return chunk.Error.Message, true
 	}
-	if chunk.Error == nil {
-		return "", false
+	// A bare string, a list, a number, or an object without a "message": render
+	// what the provider put there rather than dropping a frame already judged to
+	// be an error. Bounded by the caller's sanitizer.
+	var envelope struct {
+		Error json.RawMessage `json:"error"`
 	}
-	if chunk.Error.Message == "" {
-		// Still an error, just a mute one. Naming it beats handing the caller
-		// and the request log an empty string to explain the failure.
-		return "provider reported an error with no message", true
+	if err := json.Unmarshal(raw, &envelope); err == nil && len(envelope.Error) > 0 {
+		var bare string
+		if json.Unmarshal(envelope.Error, &bare) == nil {
+			return bare, true
+		}
+		return string(envelope.Error), true
 	}
-	return chunk.Error.Message, true
+	return "provider reported an error with no message", true
+}
+
+// safeProviderText prepares provider-authored error text for a log line: the
+// credential shapes masked, UUIDs redacted, length capped. The probe has no
+// credentialMasker of its own (it never saw the api key), so the key-shape pass
+// stands in for the exact-value one the request log gets downstream.
+func safeProviderText(msg string) string {
+	return util.SanitizeLogBody(string(maskKeyShapedTokens([]byte(msg))), 500)
 }
 
 // probeFirstToken reads from body until it finds the first real SSE data chunk
@@ -477,7 +499,7 @@ func (h *Handler) probeFirstToken(
 				// The provider answered, but with its own failure. Counting
 				// this as a first token is what lets a broken provider win a
 				// hedged race against a working one.
-				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "error_message", msg)
+				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "error_message", safeProviderText(msg))
 				closeProbe()
 				return nil, 0, &upstreamFrameError{msg: msg}
 			}
@@ -520,7 +542,7 @@ func (h *Handler) probeFirstToken(
 						// recovered from the buffer is no more a token than
 						// one read straight off the scanner.
 						if msg, isErr := errorEnvelopeMessage(content); isErr {
-							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "error_message", msg, "scan_error", scanErr)
+							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "error_message", safeProviderText(msg), "scan_error", scanErr)
 							return nil, 0, &upstreamFrameError{msg: msg}
 						}
 						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0

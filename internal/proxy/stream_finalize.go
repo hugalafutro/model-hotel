@@ -77,38 +77,80 @@ type streamState struct {
 	lastAnthropicEvent     string // P1-C: last "event:" type, consumed by the next data line
 }
 
-// breakerFailureReason reports why a finished stream is charged to the circuit
-// breaker, or "" when it is not. It is the whole charging policy for a stream
-// that reached the response body, in one place.
+// streamBreakerVerdict is what a finished stream tells the circuit breaker about
+// its provider: charge a failure (naming why, for the operator log), credit a
+// success, or say nothing at all.
+type streamBreakerVerdict struct {
+	failureReason string
+	success       bool
+}
+
+// providerAtFault reports whether an error kind is the provider's to answer for.
+// The gateway's own timeouts, its internal cancels and a client hangup are not,
+// and must never darken a provider that was doing nothing wrong.
+func providerAtFault(kind ErrorKind) bool {
+	switch kind {
+	case KindProviderError, KindProviderTimeout, KindProviderModelGone:
+		return true
+	default:
+		return false
+	}
+}
+
+// streamDeliveredOutput reports whether the caller actually received model
+// output. deliveredContent alone is not enough: st.sawContent is set by
+// observeDataChunk, which never runs on the native Anthropic passthrough, so on
+// that path a truncated stream that delivered thousands of tokens would look
+// empty. deliveredBytes is counted on both paths and is the honest signal.
+func streamDeliveredOutput(st *streamState, logData *requestLogData) bool {
+	return logData.deliveredContent || st.deliveredBytes > 0 || st.completionTokens > 0
+}
+
+// judgeStreamForBreaker decides what a finished stream tells the circuit
+// breaker. It is the whole policy for a streaming 200, in one place.
 //
-// Two shapes qualify. A stall is the provider going silent; an error is the
-// provider saying it failed. Neither is charged once the caller actually
-// received content: a stream that delivered real output before dying did part
-// of its job, and charging it would break the circuit on every
-// truncated-but-useful response.
+// Why the verdict lives HERE rather than at the TTFT probe: recordBreakerOutcome
+// deliberately says nothing for a streaming 200, so the probe was the only voice
+// these requests had — and it spoke too early. A first token is not a served
+// stream. Recording success there zeroed consecutiveFails on every single
+// request, so a provider that failed AFTER the first token oscillated 0→1 against
+// a threshold of 5 and could never open its circuit. Both charges below were
+// therefore inert in production. Move a success back to the probe and they go
+// inert again.
 //
-// The error case matters because the TTFT probe has already committed to this
+// Failure has two shapes. A stall is the provider going silent; an error is the
+// provider saying it failed. The stall charge is unconditional (as it has always
+// been), but an error is only charged when the caller received nothing: a stream
+// that delivered real output before dying did part of its job, and charging it
+// would break the circuit on every truncated-but-useful response.
+//
+// The error charge matters because the probe has already committed to this
 // provider by the time a later frame turns out to be an error, and the hedged
-// rivals were cancelled when it did (see probeFirstToken, which keeps an error
-// in the FIRST frame from ever winning that race). The breaker is then the only
-// thing left that can keep the next request away.
-//
-// A shutdown or a client hang-up is never the provider's fault, so both drop out
-// before either shape is considered.
-func breakerFailureReason(st *streamState, logData *requestLogData, errMsg string, circuitBreakerOn bool) string {
+// rivals were cancelled when it did (probeFirstToken keeps an error in the FIRST
+// frame from ever winning that race). The breaker is then the only thing left
+// that can keep the next request away.
+func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg string, circuitBreakerOn bool) streamBreakerVerdict {
 	if !circuitBreakerOn || st.interrupted || st.clientDisconnected {
-		return ""
+		return streamBreakerVerdict{}
+	}
+	if errMsg == "" {
+		// Includes the stream whose absent [DONE] was injected above: the
+		// sentinel was missing, the answer was not.
+		return streamBreakerVerdict{success: true}
+	}
+	if !providerAtFault(logData.errorKind) {
+		return streamBreakerVerdict{}
 	}
 	// !sawDone/!sawMessageStop avoids penalising a provider whose stream
 	// completed normally but whose stall timer fired concurrently with the
 	// terminal frame.
 	if st.stalled && !st.sawDone && !st.sawMessageStop {
-		return "stream stalled"
+		return streamBreakerVerdict{failureReason: "stream stalled"}
 	}
-	if errMsg != "" && !logData.deliveredContent && st.completionTokens == 0 {
-		return "stream failed without delivering content"
+	if !streamDeliveredOutput(st, logData) {
+		return streamBreakerVerdict{failureReason: "stream failed without delivering content"}
 	}
-	return ""
+	return streamBreakerVerdict{}
 }
 
 // finalizeStream performs the end-of-stream bookkeeping that used to live under
@@ -211,12 +253,14 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	}
 	h.updateRequestLog(logData)
 
-	// deriveStreamError already warns about the stall or the error itself; this
-	// line records that the breaker was CHARGED for it, which those do not say
-	// and which is otherwise invisible above Debug.
-	if reason := breakerFailureReason(st, logData, errMsg, opts.circuitBreakerOn); reason != "" {
-		debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration)
+	// deriveStreamError already warns about the stall or the error itself; the
+	// line below records that the breaker was CHARGED for it, which those do not
+	// say and which is otherwise invisible above Debug.
+	if verdict := judgeStreamForBreaker(st, logData, errMsg, opts.circuitBreakerOn); verdict.failureReason != "" {
+		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration)
 		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
+	} else if verdict.success {
+		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName)
 	}
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")

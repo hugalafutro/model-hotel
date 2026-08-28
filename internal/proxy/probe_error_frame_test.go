@@ -63,8 +63,14 @@ func TestProbeFirstToken_ContentFrameStillWins(t *testing.T) {
 		"empty choices":     "data: {\"choices\":[]}\n\n",
 		"role-only delta":   "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n",
 		"explicit null err": "data: {\"error\":null,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
-		"unparseable json":  "data: {not json at all\n\n",
-		"word error inside": "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"the error was mine\"}}]}\n\n",
+		// An empty boilerplate error member alongside a real token: the frame
+		// delivered content, so failing it over would throw away an answer.
+		"empty err + content": "data: {\"error\":{},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+		// The native Anthropic passthrough is probed like any other stream, and
+		// its first frame must keep winning.
+		"anthropic message_start": "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"usage\":{\"input_tokens\":10}}}\n\n",
+		"unparseable json":        "data: {not json at all\n\n",
+		"word error inside":       "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"the error was mine\"}}]}\n\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			h2 := h
@@ -181,42 +187,160 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterErrorFrame(t *testing.T)
 // breaker is the only thing left that can keep the next request away.
 // ---------------------------------------------------------------------------
 
-func TestHandleStreamingResponse_ErrorWithNoContentChargesTheBreaker(t *testing.T) {
+func TestHandleStreamingResponse_ErrorWithNoContentOpensTheCircuit(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
-	withBreakerThresholdOne(t, h)
 
-	// A valid opening frame (so the probe would pass), then the error. Nothing
-	// is ever delivered to the caller.
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body: io.NopCloser(strings.NewReader(
-			"data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + errorFrameSSE)),
+	// Deliberately at the PRODUCTION default threshold (5), not a threshold of
+	// 1. The first version of this fix passed at 1 and was completely inert at
+	// 5: the TTFT probe recorded a breaker SUCCESS on every request before the
+	// stream ran, which zeroed consecutiveFails, so the failure charged here
+	// could only ever bring the count back to 1. Pinning the threshold to 1 is
+	// the one value at which that bug is invisible.
+	providerID := uuid.New()
+	const attempts = 5
+	for i := range attempts {
+		// A valid opening frame (so the probe would pass), then the error.
+		// Nothing is ever delivered to the caller.
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body: io.NopCloser(strings.NewReader(
+				"data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + errorFrameSSE)),
+		}
+		// providerID is deliberately left off logData: the request-log row has a
+		// foreign key to providers and this provider exists only in the breaker.
+		logData := streamingLog()
+		logData.providerName = "error-frame-provider"
+		h.insertRequestLogAsync(logData)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+			responseHeaderMs: 10,
+			providerID:       providerID,
+			providerName:     "error-frame-provider",
+			circuitBreakerOn: true,
+			vkHash:           "test-hash",
+			attempt:          1,
+		})
+		if logData.state != "failed" {
+			t.Fatalf("attempt %d: state = %q, want failed", i, logData.state)
+		}
 	}
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %s after %d zero-content failures, want open", got, attempts)
+	}
+}
+
+// A stream that completes is what lets a provider recover, and it is now
+// recorded by the finalizer rather than the probe. Without it a provider would
+// accumulate failures forever with nothing able to clear them.
+func TestHandleStreamingResponse_CompletedStreamClearsTheFailureCount(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
 
 	providerID := uuid.New()
-	// providerID is deliberately left off logData: the request-log row has a
-	// foreign key to providers and this provider exists only in the breaker.
-	logData := streamingLog()
-	logData.providerName = "error-frame-provider"
-	h.insertRequestLogAsync(logData)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
-	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
-		responseHeaderMs: 10,
-		providerID:       providerID,
-		providerName:     "error-frame-provider",
-		circuitBreakerOn: true,
-		vkHash:           "test-hash",
-		attempt:          1,
-	})
-
-	if logData.state != "failed" {
-		t.Errorf("state = %q, want failed", logData.state)
+	opts := func() streamOptions {
+		return streamOptions{
+			responseHeaderMs: 10,
+			providerID:       providerID,
+			providerName:     "recovering-provider",
+			circuitBreakerOn: true,
+			vkHash:           "test-hash",
+			attempt:          1,
+		}
 	}
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
-		t.Errorf("circuit = %s, want open: the stream errored having delivered nothing", got)
+	fail := func() {
+		logData := streamingLog()
+		logData.providerName = "recovering-provider"
+		h.insertRequestLogAsync(logData)
+		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(errorFrameSSE))}
+		h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), opts())
+	}
+	succeed := func() {
+		logData := streamingLog()
+		logData.providerName = "recovering-provider"
+		h.insertRequestLogAsync(logData)
+		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"))}
+		h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), opts())
+	}
+
+	// Four failures is one short of the default threshold; a completed stream
+	// must reset the count so the fifth failure does not open the circuit.
+	for range 4 {
+		fail()
+	}
+	succeed()
+	fail()
+	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+		t.Errorf("circuit = %s, want closed: a completed stream must clear the failure count", got)
+	}
+}
+
+// A gateway-authored failure is not the provider's fault and must not darken it.
+// deriveStreamError produces these for the param-strip retry budget, the
+// per-attempt failover timeout, and internal cancels.
+func TestJudgeStreamForBreaker_DoesNotChargeGatewayAuthoredFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		kind ErrorKind
+		want bool // charged
+	}{
+		{"provider error", KindProviderError, true},
+		{"provider timeout", KindProviderTimeout, true},
+		{"model gone", KindProviderModelGone, true},
+		{"gateway internal", KindInternal, false},
+		{"param-strip retry budget", KindRetryTimeout, false},
+		{"failover deadline", KindFailoverTimeout, false},
+		{"validation", KindValidation, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &streamState{}
+			logData := &requestLogData{errorKind: tc.kind}
+			got := judgeStreamForBreaker(st, logData, "something went wrong", true).failureReason != ""
+			if got != tc.want {
+				t.Errorf("charged = %v, want %v for kind %s", got, tc.want, tc.kind)
+			}
+		})
+	}
+}
+
+// Neither a shutdown nor a client hangup is the provider's fault, and neither is
+// evidence that it is healthy: both record nothing at all.
+func TestJudgeStreamForBreaker_ShutdownAndClientHangupRecordNothing(t *testing.T) {
+	for name, st := range map[string]*streamState{
+		"gateway restarting": {interrupted: true},
+		"client hung up":     {clientDisconnected: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			logData := &requestLogData{errorKind: KindProviderError}
+			v := judgeStreamForBreaker(st, logData, "stream interrupted", true)
+			if v.failureReason != "" {
+				t.Errorf("charged %q, want no charge", v.failureReason)
+			}
+			if v.success {
+				t.Error("recorded a success, want nothing at all")
+			}
+		})
+	}
+}
+
+// The native Anthropic passthrough never runs observeDataChunk, so sawContent is
+// structurally unreachable there. A truncated native stream that delivered
+// thousands of tokens must not be charged as though it delivered nothing.
+func TestJudgeStreamForBreaker_NativePassthroughCountsDeliveredBytes(t *testing.T) {
+	logData := &requestLogData{errorKind: KindProviderError}
+	truncated := "stream truncated: upstream closed before message_stop"
+
+	delivered := &streamState{deliveredBytes: 3900}
+	if v := judgeStreamForBreaker(delivered, logData, truncated, true); v.failureReason != "" {
+		t.Errorf("charged %q, want no charge: the caller received 3900 bytes", v.failureReason)
+	}
+	empty := &streamState{}
+	if v := judgeStreamForBreaker(empty, logData, truncated, true); v.failureReason == "" {
+		t.Error("a native stream that delivered nothing must be charged")
 	}
 }
 
@@ -233,6 +357,8 @@ func TestHandleStreamingResponse_ErrorAfterContentDoesNotChargeTheBreaker(t *tes
 		Body: io.NopCloser(strings.NewReader(
 			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial answer\"}}]}\n\n" + errorFrameSSE)),
 	}
+	// Threshold 1 here is deliberate and safe: it makes a single stray charge
+	// visible, which is exactly what this negative test is looking for.
 
 	providerID := uuid.New()
 	logData := streamingLog()
@@ -295,12 +421,21 @@ func TestErrorEnvelopeMessage(t *testing.T) {
 		wantOk  bool
 	}{
 		{"provider error", `{"error":{"message":"boom"}}`, "boom", true},
-		{"error with no message", `{"error":{}}`, "provider reported an error with no message", true},
 		{"anthropic error event", `{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}`, "overloaded", true},
+		// Ollama answers with a bare string. carriesErrorObject has always
+		// counted that as an error; the first version of this check unmarshalled
+		// the frame into a streamChunk, which fails outright on this shape, so a
+		// local Ollama box in a hedged group reproduced the whole incident.
+		{"ollama bare string", `{"error":"model not found"}`, "model not found", true},
+		{"object without a message", `{"error":{"code":500}}`, `{"code":500}`, true},
 		{"ordinary token", `{"choices":[{"delta":{"content":"hi"}}]}`, "", false},
 		{"explicit null error", `{"error":null,"choices":[]}`, "", false},
 		{"unparseable frame", `{not json`, "", false},
-		{"error as a string", `{"error":"boom"}`, "", false},
+		// Empty of every shape leaves a caller nothing to read, so it is not an
+		// error frame — the same judgement carriesErrorObject makes.
+		{"empty error object", `{"error":{}}`, "", false},
+		{"empty error string", `{"error":""}`, "", false},
+		{"empty error list", `{"error":[]}`, "", false},
 		{"json array", `[1,2,3]`, "", false},
 	}
 	for _, tc := range tests {
@@ -316,17 +451,24 @@ func TestErrorEnvelopeMessage(t *testing.T) {
 	}
 }
 
-// The provider's own text reaches the request log through reqError.Underlying,
-// so it goes through the same sanitizer every other upstream body does.
-func TestClassifyProbeError_SanitizesTheProvidersMessage(t *testing.T) {
-	msg := "tenant 793ac38b-0211-43e6-baa7-aa7054c39931 exceeded quota"
-	re, charged := classifyProbeError(&upstreamFrameError{msg: msg}, "prov-A", false, time.Second, 30*time.Second, 60*time.Second, 1)
+// The provider's own text reaches request_logs.error_message through
+// reqError.Underlying, where the virtual key's owner can read it. A provider is
+// free to quote the api key back inside its error, so this goes through the same
+// credential masking every other upstream error body does — not just the UUID
+// redaction and the length cap.
+func TestClassifyProbeError_MasksTheProvidersMessage(t *testing.T) {
+	const apiKey = "sk-live-abc123def456ghi789"
+	msg := "invalid api key " + apiKey + " for tenant 793ac38b-0211-43e6-baa7-aa7054c39931"
+	re, charged := classifyProbeError(&upstreamFrameError{msg: msg}, "prov-A", newCredentialMasker(apiKey), false, time.Second, 30*time.Second, 60*time.Second, 1)
 
 	if !charged {
 		t.Error("an error envelope is always the provider's fault and must be charged")
 	}
 	if re.Kind != KindProviderError {
 		t.Errorf("kind = %s, want %s", re.Kind, KindProviderError)
+	}
+	if strings.Contains(re.Underlying, apiKey) {
+		t.Errorf("underlying = %q, still carries the provider credential", re.Underlying)
 	}
 	if strings.Contains(re.Underlying, "793ac38b") {
 		t.Errorf("underlying = %q, want the UUID redacted", re.Underlying)
@@ -337,13 +479,13 @@ func TestClassifyProbeError_SanitizesTheProvidersMessage(t *testing.T) {
 // already answered with a failure, so the charge does not depend on the
 // downstream connection the way a zero-token stall does.
 func TestClassifyProbeError_ChargesEvenWhenTheClientIsGone(t *testing.T) {
-	_, charged := classifyProbeError(&upstreamFrameError{msg: "boom"}, "prov-A", true, time.Millisecond, 30*time.Second, 60*time.Second, 1)
+	_, charged := classifyProbeError(&upstreamFrameError{msg: "boom"}, "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1)
 	if !charged {
 		t.Error("an error envelope must be charged to the provider even when the client is gone")
 	}
 	// The contrast that makes the case above meaningful: a zero-token stall
 	// with a fast client close is NOT charged.
-	if _, chargedStall := classifyProbeError(errors.New("TTFT timeout"), "prov-A", true, time.Millisecond, 30*time.Second, 60*time.Second, 1); chargedStall {
+	if _, chargedStall := classifyProbeError(errors.New("TTFT timeout"), "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1); chargedStall {
 		t.Error("a fast client cancel with zero tokens must still not be charged")
 	}
 }
