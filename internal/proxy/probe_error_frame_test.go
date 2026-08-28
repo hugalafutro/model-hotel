@@ -441,7 +441,12 @@ func TestErrorEnvelopeMessage(t *testing.T) {
 		// the frame into a streamChunk, which fails outright on this shape, so a
 		// local Ollama box in a hedged group reproduced the whole incident.
 		{"ollama bare string", `{"error":"model not found"}`, "model not found", true},
-		{"object without a message", `{"error":{"code":500}}`, `{"code":500}`, true},
+		// Named, not rendered raw. This message is persisted to
+		// request_logs.error_message, and providers echo the offending input
+		// inside content-filter and moderation errors — rendering the member
+		// verbatim would put the caller's prompt in the log, against the rule
+		// that no prompt or response content is ever logged.
+		{"object without a message", `{"error":{"code":500}}`, "provider reported an error with no message", true},
 		{"ordinary token", `{"choices":[{"delta":{"content":"hi"}}]}`, "", false},
 		{"explicit null error", `{"error":null,"choices":[]}`, "", false},
 		{"unparseable frame", `{not json`, "", false},

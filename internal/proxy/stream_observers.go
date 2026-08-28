@@ -156,9 +156,19 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		if choice.Delta == nil {
 			continue
 		}
-		st.deliveredBytes += len(deltaText(choice.Delta.Content))
-		st.deliveredBytes += len(deltaText(choice.Delta.ReasoningContent))
-		st.deliveredBytes += len(deltaText(choice.Delta.Reasoning))
+		for _, raw := range []json.RawMessage{choice.Delta.Content, choice.Delta.ReasoningContent, choice.Delta.Reasoning} {
+			text, readable := deltaText(raw)
+			if !readable {
+				// The frame parsed, but this member is in a shape we cannot
+				// size. Counted as unparsed so the end-of-stream breaker
+				// verdict withholds judgement rather than charging the provider
+				// for an emptiness that is our blind spot, not its silence —
+				// the caller did receive this text.
+				st.unparsedChunks++
+				continue
+			}
+			st.deliveredBytes += len(text)
+		}
 		if rd := choice.Delta.ReasoningDetails; len(rd) > 0 && string(rd) != "null" {
 			st.deliveredBytes += len(rd)
 		}
@@ -170,8 +180,8 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	}
 	if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 		delta := chunk.Choices[0].Delta
-		currentContent := deltaText(delta.Content)
-		if rc := deltaText(delta.ReasoningContent); rc != "" && currentContent == "" {
+		currentContent, _ := deltaText(delta.Content)
+		if rc, _ := deltaText(delta.ReasoningContent); rc != "" && currentContent == "" {
 			currentContent = rc
 			if !st.sawThinking {
 				st.sawThinking = true
@@ -218,36 +228,45 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 // This exists so the fields can be json.RawMessage. Typed as *string they made a
 // wider-but-valid shape fail the whole-chunk unmarshal, which dropped the frame
 // and lost the answer.
-func deltaText(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
+func deltaText(raw json.RawMessage) (text string, readable bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		// Absent. Nothing to read, and nothing unreadable about that.
+		return "", true
 	}
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
-		return s
+		return s, true
 	}
 	var parts []struct {
 		Text string `json:"text"`
 	}
 	if json.Unmarshal(raw, &parts) != nil {
-		return ""
+		return "", false
 	}
 	var b strings.Builder
 	for _, p := range parts {
 		b.WriteString(p.Text)
 	}
-	return b.String()
+	if b.Len() == 0 && len(parts) > 0 {
+		// An array of parts none of which carried a "text" — a provider
+		// spelling this gateway does not know (say {"type":"thinking",
+		// "thinking":"..."}). The caller receives it; we cannot size it.
+		return "", false
+	}
+	return b.String(), true
 }
 
 // deltaTextPtr adapts an output field for the transforms, which still take
-// *string. nil means the member is absent or null — the distinction the old
-// *string fields carried — and a present member yields its extracted text, which
-// may legitimately be "".
+// *string. nil means the member is absent, null, or in a shape this gateway
+// cannot read — in every one of those cases there is no text to hand over.
 func deltaTextPtr(raw json.RawMessage) *string {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
-	s := deltaText(raw)
+	s, readable := deltaText(raw)
+	if !readable {
+		return nil
+	}
 	return &s
 }
 
@@ -286,5 +305,10 @@ func chunkErrorMessage(raw json.RawMessage) (string, bool) {
 	if json.Unmarshal(raw, &bare) == nil {
 		return bare, true
 	}
-	return string(raw), true
+	// Deliberately NOT the raw member. This message is persisted to
+	// request_logs.error_message, and providers routinely echo the offending
+	// input inside content-filter and moderation errors — which would put the
+	// caller's prompt in the log, against the rule that no prompt or response
+	// content is ever logged. Naming the failure is enough.
+	return "provider reported an error with no message", true
 }

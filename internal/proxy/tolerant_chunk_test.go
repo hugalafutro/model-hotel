@@ -158,8 +158,14 @@ func TestTolerantChunk_BareStringErrorIsRecognised(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	_, logData := streamTolerant(t, h, `data: {"error":"model not found"}`+"\n\ndata: [DONE]\n\n")
+	w, logData := streamTolerant(t, h, `data: {"error":"model not found"}`+"\n\ndata: [DONE]\n\n")
 
+	// The client half is the actual change. Master already recorded this as a
+	// failure via captureSSEError's accumulator, but forwarded only [DONE], so
+	// the caller was left with an empty success while the log said otherwise.
+	if !strings.Contains(w.Body.String(), "model not found") {
+		t.Errorf("the caller must be told what the provider said, got: %s", w.Body.String())
+	}
 	if logData.state != "failed" {
 		t.Errorf("state = %q, want failed: the provider reported an error", logData.state)
 	}
@@ -219,22 +225,33 @@ func TestTolerantChunk_MalformedBytesStillDropped(t *testing.T) {
 
 func TestDeltaText(t *testing.T) {
 	for name, tc := range map[string]struct {
-		raw  string
-		want string
+		raw      string
+		want     string
+		readable bool
 	}{
-		"plain string":      {`"hello"`, "hello"},
-		"empty string":      {`""`, ""},
-		"single part":       {`[{"type":"text","text":"hello"}]`, "hello"},
-		"several parts":     {`[{"type":"text","text":"a"},{"type":"text","text":"b"}]`, "ab"},
-		"part without text": {`[{"type":"image_url"}]`, ""},
-		"absent":            {``, ""},
-		"null":              {`null`, ""},
-		"unrecognised":      {`{"weird":"object"}`, ""},
-		"number":            {`12345`, ""},
+		"plain string":  {`"hello"`, "hello", true},
+		"empty string":  {`""`, "", true},
+		"single part":   {`[{"type":"text","text":"hello"}]`, "hello", true},
+		"several parts": {`[{"type":"text","text":"a"},{"type":"text","text":"b"}]`, "ab", true},
+		"empty array":   {`[]`, "", true},
+		"absent":        {``, "", true},
+		"null":          {`null`, "", true},
+		// Present, but in a spelling this gateway does not know. Reporting
+		// these as readable-and-empty is what let a stream the caller received
+		// in full be charged to the provider as having delivered nothing.
+		"part without text":   {`[{"type":"image_url"}]`, "", false},
+		"thinking parts":      {`[{"type":"thinking","thinking":"deep"}]`, "", false},
+		"bare string parts":   {`["hello"]`, "", false},
+		"unrecognised object": {`{"weird":"object"}`, "", false},
+		"number":              {`12345`, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := deltaText(json.RawMessage(tc.raw)); got != tc.want {
+			got, readable := deltaText(json.RawMessage(tc.raw))
+			if got != tc.want {
 				t.Errorf("deltaText(%s) = %q, want %q", tc.raw, got, tc.want)
+			}
+			if readable != tc.readable {
+				t.Errorf("deltaText(%s) readable = %v, want %v", tc.raw, readable, tc.readable)
 			}
 		})
 	}
@@ -265,11 +282,14 @@ func TestChunkErrorMessage(t *testing.T) {
 	}{
 		"object with a message": {`{"message":"boom"}`, "boom", true},
 		"ollama bare string":    {`"model not found"`, "model not found", true},
-		"object without one":    {`{"code":500}`, `{"code":500}`, true},
-		"absent":                {``, "", false},
-		"null":                  {`null`, "", false},
-		"empty object":          {`{}`, "", false},
-		"empty string":          {`""`, "", false},
+		// NOT the raw member: this text is persisted to the request log, and
+		// providers echo the offending input inside content-filter errors.
+		"object without one": {`{"code":500}`, "provider reported an error with no message", true},
+		"boolean false":      {`false`, "", false},
+		"absent":             {``, "", false},
+		"null":               {`null`, "", false},
+		"empty object":       {`{}`, "", false},
+		"empty string":       {`""`, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			msg, isErr := chunkErrorMessage(json.RawMessage(tc.raw))
@@ -280,5 +300,89 @@ func TestChunkErrorMessage(t *testing.T) {
 				t.Errorf("msg = %q, want %q", msg, tc.msg)
 			}
 		})
+	}
+}
+
+// A content shape this gateway cannot read is still delivered to the caller —
+// but it must not be counted as the provider delivering NOTHING. The frame now
+// parses, so the "our parser could not read it" escape hatch has to be raised
+// deliberately, or a provider answering every request correctly accrues a
+// breaker failure every time and leaves rotation for all tenants after five.
+func TestTolerantChunk_UnreadableContentWithholdsTheBreakerVerdict(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	logData := streamingLog()
+	logData.providerName = "unknown-shape-provider"
+	h.insertRequestLogAsync(logData)
+
+	// Parts carrying their text under a spelling we do not know.
+	frame := `{"choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":"deep"}]}}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n"))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10, providerID: providerID, providerName: "unknown-shape-provider",
+		circuitBreakerOn: true, vkHash: "test-hash", attempt: 1,
+	})
+
+	if !strings.Contains(w.Body.String(), "deep") {
+		t.Fatalf("test assumption broken: the frame must be delivered, got %s", w.Body.String())
+	}
+	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+		t.Error("a provider whose answer we could not size must not be charged for delivering nothing")
+	}
+}
+
+// strip_reasoning is a per-key contract, and the strip transform deletes the
+// reasoning* KEYS — it never looks inside content. A parts array carrying the
+// chain of thought under an unknown spelling must therefore be withheld, not
+// forwarded on the assumption that content is safe.
+func TestTolerantChunk_StripWithholdsContentItCannotInspect(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const secret = "SECRET-CHAIN-OF-THOUGHT"
+	frame := `{"choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":"` + secret + `"}]}}]}`
+	w, _ := streamTolerant(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n", func(r *http.Request) *http.Request {
+		return r.WithContext(context.WithValue(r.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+	})
+
+	if strings.Contains(w.Body.String(), secret) {
+		t.Errorf("content the gateway cannot inspect was forwarded to a strip_reasoning caller: %s", w.Body.String())
+	}
+}
+
+// Error is json.RawMessage now, so a present-but-null member is non-nil. A
+// gateway that stamps "error": null on every chunk would otherwise have the
+// key-shape regex run over the model's answer, silently mangling text that
+// merely looks like a key.
+func TestTolerantChunk_NullErrorMemberDoesNotMangleContent(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const looksLikeAKey = "try sk-abcdef1234567890abcdef"
+	frame := `{"choices":[{"index":0,"delta":{"content":"` + looksLikeAKey + `"}}],"error":null}`
+	w, logData := streamTolerant(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+
+	if !strings.Contains(w.Body.String(), looksLikeAKey) {
+		t.Errorf("the model's answer was mangled by the key-shape mask: %s", w.Body.String())
+	}
+	if logData.state != "completed" {
+		t.Errorf("state = %q, want completed: \"error\": null is not an error", logData.state)
+	}
+}
+
+// "error": false is how several OpenAI-compatible gateways spell "no error".
+func TestTolerantChunk_FalseErrorMemberIsNotAnError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	_, logData := streamTolerant(t, h,
+		`data: {"choices":[{"index":0,"delta":{"content":"hi"}}],"error":false}`+"\n\ndata: [DONE]\n\n")
+	if logData.state != "completed" {
+		t.Errorf("state = %q, want completed", logData.state)
 	}
 }

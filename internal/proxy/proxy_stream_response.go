@@ -304,7 +304,8 @@ func (st *streamState) applyEmptyContentStrip(sink *streamSink, chunk streamChun
 		return false, false
 	}
 	delta := chunk.Choices[0].Delta
-	hasReasoning := deltaText(delta.ReasoningContent) != ""
+	reasoningText, _ := deltaText(delta.ReasoningContent)
+	hasReasoning := reasoningText != ""
 	// Present AND literally the empty string. A null content is absent, not
 	// empty, which is what the *string form of this field used to express.
 	hasEmptyContent := string(delta.Content) == `""`
@@ -362,7 +363,13 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		if chunk.Error != nil {
+		// carriesErrorMember, not a nil check: Error is json.RawMessage now, so
+		// a present-but-null member is non-nil, and a gateway that stamps
+		// "error": null on every chunk would have the key-shape regex run over
+		// the model's answer — silently mangling text that merely looks like a
+		// key. One definition of what counts as an error, shared with the
+		// observers.
+		if carriesErrorMember(chunk.Error) {
 			masked = maskKeyShapedTokens(masked)
 		}
 		if string(masked) != payload {

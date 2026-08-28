@@ -495,19 +495,10 @@ func promptTextBytes(body []byte) int {
 	}
 	n := len(req.Tools)
 	for _, m := range req.Messages {
-		var text string
-		if json.Unmarshal(m.Content, &text) == nil {
-			n += len(text)
-			continue
-		}
-		var parts []struct {
-			Text string `json:"text"`
-		}
-		if json.Unmarshal(m.Content, &parts) == nil {
-			for _, p := range parts {
-				n += len(p.Text)
-			}
-		}
+		// Same string-or-content-parts extraction the stream observers do, and
+		// deliberately the same helper: two copies of this drifted once already.
+		text, _ := deltaText(m.Content)
+		n += len(text)
 	}
 	return n
 }

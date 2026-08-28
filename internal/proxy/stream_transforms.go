@@ -1,9 +1,6 @@
 package proxy
 
-import (
-	"encoding/json"
-	"strings"
-)
+import "encoding/json"
 
 // stripReasoningDecision is what computeStripReasoning decided for a chunk.
 type stripReasoningDecision int
@@ -56,14 +53,18 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 	// Does the delta still carry meaningful data?
 	deltaHasContent := false
 	if cRaw, okC := deltaFields["content"]; okC {
-		// Any non-empty content counts, WHATEVER its shape. Judging only the
+		// Content in ANY shape this gateway can read counts. Judging only the
 		// plain-string form meant a delta whose content is an array of parts
 		// looked contentless and was rewritten into a keep-alive, taking the
-		// text with it. (The empty-string case was already deleted above; it is
-		// re-checked here so this stays correct if that block moves.)
-		switch strings.TrimSpace(string(cRaw)) {
-		case "null", `""`:
-		default:
+		// text with it.
+		//
+		// Content it CANNOT read deliberately does not count, and the frame
+		// becomes a keep-alive. This transform strips the reasoning* keys; it
+		// never looks inside content. A parts array carrying the chain of
+		// thought under a spelling we do not know would otherwise be forwarded
+		// whole to a caller whose key says it must never receive reasoning.
+		// Withholding an unreadable frame is the only safe answer.
+		if text, readable := deltaText(cRaw); readable && text != "" {
 			deltaHasContent = true
 		}
 	}
@@ -147,10 +148,10 @@ func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *st
 		hasContent := false
 		if chunk.Choices[0].Delta != nil {
 			delta := chunk.Choices[0].Delta
-			if deltaText(delta.Content) != "" {
+			if text, _ := deltaText(delta.Content); text != "" {
 				hasContent = true
 			}
-			if deltaText(delta.ReasoningContent) != "" {
+			if text, _ := deltaText(delta.ReasoningContent); text != "" {
 				hasContent = true
 			}
 		}
