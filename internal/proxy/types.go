@@ -11,6 +11,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ModelRepository defines the interface for model operations.
@@ -424,8 +425,11 @@ type ToolCall struct {
 
 // ToolCallFunc is the function name + raw JSON arguments of a tool call.
 type ToolCallFunc struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
+	Name string `json:"name"`
+	// See util.ToolArguments. A plain string here made the whole
+	// ChatCompletionResponse fail to decode when a provider sent the argument
+	// object, and the caller got an error envelope instead of its tool call.
+	Arguments util.ToolArguments `json:"arguments"`
 }
 
 // PromptTokensDetails breaks down prompt tokens into sub-categories.

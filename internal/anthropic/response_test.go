@@ -218,3 +218,48 @@ func TestBuildMessageResponse_DecodeErrorOmitsPayload(t *testing.T) {
 		})
 	}
 }
+
+// BuildMessageResponse must read a tool call whose arguments the upstream sent
+// as an object. It is defence in depth rather than a live path today — the
+// writer only ever sees bytes the proxy already normalised — but the field was
+// the last one in the repo still typed as a plain string, and an untyped field
+// with no test is how "today" stops being true.
+func TestBuildMessageResponse_ObjectFormToolArguments(t *testing.T) {
+	body := []byte(`{"id":"x","object":"chat.completion","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`)
+
+	out, err := BuildMessageResponse(body, "msg_1", "claude-sonnet-4-6")
+	if err != nil {
+		t.Fatalf("an object-form tool call must decode: %v", err)
+	}
+
+	var msg struct {
+		StopReason string `json:"stop_reason"`
+		Content    []struct {
+			Type  string          `json:"type"`
+			Name  string          `json:"name"`
+			Input json.RawMessage `json:"input"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(out, &msg); err != nil {
+		t.Fatalf("decode built message: %v", err)
+	}
+	if msg.StopReason != "tool_use" {
+		t.Errorf("stop_reason = %q, want tool_use", msg.StopReason)
+	}
+	var found bool
+	for _, b := range msg.Content {
+		if b.Type != "tool_use" {
+			continue
+		}
+		found = true
+		if b.Name != "get_weather" {
+			t.Errorf("tool name = %q, want get_weather", b.Name)
+		}
+		if string(b.Input) != `{"city":"Prague"}` {
+			t.Errorf("tool input = %s, want the arguments object", b.Input)
+		}
+	}
+	if !found {
+		t.Error("no tool_use block: stop_reason tool_use without one is a protocol violation")
+	}
+}
