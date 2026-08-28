@@ -502,7 +502,9 @@ describe("per-setting reset", () => {
 
 		resetSpy.mockRestore();
 	});
+});
 
+describe("ProxySettings TTFT slider", () => {
 	// The TTFT slider deliberately does NOT use infinityValue={0}. On the other
 	// sliders 0 means "no limit"; here it DISABLES the first-token probe, which
 	// also switches off the guards that refuse a provider whose first frame is
