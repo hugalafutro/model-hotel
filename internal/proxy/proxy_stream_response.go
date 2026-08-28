@@ -459,6 +459,43 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	return false
 }
 
+// unmodelledDeliveredBytes sizes the model output carried by a frame the typed
+// path could not read: the raw bytes of the delta members that hold output, and
+// nothing else.
+//
+// It must not be the whole payload. deliveredBytes is documented as "the bytes
+// of content, reasoning and tool-call arguments" and is the sole input to
+// estimateMissingUsage, which charges quota and TPM. Counting the JSON envelope
+// over-charged by orders of magnitude for frames carrying a couple of bytes of
+// text each and — far worse — gave a stream that delivered nothing but an error
+// a non-zero byte count, unlocking a full prompt-size estimate for a request the
+// provider never billed. estimateMissingUsage's own contract is that "an error
+// before the first token costs nothing".
+//
+// Zero means the frame carries no output, and the caller does not forward it at
+// all: there is nothing to rescue, and relaying it would only cost a strict
+// client a decode error.
+func unmodelledDeliveredBytes(payload string) int {
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		return 0
+	}
+	total := 0
+	for _, key := range []string{"content", "reasoning_content", "reasoning", "reasoning_details", "tool_calls"} {
+		raw, present := p.delta[key]
+		if !present {
+			continue
+		}
+		// An empty container is a member with no output in it.
+		switch strings.TrimSpace(string(raw)) {
+		case "null", `""`, "[]", "{}":
+			continue
+		}
+		total += len(raw)
+	}
+	return total
+}
+
 // topLevelJSONObject reports whether an SSE payload is a JSON object.
 // Deliberately stricter than json.Valid, which also admits `123`, `"text"`,
 // `true` and arrays: a client decodes every data: event into a chunk struct, so
@@ -484,6 +521,16 @@ func (st *streamState) forwardUnmodelledFrame(sink *streamSink, payload string, 
 	if !topLevelJSONObject(payload) {
 		return false, false
 	}
+	// Only a frame that actually carries output is worth rescuing. A frame with
+	// no delta output — an error envelope in a shape the typed path cannot read,
+	// say Ollama's bare {"error":"model not found"} — is left to the drop path
+	// exactly as before. Forwarding it would deliver nothing, bill the caller for
+	// a request the provider never charged for, and tell the circuit breaker the
+	// provider had delivered.
+	delivered := unmodelledDeliveredBytes(payload)
+	if delivered == 0 {
+		return false, false
+	}
 	// The masking every other frame gets lives inside the typed branch this one
 	// skipped, so it is applied here or not at all: exact-key always, and the
 	// key-shape pass when the frame carries an error member, matching the policy
@@ -493,10 +540,14 @@ func (st *streamState) forwardUnmodelledFrame(sink *streamSink, payload string, 
 	if carriesErrorObject(masked) {
 		masked = maskKeyShapedTokens(masked)
 	}
-	// Counted as unparsed either way: forwarding the bytes does not tell us
-	// whether they carried output, so the end-of-stream breaker verdict keeps
-	// withholding its judgement.
-	st.unparsedChunks++
+	// Deliberately NOT counted as unparsed. That counter makes the end-of-stream
+	// breaker verdict withhold judgement because the frame's contents are
+	// unknown — but reaching here means unmodelledDeliveredBytes has measured
+	// output in it, so they are not. Marking these unparsed would leave a
+	// provider whose normal shape lands on this path unable to EVER record a
+	// breaker success, and consecutiveFails only resets on success: five failures
+	// spread over any span, rather than five consecutive, would open its circuit.
+	// The drop path still counts, because there the contents really are unknown.
 	if !st.warnedUnmodelled {
 		// Once per stream. Forwarding makes this shape a normal operating mode
 		// for some providers, and a per-frame Warn would ship thousands of lines
@@ -516,17 +567,25 @@ func (st *streamState) forwardUnmodelledFrame(sink *streamSink, payload string, 
 		case stripDrop:
 			return true, false
 		case stripKeepalive, stripForward:
-			st.deliveredBytes += len(stripped)
+			// Size what SURVIVED the strip. Charging the pre-strip figure bills
+			// the caller for reasoning deliberately withheld from them, and a
+			// keep-alive delivers nothing at all.
+			st.deliveredBytes += unmodelledDeliveredBytes(string(stripped))
 			return true, !st.emitData(sink, stripped, "unmodelled frame", chunkCount, logData)
 		case stripPassthrough:
-			// No choices/delta to strip, so there is nothing to withhold.
+			// parseChunkPayload refused the frame, which does NOT mean it holds
+			// no reasoning: it also refuses a choices/delta that is not the shape
+			// it expects. The gateway cannot prove this frame is reasoning-free,
+			// and strip_reasoning is a promise to a specific caller, so it is
+			// dropped rather than forwarded on a guess.
+			return true, false
 		}
 	}
-	// The delivery accounting cannot see inside this frame, so the whole payload
-	// stands in for the output it carries. An overestimate is the safe direction:
-	// counting zero left a request that really was served — an agentic tool call
-	// from a provider that omits the usage chunk — metered at nothing against
-	// both quota and TPM while the provider billed for it.
-	st.deliveredBytes += len(masked)
+	// Only the output-bearing members, never the envelope. Counting zero left a
+	// request that really was served — an agentic tool call from a provider that
+	// omits the usage chunk — metered at nothing against quota and TPM while the
+	// provider billed for it; counting the envelope over-charged wildly for the
+	// same request.
+	st.deliveredBytes += delivered
 	return true, !st.emitData(sink, masked, "unmodelled frame", chunkCount, logData)
 }

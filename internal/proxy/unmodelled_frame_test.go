@@ -198,10 +198,114 @@ func TestHandleStreamingResponse_UnmodelledErrorFrameMasksKeyShapedTokens(t *tes
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	// Unmodelled because error is a bare string, not our {message} object.
-	out := streamThrough(t, h, `data: {"error":"upstream rejected key sk-abc123def456ghi789xyz"}`+"\n\ndata: [DONE]\n\n")
+	// The frame must carry BOTH an error member and real delta output: an
+	// error-only frame has nothing to deliver and is dropped, so it would never
+	// reach the mask and the test would pass whatever the code did. Unmodelled
+	// because error is a bare string and content is an array of parts.
+	frame := `{"error":"upstream rejected key sk-abc123def456ghi789xyz",` +
+		`"choices":[{"index":0,"delta":{"content":[{"type":"text","text":"hi"}]}}]}`
+	out := streamThrough(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+	if !strings.Contains(out, "hi") {
+		t.Fatalf("test assumption broken: the frame must be forwarded, got %s", out)
+	}
 	if strings.Contains(out, "sk-abc123def456ghi789xyz") {
 		t.Errorf("a key-shaped token in a forwarded error frame must be redacted, got: %s", out)
+	}
+}
+
+// A frame with no delta output is not worth rescuing, and forwarding it costs
+// real money: deliveredBytes is the sole input to estimateMissingUsage, so a
+// non-zero count for an error-only stream unlocks a full PROMPT-size estimate
+// against quota and TPM for a request the provider never billed.
+// estimateMissingUsage's contract is that an error before the first token costs
+// nothing.
+func TestHandleStreamingResponse_ErrorOnlyFrameIsNeitherForwardedNorBilled(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	logs := captureProxyLogs(t)
+
+	logData := streamingLog()
+	logData.providerName = "shape-provider"
+	logData.promptTextBytes = 100000
+	h.insertRequestLogAsync(logData)
+
+	// Ollama's documented bare-string error shape: valid JSON, an object, and
+	// unreadable by the typed path — but it carries no output.
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(
+		`data: {"error":"model not found"}` + "\n\ndata: [DONE]\n\n"))}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10, providerID: uuid.New(), providerName: "shape-provider",
+		vkHash: "test-hash", attempt: 1,
+	})
+
+	if strings.Contains(w.Body.String(), "model not found") {
+		t.Errorf("a frame carrying no output must not be forwarded, got: %s", w.Body.String())
+	}
+	if est := logs.find("charging estimated tokens"); len(est) > 0 {
+		t.Errorf("a stream that delivered nothing must not be billed, but an estimate ran: %v", est[0].attrs)
+	}
+}
+
+// deliveredBytes is documented as the bytes of content, reasoning and tool-call
+// arguments — not the JSON envelope around them. Counting the envelope charged
+// orders of magnitude more than the output was worth.
+func TestUnmodelledDeliveredBytes_SizesOutputNotEnvelope(t *testing.T) {
+	tests := map[string]struct {
+		frame string
+		want  int
+	}{
+		// The content member is 29 bytes; the frame around it is 75. Counting
+		// the frame is what over-charged.
+		"content as parts": {`{"choices":[{"index":0,"delta":{"content":[{"type":"text","text":"hi"}]}}]}`, 29},
+		"no delta at all":  {`{"error":"model not found"}`, 0},
+		"empty content":    {`{"choices":[{"index":0,"delta":{"content":""}}]}`, 0},
+		"null content":     {`{"choices":[{"index":0,"delta":{"content":null}}]}`, 0},
+		"empty tool calls": {`{"choices":[{"index":0,"delta":{"tool_calls":[]}}]}`, 0},
+		"role only":        {`{"choices":[{"index":0,"delta":{"role":"assistant"}}]}`, 0},
+		"usage only":       {`{"choices":[],"usage":{"completion_tokens":"7"}}`, 0},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := unmodelledDeliveredBytes(tc.frame); got != tc.want {
+				t.Errorf("unmodelledDeliveredBytes = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// strip_reasoning is a promise to one caller. computeStripReasoning returning
+// stripPassthrough does NOT mean the frame is reasoning-free — parseChunkPayload
+// also refuses a choices/delta that is not the shape it expects — so the frame
+// is dropped rather than forwarded on a guess.
+func TestHandleStreamingResponse_UnstrippableFrameIsDroppedNotLeaked(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const secret = "SECRET-CHAIN-OF-THOUGHT"
+	for name, frame := range map[string]string{
+		// delta is an array, so parseChunkPayload refuses it.
+		"delta as an array": `{"choices":[{"index":0,"delta":["reasoning_content","` + secret + `"]}]}`,
+		// choices is an object, so parseChunkPayload refuses it.
+		"choices as object": `{"choices":{"0":{"delta":{"reasoning_content":"` + secret + `","content":"hi"}}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			logData := streamingLog()
+			logData.providerName = "shape-provider"
+			h.insertRequestLogAsync(logData)
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n"))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).
+				WithContext(context.WithValue(context.Background(), ctxkeys.VirtualKeyStripReasoningKey, true))
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10, providerID: uuid.New(), providerName: "shape-provider",
+				vkHash: "test-hash", attempt: 1,
+			})
+			if strings.Contains(w.Body.String(), secret) {
+				t.Errorf("reasoning reached a caller that asked for it to be stripped: %s", w.Body.String())
+			}
+		})
 	}
 }
 
