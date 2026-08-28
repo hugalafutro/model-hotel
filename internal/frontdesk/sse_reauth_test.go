@@ -355,8 +355,9 @@ func TestSSEDeliversBusEvents(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
 
 	rec, done := startStream(t, srv, req)
-	// The first keep-alive proves the handler is subscribed; the bus drops
-	// events published before that.
+	// The first keep-alive proves the handler is subscribed: it comes from the
+	// loop that is entered after Subscribe. (The 200 status line is not
+	// observable here — the recorder captures only Write.)
 	awaitWrite(t, rec, "keep-alive")
 	srv.bus.Publish(events.Event{Type: "member.state_changed", Severity: "info", Source: "frontdesk"})
 

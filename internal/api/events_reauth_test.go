@@ -251,7 +251,7 @@ func TestStreamEvents_RefreshesGrantsMidStream(t *testing.T) {
 		h.streamEvents(rec, req, 20*time.Millisecond)
 		close(done)
 	}()
-	<-rec.flushed
+	awaitStreamOpen(t, rec, done)
 
 	// The event is owned by this user, so the logs grant makes it visible.
 	owned := events.Event{
@@ -303,7 +303,7 @@ func TestStreamEvents_PassingRecheckResetsFailureCount(t *testing.T) {
 		h.streamEvents(rec, streamRequest(ctx), 200*time.Millisecond)
 		close(done)
 	}()
-	<-rec.flushed
+	awaitStreamOpen(t, rec, done)
 
 	// beat waits for the nth heartbeat and asserts the stream is still open.
 	beat := func(n int, why string) {
@@ -459,5 +459,31 @@ func TestStreamEvents_ClosesWhenBusClosed(t *testing.T) {
 	case <-done:
 	case <-ctx.Done():
 		t.Fatal("stream stayed open after the event bus was closed")
+	}
+}
+
+// awaitStreamOpen blocks until the SSE handler has announced the stream, and
+// fails rather than hanging if it never does.
+//
+// A bare `<-rec.flushed` deadlocks the whole package when the handler returns
+// before its first flush — an auth rejection, a non-Flusher writer, any future
+// early return. syncRecorder's WriteHeader is a no-op, so a 401 leaves no trace
+// either: the symptom is the package timing out ten minutes later with a
+// goroutine dump, where the sleep this replaced would have failed in a line.
+func awaitStreamOpen(t *testing.T, rec *syncRecorder, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-rec.flushed:
+	case <-done:
+		// Both can be ready at once — a handler that flushes and returns
+		// immediately — and select picks at random, so re-check before
+		// reporting a failure that did not happen.
+		select {
+		case <-rec.flushed:
+		default:
+			t.Fatalf("handler returned before the stream opened: %q", rec.String())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("stream never opened: %q", rec.String())
 	}
 }

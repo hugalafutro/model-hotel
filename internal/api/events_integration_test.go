@@ -52,7 +52,7 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 	defer cancel()
 
 	done := make(chan struct{})
-	rec := httptest.NewRecorder()
+	rec := newSyncRecorder()
 
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -63,8 +63,9 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 		close(done)
 	}()
 
-	// Give the handler time to subscribe
-	time.Sleep(50 * time.Millisecond)
+	// A handshake, not a sleep: streamEvents subscribes before it announces and
+	// flushes immediately after, so this signal means the subscription exists.
+	awaitStreamOpen(t, rec, done)
 
 	// Publish an event
 	events.Publish(events.Event{
@@ -74,23 +75,23 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 		Metadata: map[string]any{"test": true},
 	})
 
-	// Give time for event to be delivered
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the event itself rather than a guessed interval.
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "test.event") }) {
+		t.Fatalf("event never reached the stream: %q", rec.String())
+	}
 
 	// Cancel the request context to unblock the handler goroutine.
 	cancel()
 
-	// Wait for the handler goroutine to finish BEFORE reading the body
-	// to avoid a race between the goroutine writing to rec.Body and
-	// the test goroutine reading from it.
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("handler goroutine did not exit after context cancellation")
 	}
 
-	// Now safe to read the body — the handler goroutine is done writing.
-	body := rec.Body.String()
+	// syncRecorder is safe to read at any point, but reading after the handler
+	// has exited keeps the assertions about a finished stream.
+	body := rec.String()
 	if !strings.Contains(body, "test.event") {
 		t.Errorf("Expected event in SSE stream, got: %s", body)
 	}
@@ -171,7 +172,7 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 	defer cancel()
 
 	done := make(chan struct{})
-	rec := httptest.NewRecorder()
+	rec := newSyncRecorder()
 
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -182,8 +183,8 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 		close(done)
 	}()
 
-	// Give the handler time to subscribe
-	time.Sleep(50 * time.Millisecond)
+	// A handshake, not a sleep.
+	awaitStreamOpen(t, rec, done)
 
 	// Publish an event with a value that can't be JSON-marshaled (a channel)
 	events.Publish(events.Event{
@@ -193,34 +194,36 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 		Metadata: map[string]any{"ch": make(chan int)},
 	})
 
-	// Give time for the bad event to be processed
-	time.Sleep(50 * time.Millisecond)
-
-	// Publish a good event that should still be delivered
+	// Publish a good event that should still be delivered. The bus preserves
+	// order, so waiting for this one proves the bad event was processed and
+	// skipped rather than merely not arrived yet — which is the whole claim.
 	events.Publish(events.Event{
 		Type:     "test.good_event",
 		Severity: "info",
 		Message:  "Good event after bad",
 		Metadata: map[string]any{"test": true},
 	})
-
-	// Give time for the good event to be delivered
-	time.Sleep(100 * time.Millisecond)
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "test.good_event") }) {
+		t.Fatalf("the good event never reached the stream: %q", rec.String())
+	}
 
 	// Cancel the request context to unblock the handler goroutine.
 	cancel()
 
-	// Wait for the handler goroutine to finish BEFORE reading the body
-	// to avoid a race between the goroutine writing to rec.Body and
-	// the test goroutine reading from it.
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("handler goroutine did not exit after context cancellation")
 	}
 
-	// Now safe to read the body — the handler goroutine is done writing.
-	body := rec.Body.String()
+	body := rec.String()
+	// The claim in this test's name: the bad event was read and SKIPPED, not
+	// merely not-yet-arrived. Ordering gives the first half, this gives the
+	// second — without it a handler that wrote the unmarshalable event to the
+	// wire would pass.
+	if strings.Contains(body, "test.bad_event") {
+		t.Errorf("an unmarshalable event reached the wire: %s", body)
+	}
 	if !strings.Contains(body, "test.good_event") {
 		t.Errorf("Expected good event in SSE stream after marshal error, got: %s", body)
 	}

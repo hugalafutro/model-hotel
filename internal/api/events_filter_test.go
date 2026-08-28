@@ -85,7 +85,7 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan struct{})
-	rec := httptest.NewRecorder()
+	rec := newSyncRecorder()
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -93,7 +93,11 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 		er.ServeHTTP(rec, req)
 		close(done)
 	}()
-	time.Sleep(50 * time.Millisecond)
+	// A handshake, not a sleep: streamEvents subscribes before it announces, and
+	// flushes the connected frame immediately after, so this signal means the
+	// subscription exists and no publish below can be missed. The 50ms sleep
+	// this replaces is what made the test flake under -race on a loaded runner.
+	awaitStreamOpen(t, rec, done)
 
 	// Own request (owner_user_id == this user) is visible; another user's request
 	// and operational/discovery events are not.
@@ -101,7 +105,16 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "theirs done", Metadata: map[string]any{"owner_user_id": uuid.NewString()}})
 	events.Publish(events.Event{Type: "backup.created", Severity: "success", Message: "backup done"})
 	events.Publish(events.Event{Type: "request.discovery.provider_starting", Severity: "info", Message: "discovering"})
-	time.Sleep(100 * time.Millisecond)
+	// A sentinel AFTER the three that must not appear. The bus feeds one ordered
+	// channel, so seeing this proves the handler read and filtered all three —
+	// waiting on "mine done" instead proves only that the FIRST publish landed,
+	// and leaves the leak assertions below to race a handler that may not have
+	// reached those events yet. Measured against a deliberately leaky filter and
+	// a slowed consumer, that version caught the leak 6 times in 20.
+	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "sentinel done", Metadata: map[string]any{"owner_user_id": id}})
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "sentinel done") }) {
+		t.Fatalf("sentinel never reached the stream, so the filtering below is unverified: %q", rec.String())
+	}
 
 	cancel()
 	select {
@@ -110,7 +123,7 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 		t.Fatal("handler goroutine did not exit after context cancellation")
 	}
 
-	body := rec.Body.String()
+	body := rec.String()
 	if !strings.Contains(body, "mine done") {
 		t.Errorf("logs-granted user missing own request.completed, got: %s", body)
 	}

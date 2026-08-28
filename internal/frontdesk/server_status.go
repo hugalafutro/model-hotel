@@ -183,11 +183,19 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
+	// Subscribe BEFORE announcing, for the same reason the gateway's own SSE
+	// handler does: announcing first opens a window where the client believes it
+	// is attached and any event published in it is dropped.
+	//
+	// This is a fix for real clients only. The announce here is a bare 200 with
+	// no body, so it was never observable to the tests, whose first captured
+	// write is the keep-alive — and that already came after the subscribe,
+	// because the ticker producing it starts later.
 	ch := s.bus.Subscribe()
 	defer s.bus.Unsubscribe(ch)
+
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
 
 	// Buffered so a re-auth verdict never parks its goroutine while this loop is
 	// busy writing an event; the loop drains it on the next pass.
