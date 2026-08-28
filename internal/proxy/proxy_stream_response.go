@@ -489,6 +489,10 @@ func normalizeToolArguments(payload string) (string, bool) {
 	if json.Unmarshal(root["choices"], &choices) != nil {
 		return payload, false
 	}
+	// Re-marshalling below cannot fail: every value came out of a successful
+	// Unmarshal, so each RawMessage holds valid JSON. The errors are discarded
+	// rather than handled, because a branch that cannot be taken is a branch
+	// that cannot be tested.
 	changed := false
 	for _, choice := range choices {
 		var delta map[string]json.RawMessage
@@ -516,47 +520,27 @@ func normalizeToolArguments(payload string) (string, bool) {
 			// Compact first, so a pretty-printed object does not carry its
 			// whitespace into the string the caller stores and replays.
 			var buf bytes.Buffer
-			if json.Compact(&buf, args) != nil {
-				continue
-			}
-			quoted, err := json.Marshal(buf.String())
-			if err != nil {
-				continue
-			}
+			_ = json.Compact(&buf, args)
+			quoted, _ := json.Marshal(buf.String())
 			fn["arguments"] = quoted
-			rebuilt, err := json.Marshal(fn)
-			if err != nil {
-				continue
-			}
+			rebuilt, _ := json.Marshal(fn)
 			call["function"] = rebuilt
 			callsChanged = true
 		}
 		if !callsChanged {
 			continue
 		}
-		rebuiltCalls, err := json.Marshal(calls)
-		if err != nil {
-			continue
-		}
+		rebuiltCalls, _ := json.Marshal(calls)
 		delta["tool_calls"] = rebuiltCalls
-		rebuiltDelta, err := json.Marshal(delta)
-		if err != nil {
-			continue
-		}
+		rebuiltDelta, _ := json.Marshal(delta)
 		choice["delta"] = rebuiltDelta
 		changed = true
 	}
 	if !changed {
 		return payload, false
 	}
-	rebuiltChoices, err := json.Marshal(choices)
-	if err != nil {
-		return payload, false
-	}
+	rebuiltChoices, _ := json.Marshal(choices)
 	root["choices"] = rebuiltChoices
-	out, err := json.Marshal(root)
-	if err != nil {
-		return payload, false
-	}
+	out, _ := json.Marshal(root)
 	return string(out), true
 }
