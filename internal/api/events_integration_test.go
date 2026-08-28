@@ -65,7 +65,7 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 
 	// A handshake, not a sleep: streamEvents subscribes before it announces and
 	// flushes immediately after, so this signal means the subscription exists.
-	<-rec.flushed
+	awaitStreamOpen(t, rec, done)
 
 	// Publish an event
 	events.Publish(events.Event{
@@ -184,7 +184,7 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 	}()
 
 	// A handshake, not a sleep.
-	<-rec.flushed
+	awaitStreamOpen(t, rec, done)
 
 	// Publish an event with a value that can't be JSON-marshaled (a channel)
 	events.Publish(events.Event{

@@ -97,7 +97,7 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	// flushes the connected frame immediately after, so this signal means the
 	// subscription exists and no publish below can be missed. The 50ms sleep
 	// this replaces is what made the test flake under -race on a loaded runner.
-	<-rec.flushed
+	awaitStreamOpen(t, rec, done)
 
 	// Own request (owner_user_id == this user) is visible; another user's request
 	// and operational/discovery events are not.
@@ -105,11 +105,15 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "theirs done", Metadata: map[string]any{"owner_user_id": uuid.NewString()}})
 	events.Publish(events.Event{Type: "backup.created", Severity: "success", Message: "backup done"})
 	events.Publish(events.Event{Type: "request.discovery.provider_starting", Severity: "info", Message: "discovering"})
-	// Wait for the event that should arrive rather than a guessed interval. The
-	// ones that should NOT arrive are asserted absent after the handler exits,
-	// by which point every publish has been processed or dropped.
-	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "mine done") }) {
-		t.Fatalf("own request.completed never reached the stream: %q", rec.String())
+	// A sentinel AFTER the three that must not appear. The bus feeds one ordered
+	// channel, so seeing this proves the handler read and filtered all three —
+	// waiting on "mine done" instead proves only that the FIRST publish landed,
+	// and leaves the leak assertions below to race a handler that may not have
+	// reached those events yet. Measured against a deliberately leaky filter and
+	// a slowed consumer, that version caught the leak 6 times in 20.
+	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "sentinel done", Metadata: map[string]any{"owner_user_id": id}})
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "sentinel done") }) {
+		t.Fatalf("sentinel never reached the stream, so the filtering below is unverified: %q", rec.String())
 	}
 
 	cancel()
@@ -131,5 +135,24 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	}
 	if strings.Contains(body, "provider_starting") {
 		t.Errorf("discovery progress leaked to logs-granted user: %s", body)
+	}
+}
+
+// awaitStreamOpen blocks until the SSE handler has announced the stream, and
+// fails rather than hanging if it never does.
+//
+// A bare `<-rec.flushed` deadlocks the whole package when the handler returns
+// before its first flush — an auth rejection, a non-Flusher writer, any future
+// early return. syncRecorder's WriteHeader is a no-op, so a 401 leaves no trace
+// either: the symptom is the package timing out ten minutes later with a
+// goroutine dump, where the sleep this replaced would have failed in a line.
+func awaitStreamOpen(t *testing.T, rec *syncRecorder, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-rec.flushed:
+	case <-done:
+		t.Fatalf("handler returned before the stream opened: %q", rec.String())
+	case <-time.After(5 * time.Second):
+		t.Fatalf("stream never opened: %q", rec.String())
 	}
 }

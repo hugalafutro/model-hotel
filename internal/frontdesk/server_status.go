@@ -183,11 +183,16 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
+	// Subscribe BEFORE announcing, for the same reason the gateway's own SSE
+	// handler does: announcing first opens a window where the client believes it
+	// is attached and any event published in it is dropped. It also makes the
+	// first write a sound handshake for the tests, which otherwise have to treat
+	// the window as a fact of life.
 	ch := s.bus.Subscribe()
 	defer s.bus.Unsubscribe(ch)
+
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
 
 	// Buffered so a re-auth verdict never parks its goroutine while this loop is
 	// busy writing an event; the loop drains it on the next pass.
