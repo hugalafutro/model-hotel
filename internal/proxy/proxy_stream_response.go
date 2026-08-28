@@ -427,6 +427,10 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				preview = string(runes[:80]) + "..."
 			}
 		}
+		// Counted so the end-of-stream verdict knows its view of what was
+		// delivered is incomplete, and does not charge the provider for an
+		// emptiness it cannot actually vouch for.
+		st.unparsedChunks++
 		debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
 			"model", logData.modelID, "provider", logData.providerName,
 			"chunk_number", chunkCount, "payload_preview", preview)

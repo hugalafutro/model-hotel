@@ -75,6 +75,15 @@ type streamChunk struct {
 		Delta *struct {
 			Content          *string `json:"content"`
 			ReasoningContent *string `json:"reasoning_content"`
+			// The two other spellings of the same thing. Ollama and OpenRouter
+			// send "reasoning"; OpenRouter and MiniMax send "reasoning_details".
+			// normalizeReasoningChunk rewrites both into reasoning_content for
+			// the client, but it runs AFTER the observers — so without these the
+			// caller receives a full answer while the delivery accounting sees
+			// nothing, and the provider is charged for an empty response it did
+			// not give.
+			Reasoning        *string         `json:"reasoning"`
+			ReasoningDetails json.RawMessage `json:"reasoning_details"`
 			ToolCalls        []struct {
 				Function *struct {
 					Name      string `json:"name"`
@@ -139,6 +148,12 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		if choice.Delta.ReasoningContent != nil {
 			st.deliveredBytes += len(*choice.Delta.ReasoningContent)
+		}
+		if choice.Delta.Reasoning != nil {
+			st.deliveredBytes += len(*choice.Delta.Reasoning)
+		}
+		if rd := choice.Delta.ReasoningDetails; len(rd) > 0 && string(rd) != "null" {
+			st.deliveredBytes += len(rd)
 		}
 		for _, tc := range choice.Delta.ToolCalls {
 			if tc.Function != nil {

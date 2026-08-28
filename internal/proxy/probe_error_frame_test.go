@@ -916,10 +916,13 @@ func TestJudgeStreamForBreaker_DeliveredStreamsStillSucceed(t *testing.T) {
 		st      *streamState
 		logData *requestLogData
 	}{
-		"content seen":       {&streamState{sawDone: true, sawContent: true}, &requestLogData{}},
-		"bytes delivered":    {&streamState{sawDone: true, deliveredBytes: 42}, &requestLogData{}},
-		"usage reported":     {&streamState{sawDone: true, completionTokens: 7}, &requestLogData{}},
-		"anthropic finished": {&streamState{sawMessageStop: true}, &requestLogData{deliveredContent: true}},
+		"content seen":    {&streamState{sawDone: true, sawContent: true}, &requestLogData{}},
+		"bytes delivered": {&streamState{sawDone: true, deliveredBytes: 42}, &requestLogData{}},
+		"usage reported":  {&streamState{sawDone: true, completionTokens: 7}, &requestLogData{}},
+		// The native Anthropic path never runs observeDataChunk, so sawContent
+		// is unreachable there; deliveredBytes (from the event's TextBytes) is
+		// what proves it answered.
+		"anthropic delivered": {&streamState{sawMessageStop: true, deliveredBytes: 120}, &requestLogData{deliveredContent: true}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			v := judgeStreamForBreaker(tc.st, tc.logData, "", true)
@@ -1073,5 +1076,115 @@ func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
 
 	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: the caller received nothing", got)
+	}
+}
+
+// message_stop is a TERMINATION signal, not a delivery one: it is present on
+// every native stream that ends cleanly, including one that ended having
+// produced nothing. Treating it as delivery let a completely empty
+// /v1/messages response escape the charge entirely.
+func TestJudgeStreamForBreaker_EmptyNativeStreamIsCharged(t *testing.T) {
+	st := &streamState{sawMessageStop: true}
+	// What finalizeStream derives for the retirement verdict, where
+	// message_stop IS allowed to stand in for "the model answered". The breaker
+	// verdict must not inherit that.
+	logData := &requestLogData{deliveredContent: true}
+
+	v := judgeStreamForBreaker(st, logData, "", true)
+	if v.failureReason == "" {
+		t.Error("a native stream that terminated having delivered nothing must be charged")
+	}
+	if v.success {
+		t.Error("message_stop alone must not be recorded as a success")
+	}
+}
+
+// A frame this gateway could not parse is not evidence the provider sent
+// nothing — it may have answered in a shape our types do not cover (tool-call
+// arguments as an object, content as an array of parts). The contents are
+// unknown, so the verdict is neither a charge nor a credit.
+func TestJudgeStreamForBreaker_UnparseableFramesWithholdTheVerdict(t *testing.T) {
+	st := &streamState{sawDone: true, unparsedChunks: 1}
+	v := judgeStreamForBreaker(st, &requestLogData{}, "", true)
+	if v.failureReason != "" {
+		t.Errorf("charged %q: emptiness cannot be pinned on the provider when our own parser dropped a frame", v.failureReason)
+	}
+	if v.success {
+		t.Error("an unreadable stream is not evidence of health either")
+	}
+}
+
+// The reasoning spellings the observers never saw. normalizeReasoningChunk
+// rewrites "reasoning" and "reasoning_details" into reasoning_content for the
+// client, but it runs AFTER the observers — so the caller received a real
+// answer while the accounting saw nothing, and the provider was charged for it.
+func TestHandleStreamingResponse_ReasoningSpellingsAreDelivery(t *testing.T) {
+	for name, body := range map[string]string{
+		"reasoning_content": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\ndata: [DONE]\n\n",
+		"reasoning":         "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"thinking hard\"}}]}\n\ndata: [DONE]\n\n",
+		"reasoning_details": "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"thinking\"}]}}]}\n\ndata: [DONE]\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "reasoning-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "reasoning-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Errorf("a reasoning answer spelled %q is output and must not break the circuit", name)
+			}
+		})
+	}
+}
+
+// A chunk this gateway's types cannot represent: the provider answered, we
+// dropped the frame, and the provider must not be charged for our parser.
+func TestHandleStreamingResponse_UnparseableChunkDoesNotCharge(t *testing.T) {
+	for name, body := range map[string]string{
+		"tool arguments as an object": "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"name\":\"f\",\"arguments\":{\"city\":\"Prague\"}}}]}}]}\n\ndata: [DONE]\n\n",
+		"content as parts":            "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}]}\n\ndata: [DONE]\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "wide-shape-provider"
+			h.insertRequestLogAsync(logData)
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "wide-shape-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Error("a frame our own parser dropped must not be charged to the provider")
+			}
+		})
 	}
 }
