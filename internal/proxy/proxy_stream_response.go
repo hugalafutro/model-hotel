@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -370,6 +371,21 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			_ = json.Unmarshal(masked, &chunk)
 		}
 
+		// Rewrite an object-form tool call into the spec's JSON string before
+		// it leaves the gateway. Accepting the object on the way IN is what
+		// stops the frame being dropped; forwarding it on the way OUT would
+		// hand the caller a shape this gateway's own request translators
+		// (anthropicegress, gemini, openairesponses) cannot read back — and the
+		// caller echoes the assistant turn into the next request. In a failover
+		// group whose next turn lands on an Anthropic or Gemini member, that
+		// request 400s, and keeps 400ing for the life of the conversation.
+		if normalized, changed := normalizeToolArguments(payload); changed {
+			payload = normalized
+			line = append([]byte("data: "), normalized...)
+			chunk = streamChunk{}
+			_ = json.Unmarshal([]byte(normalized), &chunk)
+		}
+
 		// strip_reasoning: drop reasoning-only deltas (keep-alive) or forward the
 		// stripped chunk. See computeStripReasoning.
 		if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
@@ -454,4 +470,93 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		sink.swallowBlank = true
 	}
 	return false
+}
+
+// normalizeToolArguments rewrites any tool-call arguments the provider sent as
+// an object (or array, or number) into the spec's JSON string, and reports
+// whether anything changed. The spec form is left untouched, so an ordinary
+// frame is neither reparsed nor re-emitted.
+//
+// It works on the raw map rather than the typed chunk because the frame is
+// forwarded as bytes: rebuilding it from streamChunk would drop every field
+// this gateway does not model.
+func normalizeToolArguments(payload string) (string, bool) {
+	var root map[string]json.RawMessage
+	if json.Unmarshal([]byte(payload), &root) != nil {
+		return payload, false
+	}
+	var choices []map[string]json.RawMessage
+	if json.Unmarshal(root["choices"], &choices) != nil {
+		return payload, false
+	}
+	changed := false
+	for _, choice := range choices {
+		var delta map[string]json.RawMessage
+		if json.Unmarshal(choice["delta"], &delta) != nil {
+			continue
+		}
+		var calls []map[string]json.RawMessage
+		if json.Unmarshal(delta["tool_calls"], &calls) != nil {
+			continue
+		}
+		callsChanged := false
+		for _, call := range calls {
+			var fn map[string]json.RawMessage
+			if json.Unmarshal(call["function"], &fn) != nil {
+				continue
+			}
+			args, ok := fn["arguments"]
+			if !ok {
+				continue
+			}
+			var asString string
+			if json.Unmarshal(args, &asString) == nil {
+				continue // already the spec form
+			}
+			// Compact first, so a pretty-printed object does not carry its
+			// whitespace into the string the caller stores and replays.
+			var buf bytes.Buffer
+			if json.Compact(&buf, args) != nil {
+				continue
+			}
+			quoted, err := json.Marshal(buf.String())
+			if err != nil {
+				continue
+			}
+			fn["arguments"] = quoted
+			rebuilt, err := json.Marshal(fn)
+			if err != nil {
+				continue
+			}
+			call["function"] = rebuilt
+			callsChanged = true
+		}
+		if !callsChanged {
+			continue
+		}
+		rebuiltCalls, err := json.Marshal(calls)
+		if err != nil {
+			continue
+		}
+		delta["tool_calls"] = rebuiltCalls
+		rebuiltDelta, err := json.Marshal(delta)
+		if err != nil {
+			continue
+		}
+		choice["delta"] = rebuiltDelta
+		changed = true
+	}
+	if !changed {
+		return payload, false
+	}
+	rebuiltChoices, err := json.Marshal(choices)
+	if err != nil {
+		return payload, false
+	}
+	root["choices"] = rebuiltChoices
+	out, err := json.Marshal(root)
+	if err != nil {
+		return payload, false
+	}
+	return string(out), true
 }

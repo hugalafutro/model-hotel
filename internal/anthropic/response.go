@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming OpenAI non-streaming response shape ---
@@ -64,8 +65,8 @@ type oaiRespToolCall struct {
 	ID       string `json:"id"`
 	Type     string `json:"type"`
 	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
+		Name      string             `json:"name"`
+		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
 

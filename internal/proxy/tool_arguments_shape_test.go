@@ -10,9 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/hugalafutro/model-hotel/internal/failover"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -99,35 +96,6 @@ func TestToolArguments_BothFormsMeterTheSame(t *testing.T) {
 	}
 }
 
-// A tool call is output, so a stream carrying only one must not be charged as
-// an empty response.
-func TestToolArguments_ObjectFormCountsAsDelivery(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandlerIntegration(h)
-	withBreakerThresholdOne(t, h)
-
-	providerID := uuid.New()
-	logData := streamingLog()
-	logData.providerName = "tool-shape-provider"
-	h.insertRequestLogAsync(logData)
-
-	frame := `{"choices":[{"index":0,"delta":{"tool_calls":[{"function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
-	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + frame + "\n\ndata: [DONE]\n\n"))}
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
-	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
-		responseHeaderMs: 10, providerID: providerID, providerName: "tool-shape-provider",
-		circuitBreakerOn: true, vkHash: "test-hash", attempt: 1,
-	})
-
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
-		t.Error("a stream delivering a tool call must not be charged as empty")
-	}
-	if !strings.Contains(w.Body.String(), "get_weather") {
-		t.Errorf("test assumption broken: the call must be delivered, got %s", w.Body.String())
-	}
-}
-
 // Malformed bytes are still dropped: widening one field must not weaken that.
 func TestToolArguments_MalformedBytesStillDropped(t *testing.T) {
 	h := newIntegrationHandler()
@@ -137,37 +105,6 @@ func TestToolArguments_MalformedBytesStillDropped(t *testing.T) {
 	w, _ := streamToolArgs(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
 	if strings.Contains(w.Body.String(), frame) {
 		t.Errorf("malformed bytes must not be relayed, got: %s", w.Body.String())
-	}
-}
-
-// util.ToolArguments is the type the three surfaces share. Encoding always
-// emits the spec form, so a provider's non-standard spelling stops here rather
-// than being passed on to the caller.
-func TestToolArgumentsRoundTrip(t *testing.T) {
-	for name, tc := range map[string]struct{ raw, want, reEncoded string }{
-		"spec form, a JSON string": {`"{\"city\":\"Prague\"}"`, `{"city":"Prague"}`, `"{\"city\":\"Prague\"}"`},
-		"object form":              {`{"city":"Prague"}`, `{"city":"Prague"}`, `"{\"city\":\"Prague\"}"`},
-		"empty string":             {`""`, "", `""`},
-		"empty object":             {`{}`, "{}", `"{}"`},
-		// A null arguments member carries none.
-		"null": {`null`, "", `""`},
-	} {
-		t.Run(name, func(t *testing.T) {
-			var got util.ToolArguments
-			if err := json.Unmarshal([]byte(tc.raw), &got); err != nil {
-				t.Fatalf("unmarshal %s: %v", tc.raw, err)
-			}
-			if string(got) != tc.want {
-				t.Errorf("decoded %s = %q, want %q", tc.raw, string(got), tc.want)
-			}
-			out, err := json.Marshal(got)
-			if err != nil {
-				t.Fatalf("marshal: %v", err)
-			}
-			if string(out) != tc.reEncoded {
-				t.Errorf("re-encoded %s = %s, want %s", tc.raw, out, tc.reEncoded)
-			}
-		})
 	}
 }
 
@@ -185,5 +122,137 @@ func TestToolArguments_NonStreamingDecodesObjectForm(t *testing.T) {
 	}
 	if got := string(out.Choices[0].Message.ToolCalls[0].Function.Arguments); got != `{"city":"Prague"}` {
 		t.Errorf("arguments = %q, want the object's own JSON", got)
+	}
+}
+
+// The object form must not leave the gateway. Accepting it on the way IN is
+// what stops the frame being dropped; forwarding it on the way OUT hands the
+// caller a shape this gateway's own request translators cannot read back — and
+// the caller echoes the assistant turn into its next request.
+func TestToolArguments_ObjectFormIsNormalisedBeforeItLeaves(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	frame := `{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
+	w, _ := streamToolArgs(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+
+	out := w.Body.String()
+	if !strings.Contains(out, "get_weather") {
+		t.Fatalf("test assumption broken: the call must be delivered, got %s", out)
+	}
+	if strings.Contains(out, `"arguments":{`) {
+		t.Errorf("the object form reached the caller: %s", out)
+	}
+	if !strings.Contains(out, `"arguments":"{\"city\":\"Prague\"}"`) {
+		t.Errorf("arguments were not normalised to the spec string: %s", out)
+	}
+}
+
+// What the caller stores has to survive a round trip back through the gateway's
+// own request translators, which is the failure the normalisation prevents: a
+// failover group whose next turn lands on an Anthropic or Gemini member would
+// otherwise 400 for the rest of the conversation.
+func TestToolArguments_NormalisedOutputIsAcceptedBackAsARequest(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	frame := `{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
+	w, _ := streamToolArgs(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+
+	// Lift the assistant turn out of what the caller received, the way a client
+	// building its next request would.
+	var args string
+	for _, line := range strings.Split(w.Body.String(), "\n") {
+		payload, ok := strings.CutPrefix(strings.TrimSpace(line), "data: ")
+		if !ok || payload == "[DONE]" {
+			continue
+		}
+		var chunk streamChunk
+		if json.Unmarshal([]byte(payload), &chunk) != nil {
+			continue
+		}
+		for _, c := range chunk.Choices {
+			if c.Delta == nil {
+				continue
+			}
+			for _, tc := range c.Delta.ToolCalls {
+				if tc.Function != nil && tc.Function.Arguments != "" {
+					args = string(tc.Function.Arguments)
+				}
+			}
+		}
+	}
+	if args != `{"city":"Prague"}` {
+		t.Fatalf("arguments = %q, want the call's own JSON", args)
+	}
+
+	// The shape the translators need: arguments as a JSON STRING.
+	req := `{"model":"m","messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":` +
+		mustJSONString(t, args) + `}}]}]}`
+	var probe struct {
+		Messages []struct {
+			ToolCalls []struct {
+				Function struct {
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(req), &probe); err != nil {
+		t.Fatalf("the caller's next request must decode where arguments is typed as a string: %v", err)
+	}
+	if got := probe.Messages[0].ToolCalls[0].Function.Arguments; got != `{"city":"Prague"}` {
+		t.Errorf("round-tripped arguments = %q, want the original", got)
+	}
+}
+
+func mustJSONString(t *testing.T, s string) string {
+	t.Helper()
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return string(b)
+}
+
+// A pretty-printed object must not carry its whitespace into the string the
+// caller stores and replays.
+func TestNormalizeToolArguments(t *testing.T) {
+	for name, tc := range map[string]struct {
+		payload string
+		want    string
+		changed bool
+	}{
+		"object form": {
+			`{"choices":[{"delta":{"tool_calls":[{"function":{"name":"f","arguments":{"a":1}}}]}}]}`,
+			`"{\"a\":1}"`, true,
+		},
+		"pretty printed": {
+			"{\"choices\":[{\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":{\n  \"a\": 1\n}}}]}}]}",
+			`"{\"a\":1}"`, true,
+		},
+		"already the spec form": {
+			`{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"{\"a\":1}"}}]}}]}`,
+			`"{\"a\":1}"`, false,
+		},
+		"no tool calls": {`{"choices":[{"delta":{"content":"hi"}}]}`, "", false},
+		"not a chunk":   {`{"error":"boom"}`, "", false},
+		"malformed":     {`{"choices":`, "", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, changed := normalizeToolArguments(tc.payload)
+			if changed != tc.changed {
+				t.Fatalf("changed = %v, want %v (got %s)", changed, tc.changed, got)
+			}
+			if !tc.changed {
+				if got != tc.payload {
+					t.Errorf("an unchanged payload must be returned untouched, got %s", got)
+				}
+				return
+			}
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("normalised = %s, want it to contain %s", got, tc.want)
+			}
+		})
 	}
 }

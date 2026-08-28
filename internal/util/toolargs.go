@@ -11,9 +11,13 @@ import "encoding/json"
 // frame that decodes fine, so the caller is told a tool call happened and never
 // receives it.
 //
-// Decoding accepts either spelling and keeps the argument text. Encoding always
-// emits the spec string, so a client sees spec-compliant output whatever the
-// provider sent, and a provider's non-standard spelling stops at this gateway.
+// Decoding accepts either spelling and keeps the argument text. Encoding needs
+// no custom method: this is a named string type, so it marshals to the spec's
+// JSON string on its own, and a provider's non-standard spelling is absorbed
+// wherever the value is re-encoded rather than relayed.
+//
+// The streaming surface relays bytes rather than re-encoding, so it normalises
+// explicitly — see normalizeToolArguments.
 type ToolArguments string
 
 // UnmarshalJSON accepts the spec's JSON string or the argument object itself.
@@ -28,11 +32,4 @@ func (a *ToolArguments) UnmarshalJSON(b []byte) error {
 	// The object (or array, or number) form: its own JSON is the argument text.
 	*a = ToolArguments(b)
 	return nil
-}
-
-// MarshalJSON always writes the spec form, normalising a provider that sent the
-// object. Re-encoding it as an object would pass a non-standard shape on to the
-// caller, which is the shape this type exists to absorb.
-func (a ToolArguments) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(a))
 }
