@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -799,4 +800,69 @@ func TestRecoverProbeFrame(t *testing.T) {
 			}
 		})
 	}
+}
+
+// recoverFirstToken is the whole scanner-error recovery branch. Tested here
+// because the branch cannot be reached from a test: it needs the watchdog to
+// close the body in the same instant the scanner yields a line.
+func TestRecoverFirstToken(t *testing.T) {
+	scanErr := errors.New("body closed by timeout goroutine")
+
+	t.Run("a recovered token is returned with its buffer", func(t *testing.T) {
+		buf := bytes.NewBufferString("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n")
+		probeBuf, ttft, err, recovered := recoverFirstToken(buf, time.Now().Add(-time.Millisecond), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if probeBuf != buf {
+			t.Error("expected the original buffer back for replay")
+		}
+		if ttft <= 0 {
+			t.Errorf("ttft = %f, want > 0", ttft)
+		}
+	})
+
+	t.Run("a recovered terminator is an empty stream", func(t *testing.T) {
+		_, _, err, recovered := recoverFirstToken(bytes.NewBufferString("data: [DONE]\n"), time.Now(), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		var empty *emptyStreamError
+		if !errors.As(err, &empty) {
+			t.Errorf("err = %v, want an emptyStreamError", err)
+		}
+	})
+
+	t.Run("a recovered error envelope carries the provider message", func(t *testing.T) {
+		_, _, err, recovered := recoverFirstToken(bytes.NewBufferString("data: {\"error\":{\"message\":\"boom\"}}\n"), time.Now(), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		var frame *upstreamFrameError
+		if !errors.As(err, &frame) {
+			t.Fatalf("err = %v, want an upstreamFrameError", err)
+		}
+		if frame.msg != "boom" {
+			t.Errorf("msg = %q, want %q", frame.msg, "boom")
+		}
+	})
+
+	t.Run("nothing usable is not recovered", func(t *testing.T) {
+		for name, b := range map[string]string{
+			"only a keepalive": ": ping\n",
+			"partial line":     "data: {\"choices\":[{\"delta\":",
+			"empty fields":     "data:\ndata: \n",
+			"empty buffer":     "",
+		} {
+			t.Run(name, func(t *testing.T) {
+				probeBuf, ttft, err, recovered := recoverFirstToken(bytes.NewBufferString(b), time.Now(), scanErr)
+				if recovered {
+					t.Errorf("recovered = true (buf=%v ttft=%f err=%v), want the caller to fall through", probeBuf, ttft, err)
+				}
+			})
+		}
+	})
 }

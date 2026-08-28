@@ -490,6 +490,41 @@ func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found boo
 	return probeFrameNotAToken, "", false
 }
 
+// recoverFirstToken turns a scanner-error recovery buffer into probeFirstToken's
+// return triple. recovered is false when the buffer holds nothing usable, and
+// the caller falls through to its ordinary error returns.
+//
+// This is the whole recovery branch, extracted so it can be tested. The branch
+// is reached only when the watchdog closes the body in the same instant the
+// scanner yields a line — a race no test can arrange deterministically (see
+// TestProbeFirstToken_ScannerErrorRecovery_PipeRace, which documents the same
+// thing). Leaving it inline meant every verdict it can reach was unverifiable,
+// and reverting it left the whole package green.
+//
+//nolint:revive // the error is one of four coordinated results, not a trailing status
+func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (probeBuf *bytes.Buffer, ttftMs float64, err error, recovered bool) {
+	verdict, msg, found := recoverProbeFrame(buf.String())
+	if !found {
+		return nil, 0, nil, false
+	}
+	// Every outcome logs, including the ones that refuse: an operator has no
+	// other way to learn this branch fired.
+	switch verdict {
+	case probeFrameEmptyStream:
+		debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
+		return nil, 0, &emptyStreamError{}, true
+	case probeFrameError:
+		// Provider text withheld for the same reason as the main loop: this
+		// function never saw the api key, so it cannot mask it.
+		debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
+		return nil, 0, &upstreamFrameError{msg: msg}, true
+	case probeFrameNotAToken, probeFrameToken:
+	}
+	ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+	return buf, ttft, nil, true
+}
+
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
@@ -634,19 +669,8 @@ func (h *Handler) probeFirstToken(
 			// cannot be reached from a test (see
 			// TestProbeFirstToken_ScannerErrorRecovery_PipeRace), so the log is
 			// the only way an operator ever learns it fired.
-			verdict, msg, found := recoverProbeFrame(buf.String())
-			switch {
-			case found && verdict == probeFrameEmptyStream:
-				debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
-				return nil, 0, &emptyStreamError{}
-			case found && verdict == probeFrameError:
-				// Text withheld for the same reason as the main loop.
-				debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
-				return nil, 0, &upstreamFrameError{msg: msg}
-			case found:
-				ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-				debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
-				return &buf, ttft, nil
+			if probeBuf, ttft, err, recovered := recoverFirstToken(&buf, startTime, scanErr); recovered {
+				return probeBuf, ttft, err
 			}
 		}
 		if probeCtx.Err() == context.DeadlineExceeded {
