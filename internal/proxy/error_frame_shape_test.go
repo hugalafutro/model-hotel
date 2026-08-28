@@ -74,6 +74,18 @@ func TestErrorFrameShapes_ObserverMatchesProbe(t *testing.T) {
 	}
 }
 
+// Every reading in the package hands errorMemberCarries a member that came out
+// of a successful unmarshal, so bytes that are not JSON at all cannot arrive
+// through them. The guard is the helper's contract for anyone who calls it
+// with a raw member of their own: garbage carries nothing, rather than
+// counting as an error the provider never reported.
+func TestErrorMemberCarries_MalformedRaw(t *testing.T) {
+	t.Parallel()
+	if errorMemberCarries(json.RawMessage(`{"message":"trunc`)) {
+		t.Error("unparseable bytes must not count as an error member")
+	}
+}
+
 // An error member the gateway cannot type is still an error member, and the
 // frame carrying it is still the provider's answer. Dropping it as unparseable
 // bytes hands the caller a stream that simply stops, and leaves the request log
