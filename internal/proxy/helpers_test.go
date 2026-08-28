@@ -547,10 +547,45 @@ func TestParseAccumulatedError_TruncatedFrameKeepsContentOut(t *testing.T) {
 		`{"error":"","choices":[{"delta":{"content":"THE SECRET ANSWER`,
 		`{"choices":[{"delta":{"content":"THE SECRET ANSWER`,
 		`{"choices":[{"delta":{"content":"THE SECRET ANSWER"}}],"error":`,
+		// Not truncated — MALFORMED. A raw tab in the provider's error string
+		// is enough (JSON forbids it unescaped), and so is an ANSI escape from
+		// a local server echoing stderr. The decode fails in the same place a
+		// truncation does, but here the bytes after the member really are the
+		// rest of the frame.
+		"{\"error\":\"rate limit\thit\",\"choices\":[{\"delta\":{\"content\":\"THE SECRET ANSWER\"}}]}",
+		"{\"error\":\"\x1b[31mred\",\"choices\":[{\"delta\":{\"content\":\"THE SECRET ANSWER\"}}]}",
+		`{"error":"bad \q escape","choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
+		`{"error":NaN,"choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
+		`{"error":'single',"choices":[{"delta":{"content":"THE SECRET ANSWER"}}]}`,
 	} {
 		if got := parseAccumulatedError([]byte(data)); strings.Contains(got, "SECRET") {
 			t.Errorf("content escaped into the error message: %q", got)
 		}
+	}
+}
+
+// A frame truncated around a relay's no-error stamp is not a failed request.
+// The member decoded whole, so the shared emptiness rule judges it, exactly as
+// it would on a frame that arrived intact.
+func TestParseAccumulatedError_EmptyMemberInTruncatedFrame(t *testing.T) {
+	for _, data := range []string{
+		`{"error":false,"choices":[{"delta":{"content":"hi`,
+		`{"error":0,"choices":[{"delta":{"content":"hi`,
+		`{"error":[],"choices":[{"delta":{"content":"hi`,
+		`{"error":{},"choices":[{"delta":{"content":"hi`,
+		`{"error":{"code":0,"message":"","type":""},"choices":[{"delta":{"content":"hi`,
+	} {
+		if got := parseAccumulatedError([]byte(data)); got != "" {
+			t.Errorf("%s recorded an error: %q", data, got)
+		}
+	}
+}
+
+// A duplicate key resolves the way json.Unmarshal resolves it everywhere else
+// this member is read: the last one wins.
+func TestParseAccumulatedError_LastErrorKeyWins(t *testing.T) {
+	if got := parseAccumulatedError([]byte(`{"error":"first","error":"second","x":`)); got != "second" {
+		t.Errorf("got %q, want second", got)
 	}
 }
 
