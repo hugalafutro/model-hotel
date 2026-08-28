@@ -397,8 +397,10 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 		return "", false
 	}
 	var chunk streamChunk
-	if err := json.Unmarshal(raw, &chunk); err == nil && chunk.Error != nil && chunk.Error.Message != "" {
-		return chunk.Error.Message, true
+	if err := json.Unmarshal(raw, &chunk); err == nil {
+		if msg, ok := chunkErrorMessage(chunk.Error); ok {
+			return msg, true
+		}
 	}
 	// A bare string, a list, a number, or an object without a "message": render
 	// what the provider put there rather than dropping a frame already judged to

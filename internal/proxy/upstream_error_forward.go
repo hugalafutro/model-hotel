@@ -312,6 +312,14 @@ func carriesErrorObject(body []byte) bool {
 	if !present {
 		return false
 	}
+	return carriesErrorMember(raw)
+}
+
+// carriesErrorMember is the same judgement applied to an already-extracted
+// "error" value, for callers that hold the member rather than the whole body
+// (the SSE observers, which have it off a parsed chunk). One definition of what
+// counts as an error, so the two cannot drift.
+func carriesErrorMember(raw json.RawMessage) bool {
 	var content any
 	if err := json.Unmarshal(raw, &content); err != nil {
 		return false

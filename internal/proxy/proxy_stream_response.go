@@ -285,7 +285,7 @@ func (st *streamState) applyReasoningNormalize(sink *streamSink, chunk streamChu
 		return false, false
 	}
 	delta := chunk.Choices[0].Delta
-	newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData)
+	newPayload, ok := normalizeReasoningChunk(deltaTextPtr(delta.Content), deltaTextPtr(delta.ReasoningContent), payload, &st.lastFinishReason, logData)
 	if !ok {
 		return false, false
 	}
@@ -304,8 +304,10 @@ func (st *streamState) applyEmptyContentStrip(sink *streamSink, chunk streamChun
 		return false, false
 	}
 	delta := chunk.Choices[0].Delta
-	hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
-	hasEmptyContent := delta.Content != nil && *delta.Content == ""
+	hasReasoning := deltaText(delta.ReasoningContent) != ""
+	// Present AND literally the empty string. A null content is absent, not
+	// empty, which is what the *string form of this field used to express.
+	hasEmptyContent := string(delta.Content) == `""`
 	if !hasReasoning || !hasEmptyContent {
 		return false, false
 	}

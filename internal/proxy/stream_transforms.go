@@ -1,6 +1,9 @@
 package proxy
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // stripReasoningDecision is what computeStripReasoning decided for a chunk.
 type stripReasoningDecision int
@@ -53,8 +56,14 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 	// Does the delta still carry meaningful data?
 	deltaHasContent := false
 	if cRaw, okC := deltaFields["content"]; okC {
-		var cStr string
-		if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
+		// Any non-empty content counts, WHATEVER its shape. Judging only the
+		// plain-string form meant a delta whose content is an array of parts
+		// looked contentless and was rewritten into a keep-alive, taking the
+		// text with it. (The empty-string case was already deleted above; it is
+		// re-checked here so this stays correct if that block moves.)
+		switch strings.TrimSpace(string(cRaw)) {
+		case "null", `""`:
+		default:
 			deltaHasContent = true
 		}
 	}
@@ -138,10 +147,10 @@ func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *st
 		hasContent := false
 		if chunk.Choices[0].Delta != nil {
 			delta := chunk.Choices[0].Delta
-			if delta.Content != nil && *delta.Content != "" {
+			if deltaText(delta.Content) != "" {
 				hasContent = true
 			}
-			if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
+			if deltaText(delta.ReasoningContent) != "" {
 				hasContent = true
 			}
 		}

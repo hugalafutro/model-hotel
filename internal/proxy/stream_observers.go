@@ -73,8 +73,17 @@ const repeatedContentLimit = 10
 type streamChunk struct {
 	Choices []struct {
 		Delta *struct {
-			Content          *string `json:"content"`
-			ReasoningContent *string `json:"reasoning_content"`
+			// The output-bearing fields are RawMessage, not string, because a
+			// type mismatch in ANY of them fails the whole-chunk unmarshal and
+			// the frame is dropped — the provider's answer discarded as though
+			// the bytes were corrupt. Real providers send content as an array of
+			// parts and tool-call arguments as an object; on a tool call the
+			// caller lost the call while finish_reason, which rides a separate
+			// parseable frame, survived to announce it.
+			//
+			// Read them through deltaText/argumentsText, never directly.
+			Content          json.RawMessage `json:"content"`
+			ReasoningContent json.RawMessage `json:"reasoning_content"`
 			// The two other spellings of the same thing. Ollama and OpenRouter
 			// send "reasoning"; OpenRouter and MiniMax send "reasoning_details".
 			// normalizeReasoningChunk rewrites both into reasoning_content for
@@ -82,20 +91,24 @@ type streamChunk struct {
 			// caller receives a full answer while the delivery accounting sees
 			// nothing, and the provider is charged for an empty response it did
 			// not give.
-			Reasoning        *string         `json:"reasoning"`
+			Reasoning        json.RawMessage `json:"reasoning"`
 			ReasoningDetails json.RawMessage `json:"reasoning_details"`
 			ToolCalls        []struct {
 				Function *struct {
-					Name      string `json:"name"`
-					Arguments string `json:"arguments"`
+					Name      string          `json:"name"`
+					Arguments json.RawMessage `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 	} `json:"choices"`
-	Usage *Usage                    `json:"usage"`
-	Error *struct{ Message string } `json:"error"`
+	Usage *Usage `json:"usage"`
+	// RawMessage for the same reason: Ollama answers with a bare
+	// {"error":"model not found"}, which fails an unmarshal into an object and
+	// took the whole frame — content included — down with it. Read through
+	// chunkErrorMessage.
+	Error json.RawMessage `json:"error"`
 }
 
 // observeDataChunk applies the four non-emitting, side-channel observers over a
@@ -143,32 +156,23 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		if choice.Delta == nil {
 			continue
 		}
-		if choice.Delta.Content != nil {
-			st.deliveredBytes += len(*choice.Delta.Content)
-		}
-		if choice.Delta.ReasoningContent != nil {
-			st.deliveredBytes += len(*choice.Delta.ReasoningContent)
-		}
-		if choice.Delta.Reasoning != nil {
-			st.deliveredBytes += len(*choice.Delta.Reasoning)
-		}
+		st.deliveredBytes += len(deltaText(choice.Delta.Content))
+		st.deliveredBytes += len(deltaText(choice.Delta.ReasoningContent))
+		st.deliveredBytes += len(deltaText(choice.Delta.Reasoning))
 		if rd := choice.Delta.ReasoningDetails; len(rd) > 0 && string(rd) != "null" {
 			st.deliveredBytes += len(rd)
 		}
 		for _, tc := range choice.Delta.ToolCalls {
 			if tc.Function != nil {
-				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)
+				st.deliveredBytes += len(tc.Function.Name) + len(argumentsText(tc.Function.Arguments))
 			}
 		}
 	}
 	if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 		delta := chunk.Choices[0].Delta
-		currentContent := ""
-		if delta.Content != nil {
-			currentContent = *delta.Content
-		}
-		if delta.ReasoningContent != nil && currentContent == "" {
-			currentContent = *delta.ReasoningContent
+		currentContent := deltaText(delta.Content)
+		if rc := deltaText(delta.ReasoningContent); rc != "" && currentContent == "" {
+			currentContent = rc
 			if !st.sawThinking {
 				st.sawThinking = true
 				debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
@@ -192,14 +196,95 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		st.lastContent = currentContent
 	}
-	if chunk.Error != nil && !anthropicErrorCounted {
+	if errMsg, isErr := chunkErrorMessage(chunk.Error); isErr && !anthropicErrorCounted {
 		// Only count if P1-C didn't already handle this as an
 		// Anthropic error event (which shares the same data line).
-		st.lastErrMsg = chunk.Error.Message
+		st.lastErrMsg = errMsg
 		st.errorChunkCount++
-		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", errMsg, "chunk_number", chunkCount)
 		// Clear st.errAccum: chunk.Error already captured this error,
 		// so P1-B's next flush must not re-count it.
 		st.errAccum = nil
 	}
+}
+
+// deltaText extracts the model's text from a delta field that carries output.
+//
+// Providers spell the same thing several ways. The plain string is the OpenAI
+// spec; an array of content parts is what several send, and a part carries its
+// text under "text". Anything else yields "", because the caller is sizing what
+// the model produced and cannot guess at a shape it does not recognise.
+//
+// This exists so the fields can be json.RawMessage. Typed as *string they made a
+// wider-but-valid shape fail the whole-chunk unmarshal, which dropped the frame
+// and lost the answer.
+func deltaText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &parts) != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		b.WriteString(p.Text)
+	}
+	return b.String()
+}
+
+// deltaTextPtr adapts an output field for the transforms, which still take
+// *string. nil means the member is absent or null — the distinction the old
+// *string fields carried — and a present member yields its extracted text, which
+// may legitimately be "".
+func deltaTextPtr(raw json.RawMessage) *string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	s := deltaText(raw)
+	return &s
+}
+
+// argumentsText sizes a tool call's arguments. The spec says a JSON string, and
+// some providers send the object itself; for the object its own JSON is the
+// honest measure of what the model generated.
+func argumentsText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	return string(raw)
+}
+
+// chunkErrorMessage reports the provider's message when a chunk's error member
+// holds one, and ok == false when the member is absent or empty.
+//
+// Shapes accepted deliberately mirror carriesErrorObject, which this package
+// already uses to decide what counts as an error: an object with a message,
+// Ollama's bare string, or any other populated value. null/{}/""/[] leave the
+// caller nothing to read and are not errors.
+func chunkErrorMessage(raw json.RawMessage) (string, bool) {
+	if !carriesErrorMember(raw) {
+		return "", false
+	}
+	var obj struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(raw, &obj) == nil && obj.Message != "" {
+		return obj.Message, true
+	}
+	var bare string
+	if json.Unmarshal(raw, &bare) == nil {
+		return bare, true
+	}
+	return string(raw), true
 }
