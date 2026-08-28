@@ -217,6 +217,13 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 	}
 
 	body := rec.String()
+	// The claim in this test's name: the bad event was read and SKIPPED, not
+	// merely not-yet-arrived. Ordering gives the first half, this gives the
+	// second — without it a handler that wrote the unmarshalable event to the
+	// wire would pass.
+	if strings.Contains(body, "test.bad_event") {
+		t.Errorf("an unmarshalable event reached the wire: %s", body)
+	}
 	if !strings.Contains(body, "test.good_event") {
 		t.Errorf("Expected good event in SSE stream after marshal error, got: %s", body)
 	}

@@ -185,9 +185,12 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request, heartbeatE
 	w.Header().Set("Connection", "keep-alive")
 	// Subscribe BEFORE announcing, for the same reason the gateway's own SSE
 	// handler does: announcing first opens a window where the client believes it
-	// is attached and any event published in it is dropped. It also makes the
-	// first write a sound handshake for the tests, which otherwise have to treat
-	// the window as a fact of life.
+	// is attached and any event published in it is dropped.
+	//
+	// This is a fix for real clients only. The announce here is a bare 200 with
+	// no body, so it was never observable to the tests, whose first captured
+	// write is the keep-alive — and that already came after the subscribe,
+	// because the ticker producing it starts later.
 	ch := s.bus.Subscribe()
 	defer s.bus.Unsubscribe(ch)
 
