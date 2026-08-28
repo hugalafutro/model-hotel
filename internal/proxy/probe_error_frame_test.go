@@ -653,11 +653,9 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterEmptyStream(t *testing.T
 	}
 }
 
-// An empty stream loses the race exactly as an error frame does, but is NOT
-// charged to the breaker. Whether a model emits anything depends on the prompt,
-// which the caller controls, so charging it would let one virtual key blackhole
-// a healthy provider for every tenant.
-func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
+// An empty stream loses the race exactly as an error frame does, and is charged
+// exactly as one too: a zero-token answer is not a valid answer.
+func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 	withBreakerThresholdOne(t, h)
@@ -682,9 +680,9 @@ func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
 	if res.reqErr.Kind != KindProviderError {
 		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
 	}
-	// Threshold is 1 here, so a single charge would show immediately.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got == failover.StateOpen {
-		t.Error("an empty stream must not break the circuit: the prompt, not the provider, decides whether a model emits anything")
+	// Threshold is 1 here, so a single charge shows immediately.
+	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: a provider that produced nothing is charged", got)
 	}
 }
 
@@ -865,4 +863,129 @@ func TestRecoverFirstToken(t *testing.T) {
 			})
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// A completely empty response counts against the provider. A zero-token answer
+// is not a valid one in almost any real use, and a caller deliberately coercing
+// a model into silence is not a case worth protecting a provider from. Decided
+// 2026-08-28, reversing the narrower call made when the empty-stream guard
+// first shipped.
+//
+// Two paths produce a completely empty response and both charge:
+//   - the stream never produced a chunk at all (caught by the probe)
+//   - the stream produced frames but delivered no output (caught by the
+//     finalizer, after the provider was already committed to)
+// ---------------------------------------------------------------------------
+
+func TestClassifyProbeError_ChargesAnEmptyStream(t *testing.T) {
+	re, charged := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), false, time.Second, 30*time.Second, 60*time.Second, 1)
+	if !charged {
+		t.Error("a stream that produced nothing must be charged to the provider")
+	}
+	if re.Kind != KindProviderError {
+		t.Errorf("kind = %s, want %s", re.Kind, KindProviderError)
+	}
+	// A client hanging up cannot excuse it either: the provider had already
+	// finished saying nothing.
+	if _, chargedGone := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1); !chargedGone {
+		t.Error("an empty stream must be charged even when the client is gone")
+	}
+}
+
+// The finalizer half: a stream that got past the probe, completed cleanly, and
+// still handed the caller nothing. Previously recorded as a SUCCESS, which
+// actively cleared any accumulated failures for that provider.
+func TestJudgeStreamForBreaker_CompletedButEmptyIsCharged(t *testing.T) {
+	st := &streamState{sawDone: true}
+	logData := &requestLogData{}
+	v := judgeStreamForBreaker(st, logData, "", true)
+	if v.failureReason == "" {
+		t.Error("a stream that completed having delivered nothing must be charged")
+	}
+	if v.success {
+		t.Error("an empty stream must not be recorded as a success")
+	}
+}
+
+// The guard that keeps the above from swallowing every ordinary stream: any
+// evidence the caller actually received output means success, and the three
+// signals are checked because no single one is available on every path.
+func TestJudgeStreamForBreaker_DeliveredStreamsStillSucceed(t *testing.T) {
+	for name, tc := range map[string]struct {
+		st      *streamState
+		logData *requestLogData
+	}{
+		"content seen":       {&streamState{sawDone: true, sawContent: true}, &requestLogData{}},
+		"bytes delivered":    {&streamState{sawDone: true, deliveredBytes: 42}, &requestLogData{}},
+		"usage reported":     {&streamState{sawDone: true, completionTokens: 7}, &requestLogData{}},
+		"anthropic finished": {&streamState{sawMessageStop: true}, &requestLogData{deliveredContent: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			v := judgeStreamForBreaker(tc.st, tc.logData, "", true)
+			if v.failureReason != "" {
+				t.Errorf("charged %q, want a success", v.failureReason)
+			}
+			if !v.success {
+				t.Error("a stream that delivered output must be recorded as a success")
+			}
+		})
+	}
+}
+
+// A client that hangs up before anything arrives is not the provider's doing,
+// and must not charge it under the new rule either.
+func TestJudgeStreamForBreaker_EmptyOnClientHangupIsNotCharged(t *testing.T) {
+	for name, st := range map[string]*streamState{
+		"client hung up":     {clientDisconnected: true},
+		"gateway restarting": {interrupted: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			v := judgeStreamForBreaker(st, &requestLogData{}, "", true)
+			if v.failureReason != "" {
+				t.Errorf("charged %q, want no charge", v.failureReason)
+			}
+		})
+	}
+}
+
+// End to end at the production default threshold, through the real probe: five
+// providers-that-say-nothing take the provider out of rotation.
+func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	providerID := uuid.New()
+	const attempts = 5
+	for i := range attempts {
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(emptyStreamSSE)),
+		}
+		logData := streamingLog()
+		logData.providerName = "empty-provider"
+		h.insertRequestLogAsync(logData)
+
+		st := &requestState{
+			startTime:             time.Now(),
+			reqModel:              "test-model",
+			isStreaming:           true,
+			circuitBreakerEnabled: true,
+			logData:               logData,
+		}
+		cand := modelCandidate{
+			model:    &model.Model{ModelID: "test-model"},
+			provider: &provider.Provider{ID: providerID, Name: "empty-provider"},
+			apiKey:   "sk-test",
+		}
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeFailover {
+			t.Fatalf("attempt %d: outcome = %v, want failover", i, got)
+		}
+	}
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
+	}
 }

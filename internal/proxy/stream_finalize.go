@@ -98,12 +98,27 @@ func providerAtFault(kind ErrorKind) bool {
 }
 
 // streamDeliveredOutput reports whether the caller actually received model
-// output. deliveredContent alone is not enough: st.sawContent is set by
-// observeDataChunk, which never runs on the native Anthropic passthrough, so on
-// that path a truncated stream that delivered thousands of tokens would look
-// empty. deliveredBytes is counted on both paths and is the honest signal.
+// output. Every available signal is checked, because no single one is present
+// on every path and the cost of missing one is now a charge against a healthy
+// provider rather than merely a charge withheld:
+//
+//   - logData.deliveredContent is the value finalizeStream derives just above,
+//     and is what the retirement verdict reads.
+//   - st.sawContent / st.sawMessageStop are read directly too, so this does not
+//     depend on that assignment having happened first. sawContent is set by
+//     observeDataChunk, which never runs on the native Anthropic passthrough;
+//     sawMessageStop is that path's equivalent.
+//   - st.deliveredBytes is counted on BOTH paths, so it is the one signal that
+//     catches a native stream which delivered thousands of tokens and would
+//     otherwise look empty.
+//   - st.completionTokens covers a provider that reported usage without this
+//     gateway parsing content out of the deltas.
 func streamDeliveredOutput(st *streamState, logData *requestLogData) bool {
-	return logData.deliveredContent || st.deliveredBytes > 0 || st.completionTokens > 0
+	return logData.deliveredContent ||
+		st.sawContent ||
+		st.sawMessageStop ||
+		st.deliveredBytes > 0 ||
+		st.completionTokens > 0
 }
 
 // judgeStreamForBreaker decides what a finished stream tells the circuit
@@ -118,11 +133,13 @@ func streamDeliveredOutput(st *streamState, logData *requestLogData) bool {
 // therefore inert in production. Move a success back to the probe and they go
 // inert again.
 //
-// Failure has two shapes. A stall is the provider going silent; an error is the
-// provider saying it failed. The stall charge is unconditional (as it has always
-// been), but an error is only charged when the caller received nothing: a stream
-// that delivered real output before dying did part of its job, and charging it
-// would break the circuit on every truncated-but-useful response.
+// Failure has three shapes. A stall is the provider going silent; an error is
+// the provider saying it failed; an empty finish is the provider completing
+// having said nothing at all. The stall charge is unconditional (as it has
+// always been); the other two are charged only when the caller received
+// nothing, because a stream that delivered real output before dying did part of
+// its job and charging it would break the circuit on every
+// truncated-but-useful response.
 //
 // The error charge matters because the probe has already committed to this
 // provider by the time a later frame turns out to be an error, and the hedged
@@ -134,6 +151,18 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 		return streamBreakerVerdict{}
 	}
 	if errMsg == "" {
+		// A clean finish still has to have finished something. A stream that
+		// got past the probe, completed without error and handed the caller
+		// nothing is a completely empty response, and counts against the
+		// provider rather than clearing its failures — which is what recording
+		// a success here used to do.
+		//
+		// The probe catches the stream that never produced a chunk; this is its
+		// sibling, the one that produced frames carrying no output and was
+		// already committed to by the time that became clear.
+		if !streamDeliveredOutput(st, logData) {
+			return streamBreakerVerdict{failureReason: "stream completed without delivering content"}
+		}
 		// Includes the stream whose absent [DONE] was injected above: the
 		// sentinel was missing, the answer was not.
 		return streamBreakerVerdict{success: true}
