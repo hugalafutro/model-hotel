@@ -1,5 +1,7 @@
 package anthropic
 
+import "github.com/hugalafutro/model-hotel/internal/util"
+
 // This file defines the minimal subset of the OpenAI chat-completions wire
 // format the translators consume. We deliberately do not import the proxy
 // package's own chunk types: the dependency runs proxy -> anthropic, never the
@@ -37,8 +39,12 @@ type OAToolCallDelta struct {
 // OAFunctionDelta carries the function name and a fragment of the arguments
 // JSON string.
 type OAFunctionDelta struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
+	Name string `json:"name"`
+	// See util.ToolArguments. A plain string here dropped an object-form tool
+	// call from the translated stream, leaving the Anthropic client a
+	// message_delta with stop_reason "tool_use" and no tool_use content block
+	// at all — a shape the Anthropic SDKs reject.
+	Arguments util.ToolArguments `json:"arguments"`
 }
 
 // OAUsage is the OpenAI usage block. Only the token counts matter for the

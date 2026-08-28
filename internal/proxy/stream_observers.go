@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // captureSSEError handles the two error-extraction quirks over a data line:
@@ -87,16 +88,11 @@ type streamChunk struct {
 			ToolCalls        []struct {
 				Function *struct {
 					Name string `json:"name"`
-					// RawMessage, not string. The spec says a JSON string and
-					// several providers send the object itself; typed as string
-					// that mismatch failed the WHOLE chunk unmarshal, and the
-					// frame was dropped as though the bytes were corrupt.
-					//
-					// The loss is not even uniform: finish_reason rides a
-					// separate, parseable frame, so it survives to announce a
-					// tool call the caller never received. Read through
-					// argumentsText.
-					Arguments json.RawMessage `json:"arguments"`
+					// util.ToolArguments, not string: several providers send the
+					// argument OBJECT where the spec says a JSON string, and a
+					// plain string field failed the WHOLE chunk unmarshal, so
+					// the frame was dropped as though the bytes were corrupt.
+					Arguments util.ToolArguments `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`
@@ -166,7 +162,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		for _, tc := range choice.Delta.ToolCalls {
 			if tc.Function != nil {
-				st.deliveredBytes += len(tc.Function.Name) + len(argumentsText(tc.Function.Arguments))
+				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)
 			}
 		}
 	}
@@ -211,20 +207,4 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		// so P1-B's next flush must not re-count it.
 		st.errAccum = nil
 	}
-}
-
-// argumentsText sizes a tool call's arguments. The spec says a JSON string, and
-// some providers send the object itself; for the object its own JSON is the
-// honest measure of what the model generated.
-//
-// Sizing only — the frame is forwarded verbatim, never rebuilt from this.
-func argumentsText(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	return string(raw)
 }

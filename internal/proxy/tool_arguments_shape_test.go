@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -55,9 +56,6 @@ func TestToolArguments_ObjectFormReachesTheCaller(t *testing.T) {
 	out := w.Body.String()
 	if !strings.Contains(out, "get_weather") {
 		t.Errorf("the tool call must reach the caller, got: %s", out)
-	}
-	if strings.Contains(out, "tool_calls\"}") && !strings.Contains(out, "get_weather") {
-		t.Error("the caller was told a tool call happened but never received it")
 	}
 }
 
@@ -142,21 +140,50 @@ func TestToolArguments_MalformedBytesStillDropped(t *testing.T) {
 	}
 }
 
-func TestArgumentsText(t *testing.T) {
-	for name, tc := range map[string]struct{ raw, want string }{
-		"spec form, a JSON string": {`"{\"city\":\"Prague\"}"`, `{"city":"Prague"}`},
-		"object form":              {`{"city":"Prague"}`, `{"city":"Prague"}`},
-		"empty string":             {`""`, ""},
-		"empty object":             {`{}`, "{}"},
-		"absent":                   {``, ""},
-		// json.Unmarshal of "null" into a string SUCCEEDS and leaves it empty,
-		// which is the right size here: a null arguments member carries none.
-		"null": {`null`, ""},
+// util.ToolArguments is the type the three surfaces share. Encoding always
+// emits the spec form, so a provider's non-standard spelling stops here rather
+// than being passed on to the caller.
+func TestToolArgumentsRoundTrip(t *testing.T) {
+	for name, tc := range map[string]struct{ raw, want, reEncoded string }{
+		"spec form, a JSON string": {`"{\"city\":\"Prague\"}"`, `{"city":"Prague"}`, `"{\"city\":\"Prague\"}"`},
+		"object form":              {`{"city":"Prague"}`, `{"city":"Prague"}`, `"{\"city\":\"Prague\"}"`},
+		"empty string":             {`""`, "", `""`},
+		"empty object":             {`{}`, "{}", `"{}"`},
+		// A null arguments member carries none.
+		"null": {`null`, "", `""`},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := argumentsText(json.RawMessage(tc.raw)); got != tc.want {
-				t.Errorf("argumentsText(%s) = %q, want %q", tc.raw, got, tc.want)
+			var got util.ToolArguments
+			if err := json.Unmarshal([]byte(tc.raw), &got); err != nil {
+				t.Fatalf("unmarshal %s: %v", tc.raw, err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("decoded %s = %q, want %q", tc.raw, string(got), tc.want)
+			}
+			out, err := json.Marshal(got)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(out) != tc.reEncoded {
+				t.Errorf("re-encoded %s = %s, want %s", tc.raw, out, tc.reEncoded)
 			}
 		})
+	}
+}
+
+// The non-streaming surface: an object-form tool call used to fail the whole
+// ChatCompletionResponse decode, so the caller received an error envelope
+// instead of its tool call.
+func TestToolArguments_NonStreamingDecodesObjectForm(t *testing.T) {
+	body := `{"id":"1","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
+	var out ChatCompletionResponse
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatalf("an object-form tool call must decode, got: %v", err)
+	}
+	if len(out.Choices) == 0 || len(out.Choices[0].Message.ToolCalls) == 0 {
+		t.Fatal("the tool call did not survive the decode")
+	}
+	if got := string(out.Choices[0].Message.ToolCalls[0].Function.Arguments); got != `{"city":"Prague"}` {
+		t.Errorf("arguments = %q, want the object's own JSON", got)
 	}
 }
