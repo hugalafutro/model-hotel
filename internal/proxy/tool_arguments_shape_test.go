@@ -247,3 +247,35 @@ func TestNormalizeToolArguments(t *testing.T) {
 		})
 	}
 }
+
+// The non-streaming surface normalises on its re-encode, and that property
+// comes from util.ToolArguments being a named string type rather than from any
+// method. Nothing else in this package asserted it: re-adding a raw-passthrough
+// MarshalJSON leaked the object form onto the wire with the whole proxy suite
+// still green. This is the wire assertion that catches it.
+func TestToolArguments_NonStreamingEmitsTheSpecForm(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	upstream := `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(upstream)), Header: make(http.Header)}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := streamingLog()
+	logData.streaming = false
+	logData.providerName = "tool-shape-provider"
+	h.insertRequestLogAsync(logData)
+
+	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", w.Code, w.Body.String())
+	}
+	out := w.Body.String()
+	if strings.Contains(out, `"arguments":{`) {
+		t.Errorf("the object form reached the caller: %s", out)
+	}
+	if !strings.Contains(out, `"arguments":"{\"city\":\"Prague\"}"`) {
+		t.Errorf("arguments were not normalised to the spec string: %s", out)
+	}
+}
