@@ -275,10 +275,15 @@ func TestUnmodelledDeliveredBytes_SizesOutputNotEnvelope(t *testing.T) {
 	}
 }
 
-// strip_reasoning is a promise to one caller. computeStripReasoning returning
-// stripPassthrough does NOT mean the frame is reasoning-free — parseChunkPayload
-// also refuses a choices/delta that is not the shape it expects — so the frame
-// is dropped rather than forwarded on a guess.
+// strip_reasoning is a promise to one caller, and the gateway must not forward a
+// frame it cannot prove is reasoning-free. Both shapes below defeat
+// parseChunkPayload — a delta that is not an object, and a choices that is not
+// an array — so the strip transform could not clean them even if it ran.
+//
+// What stops them is the delivered == 0 gate: the same parser sizes the output,
+// refuses these, and the frame is dropped before it can be forwarded. (The
+// stripPassthrough arm is therefore unreachable; it stays as a drop in case the
+// two ever stop agreeing.) Both of these leaked verbatim before the gate existed.
 func TestHandleStreamingResponse_UnstrippableFrameIsDroppedNotLeaked(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)

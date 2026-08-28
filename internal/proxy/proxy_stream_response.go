@@ -573,11 +573,16 @@ func (st *streamState) forwardUnmodelledFrame(sink *streamSink, payload string, 
 			st.deliveredBytes += unmodelledDeliveredBytes(string(stripped))
 			return true, !st.emitData(sink, stripped, "unmodelled frame", chunkCount, logData)
 		case stripPassthrough:
-			// parseChunkPayload refused the frame, which does NOT mean it holds
-			// no reasoning: it also refuses a choices/delta that is not the shape
-			// it expects. The gateway cannot prove this frame is reasoning-free,
-			// and strip_reasoning is a promise to a specific caller, so it is
-			// dropped rather than forwarded on a guess.
+			// Unreachable as things stand: stripPassthrough means
+			// parseChunkPayload refused the frame, and the delivered == 0 gate
+			// above — which calls the same parser — already dropped every frame
+			// it refuses. That gate is what actually closes the leak here, since
+			// a refusal does NOT mean the frame is reasoning-free (the parser
+			// also refuses a choices/delta that is not the shape it expects).
+			//
+			// Kept, and kept as a DROP, because strip_reasoning is a promise to
+			// a specific caller: if the two ever stop agreeing, the frame must
+			// not be forwarded on a guess.
 			return true, false
 		}
 	}
