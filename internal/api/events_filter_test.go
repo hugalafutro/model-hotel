@@ -85,7 +85,7 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan struct{})
-	rec := httptest.NewRecorder()
+	rec := newSyncRecorder()
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/events", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -93,7 +93,11 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 		er.ServeHTTP(rec, req)
 		close(done)
 	}()
-	time.Sleep(50 * time.Millisecond)
+	// A handshake, not a sleep: streamEvents subscribes before it announces, and
+	// flushes the connected frame immediately after, so this signal means the
+	// subscription exists and no publish below can be missed. The 50ms sleep
+	// this replaces is what made the test flake under -race on a loaded runner.
+	<-rec.flushed
 
 	// Own request (owner_user_id == this user) is visible; another user's request
 	// and operational/discovery events are not.
@@ -101,7 +105,12 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "theirs done", Metadata: map[string]any{"owner_user_id": uuid.NewString()}})
 	events.Publish(events.Event{Type: "backup.created", Severity: "success", Message: "backup done"})
 	events.Publish(events.Event{Type: "request.discovery.provider_starting", Severity: "info", Message: "discovering"})
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the event that should arrive rather than a guessed interval. The
+	// ones that should NOT arrive are asserted absent after the handler exits,
+	// by which point every publish has been processed or dropped.
+	if !waitFor(t, func() bool { return strings.Contains(rec.String(), "mine done") }) {
+		t.Fatalf("own request.completed never reached the stream: %q", rec.String())
+	}
 
 	cancel()
 	select {
@@ -110,7 +119,7 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 		t.Fatal("handler goroutine did not exit after context cancellation")
 	}
 
-	body := rec.Body.String()
+	body := rec.String()
 	if !strings.Contains(body, "mine done") {
 		t.Errorf("logs-granted user missing own request.completed, got: %s", body)
 	}

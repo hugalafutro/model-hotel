@@ -128,16 +128,22 @@ func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request, heartbeat
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	// Write initial comment to establish the stream
-	_, _ = fmt.Fprint(w, ": connected\n\n")
-	flusher.Flush()
-
 	bus := h.eventBus
 	if bus == nil {
 		bus = events.DefaultBus
 	}
+	// Subscribe BEFORE announcing the stream. Announcing first opens a window
+	// where the client believes it is attached and any event published in it is
+	// dropped on the floor — a dashboard that connects during a burst silently
+	// misses the start of it. It also makes the connected frame a sound
+	// handshake: a reader that has seen those bytes knows the subscription
+	// exists, which is what the tests rely on instead of sleeping.
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
+
+	// Write initial comment to establish the stream
+	_, _ = fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
 
 	// Buffered so a re-auth result never parks its goroutine while this loop is
 	// busy writing an event; the loop drains it on the next pass.
