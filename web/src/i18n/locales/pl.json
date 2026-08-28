@@ -1663,7 +1663,7 @@
 			"keyCacheTtl": "Pamięć podręczna kluczy TTL",
 			"keyCacheTtl.description": "Jak długo odszyfrowane klucze API dostawcy są buforowane. Wyższe wartości zmniejszają opóźnienie przy pierwszym żądaniu po wygaśnięciu pamięci podręcznej (charakterystyka klucza Argon2id to ~12 ms).",
 			"ttftTimeout": "Limit czasu TTFT",
-			"ttftTimeout.description": "Maksymalny czas oczekiwania na pierwszy token strumienia przed przełączeniem awaryjnym. 0 aby wyłączyć (natychmiastowy commit, brak przełączenia awaryjnego przy powolnym pierwszym tokenie).",
+			"ttftTimeout.description": "Maksymalny czas oczekiwania na pierwszy token strumienia przed przełączeniem awaryjnym. 0 wyłącza sprawdzanie: dostawca jest zatwierdzany zaraz po nadejściu nagłówków, więc ten, który odpowie błędem lub niczym, nie powoduje już przełączenia.",
 			"streamStallTimeout": "Limit czasu zastoju strumienia",
 			"streamStallTimeout.description": "Maksymalna cisza podczas przesyłania strumieniowego przed przerwaniem połączenia. 0 aby wyłączyć. Po 50 chunkach limit czasu jest automatycznie przedłużany 3× aby tolerować połączenia narzędzi i długie rozumowanie.",
 			"timeout": {

@@ -430,7 +430,9 @@ export function DataStorageSettings({
 								max={30}
 								step={1}
 								clampStep={1}
-								infinityValue={0}
+								// Deliberately NOT infinityValue={0}: 0 turns this OFF, it does not
+								// lift a limit, and ∞ read as the opposite. Same defect as the TTFT
+								// probe slider.
 								unit="m"
 								disabled={quotaDisabled}
 								onChange={(v) => {
@@ -640,7 +642,9 @@ export function DataStorageSettings({
 								max={600}
 								step={10}
 								clampStep={10}
-								infinityValue={0}
+								// Deliberately NOT infinityValue={0}: 0 turns this OFF, it does not
+								// lift a limit, and ∞ read as the opposite. Same defect as the TTFT
+								// probe slider.
 								unit="s"
 								onChange={handleDashboardRefreshChange}
 								description={t(

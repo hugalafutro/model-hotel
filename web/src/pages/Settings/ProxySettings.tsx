@@ -90,7 +90,13 @@ export function ProxySettings({
 							step={5}
 							clampStep={5}
 							unit="s"
-							infinityValue={0}
+							// Deliberately NOT infinityValue={0}. On the other
+							// sliders 0 means "no limit"; here it DISABLES the
+							// first-token probe, which is the opposite, and the ∞
+							// glyph told the operator the reverse of what happens —
+							// including that an error or empty first frame stops
+							// being failed over. The plain 0 is the honest reading,
+							// and the description says what it costs.
 							onChange={(v) =>
 								updateMutation.mutate({
 									ttft_timeout: secondsToGoDuration(v),

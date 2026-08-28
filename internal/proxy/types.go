@@ -323,7 +323,7 @@ const (
 // a single struct, replacing 17 positional parameters with named fields.
 type streamOptions struct {
 	preReadBuf         *bytes.Buffer // nil = no TTFT probe (immediate commit)
-	trueTtftMs         float64       // measured during TTFT probe, 0 if [DONE] first
+	trueTtftMs         float64       // measured during TTFT probe; a probe that finds no token fails rather than reporting 0
 	responseHeaderMs   float64       // time to HTTP headers from upstream
 	streamStallTimeout time.Duration // 0 = no stall watchdog
 	providerID         uuid.UUID

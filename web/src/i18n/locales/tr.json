@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Anahtar Önbelleği TTL",
 			"keyCacheTtl.description": "Şifresi çözülmüş sağlayıcı API anahtarlarının önbellekte ne kadar süreyle tutulacağı. Daha yüksek değerler, önbellek süresi dolduktan sonraki ilk istekte gecikmeyi azaltır (Argon2id anahtar türetme işlemi yaklaşık 12 ms sürer).",
 			"ttftTimeout": "TTFT Zaman Aşımı",
-			"ttftTimeout.description": "Yedekleme işlemine geçmeden önce ilk akış belirtecinin gelmesini beklemek için ayrılan maksimum süre. 0 olarak ayarlandığında devre dışı bırakılır (anında işleme alınır; ilk belirtecin gelmesi gecikirse yedekleme yapılmaz).",
+			"ttftTimeout.description": "Yük devretmeden önce ilk akış belirtecinin beklenmesi için azami süre. 0 denetimi kapatır: başlıkları ulaşır ulaşmaz sağlayıcıya bağlanılır, dolayısıyla hatayla ya da hiçbir şeyle yanıt veren bir sağlayıcı artık yük devretmeye yol açmaz.",
 			"streamStallTimeout": "Akış Durma Zaman Aşımı",
 			"streamStallTimeout.description": "Bağlantı kesilmeden önce akış sırasında izin verilen maksimum sessizlik süresi. 0 değeri ile devre dışı bırakılabilir. 50 bloktan sonra, araç çağrılarını ve uzun mantık işlemlerini hesaba katmak için zaman aşımı süresi otomatik olarak 3 katına çıkarılır.",
 			"timeout": {

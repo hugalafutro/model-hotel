@@ -1617,7 +1617,7 @@
 			"keyCacheTtl": "TTL cache chei",
 			"keyCacheTtl.description": "Cât timp sunt păstrate în cache cheile API decriptate ale furnizorilor. Valorile mai mari reduc latența la prima cerere după expirarea cache-ului (derivarea cheii Argon2id durează ~12ms).",
 			"ttftTimeout": "Timeout TTFT",
-			"ttftTimeout.description": "Timpul maxim de așteptare pentru primul token în flux înainte de a comuta pe failover. 0 pentru a dezactiva (comitere imediată, fără failover la un prim token lent).",
+			"ttftTimeout.description": "Timpul maxim de așteptare a primului token de flux înainte de comutare. Valoarea 0 dezactivează verificarea: furnizorul este confirmat imediat ce sosesc anteturile sale, deci unul care răspunde cu o eroare sau cu nimic nu mai declanșează comutarea.",
 			"streamStallTimeout": "Timp oprire stream",
 			"streamStallTimeout.description": "Liniște maximă în timpul redării înainte ca conexiunea să fie tăiată. 0 pentru dezactivare. După 50 de bucăți, timpul de expirare este automat prelungit 3× pentru a tolera apelurile de unelte și raționamentul lung.",
 			"timeout": {

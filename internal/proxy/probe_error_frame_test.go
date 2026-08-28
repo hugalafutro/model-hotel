@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -567,4 +568,301 @@ func TestProbeErrorFrame_NeverLogsTheProviderCredential(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// An empty completion is as good as an error: it must not win a hedged race
+// either. A provider whose FIRST data frame is the [DONE] sentinel produced no
+// chunks at all, and letting it win cancels every healthy rival still in flight
+// and hands the caller nothing. Same mechanism as the error frame above, same
+// verdict. Decided 2026-08-28.
+// ---------------------------------------------------------------------------
+
+const emptyStreamSSE = "data: [DONE]\n\n"
+
+func TestProbeFirstToken_ImmediateDoneIsNotAToken(t *testing.T) {
+	h := &Handler{}
+
+	if _, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, emptyStreamSSE), 5*time.Second, time.Now()); err == nil {
+		t.Fatalf("a stream that ends at its first frame must fail the probe, got a token at ttft=%.1f", ttft)
+	}
+}
+
+// The guard stays narrow. Only a BARE first [DONE] means "no chunks at all" —
+// a provider that sends any real frame first and then finishes has answered,
+// even if the answer is empty, and must keep winning.
+func TestProbeFirstToken_DoneAfterAFrameStillWins(t *testing.T) {
+	h := &Handler{}
+	for name, body := range map[string]string{
+		"role delta then done":    "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + emptyStreamSSE,
+		"empty choices then done": "data: {\"choices\":[]}\n\n" + emptyStreamSSE,
+		"keepalive then frame":    ": ping\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, _, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now()); err != nil {
+				t.Fatalf("a stream that produced a frame must win the probe, got %v", err)
+			}
+		})
+	}
+}
+
+// The race, end to end: a provider that finishes instantly with nothing must
+// lose to one that takes longer and actually answers.
+func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterEmptyStream(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		time.Sleep(100 * time.Millisecond)
+		_, _ = io.WriteString(w, emptyStreamSSE)
+	}))
+	defer empty.Close()
+
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		time.Sleep(250 * time.Millisecond)
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer healthy.Close()
+
+	st, logData := newHedgeState(10 * time.Millisecond)
+	st.bodyBytes = []byte(`{"model":"test-model","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+	cands := []modelCandidate{
+		liveCandidate("empty", empty.URL),
+		liveCandidate("healthy", healthy.URL),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.runHedgedStreaming(w, req, st, cands, h.probeStreamingCandidate)
+
+	if body := w.Body.String(); !strings.Contains(body, `"content":"hi"`) {
+		t.Fatalf("the caller must receive the healthy provider's token, got: %s", body)
+	}
+	if logData.providerName != "healthy" {
+		t.Errorf("winner = %q, want %q: an empty stream must not win the race", logData.providerName, "healthy")
+	}
+}
+
+// An empty stream loses the race exactly as an error frame does, but is NOT
+// charged to the breaker. Whether a model emits anything depends on the prompt,
+// which the caller controls, so charging it would let one virtual key blackhole
+// a healthy provider for every tenant.
+func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, emptyStreamSSE)
+	}))
+	defer srv.Close()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.circuitBreakerEnabled = true
+
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if res.resp != nil {
+		_ = res.resp.Body.Close()
+	}
+	if res.won {
+		t.Fatal("a stream that produced no content must not win the race")
+	}
+	if res.reqErr.Kind != KindProviderError {
+		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
+	}
+	// Threshold is 1 here, so a single charge would show immediately.
+	if got := h.circuitBreaker.GetState(cand.provider.ID); got == failover.StateOpen {
+		t.Error("an empty stream must not break the circuit: the prompt, not the provider, decides whether a model emits anything")
+	}
+}
+
+// The empty-stream guard has to hold for every spelling of "carries nothing",
+// not just the bare [DONE]. An empty data field won the probe while the stream
+// reader counted zero chunks downstream — the same empty-stream bug reached by
+// a different route, and the reason the two now share one classifier.
+func TestProbeFirstToken_EmptyDataFieldIsNotAToken(t *testing.T) {
+	h := &Handler{}
+	for name, body := range map[string]string{
+		"bare data colon":     "data:\n\n" + emptyStreamSSE,
+		"data colon space":    "data: \n\n" + emptyStreamSSE,
+		"data colon spaces":   "data:    \n\n" + emptyStreamSSE,
+		"empty then terminat": "data:\n\ndata:\n\n" + emptyStreamSSE,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now())
+			if err == nil {
+				t.Fatalf("an empty data field carries no token; probe must not win at ttft=%.3f", ttft)
+			}
+		})
+	}
+}
+
+// An empty field is SKIPPED, not refused: a real frame after it still wins, the
+// way a keepalive comment does. Refusing outright would fail over a stream that
+// went on to answer perfectly well.
+func TestProbeFirstToken_EmptyDataFieldIsSkippedNotFatal(t *testing.T) {
+	h := &Handler{}
+	body := "data:\n\ndata: \n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+
+	if _, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now()); err != nil {
+		t.Fatalf("a real frame after empty fields must still win, got %v", err)
+	} else if ttft <= 0 {
+		t.Errorf("ttft = %f, want > 0", ttft)
+	}
+}
+
+// classifyProbeFrame is unit-tested directly because the scanner-error recovery
+// branch calls it too, and that branch is defence-in-depth for a race the
+// existing tests document as impossible to trigger deterministically. Covering
+// the decision covers both callers, which is the whole reason it is shared.
+func TestClassifyProbeFrame(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    probeFrame
+		wantMsg string
+	}{
+		{"real token", `{"choices":[{"delta":{"content":"hi"}}]}`, probeFrameToken, ""},
+		{"role only", `{"choices":[{"delta":{"role":"assistant"}}]}`, probeFrameToken, ""},
+		{"empty choices", `{"choices":[]}`, probeFrameToken, ""},
+		{"anthropic message_start", `{"type":"message_start"}`, probeFrameToken, ""},
+		{"unparseable is still a token", `{not json`, probeFrameToken, ""},
+		{"terminator", "[DONE]", probeFrameEmptyStream, ""},
+		{"empty field", "", probeFrameNotAToken, ""},
+		{"error envelope", `{"error":{"message":"boom"}}`, probeFrameError, "boom"},
+		{"ollama bare string", `{"error":"model not found"}`, probeFrameError, "model not found"},
+		{"empty error member", `{"error":{}}`, probeFrameToken, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, msg := classifyProbeFrame(tc.content)
+			if got != tc.want {
+				t.Errorf("verdict = %d, want %d", got, tc.want)
+			}
+			if msg != tc.wantMsg {
+				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// recoverProbeFrame is the scanner-error recovery branch's decision, lifted out
+// so it can be tested. The branch itself needs the watchdog to close the body in
+// the same instant the scanner yields a line, which no test can arrange
+// deterministically — see TestProbeFirstToken_ScannerErrorRecovery_PipeRace.
+// Before the extraction, every verdict that branch could reach was untested and
+// a revert of it left the whole package green.
+func TestRecoverProbeFrame(t *testing.T) {
+	tests := []struct {
+		name    string
+		buf     string
+		want    probeFrame
+		wantMsg string
+		found   bool
+	}{
+		{"a real token", "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
+		{"terminator only", "data: [DONE]\n", probeFrameEmptyStream, "", true},
+		{"error envelope", "data: {\"error\":{\"message\":\"boom\"}}\n", probeFrameError, "boom", true},
+		{"empty field then token", "data:\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		{"empty field then terminator", "data:\ndata: [DONE]\n", probeFrameEmptyStream, "", true},
+		{"keepalive then token", ": ping\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		// A mid-line network fragment has no trailing newline in the buffer and
+		// must not be mistaken for a complete frame.
+		{"partial line rejected", "data: {\"choices\":[{\"delta\":", probeFrameNotAToken, "", false},
+		{"nothing usable", ": ping\nevent: message\n", probeFrameNotAToken, "", false},
+		{"empty buffer", "", probeFrameNotAToken, "", false},
+		// The first meaningful frame decides, not the last.
+		{"first frame wins", "data: [DONE]\ndata: {\"choices\":[]}\n", probeFrameEmptyStream, "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict, msg, found := recoverProbeFrame(tc.buf)
+			if found != tc.found {
+				t.Fatalf("found = %v, want %v", found, tc.found)
+			}
+			if verdict != tc.want {
+				t.Errorf("verdict = %d, want %d", verdict, tc.want)
+			}
+			if msg != tc.wantMsg {
+				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// recoverFirstToken is the whole scanner-error recovery branch. Tested here
+// because the branch cannot be reached from a test: it needs the watchdog to
+// close the body in the same instant the scanner yields a line.
+func TestRecoverFirstToken(t *testing.T) {
+	scanErr := errors.New("body closed by timeout goroutine")
+
+	t.Run("a recovered token is returned with its buffer", func(t *testing.T) {
+		buf := bytes.NewBufferString("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n")
+		probeBuf, ttft, err, recovered := recoverFirstToken(buf, time.Now().Add(-time.Millisecond), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if probeBuf != buf {
+			t.Error("expected the original buffer back for replay")
+		}
+		if ttft <= 0 {
+			t.Errorf("ttft = %f, want > 0", ttft)
+		}
+	})
+
+	t.Run("a recovered terminator is an empty stream", func(t *testing.T) {
+		_, _, err, recovered := recoverFirstToken(bytes.NewBufferString("data: [DONE]\n"), time.Now(), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		var empty *emptyStreamError
+		if !errors.As(err, &empty) {
+			t.Errorf("err = %v, want an emptyStreamError", err)
+		}
+	})
+
+	t.Run("a recovered error envelope carries the provider message", func(t *testing.T) {
+		_, _, err, recovered := recoverFirstToken(bytes.NewBufferString("data: {\"error\":{\"message\":\"boom\"}}\n"), time.Now(), scanErr)
+		if !recovered {
+			t.Fatal("expected the frame to be recovered")
+		}
+		var frame *upstreamFrameError
+		if !errors.As(err, &frame) {
+			t.Fatalf("err = %v, want an upstreamFrameError", err)
+		}
+		if frame.msg != "boom" {
+			t.Errorf("msg = %q, want %q", frame.msg, "boom")
+		}
+	})
+
+	t.Run("nothing usable is not recovered", func(t *testing.T) {
+		for name, b := range map[string]string{
+			"only a keepalive": ": ping\n",
+			"partial line":     "data: {\"choices\":[{\"delta\":",
+			"empty fields":     "data:\ndata: \n",
+			"empty buffer":     "",
+		} {
+			t.Run(name, func(t *testing.T) {
+				probeBuf, ttft, err, recovered := recoverFirstToken(bytes.NewBufferString(b), time.Now(), scanErr)
+				if recovered {
+					t.Errorf("recovered = true (buf=%v ttft=%f err=%v), want the caller to fall through", probeBuf, ttft, err)
+				}
+			})
+		}
+	})
 }

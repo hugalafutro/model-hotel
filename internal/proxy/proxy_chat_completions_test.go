@@ -643,8 +643,15 @@ func TestChatCompletions_StreamingPartialStream(t *testing.T) {
 	}
 }
 
-// TestChatCompletions_StreamingSSEFormatError tests the case where upstream sends malformed SSE
-
+// TestChatCompletions_StreamingSSEFormatError pins that a malformed SSE line is
+// skipped and does NOT break a stream that goes on to answer properly.
+//
+// It used to send the malformed line followed straight by [DONE] and assert a
+// 200. That stopped testing malformed framing the moment an empty stream became
+// a refusal: the garbage line was inert either way, and the verdict came
+// entirely from the terminator, making it a duplicate of
+// TestProbeFirstToken_ImmediateDoneIsNotAToken wearing a misleading name. A real
+// chunk now follows the garbage, so what the name promises is what it checks.
 func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 
 	env := newTestProxyHandler(t)
@@ -660,6 +667,7 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "invalid sse format\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
 		fmt.Fprintf(w, "data: [DONE]\n\n")
 	})
 
@@ -673,9 +681,43 @@ func TestChatCompletions_StreamingSSEFormatError(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	// Should complete but with error in stream
+	// The garbage line is skipped; the real chunk after it carries the stream.
 	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if body := w.Body.String(); !strings.Contains(body, `"content":"hi"`) {
+		t.Errorf("expected the chunk after the malformed line to be delivered, got: %s", body)
+	}
+}
+
+// The counterpart the old version had drifted into: malformed framing with no
+// chunk at all behind it is a provider that produced nothing, and is refused
+// rather than forwarded as a silent empty 200. The caller receives nothing
+// either way; the difference is being told.
+func TestChatCompletions_StreamingMalformedWithNoChunkIsRefused(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	defer handler.Close()
+
+	env.Upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "invalid sse format\n\n")
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+	})
+
+	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

@@ -269,10 +269,23 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 // attempt and whether the provider is charged for it. It is the single entry
 // point both the sequential and the hedged path use, so the two cannot drift.
 //
-// An error envelope in the first frame is split out from the zero-token cases
-// below: the provider did answer, so this is its failure and never the client's,
-// and it is charged whatever the downstream connection was doing.
+// An error envelope in the first frame, and a stream that ends at that frame,
+// are split out from the zero-token cases below: the provider did answer, so
+// this is its failure and never the client's.
 func classifyProbeError(probeErr error, providerName string, masker credentialMasker, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+	// The provider answered, but with nothing the caller can use: either it
+	// reported an error, or it ended the stream without a single chunk. Neither
+	// is ever the client's doing, so neither depends on what the downstream
+	// connection was up to — but only the first is CHARGED to the breaker. See
+	// the empty-stream branch for why.
+	answered := func(underlying string) (reqError, bool) {
+		return reqError{
+			Kind:       KindProviderError,
+			Attempt:    attempt,
+			Provider:   providerName,
+			Underlying: underlying,
+		}, true
+	}
 	var frameErr *upstreamFrameError
 	if errors.As(probeErr, &frameErr) {
 		// This text is durable: on the last candidate it becomes the request
@@ -280,12 +293,27 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 		// other path that moves provider error text into that row masks the
 		// credential first, and a provider is free to quote the key back inside
 		// its error. Same treatment here.
+		return answered(util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500))
+	}
+	var emptyErr *emptyStreamError
+	if errors.As(probeErr, &emptyErr) {
+		// Fails over like an error frame, but is NOT charged to the breaker.
+		//
+		// The two are not equally the provider's fault. "The provider said
+		// error" is unambiguous. "The provider said nothing" is a function of
+		// the PROMPT, which the caller controls: one virtual key repeatedly
+		// sending something a provider answers with an instant terminator would
+		// otherwise drive its consecutive-fail count to the threshold and take
+		// that provider out of rotation for every tenant. Losing the race costs
+		// the caller one slow request; a charge costs everyone the cooldown.
+		//
+		// Gateway-authored text, so nothing to mask.
 		return reqError{
 			Kind:       KindProviderError,
 			Attempt:    attempt,
 			Provider:   providerName,
-			Underlying: util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500),
-		}, true
+			Underlying: emptyErr.Error(),
+		}, false
 	}
 	return classifyProbeFailure(providerName, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 }
@@ -363,7 +391,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
-		// First token confirmed (or [DONE] received). No breaker success is
+		// First token confirmed. No breaker success is
 		// recorded here: a first token is not a served stream, and recording one
 		// zeroes consecutiveFails on every request, which left the finalizer's
 		// own failure charges unable to ever reach the threshold. finalizeStream

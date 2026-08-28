@@ -187,7 +187,9 @@ export function DiscoverySettings({
 							max={48}
 							step={0.5}
 							clampStep={0.5}
-							infinityValue={0}
+							// Deliberately NOT infinityValue={0}: 0 turns this OFF, it does not
+							// lift a limit, and ∞ read as the opposite. Same defect as the TTFT
+							// probe slider.
 							unit="h"
 							disabled={isUpdating}
 							onChange={(v) =>

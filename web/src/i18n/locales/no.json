@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "TTL for nøkkelbuffer",
 			"keyCacheTtl.description": "Hvor lenge dekrypterte leverandør-API-nøkler bufres. Høyere verdier reduserer ventetiden på den første forespørselen etter at bufferen utløper (Argon2id-nøkkelderivasjon tar ~12 ms).",
 			"ttftTimeout": "TTFT tidsavbrudd",
-			"ttftTimeout.description": "Maksimal tid å vente på det første strømme-tokenet før failover. 0 for å deaktivere (umiddelbar binding, ingen failover ved tregt første token).",
+			"ttftTimeout.description": "Maksimal ventetid på det første strømmetokenet før failover. 0 slår av kontrollen: leverandøren bekreftes så snart hodene ankommer, så en som svarer med en feil, eller med ingenting, utløser ikke lenger failover.",
 			"streamStallTimeout": "Tidsavbrudd for stoppet strøm",
 			"streamStallTimeout.description": "Maksimal stillhet under strømming før tilkoblingen kuttes. 0 for å deaktivere. Etter 50 biter utvides tidsavbruddet automatisk 3× for å tåle verktøykall og lang resonnering.",
 			"timeout": {

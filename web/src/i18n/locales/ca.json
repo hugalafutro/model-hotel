@@ -1617,7 +1617,7 @@
 			"keyCacheTtl": "TTL de la memòria cau de la clau",
 			"keyCacheTtl.description": "Quant de temps es mantenen en memòria cau les claus de l'API del proveïdor un cop desxifrades. Valors més elevats redueixen la latència en la primera petició després de l'expiració de la memòria cau (la derivació de claus Argon2id és d'uns 12 ms).",
 			"ttftTimeout": "TTFT temps d'espera",
-			"ttftTimeout.description": "Temps màxim d'espera per al primer token de streaming abans de fer el canvi de fallada. 0 per desactivar (compromís immediat, sense canvi de fallada en cas de token inicial lent).",
+			"ttftTimeout.description": "Temps màxim d'espera del primer testimoni de reproducció en temps real abans de fer la commutació. 0 desactiva la comprovació: el proveïdor s'accepta tan bon punt arriben les seves capçaleres, de manera que un que respongui amb un error, o sense res, ja no provoca la commutació.",
 			"streamStallTimeout": "Temps d'espera de parada del flux",
 			"streamStallTimeout.description": "Silenci màxim durant l'emissió en directe abans que es talli la connexió. 0 per desactivar. Després de 50 trossos, el temps d'espera s'allarga automàticament 3× per tolerar crides d'eines i raonaments llargs.",
 			"timeout": {

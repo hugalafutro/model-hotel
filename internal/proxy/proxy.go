@@ -364,6 +364,20 @@ type upstreamFrameError struct{ msg string }
 
 func (e *upstreamFrameError) Error() string { return e.msg }
 
+// emptyStreamError reports that the provider's stream ended at its very FIRST
+// data frame — a bare [DONE] with no chunk before it — so it produced nothing at
+// all. Like upstreamFrameError it means the provider answered, so it is charged
+// to the provider rather than blamed on the client.
+//
+// The bar is deliberately "no chunks whatever". A provider that sends any real
+// frame and then finishes has answered, even if the answer is empty, and keeps
+// its win.
+type emptyStreamError struct{}
+
+func (e *emptyStreamError) Error() string {
+	return "provider ended the stream without producing any content"
+}
+
 // errorEnvelopeMessage reports the provider's own message when an SSE data frame
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
@@ -402,6 +416,115 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 	return "provider reported an error with no message", true
 }
 
+// probeFrame is what one SSE data payload means to the first-token probe.
+type probeFrame int
+
+const (
+	// probeFrameNotAToken is a data line carrying nothing — an empty or
+	// whitespace-only field. Skipped exactly like a keepalive comment: it is not
+	// a token, but it is not a verdict either, so a real frame after it wins.
+	//
+	// This exists because the probe and the stream reader used to disagree about
+	// what a chunk IS. streamReader.classify treats a bare "data:" as a comment
+	// and an empty payload as delivering nothing, while the probe accepted any
+	// non-[DONE] content — so a stream of "data:" then "data: [DONE]" won the
+	// race while producing zero chunks downstream. That is the empty-stream bug
+	// wearing a different spelling.
+	probeFrameNotAToken probeFrame = iota
+	// probeFrameToken is a real first token: the provider is answering.
+	probeFrameToken
+	// probeFrameEmptyStream is the [DONE] terminator with no chunk before it.
+	probeFrameEmptyStream
+	// probeFrameError is an error envelope: the provider reported its failure.
+	probeFrameError
+)
+
+// classifyProbeFrame decides what a "data:" payload tells the probe. content is
+// expected already trimmed. The returned message is the provider's own text, and
+// is only populated for probeFrameError.
+//
+// One classifier, used by both the main scanner loop and the scanner-error
+// recovery branch, so the two cannot drift — and the recovery branch is the one
+// no test can reach.
+func classifyProbeFrame(content string) (probeFrame, string) {
+	switch content {
+	case "":
+		return probeFrameNotAToken, ""
+	case "[DONE]":
+		return probeFrameEmptyStream, ""
+	}
+	if msg, isErr := errorEnvelopeMessage(content); isErr {
+		return probeFrameError, msg
+	}
+	return probeFrameToken, ""
+}
+
+// recoverProbeFrame finds the first COMPLETE, meaningful SSE data line in a
+// probe buffer and classifies it. found is false when the buffer holds none.
+//
+// Extracted from probeFirstToken's scanner-error recovery branch so the logic
+// can be tested at all: that branch needs the watchdog to close the body in the
+// same instant the scanner yields a line, which no test can arrange
+// deterministically. The decision is testable even where the path is not.
+func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
+	for rawLine := range strings.SplitSeq(bufStr, "\n") {
+		l := strings.TrimSpace(rawLine)
+		if !strings.HasPrefix(l, "data:") {
+			continue
+		}
+		// Reject partial lines: a complete SSE line must be followed by \n in
+		// the buffer. Without this guard a mid-line network fragment like
+		// "data: hel" (no \n) would pass HasPrefix but represent malformed data.
+		if !strings.Contains(bufStr, rawLine+"\n") {
+			continue
+		}
+		// Same classifier as the main loop, so a frame recovered from the buffer
+		// is judged exactly as one read straight off the scanner.
+		v, m := classifyProbeFrame(strings.TrimSpace(strings.TrimPrefix(l, "data:")))
+		if v == probeFrameNotAToken {
+			// Carries nothing; keep looking for a frame that does.
+			continue
+		}
+		return v, m, true
+	}
+	return probeFrameNotAToken, "", false
+}
+
+// recoverFirstToken turns a scanner-error recovery buffer into probeFirstToken's
+// return triple. recovered is false when the buffer holds nothing usable, and
+// the caller falls through to its ordinary error returns.
+//
+// This is the whole recovery branch, extracted so it can be tested. The branch
+// is reached only when the watchdog closes the body in the same instant the
+// scanner yields a line — a race no test can arrange deterministically (see
+// TestProbeFirstToken_ScannerErrorRecovery_PipeRace, which documents the same
+// thing). Leaving it inline meant every verdict it can reach was unverifiable,
+// and reverting it left the whole package green.
+//
+//nolint:revive // the error is one of four coordinated results, not a trailing status
+func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (probeBuf *bytes.Buffer, ttftMs float64, err error, recovered bool) {
+	verdict, msg, found := recoverProbeFrame(buf.String())
+	if !found {
+		return nil, 0, nil, false
+	}
+	// Every outcome logs, including the ones that refuse: an operator has no
+	// other way to learn this branch fired.
+	switch verdict {
+	case probeFrameEmptyStream:
+		debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
+		return nil, 0, &emptyStreamError{}, true
+	case probeFrameError:
+		// Provider text withheld for the same reason as the main loop: this
+		// function never saw the api key, so it cannot mask it.
+		debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
+		return nil, 0, &upstreamFrameError{msg: msg}, true
+	case probeFrameNotAToken, probeFrameToken:
+	}
+	ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+	return buf, ttft, nil, true
+}
+
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
@@ -411,6 +534,10 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 // neither "[DONE]" nor an error envelope. Keepalive comments (":"), empty lines,
 // "event:", "id:", and "retry:" directives are skipped but still captured in
 // probeBuf for replay.
+//
+// Both exclusions exist for the same reason and have the same consequence: a
+// provider that reports an error, and one that finishes without producing a
+// single chunk, have each given the caller nothing.
 //
 // The error-envelope case exists because this probe picks the winner of a hedged
 // race. Treating a provider's error frame as a first token means the fastest
@@ -475,19 +602,33 @@ func (h *Handler) probeFirstToken(
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
-			// Signal the goroutine immediately — a data line was found,
-			// the provider is healthy. This must happen before any
-			// string processing so the goroutine sees it even if the
-			// timer fires at the same instant.
-			probeSucceeded.Store(true)
 			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			if content == "[DONE]" {
-				// Stream ended before any real token.
-				debuglog.Info("proxy: TTFT probe saw [DONE] before first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
-				closeProbe()
-				return &buf, 0, nil
+			verdict, envelopeMsg := classifyProbeFrame(content)
+			if verdict == probeFrameNotAToken {
+				// Carries nothing, so it decides nothing. The watchdog must
+				// stay armed across it, which is why probeSucceeded is set
+				// below rather than on any "data:" prefix.
+				continue
 			}
-			if msg, isErr := errorEnvelopeMessage(content); isErr {
+			// Signal the goroutine — a frame that MEANS something was found, so
+			// the body must not be closed underneath us. Kept as early as
+			// possible so the goroutine sees it even if the timer fires at the
+			// same instant; the scanner-error recovery below covers the rest of
+			// that window.
+			probeSucceeded.Store(true)
+			if verdict == probeFrameEmptyStream {
+				// The stream ended before producing a single chunk. This used to
+				// count as a win, which meant an instantly-empty provider beat a
+				// slower one that would really have answered — the same way an
+				// error frame did, and with the same consequence: every healthy
+				// rival still racing is cancelled and the caller gets nothing.
+				// Nothing is as good as an error, so it loses the same way.
+				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				closeProbe()
+				return nil, 0, &emptyStreamError{}
+			}
+			if verdict == probeFrameError {
+				msg := envelopeMsg
 				// The provider answered, but with its own failure. Counting
 				// this as a first token is what lets a broken provider win a
 				// hedged race against a working one.
@@ -523,32 +664,13 @@ func (h *Handler) probeFirstToken(
 		// returning success would give the caller a closed body, causing
 		// handleStreamingResponse to truncate the stream after buffer replay.
 		if probeCtx.Err() == nil {
-			probeSucceeded.Store(true) // mirror line 1680: store before any processing
-			bufStr := buf.String()
-			for rawLine := range strings.SplitSeq(bufStr, "\n") {
-				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
-					// Reject partial lines: a complete SSE line must be
-					// followed by \n in the buffer. Without this guard a
-					// mid-line network fragment like "data: hel" (no \n)
-					// would pass HasPrefix but represent malformed data.
-					if !strings.Contains(bufStr, rawLine+"\n") {
-						continue
-					}
-					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
-					if content != "[DONE]" {
-						// Same envelope check as the main loop: a frame
-						// recovered from the buffer is no more a token than
-						// one read straight off the scanner.
-						if msg, isErr := errorEnvelopeMessage(content); isErr {
-							// Text withheld for the same reason as above.
-							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
-							return nil, 0, &upstreamFrameError{msg: msg}
-						}
-						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
-						return &buf, ttft, nil
-					}
-				}
+			probeSucceeded.Store(true) // mirror the main loop: store before any processing
+			// Every outcome logs, including the ones that refuse. This branch
+			// cannot be reached from a test (see
+			// TestProbeFirstToken_ScannerErrorRecovery_PipeRace), so the log is
+			// the only way an operator ever learns it fired.
+			if probeBuf, ttft, err, recovered := recoverFirstToken(&buf, startTime, scanErr); recovered {
+				return probeBuf, ttft, err
 			}
 		}
 		if probeCtx.Err() == context.DeadlineExceeded {

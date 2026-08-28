@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "A kulcs-gyorstár TTL-je",
 			"keyCacheTtl.description": "Mennyi ideig maradnak a gyorsítótárban a visszafejtett szolgáltatói API-kulcsok. A magasabb értékek csökkentik a késleltetést a gyorsítótár lejárta utáni első kérésnél (az Argon2id kulcsderiváció ~12 ms).",
 			"ttftTimeout": "TTFT időtúllépés",
-			"ttftTimeout.description": "Az első streaming tokenre való várakozás maximális ideje a failover előtt. 0 értékkel kikapcsolható (azonnali véglegesítés, nincs failover, ha az első token lassú).",
+			"ttftTimeout.description": "A legfeljebb ennyi ideig vár az első streamelt tokenre az átállás előtt. A 0 kikapcsolja az ellenőrzést: a szolgáltatót a fejlécek megérkezésekor véglegesíti, így az, amelyik hibával vagy egyáltalán semmivel válaszol, már nem vált ki átállást.",
 			"streamStallTimeout": "A stream felfüggesztésének időtúllépése",
 			"streamStallTimeout.description": "A kapcsolat megszakítása előtt a streamelés során eltöltött maximális csendidő. 0 értékkel kikapcsolható. 50 blokk után az időkorlát automatikusan háromszorosára nő, hogy figyelembe vegye az eszközhívásokat és a hosszabb érveléseket.",
 			"timeout": {

@@ -1617,7 +1617,7 @@
 			"keyCacheTtl": "TTL de la caché de claves",
 			"keyCacheTtl.description": "Cuánto tiempo se almacenan en caché las claves API descifradas. Los valores más altos reducen la latencia en la primera petición después de que la caché expira (derivación de clave Argon2id es de ~12ms).",
 			"ttftTimeout": "Tiempo de espera TTFT",
-			"ttftTimeout.description": "Tiempo máximo de espera del primer token de streaming antes de conmutar por error. 0 para desactivar (compromiso inmediato, sin conmutación por error si el primer token es lento).",
+			"ttftTimeout.description": "Tiempo máximo de espera del primer token de streaming antes de conmutar. 0 desactiva la comprobación: el proveedor se acepta en cuanto llegan sus cabeceras, así que uno que responda con un error, o con nada en absoluto, ya no provoca la conmutación.",
 			"streamStallTimeout": "Tiempo de espera por estancamiento del stream",
 			"streamStallTimeout.description": "Máximo silencio durante la transmisión antes de que la conexión sea cortada. 0 para desactivar. Después de 50 chunks, el tiempo de espera se extiende automáticamente 3× para tolerar llamadas de herramientas y razonamiento largo.",
 			"timeout": {
