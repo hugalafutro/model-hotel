@@ -1617,7 +1617,7 @@
 			"keyCacheTtl": "Cache de Chave TTL",
 			"keyCacheTtl.description": "Por quanto tempo as chaves de API do provedor descriptografado são armazenadas em cache. Valores maiores reduzem a latência na primeira solicitação após a expiração do cache (derivação de chave Argon2id é ~12ms).",
 			"ttftTimeout": "Timeout do TTFT",
-			"ttftTimeout.description": "Tempo máximo de espera pelo primeiro token de streaming antes do failover. 0 para desativar (commit imediato, sem failover em primeiro token lento).",
+			"ttftTimeout.description": "Tempo máximo de espera pelo primeiro token de streaming antes do failover. 0 desativa a verificação: o provedor é confirmado assim que os cabeçalhos chegam, portanto um que responda com erro, ou com nada, deixa de acionar o failover.",
 			"streamStallTimeout": "Tempo limite de estagnação do stream",
 			"streamStallTimeout.description": "Silêncio máximo durante transmissão antes da conexão ser cortada. 0 para desativar. Após 50 chunks, o tempo limite é automaticamente prolongado 3 × para tolerar chamadas de ferramenta e raciocínio longo.",
 			"timeout": {

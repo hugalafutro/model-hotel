@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "密钥缓存 TTL",
 			"keyCacheTtl.description": "解密后的提供商 API 密钥缓存多久。数值越大，缓存过期后首次请求的延迟越低（Argon2id 密钥派生约 12 毫秒）。",
 			"ttftTimeout": "TTFT 超时",
-			"ttftTimeout.description": "故障转移前等待首个流式 Token 的最长时间。0 表示禁用（立即提交，首个 Token 缓慢时不做故障转移）。",
+			"ttftTimeout.description": "故障转移前等待第一个流式令牌的最长时间。设为 0 将禁用该检查：一收到响应头就确定使用该提供商，因此返回错误或什么都不返回的提供商将不再触发故障转移。",
 			"streamStallTimeout": "流停滞超时",
 			"streamStallTimeout.description": "连接切割前流媒体时最大静音。0 可禁用。 50个区块后，超时自动延长3× ，以允许工具调用和长时间推理。",
 			"timeout": {

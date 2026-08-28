@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Avaimen Välimuisti TTL",
 			"keyCacheTtl.description": "Kuinka kauan palveluntarjoajan API-avaimet ovat välimuistissa. Korkeammat arvot vähentävät ensimmäisen pyynnön latenssia välimuistin päättymisen jälkeen (Argon2id avaimen johtaminen on ~12 ms).",
 			"ttftTimeout": "TTFT Aikakatkaisu",
-			"ttftTimeout.description": "Enimmäisaika, joka odotetaan ensimmäistä suoratoistotokenia ennen failoveria. 0 poistaa käytöstä (välitön sitoutuminen, ei failoveria hitaan ensimmäisen tokenin takia).",
+			"ttftTimeout.description": "Enimmäisaika, joka odotetaan ensimmäistä suoratoistotokenia ennen vikasietosiirtoa. 0 poistaa tarkistuksen käytöstä: palveluntarjoaja hyväksytään heti otsakkeiden saavuttua, joten virheellä tai tyhjällä vastaava ei enää aiheuta vikasietosiirtoa.",
 			"streamStallTimeout": "Stream Stall Aikakatkaisu",
 			"streamStallTimeout.description": "Suurin sallittu hiljaisuus suoratoiston aikana ennen yhteyden katkaisua. 0 poistaa käytöstä. 50 lohkon jälkeen aikakatkaisua pidennetään automaattisesti 3-kertaiseksi, jotta työkalukutsut ja pitkä päättely mahtuvat.",
 			"timeout": {

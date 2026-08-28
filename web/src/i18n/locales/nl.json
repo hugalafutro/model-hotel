@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Sleutelcache TTL",
 			"keyCacheTtl.description": "Hoe lang gedecodeerde provider API-sleutels worden gecached. Hogere waarden verminderen de vertraging van de eerste aanvraag na de verlooptijd van de cache (Argon2id sleutel afgeleide is ~12ms).",
 			"ttftTimeout": "TTFT Time-out",
-			"ttftTimeout.description": "Maximale wachttijd op het eerste streaming-token voordat er wordt gefailoverd. 0 om uit te schakelen (direct vastleggen, geen failover bij een traag eerste token).",
+			"ttftTimeout.description": "Maximale wachttijd op het eerste streamingtoken vóór failover. 0 schakelt de controle uit: de provider wordt vastgelegd zodra zijn headers binnenkomen, dus een provider die met een fout of met helemaal niets antwoordt, veroorzaakt geen failover meer.",
 			"streamStallTimeout": "Stream Stall Time-out",
 			"streamStallTimeout.description": "Maximale stilte tijdens het streamen voordat de verbinding wordt verbroken. 0 om uit te schakelen. Na 50 chunks wordt de time-out automatisch 3× verlengd om tool calls en lange redeneringen te tolereren.",
 			"timeout": {

@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Nyckel cache TTL",
 			"keyCacheTtl.description": "Hur länge dekrypterade API-nycklar för leverantörer cachelagras. Högre värden minskar latensen på den första begäran efter att cachen löpt ut (Argon2id-nyckelhärledning tar ~12 ms).",
 			"ttftTimeout": "Tidsgräns för TTFT",
-			"ttftTimeout.description": "Maximal tid att vänta på den första strömmande token innan failover sker. 0 för att inaktivera (omedelbar commit, ingen failover vid långsam första token).",
+			"ttftTimeout.description": "Maximal väntetid på den första strömmande token före failover. 0 stänger av kontrollen: leverantören fastställs så snart dess headers anländer, så en som svarar med ett fel, eller med ingenting alls, utlöser inte längre failover.",
 			"streamStallTimeout": "Stream Stall Timeout",
 			"streamStallTimeout.description": "Maximal tystnad under strömning innan anslutningen bryts. 0 för att inaktivera. Efter 50 chunkar utökas timeouten automatiskt 3× för att tolerera verktygsanrop och långa resonemang.",
 			"timeout": {

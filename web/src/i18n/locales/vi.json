@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Thời gian tồn tại (TTL) của bộ nhớ đệm khóa",
 			"keyCacheTtl.description": "Thời gian lưu trữ trong bộ nhớ đệm của các khóa API nhà cung cấp đã được giải mã. Các giá trị cao hơn sẽ giúp giảm độ trễ trong lần yêu cầu đầu tiên sau khi bộ nhớ đệm hết hạn (quá trình dẫn xuất khóa Argon2id mất khoảng 12 ms).",
 			"ttftTimeout": "Thời gian chờ TTFT",
-			"ttftTimeout.description": "Thời gian tối đa để chờ token phát trực tuyến đầu tiên trước khi chuyển sang dự phòng. Đặt 0 để tắt (cam kết ngay, không chuyển dự phòng khi token đầu tiên chậm).",
+			"ttftTimeout.description": "Thời gian tối đa chờ token phát trực tuyến đầu tiên trước khi chuyển đổi dự phòng. Giá trị 0 tắt việc kiểm tra: nhà cung cấp được chốt ngay khi tiêu đề của nó đến, nên nhà cung cấp trả về lỗi, hoặc không trả về gì cả, sẽ không còn được chuyển đổi dự phòng.",
 			"streamStallTimeout": "Thời gian chờ của luồng",
 			"streamStallTimeout.description": "Thời gian im lặng tối đa trong quá trình phát trực tuyến trước khi ngắt kết nối. Đặt giá trị 0 để tắt tính năng này. Sau 50 khối, thời gian chờ sẽ tự động được kéo dài gấp 3 lần để cho phép thực hiện các lệnh công cụ và các quá trình suy luận kéo dài.",
 			"timeout": {

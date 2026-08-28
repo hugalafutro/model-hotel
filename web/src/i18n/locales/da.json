@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Nøgle Cache TTL",
 			"keyCacheTtl.description": "Hvor længe dekrypteret udbyder API nøgler er cached. Højere værdier reducere latency på den første anmodning efter cache udløb (Argon2id nøgle udledning er ~ 12ms).",
 			"ttftTimeout": "TTFT Timeout",
-			"ttftTimeout.description": "Maksimal tid til at vente på det første streaming-token, før der failes over. 0 for at deaktivere (øjeblikkelig commit, ingen failover ved langsomt første token).",
+			"ttftTimeout.description": "Maksimal ventetid på det første streamingtoken før failover. 0 slår kontrollen fra: udbyderen accepteres, så snart dens headere ankommer, så en udbyder der svarer med en fejl eller med ingenting, udløser ikke længere failover.",
 			"streamStallTimeout": "Stream Stall Timeout",
 			"streamStallTimeout.description": "Maksimal stilhed under streaming før forbindelsen klippes. 0 for at deaktivere. Efter 50 bidder forlænges timeout automatisk 3 × til at tolerere værktøjsopkald og lang ræsonnement.",
 			"timeout": {

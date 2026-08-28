@@ -1663,7 +1663,7 @@
 			"keyCacheTtl": "Doba platnosti mezipaměti klíčů",
 			"keyCacheTtl.description": "Jak dlouho se v mezipaměti uchovávají dešifrované klíče API poskytovatele. Vyšší hodnoty snižují zpoždění při prvním požadavku po vypršení platnosti mezipaměti (odvození klíče Argon2id trvá přibližně 12 ms).",
 			"ttftTimeout": "Časový limit TTFT",
-			"ttftTimeout.description": "Maximální doba čekání na první streamovací token před přepnutím na záložní server. Hodnota 0 znamená deaktivaci (okamžité potvrzení, žádné přepnutí na záložní server v případě pomalého prvního tokenu).",
+			"ttftTimeout.description": "Maximální doba čekání na první streamovaný token před přepnutím na jiného poskytovatele. 0 kontrolu vypne: poskytovatel je potvrzen hned po přijetí hlaviček, takže ten, který odpoví chybou nebo vůbec ničím, se už nepřepíná.",
 			"streamStallTimeout": "Časový limit čekání na stream",
 			"streamStallTimeout.description": "Maximální doba ticha během streamování před přerušením připojení. Hodnota 0 znamená vypnutí. Po 50 blocích se časový limit automaticky prodlouží trojnásobně, aby se zohlednily volání nástrojů a dlouhé výpočty.",
 			"timeout": {

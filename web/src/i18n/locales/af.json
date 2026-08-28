@@ -1571,7 +1571,7 @@
 			"keyCacheTtl": "Sleutel-kas TTL",
 			"keyCacheTtl.description": "Hoe lank ontsleutelde verskaffer-API-sleutels in die kas gehou word. Hoër waardes verminder latensie by die eerste versoek ná kasverval (Argon2id-sleutelafleiding is ~12 ms).",
 			"ttftTimeout": "TTFT-tydverstryking",
-			"ttftTimeout.description": "Maximum wagtyd vir die eerste streaming-token voordat oorgeskakel word. 0 om uit te skakel (onmiddellike committering, geen oorgang by stadige eerste token nie).",
+			"ttftTimeout.description": "Maksimum tyd om vir die eerste stroomtoken te wag voordat oorgeskakel word. 0 skakel die kontrole af: die verskaffer word aanvaar sodra sy opskrifte aankom, dus word een wat met 'n fout antwoord, of met niks nie, nie meer oorgeskakel nie.",
 			"streamStallTimeout": "Stroomstal-tydverstryking",
 			"streamStallTimeout.description": "Maksimum stilte tydens stroomvoorsiening voordat die verbinding verbreek word. 0 om dit uit te skakel. Na 50 blokkies word die tydsbeperking outomaties 3 keer verleng om gereedskapoproepe en lang beredenering te verdra.",
 			"timeout": {
