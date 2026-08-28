@@ -502,4 +502,37 @@ describe("per-setting reset", () => {
 
 		resetSpy.mockRestore();
 	});
+
+	// The TTFT slider deliberately does NOT use infinityValue={0}. On the other
+	// sliders 0 means "no limit"; here it DISABLES the first-token probe, which
+	// also switches off the guards that refuse a provider whose first frame is
+	// an error or whose stream ends empty. Rendering that as ∞ told the operator
+	// the reverse of what happens. Queried by element id, not by label text, so
+	// the assertion holds in every locale.
+	it("shows the TTFT probe's off value as 0, never as infinity", async () => {
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({ ttft_timeout: "0s" });
+			}),
+		);
+
+		const { container } = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			const slider = container.querySelector("#ttft-timeout");
+			expect(slider).not.toBeNull();
+			expect((slider as HTMLInputElement).value).toBe("0");
+		});
+
+		// The ∞ glyph gets its own class; a numeric input replaces it.
+		const row = container
+			.querySelector("#ttft-timeout")
+			?.closest("div")?.parentElement;
+		expect(row?.querySelector(".settings-slider-infinity")).toBeNull();
+	});
 });

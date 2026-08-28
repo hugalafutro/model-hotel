@@ -652,9 +652,11 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterEmptyStream(t *testing.T
 	}
 }
 
-// An empty stream is charged to the provider exactly as an error frame is:
-// "nothing is as good as error".
-func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
+// An empty stream loses the race exactly as an error frame does, but is NOT
+// charged to the breaker. Whether a model emits anything depends on the prompt,
+// which the caller controls, so charging it would let one virtual key blackhole
+// a healthy provider for every tenant.
+func TestProbeStreamingCandidate_EmptyStreamLosesButIsNotCharged(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 	withBreakerThresholdOne(t, h)
@@ -679,7 +681,78 @@ func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
 	if res.reqErr.Kind != KindProviderError {
 		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
 	}
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
-		t.Errorf("circuit = %s, want open", got)
+	// Threshold is 1 here, so a single charge would show immediately.
+	if got := h.circuitBreaker.GetState(cand.provider.ID); got == failover.StateOpen {
+		t.Error("an empty stream must not break the circuit: the prompt, not the provider, decides whether a model emits anything")
+	}
+}
+
+// The empty-stream guard has to hold for every spelling of "carries nothing",
+// not just the bare [DONE]. An empty data field won the probe while the stream
+// reader counted zero chunks downstream — the same empty-stream bug reached by
+// a different route, and the reason the two now share one classifier.
+func TestProbeFirstToken_EmptyDataFieldIsNotAToken(t *testing.T) {
+	h := &Handler{}
+	for name, body := range map[string]string{
+		"bare data colon":     "data:\n\n" + emptyStreamSSE,
+		"data colon space":    "data: \n\n" + emptyStreamSSE,
+		"data colon spaces":   "data:    \n\n" + emptyStreamSSE,
+		"empty then terminat": "data:\n\ndata:\n\n" + emptyStreamSSE,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now())
+			if err == nil {
+				t.Fatalf("an empty data field carries no token; probe must not win at ttft=%.3f", ttft)
+			}
+		})
+	}
+}
+
+// An empty field is SKIPPED, not refused: a real frame after it still wins, the
+// way a keepalive comment does. Refusing outright would fail over a stream that
+// went on to answer perfectly well.
+func TestProbeFirstToken_EmptyDataFieldIsSkippedNotFatal(t *testing.T) {
+	h := &Handler{}
+	body := "data:\n\ndata: \n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+
+	if _, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now()); err != nil {
+		t.Fatalf("a real frame after empty fields must still win, got %v", err)
+	} else if ttft <= 0 {
+		t.Errorf("ttft = %f, want > 0", ttft)
+	}
+}
+
+// classifyProbeFrame is unit-tested directly because the scanner-error recovery
+// branch calls it too, and that branch is defence-in-depth for a race the
+// existing tests document as impossible to trigger deterministically. Covering
+// the decision covers both callers, which is the whole reason it is shared.
+func TestClassifyProbeFrame(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    probeFrame
+		wantMsg string
+	}{
+		{"real token", `{"choices":[{"delta":{"content":"hi"}}]}`, probeFrameToken, ""},
+		{"role only", `{"choices":[{"delta":{"role":"assistant"}}]}`, probeFrameToken, ""},
+		{"empty choices", `{"choices":[]}`, probeFrameToken, ""},
+		{"anthropic message_start", `{"type":"message_start"}`, probeFrameToken, ""},
+		{"unparseable is still a token", `{not json`, probeFrameToken, ""},
+		{"terminator", "[DONE]", probeFrameEmptyStream, ""},
+		{"empty field", "", probeFrameNotAToken, ""},
+		{"error envelope", `{"error":{"message":"boom"}}`, probeFrameError, "boom"},
+		{"ollama bare string", `{"error":"model not found"}`, probeFrameError, "model not found"},
+		{"empty error member", `{"error":{}}`, probeFrameToken, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, msg := classifyProbeFrame(tc.content)
+			if got != tc.want {
+				t.Errorf("verdict = %d, want %d", got, tc.want)
+			}
+			if msg != tc.wantMsg {
+				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
+			}
+		})
 	}
 }

@@ -416,6 +416,49 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 	return "provider reported an error with no message", true
 }
 
+// probeFrame is what one SSE data payload means to the first-token probe.
+type probeFrame int
+
+const (
+	// probeFrameNotAToken is a data line carrying nothing — an empty or
+	// whitespace-only field. Skipped exactly like a keepalive comment: it is not
+	// a token, but it is not a verdict either, so a real frame after it wins.
+	//
+	// This exists because the probe and the stream reader used to disagree about
+	// what a chunk IS. streamReader.classify treats a bare "data:" as a comment
+	// and an empty payload as delivering nothing, while the probe accepted any
+	// non-[DONE] content — so a stream of "data:" then "data: [DONE]" won the
+	// race while producing zero chunks downstream. That is the empty-stream bug
+	// wearing a different spelling.
+	probeFrameNotAToken probeFrame = iota
+	// probeFrameToken is a real first token: the provider is answering.
+	probeFrameToken
+	// probeFrameEmptyStream is the [DONE] terminator with no chunk before it.
+	probeFrameEmptyStream
+	// probeFrameError is an error envelope: the provider reported its failure.
+	probeFrameError
+)
+
+// classifyProbeFrame decides what a "data:" payload tells the probe. content is
+// expected already trimmed. The returned message is the provider's own text, and
+// is only populated for probeFrameError.
+//
+// One classifier, used by both the main scanner loop and the scanner-error
+// recovery branch, so the two cannot drift — and the recovery branch is the one
+// no test can reach.
+func classifyProbeFrame(content string) (probeFrame, string) {
+	switch content {
+	case "":
+		return probeFrameNotAToken, ""
+	case "[DONE]":
+		return probeFrameEmptyStream, ""
+	}
+	if msg, isErr := errorEnvelopeMessage(content); isErr {
+		return probeFrameError, msg
+	}
+	return probeFrameToken, ""
+}
+
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
@@ -493,13 +536,21 @@ func (h *Handler) probeFirstToken(
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
-			// Signal the goroutine immediately — a data line was found,
-			// the provider is healthy. This must happen before any
-			// string processing so the goroutine sees it even if the
-			// timer fires at the same instant.
-			probeSucceeded.Store(true)
 			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			if content == "[DONE]" {
+			verdict, envelopeMsg := classifyProbeFrame(content)
+			if verdict == probeFrameNotAToken {
+				// Carries nothing, so it decides nothing. The watchdog must
+				// stay armed across it, which is why probeSucceeded is set
+				// below rather than on any "data:" prefix.
+				continue
+			}
+			// Signal the goroutine — a frame that MEANS something was found, so
+			// the body must not be closed underneath us. Kept as early as
+			// possible so the goroutine sees it even if the timer fires at the
+			// same instant; the scanner-error recovery below covers the rest of
+			// that window.
+			probeSucceeded.Store(true)
+			if verdict == probeFrameEmptyStream {
 				// The stream ended before producing a single chunk. This used to
 				// count as a win, which meant an instantly-empty provider beat a
 				// slower one that would really have answered — the same way an
@@ -510,7 +561,8 @@ func (h *Handler) probeFirstToken(
 				closeProbe()
 				return nil, 0, &emptyStreamError{}
 			}
-			if msg, isErr := errorEnvelopeMessage(content); isErr {
+			if verdict == probeFrameError {
+				msg := envelopeMsg
 				// The provider answered, but with its own failure. Counting
 				// this as a first token is what lets a broken provider win a
 				// hedged race against a working one.
@@ -557,21 +609,24 @@ func (h *Handler) probeFirstToken(
 					if !strings.Contains(bufStr, rawLine+"\n") {
 						continue
 					}
+					// Same classifier as the main loop, so a frame recovered
+					// from the buffer is judged exactly as one read straight
+					// off the scanner. Every outcome logs, including the ones
+					// that refuse: this branch is unreachable from any test, so
+					// the log is the only way an operator learns it fired.
 					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
-					if content == "[DONE]" {
-						// Same verdict as the main loop: the only frame in the
-						// buffer is the terminator, so nothing was produced.
+					switch verdict, msg := classifyProbeFrame(content); verdict {
+					case probeFrameNotAToken:
+						// Carries nothing; keep looking for a frame that does.
+						continue
+					case probeFrameEmptyStream:
+						debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
 						return nil, 0, &emptyStreamError{}
-					}
-					{
-						// Same envelope check as the main loop: a frame
-						// recovered from the buffer is no more a token than
-						// one read straight off the scanner.
-						if msg, isErr := errorEnvelopeMessage(content); isErr {
-							// Text withheld for the same reason as above.
-							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
-							return nil, 0, &upstreamFrameError{msg: msg}
-						}
+					case probeFrameError:
+						// Text withheld for the same reason as the main loop.
+						debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
+						return nil, 0, &upstreamFrameError{msg: msg}
+					case probeFrameToken:
 						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
 						return &buf, ttft, nil
