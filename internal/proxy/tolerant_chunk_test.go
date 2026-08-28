@@ -239,11 +239,16 @@ func TestDeltaText(t *testing.T) {
 		// Present, but in a spelling this gateway does not know. Reporting
 		// these as readable-and-empty is what let a stream the caller received
 		// in full be charged to the provider as having delivered nothing.
-		"part without text":   {`[{"type":"image_url"}]`, "", false},
-		"thinking parts":      {`[{"type":"thinking","thinking":"deep"}]`, "", false},
-		"bare string parts":   {`["hello"]`, "", false},
-		"unrecognised object": {`{"weird":"object"}`, "", false},
-		"number":              {`12345`, "", false},
+		"part without text": {`[{"type":"image_url"}]`, "", false},
+		"thinking parts":    {`[{"type":"thinking","thinking":"deep"}]`, "", false},
+		// One understood part does not make the array understood. This is how
+		// Anthropic-style content blocks arrive, and accepting it let the
+		// reasoning-strip transform forward the whole delta verbatim.
+		"mixed known and unknown":   {`[{"type":"thinking","thinking":"secret"},{"type":"text","text":"hi"}]`, "", false},
+		"part with non-string text": {`[{"type":"text","text":{"nested":"x"}}]`, "", false},
+		"bare string parts":         {`["hello"]`, "", false},
+		"unrecognised object":       {`{"weird":"object"}`, "", false},
+		"number":                    {`12345`, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, readable := deltaText(json.RawMessage(tc.raw))
@@ -382,6 +387,79 @@ func TestTolerantChunk_FalseErrorMemberIsNotAnError(t *testing.T) {
 
 	_, logData := streamTolerant(t, h,
 		`data: {"choices":[{"index":0,"delta":{"content":"hi"}}],"error":false}`+"\n\ndata: [DONE]\n\n")
+	if logData.state != "completed" {
+		t.Errorf("state = %q, want completed", logData.state)
+	}
+}
+
+// The leak the strict readability rule exists to close: a parts array where one
+// element is understood and another carries the chain of thought under a
+// spelling we do not know. Judging the array readable let the strip transform
+// forward the whole delta verbatim, reasoning and all.
+func TestTolerantChunk_MixedPartsArrayDoesNotLeakReasoning(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	const secret = "SECRET-CHAIN-OF-THOUGHT"
+	frame := `{"choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":"` + secret + `"},{"type":"text","text":"hi"}]}}]}`
+	w, _ := streamTolerant(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n", func(r *http.Request) *http.Request {
+		return r.WithContext(context.WithValue(r.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+	})
+
+	if strings.Contains(w.Body.String(), secret) {
+		t.Errorf("a mixed parts array leaked reasoning to a strip_reasoning caller: %s", w.Body.String())
+	}
+}
+
+// An unreadable member still means the provider DELIVERED: the caller received
+// those bytes. Metering the request at zero would let the provider's bill exceed
+// the meter, and reading it as "produced nothing" would tell the retirement
+// verdict the model never answers.
+func TestTolerantChunk_UnreadableOutputIsStillDelivery(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	logs := captureProxyLogs(t)
+
+	frame := `{"choices":[{"index":0,"delta":{"content":[{"type":"thinking","thinking":"deep thought"}]}}]}`
+	w, logData := streamTolerant(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+
+	if !strings.Contains(w.Body.String(), "deep thought") {
+		t.Fatalf("test assumption broken: the frame must be delivered, got %s", w.Body.String())
+	}
+	if !logData.deliveredContent {
+		t.Error("deliveredContent = false: the retirement verdict would read a served stream as mute")
+	}
+	est := logs.find("charging estimated tokens")
+	if len(est) == 0 {
+		t.Fatal("a delivered stream with no usage chunk must be estimated, not metered at zero")
+	}
+	if got := est[0].attrs["delivered_bytes"]; got == "0" || got == "" {
+		t.Errorf("delivered_bytes = %q, want > 0", got)
+	}
+}
+
+// normalizeReasoningChunk patches what it is handed back into the delta as a
+// plain string. Handing it the joined text of a parts array rewrote the array
+// into that string and destroyed every non-text part.
+func TestTolerantChunk_ReasoningNormalizeKeepsNonTextParts(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	frame := `{"choices":[{"index":0,"delta":{"content":[{"type":"text","text":"hi"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAA"}}],"reasoning":"think"}}]}`
+	w, _ := streamTolerant(t, h, "data: "+frame+"\n\ndata: [DONE]\n\n")
+
+	if !strings.Contains(w.Body.String(), "image_url") {
+		t.Errorf("a non-text content part was destroyed by reasoning normalization: %s", w.Body.String())
+	}
+}
+
+// "error": 0 is the numeric form of the no-error idiom.
+func TestTolerantChunk_ZeroErrorMemberIsNotAnError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	_, logData := streamTolerant(t, h,
+		`data: {"choices":[{"index":0,"delta":{"content":"hi"}}],"error":0}`+"\n\ndata: [DONE]\n\n")
 	if logData.state != "completed" {
 		t.Errorf("state = %q, want completed", logData.state)
 	}

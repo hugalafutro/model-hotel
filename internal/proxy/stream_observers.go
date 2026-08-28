@@ -158,16 +158,18 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		for _, raw := range []json.RawMessage{choice.Delta.Content, choice.Delta.ReasoningContent, choice.Delta.Reasoning} {
 			text, readable := deltaText(raw)
-			if !readable {
-				// The frame parsed, but this member is in a shape we cannot
-				// size. Counted as unparsed so the end-of-stream breaker
-				// verdict withholds judgement rather than charging the provider
-				// for an emptiness that is our blind spot, not its silence —
-				// the caller did receive this text.
-				st.unparsedChunks++
+			if readable {
+				st.deliveredBytes += len(text)
 				continue
 			}
-			st.deliveredBytes += len(text)
+			// The frame parsed but this member is in a shape we cannot read.
+			// The caller still RECEIVED it, so the provider delivered: say so,
+			// and size it approximately. Treating this as "delivered nothing"
+			// charged the circuit breaker for a provider answering correctly,
+			// left the retirement verdict reading the model as mute, and
+			// metered a served request at zero.
+			st.sawContent = true
+			st.deliveredBytes += approxOutputBytes(raw)
 		}
 		if rd := choice.Delta.ReasoningDetails; len(rd) > 0 && string(rd) != "null" {
 			st.deliveredBytes += len(rd)
@@ -237,34 +239,79 @@ func deltaText(raw json.RawMessage) (text string, readable bool) {
 	if json.Unmarshal(raw, &s) == nil {
 		return s, true
 	}
-	var parts []struct {
-		Text string `json:"text"`
-	}
+	var parts []map[string]json.RawMessage
 	if json.Unmarshal(raw, &parts) != nil {
 		return "", false
 	}
 	var b strings.Builder
-	for _, p := range parts {
-		b.WriteString(p.Text)
-	}
-	if b.Len() == 0 && len(parts) > 0 {
-		// An array of parts none of which carried a "text" — a provider
-		// spelling this gateway does not know (say {"type":"thinking",
-		// "thinking":"..."}). The caller receives it; we cannot size it.
-		return "", false
+	for _, part := range parts {
+		// EVERY element must be understood, not merely one of them. Accepting
+		// an array because a single member carried "text" let a mixed array —
+		// {"type":"thinking",...} beside {"type":"text",...}, which is exactly
+		// how Anthropic-style content blocks arrive — count as read, and the
+		// reasoning-strip transform then forwarded the whole delta verbatim to
+		// a caller whose key forbids reasoning.
+		textRaw, ok := part["text"]
+		if !ok {
+			return "", false
+		}
+		var text string
+		if json.Unmarshal(textRaw, &text) != nil {
+			return "", false
+		}
+		b.WriteString(text)
 	}
 	return b.String(), true
 }
 
-// deltaTextPtr adapts an output field for the transforms, which still take
-// *string. nil means the member is absent, null, or in a shape this gateway
-// cannot read — in every one of those cases there is no text to hand over.
-func deltaTextPtr(raw json.RawMessage) *string {
-	if len(raw) == 0 || string(raw) == "null" {
-		return nil
+// approxOutputBytes is a bounded stand-in for the size of an output member
+// deltaText could not read: the total length of the strings inside it.
+//
+// The caller received those bytes, so metering the request at zero would let
+// the provider's bill exceed the meter — the drift deliveredBytes exists to
+// prevent. Summing the string leaves overshoots slightly (it counts the
+// provider's own key vocabulary) and that is the safe direction here, where the
+// alternative is charging nothing at all for a served request.
+func approxOutputBytes(raw json.RawMessage) int {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return 0
 	}
-	s, readable := deltaText(raw)
-	if !readable {
+	var walk func(any) int
+	walk = func(n any) int {
+		switch t := n.(type) {
+		case string:
+			return len(t)
+		case []any:
+			sum := 0
+			for _, e := range t {
+				sum += walk(e)
+			}
+			return sum
+		case map[string]any:
+			sum := 0
+			for _, e := range t {
+				sum += walk(e)
+			}
+			return sum
+		default:
+			return 0
+		}
+	}
+	return walk(v)
+}
+
+// deltaTextPtr adapts an output field for the transforms, which still take
+// *string, and is deliberately EXACTLY what the old *string field was: a plain
+// JSON string, or nil.
+//
+// It must not hand over extracted text. normalizeReasoningChunk patches what it
+// is given back into the delta as a plain string, so feeding it the joined text
+// of a parts array rewrote the array into that string and destroyed every
+// non-text part — an image part vanishing from the caller's answer.
+func deltaTextPtr(raw json.RawMessage) *string {
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
 		return nil
 	}
 	return &s

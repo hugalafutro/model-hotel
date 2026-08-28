@@ -337,9 +337,11 @@ func carriesErrorMember(raw json.RawMessage) bool {
 		// "error": false is how several OpenAI-compatible gateways spell "no
 		// error". Reading it as one marks a perfectly good stream failed.
 		return v
+	case float64:
+		// Same idiom in numeric form: 0 means no error, anything else is a code.
+		return v != 0
 	default:
-		// A number: peculiar, but the provider put a value there and a client
-		// can render it.
+		// Peculiar, but the provider put a value there and a client can render it.
 		return true
 	}
 }

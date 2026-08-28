@@ -409,12 +409,15 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 		Error json.RawMessage `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err == nil && len(envelope.Error) > 0 {
-		var bare string
-		if json.Unmarshal(envelope.Error, &bare) == nil {
-			return bare, true
+		if msg, ok := chunkErrorMessage(envelope.Error); ok {
+			return msg, true
 		}
-		return string(envelope.Error), true
 	}
+	// Never the raw member. This text is persisted to
+	// request_logs.error_message, and providers echo the offending input inside
+	// content-filter and moderation errors, which would put the caller's prompt
+	// in the log. Reached when the frame does not decode as a streamChunk at
+	// all — a numeric finish_reason, a string-valued usage count.
 	return "provider reported an error with no message", true
 }
 

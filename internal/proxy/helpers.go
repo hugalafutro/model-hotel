@@ -495,10 +495,25 @@ func promptTextBytes(body []byte) int {
 	}
 	n := len(req.Tools)
 	for _, m := range req.Messages {
-		// Same string-or-content-parts extraction the stream observers do, and
-		// deliberately the same helper: two copies of this drifted once already.
-		text, _ := deltaText(m.Content)
-		n += len(text)
+		// Deliberately NOT deltaText, despite the shapes looking alike. The two
+		// answer different questions and must not be merged: this one SKIPS a
+		// part it does not recognise, because a vision request's base64 media
+		// must not be sized, while deltaText has to report that it failed to
+		// understand a part — the reasoning-strip contract depends on knowing
+		// when the gateway cannot see inside a delta. Sharing them broke this.
+		var text string
+		if json.Unmarshal(m.Content, &text) == nil {
+			n += len(text)
+			continue
+		}
+		var parts []struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(m.Content, &parts) == nil {
+			for _, p := range parts {
+				n += len(p.Text)
+			}
+		}
 	}
 	return n
 }
