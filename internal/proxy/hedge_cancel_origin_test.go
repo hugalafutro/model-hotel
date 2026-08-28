@@ -61,6 +61,16 @@ func (c *attrCapture) find(msg string) []capturedRecord {
 	return out
 }
 
+// all returns a snapshot of every captured record, for assertions that must
+// hold across the whole log rather than one message.
+func (c *attrCapture) all() []capturedRecord {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]capturedRecord, len(c.records))
+	copy(out, c.records)
+	return out
+}
+
 // captureProxyLogs redirects slog for the duration of a test.
 func captureProxyLogs(t *testing.T) *attrCapture {
 	t.Helper()

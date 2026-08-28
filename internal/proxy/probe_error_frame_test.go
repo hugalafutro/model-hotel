@@ -502,3 +502,69 @@ func TestClassifyProbeError_ChargesEvenWhenTheClientIsGone(t *testing.T) {
 		t.Error("a fast client cancel with zero tokens must still not be charged")
 	}
 }
+
+// A provider is free to quote the api key back inside its own error, and this
+// branch made that text travel further than it used to: into the probe's
+// warning, the sequential dispatcher's "TTFT probe failed" line and the hedged
+// path's breaker warning.
+//
+// Masking reqError.Underlying is not sufficient on its own — the call sites
+// were logging the RAW probeErr beside it — and key-SHAPE masking is not
+// sufficient either, since an operator's credential need not look like a key.
+// Nothing may carry the configured credential verbatim.
+func TestProbeErrorFrame_NeverLogsTheProviderCredential(t *testing.T) {
+	// Deliberately not key-shaped: no sk- prefix, no great length. A shape
+	// heuristic passes this straight through.
+	const apiKey = "hunter2-corp"
+	frame := "data: {\"error\":{\"message\":\"auth failed for " + apiKey + "\"}}\n\n"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, frame)
+	}))
+	defer srv.Close()
+
+	for _, tc := range []struct {
+		name string
+		run  func(t *testing.T, h *Handler, st *requestState, cand modelCandidate)
+	}{
+		{"sequential", func(_ *testing.T, h *Handler, st *requestState, cand modelCandidate) {
+			resp, err := srv.Client().Get(srv.URL) //nolint:noctx // test server, no context needed
+			if err != nil {
+				t.Fatalf("get: %v", err)
+			}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			h.dispatchStreaming(w, req, st, cand, resp, 0, 10, "failover_timeout")
+		}},
+		{"hedged", func(_ *testing.T, h *Handler, st *requestState, cand modelCandidate) {
+			res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+			if res.resp != nil {
+				_ = res.resp.Body.Close()
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandler(h)
+			logs := captureProxyLogs(t)
+
+			st, cand := probeStateForServer(srv.URL)
+			st.circuitBreakerEnabled = true
+			cand.apiKey = apiKey
+			tc.run(t, h, st, cand)
+
+			for _, r := range logs.all() {
+				for k, v := range r.attrs {
+					if strings.Contains(v, apiKey) {
+						t.Errorf("log %q attr %s = %q leaks the provider credential", r.msg, k, v)
+					}
+				}
+				if strings.Contains(r.msg, apiKey) {
+					t.Errorf("log message %q leaks the provider credential", r.msg)
+				}
+			}
+		})
+	}
+}

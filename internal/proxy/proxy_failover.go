@@ -360,7 +360,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// provider reported its own error rather than because it went
 			// silent, and calling that a stall sends the operator hunting the
 			// wrong thing. charged says what the breaker was told either way.
-			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", probeErr)
+			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
 		// First token confirmed (or [DONE] received). No breaker success is

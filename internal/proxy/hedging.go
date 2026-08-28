@@ -358,7 +358,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		elapsed := time.Since(st.startTime)
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
-			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", errString(probeErr))
+			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 		}
 		res.reqErr = re

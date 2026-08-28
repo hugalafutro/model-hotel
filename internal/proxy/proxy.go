@@ -402,14 +402,6 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 	return "provider reported an error with no message", true
 }
 
-// safeProviderText prepares provider-authored error text for a log line: the
-// credential shapes masked, UUIDs redacted, length capped. The probe has no
-// credentialMasker of its own (it never saw the api key), so the key-shape pass
-// stands in for the exact-value one the request log gets downstream.
-func safeProviderText(msg string) string {
-	return util.SanitizeLogBody(string(maskKeyShapedTokens([]byte(msg))), 500)
-}
-
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
@@ -499,7 +491,13 @@ func (h *Handler) probeFirstToken(
 				// The provider answered, but with its own failure. Counting
 				// this as a first token is what lets a broken provider win a
 				// hedged race against a working one.
-				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "error_message", safeProviderText(msg))
+				// The provider's own text is NOT logged here. This function never
+				// saw the api key, so it cannot mask it, and a provider is free
+				// to quote the credential back inside its error. Key-SHAPE
+				// masking is not enough — it only catches tokens that look like
+				// keys, and an operator's key need not. Both callers log the
+				// message one line later, exact-masked by classifyProbeError.
+				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "message_bytes", len(msg))
 				closeProbe()
 				return nil, 0, &upstreamFrameError{msg: msg}
 			}
@@ -542,7 +540,8 @@ func (h *Handler) probeFirstToken(
 						// recovered from the buffer is no more a token than
 						// one read straight off the scanner.
 						if msg, isErr := errorEnvelopeMessage(content); isErr {
-							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "error_message", safeProviderText(msg), "scan_error", scanErr)
+							// Text withheld for the same reason as above.
+							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
 							return nil, 0, &upstreamFrameError{msg: msg}
 						}
 						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
