@@ -115,35 +115,50 @@ func TestHandleStreamingResponse_BareStringErrorIsForwarded(t *testing.T) {
 	}
 }
 
-// The provider's credential can be quoted inside an error of any shape. The
-// key-shape scrub is gated on the frame being an error, so a shape the gateway
-// could not type skipped it — and skipped the exact-key pass with it, because
-// an unparseable frame is masked nowhere at all.
+// A credential can be quoted inside an error of any shape, and the key-shape
+// scrub — the layer that catches a key which is not this gateway's own — is
+// gated on the frame being an error. A shape the gateway could not type failed
+// that gate, and the exact-key pass with it, because the invalid-JSON branch
+// masks nothing at all.
+//
+// The quoted token is deliberately NOT the configured credential: the exact
+// mask cannot see it, so only the shape scrub can, which is what makes this
+// read the gate rather than the pass beneath it. The request log is asserted
+// alongside the client, because the observer takes the message before the
+// masking runs.
 func TestHandleStreamingResponse_BareStringErrorIsMasked(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	const key = "sk-test-1234567890abcdefghijklmn"
+	const ownKey = "sk-ours-0000000000000000000000"
+	const quoted = "sk-theirs-1234567890abcdefghij"
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`data: {"error":"invalid key ` + key + `"}` + "\n\n")),
+		Body:       io.NopCloser(strings.NewReader(`data: {"error":"invalid key ` + quoted + `"}` + "\n\n")),
 		Header:     make(http.Header),
 	}
 	w := httptest.NewRecorder()
 	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
 	logData := newErrorFrameLog()
-	logData.masker = newCredentialMasker(key)
+	logData.masker = newCredentialMasker(ownKey)
 
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
 		cancelOrigin: "failover_timeout",
 		masker:       logData.masker,
 	})
 
-	if strings.Contains(w.Body.String(), key) {
-		t.Errorf("provider credential reached the caller: %q", w.Body.String())
+	body := w.Body.String()
+	if !strings.Contains(body, "invalid key") {
+		t.Fatalf("error frame was not forwarded, so nothing was masked: %q", body)
 	}
-	if strings.Contains(logData.errorMessage, key) {
-		t.Errorf("provider credential reached the request log: %q", logData.errorMessage)
+	if strings.Contains(body, quoted) {
+		t.Errorf("key-shaped token reached the caller: %q", body)
+	}
+	if !strings.Contains(body, "[redacted]") {
+		t.Errorf("key-shaped token was not redacted for the caller: %q", body)
+	}
+	if strings.Contains(logData.errorMessage, quoted) {
+		t.Errorf("key-shaped token reached the request log: %q", logData.errorMessage)
 	}
 }
 
