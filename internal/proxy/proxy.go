@@ -355,14 +355,53 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 	h.failAllExhausted(w, st, len(candidates))
 }
 
+// upstreamFrameError reports that the provider's first SSE data frame carried an
+// error envelope rather than a token. It is distinct from every other probe
+// failure because the provider answered: the fault is never the client's, so it
+// is charged to the provider whatever the downstream connection was doing. See
+// classifyProbeError.
+type upstreamFrameError struct{ msg string }
+
+func (e *upstreamFrameError) Error() string { return e.msg }
+
+// errorEnvelopeMessage reports the provider's own message when an SSE data frame
+// is an error envelope instead of a token, and ok == false for every ordinary
+// frame.
+//
+// A frame that does not parse is deliberately NOT an error envelope: the job
+// here is to spot a provider REPORTING a failure, not to validate its JSON, and
+// the streaming path downstream already handles malformed frames. Narrowness
+// matters in this direction — a false positive fails over a healthy stream.
+func errorEnvelopeMessage(content string) (msg string, ok bool) {
+	var chunk streamChunk
+	if err := json.Unmarshal([]byte(content), &chunk); err != nil {
+		return "", false
+	}
+	if chunk.Error == nil {
+		return "", false
+	}
+	if chunk.Error.Message == "" {
+		// Still an error, just a mute one. Naming it beats handing the caller
+		// and the request log an empty string to explain the failure.
+		return "provider reported an error with no message", true
+	}
+	return chunk.Error.Message, true
+}
+
 // probeFirstToken reads from body until it finds the first real SSE data chunk
 // or the timeout fires. It returns a buffer containing all bytes read (for
 // replay via io.MultiReader), the true time-to-first-token in milliseconds,
 // and any error.
 //
 // A "real data chunk" is any "data:" line where the content after "data:" is
-// not "[DONE]". Keepalive comments (":"), empty lines, "event:", "id:", and
-// "retry:" directives are skipped but still captured in probeBuf for replay.
+// neither "[DONE]" nor an error envelope. Keepalive comments (":"), empty lines,
+// "event:", "id:", and "retry:" directives are skipped but still captured in
+// probeBuf for replay.
+//
+// The error-envelope case exists because this probe picks the winner of a hedged
+// race. Treating a provider's error frame as a first token means the fastest
+// FAILURE wins: the broken candidate is committed to, every healthy rival still
+// in flight is cancelled as superseded, and the request has no second chance.
 func (h *Handler) probeFirstToken(
 	ctx context.Context,
 	body io.ReadCloser,
@@ -434,6 +473,14 @@ func (h *Handler) probeFirstToken(
 				closeProbe()
 				return &buf, 0, nil
 			}
+			if msg, isErr := errorEnvelopeMessage(content); isErr {
+				// The provider answered, but with its own failure. Counting
+				// this as a first token is what lets a broken provider win a
+				// hedged race against a working one.
+				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "error_message", msg)
+				closeProbe()
+				return nil, 0, &upstreamFrameError{msg: msg}
+			}
 			// First real data chunk found.
 			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft)
@@ -469,6 +516,13 @@ func (h *Handler) probeFirstToken(
 					}
 					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
 					if content != "[DONE]" {
+						// Same envelope check as the main loop: a frame
+						// recovered from the buffer is no more a token than
+						// one read straight off the scanner.
+						if msg, isErr := errorEnvelopeMessage(content); isErr {
+							debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "error_message", msg, "scan_error", scanErr)
+							return nil, 0, &upstreamFrameError{msg: msg}
+						}
 						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
 						return &buf, ttft, nil

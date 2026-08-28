@@ -77,6 +77,40 @@ type streamState struct {
 	lastAnthropicEvent     string // P1-C: last "event:" type, consumed by the next data line
 }
 
+// breakerFailureReason reports why a finished stream is charged to the circuit
+// breaker, or "" when it is not. It is the whole charging policy for a stream
+// that reached the response body, in one place.
+//
+// Two shapes qualify. A stall is the provider going silent; an error is the
+// provider saying it failed. Neither is charged once the caller actually
+// received content: a stream that delivered real output before dying did part
+// of its job, and charging it would break the circuit on every
+// truncated-but-useful response.
+//
+// The error case matters because the TTFT probe has already committed to this
+// provider by the time a later frame turns out to be an error, and the hedged
+// rivals were cancelled when it did (see probeFirstToken, which keeps an error
+// in the FIRST frame from ever winning that race). The breaker is then the only
+// thing left that can keep the next request away.
+//
+// A shutdown or a client hang-up is never the provider's fault, so both drop out
+// before either shape is considered.
+func breakerFailureReason(st *streamState, logData *requestLogData, errMsg string, circuitBreakerOn bool) string {
+	if !circuitBreakerOn || st.interrupted || st.clientDisconnected {
+		return ""
+	}
+	// !sawDone/!sawMessageStop avoids penalising a provider whose stream
+	// completed normally but whose stall timer fired concurrently with the
+	// terminal frame.
+	if st.stalled && !st.sawDone && !st.sawMessageStop {
+		return "stream stalled"
+	}
+	if errMsg != "" && !logData.deliveredContent && st.completionTokens == 0 {
+		return "stream failed without delivering content"
+	}
+	return ""
+}
+
 // finalizeStream performs the end-of-stream bookkeeping that used to live under
 // the handleStreamingResponse `logUpdate:` label: TPS computation, scanner-error
 // and stall classification, missing-[DONE] injection vs "truncated", the final
@@ -177,14 +211,11 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	}
 	h.updateRequestLog(logData)
 
-	// Record circuit breaker failure for stream stalls.
-	// Guard with !sawDone to avoid penalising a provider whose stream completed
-	// normally but whose stall timer fired concurrently with [DONE].
-	if st.stalled && !st.interrupted && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected && opts.circuitBreakerOn {
-		// deriveStreamError already warns that the stream stalled; this records
-		// that the breaker was charged for it, which the stall line does not say
-		// and which is otherwise invisible above Debug.
-		debuglog.Warn("proxy: recording circuit breaker failure", "reason", "stream stalled", "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "duration_ms", totalDuration)
+	// deriveStreamError already warns about the stall or the error itself; this
+	// line records that the breaker was CHARGED for it, which those do not say
+	// and which is otherwise invisible above Debug.
+	if reason := breakerFailureReason(st, logData, errMsg, opts.circuitBreakerOn); reason != "" {
+		debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration)
 		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
 	}
 

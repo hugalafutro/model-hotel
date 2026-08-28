@@ -265,6 +265,27 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 // provider was stalling, the error carries a hint that an upstream reverse proxy,
 // load balancer, or CDN idle-read timeout is the likely cause (Model Hotel sends
 // nothing downstream during the probe, so a silent connection looks idle).
+// classifyProbeError maps any TTFT probe failure to the error recorded for the
+// attempt and whether the provider is charged for it. It is the single entry
+// point both the sequential and the hedged path use, so the two cannot drift.
+//
+// An error envelope in the first frame is split out from the zero-token cases
+// below: the provider did answer, so this is its failure and never the client's,
+// and it is charged whatever the downstream connection was doing. The message is
+// sanitized because it is the provider's text, not ours.
+func classifyProbeError(probeErr error, providerName string, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+	var frameErr *upstreamFrameError
+	if errors.As(probeErr, &frameErr) {
+		return reqError{
+			Kind:       KindProviderError,
+			Attempt:    attempt,
+			Provider:   providerName,
+			Underlying: util.SanitizeLogBody(frameErr.msg, 500),
+		}, true
+	}
+	return classifyProbeFailure(providerName, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+}
+
 func classifyProbeFailure(providerName, underlying string, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
 	if clientGone && elapsed < stallTimeout {
 		// Fast downstream close with zero tokens: a genuine client cancel.
@@ -324,7 +345,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
 			elapsed := time.Since(st.startTime)
-			re, recordFailure := classifyProbeFailure(candidate.provider.Name, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}

@@ -359,7 +359,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// past the floor is a provider fault. Mirrors dispatchStreaming.
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
-		re, recordFailure := classifyProbeFailure(candidate.provider.Name, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", errString(probeErr))
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
