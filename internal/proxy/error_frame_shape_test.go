@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -219,6 +220,60 @@ func TestHandleStreamingResponse_BareStringErrorIsMasked(t *testing.T) {
 	}
 	if strings.Contains(logData.errorMessage, quoted) {
 		t.Errorf("key-shaped token reached the request log: %q", logData.errorMessage)
+	}
+}
+
+// The observers run before the stream's masking block, so the provider text
+// they hold has been scrubbed by nothing — and an application log is a
+// different store with a different audience from the request log: the live log
+// viewer, the app-logs API, the OTLP export.
+func TestErrLogAttr_MasksAndBounds(t *testing.T) {
+	t.Parallel()
+	st := &streamState{masker: newCredentialMasker("sk-ours-0000000000000000000000")}
+
+	got := st.errLogAttr("bad key sk-ours-0000000000000000000000 relayed from sk-theirs-1234567890abcdefghij")
+	if strings.Contains(got, "sk-ours") || strings.Contains(got, "sk-theirs") {
+		t.Errorf("credential survived: %q", got)
+	}
+
+	if bounded := st.errLogAttr(strings.Repeat("x", 5000)); len(bounded) > 1000 {
+		t.Errorf("unbounded provider text: %d chars", len(bounded))
+	}
+}
+
+// The same, through the pipeline, because the masking is only worth anything at
+// the call site that actually logs.
+func TestHandleStreamingResponse_ErrorFrameLogIsMasked(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	var logged strings.Builder
+	restore := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(restore) })
+
+	const quoted = "sk-theirs-1234567890abcdefghij"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`data: {"error":"invalid key ` + quoted + `"}` + "\n\n")),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	logData := newErrorFrameLog()
+	logData.masker = newCredentialMasker("sk-ours-0000000000000000000000")
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
+		cancelOrigin: "failover_timeout",
+		masker:       logData.masker,
+	})
+
+	out := logged.String()
+	if !strings.Contains(out, "SSE error chunk") {
+		t.Fatalf("the error frame was not logged at all, so nothing was masked: %q", out)
+	}
+	if strings.Contains(out, quoted) {
+		t.Errorf("credential reached the application log: %q", out)
 	}
 }
 
