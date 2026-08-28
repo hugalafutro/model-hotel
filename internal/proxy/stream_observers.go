@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // captureSSEError handles the two error-extraction quirks over a data line:
@@ -86,8 +87,12 @@ type streamChunk struct {
 			ReasoningDetails json.RawMessage `json:"reasoning_details"`
 			ToolCalls        []struct {
 				Function *struct {
-					Name      string `json:"name"`
-					Arguments string `json:"arguments"`
+					Name string `json:"name"`
+					// util.ToolArguments, not string: several providers send the
+					// argument OBJECT where the spec says a JSON string, and a
+					// plain string field failed the WHOLE chunk unmarshal, so
+					// the frame was dropped as though the bytes were corrupt.
+					Arguments util.ToolArguments `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`

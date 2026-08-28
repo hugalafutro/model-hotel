@@ -214,7 +214,7 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 			if err := writeEvent(&buf, "content_block_delta", contentBlockDeltaEvent{
 				Type:  "content_block_delta",
 				Index: blockIdx,
-				Delta: contentDelta{Type: "input_json_delta", PartialJSON: tc.Function.Arguments},
+				Delta: contentDelta{Type: "input_json_delta", PartialJSON: string(tc.Function.Arguments)},
 			}); err != nil {
 				return nil, err
 			}

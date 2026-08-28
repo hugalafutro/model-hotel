@@ -2,6 +2,7 @@ package anthropic
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -186,4 +187,44 @@ func TestStreamTranslator_EmptyCompletion_WellFormed(t *testing.T) {
 	if last != "message_stop" {
 		t.Errorf("last event = %q, want message_stop", last)
 	}
+}
+
+// An object-form tool call must survive the translation to the Anthropic wire
+// format. The OA types are decoded from the upstream JSON, and a plain-string
+// Arguments field failed that decode — so the chunk was skipped and the client
+// received a message_delta with stop_reason "tool_use" and no tool_use content
+// block at all, which the Anthropic SDKs reject.
+//
+// Decoded from JSON rather than built as Go values on purpose: the bug lived in
+// the unmarshal, so constructing OAStreamChunk directly would test nothing.
+func TestStreamTranslator_ObjectFormToolArgumentsSurvive(t *testing.T) {
+	raw := []string{
+		`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_abc","type":"function","function":{"name":"get_weather","arguments":{"city":"Prague"}}}]}}]}`,
+		`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
+	}
+	chunks := make([]OAStreamChunk, 0, len(raw))
+	for _, r := range raw {
+		var c OAStreamChunk
+		if err := json.Unmarshal([]byte(r), &c); err != nil {
+			t.Fatalf("an object-form tool call must decode: %v", err)
+		}
+		chunks = append(chunks, c)
+	}
+
+	got := decodeWithSDK(t, runTranslator(t, tr(t), chunks))
+
+	if got.stopReason != "tool_use" {
+		t.Errorf("stop_reason = %q, want tool_use", got.stopReason)
+	}
+	if name := got.toolNameByIx[0]; name != "get_weather" {
+		t.Errorf("tool name = %q, want get_weather: stop_reason tool_use with no tool_use block is a protocol violation", name)
+	}
+	if args := got.toolJSONByIx[0]; args != `{"city":"Prague"}` {
+		t.Errorf("tool input = %q, want the arguments object", args)
+	}
+}
+
+func tr(t *testing.T) *StreamTranslator {
+	t.Helper()
+	return NewStreamTranslator("msg_obj_args", "claude-sonnet-4-6")
 }
