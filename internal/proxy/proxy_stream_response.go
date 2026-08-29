@@ -366,6 +366,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// here is what keeps usage/token metering from being silently dropped when a
 		// provider rides `usage` on the same chunk as a reasoning delta. They read
 		// the immutable typed chunk and never emit, so position doesn't affect output.
+		deliveredBefore := st.deliveredBytes
 		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
 
 		// Mask the provider's credential before any emit. Every chunk gets the
@@ -418,7 +419,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 
 		if untypeable {
 			untypedDelta, _ := parseChunkPayload(payload)
-			if stripReasoning && deltaCarriesReasoning(untypedDelta.delta) {
+			if stripReasoning && untypedFrameResistsStripping(untypedDelta.delta) {
 				// strip_reasoning is a promise to the caller, and forwarding a
 				// frame this gateway cannot read is no way to keep it.
 				// computeStripReasoning works over the payload and would run — but
@@ -438,7 +439,16 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				sink.swallowBlank = true
 				return false
 			}
-			st.deliveredBytes += untypedDeltaBytes(untypedDelta.delta)
+			// Replaces the observer's count rather than adding to it. The
+			// observers ran above, on a chunk that decoded PARTLY — so every
+			// member that did decode has already been added, and adding the raw
+			// delta on top billed the same content twice (and a tool-call frame
+			// many times over).  The raw reading is the complete one for this
+			// frame, so it stands alone.
+			//
+			// choices[0] only, like the transforms: an n>1 stream whose frame is
+			// also untypeable is metered from its first choice.
+			st.deliveredBytes = deliveredBefore + untypedDeltaBytes(untypedDelta.delta)
 			// Counted like any frame this gateway could not read: the end-of-stream
 			// verdict must not conclude the provider sent nothing on the strength
 			// of frames it could not see into (judgeStreamForBreaker reads
@@ -560,11 +570,30 @@ forwardUntypeable:
 	return false
 }
 
-// deltaCarriesReasoning reports whether a delta holds any of the three spellings
-// of reasoning this gateway knows about.
-func deltaCarriesReasoning(delta map[string]json.RawMessage) bool {
+// untypedFrameResistsStripping reports whether a delta this gateway could not
+// type might carry reasoning it cannot remove — in which case the frame is
+// dropped rather than forwarded to a key that asked for reasoning to be hidden.
+//
+// Two ways it can. A reasoning member that CARRIES something, by the same rule
+// the rest of the gateway uses for an error member: gating on presence dropped
+// the answer out of every frame from a relay that stamps "reasoning":"" or
+// "reasoning_details":[] on its non-reasoning deltas, which the OpenRouter
+// family does.
+//
+// Or a content member that is not a plain string. Reasoning arrives inside a
+// part array as {"type":"thinking",…} on exactly the Anthropic-shaped relays
+// that make a frame untypeable in the first place, so a content array cannot be
+// read as text-only — and computeStripReasoning would not have caught it either,
+// since it only removes the three named members.
+func untypedFrameResistsStripping(delta map[string]json.RawMessage) bool {
 	for _, key := range []string{"reasoning_content", "reasoning_details", "reasoning"} {
-		if raw, ok := delta[key]; ok && len(raw) > 0 && string(raw) != "null" {
+		if util.ValueCarries(delta[key]) {
+			return true
+		}
+	}
+	if raw, ok := delta["content"]; ok {
+		var text string
+		if json.Unmarshal(raw, &text) != nil {
 			return true
 		}
 	}
@@ -591,10 +620,21 @@ func untypedDeltaBytes(delta map[string]json.RawMessage) int {
 	total := 0
 	for key, raw := range delta {
 		switch key {
-		// Not output: a role marker, and the ids/indices that address a tool
-		// call rather than carrying its arguments.
-		case "role", "index", "id":
+		// Not output: a role marker, and the ids/indices/types that address a
+		// tool call rather than carrying its arguments.
+		case "role", "index", "id", "type":
 			continue
+		}
+		// A member that carries nothing is not output, by the rule the rest of
+		// the gateway reads an error member with. Measuring raw length instead
+		// made "" two bytes and null four, which is delivery to everything
+		// downstream: the opening {"role":"assistant","content":""} chunk that
+		// almost every stream sends then credited the circuit breaker, and a
+		// provider erroring on every request could never open its circuit.
+		if !util.ValueCarries(raw) {
+			continue
+		}
+		switch key {
 		case "content", "reasoning", "reasoning_content":
 			total += deltaTextBytes(raw)
 		default:

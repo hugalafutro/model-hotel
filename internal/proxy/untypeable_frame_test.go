@@ -791,3 +791,214 @@ func TestUntypedDeltaBytes_SkipsToolCallScaffolding(t *testing.T) {
 		t.Errorf("counted %d bytes, want the 2 the model produced", got)
 	}
 }
+
+// A member that carries nothing is not output. Measuring the raw member instead
+// made "" two bytes and null four, and two bytes is delivery to everything
+// downstream — so the opening {"role":"assistant","content":""} chunk that
+// almost every OpenAI-shaped stream sends was enough on its own.
+func TestUntypedDeltaBytes_EmptyMembersAreNotOutput(t *testing.T) {
+	t.Parallel()
+	for _, payload := range []string{
+		`{"choices":[{"delta":{"role":"assistant","content":""}}]}`,
+		`{"choices":[{"delta":{"content":null}}]}`,
+		`{"choices":[{"delta":{"content":"","reasoning":"","reasoning_details":[]}}]}`,
+		`{"choices":[{"delta":{"refusal":"","annotations":[]}}]}`,
+		`{"choices":[{"delta":{}}]}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			t.Parallel()
+			p, ok := parseChunkPayload(payload)
+			if !ok {
+				t.Fatal("fixture did not parse")
+			}
+			if got := untypedDeltaBytes(p.delta); got != 0 {
+				t.Errorf("counted %d bytes of output in a delta that carries none", got)
+			}
+		})
+	}
+}
+
+// The consequence that made it a blocker rather than a rounding error: a
+// provider failing every single request must still open its circuit. The empty
+// opening delta credited delivery, delivery suppressed the error charge, and the
+// breaker never counted a failure.
+func TestHandleStreamingResponse_EmptyUntypeableDeltaDoesNotShieldAFailingProvider(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	// An untypeable opening delta that carries nothing, then the provider's error.
+	body := `data: {"choices":[{"delta":{"role":"assistant","content":""},"finish_reason":0}]}` + "\n\n" +
+		`data: {"error":{"message":"model not found"}}` + "\n\ndata: [DONE]\n\n"
+
+	logData := streamingLog()
+	logData.providerName = "failing-provider"
+	h.insertRequestLogAsync(logData)
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10,
+		providerID:       providerID,
+		providerName:     "failing-provider",
+		circuitBreakerOn: true,
+		vkHash:           "test-hash",
+		attempt:          1,
+	})
+
+	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("circuit = %v, want open: an empty delta must not shield a provider that failed", got)
+	}
+}
+
+// The observers run before this branch on a chunk that decoded PARTLY, so every
+// member that did decode has already been counted. Adding the raw delta on top
+// billed the same content twice, and a tool-call frame many times over.
+//
+// Read by comparison rather than against a number: the same answer, once in a
+// frame that types cleanly and once in a frame that does not, must cost the
+// caller the same.
+func TestHandleStreamingResponse_UntypeableFrameIsMeteredOnce(t *testing.T) {
+	const answer = "0123456789012345678901234567890123456789"
+	meter := func(t *testing.T, payload string) int {
+		t.Helper()
+		vkRepo := &mockVirtualKeyRepo{}
+		h := newIntegrationHandler()
+		t.Cleanup(func() { stopUnitHandler(h) })
+		h.virtualKeyRepo = vkRepo
+
+		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")), Header: make(http.Header)}
+		logData := newErrorFrameLog()
+		logData.promptTextBytes = 40
+		req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+		h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", vkHash: "test-hash"})
+		return singleAddTokens(t, vkRepo)
+	}
+
+	typed := meter(t, `{"choices":[{"delta":{"content":"`+answer+`"}}]}`)
+	untypeable := meter(t, `{"choices":[{"delta":{"content":"`+answer+`"},"finish_reason":0}]}`)
+
+	if typed == 0 {
+		t.Fatal("the typed control metered nothing, so there is nothing to compare against")
+	}
+	if untypeable != typed {
+		t.Errorf("the same answer cost %d tokens typed and %d untypeable", typed, untypeable)
+	}
+}
+
+// Reasoning markers a relay stamps on every NON-reasoning delta carry nothing,
+// and gating the drop on their presence deleted the answer beside them. The
+// OpenRouter family stamps exactly these.
+func TestHandleStreamingResponse_StripReasoningKeepsFramesWithEmptyMarkers(t *testing.T) {
+	for _, member := range []string{`"reasoning":""`, `"reasoning_details":[]`, `"reasoning_content":""`, `"reasoning":null`, `"reasoning_details":{}`} {
+		t.Run(member, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			payload := `{"choices":[{"delta":{"content":"CONTENTMARKER",` + member + `},"finish_reason":0}]}`
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if !strings.Contains(w.Body.String(), "CONTENTMARKER") {
+				t.Errorf("an empty reasoning marker deleted the answer beside it: %q", w.Body.String())
+			}
+		})
+	}
+}
+
+// Reasoning arrives inside a part array on exactly the relays that make a frame
+// untypeable in the first place, so a content array cannot be read as text-only.
+// A key that asked for reasoning to be hidden must not be handed a thinking part.
+func TestHandleStreamingResponse_StripReasoningDropsThinkingParts(t *testing.T) {
+	for _, payload := range []string{
+		`{"choices":[{"delta":{"content":[{"type":"thinking","thinking":"THINKINGMARKER"},{"type":"text","text":"answer"}]}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"text","text":"answer"}],"reasoning_content":"THINKINGMARKER"}}]}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if strings.Contains(w.Body.String(), "THINKINGMARKER") {
+				t.Errorf("reasoning reached a caller that asked for it stripped: %q", w.Body.String())
+			}
+		})
+	}
+}
+
+// A frame whose usage member is not an object is still a frame, and the answer
+// in it is still the answer. Requiring the type error to NAME a member threw
+// these away whole: an error from a nested custom unmarshaler reaches the caller
+// with an empty Field, so the rule could not tell them from `data: 42`.
+func TestHandleStreamingResponse_UnreadableUsageDoesNotCostTheFrame(t *testing.T) {
+	for _, usage := range []string{`[]`, `""`, `0`, `"none"`, `{"prompt_tokens":[]}`} {
+		t.Run(usage, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			payload := `{"choices":[{"delta":{"content":"CONTENTMARKER"}}],"usage":` + usage + `}`
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if !strings.Contains(w.Body.String(), "CONTENTMARKER") {
+				t.Errorf("a usage member the gateway could not read cost the caller the answer: %q", w.Body.String())
+			}
+		})
+	}
+}
+
+// The object rule, read directly. A nested custom UnmarshalJSON returns its
+// error with an empty Field, so "does the type error name a member" could not
+// tell a chat frame with an unreadable usage member from a bare number.
+func TestShapeError_RequiresAJSONObject(t *testing.T) {
+	t.Parallel()
+	typeErr := &json.UnmarshalTypeError{Value: "number", Field: "choices.0.finish_reason"}
+	fieldless := &json.UnmarshalTypeError{Value: "array"}
+	for _, tc := range []struct {
+		data string
+		err  error
+		want bool
+	}{
+		{`{"choices":[{"finish_reason":0}]}`, typeErr, true},
+		// An object whose type error names nothing: a nested unmarshaler's.
+		{`{"choices":[{"delta":{"content":"hi"}}],"usage":[]}`, fieldless, true},
+		// Not the document at all.
+		{`[1,2,3]`, fieldless, false},
+		{`"[DONE]"`, fieldless, false},
+		{`42`, fieldless, false},
+		{`null`, fieldless, false},
+		// An object, but not sound bytes.
+		{`{"choices":[`, typeErr, false},
+	} {
+		t.Run(tc.data, func(t *testing.T) {
+			t.Parallel()
+			if got := shapeError([]byte(tc.data), tc.err) != nil; got != tc.want {
+				t.Errorf("shapeError(%s) non-nil = %v, want %v", tc.data, got, tc.want)
+			}
+		})
+	}
+}
