@@ -393,6 +393,13 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		if st.circuitBreakerEnabled {
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
+	case resp.StatusCode != http.StatusOK:
+		// A 204 or 202 legitimately carries an empty body and the provider is
+		// plainly alive — the streamed twin says exactly this and credits it, so
+		// charging here would have the two disagree about one response.
+		if st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		}
 	default:
 		h.chargeBreaker(st, candidate, "response completed without delivering content")
 	}

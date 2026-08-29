@@ -41,8 +41,18 @@ var newRequestWithContext = http.NewRequestWithContext
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
-func nonStreamingFailureDetail(resp *http.Response, body []byte, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
+func nonStreamingFailureDetail(resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if readErr != nil {
+			// A body that died on the wire is not a body this gateway could not
+			// parse, and the two were collapsed into one kind. The parse failure
+			// is provider_bad_request because the answer is probably still in
+			// there; a transport failure is the provider breaking after it
+			// committed the status, which is what the breaker exists to catch —
+			// and classifying it as the parse failure left it uncharged.
+			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
+			return detail, detail, KindProviderError, "the provider stopped sending its response"
+		}
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
 			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
 		// Not "upstream provider returned HTTP 200": reporting the status as the
@@ -160,6 +170,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// completion is what an aggregator in front of a retired model returns,
 		// resetting the count so the model is never nominated.
 		logData.deliveredContent = chatAnswerCarriesContent(chatResp)
+		// And the narrower question the breaker asks of the same body: see
+		// requestLogData.emptyCompletion.
+		logData.emptyCompletion = len(chatResp.Choices) == 0 && chatResp.Usage.CompletionTokens == 0
 		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
 		// The async INSERT is very likely complete by now; if not, the
 		// UPDATE simply affects 0 rows (harmless, logged as warning).
@@ -220,7 +233,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, decodeErr, logData.modelID)
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, readErr, decodeErr, logData.modelID)
 		// body is already exact-masked; the log row also gets the key-shape
 		// layer, like every other stored error message.
 		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))

@@ -3,6 +3,7 @@ package gemini
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -87,6 +88,14 @@ type oaiUsage struct {
 	} `json:"completion_tokens_details,omitempty"`
 }
 
+// ErrNoCandidates marks the one translation failure that is NOT the provider
+// malfunctioning: Gemini answered, and its answer carried no candidate — which
+// is what a prompt blocked by its safety filter looks like. The body is a
+// perfectly good Gemini object and the provider is plainly alive, so a caller
+// deciding whether to hold the provider at fault has to be able to tell this
+// apart from bytes that are not a Gemini response at all.
+var ErrNoCandidates = errors.New("gemini: response carried no candidates")
+
 // BuildChatCompletion converts a non-streaming Gemini generateContent response
 // body into an OpenAI chat-completion body. id, model and created are supplied
 // by the caller (the model string the client requested is echoed back).
@@ -100,7 +109,7 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
 			reason = "prompt blocked: " + resp.PromptFeedback.BlockReason
 		}
-		return nil, fmt.Errorf("gemini: %s", reason)
+		return nil, fmt.Errorf("gemini: %s: %w", reason, ErrNoCandidates)
 	}
 
 	cand := resp.Candidates[0]
