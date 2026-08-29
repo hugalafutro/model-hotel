@@ -505,45 +505,6 @@ func TestShapeError_ChecksValidityRatherThanInferringIt(t *testing.T) {
 	}
 }
 
-// A stream whose frames this gateway forwarded but could not read is not an
-// empty stream: the caller received them. Holding back the breaker's success
-// credit for every such stream leaves the provider's consecutive-failure count
-// never resetting, so old failures accumulate until an unrelated one opens the
-// circuit.
-func TestHandleStreamingResponse_UntypeableFramesStillCreditTheProvider(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandlerIntegration(h)
-	withBreakerThreshold(t, h, "2")
-
-	providerID := uuid.New()
-	logData := streamingLog()
-	logData.providerName = "wide-shape-provider"
-	h.insertRequestLogAsync(logData)
-	// A threshold of two with one failure already on the clock. Only a recorded
-	// SUCCESS clears it, so whether the second failure below opens the circuit
-	// is exactly the question of whether this stream credited the provider.
-	h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
-
-	body := "data: {\"choices\":[{\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}]}\n\ndata: [DONE]\n\n"
-	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
-	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), streamOptions{
-		responseHeaderMs: 10,
-		providerID:       providerID,
-		providerName:     "wide-shape-provider",
-		circuitBreakerOn: true,
-		vkHash:           "test-hash",
-		attempt:          1,
-	})
-
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
-		t.Fatal("a frame the gateway forwarded must not be charged to the provider")
-	}
-	h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
-		t.Error("the stream recorded no success, so an old failure was still on the clock")
-	}
-}
-
 // A frame whose usage member could not be read leaves chunk.Usage a valid
 // pointer to an all-zero Usage: encoding/json allocates it before it calls the
 // custom unmarshaler. The observer gated on the pointer alone, so such a frame
@@ -608,6 +569,64 @@ func TestHandleStreamingResponse_UntypeableWarnCarriesNoneOfTheFrame(t *testing.
 	}
 }
 
+// A stream whose frames this gateway forwarded but could not read tells the
+// breaker nothing, in either direction. It is not emptiness — the caller
+// received them — and it is not health either, because what was in them is
+// unknown here.
+//
+// Both wrong answers have been tried. Crediting such a stream meant a relay that
+// numbers its stop reasons cleared its failure streak on every empty response,
+// so its circuit could never open; charging it would penalise a provider that
+// answered perfectly well in a shape this gateway has no struct for. Silence is
+// the honest verdict, and a stream that delivered anything READABLE alongside is
+// credited on the strength of that.
+func TestHandleStreamingResponse_UnreadableFramesTellTheBreakerNothing(t *testing.T) {
+	partsOnly := "data: {\"choices\":[{\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}]}\n\ndata: [DONE]\n\n"
+	alsoReadable := "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" + partsOnly
+
+	for _, tc := range []struct {
+		name        string
+		body        string
+		wantCleared bool
+	}{
+		{"nothing this gateway could read", partsOnly, false},
+		{"a readable answer beside it", alsoReadable, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			defer stopUnitHandlerIntegration(h)
+			withBreakerThreshold(t, h, "2")
+
+			providerID := uuid.New()
+			logData := streamingLog()
+			logData.providerName = "wide-shape-provider"
+			h.insertRequestLogAsync(logData)
+			// One failure on the clock. Only a recorded SUCCESS clears it, so
+			// whether the second failure opens the circuit reports the verdict.
+			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.body))}
+			h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), streamOptions{
+				responseHeaderMs: 10,
+				providerID:       providerID,
+				providerName:     "wide-shape-provider",
+				circuitBreakerOn: true,
+				vkHash:           "test-hash",
+				attempt:          1,
+			})
+
+			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+				t.Fatal("a frame the gateway forwarded must never be charged to the provider")
+			}
+			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
+			cleared := h.circuitBreaker.GetState(providerID) != failover.StateOpen
+			if cleared != tc.wantCleared {
+				t.Errorf("failure streak cleared = %v, want %v", cleared, tc.wantCleared)
+			}
+		})
+	}
+}
+
 // Forwarding a frame is not the same as knowing it carried anything. The
 // terminal chunk is exactly where a relay numbers its stop reason, and that
 // frame carries no output at all — so treating a forwarded frame as delivery in
@@ -644,30 +663,6 @@ func TestJudgeStreamForBreaker_UntypeableFrames(t *testing.T) {
 	}
 }
 
-// A frame this gateway forwarded but could not read still carried the model's
-// answer, and the estimator is what bills a stream whose provider reported no
-// usage — streaming usage is opt-in, so that is the common case, not the rare
-// one. Counting nothing for it delivered a full answer and debited the caller's
-// quota and TPM bucket for none of it.
-func TestHandleStreamingResponse_UntypeableContentIsStillMetered(t *testing.T) {
-	vkRepo := &mockVirtualKeyRepo{}
-	h := newIntegrationHandler()
-	t.Cleanup(func() { stopUnitHandler(h) })
-	h.virtualKeyRepo = vkRepo
-
-	body := `data: {"choices":[{"delta":{"content":[{"type":"text","text":"a reasonably long answer from the model"}]}}]}` + "\n\ndata: [DONE]\n\n"
-	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
-	logData := newErrorFrameLog()
-	logData.promptTextBytes = 40
-	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
-
-	h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", vkHash: "test-hash"})
-
-	if got := singleAddTokens(t, vkRepo); got == 0 {
-		t.Error("an answer the caller received was metered as nothing")
-	}
-}
-
 // The strip is owed only where there is reasoning to strip. Dropping every
 // untypeable frame deleted the answer out of an ordinary content delta whose
 // finish_reason happened to be a number, for no gain at all.
@@ -694,17 +689,21 @@ func TestHandleStreamingResponse_StripReasoningKeepsFramesWithNoneOfIt(t *testin
 
 // The retirement verdict asks the same question the breaker does and used a
 // narrower signal to answer it. sawContent watches content and reasoning on
-// choices[0], so a stream whose whole answer is a tool call — or one delivered
-// in a shape this gateway forwarded without being able to type — read as having
+// choices[0], so a stream whose whole answer is a tool call read as having
 // produced nothing, and the gone-strike streak a real answer should have
 // cleared stayed on the model.
+//
+// A stream delivered ONLY in a shape this gateway cannot read still reads as
+// nothing, because nothing here can say otherwise — the TTFT probe covers it
+// wherever it is on, and it is listed with the rest of what content-as-parts
+// owes.
 func TestFinalizeStream_DeliveredContentCountsEveryShapeOfOutput(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body string
 	}{
 		{"a tool call and no text", `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"lookup","arguments":"{}"}}]}}]}`},
-		{"content this gateway cannot type", `{"choices":[{"delta":{"content":[{"type":"text","text":"an answer"}]}}]}`},
+		{"reasoning and no text", `{"choices":[{"delta":{"reasoning":"working on it"}}]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newUnitHandler()
@@ -722,97 +721,6 @@ func TestFinalizeStream_DeliveredContentCountsEveryShapeOfOutput(t *testing.T) {
 
 			if !logData.deliveredContent {
 				t.Error("the model answered and the retirement verdict was told it did not")
-			}
-		})
-	}
-}
-
-// The role marker is not output. It rides on the first delta of most streams,
-// and counting it would put a few bytes of estimate on a frame that carried the
-// model nothing at all.
-func TestUntypedDeltaBytes_SkipsTheRoleMarker(t *testing.T) {
-	t.Parallel()
-	withRole, ok := parseChunkPayload(`{"choices":[{"delta":{"role":"assistant","content":"hello"}}]}`)
-	if !ok {
-		t.Fatal("fixture did not parse")
-	}
-	withoutRole, ok := parseChunkPayload(`{"choices":[{"delta":{"content":"hello"}}]}`)
-	if !ok {
-		t.Fatal("fixture did not parse")
-	}
-	if got, want := untypedDeltaBytes(withRole.delta), untypedDeltaBytes(withoutRole.delta); got != want {
-		t.Errorf("role added %d bytes to the estimate (%d vs %d)", got-want, got, want)
-	}
-	if untypedDeltaBytes(withoutRole.delta) == 0 {
-		t.Error("content counted as nothing")
-	}
-}
-
-// The number debits a customer's quota, so it counts the model's text and not
-// the JSON around it. Streaming deltas are a few tokens each, which is exactly
-// where the part wrapper dominates: measuring the raw member bills six to eight
-// times what the model produced.
-func TestUntypedDeltaBytes_CountsTextNotItsWrapper(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name    string
-		payload string
-		want    int
-	}{
-		{"content as parts", `{"choices":[{"delta":{"content":[{"type":"text","text":"hello"}]}}]}`, 5},
-		{"several parts", `{"choices":[{"delta":{"content":[{"type":"text","text":"hel"},{"type":"text","text":"lo"}]}}]}`, 5},
-		{"a plain string beside an untypeable sibling", `{"choices":[{"delta":{"content":"hello"}}]}`, 5},
-		{"reasoning as parts", `{"choices":[{"delta":{"reasoning":[{"type":"text","text":"hello"}]}}]}`, 5},
-		// A shape neither reading covers is measured whole rather than dropped.
-		{"content as a number", `{"choices":[{"delta":{"content":8675309}}]}`, 7},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			p, ok := parseChunkPayload(tc.payload)
-			if !ok {
-				t.Fatal("fixture did not parse")
-			}
-			if got := untypedDeltaBytes(p.delta); got != tc.want {
-				t.Errorf("counted %d bytes, want %d", got, tc.want)
-			}
-		})
-	}
-}
-
-// The scaffolding that addresses a tool call is not what the model produced;
-// the arguments are.
-func TestUntypedDeltaBytes_SkipsToolCallScaffolding(t *testing.T) {
-	t.Parallel()
-	p, ok := parseChunkPayload(`{"choices":[{"delta":{"index":0,"id":"call_abcdefghijklmnop","content":"hi"}}]}`)
-	if !ok {
-		t.Fatal("fixture did not parse")
-	}
-	if got := untypedDeltaBytes(p.delta); got != 2 {
-		t.Errorf("counted %d bytes, want the 2 the model produced", got)
-	}
-}
-
-// A member that carries nothing is not output. Measuring the raw member instead
-// made "" two bytes and null four, and two bytes is delivery to everything
-// downstream — so the opening {"role":"assistant","content":""} chunk that
-// almost every OpenAI-shaped stream sends was enough on its own.
-func TestUntypedDeltaBytes_EmptyMembersAreNotOutput(t *testing.T) {
-	t.Parallel()
-	for _, payload := range []string{
-		`{"choices":[{"delta":{"role":"assistant","content":""}}]}`,
-		`{"choices":[{"delta":{"content":null}}]}`,
-		`{"choices":[{"delta":{"content":"","reasoning":"","reasoning_details":[]}}]}`,
-		`{"choices":[{"delta":{"refusal":"","annotations":[]}}]}`,
-		`{"choices":[{"delta":{}}]}`,
-	} {
-		t.Run(payload, func(t *testing.T) {
-			t.Parallel()
-			p, ok := parseChunkPayload(payload)
-			if !ok {
-				t.Fatal("fixture did not parse")
-			}
-			if got := untypedDeltaBytes(p.delta); got != 0 {
-				t.Errorf("counted %d bytes of output in a delta that carries none", got)
 			}
 		})
 	}
@@ -847,41 +755,6 @@ func TestHandleStreamingResponse_EmptyUntypeableDeltaDoesNotShieldAFailingProvid
 
 	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
 		t.Errorf("circuit = %v, want open: an empty delta must not shield a provider that failed", got)
-	}
-}
-
-// The observers run before this branch on a chunk that decoded PARTLY, so every
-// member that did decode has already been counted. Adding the raw delta on top
-// billed the same content twice, and a tool-call frame many times over.
-//
-// Read by comparison rather than against a number: the same answer, once in a
-// frame that types cleanly and once in a frame that does not, must cost the
-// caller the same.
-func TestHandleStreamingResponse_UntypeableFrameIsMeteredOnce(t *testing.T) {
-	const answer = "0123456789012345678901234567890123456789"
-	meter := func(t *testing.T, payload string) int {
-		t.Helper()
-		vkRepo := &mockVirtualKeyRepo{}
-		h := newIntegrationHandler()
-		t.Cleanup(func() { stopUnitHandler(h) })
-		h.virtualKeyRepo = vkRepo
-
-		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")), Header: make(http.Header)}
-		logData := newErrorFrameLog()
-		logData.promptTextBytes = 40
-		req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
-		h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", vkHash: "test-hash"})
-		return singleAddTokens(t, vkRepo)
-	}
-
-	typed := meter(t, `{"choices":[{"delta":{"content":"`+answer+`"}}]}`)
-	untypeable := meter(t, `{"choices":[{"delta":{"content":"`+answer+`"},"finish_reason":0}]}`)
-
-	if typed == 0 {
-		t.Fatal("the typed control metered nothing, so there is nothing to compare against")
-	}
-	if untypeable != typed {
-		t.Errorf("the same answer cost %d tokens typed and %d untypeable", typed, untypeable)
 	}
 }
 
@@ -1000,5 +873,66 @@ func TestShapeError_RequiresAJSONObject(t *testing.T) {
 				t.Errorf("shapeError(%s) non-nil = %v, want %v", tc.data, got, tc.want)
 			}
 		})
+	}
+}
+
+// A part array of plain TEXT hides nothing, so a strip_reasoning key still gets
+// it. Rejecting every content that is not a string deleted the whole answer for
+// those keys on any content-as-parts stream — reinstating, for one class of key,
+// the exact loss this change exists to stop.
+func TestHandleStreamingResponse_StripReasoningKeepsPlainTextParts(t *testing.T) {
+	for _, payload := range []string{
+		`{"choices":[{"delta":{"content":[{"type":"text","text":"CONTENTMARKER"}]}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"text","text":"CONTENTMARKER"},{"type":"text","text":" and more"}]}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"output_text","text":"CONTENTMARKER"}]},"finish_reason":0}]}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if !strings.Contains(w.Body.String(), "CONTENTMARKER") {
+				t.Errorf("a text-only part array was deleted for a strip_reasoning key: %q", w.Body.String())
+			}
+		})
+	}
+}
+
+// And a frame it withheld is not one the caller can be billed for. The
+// observers run before the drop and counted whatever decoded, so without
+// rolling that back a strip_reasoning caller paid for a stream it never saw.
+func TestHandleStreamingResponse_ADroppedFrameIsNotBilled(t *testing.T) {
+	vkRepo := &mockVirtualKeyRepo{}
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	h.virtualKeyRepo = vkRepo
+
+	// Readable content plus reasoning, on a frame that cannot be typed: the
+	// content is counted by the observers, then the frame is withheld.
+	payload := `{"choices":[{"delta":{"content":"` + strings.Repeat("x", 200) + `","reasoning":"THINKING"},"finish_reason":0}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")), Header: make(http.Header)}
+	logData := newErrorFrameLog()
+	logData.promptTextBytes = 40
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+	w := httptest.NewRecorder()
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", vkHash: "test-hash"})
+
+	if strings.Contains(w.Body.String(), "THINKING") {
+		t.Fatalf("the frame was not withheld, so there is nothing to assert: %q", w.Body.String())
+	}
+	if got := singleAddTokens(t, vkRepo); got != 0 {
+		t.Errorf("billed %d tokens for a frame the caller never received", got)
 	}
 }

@@ -427,10 +427,16 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				// as a plain string, so a content-as-parts delta looks empty to it
 				// and becomes a keep-alive, taking the answer with it.
 				//
-				// Only a frame that actually carries reasoning is dropped. Gating
+				// Only a frame that might be hiding reasoning is dropped. Gating
 				// on untypeable alone deleted the answer out of an ordinary
-				// content delta whose finish_reason happened to be a number, for
-				// no gain: there was nothing there to strip.
+				// content delta whose finish_reason happened to be a number, and
+				// gating on "content is not a plain string" deleted it out of
+				// every content-as-parts frame — which is the loss this whole
+				// change exists to stop, reinstated for one class of key.
+				// The observers ran before this branch and counted whatever
+				// decoded. The caller is not receiving this frame, so it is not
+				// delivery and must not be billed: roll that count back.
+				st.deliveredBytes = deliveredBefore
 				st.unparsedChunks++
 				debuglog.Warn("proxy: dropping a chunk shape this gateway cannot strip reasoning from",
 					"model", logData.modelID, "provider", logData.providerName,
@@ -439,16 +445,25 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				sink.swallowBlank = true
 				return false
 			}
-			// Replaces the observer's count rather than adding to it. The
-			// observers ran above, on a chunk that decoded PARTLY — so every
-			// member that did decode has already been added, and adding the raw
-			// delta on top billed the same content twice (and a tool-call frame
-			// many times over).  The raw reading is the complete one for this
-			// frame, so it stands alone.
+			// deliveredBytes is deliberately left exactly as the observers set
+			// it: this gateway meters what it could READ and does not guess at
+			// the rest.
 			//
-			// choices[0] only, like the transforms: an n>1 stream whose frame is
-			// also untypeable is metered from its first choice.
-			st.deliveredBytes = deliveredBefore + untypedDeltaBytes(untypedDelta.delta)
+			// Every member of this frame that decoded has already been counted
+			// correctly, across every choice. What is missing is the member that
+			// did not, and four attempts at estimating it were wrong in four
+			// different directions — the raw member length billed a tool-call
+			// frame nine times over, and an empty content-as-parts opener
+			// ({"content":[{"type":"text","text":""}]}) counted as delivery,
+			// which credited the circuit breaker and suppressed the error charge
+			// so a provider failing every request could never open its circuit.
+			//
+			// So an answer delivered ONLY in a shape this gateway cannot read is
+			// currently unbilled when the provider also reports no usage. That is
+			// a revenue gap, and it is the safe direction: the caller receives
+			// content master deleted outright. Reading the text out of a part
+			// array is the job of the content-as-parts work, and it is queued
+			// with it rather than guessed at here.
 			// Counted like any frame this gateway could not read: the end-of-stream
 			// verdict must not conclude the provider sent nothing on the strength
 			// of frames it could not see into (judgeStreamForBreaker reads
@@ -571,7 +586,7 @@ forwardUntypeable:
 }
 
 // untypedFrameResistsStripping reports whether a delta this gateway could not
-// type might carry reasoning it cannot remove — in which case the frame is
+// type might be hiding reasoning it cannot remove — in which case the frame is
 // dropped rather than forwarded to a key that asked for reasoning to be hidden.
 //
 // Two ways it can. A reasoning member that CARRIES something, by the same rule
@@ -580,92 +595,47 @@ forwardUntypeable:
 // "reasoning_details":[] on its non-reasoning deltas, which the OpenRouter
 // family does.
 //
-// Or a content member that is not a plain string. Reasoning arrives inside a
+// Or a content part this gateway cannot vouch for. Reasoning arrives inside a
 // part array as {"type":"thinking",…} on exactly the Anthropic-shaped relays
-// that make a frame untypeable in the first place, so a content array cannot be
-// read as text-only — and computeStripReasoning would not have caught it either,
-// since it only removes the three named members.
+// that make a frame untypeable in the first place, and computeStripReasoning
+// would not catch it either, since it only removes the three named members. But
+// a part array of plain TEXT hides nothing, and rejecting every content that is
+// not a string dropped those too — deleting the whole answer for a
+// strip_reasoning key on any content-as-parts stream, which is the loss this
+// change exists to stop. So the part types are read, and an unrecognised one is
+// what makes a frame unstrippable.
 func untypedFrameResistsStripping(delta map[string]json.RawMessage) bool {
 	for _, key := range []string{"reasoning_content", "reasoning_details", "reasoning"} {
 		if util.ValueCarries(delta[key]) {
 			return true
 		}
 	}
-	if raw, ok := delta["content"]; ok {
-		var text string
-		if json.Unmarshal(raw, &text) != nil {
+	raw, ok := delta["content"]
+	if !ok {
+		return false
+	}
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return false
+	}
+	var parts []struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(raw, &parts) != nil {
+		// A content shape that is neither a string nor a list of parts. Nothing
+		// here can say what is in it.
+		return true
+	}
+	for _, part := range parts {
+		switch part.Type {
+		case "text", "output_text", "input_text":
+		default:
+			// Including a part with no type at all: an unnamed part is not one
+			// this gateway can promise carries no reasoning.
 			return true
 		}
 	}
 	return false
-}
-
-// untypedDeltaBytes counts what the model produced in a delta this gateway could
-// not type, for the usage estimate that runs when a provider reports no usage at
-// all — which on the streaming API is the common case, because usage there is
-// opt-in.
-//
-// The text is read out of the members that carry it rather than measured as raw
-// JSON, because this number debits a customer's quota and TPM bucket. Streaming
-// deltas are a few tokens each, so the part wrapper around them is most of the
-// bytes: [{"type":"text","text":"hello"}] is 32 bytes for 5 characters, and
-// billing the wrapper overcharges by six to eight times on a real stream. A
-// member whose shape is unreadable even here falls back to its raw length, which
-// is what deliveredBytes already does for reasoning_details.
-//
-// Zero is what this was, and it is the worse error in the other direction: a
-// provider sending content as parts and no usage chunk delivered a full answer
-// while the caller was debited for none of it.
-func untypedDeltaBytes(delta map[string]json.RawMessage) int {
-	total := 0
-	for key, raw := range delta {
-		switch key {
-		// Not output: a role marker, and the ids/indices/types that address a
-		// tool call rather than carrying its arguments.
-		case "role", "index", "id", "type":
-			continue
-		}
-		// A member that carries nothing is not output, by the rule the rest of
-		// the gateway reads an error member with. Measuring raw length instead
-		// made "" two bytes and null four, which is delivery to everything
-		// downstream: the opening {"role":"assistant","content":""} chunk that
-		// almost every stream sends then credited the circuit breaker, and a
-		// provider erroring on every request could never open its circuit.
-		if !util.ValueCarries(raw) {
-			continue
-		}
-		switch key {
-		case "content", "reasoning", "reasoning_content":
-			total += deltaTextBytes(raw)
-		default:
-			total += len(raw)
-		}
-	}
-	return total
-}
-
-// deltaTextBytes reads the model's text out of a member that carries it, whether
-// the provider wrote a plain string or the array of parts the OpenAI schema now
-// permits. Anything else is measured whole, which is the honest answer for a
-// shape neither reading covers.
-func deltaTextBytes(raw json.RawMessage) int {
-	var text string
-	if json.Unmarshal(raw, &text) == nil {
-		return len(text)
-	}
-	var parts []struct {
-		Text string `json:"text"`
-	}
-	if json.Unmarshal(raw, &parts) == nil {
-		total := 0
-		for _, part := range parts {
-			total += len(part.Text)
-		}
-		if total > 0 {
-			return total
-		}
-	}
-	return len(raw)
 }
 
 // jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
