@@ -177,6 +177,23 @@ var (
 	reqTodayMu      sync.Mutex
 )
 
+// requestsTodayGroup coalesces concurrent cold counts for the same owner and
+// window. Unlike the cache it is keyed on the caller-controlled `since` too, but
+// singleflight drops each entry as its flight ends, so nothing accumulates.
+var requestsTodayGroup singleflight.Group
+
+// cachedRequestsToday returns this owner's count for sinceKey while it is inside
+// the TTL.
+func cachedRequestsToday(ownerScope, sinceKey string) (int64, bool) {
+	reqTodayMu.Lock()
+	defer reqTodayMu.Unlock()
+	e, ok := reqTodayByOwner[ownerScope]
+	if ok && e.since == sinceKey && time.Since(e.at) < requestsTodayTTL {
+		return e.val, true
+	}
+	return 0, false
+}
+
 // resetRequestsTodayCache drops every owner's cached count.
 func resetRequestsTodayCache() {
 	reqTodayMu.Lock()
@@ -249,12 +266,39 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 // `since` parameter alone, so a scoped count living inside it would be computed
 // for whichever caller missed the cache first and then served to everyone else —
 // which is the leak this scoping exists to close, arriving by another route.
+//
+// Being outside that cache means it is also outside systemCollectGroup and the
+// detached context collect runs under, and it must not lose either. Both are
+// restored here rather than given up:
+//
+//   - Coalesced on owner+since, because a cold entry no longer serialises behind
+//     the payload collect. Without this a burst of pollers sharing an identity
+//     each issued their own COUNT, and the scoped predicate is DEARER than the
+//     unscoped one it replaced: a correlated subquery over virtual_keys, whose
+//     request_logs.virtual_key_id is deliberately unindexed (migration 067).
+//   - Detached and bounded, for the reason collect states above: a caller that
+//     gives up early must not abort the query, or the entry is never cached and
+//     the next caller pays for the same seq-scan again. A cancelled query also
+//     returns zero, and a fabricated zero under a 200 is worse than a stale one.
 func (h *SystemHandler) attachRequestsToday(r *http.Request, stats *SystemStats, sinceParam string) {
 	since, err := sinceTime(sinceParam)
 	if err != nil {
 		return // collect already rejected it; a cache hit cannot reach here with a bad value
 	}
-	stats.App.RequestsToday = h.requestsSince(r.Context(), since, sinceParam, ownerScopeFromIdentity(r))
+	ownerScope := ownerScopeFromIdentity(r)
+	if v, ok := cachedRequestsToday(ownerScope, sinceParam); ok {
+		stats.App.RequestsToday = v
+		return
+	}
+	// The key carries the owner so two identities never share a flight — the
+	// same reason the cache is keyed on it.
+	v, _, _ := requestsTodayGroup.Do(ownerScope+"\x00"+sinceParam, func() (any, error) {
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), systemCollectTimeout)
+		defer cancel()
+		return h.requestsSince(cctx, since, sinceParam, ownerScope), nil
+	})
+	n, _ := v.(int64)
+	stats.App.RequestsToday = n
 }
 
 // cachedSystemFor returns a copy of the cached payload for `since` when it is
@@ -273,19 +317,18 @@ func writeSystemJSON(w http.ResponseWriter, stats *SystemStats) {
 	writeJSON(w, stats)
 }
 
-// requestsSince returns the number of request_logs rows at or after `since`,
-// cached for requestsTodayTTL under sinceKey. A query error yields 0 and is not
-// cached, so a transient failure is retried on the next collect rather than
-// pinned. Keeping this COUNT off every collect is what stops a stale-planner-stats
-// seq-scan on a freshly restarted primary from tipping the whole status endpoint
-// past a caller's timeout.
+// requestsSince returns the number of request_logs rows at or after `since` that
+// ownerScope may see, cached for requestsTodayTTL under owner + sinceKey. A query
+// error yields 0 and is not cached, so a transient failure is retried on the next
+// request rather than pinned. Running this COUNT at most once per window per
+// owner is what stops a stale-planner-stats seq-scan on a freshly restarted
+// primary from tipping the whole status endpoint past a caller's timeout;
+// attachRequestsToday adds the coalescing and the detached context that keep
+// that true under a burst.
 func (h *SystemHandler) requestsSince(ctx context.Context, since time.Time, sinceKey, ownerScope string) int64 {
-	reqTodayMu.Lock()
-	if e, ok := reqTodayByOwner[ownerScope]; ok && e.since == sinceKey && time.Since(e.at) < requestsTodayTTL {
-		reqTodayMu.Unlock()
-		return e.val
+	if v, ok := cachedRequestsToday(ownerScope, sinceKey); ok {
+		return v
 	}
-	reqTodayMu.Unlock()
 
 	// rl is the alias ownerFilterFragment writes its predicate against. An empty
 	// ownerScope (an admin) yields no fragment and the fleet-wide count; a

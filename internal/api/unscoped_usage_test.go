@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -118,16 +119,31 @@ func TestGetSystem_RequestsTodayIsScopedToTheCaller(t *testing.T) {
 	}
 
 	mineID, theirsID := mkUser("owner-one"), mkUser("owner-two")
-	// Keyless rows carry owner_user_id directly (migration 067): one for the
-	// first owner, two for the second.
-	for _, owner := range []string{mineID, theirsID, theirsID} {
+
+	// ownerFilterFragment resolves TWO disjoint row shapes and both need
+	// covering, or half the predicate is unpinned here: keyless rows (dashboard
+	// chat/arena) carry owner_user_id directly, while keyed rows resolve through
+	// the virtual key's CURRENT owner so reassigning a key moves its history.
+	keyID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO virtual_keys (id, name, key_hash, key_preview, owner_user_id)
+		VALUES ($1, 'scoped-key', $2, 'sk-...aa', $3)`,
+		keyID, uuid.NewString(), mineID); err != nil {
+		t.Fatalf("seed key: %v", err)
+	}
+	seed := func(owner any, vk any) {
+		t.Helper()
 		if _, err := pool.Exec(ctx, `
-			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, failover_attempt, state, endpoint_type, owner_user_id, created_at)
-			VALUES ($1, 'm', $2, false, 'k', 0, 'completed', 'chat', $3, NOW())`,
-			uuid.New(), uuid.NewString()[:16], owner); err != nil {
+			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, failover_attempt, state, endpoint_type, owner_user_id, virtual_key_id, created_at)
+			VALUES ($1, 'm', $2, false, 'k', 0, 'completed', 'chat', $3, $4, NOW())`,
+			uuid.New(), uuid.NewString()[:16], owner, vk); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
+	seed(mineID, nil)   // keyless, first owner
+	seed(nil, keyID)    // KEYED, first owner via the key
+	seed(theirsID, nil) // keyless, second owner
+	seed(theirsID, nil)
 
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
@@ -153,13 +169,97 @@ func TestGetSystem_RequestsTodayIsScopedToTheCaller(t *testing.T) {
 	theirs := get(login(theirsID))
 	all := get(envAdminToken)
 
-	if mine != 1 {
-		t.Errorf("first owner saw requests_today = %d, want 1: the count is not scoped", mine)
+	// One keyless plus one keyed: a predicate that lost either disjunct reports 1.
+	if mine != 2 {
+		t.Errorf("first owner saw requests_today = %d, want 2 (one keyless + one keyed): the count is not scoped", mine)
 	}
 	if theirs != 2 {
 		t.Errorf("second owner saw requests_today = %d, want 2: a cached count leaked across callers", theirs)
 	}
-	if all != 3 {
-		t.Errorf("admin saw requests_today = %d, want 3 (the fleet total)", all)
+	if all != 4 {
+		t.Errorf("admin saw requests_today = %d, want 4 (the fleet total)", all)
+	}
+}
+
+// Moving requests_today out of the shared payload moved it out from behind
+// systemCollectGroup, so a burst of pollers sharing an identity each issued
+// their own COUNT where the payload collect had coalesced them to one. That
+// matters more than it did before the scoping, because the scoped predicate is
+// dearer than the unscoped one it replaced: a correlated subquery over
+// virtual_keys, whose request_logs.virtual_key_id is deliberately unindexed.
+//
+// Connection acquisitions are the observable proxy: every query takes one, so a
+// coalesced burst costs about one and an uncoalesced burst costs about N.
+func TestAttachRequestsToday_CoalescesConcurrentColdCounts(t *testing.T) {
+	// Not parallel: reads a pool-wide counter and the package-level count cache.
+	h, _, mkUser := usageScopeHarness(t)
+	sh := NewSystemHandler(h.Pool().Pool(), h.settingsRepo)
+	resetRequestsTodayCache()
+
+	ownerID := mkUser("burst-owner")
+	uid := uuid.MustParse(ownerID)
+	id := &user.Identity{Role: user.RoleUser, UserID: &uid}
+	since := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+
+	const callers = 30
+	before := sh.pool.Stat().AcquireCount()
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodGet, "/system/?since="+since, http.NoBody)
+			req = req.WithContext(user.WithIdentity(req.Context(), id))
+			var stats SystemStats
+			sh.attachRequestsToday(req, &stats, since)
+		}()
+	}
+	wg.Wait()
+	acquired := sh.pool.Stat().AcquireCount() - before
+
+	// Generous: the point is one-ish versus thirty-ish, not an exact number.
+	if acquired > callers/3 {
+		t.Errorf("%d concurrent cold counts took %d connection acquisitions, want ~1: the burst was not coalesced", callers, acquired)
+	}
+}
+
+// The count must not run on the caller's cancellable context.
+//
+// collect is deliberately detached (context.WithoutCancel) so a caller that
+// gives up early cannot abort the work and leave the cache unwritten — the
+// comment above it says so. Attaching this field per caller put it back on the
+// request context, where an aborted fetch killed the query, cached nothing, and
+// still answered 200 with a fabricated requests_today of 0.
+func TestAttachRequestsToday_SurvivesACancelledCaller(t *testing.T) {
+	h, _, mkUser := usageScopeHarness(t)
+	pool := h.Pool().Pool()
+	sh := NewSystemHandler(pool, h.settingsRepo)
+	resetRequestsTodayCache()
+	if _, err := pool.Exec(context.Background(), `DELETE FROM request_logs`); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+
+	ownerID := mkUser("cancelled-caller")
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, failover_attempt, state, endpoint_type, owner_user_id, created_at)
+		VALUES ($1, 'm', $2, false, 'k', 0, 'completed', 'chat', $3, NOW())`,
+		uuid.New(), uuid.NewString()[:16], ownerID); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	uid := uuid.MustParse(ownerID)
+	id := &user.Identity{Role: user.RoleUser, UserID: &uid}
+	since := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // the caller has already gone
+	req := httptest.NewRequest(http.MethodGet, "/system/?since="+since, http.NoBody)
+	req = req.WithContext(user.WithIdentity(ctx, id))
+
+	var stats SystemStats
+	sh.attachRequestsToday(req, &stats, since)
+
+	if stats.App.RequestsToday != 1 {
+		t.Errorf("requests_today = %d, want 1: the count ran on the caller's cancelled context", stats.App.RequestsToday)
 	}
 }
