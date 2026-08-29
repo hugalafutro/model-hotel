@@ -14,7 +14,7 @@ import (
 )
 
 // isTerminalLogState reports whether a request-log state is one a row can end
-// on. A terminal update is the last thing that will ever touch its row, so it is
+// on. Nothing touches the row after a terminal update lands, so that update is
 // the one that must not lose the race with the INSERT it is updating.
 func isTerminalLogState(state string) bool {
 	return state == "completed" || state == "failed"
@@ -26,11 +26,10 @@ type updateLogOption struct {
 	// Used for all log updates that run before the response is written to the
 	// client, to avoid adding up to 5s INSERT-wait latency under DB stress.
 	//
-	// Honoured for interim states only. A terminal state overrides it in
-	// updateRequestLog, because an UPDATE that wins the race against the async
-	// INSERT hits 0 rows and strands the request at 'pending' — see the comment
-	// there for why the "the INSERT has the entire provider round-trip to
-	// complete" reasoning does not hold on the paths that strand.
+	// It is honoured as given: nothing waits before the first UPDATE. A terminal
+	// update that then finds no row waits and retries once — see
+	// updateRequestLog — so the wait is paid only where skipping it would have
+	// stranded the request at 'pending'.
 	skipWaitForInsert bool
 }
 
@@ -178,61 +177,11 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	}
 }
 
-func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
-	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
-	// not called), there is no row to update. An empty string is not a valid
-	// UUID and would cause "invalid input syntax for type uuid" errors.
-	// Note: if insertRequestLogAsync was called but the async INSERT failed,
-	// the ID will still be set (assigned synchronously), and the UPDATE will
-	// simply affect 0 rows (logged as a warning below).
-	if logEntry.id == "" {
-		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
-		return
-	}
-
-	// Skip DB operations when no pool is available (unit tests without DB).
-	if h.dbPool == nil {
-		return
-	}
-
-	// Determine if we should skip WaitForInsert (fire-and-forget).
-	// The interim "streaming" state update runs on the hot path before the
-	// first streamed byte — blocking on the DB INSERT can delay the client
-	// by up to waitInsertTimeout (5s). Terminal states (completed/failed)
-	// always wait to guarantee the row exists for the final UPDATE.
-	skipWait := false
-	for _, o := range opts {
-		if o.skipWaitForInsert {
-			skipWait = true
-		}
-	}
-
-	// That last sentence is an invariant, so it is decided HERE rather than by
-	// each caller remembering: every terminal caller passed the flag, and a
-	// terminal UPDATE that beat its own INSERT hit 0 rows and left the request
-	// at 'pending' for ever — no status, no duration, no error, and a row the
-	// dashboard shows as still in flight.
-	//
-	// The flag's reasoning is sound for an interim update and false for a
-	// terminal one on the paths that need it most. "The INSERT has the entire
-	// provider round-trip to complete" is true of a request that reached a
-	// provider; a request that failed before one — an unknown model, an invalid
-	// model format, a rejected key — updates microseconds after the insert is
-	// queued, so for those it was not a low-probability race but the normal
-	// case. And those are exactly the rows whose error is the only thing worth
-	// reading.
-	//
-	// The cost where the premise did hold is nil: the insert is long finished by
-	// then, so the wait returns at once. WaitForInsert is bounded either way.
-	if isTerminalLogState(logEntry.state) {
-		skipWait = false
-	}
-
-	if !skipWait {
-		// Ensure the async INSERT has completed before we try to UPDATE the row.
-		h.WaitForInsert(logEntry)
-	}
-
+// execRequestLogUpdate runs the terminal/interim UPDATE and reports how many
+// rows it touched. Separated from updateRequestLog because that function runs it
+// twice: a row count of zero means the UPDATE arrived before its own INSERT, and
+// the retry has to send exactly the same statement.
+func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) {
 	var providerID any
 	if logEntry.providerID != uuid.Nil {
 		providerID = logEntry.providerID
@@ -243,7 +192,6 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	if logEntry.errorKind != "" {
 		errKind = string(logEntry.errorKind)
 	}
-	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -287,13 +235,78 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		logEntry.resolvedModelID, logEntry.cacheHits, errKind,
 	)
 	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
+	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
+	// not called), there is no row to update. An empty string is not a valid
+	// UUID and would cause "invalid input syntax for type uuid" errors.
+	// Note: if insertRequestLogAsync was called but the async INSERT failed,
+	// the ID will still be set (assigned synchronously), and the UPDATE will
+	// simply affect 0 rows (logged as a warning below).
+	if logEntry.id == "" {
+		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
+		return
+	}
+
+	// Skip DB operations when no pool is available (unit tests without DB).
+	if h.dbPool == nil {
+		return
+	}
+
+	// The interim "streaming" state update runs on the hot path before the first
+	// streamed byte, and blocking it on the DB INSERT delays the client by up to
+	// waitInsertTimeout (5s). That is what the flag is for, and it is honoured as
+	// given: nothing waits before the first UPDATE.
+	skipWait := false
+	for _, o := range opts {
+		if o.skipWaitForInsert {
+			skipWait = true
+		}
+	}
+
+	if !skipWait {
+		// Ensure the async INSERT has completed before we try to UPDATE the row.
+		h.WaitForInsert(logEntry)
+	}
+
+	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
+	rows, err := h.execRequestLogUpdate(logEntry)
+
+	// Nothing touches the row after a terminal update, so a terminal update that
+	// loses the race with its own INSERT hits 0 rows and leaves the request at
+	// 'pending': no status, no duration, no error, and a row the dashboard shows
+	// as still in flight until a cleanup pass relabels it "request interrupted
+	// (stale)" up to half an hour later.
+	//
+	// The flag's reasoning — "the INSERT has the entire provider round-trip to
+	// complete" — holds for a request that reached a provider and fails for one
+	// that did not. An unknown model, an invalid model format or a rejected key
+	// updates microseconds after the insert is queued, so for those it was never
+	// a low-probability race; it was the normal case, and those are exactly the
+	// rows whose error message is the only thing worth reading.
+	//
+	// Waiting up front would fix that and charge every request for it, because
+	// the terminal update runs BEFORE the response body is written. So the wait
+	// is paid where it buys something instead: 0 rows IS the race, and from there
+	// the row either appears while we wait or the INSERT itself failed, which no
+	// amount of waiting up front would have repaired either.
+	if err == nil && rows == 0 && skipWait && isTerminalLogState(logEntry.state) {
+		h.WaitForInsert(logEntry)
+		rows, err = h.execRequestLogUpdate(logEntry)
+	}
+
+	if err != nil {
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
-	} else if tag.RowsAffected() == 0 {
+	} else if rows == 0 {
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
 	}
 
 	// Publish request lifecycle event for terminal states
-	if logEntry.state == "completed" || logEntry.state == "failed" {
+	if isTerminalLogState(logEntry.state) {
 		// Single Prometheus recording seam: every terminal request passes
 		// through here exactly once with its provider/model/status/tokens.
 		// Validation failures carry the raw, client-supplied model string, which
