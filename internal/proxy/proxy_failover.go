@@ -190,6 +190,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
 			debuglog.Warn("proxy: responses api translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			h.chargeBreaker(st, candidate, "upstream body could not be translated")
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
 			return outcomeFailover
@@ -201,6 +202,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
 			debuglog.Warn("proxy: gemini translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			h.chargeBreaker(st, candidate, "upstream body could not be translated")
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
 			return outcomeFailover
@@ -212,6 +214,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
 			debuglog.Warn("proxy: anthropic egress translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			h.chargeBreaker(st, candidate, "upstream body could not be translated")
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
 			return outcomeFailover
@@ -241,6 +244,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		h.recordAnswerOutcome(st, candidate, logData)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
 		}
@@ -248,6 +252,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	h.recordAnswerOutcome(st, candidate, logData)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
@@ -728,47 +733,4 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// Log upstream response metadata for debugging.
 	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
 	return resp, true
-}
-
-// recordBreakerOutcome records the circuit-breaker result for a completed
-// upstream attempt (phase D8). It is a no-op when the breaker is disabled.
-//
-// For a failover-eligible status it applies the breakerRecordAction mapping
-// (failure / no-op / success). For a non-eligible status it records a success,
-// except for a streaming 200 — there the success is deferred until the TTFT
-// probe confirms a first token, so it must not be recorded here.
-func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool) {
-	if !st.circuitBreakerEnabled {
-		return
-	}
-	if isFailoverEligible {
-		// Determine breaker action from status code.
-		// See breakerRecordAction for the full status→action mapping.
-		switch breakerRecordAction(statusCode) {
-		case breakerActionFailure:
-			// The hedged probe path reaches this with no other log of the
-			// upstream status, so without this line a breaker opening on
-			// repeated 5xx has no recorded cause anywhere.
-			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-		case breakerActionNoOp:
-			// Model-specific client error (404/499): provider is alive
-			// but rejecting this request. No-op for the breaker — neither
-			// failure nor success. Recording success would erase real 5xx
-			// failure history (resetting consecutiveFails in Closed state)
-			// and could prematurely close a half-open circuit based on a
-			// model-specific error that says nothing about provider health.
-		case breakerActionSuccess:
-			// Not reached for failover-eligible codes: shouldFailover only
-			// returns true for {5xx,429,401,403,402,404,499}, all of which map
-			// to failure or no-op above. Retained so the switch stays exhaustive
-			// over breakerAction — if the shouldFailover/breakerRecordAction
-			// mappings ever diverge, a success is recorded rather than dropped.
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-		}
-		return
-	}
-	if !st.isStreaming || statusCode != http.StatusOK {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-	}
 }
