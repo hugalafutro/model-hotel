@@ -1,0 +1,69 @@
+package gemini
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+// A token count written in a spelling other than the plain integer the schema
+// asks for is still a count — quoted, or carrying a fraction because a relay did
+// its arithmetic in floating point. Here it does not merely blank the usage: the
+// counts sit inside the response object, so the whole translation fails and the
+// caller loses the answer the model already produced. Since #812 it also charges
+// the provider's circuit breaker for a body it in fact answered.
+func TestBuildChatCompletion_CountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		usage string
+	}{
+		{"plain integers", `{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}`},
+		{"quoted", `{"promptTokenCount":"12","candidatesTokenCount":"3","totalTokenCount":"15"}`},
+		{"floating point", `{"promptTokenCount":12.0,"candidatesTokenCount":3.0,"totalTokenCount":15.0}`},
+		{"mixed", `{"promptTokenCount":"12","candidatesTokenCount":3.0,"totalTokenCount":15}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":` + tc.usage + `}`
+			out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
+			if err != nil {
+				t.Fatalf("a count spelling cost the caller the whole answer: %v", err)
+			}
+			if !strings.Contains(string(out), "hello") {
+				t.Errorf("the answer was lost: %s", out)
+			}
+			var got struct {
+				Usage struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+				} `json:"usage"`
+			}
+			if err := json.Unmarshal(out, &got); err != nil {
+				t.Fatalf("re-encode did not decode: %v", err)
+			}
+			if got.Usage.PromptTokens != 12 || got.Usage.CompletionTokens != 3 {
+				t.Errorf("metered %d/%d, want 12/3", got.Usage.PromptTokens, got.Usage.CompletionTokens)
+			}
+		})
+	}
+}
+
+// A usage member that is not a count in any spelling costs the usage and nothing
+// else: the answer is what the caller came for.
+func TestBuildChatCompletion_UnreadableUsageKeepsTheAnswer(t *testing.T) {
+	t.Parallel()
+	for _, usage := range []string{`{"promptTokenCount":"lots"}`, `{"promptTokenCount":[12]}`, `[]`, `"none"`} {
+		t.Run(usage, func(t *testing.T) {
+			t.Parallel()
+			body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":` + usage + `}`
+			out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
+			if err != nil {
+				t.Fatalf("an unreadable usage member cost the caller the answer: %v", err)
+			}
+			if !strings.Contains(string(out), "hello") {
+				t.Errorf("the answer was lost: %s", out)
+			}
+		})
+	}
+}

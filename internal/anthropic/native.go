@@ -57,12 +57,22 @@ type ResponseUsage struct {
 // internal/anthropicegress.translateUsage), so both Anthropic paths agree.
 func ParseResponseUsage(body []byte) ResponseUsage {
 	var resp struct {
-		Usage antUsage `json:"usage"`
+		Usage json.RawMessage `json:"usage"`
 	}
-	if json.Unmarshal(body, &resp) != nil {
+	if json.Unmarshal(body, &resp) != nil || len(resp.Usage) == 0 {
 		return ResponseUsage{}
 	}
-	return resp.Usage.summary()
+	// The usage member is lifted out before its counts are read: util.DecodeCounts
+	// re-parses the document it is given on each coercion pass, and a message body
+	// carries the whole answer. A count is a count however the provider spelled it
+	// — quoted, or with a fraction on it because a relay did its arithmetic in
+	// floating point — and a plain int field met neither, metering the request at
+	// zero.
+	var usage antUsage
+	if err := util.DecodeCounts(resp.Usage, &usage); err != nil {
+		return ResponseUsage{}
+	}
+	return usage.summary()
 }
 
 // antUsage is an Anthropic usage block. The cache fields are absent from

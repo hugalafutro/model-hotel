@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TranslateResponsesToChat converts a non-streaming Responses API response
@@ -104,8 +105,15 @@ func chatCompletionID(respID string) string {
 // translateUsage maps Responses usage to the chat usage block the metering
 // pipeline reads (prompt/completion totals plus reasoning and cached-token
 // details).
-func translateUsage(u *Usage) *chatUsage {
-	if u == nil {
+func translateUsage(raw json.RawMessage) *chatUsage {
+	if len(raw) == 0 {
+		return nil
+	}
+	// util.DecodeCounts, and a failure yields no usage rather than no answer: a
+	// count is a count however the provider spelled it, and a member this
+	// package cannot read at all is still only the usage.
+	var u Usage
+	if err := util.DecodeCounts(raw, &u); err != nil {
 		return nil
 	}
 	out := &chatUsage{

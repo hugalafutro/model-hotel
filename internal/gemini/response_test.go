@@ -170,10 +170,14 @@ func TestBuildChatCompletion_DecodeErrorOmitsPayload(t *testing.T) {
 			secret:  "Kohlrabi",
 		},
 		{
+			// Not a usage member any more: those are decoded on their own and
+			// tolerate a count's spelling, so one is no longer a decode error at
+			// all. candidates is, and the guarantee under test is the same —
+			// the message names the fault, never the payload.
 			name:    "type error",
-			payload: `{"usageMetadata":{"promptTokenCount":8675309.42}}`,
+			payload: `{"candidates":"Kohlrabi8675309"}`,
 			want:    "unexpected JSON value at byte ",
-			secret:  "8675309.42",
+			secret:  "Kohlrabi8675309",
 		},
 	}
 	for _, tc := range cases {

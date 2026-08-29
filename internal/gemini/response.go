@@ -8,13 +8,21 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Gemini generateContent response shape ---
 
 type genResponse struct {
-	Candidates     []genCandidate `json:"candidates"`
-	UsageMetadata  *genUsage      `json:"usageMetadata"`
+	Candidates []genCandidate `json:"candidates"`
+	// Held raw and decoded on its own, so a usage block this package cannot read
+	// costs the usage and nothing else. Decoded inline it was part of the
+	// response object, and one count the provider spelled differently — quoted,
+	// or with a fraction on it because a relay did its arithmetic in floating
+	// point — failed the whole translation and cost the caller the answer the
+	// model had already produced. Since #812 it charged the provider's circuit
+	// breaker for it too.
+	UsageMetadata  json.RawMessage `json:"usageMetadata"`
 	PromptFeedback *struct {
 		BlockReason string `json:"blockReason"`
 	} `json:"promptFeedback"`
@@ -207,8 +215,15 @@ func mapFinishReason(reason string, hasToolCalls bool) string {
 // billed output on Gemini, so completion_tokens includes them (this is what
 // MH's metering should count) with the split surfaced in
 // completion_tokens_details.reasoning_tokens, matching OpenAI's convention.
-func translateUsage(u *genUsage) *oaiUsage {
-	if u == nil {
+func translateUsage(raw json.RawMessage) *oaiUsage {
+	if len(raw) == 0 {
+		return nil
+	}
+	// util.DecodeCounts, and a failure here yields no usage rather than no
+	// answer: a count is a count however the provider spelled it, and a member
+	// this package cannot read at all is still only the usage.
+	var u genUsage
+	if err := util.DecodeCounts(raw, &u); err != nil {
 		return nil
 	}
 	out := &oaiUsage{

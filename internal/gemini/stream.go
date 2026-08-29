@@ -25,7 +25,9 @@ type StreamTranslator struct {
 	blocked      bool   // promptFeedback.blockReason seen
 	finishReason string // last Gemini finishReason observed
 	toolCalls    int    // tool_calls emitted so far (drives index + ids)
-	usage        *genUsage
+	// Raw, for the reason given on genResponse.UsageMetadata: a count spelled
+	// differently must not cost the caller the stream.
+	usage json.RawMessage
 }
 
 // NewStreamTranslator builds a translator for one response. id, model and
@@ -103,7 +105,7 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonfault.Describe(err, len(chunkJSON)))
 	}
 
-	if chunk.UsageMetadata != nil {
+	if len(chunk.UsageMetadata) > 0 {
 		t.usage = chunk.UsageMetadata
 	}
 	// A blocked prompt streams as a candidate-less chunk with promptFeedback;
