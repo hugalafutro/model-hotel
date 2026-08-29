@@ -42,21 +42,39 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	// P1-C: a data line after "event: error" is an Anthropic error payload,
 	// wrapped as {"type":"error","error":{...}} even when it doesn't start with
 	// {"error". Extract the message regardless.
+	//
+	// The member is read with the rule the rest of the gateway shares, not with a
+	// private object type one struct away from it. Typed as an object, any other
+	// shape failed the whole decode and this branch fell silent — the observer
+	// below still caught the member, but the event's own type went unlogged.
+	//
+	// Emptiness matters more here than anywhere else it is read. errorChunkCount
+	// is what tells writeTerminalError the client has already seen the provider's
+	// error, and counting a member that carries nothing spent that on nothing: it
+	// left lastErrMsg blank, so no error was derived from it, and it suppressed
+	// the terminal frame for whatever really did end the stream afterwards. The
+	// caller got a cut connection in place of a reason.
 	anthropicErrorCounted := false
 	if *lastAnthropicEvent == "error" {
 		*lastAnthropicEvent = ""
+		// Only the member: the wrapper's own "type":"error" is what the
+		// preceding event line already said.
 		var anthErr struct {
-			Type  string `json:"type"`
-			Error *struct {
-				Type    string `json:"type"`
-				Message string `json:"message"`
-			} `json:"error"`
+			Error json.RawMessage `json:"error"`
 		}
-		if json.Unmarshal([]byte(payload), &anthErr) == nil && anthErr.Error != nil {
-			st.lastErrMsg = anthErr.Error.Message
+		if json.Unmarshal([]byte(payload), &anthErr) == nil && util.ErrorMemberCarries(anthErr.Error) {
+			msg := util.ErrorMemberMessage(anthErr.Error)
+			st.lastErrMsg = msg
 			anthropicErrorCounted = true
 			st.errorChunkCount++
-			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", st.errLogAttr(anthErr.Error.Message), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			// The error's own type, when the member is the object that has one.
+			// Provider text like any other, so it goes through the same masking
+			// and bounding as the message beside it.
+			var typed struct {
+				Type string `json:"type"`
+			}
+			_ = json.Unmarshal(anthErr.Error, &typed)
+			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", st.errLogAttr(typed.Type), "error_message", st.errLogAttr(msg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
 	return anthropicErrorCounted
@@ -151,6 +169,35 @@ type streamChunk struct {
 	Error json.RawMessage `json:"error"`
 }
 
+// observeUsage records the counts a usage block reports.
+//
+// Each count is guarded on its own, the way the cache split already was. Two
+// providers make that necessary: one that rides a usage block on EVERY chunk,
+// and one whose usage block this gateway could only partly read —
+// encoding/json allocates the pointer before it calls the custom unmarshaler, so
+// a usage member in an unmodelled shape leaves a valid pointer to an all-zero
+// Usage, and a bare assignment then wrote zeros over counts an earlier chunk had
+// already reported. A usage chunk saying zero says nothing; only a count carries
+// a reading.
+func (st *streamState) observeUsage(usage *Usage) {
+	if usage == nil {
+		return
+	}
+	if usage.PromptTokens > 0 {
+		st.promptTokens = usage.PromptTokens
+	}
+	if usage.CompletionTokens > 0 {
+		st.completionTokens = usage.CompletionTokens
+	}
+	if usage.CompletionTokensDetails != nil && usage.CompletionTokensDetails.ReasoningTokens > 0 {
+		st.reasoningTokens = usage.CompletionTokensDetails.ReasoningTokens
+	}
+	if hit, miss := extractCacheTokens(*usage); hit > 0 || miss > 0 {
+		st.promptCacheHitTokens = hit
+		st.promptCacheMissTokens = miss
+	}
+}
+
 // observeDataChunk applies the four non-emitting, side-channel observers over a
 // parsed data chunk, updating streamState in place (Phase 4 — the first pipeline
 // stage extracted from handleStreamingResponse). It never writes to the client
@@ -164,17 +211,7 @@ type streamChunk struct {
 //   - P2-5 repeated-content detection (and the first-thinking log)
 //   - chunk.Error capture (clears errAccum so P1-B won't re-count)
 func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted bool, chunkCount int, logData *requestLogData) {
-	if chunk.Usage != nil {
-		st.promptTokens = chunk.Usage.PromptTokens
-		st.completionTokens = chunk.Usage.CompletionTokens
-		if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-			st.reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
-		}
-		if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
-			st.promptCacheHitTokens = hit
-			st.promptCacheMissTokens = miss
-		}
-	}
+	st.observeUsage(chunk.Usage)
 	// P2-7: Log native_finish_reason from OpenRouter for debugging.
 	// OpenRouter includes this field alongside the normalized finish_reason,
 	// preserving the original provider's value (e.g. "STOP" instead of "stop").

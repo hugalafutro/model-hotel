@@ -333,7 +333,32 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 
 	var written bool
 	var chunk streamChunk
-	jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
+	// A shape this gateway does not model is not broken bytes. encoding/json
+	// checks the whole document for well-formedness BEFORE it decodes any of it,
+	// so an UnmarshalTypeError is proof the frame is valid JSON — and the decoder
+	// records that error and carries on with the siblings, so chunk holds every
+	// member that did fit.
+	//
+	// Read as "were these even JSON", one unmodelled sibling deleted the frame:
+	// a relay numbering its stop reasons, or content as the array of parts the
+	// OpenAI schema now permits, and the caller lost the model's output while the
+	// observers, the masking and the error member all went unread. The frame is
+	// the provider's answer whether or not this gateway has a struct for it.
+	//
+	// What it cannot go through are the transforms that rebuild the frame from
+	// that struct: the member that failed is missing from it, so rebuilding a
+	// content-as-parts frame would re-emit it with an empty delta, which is the
+	// same loss by another route. It is observed, masked, and forwarded verbatim,
+	// stopping short of strip_reasoning, the reasoning/empty-content transforms
+	// and finish_reason normalisation. Tool-argument normalisation is deliberately
+	// NOT skipped — it works over the payload as a map of raw members rather than
+	// the struct, so it rewrites the one member it understands and leaves the rest
+	// of the frame exactly as it arrived.
+	raw := []byte(payload)
+	decodeErr := json.Unmarshal(raw, &chunk)
+	typeErr := shapeError(raw, decodeErr)
+	untypeable := typeErr != nil
+	jsonValid := decodeErr == nil || untypeable
 	if jsonValid {
 		// Side-channel observers (usage, native_finish_reason, repeated content,
 		// chunk.Error) run for EVERY valid chunk — BEFORE the transforms, which may
@@ -341,6 +366,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// here is what keeps usage/token metering from being silently dropped when a
 		// provider rides `usage` on the same chunk as a reasoning delta. They read
 		// the immutable typed chunk and never emit, so position doesn't affect output.
+		deliveredBefore := st.deliveredBytes
 		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
 
 		// Mask the provider's credential before any emit. Every chunk gets the
@@ -391,6 +417,81 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			_ = json.Unmarshal([]byte(normalized), &chunk)
 		}
 
+		if untypeable {
+			untypedDelta, _ := parseChunkPayload(payload)
+			if stripReasoning && untypedFrameResistsStripping(untypedDelta.delta) {
+				// strip_reasoning is a promise to the caller, and forwarding a
+				// frame this gateway cannot read is no way to keep it.
+				// computeStripReasoning works over the payload and would run — but
+				// its "does this delta still carry anything" verdict reads content
+				// as a plain string, so a content-as-parts delta looks empty to it
+				// and becomes a keep-alive, taking the answer with it.
+				//
+				// Only a frame that might be hiding reasoning is dropped. Gating
+				// on untypeable alone deleted the answer out of an ordinary
+				// content delta whose finish_reason happened to be a number, and
+				// gating on "content is not a plain string" deleted it out of
+				// every content-as-parts frame — which is the loss this whole
+				// change exists to stop, reinstated for one class of key.
+				// The observers ran before this branch and counted whatever
+				// decoded. The caller is not receiving this frame, so it is not
+				// delivery and must not be billed: roll that count back.
+				st.deliveredBytes = deliveredBefore
+				st.unparsedChunks++
+				debuglog.Warn("proxy: dropping a chunk shape this gateway cannot strip reasoning from",
+					"model", logData.modelID, "provider", logData.providerName,
+					"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
+					"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
+				sink.swallowBlank = true
+				return false
+			}
+			// deliveredBytes is deliberately left exactly as the observers set
+			// it: this gateway meters what it could READ and does not guess at
+			// the rest.
+			//
+			// Every member of this frame that decoded has already been counted
+			// correctly, across every choice. What is missing is the member that
+			// did not, and four attempts at estimating it were wrong in four
+			// different directions — the raw member length billed a tool-call
+			// frame nine times over, and an empty content-as-parts opener
+			// ({"content":[{"type":"text","text":""}]}) counted as delivery,
+			// which credited the circuit breaker and suppressed the error charge
+			// so a provider failing every request could never open its circuit.
+			//
+			// So an answer delivered ONLY in a shape this gateway cannot read is
+			// currently unbilled when the provider also reports no usage. That is
+			// a revenue gap, and it is the safe direction: the caller receives
+			// content master deleted outright. Reading the text out of a part
+			// array is the job of the content-as-parts work, and it is queued
+			// with it rather than guessed at here.
+			// Counted like any frame this gateway could not read: the end-of-stream
+			// verdict must not conclude the provider sent nothing on the strength
+			// of frames it could not see into (judgeStreamForBreaker reads
+			// delivery first, so a stream that plainly answered is still
+			// credited). Calling a forwarded frame delivery in its own right was
+			// worse: the terminal chunk is exactly where a relay numbers its stop
+			// reason, and that frame carries no output at all.
+			//
+			// The mismatch, not the payload: which member, and what shape
+			// arrived. "choices.0.finish_reason arrived as a number" is the whole
+			// diagnosis and the part an operator can act on; the frame itself is
+			// the provider's, and the commonest reason one lands here is that the
+			// model's own output was written in a shape this gateway has no struct
+			// for — so the payload does not go in the log.
+			//
+			// Field is bounded even though streamChunk has no member that could
+			// make it long today: encoding/json writes a MAP KEY into it
+			// verbatim, so the day a map is added to that struct is the day this
+			// line starts carrying provider text, and the bound is cheaper than
+			// remembering.
+			st.unparsedChunks++
+			debuglog.Warn("proxy: forwarding a chunk shape this gateway does not model",
+				"model", logData.modelID, "provider", logData.providerName,
+				"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
+				"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
+			goto forwardUntypeable
+		}
+
 		// strip_reasoning: drop reasoning-only deltas (keep-alive) or forward the
 		// stripped chunk. See computeStripReasoning.
 		if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
@@ -439,8 +540,14 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		case finishNone:
 		}
 	}
+forwardUntypeable:
 	if !written && !jsonValid {
-		// Drop invalid/truncated JSON instead of forwarding broken bytes.
+		// Drop what is not a frame instead of forwarding it: bytes that are not
+		// well-formed JSON, and a top-level value that is not an object at all —
+		// a bare number, a list, or the quoted sentinel "[DONE]", none of which a
+		// client can read as a chunk. A frame this gateway merely has no struct
+		// for does NOT come here; it is valid JSON and is forwarded verbatim
+		// below.
 		//
 		// The size, not the bytes. This used to log an 80-rune preview of the
 		// payload, and the commonest reason a frame fails to parse is that the
@@ -453,7 +560,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// delivered is incomplete, and does not charge the provider for an
 		// emptiness it cannot actually vouch for.
 		st.unparsedChunks++
-		debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
+		debuglog.Warn("proxy: skipping a data line that is not a chunk",
 			"model", logData.modelID, "provider", logData.providerName,
 			"chunk_number", chunkCount, "payload_bytes", len(payload))
 		sink.swallowBlank = true
@@ -476,6 +583,76 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		sink.swallowBlank = true
 	}
 	return false
+}
+
+// untypedFrameResistsStripping reports whether a delta this gateway could not
+// type might be hiding reasoning it cannot remove — in which case the frame is
+// dropped rather than forwarded to a key that asked for reasoning to be hidden.
+//
+// Two ways it can. A reasoning member that CARRIES something, by the same rule
+// the rest of the gateway uses for an error member: gating on presence dropped
+// the answer out of every frame from a relay that stamps "reasoning":"" or
+// "reasoning_details":[] on its non-reasoning deltas, which the OpenRouter
+// family does.
+//
+// Or a content part this gateway cannot vouch for. Reasoning arrives inside a
+// part array as {"type":"thinking",…} on exactly the Anthropic-shaped relays
+// that make a frame untypeable in the first place, and computeStripReasoning
+// would not catch it either, since it only removes the three named members. But
+// a part array of plain TEXT hides nothing, and rejecting every content that is
+// not a string dropped those too — deleting the whole answer for a
+// strip_reasoning key on any content-as-parts stream, which is the loss this
+// change exists to stop. So the part types are read, and an unrecognised one is
+// what makes a frame unstrippable.
+func untypedFrameResistsStripping(delta map[string]json.RawMessage) bool {
+	for _, key := range []string{"reasoning_content", "reasoning_details", "reasoning"} {
+		if util.ValueCarries(delta[key]) {
+			return true
+		}
+	}
+	raw, ok := delta["content"]
+	if !ok {
+		return false
+	}
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return false
+	}
+	var parts []struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(raw, &parts) != nil {
+		// A content shape that is neither a string nor a list of parts. Nothing
+		// here can say what is in it.
+		return true
+	}
+	for _, part := range parts {
+		switch part.Type {
+		case "text", "output_text", "input_text":
+		default:
+			// Including a part with no type at all: an unnamed part is not one
+			// this gateway can promise carries no reasoning.
+			return true
+		}
+	}
+	return false
+}
+
+// jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
+//
+// encoding/json writes a number's LITERAL into that field, but only when the
+// number lands on a NUMERIC field: {"content":8675309} into a *string reports
+// "number", while {"n":3.5} into an int reports "number 3.5". No integer field
+// under streamChunk is reachable from here — the only ones live inside Usage,
+// whose own decoder keeps what it can read rather than returning a type error —
+// so today the value is always a bare shape word.
+//
+// It is kept anyway, and cheaply: the shape is the whole diagnosis, the literal
+// is provider data, and one integer field added to that struct is all it would
+// take for this line to start carrying it. TestJSONShapeName is what holds it.
+func jsonShapeName(v string) string {
+	shape, _, _ := strings.Cut(v, " ")
+	return shape
 }
 
 // normalizeToolArguments rewrites any tool-call arguments the provider sent as

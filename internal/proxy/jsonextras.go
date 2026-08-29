@@ -1,9 +1,67 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// shapeError reports the type error behind a failed decode when the frame
+// is nonetheless well-formed JSON — a shape this gateway has no struct for
+// rather than bytes that are broken — and nil otherwise.
+//
+// It is the difference between "this gateway has no struct for these bytes" and
+// "these bytes are broken", and both the streaming frame handler and Usage's own
+// decoder turn on it: the first keeps the frame, the second keeps the counts.
+//
+// The validity is CHECKED, not inferred. json.Unmarshal happens to validate the
+// whole document before decoding any of it, so today a type error already proves
+// the bytes are sound; json.Decoder makes no such promise, and GOEXPERIMENT
+// jsonv2 decodes streaming, where a type error on an early member can be
+// reported before a syntax error further on is ever reached. The check costs one
+// pass over a small frame on a path that has already failed, and without it a
+// change of build flag would start treating truncated bytes as merely
+// mis-shaped — forwarding half a frame to a caller, or keeping half a usage
+// block — which is the one thing the strictness exists to prevent.
+//
+// errors.As also unwraps, so a nested custom UnmarshalJSON returning a type
+// error of its own reaches here too; the check covers that case for free.
+//
+// The document must be a JSON OBJECT. A type error on anything else is the whole
+// value being the wrong kind of thing — `data: 42`, `data: "[DONE]"`, a usage
+// member that is a number — and that is not "a member this package does not
+// model", it is not the document at all. Relaying such a frame put a quoted
+// sentinel into an OpenAI-shaped stream as a data event, and keeping such a
+// usage member made the gateway emit a zeroed usage block the provider never
+// sent.
+//
+// The object test rather than typeErr.Field != "", which was the first attempt:
+// an error returned by a NESTED custom UnmarshalJSON reaches here with an empty
+// Field too, so requiring a member name threw away a perfectly good chat frame
+// whose usage member happened to be [] instead of {} — the routine relay habit
+// this whole change exists to survive.
+func shapeError(data []byte, decodeErr error) *json.UnmarshalTypeError {
+	if decodeErr == nil {
+		return nil
+	}
+	var typeErr *json.UnmarshalTypeError
+	if !errors.As(decodeErr, &typeErr) || !isJSONObject(data) {
+		return nil
+	}
+	return typeErr
+}
+
+// isJSONObject reports whether data is a well-formed JSON object. json.Valid is
+// what makes the type error's "these bytes are sound" reading a check rather
+// than an assumption; the leading brace is what separates a document with a
+// member this package cannot read from a value that is not the document.
+func isJSONObject(data []byte) bool {
+	trimmed := bytes.TrimSpace(data)
+	return len(trimmed) > 0 && trimmed[0] == '{' && json.Valid(trimmed)
+}
 
 // Provider-specific fields that this package does not model must survive the
 // decode/re-encode in handleNonStreamingResponse, because some of them are
@@ -187,14 +245,61 @@ func (c ChatCompletionResponse) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON decodes usage and retains the accounting fields this package
 // does not model, above all the per-request cost aggregators report.
+//
+// util.DecodeCounts, not a plain Unmarshal: a count is a count however the
+// provider spelled it, quoted or with a fraction on it.
+//
+// And a member left in a shape this package has no struct for costs that member
+// only. An error here does not merely blank the usage — Usage decodes inside the
+// response object, so returning one stops THAT decode where it stands and the
+// caller is handed "the provider returned a response the gateway could not
+// decode" in place of the answer the model already produced. prompt_tokens_details
+// as [] rather than {} is enough to do it, and an empty object written as an
+// empty array is a routine relay habit.
+//
+// So a type error keeps whatever did decode: encoding/json records it and
+// carries on with the siblings, and the counts that were readable are worth more
+// than the ones that were not. Bytes that are not well-formed JSON still fail —
+// there is nothing to keep — and that is checked rather than inferred, for the
+// reason given on untypeableFrame.
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	type alias Usage
 	var a alias
-	if err := json.Unmarshal(data, &a); err != nil {
-		return err
+	if err := util.DecodeCounts(data, &a); err != nil {
+		if shapeError(data, err) == nil {
+			return err
+		}
+		// encoding/json allocates a breakdown's pointer before it reaches the
+		// value, so a member it could not read leaves a struct full of zeros —
+		// and re-encoding that emits {"cached_tokens":0}, a positive claim that
+		// nothing was cached, in place of whatever the provider wrote. A
+		// breakdown this package could not read is reported as absent, which is
+		// what it is.
+		a.PromptTokensDetails = keepIfObject(data, "prompt_tokens_details", a.PromptTokensDetails)
+		a.CompletionTokensDetails = keepIfObject(data, "completion_tokens_details", a.CompletionTokensDetails)
 	}
 	*u = Usage(a)
 	u.Extra = decodeExtras(data, usageJSONFields)
+	return nil
+}
+
+// keepIfObject returns ptr when the named member of data really is a JSON
+// object, and nil otherwise — the breakdown was allocated by the decoder before
+// it saw the value, so a non-object there leaves a zeroed struct standing for
+// something that was never read.
+func keepIfObject[T any](data []byte, member string, ptr *T) *T {
+	if ptr == nil {
+		return nil
+	}
+	// A non-nil pointer means the decoder reached this member, in a document
+	// shapeError has already found to be valid JSON — so data is an object and
+	// the member is in it. A failure here would leave members nil, and an absent
+	// member reads as a non-object, which is the safe answer anyway.
+	var members map[string]json.RawMessage
+	_ = json.Unmarshal(data, &members)
+	if trimmed := bytes.TrimSpace(members[member]); len(trimmed) > 0 && trimmed[0] == '{' {
+		return ptr
+	}
 	return nil
 }
 

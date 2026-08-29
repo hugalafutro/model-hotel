@@ -662,29 +662,42 @@ func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt i
 // usage.total_tokens, used as a last-resort prompt count (Cohere's native
 // rerank bills in search units, not tokens, and meters as zero). Only the
 // usage object is decoded; the response content itself is never inspected.
+// The usage member is lifted out before its counts are read, for two reasons.
+// util.DecodeCounts re-parses the document it is given on each coercion pass,
+// and an embeddings body is large; and reading only those bytes is what makes
+// the sentence above literally true rather than merely intended.
 func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
-	var resp struct {
-		Usage *struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			InputTokens      int `json:"input_tokens"`
-			OutputTokens     int `json:"output_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-		} `json:"usage"`
+	var envelope struct {
+		Usage json.RawMessage `json:"usage"`
 	}
-	if json.Unmarshal(body, &resp) != nil || resp.Usage == nil {
+	if json.Unmarshal(body, &envelope) != nil || len(envelope.Usage) == 0 {
 		return 0, 0
 	}
-	promptTokens = resp.Usage.PromptTokens
+	var usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		InputTokens      int `json:"input_tokens"`
+		OutputTokens     int `json:"output_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	}
+	// util.DecodeCounts, and a shape error keeps what did read, for the reason
+	// given on Usage.UnmarshalJSON: a count quoted or written with a fraction on
+	// it is still a count, and one member this gateway cannot read must not cost
+	// the request every count beside it. Metering a served request as zero is a
+	// quota the caller never spends.
+	if err := util.DecodeCounts(envelope.Usage, &usage); err != nil && shapeError(envelope.Usage, err) == nil {
+		return 0, 0
+	}
+	promptTokens = usage.PromptTokens
 	if promptTokens == 0 {
-		promptTokens = resp.Usage.InputTokens
+		promptTokens = usage.InputTokens
 	}
 	if promptTokens == 0 {
-		promptTokens = resp.Usage.TotalTokens
+		promptTokens = usage.TotalTokens
 	}
-	completionTokens = resp.Usage.CompletionTokens
+	completionTokens = usage.CompletionTokens
 	if completionTokens == 0 {
-		completionTokens = resp.Usage.OutputTokens
+		completionTokens = usage.OutputTokens
 	}
 	return promptTokens, completionTokens
 }
