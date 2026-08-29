@@ -275,15 +275,13 @@ func keepIfObject[T any](data []byte, member string, ptr *T) *T {
 	if ptr == nil {
 		return nil
 	}
+	// A non-nil pointer means the decoder reached this member, in a document
+	// shapeError has already found to be valid JSON — so data is an object and
+	// the member is in it. A failure here would leave members nil, and an absent
+	// member reads as a non-object, which is the safe answer anyway.
 	var members map[string]json.RawMessage
-	if json.Unmarshal(data, &members) != nil {
-		return ptr
-	}
-	raw, ok := members[member]
-	if !ok {
-		return ptr
-	}
-	if trimmed := bytes.TrimSpace(raw); len(trimmed) > 0 && trimmed[0] == '{' {
+	_ = json.Unmarshal(data, &members)
+	if trimmed := bytes.TrimSpace(members[member]); len(trimmed) > 0 && trimmed[0] == '{' {
 		return ptr
 	}
 	return nil

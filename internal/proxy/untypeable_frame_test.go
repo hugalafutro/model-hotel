@@ -726,3 +726,24 @@ func TestFinalizeStream_DeliveredContentCountsEveryShapeOfOutput(t *testing.T) {
 		})
 	}
 }
+
+// The role marker is not output. It rides on the first delta of most streams,
+// and counting it would put a few bytes of estimate on a frame that carried the
+// model nothing at all.
+func TestUntypedDeltaBytes_SkipsTheRoleMarker(t *testing.T) {
+	t.Parallel()
+	withRole, ok := parseChunkPayload(`{"choices":[{"delta":{"role":"assistant","content":"hello"}}]}`)
+	if !ok {
+		t.Fatal("fixture did not parse")
+	}
+	withoutRole, ok := parseChunkPayload(`{"choices":[{"delta":{"content":"hello"}}]}`)
+	if !ok {
+		t.Fatal("fixture did not parse")
+	}
+	if got, want := untypedDeltaBytes(withRole.delta), untypedDeltaBytes(withoutRole.delta); got != want {
+		t.Errorf("role added %d bytes to the estimate (%d vs %d)", got-want, got, want)
+	}
+	if untypedDeltaBytes(withoutRole.delta) == 0 {
+		t.Error("content counted as nothing")
+	}
+}

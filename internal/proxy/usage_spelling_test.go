@@ -278,3 +278,20 @@ func TestExtractPassthroughUsage_CountSpellings(t *testing.T) {
 		})
 	}
 }
+
+// One breakdown unreadable must not take the readable one with it, and a usage
+// block with no breakdown at all must come through untouched.
+func TestUsage_KeepsTheBreakdownItCouldRead(t *testing.T) {
+	t.Parallel()
+	var both Usage
+	require.NoError(t, json.Unmarshal([]byte(`{"prompt_tokens":12,"prompt_tokens_details":{"cached_tokens":8},"completion_tokens_details":[]}`), &both))
+	require.NotNil(t, both.PromptTokensDetails, "the breakdown that decoded was dropped with the one that did not")
+	assert.Equal(t, 8, both.PromptTokensDetails.CachedTokens)
+	assert.Nil(t, both.CompletionTokensDetails, "a breakdown that did not decode must be reported absent")
+
+	// A shape error with no breakdown present at all.
+	var neither Usage
+	require.NoError(t, json.Unmarshal([]byte(`{"prompt_tokens":12,"total_tokens":[1]}`), &neither))
+	assert.Equal(t, 12, neither.PromptTokens)
+	assert.Nil(t, neither.PromptTokensDetails)
+}
