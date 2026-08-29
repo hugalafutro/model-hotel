@@ -958,7 +958,14 @@ func TestAnthropicWriter_AnUntypeableChunkIsNotDropped(t *testing.T) {
 	_, _ = aw.Write([]byte("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"CONTENTMARKER\"}}],\"usage\":{\"prompt_tokens\":\"12\",\"completion_tokens\":\"3\"}}\n\n"))
 	_, _ = aw.Write([]byte("data: [DONE]\n\n"))
 
-	if !strings.Contains(rec.Body.String(), "CONTENTMARKER") {
-		t.Errorf("a frame carrying the answer was dropped for a count spelling: %q", rec.Body.String())
+	body := rec.Body.String()
+	if !strings.Contains(body, "CONTENTMARKER") {
+		t.Errorf("a frame carrying the answer was dropped for a count spelling: %q", body)
+	}
+	// And the count itself is read, not merely survived. Keeping the frame while
+	// losing the count told the client the model produced zero output tokens for
+	// a real answer.
+	if !strings.Contains(body, `"output_tokens":3`) {
+		t.Errorf("the spelled count was dropped: %q", body)
 	}
 }

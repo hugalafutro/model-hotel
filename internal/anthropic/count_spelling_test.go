@@ -88,3 +88,23 @@ func TestInspectStreamEvent_MessageStartCountSpellings(t *testing.T) {
 		})
 	}
 }
+
+// An explicit null is not a usage block. The *antUsage this replaced was nil for
+// absent AND null alike; a json.RawMessage for null is four non-empty bytes, and
+// emitRawData assigns OutputTokens unguarded — so a null usage on a later event
+// would wipe the count message_start reported.
+func TestInspectStreamEvent_ANullUsageIsNotAReading(t *testing.T) {
+	t.Parallel()
+	for _, payload := range []string{
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":null}`,
+		`{"type":"message_start","message":{"usage":null}}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			t.Parallel()
+			got := InspectStreamEvent([]byte(payload))
+			if got.HasOutput || got.HasInput {
+				t.Errorf("a null usage read as a count: %+v", got)
+			}
+		})
+	}
+}

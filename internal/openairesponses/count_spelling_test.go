@@ -97,15 +97,26 @@ func TestTranslateResponsesToChat_AnAbsentUsageIsNotAZeroedOne(t *testing.T) {
 	}
 }
 
-// And one unreadable member must not cost the counts beside it.
-func TestTranslateResponsesToChat_KeepsTheCountsItCouldRead(t *testing.T) {
+// One unreadable member costs the WHOLE usage, and that is deliberate — the
+// opposite of the rule proxy.Usage uses.
+//
+// That rule keeps whatever decoded because its members are independent. These
+// figures are derived: summed across members, or falling back to a sum. A lost
+// addend would leave a number that is wrong AND non-zero, which reads as
+// authoritative and stops estimateMissingUsage ever firing — a cache-read count
+// of 20000 lost that way bills 4. Absent is the honest report, and the estimator
+// then does its job.
+func TestTranslateResponsesToChat_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
 	t.Parallel()
-	body := `{"id":"resp_1","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]}],"usage":{"input_tokens":12,"output_tokens":3,"output_tokens_details":[]}}`
+	body := `{"id":"resp_1","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hello"}]}],"usage":{"input_tokens":12,"output_tokens":"lots"}}`
 	out, err := TranslateResponsesToChat([]byte(body), "m")
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	if !strings.Contains(string(out), `"prompt_tokens":12`) {
-		t.Errorf("readable counts were thrown away with the unreadable member beside them: %s", out)
+	if !strings.Contains(string(out), "hello") {
+		t.Errorf("the answer was lost with the usage: %s", out)
+	}
+	if strings.Contains(string(out), `"usage"`) {
+		t.Errorf("a half-read usage was reported as authoritative: %s", out)
 	}
 }

@@ -236,11 +236,18 @@ func translateUsage(raw json.RawMessage) *completionUsage {
 	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// util.DecodeCounts, and a shape error keeps what did decode: a count is a
-	// count however the provider spelled it, and one unreadable member must not
-	// cost the counts beside it or the answer around them.
+	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
+	// whatever decoded. That rule assumes independent members: losing
+	// completion_tokens there cannot corrupt prompt_tokens. These figures are
+	// DERIVED — summed across members, or falling back to a sum — so a lost
+	// addend leaves a number that is wrong AND non-zero, which reads as
+	// authoritative and stops estimateMissingUsage ever firing. A cache-read
+	// count of 20000 lost that way bills 4.
+	//
+	// Absent is the honest report, and it is what master did for these bodies
+	// too — except master lost the answer with it.
 	var u antRespUsage
-	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+	if err := util.DecodeCounts(raw, &u); err != nil {
 		return nil
 	}
 	return buildUsage(u)

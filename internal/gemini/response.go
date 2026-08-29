@@ -227,13 +227,18 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 	// count is a count however the provider spelled it, and a member this
 	// package cannot read at all is still only the usage.
 	//
-	// A SHAPE error keeps what did decode, the rule Usage.UnmarshalJSON settled
-	// on in #811: encoding/json records the type error and carries on with the
-	// siblings, so a block whose completion count is unreadable still has a
-	// perfectly good prompt count in it, and throwing that away puts the request
-	// on an estimate for no reason.
+	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
+	// whatever decoded. That rule assumes independent members: losing
+	// completion_tokens there cannot corrupt prompt_tokens. These figures are
+	// DERIVED -- summed across members, or falling back to a sum -- so a lost
+	// addend leaves a number that is wrong AND non-zero, which reads as
+	// authoritative and stops estimateMissingUsage ever firing. A cache-read
+	// count of 20000 lost that way bills 4.
+	//
+	// Absent is the honest report, and it is what master did for these bodies
+	// too -- except master lost the answer with it.
 	var u genUsage
-	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+	if err := util.DecodeCounts(raw, &u); err != nil {
 		return nil
 	}
 	out := &oaiUsage{

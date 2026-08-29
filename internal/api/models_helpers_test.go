@@ -797,10 +797,18 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 // — must not blank the answer the dashboard exists to show. encoding/json
 // records the type error and carries on with the siblings, so what did decode is
 // all there.
-func TestParseTestModelResponse_AQuotedCountKeepsTheAnswer(t *testing.T) {
+func TestParseTestModelResponse_ReadsASpelledCount(t *testing.T) {
 	body := []byte(`{"choices":[{"message":{"content":"hello"}}],"usage":{"prompt_tokens":"12","completion_tokens":"3"}}`)
-	content, _, _, _ := parseTestModelResponse(body, 1000)
+	content, tps, prompt, completion := parseTestModelResponse(body, 1000)
 	if content != "hello" {
 		t.Errorf("content = %q, want the answer the model gave", content)
+	}
+	// The counts are what this site actually lost: the decode already logged and
+	// carried on, so the answer was never at risk here.
+	if prompt != 12 || completion != 3 {
+		t.Errorf("got %d/%d tokens, want 12/3", prompt, completion)
+	}
+	if tps == 0 {
+		t.Error("tps was 0 for a model that answered")
 	}
 }

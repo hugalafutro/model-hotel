@@ -62,16 +62,18 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 	if json.Unmarshal(body, &resp) != nil || !util.JSONMemberSet(resp.Usage) {
 		return ResponseUsage{}
 	}
-	// The usage member is lifted out before its counts are read: util.DecodeCounts
-	// re-parses the document it is given on each coercion pass, and a message body
-	// carries the whole answer. A count is a count however the provider spelled it
-	// — quoted, or with a fraction on it because a relay did its arithmetic in
-	// floating point — and a plain int field met neither, metering the request at
-	// zero.
-	// A shape error keeps what did decode, the rule Usage.UnmarshalJSON settled
-	// on in #811: one unreadable member must not cost the counts beside it.
+	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
+	// whatever decoded. That rule assumes independent members: losing
+	// completion_tokens there cannot corrupt prompt_tokens. These figures are
+	// DERIVED — summed across members, or falling back to a sum — so a lost
+	// addend leaves a number that is wrong AND non-zero, which reads as
+	// authoritative and stops estimateMissingUsage ever firing. A cache-read
+	// count of 20000 lost that way bills 4.
+	//
+	// Absent is the honest report, and it is what master did for these bodies
+	// too — except master lost the answer with it.
 	var usage antUsage
-	if err := util.DecodeCounts(resp.Usage, &usage); err != nil && util.ShapeError(resp.Usage, err) == nil {
+	if err := util.DecodeCounts(resp.Usage, &usage); err != nil {
 		return ResponseUsage{}
 	}
 	return usage.summary()
@@ -263,8 +265,18 @@ func readEventUsage(raw json.RawMessage) (antUsage, bool) {
 	if !util.JSONMemberSet(raw) {
 		return antUsage{}, false
 	}
+	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
+	// whatever decoded. That rule assumes independent members: losing
+	// completion_tokens there cannot corrupt prompt_tokens. These figures are
+	// DERIVED — summed across members, or falling back to a sum — so a lost
+	// addend leaves a number that is wrong AND non-zero, which reads as
+	// authoritative and stops estimateMissingUsage ever firing. A cache-read
+	// count of 20000 lost that way bills 4.
+	//
+	// Absent is the honest report, and it is what master did for these bodies
+	// too — except master lost the answer with it.
 	var u antUsage
-	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+	if err := util.DecodeCounts(raw, &u); err != nil {
 		return antUsage{}, false
 	}
 	return u, true

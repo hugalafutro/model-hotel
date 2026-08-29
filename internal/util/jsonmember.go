@@ -30,6 +30,14 @@ func JSONMemberSet(raw json.RawMessage) bool {
 // jsonv2 decodes streaming, where a type error on an early member can be
 // reported before a syntax error further on is ever reached.
 //
+// The document must be a JSON OBJECT. A type error on anything else is the whole
+// value being the wrong kind of thing — a streaming frame that is `42` or a
+// quoted `"[DONE]"`, a usage member that is a number — and that is not "a member
+// I have no struct for", it is not the document at all. Relaying such a frame put
+// a quoted sentinel into an OpenAI-shaped stream as a data event, and keeping
+// such a usage member made the gateway emit a zeroed usage block the provider
+// never sent.
+//
 // The object test rather than "the error names a member": an error returned by a
 // NESTED custom UnmarshalJSON arrives with an empty Field too, so requiring a
 // member name threw away a perfectly good document whose one unreadable member

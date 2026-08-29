@@ -102,17 +102,26 @@ func TestBuildChatCompletion_ANullUsageIsNotAZeroedOne(t *testing.T) {
 	}
 }
 
-// One unreadable member must not cost the counts beside it — the rule
-// Usage.UnmarshalJSON settled on in #811, and output_tokens_details as [] rather
-// than {} is a routine relay habit.
-func TestBuildChatCompletion_KeepsTheCountsItCouldRead(t *testing.T) {
+// One unreadable member costs the WHOLE usage, and that is deliberate — the
+// opposite of the rule proxy.Usage uses.
+//
+// That rule keeps whatever decoded because its members are independent. These
+// figures are derived: summed across members, or falling back to a sum. A lost
+// addend would leave a number that is wrong AND non-zero, which reads as
+// authoritative and stops estimateMissingUsage ever firing — a cache-read count
+// of 20000 lost that way bills 4. Absent is the honest report, and the estimator
+// then does its job.
+func TestBuildChatCompletion_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
 	t.Parallel()
 	body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":"lots","totalTokenCount":15}}`
 	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	if !strings.Contains(string(out), `"prompt_tokens":12`) {
-		t.Errorf("a readable count was thrown away with the unreadable one beside it: %s", out)
+	if !strings.Contains(string(out), "hello") {
+		t.Errorf("the answer was lost with the usage: %s", out)
+	}
+	if strings.Contains(string(out), `"usage"`) {
+		t.Errorf("a half-read usage was reported as authoritative: %s", out)
 	}
 }

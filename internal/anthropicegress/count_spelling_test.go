@@ -89,8 +89,6 @@ func TestBuildChatCompletion_MetersASpelledCount(t *testing.T) {
 	for _, usage := range []string{
 		`{"input_tokens":"12","output_tokens":"3"}`,
 		`{"input_tokens":12.0,"output_tokens":3.0}`,
-		// One unreadable member must not cost the count beside it.
-		`{"input_tokens":"12","output_tokens":3,"cache_read_input_tokens":[]}`,
 	} {
 		t.Run(usage, func(t *testing.T) {
 			t.Parallel()
@@ -121,5 +119,40 @@ func TestBuildChatCompletion_AnAbsentUsageIsNotAZeroedOne(t *testing.T) {
 				t.Errorf("an unreadable usage was reported as zero tokens: %s", out)
 			}
 		})
+	}
+}
+
+// One unreadable member costs the WHOLE usage, and that is deliberate — the
+// opposite of the rule proxy.Usage uses.
+//
+// That rule keeps whatever decoded because its members are independent. These
+// figures are derived: summed across members, or falling back to a sum. A lost
+// addend would leave a number that is wrong AND non-zero, which reads as
+// authoritative and stops estimateMissingUsage ever firing — a cache-read count
+// of 20000 lost that way bills 4. Absent is the honest report, and the estimator
+// then does its job.
+// Sharpest here: prompt_tokens is input + both cache counts, so a lost
+// cache_read of 20000 would bill 4.
+func TestBuildChatCompletion_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
+	t.Parallel()
+	body := `{"type":"message","content":[{"type":"text","text":"hello"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}}`
+	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	if !strings.Contains(string(out), "hello") {
+		t.Errorf("the answer was lost with the usage: %s", out)
+	}
+	if strings.Contains(string(out), `"usage"`) {
+		t.Errorf("a prompt count missing its cache addend was reported as authoritative: %s", out)
+	}
+}
+
+// The same for the non-streaming native reader, where the sum is computed in
+// summary().
+func TestReadEventUsage_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
+	t.Parallel()
+	if _, ok := readEventUsage([]byte(`{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`)); ok {
+		t.Error("a half-read usage was accepted")
 	}
 }

@@ -694,7 +694,7 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	var envelope struct {
 		Usage json.RawMessage `json:"usage"`
 	}
-	if json.Unmarshal(body, &envelope) != nil || len(envelope.Usage) == 0 {
+	if json.Unmarshal(body, &envelope) != nil || !util.JSONMemberSet(envelope.Usage) {
 		return 0, 0
 	}
 	var usage struct {
