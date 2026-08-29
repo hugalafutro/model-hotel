@@ -346,18 +346,24 @@ const (
 	breakerActionNoOp
 	// breakerActionSuccess records a success (provider is healthy).
 	breakerActionSuccess
+	// breakerActionDeferred records nothing yet: the status alone does not say
+	// whether the provider is unhealthy, and the body does. Whoever classifies
+	// that body calls recordClassifiedOutcome to finish the verdict.
+	breakerActionDeferred
 )
 
 // breakerRecordAction determines the circuit-breaker recording action for a
 // given upstream HTTP status code. This is the single source of truth for the
 // status→breaker mapping and is intended to be table-tested.
 //
-// Note on 429: this function maps it to a failure, but it is only consulted in
-// the failover-eligible branch of ChatCompletions — i.e. when shouldFailover
-// already returned true, which for 429 means failover_on_rate_limit is ON. When
-// that setting is OFF, a 429 is not failover-eligible and never reaches this
-// function; the caller's else branch intentionally records it as a success
-// (stay on the rate-limited provider rather than tripping its breaker). The 429
+// Note on 429: this function DEFERS it rather than mapping it to a failure, and
+// it is only consulted in the failover-eligible branch of ChatCompletions — i.e.
+// when shouldFailover already returned true, which for 429 means
+// failover_on_rate_limit is ON. When that setting is OFF, a 429 is not
+// failover-eligible and never reaches this function; the caller's else branch
+// intentionally records it as a success (stay on the rate-limited provider
+// rather than tripping its breaker), and recordClassifiedOutcome declines to
+// finish a verdict that was never deferred, so that credit stands. The 429
 // treatment is therefore consistent with the configured policy, not contradictory.
 // servedSuccessStatus reports whether an upstream status is one the gateway
 // treats as an answer it served, rather than a failure to route or report.
@@ -382,11 +388,31 @@ func servedSuccessStatus(statusCode int) bool {
 
 func breakerRecordAction(statusCode int) breakerAction {
 	switch {
-	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403 || statusCode == 402:
+	case statusCode == 429:
+		// 429 is two different claims wearing one number. Ordinary rate limiting
+		// is the provider saying it is overloaded, which is about its health; but
+		// a plan that does not cover ONE model is answered 429 too, and that says
+		// nothing about the provider — verified in production, where Z.ai
+		// returned 429 for glm-4.7-flashx while glm-5.1 answered 200 on the same
+		// provider and the same key. Charging the provider-wide breaker for the
+		// second kind took the working models out of rotation with the uncovered
+		// one.
+		//
+		// The two cannot be told apart from the status, and not from the phrases
+		// either: Z.ai's refusal reads "Insufficient balance or no resource
+		// package. Please recharge.", naming the account-wide condition and the
+		// per-model one in a single sentence. Only the classified KIND separates
+		// them, and that needs the body — so the verdict waits for whoever reads
+		// it, exactly as a 2xx does.
+		return breakerActionDeferred
+	case statusCode >= 500 || statusCode == 401 || statusCode == 403 || statusCode == 402:
 		// 5xx = server error (provider unhealthy)
-		// 429 = rate limit (provider overloaded; see policy note above)
 		// 401/403 = auth failure (provider-wide bad/expired key)
-		// 402 = out of credit (provider-wide billing condition, same class)
+		// 402 = out of credit (provider-wide billing condition). Not deferred
+		// like the 429: no provider has been seen answering 402 for a single
+		// model, so there is nothing to disambiguate. That is an observation
+		// about the providers in the catalogue, not a guarantee — if one turns
+		// up, it belongs in the deferred branch beside the 429.
 		return breakerActionFailure
 	case statusCode == 404 || statusCode == 499:
 		// 404 = stale/renamed model (model-specific, not provider health)

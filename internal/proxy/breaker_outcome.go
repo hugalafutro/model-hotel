@@ -3,6 +3,7 @@ package proxy
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -50,10 +51,17 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// failure history (resetting consecutiveFails in Closed state)
 			// and could prematurely close a half-open circuit based on a
 			// model-specific error that says nothing about provider health.
+		case breakerActionDeferred:
+			// The status does not decide; recordClassifiedOutcome does, once the
+			// body has been read. Every path that reaches here goes on to
+			// classify that body — the drain when there is another candidate,
+			// forwardUpstreamError when there is not, and the hedge race's own
+			// drain — so the verdict is never simply dropped.
 		case breakerActionSuccess:
 			// Not reached for failover-eligible codes: shouldFailover only
-			// returns true for {5xx,429,401,403,402,404,499}, all of which map
-			// to failure or no-op above. Retained so the switch stays exhaustive
+			// returns true for {5xx,429,401,403,402,404,499}, which map to
+			// failure, no-op, or — for 429 — deferred above. Retained so the
+			// switch stays exhaustive
 			// over breakerAction — if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
@@ -68,6 +76,66 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 	if !servedSuccessStatus(statusCode) {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
+}
+
+// recordClassifiedOutcome finishes a verdict recordBreakerOutcome deferred,
+// once the upstream body has been classified.
+//
+// It charges unless the kind is a refusal ABOUT THE MODEL rather than about the
+// provider. Those say nothing about whether the provider can serve anything
+// else, and charging the provider-wide breaker for one takes its healthy models
+// down with the refused one. That is the same argument breakerRecordAction
+// already makes for a 404, whose comment reads "model-specific, not provider
+// health"; this extends it to the refusal that arrives as a 429.
+//
+// Deliberately not a RecordSuccess: a refusal is not evidence of health either,
+// and crediting one would reset consecutiveFails and erase real failures the
+// provider had accrued — the hole #805 closed.
+func (h *Handler) recordClassifiedOutcome(st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool, kind ErrorKind, body string) {
+	if !st.circuitBreakerEnabled || breakerRecordAction(statusCode) != breakerActionDeferred {
+		return
+	}
+	// Only a verdict that was actually DEFERRED can be finished here.
+	// recordBreakerOutcome defers only on the failover-eligible branch; a status
+	// that is not eligible took its else branch and has already been credited a
+	// success. For a 429 that credit is the configured policy — with
+	// failover_on_rate_limit off the operator has asked to ride out rate limits
+	// on this provider rather than trip its breaker — so charging on top of it
+	// would both contradict the setting and, at a threshold of one, open the
+	// circuit on the first rate limit.
+	if !isFailoverEligible {
+		return
+	}
+	if refusalIsAboutTheModel(kind, body) {
+		return
+	}
+	h.chargeBreaker(st, candidate, "upstream status")
+}
+
+// refusalIsAboutTheModel reports whether a classified upstream refusal concerns
+// the requested model rather than the provider's health.
+//
+// An entitlement refusal is only half of one. "Your account has no credit" is
+// provider-wide and its circuit should open; "your plan does not include this
+// model" is not, and opening the circuit for it takes the models the plan DOES
+// include down with it. Both arrive as KindProviderNotEntitled, so the kind
+// alone cannot separate them.
+//
+// A resource package is the per-model unit a plan is sold in, so naming one is
+// positive evidence that the refusal is about which model was asked for. That is
+// what separates the two in practice: Z.ai answers "Insufficient balance or no
+// resource package. Please recharge." for a model outside the coding plan, while
+// MiniMax's genuinely account-wide 1008 says only "insufficient balance". The
+// test is deliberately for the presence of the per-model concept rather than the
+// absence of the account-wide one, because Z.ai's sentence contains both.
+//
+// Requiring positive evidence is also the safe direction: an unrecognised
+// entitlement refusal keeps charging the breaker, as it always did.
+func refusalIsAboutTheModel(kind ErrorKind, body string) bool {
+	if kind == KindProviderModelGone {
+		return true
+	}
+	return kind == KindProviderNotEntitled && strings.Contains(strings.ToLower(body), "resource package")
 }
 
 // recordAnswerOutcome records the circuit-breaker verdict for a finished

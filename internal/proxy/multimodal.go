@@ -215,9 +215,12 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
-			if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+			drainedMsg := util.SanitizeLogBody(string(drained), 10000)
+			kind, _ := classifyUpstreamError(resp.StatusCode, drainedMsg, candidate.model.ModelID)
+			if kind == KindProviderModelGone {
 				h.noteModelGone(candidate, logData.endpointType)
 			}
+			h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, drainedMsg)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt

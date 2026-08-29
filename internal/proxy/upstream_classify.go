@@ -307,11 +307,18 @@ func modelGoneAbout(body, modelID string) bool {
 // request_logs.error_message. Classifying it here makes it a queryable
 // error_kind and a Prometheus label instead.
 //
-// IMPORTANT: this is observability only. Failover eligibility, circuit-breaker
-// trips and quota handling stay purely status-code driven (see
+// IMPORTANT: this was observability only, and for ROUTING it still is —
+// failover eligibility and quota handling stay purely status-code driven (see
 // isFailoverEligible and the MiniMax 1008 -> 429 remap, which deliberately
-// funnels balance errors into the rate-limit path so failover moves on).
-// Returning a new kind here must never change where a request is routed.
+// funnels balance errors into the rate-limit path so failover moves on), and
+// returning a new kind here must never change where a request is routed.
+//
+// The CIRCUIT BREAKER is no longer in that list. A 429 defers its verdict to
+// this classification (see breakerActionDeferred and refusalIsAboutTheModel),
+// so the phrase lists below are load-bearing for it: a phrase added here that
+// catches an ordinary overload body would turn it into KindProviderNotEntitled
+// and stop that provider's circuit ever opening. Adding to the entitlement
+// phrases in particular is a breaker change, not just a label change.
 //
 // The returned reason is always gateway-authored static text. The upstream body
 // is never echoed to the caller: it can quote the request back at us, and the

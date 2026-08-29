@@ -85,7 +85,10 @@ func TestRecordBreakerOutcome(t *testing.T) {
 		want        breakerOutcome
 	}{
 		{"eligible 5xx -> failure", true, false, 500, true, breakerFailureRecorded},
-		{"eligible 429 -> failure", true, false, 429, true, breakerFailureRecorded},
+		// A 429 records nothing at header time — see breakerRecordAction. The
+		// charge, when it is owed, is made by recordClassifiedOutcome once the
+		// body has said which kind of 429 this is.
+		{"eligible 429 -> deferred (untouched)", true, false, 429, true, breakerUntouched},
 		{"eligible 401 -> failure", true, false, 401, true, breakerFailureRecorded},
 		{"eligible 403 -> failure", true, false, 403, true, breakerFailureRecorded},
 		{"eligible 404 -> no-op", true, false, 404, true, breakerUntouched},
