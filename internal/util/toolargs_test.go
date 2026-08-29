@@ -75,3 +75,35 @@ func TestToolArguments_ReEncodeIsStable(t *testing.T) {
 		}
 	}
 }
+
+// The one decision the three egress translators used to make three different
+// ways. It is tested here as well as through each of them, because it is the
+// place they now agree — and agreement is the property, not any one output.
+func TestToolArgumentsObject(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		args string
+		want string
+	}{
+		{"an object", `{"city":"Oslo"}`, `{"city":"Oslo"}`},
+		{"an object with whitespace round it", "  {\"city\":\"Oslo\"}\n", `{"city":"Oslo"}`},
+		// A call with no arguments is still a call.
+		{"absent", ``, `{}`},
+		// Not a tool input. This repo's existing decision is to substitute the
+		// empty object rather than kill the request; what was wrong was that
+		// each translator substituted something different.
+		{"an array", `["Oslo"]`, `{}`},
+		{"a number", `42`, `{}`},
+		{"a bare word", `not an object`, `{}`},
+		{"an object that does not parse", `{not json`, `{}`},
+		{"a JSON null", `null`, `{}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := string(util.ToolArgumentsObject(util.ToolArguments(tc.args))); got != tc.want {
+				t.Errorf("ToolArgumentsObject(%q) = %s, want %s", tc.args, got, tc.want)
+			}
+		})
+	}
+}
