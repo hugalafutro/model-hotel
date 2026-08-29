@@ -241,4 +241,10 @@ func TestHandleNonStreamingResponse_UnreadableUsageStillAnswers(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Hello, world!")
 	assert.Equal(t, 12, logData.tokensPrompt)
+	// What the re-encoded body says about the member it could not read: its zero
+	// value, because encoding/json allocated the struct before it hit the type
+	// error. A cached count of zero is what an absent breakdown already means to
+	// every consumer, and it is the honest report — the gateway could not read
+	// what the provider put there.
+	assert.Contains(t, w.Body.String(), `"prompt_tokens_details":{"cached_tokens":0}`)
 }
