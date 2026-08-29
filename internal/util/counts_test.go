@@ -66,6 +66,8 @@ func TestDecodeCounts_RefusesWhatIsNotACount(t *testing.T) {
 		// number the provider never sent.
 		`{"prompt_tokens":1e30}`,
 		`{"prompt_tokens":"1e30"}`,
+		// Past float64 itself, so it does not even reach the ceiling check.
+		`{"prompt_tokens":1e999}`,
 		// Not a number at all, however it is spelled.
 		`{"prompt_tokens":"NaN"}`,
 		`{"prompt_tokens":"Inf"}`,
@@ -220,5 +222,52 @@ func TestDecodeCounts_WalksArrayIndices(t *testing.T) {
 	}
 	if len(got.Rows) != 2 || got.Rows[1].Count != 2 {
 		t.Errorf("rows = %+v, want the second count read as 2", got.Rows)
+	}
+}
+
+// A count that IS the array element, rather than a member of an object inside
+// one: the path ends at the index, so the rewrite addresses the slice directly.
+func TestDecodeCounts_CoercesAnArrayElement(t *testing.T) {
+	t.Parallel()
+	var got struct {
+		Counts []int `json:"counts"`
+	}
+	if err := util.DecodeCounts([]byte(`{"counts":[1,"2",3.0]}`), &got); err != nil {
+		t.Fatalf("DecodeCounts: %v", err)
+	}
+	if len(got.Counts) != 3 || got.Counts[1] != 2 || got.Counts[2] != 3 {
+		t.Errorf("counts = %v, want [1 2 3]", got.Counts)
+	}
+}
+
+// The tolerance is for counts, and a count is an integer. A field the struct
+// declared as a float is not one, so a quoted value there is left to fail rather
+// than quietly given a second reading this function never argued for.
+func TestDecodeCounts_OnlyIntegerFields(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		raw  string
+		dst  any
+	}{
+		{"float", `{"v":"1"}`, &struct {
+			V float64 `json:"v"`
+		}{}},
+		{"bool", `{"v":"1"}`, &struct {
+			V bool `json:"v"`
+		}{}},
+		// The other direction, and the one that matters most: a number arriving
+		// where a string is wanted is the model's own output written as one.
+		// Rewriting it would be this function inventing a reading of content.
+		{"string", `{"v":1}`, &struct {
+			V string `json:"v"`
+		}{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if err := util.DecodeCounts([]byte(tc.raw), tc.dst); err == nil {
+				t.Errorf("coerced into a %s field: %+v", tc.name, tc.dst)
+			}
+		})
 	}
 }

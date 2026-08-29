@@ -88,6 +88,9 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 	var root any
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
+	// Unreachable if the caller's reasoning holds — a type error means the
+	// document parsed — and kept as the guard for the case where it does not.
+	// Refusing to rewrite leaves the decoder's own error to come back.
 	if dec.Decode(&root) != nil {
 		return nil, false
 	}
