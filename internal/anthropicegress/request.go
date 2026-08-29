@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // DefaultMaxTokens is the max_tokens supplied when the caller sends none.
@@ -135,8 +136,15 @@ type oaiFile struct {
 type oaiToolCall struct {
 	ID       string `json:"id"`
 	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"` // a JSON *string*
+		Name string `json:"name"`
+		// util.ToolArguments, not a plain string: the spec says a JSON string and
+		// several providers send the object, so #808 taught the RESPONSE side to
+		// accept both — and an ingress decoder has no business being stricter
+		// than the decoder that produced the value. This gateway rewrites the
+		// object form on its own way out, so the client holding one got it from
+		// another gateway or SDK; rejecting it 400s that conversation on every
+		// retry, because each one replays the same transcript.
+		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
 
@@ -443,7 +451,7 @@ func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 			Type:  "tool_use",
 			ID:    tc.ID,
 			Name:  tc.Function.Name,
-			Input: toolInput(tc.Function.Arguments),
+			Input: util.ToolArgumentsObject(tc.Function.Arguments),
 		})
 	}
 	if len(blocks) == 0 {
@@ -649,18 +657,6 @@ func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
 		return &antToolChoice{Type: "tool", Name: tc.Function.Name}, true
 	}
 	return nil, true
-}
-
-// toolInput converts OpenAI's tool-call arguments — a JSON string — into the
-// JSON object Anthropic's tool_use input expects. Empty, unparseable and
-// non-object arguments all become an empty object; anything else would be a
-// malformed tool_use block the model cannot read.
-func toolInput(arguments string) json.RawMessage {
-	raw := json.RawMessage(strings.TrimSpace(arguments))
-	if len(raw) == 0 || raw[0] != '{' || !json.Valid(raw) {
-		return json.RawMessage(`{}`)
-	}
-	return raw
 }
 
 // flattenText reduces a content field (string or part array) to plain text, for

@@ -13,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -57,8 +58,15 @@ type oaiContentPart struct {
 type oaiToolCall struct {
 	ID       string `json:"id"`
 	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
+		Name string `json:"name"`
+		// util.ToolArguments, not a plain string: the spec says a JSON string and
+		// several providers send the object, so #808 taught the RESPONSE side to
+		// accept both — and an ingress decoder has no business being stricter
+		// than the decoder that produced the value. This gateway rewrites the
+		// object form on its own way out, so the client holding one got it from
+		// another gateway or SDK; rejecting it 400s that conversation on every
+		// retry, because each one replays the same transcript.
+		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
 
@@ -225,10 +233,10 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 			}
 			for _, tc := range m.ToolCalls {
 				callNames[tc.ID] = tc.Function.Name
-				args := json.RawMessage(tc.Function.Arguments)
-				if len(args) == 0 || !json.Valid(args) {
-					args = json.RawMessage("{}")
-				}
+				// Gemini types functionCall.args as a Struct, so forwarding a
+				// non-object was a 400 from the provider where the other two
+				// egress paths quietly substituted something. One decision now.
+				args := util.ToolArgumentsObject(tc.Function.Arguments)
 				parts = append(parts, genPart{FunctionCall: &genFunctionCall{Name: tc.Function.Name, Args: args}})
 			}
 			if len(parts) > 0 {

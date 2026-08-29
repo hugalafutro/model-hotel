@@ -7,6 +7,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -165,10 +166,11 @@ func translateChatMessages(msgs []chatReqMessage) (string, []any, error) {
 				})
 			}
 			for _, tc := range m.ToolCalls {
-				args := tc.Function.Arguments
-				if args == "" {
-					args = "{}"
-				}
+				// The Responses API types arguments as a string, so anything
+				// would forward — but a quoted array is garbage to the model,
+				// and the same input must not take a different fate here than on
+				// the other two egress paths.
+				args := util.ToolArguments(util.ToolArgumentsObject(tc.Function.Arguments))
 				input = append(input, functionCallItem{
 					Type:      "function_call",
 					CallID:    tc.ID,
