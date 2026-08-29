@@ -67,3 +67,52 @@ func TestBuildChatCompletion_UnreadableUsageKeepsTheAnswer(t *testing.T) {
 		})
 	}
 }
+
+// An explicit null is not a usage block. The *genUsage this replaced was nil for
+// absent AND null alike; a json.RawMessage for null is four non-empty bytes, so
+// reading only the length let a null chunk overwrite the counts an earlier chunk
+// had reported — and turned an omitted usage into a positive claim of zero.
+func TestStreamTranslator_ANullUsageDoesNotWipeTheCountsAlreadyReported(t *testing.T) {
+	t.Parallel()
+	tr := NewStreamTranslator("id", "m", 0)
+	if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}}`)); err != nil {
+		t.Fatalf("first chunk: %v", err)
+	}
+	if _, err := tr.Translate([]byte(`{"candidates":[],"usageMetadata":null}`)); err != nil {
+		t.Fatalf("null chunk: %v", err)
+	}
+	out, err := tr.Finish()
+	if err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	if !strings.Contains(string(out), `"prompt_tokens":12`) {
+		t.Errorf("a null usage wiped the counts the provider reported: %s", out)
+	}
+}
+
+func TestBuildChatCompletion_ANullUsageIsNotAZeroedOne(t *testing.T) {
+	t.Parallel()
+	body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":null}`
+	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	if strings.Contains(string(out), `"usage"`) {
+		t.Errorf("an omitted usage was reported as zero tokens: %s", out)
+	}
+}
+
+// One unreadable member must not cost the counts beside it — the rule
+// Usage.UnmarshalJSON settled on in #811, and output_tokens_details as [] rather
+// than {} is a routine relay habit.
+func TestBuildChatCompletion_KeepsTheCountsItCouldRead(t *testing.T) {
+	t.Parallel()
+	body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":"lots","totalTokenCount":15}}`
+	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	if !strings.Contains(string(out), `"prompt_tokens":12`) {
+		t.Errorf("a readable count was thrown away with the unreadable one beside it: %s", out)
+	}
+}

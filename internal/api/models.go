@@ -689,7 +689,11 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+	// util.ShapeError: a member this struct has no type for — a token count the
+	// provider quoted, say — must not blank the answer the dashboard is here to
+	// show. encoding/json records the type error and carries on with the
+	// siblings, so what did decode is all there.
+	if err := json.Unmarshal(respBody, &chatResp); err != nil && util.ShapeError(respBody, err) == nil {
 		debuglog.Debug("admin: failed to parse test model chat response", "error", err)
 	}
 

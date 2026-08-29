@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // StreamTranslator converts a Gemini streamGenerateContent SSE stream
@@ -105,7 +106,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonfault.Describe(err, len(chunkJSON)))
 	}
 
-	if len(chunk.UsageMetadata) > 0 {
+	// JSONMemberSet, for the reason on translateUsage: an explicit
+	// "usageMetadata": null is four bytes, and reading only the length let it
+	// overwrite the counts an earlier chunk had reported.
+	if util.JSONMemberSet(chunk.UsageMetadata) {
 		t.usage = chunk.UsageMetadata
 	}
 	// A blocked prompt streams as a candidate-less chunk with promptFeedback;

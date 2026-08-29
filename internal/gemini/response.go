@@ -216,14 +216,24 @@ func mapFinishReason(reason string, hasToolCalls bool) string {
 // MH's metering should count) with the split surfaced in
 // completion_tokens_details.reasoning_tokens, matching OpenAI's convention.
 func translateUsage(raw json.RawMessage) *oaiUsage {
-	if len(raw) == 0 {
+	// JSONMemberSet, not len(raw) > 0: a RawMessage for null is four non-empty
+	// bytes, where the *genUsage this replaced was nil for absent AND null
+	// alike. Reading only the length turned an omitted usage into a positive
+	// claim of zero tokens.
+	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// util.DecodeCounts, and a failure here yields no usage rather than no
-	// answer: a count is a count however the provider spelled it, and a member
-	// this package cannot read at all is still only the usage.
+	// util.DecodeCounts, and a failure yields no usage rather than no answer: a
+	// count is a count however the provider spelled it, and a member this
+	// package cannot read at all is still only the usage.
+	//
+	// A SHAPE error keeps what did decode, the rule Usage.UnmarshalJSON settled
+	// on in #811: encoding/json records the type error and carries on with the
+	// siblings, so a block whose completion count is unreadable still has a
+	// perfectly good prompt count in it, and throwing that away puts the request
+	// on an estimate for no reason.
 	var u genUsage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
 	out := &oaiUsage{

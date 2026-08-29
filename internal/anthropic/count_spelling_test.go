@@ -34,3 +34,57 @@ func TestParseResponseUsage_CountSpellings(t *testing.T) {
 		})
 	}
 }
+
+// The streaming twin of ParseResponseUsage, in the same file, decoded its counts
+// inline — so a spelling cost the event its TYPE along with its counts, and
+// message_stop and the error events stopped being recognised for that frame.
+// The adjacent Error member's own comment spells out that exact failure.
+func TestInspectStreamEvent_CountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name     string
+		payload  string
+		wantType string
+		wantOut  int
+	}{
+		{"plain", `{"type":"message_delta","usage":{"output_tokens":4}}`, "message_delta", 4},
+		{"quoted", `{"type":"message_delta","usage":{"output_tokens":"4"}}`, "message_delta", 4},
+		{"fractional", `{"type":"message_delta","usage":{"output_tokens":4.0}}`, "message_delta", 4},
+		// The type survives even when the usage cannot be read at all, which is
+		// the half that costs the stream its terminal frame.
+		{"unreadable usage", `{"type":"message_delta","usage":"none"}`, "message_delta", 0},
+		{"null usage", `{"type":"message_stop","usage":null}`, "message_stop", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := InspectStreamEvent([]byte(tc.payload))
+			if got.Type != tc.wantType {
+				t.Errorf("Type = %q, want %q: the event lost its type with its counts", got.Type, tc.wantType)
+			}
+			if got.OutputTokens != tc.wantOut {
+				t.Errorf("OutputTokens = %d, want %d", got.OutputTokens, tc.wantOut)
+			}
+		})
+	}
+}
+
+// message_start carries its usage one level down, and it had the same defect.
+func TestInspectStreamEvent_MessageStartCountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, payload := range []string{
+		`{"type":"message_start","message":{"usage":{"input_tokens":11,"output_tokens":1}}}`,
+		`{"type":"message_start","message":{"usage":{"input_tokens":"11","output_tokens":1}}}`,
+		`{"type":"message_start","message":{"usage":{"input_tokens":11.0,"output_tokens":1}}}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			t.Parallel()
+			got := InspectStreamEvent([]byte(payload))
+			if got.Type != "message_start" {
+				t.Errorf("Type = %q, want message_start", got.Type)
+			}
+			if got.InputTokens != 11 || !got.HasInput {
+				t.Errorf("InputTokens = %d (has=%v), want 11", got.InputTokens, got.HasInput)
+			}
+		})
+	}
+}

@@ -59,7 +59,7 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 	var resp struct {
 		Usage json.RawMessage `json:"usage"`
 	}
-	if json.Unmarshal(body, &resp) != nil || len(resp.Usage) == 0 {
+	if json.Unmarshal(body, &resp) != nil || !util.JSONMemberSet(resp.Usage) {
 		return ResponseUsage{}
 	}
 	// The usage member is lifted out before its counts are read: util.DecodeCounts
@@ -68,8 +68,10 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 	// — quoted, or with a fraction on it because a relay did its arithmetic in
 	// floating point — and a plain int field met neither, metering the request at
 	// zero.
+	// A shape error keeps what did decode, the rule Usage.UnmarshalJSON settled
+	// on in #811: one unreadable member must not cost the counts beside it.
 	var usage antUsage
-	if err := util.DecodeCounts(resp.Usage, &usage); err != nil {
+	if err := util.DecodeCounts(resp.Usage, &usage); err != nil && util.ShapeError(resp.Usage, err) == nil {
 		return ResponseUsage{}
 	}
 	return usage.summary()
@@ -191,9 +193,14 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	var ev struct {
 		Type    string `json:"type"`
 		Message *struct {
-			Usage *antUsage `json:"usage"`
+			Usage json.RawMessage `json:"usage"`
 		} `json:"message"`
-		Usage *antUsage `json:"usage"`
+		// json.RawMessage for the same reason the error member below is one: a
+		// count the provider spelled differently — quoted, or with a fraction on
+		// it — failed the WHOLE event unmarshal, so the event lost its TYPE with
+		// its counts and message_stop and the error events stopped being
+		// recognised for that frame.
+		Usage json.RawMessage `json:"usage"`
 		// json.RawMessage, not a typed object: a relay is free to send a bare
 		// string here, and a typed field failed the WHOLE event unmarshal — so
 		// the event lost its type too, the error went uncounted, and the frame
@@ -216,17 +223,21 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	info := StreamEvent{Type: ev.Type}
 	switch ev.Type {
 	case "message_start":
-		if ev.Message != nil && ev.Message.Usage != nil {
-			u := ev.Message.Usage.summary()
+		var raw json.RawMessage
+		if ev.Message != nil {
+			raw = ev.Message.Usage
+		}
+		if usage, ok := readEventUsage(raw); ok {
+			u := usage.summary()
 			info.InputTokens, info.HasInput = u.PromptTokens, true
 			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
-			if ev.Message.Usage.OutputTokens > 0 {
-				info.OutputTokens, info.HasOutput = ev.Message.Usage.OutputTokens, true
+			if usage.OutputTokens > 0 {
+				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 			}
 		}
 	case "message_delta":
-		if ev.Usage != nil {
-			info.OutputTokens, info.HasOutput = ev.Usage.OutputTokens, true
+		if usage, ok := readEventUsage(ev.Usage); ok {
+			info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 		}
 	case "error":
 		if util.ErrorMemberCarries(ev.Error) {
@@ -242,4 +253,19 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		}
 	}
 	return info
+}
+
+// readEventUsage decodes a stream event's usage member on its own, reporting
+// whether there was one to read. A count spelled differently must not cost the
+// event its type, and a member that cannot be read at all must not cost the
+// counts beside it.
+func readEventUsage(raw json.RawMessage) (antUsage, bool) {
+	if !util.JSONMemberSet(raw) {
+		return antUsage{}, false
+	}
+	var u antUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return antUsage{}, false
+	}
+	return u, true
 }

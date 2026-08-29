@@ -3,64 +3,17 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"reflect"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// shapeError reports the type error behind a failed decode when the frame
-// is nonetheless well-formed JSON — a shape this gateway has no struct for
-// rather than bytes that are broken — and nil otherwise.
-//
-// It is the difference between "this gateway has no struct for these bytes" and
-// "these bytes are broken", and both the streaming frame handler and Usage's own
-// decoder turn on it: the first keeps the frame, the second keeps the counts.
-//
-// The validity is CHECKED, not inferred. json.Unmarshal happens to validate the
-// whole document before decoding any of it, so today a type error already proves
-// the bytes are sound; json.Decoder makes no such promise, and GOEXPERIMENT
-// jsonv2 decodes streaming, where a type error on an early member can be
-// reported before a syntax error further on is ever reached. The check costs one
-// pass over a small frame on a path that has already failed, and without it a
-// change of build flag would start treating truncated bytes as merely
-// mis-shaped — forwarding half a frame to a caller, or keeping half a usage
-// block — which is the one thing the strictness exists to prevent.
-//
-// errors.As also unwraps, so a nested custom UnmarshalJSON returning a type
-// error of its own reaches here too; the check covers that case for free.
-//
-// The document must be a JSON OBJECT. A type error on anything else is the whole
-// value being the wrong kind of thing — `data: 42`, `data: "[DONE]"`, a usage
-// member that is a number — and that is not "a member this package does not
-// model", it is not the document at all. Relaying such a frame put a quoted
-// sentinel into an OpenAI-shaped stream as a data event, and keeping such a
-// usage member made the gateway emit a zeroed usage block the provider never
-// sent.
-//
-// The object test rather than typeErr.Field != "", which was the first attempt:
-// an error returned by a NESTED custom UnmarshalJSON reaches here with an empty
-// Field too, so requiring a member name threw away a perfectly good chat frame
-// whose usage member happened to be [] instead of {} — the routine relay habit
-// this whole change exists to survive.
+// shapeError is util.ShapeError, kept as a name this package reads well with.
+// The rule moved to util when the egress translators needed it too: four
+// packages deciding separately what "a member I have no struct for" means is
+// how they come to disagree.
 func shapeError(data []byte, decodeErr error) *json.UnmarshalTypeError {
-	if decodeErr == nil {
-		return nil
-	}
-	var typeErr *json.UnmarshalTypeError
-	if !errors.As(decodeErr, &typeErr) || !isJSONObject(data) {
-		return nil
-	}
-	return typeErr
-}
-
-// isJSONObject reports whether data is a well-formed JSON object. json.Valid is
-// what makes the type error's "these bytes are sound" reading a check rather
-// than an assumption; the leading brace is what separates a document with a
-// member this package cannot read from a value that is not the document.
-func isJSONObject(data []byte) bool {
-	trimmed := bytes.TrimSpace(data)
-	return len(trimmed) > 0 && trimmed[0] == '{' && json.Valid(trimmed)
+	return util.ShapeError(data, decodeErr)
 }
 
 // Provider-specific fields that this package does not model must survive the

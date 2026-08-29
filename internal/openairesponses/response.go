@@ -106,14 +106,19 @@ func chatCompletionID(respID string) string {
 // pipeline reads (prompt/completion totals plus reasoning and cached-token
 // details).
 func translateUsage(raw json.RawMessage) *chatUsage {
-	if len(raw) == 0 {
+	// JSONMemberSet, not len(raw) > 0: a RawMessage for null is four non-empty
+	// bytes where the *Usage this replaced was nil, and the Responses API emits
+	// "usage": null on a non-terminal response snapshot. Reading only the length
+	// turned that into a positive claim of zero tokens.
+	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// util.DecodeCounts, and a failure yields no usage rather than no answer: a
-	// count is a count however the provider spelled it, and a member this
-	// package cannot read at all is still only the usage.
+	// util.DecodeCounts, and a failure yields no usage rather than no answer. A
+	// SHAPE error keeps what did decode, the rule Usage.UnmarshalJSON settled on
+	// in #811 — output_tokens_details as [] rather than {} is a routine relay
+	// habit, and it must not cost the readable counts beside it.
 	var u Usage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
 	out := &chatUsage{

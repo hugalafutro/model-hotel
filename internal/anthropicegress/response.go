@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic Messages response shape ---
@@ -20,8 +21,14 @@ type antResponse struct {
 	Type       string         `json:"type"` // "message" (or "error")
 	Content    []antRespBlock `json:"content"`
 	StopReason string         `json:"stop_reason"`
-	Usage      *antRespUsage  `json:"usage"`
-	Error      *antRespError  `json:"error"`
+	// Held raw and decoded on its own, so a usage block this package cannot read
+	// costs the usage and nothing else. Decoded inline it was part of the
+	// response object, and one count the provider spelled differently — quoted,
+	// or with a fraction on it — failed the whole translation and cost the caller
+	// the answer the model had already produced. This is the translator talking
+	// to Anthropic-Messages upstreams, so it is the one most likely to meet one.
+	Usage json.RawMessage `json:"usage"`
+	Error *antRespError   `json:"error"`
 }
 
 type antRespBlock struct {
@@ -225,10 +232,23 @@ func mapFinishReason(stopReason string) string {
 // billed prompt tokens and fabricates cache-miss counts downstream (see
 // internal/proxy/helpers.go's extractCacheTokens, which computes
 // missTokens = promptTokens - cacheReadTokens).
-func translateUsage(u *antRespUsage) *completionUsage {
-	if u == nil {
+func translateUsage(raw json.RawMessage) *completionUsage {
+	if !util.JSONMemberSet(raw) {
 		return nil
 	}
+	// util.DecodeCounts, and a shape error keeps what did decode: a count is a
+	// count however the provider spelled it, and one unreadable member must not
+	// cost the counts beside it or the answer around them.
+	var u antRespUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return nil
+	}
+	return buildUsage(u)
+}
+
+// buildUsage renders counts this package already holds. The streaming translator
+// accumulates its own across events and has no raw bytes to read.
+func buildUsage(u antRespUsage) *completionUsage {
 	prompt := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	out := &completionUsage{
 		PromptTokens:     prompt,

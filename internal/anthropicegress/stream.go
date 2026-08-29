@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic SSE event shapes ---
@@ -28,15 +29,17 @@ type antEvent struct {
 	Message      *antEventMessage `json:"message"`
 	ContentBlock *antRespBlock    `json:"content_block"`
 	Delta        *antEventDelta   `json:"delta"`
-	Usage        *antRespUsage    `json:"usage"`
-	Error        *antRespError    `json:"error"`
+	// Raw, for the reason on antResponse.Usage: a count spelled differently must
+	// not fail the event and kill the stream.
+	Usage json.RawMessage `json:"usage"`
+	Error *antRespError   `json:"error"`
 }
 
 // antEventMessage is the partial Message object message_start carries. Only
 // usage is read: id and model are the caller's to choose, and the content array
 // is always empty at that point.
 type antEventMessage struct {
-	Usage *antRespUsage `json:"usage"`
+	Usage json.RawMessage `json:"usage"`
 }
 
 // antEventDelta is the delta union shared by content_block_delta (text_delta,
@@ -175,10 +178,12 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	switch ev.Type {
 	case "message_start":
-		if ev.Message != nil && ev.Message.Usage != nil {
-			t.usage.InputTokens = ev.Message.Usage.InputTokens
-			t.usage.CacheCreationInputTokens = ev.Message.Usage.CacheCreationInputTokens
-			t.usage.CacheReadInputTokens = ev.Message.Usage.CacheReadInputTokens
+		if ev.Message != nil {
+			if u, ok := readEventUsage(ev.Message.Usage); ok {
+				t.usage.InputTokens = u.InputTokens
+				t.usage.CacheCreationInputTokens = u.CacheCreationInputTokens
+				t.usage.CacheReadInputTokens = u.CacheReadInputTokens
+			}
 		}
 		if err := t.writeChunk(&buf, chunkDelta{}, nil, nil); err != nil {
 			return nil, err
@@ -195,8 +200,8 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		if ev.Delta != nil && ev.Delta.StopReason != "" {
 			t.stopReason = ev.Delta.StopReason
 		}
-		if ev.Usage != nil {
-			t.usage.OutputTokens = ev.Usage.OutputTokens
+		if u, ok := readEventUsage(ev.Usage); ok {
+			t.usage.OutputTokens = u.OutputTokens
 		}
 	case "message_stop":
 		return t.Finish()
@@ -299,13 +304,31 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 
 	var buf bytes.Buffer
 	reason := mapFinishReason(t.stopReason)
-	var usage *antRespUsage
+	var usage *completionUsage
 	if t.usage != (antRespUsage{}) {
-		usage = &t.usage
+		usage = buildUsage(t.usage)
 	}
-	if err := t.writeChunk(&buf, chunkDelta{}, &reason, translateUsage(usage)); err != nil {
+	if err := t.writeChunk(&buf, chunkDelta{}, &reason, usage); err != nil {
 		return nil, err
 	}
 	buf.WriteString("data: [DONE]\n\n")
 	return buf.Bytes(), nil
+}
+
+// readEventUsage decodes a stream event's usage member on its own, reporting
+// whether there was one to read.
+//
+// Separate from the event decode because an error there kills the STREAM: the
+// event loses its type along with its counts, so message_stop and the error
+// events stop being recognised for that frame. A count the provider spelled
+// differently — quoted, or with a fraction on it — is not a reason to do that.
+func readEventUsage(raw json.RawMessage) (antRespUsage, bool) {
+	if !util.JSONMemberSet(raw) {
+		return antRespUsage{}, false
+	}
+	var u antRespUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return antRespUsage{}, false
+	}
+	return u, true
 }

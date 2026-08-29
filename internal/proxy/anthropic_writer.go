@@ -167,7 +167,12 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 		return
 	}
 	var chunk anthropic.OAStreamChunk
-	if err := json.Unmarshal(payload, &chunk); err != nil {
+	// A shape this gateway has no struct for is not broken bytes, and the frame
+	// may carry the model's answer: the streaming path forwards payloads
+	// verbatim, so a provider's own token-count spelling reaches here, and
+	// dropping the frame for one dropped the content riding with it. Same rule
+	// handleDataChunk reads, for the same reason.
+	if err := json.Unmarshal(payload, &chunk); err != nil && shapeError(payload, err) == nil {
 		debuglog.Debug("anthropic: skip unparseable upstream chunk", "error", err)
 		return
 	}
