@@ -97,6 +97,11 @@ func TestToolArgumentsObject(t *testing.T) {
 		{"a number", `42`, `{}`},
 		{"a bare word", `not an object`, `{}`},
 		{"an object that does not parse", `{not json`, `{}`},
+		// A valid object with bytes after it. json.Valid rejects the whole
+		// thing, and it has to: forwarding the prefix hands Gemini an args value
+		// that fails to marshal, so a request that works today would 400.
+		{"an object with trailing bytes", `{"a":1} trailing`, `{}`},
+		{"two objects concatenated", `{"a":1}{"b":2}`, `{}`},
 		{"a JSON null", `null`, `{}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -139,10 +139,11 @@ type oaiToolCall struct {
 		Name string `json:"name"`
 		// util.ToolArguments, not a plain string: the spec says a JSON string and
 		// several providers send the object, so #808 taught the RESPONSE side to
-		// accept both — which means the caller receives the object form, echoes
-		// the assistant turn back in its next request, and this decoder rejected
-		// what the gateway itself had handed it. In a failover group whose next
-		// turn lands here, that 400s for the life of the conversation.
+		// accept both — and an ingress decoder has no business being stricter
+		// than the decoder that produced the value. This gateway rewrites the
+		// object form on its own way out, so the client holding one got it from
+		// another gateway or SDK; rejecting it 400s that conversation on every
+		// retry, because each one replays the same transcript.
 		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
@@ -658,9 +659,6 @@ func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
 	return nil, true
 }
 
-// toolInput converts OpenAI's tool-call arguments — a JSON string — into the
-// JSON object Anthropic's tool_use input expects. Empty, unparseable and
-// non-object arguments all become an empty object; anything else would be a
 // flattenText reduces a content field (string or part array) to plain text, for
 // the fields Anthropic types as text: the system prompt and tool_result content.
 func flattenText(raw json.RawMessage) string {

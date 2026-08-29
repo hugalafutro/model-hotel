@@ -44,8 +44,11 @@ func TestTranslateRequest_ToolArgumentsInEitherSpelling(t *testing.T) {
 // differently: {} here, a non-Struct `args` Gemini answers 400 to, and a quoted
 // array the Responses model reads as garbage. Which one a caller met depended on
 // which member of a failover group the turn landed on, and that divergence is
-// what a tolerant decode exists to remove. Asserted in all three, on the same
-// inputs, so they cannot drift apart again.
+// what a tolerant decode exists to remove.
+//
+// The same inputs in all three packages, as three hand-kept tables rather than
+// one shared list — so this documents the agreement rather than enforcing it,
+// and editing one still breaks nothing.
 func TestTranslateRequest_ArgumentsThatAreNotAnObjectBecomeAnEmptyOne(t *testing.T) {
 	t.Parallel()
 	for _, args := range []string{`["Oslo"]`, `42`, `"not an object"`, `true`, `"{not json"`} {
