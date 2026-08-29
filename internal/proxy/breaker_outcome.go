@@ -20,9 +20,9 @@ import (
 //
 // For a failover-eligible status it applies the breakerRecordAction mapping
 // (failure / no-op / success). For a non-eligible status it records a success,
-// except for a 200 — on either path.
+// except for a SUCCESS status (any 2xx) — on either path.
 //
-// A 200 is a status, not an answer, and these headers arrive before a byte of
+// A 2xx is a status, not an answer, and these headers arrive before a byte of
 // the body has been read. The verdict is deferred to whoever reads it:
 // judgeStreamForBreaker once the stream ends, recordAnswerOutcome once the
 // completion is decoded. Crediting here meant a provider answering
@@ -60,7 +60,12 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 		}
 		return
 	}
-	if statusCode != http.StatusOK {
+	// Not a 2xx. A success of ANY 2xx defers its verdict to whoever reads the
+	// body — recordAnswerOutcome or judgeStreamForBreaker — for the reason the
+	// comment above gives: RecordSuccess resets consecutiveFails, so crediting
+	// here at header time erases the charge the answer verdict is about to make
+	// and the circuit can never open above a threshold of one.
+	if !servedSuccessStatus(statusCode) {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 }
@@ -127,7 +132,7 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reas
 }
 
 // rejectUntranslatableBody is the single outcome all three egress adapters have
-// for a 200 whose body they cannot turn into a completion.
+// for a success whose body they cannot turn into a completion.
 //
 // One place because the outcome has four parts — the log, the breaker charge,
 // the request error and the failover — and three copies of it is how the charge

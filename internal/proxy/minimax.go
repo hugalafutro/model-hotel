@@ -77,7 +77,12 @@ func miniMaxEnvelopePossible(contentType string) bool {
 // to parse — all with their bytes restored so downstream forwarding sees the
 // original response.
 func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Response) *http.Response {
-	if resp == nil || providerType != "minimax" || resp.StatusCode != http.StatusOK {
+	// Any success status, not a bare 200: a business error hidden inside a 2xx
+	// envelope is exactly as invisible to the status-keyed paths downstream
+	// whichever 2xx carries it, and since those paths now serve and meter every
+	// 2xx, a relay answering 201 with a MiniMax refusal would otherwise be
+	// billed to the caller as an answer.
+	if resp == nil || providerType != "minimax" || !servedSuccessStatus(resp.StatusCode) {
 		return resp
 	}
 	if !miniMaxEnvelopePossible(resp.Header.Get("Content-Type")) {

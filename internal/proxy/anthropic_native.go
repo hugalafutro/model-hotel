@@ -31,7 +31,8 @@ func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestSt
 	return proxyReq, providerType, targetURL, nil
 }
 
-// handleNativeNonStreaming serves a non-streaming native Anthropic 200 response:
+// handleNativeNonStreaming serves a non-streaming native Anthropic success
+// response (any 2xx):
 // the upstream body is already an Anthropic message, so it is forwarded verbatim
 // (through the verbatim-mode response writer). Token usage is read from the
 // Anthropic usage block for metering + quota, mirroring handleNonStreamingResponse.
@@ -48,7 +49,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
 		// Finalize the log row so it does not orphan in the in-flight state: a
-		// read failure on a 200 body is a provider/transport fault — unless it
+		// read failure on a success body is a provider/transport fault — unless it
 		// was interrupted rather than broken, which the translated path already
 		// classifies and this one hard-coded past. The identical event logged
 		// provider_error here and client_disconnect there, decided by nothing but
@@ -76,7 +77,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	inputTokens, outputTokens := usage.PromptTokens, usage.CompletionTokens
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
-	logData.statusCode = http.StatusOK
+	// The status the provider actually sent, not a flattened 200: a relay may
+	// answer a native message 201, and recording 200 would put a number in the
+	// request log that no upstream ever returned.
+	logData.statusCode = resp.StatusCode
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = st.proxyOverhead
 	logData.parseMs = st.parseMs
@@ -116,7 +120,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	debuglog.Info("proxy: native anthropic non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "duration_ms", totalDuration, "input_tokens", inputTokens, "output_tokens", outputTokens)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(resp.StatusCode)
 	//nolint:gosec // G705 false positive: Anthropic JSON response body, not HTML; Content-Type is application/json
 	_, _ = w.Write(body)
 	return outcomeServed

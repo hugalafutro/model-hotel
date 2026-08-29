@@ -359,6 +359,27 @@ const (
 // function; the caller's else branch intentionally records it as a success
 // (stay on the rate-limited provider rather than tripping its breaker). The 429
 // treatment is therefore consistent with the configured policy, not contradictory.
+// servedSuccessStatus reports whether an upstream status is one the gateway
+// treats as an answer it served, rather than a failure to route or report.
+//
+// The 2xx RANGE. 201 and 202 are the ones seen in the wild (relays and
+// aggregators), but the rule is the HTTP class rather than a list: a status
+// this gateway has never seen is still the provider saying it succeeded, and
+// guessing which members of the class are "real" successes is how the split
+// this function exists to end got started.
+//
+// This is the single definition for "did the upstream succeed": the router, the
+// circuit breaker, the hedge race, the retirement probe, the Anthropic ingress
+// writer, the pass-through families and the MiniMax remap all ask here. What it
+// does NOT cover is the separate question of whether a status is the DEFAULT
+// one, which is a plain equality test and stays that way. A 201 that was a success to the router and a failure to the
+// circuit breaker credited the provider at header time and erased the answer
+// verdict — the #805 hole, re-opened on statuses the router had just started
+// letting through.
+func servedSuccessStatus(statusCode int) bool {
+	return statusCode >= 200 && statusCode <= 299
+}
+
 func breakerRecordAction(statusCode int) breakerAction {
 	switch {
 	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403 || statusCode == 402:

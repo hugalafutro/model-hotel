@@ -365,13 +365,16 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// normalised before it is judged — exactly as attemptCandidate does.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
-	if resp.StatusCode != http.StatusOK {
+	// Any 2xx is an answer, so the model is plainly still served. Reading a 201
+	// as a probe FAILURE would let a relay that answers 201 push a live model
+	// towards retirement.
+	if !servedSuccessStatus(resp.StatusCode) {
 		return judgeProbeFailure(resp, candidate, endpointType)
 	}
 	return judgeProbeSuccess(resp, st, candidate, endpointType)
 }
 
-// judgeProbeFailure turns a non-200 probe response into a verdict.
+// judgeProbeFailure turns a non-2xx probe response into a verdict.
 //
 // Only the classifier's retirement verdict retires. Everything else postpones,
 // and that single line is what keeps a provider incident from becoming a mass
@@ -413,9 +416,9 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 	return verdict
 }
 
-// judgeProbeSuccess turns a 200 probe response into a verdict.
+// judgeProbeSuccess turns a success (any 2xx) probe response into a verdict.
 //
-// A 200 that carries nothing is NOT a success: a stream can open, emit nothing
+// A success that carries nothing is NOT a success: a stream can open, emit nothing
 // and end cleanly. It is not a refusal either — the provider did not say the
 // model is gone — so an empty answer postpones like every other unproven case.
 func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCandidate, endpointType string) probeVerdict {
@@ -474,7 +477,7 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 	}
 }
 
-// probeDeliveredContent reports whether a 200 probe response actually carried
+// probeDeliveredContent reports whether a success probe response actually carried
 // something the model produced.
 //
 // A body that will not parse returns false, which postpones rather than retires:

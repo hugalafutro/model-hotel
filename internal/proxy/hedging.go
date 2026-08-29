@@ -268,8 +268,8 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
 	h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
 
-	if resp.StatusCode != http.StatusOK {
-		// Any non-200 drops this candidate. The orchestrator owns the terminal
+	if !servedSuccessStatus(resp.StatusCode) {
+		// Any non-2xx drops this candidate. The orchestrator owns the terminal
 		// write if every candidate fails; drain so the connection can be reused,
 		// keeping only as much as the two readers below can use.
 		//
@@ -343,7 +343,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	}
 
 	if ttftTimeout <= 0 {
-		// No TTFT probe configured: a 200 is an immediate win (backward compat).
+		// No TTFT probe configured: a success status is an immediate win (backward compat).
 		return commitHedgeWin(ctx, res, resp, nil, 0, candidate)
 	}
 
