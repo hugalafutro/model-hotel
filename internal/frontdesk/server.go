@@ -581,8 +581,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 
 // metricsAuth gates the Prometheus scrape endpoint, mirroring the main
 // server's metricsAuth. A dedicated FRONTDESK_METRICS_TOKEN (so the scrape
-// config need not hold the admin token) takes precedence; without one, the
-// standard admin-or-session auth applies. The token must be presented as an
+// config need not hold the admin token) takes precedence; without one, admin
+// auth applies — authenticated AND not a paired device. The token must be presented as an
 // Authorization: Bearer header — not a query parameter — so it does not leak
 // into reverse-proxy access logs, browser history, or referrers. The endpoint
 // is never served unauthenticated.
@@ -602,8 +602,12 @@ func (s *Server) metricsAuth(next http.Handler) http.Handler {
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return
 		}
-		// No dedicated token configured — fall back to admin auth.
-		s.requireAuth(next).ServeHTTP(w, r)
+		// No dedicated token configured — fall back to ADMIN auth. requireAuth
+		// alone admits every authenticated caller including a PAIRED DEVICE,
+		// which is exactly what requireAdmin exists to refuse: a phone paired as
+		// operator or viewer would otherwise scrape the fleet's Prometheus
+		// counters. Same reasoning as the main server's metricsAuth.
+		s.requireAuth(s.requireAdmin(next)).ServeHTTP(w, r)
 	})
 }
 

@@ -54,11 +54,7 @@ func resetSystemCache() {
 	cachedSystemSince = ""
 	cachedSystemMu.Unlock()
 
-	reqTodayMu.Lock()
-	reqTodayVal = 0
-	reqTodayTime = time.Time{}
-	reqTodaySince = ""
-	reqTodayMu.Unlock()
+	resetRequestsTodayCache()
 
 	prevBlksMu.Lock()
 	prevBlksHit = 0
@@ -166,18 +162,46 @@ var systemCollectGroup singleflight.Group
 // per this window instead of on every collect.
 const requestsTodayTTL = 30 * time.Second
 
+// reqTodayEntry is one owner's cached count. Keyed by OWNER, not by `since`:
+// `since` comes straight off the query string, so a map keyed on it would grow
+// with whatever a caller sends, while the number of identities is bounded by the
+// user table. A request for a different `since` simply misses.
+type reqTodayEntry struct {
+	val   int64
+	at    time.Time
+	since string
+}
+
 var (
-	reqTodayVal   int64
-	reqTodayTime  time.Time
-	reqTodaySince string
-	reqTodayMu    sync.Mutex
+	reqTodayByOwner = map[string]reqTodayEntry{}
+	reqTodayMu      sync.Mutex
 )
+
+// resetRequestsTodayCache drops every owner's cached count.
+func resetRequestsTodayCache() {
+	reqTodayMu.Lock()
+	reqTodayByOwner = map[string]reqTodayEntry{}
+	reqTodayMu.Unlock()
+}
+
+// sinceTime resolves the `since` query parameter, defaulting to UTC midnight.
+func sinceTime(sinceParam string) (time.Time, error) {
+	if sinceParam == "" {
+		return time.Now().Truncate(24 * time.Hour), nil
+	}
+	parsed, err := time.Parse(time.RFC3339, sinceParam)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid since parameter: %w", err)
+	}
+	return parsed, nil
+}
 
 // GetSystem returns system health metrics (app, database, Docker).
 func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	since := r.URL.Query().Get("since")
 
 	if stats, ok := cachedSystemFor(since); ok {
+		h.attachRequestsToday(r, stats, since)
 		writeSystemJSON(w, stats)
 		return
 	}
@@ -211,7 +235,26 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to collect system stats", err, http.StatusInternalServerError)
 		return
 	}
-	writeSystemJSON(w, v.(*SystemStats))
+	// A copy: the singleflight result is the same pointer stored in the shared
+	// cache, and requests_today is the one field that differs per caller.
+	stats := *v.(*SystemStats)
+	h.attachRequestsToday(r, &stats, since)
+	writeSystemJSON(w, &stats)
+}
+
+// attachRequestsToday fills in the one owner-scoped field on an otherwise shared
+// payload.
+//
+// It is deliberately outside the 3s payload cache. That cache is keyed on the
+// `since` parameter alone, so a scoped count living inside it would be computed
+// for whichever caller missed the cache first and then served to everyone else —
+// which is the leak this scoping exists to close, arriving by another route.
+func (h *SystemHandler) attachRequestsToday(r *http.Request, stats *SystemStats, sinceParam string) {
+	since, err := sinceTime(sinceParam)
+	if err != nil {
+		return // collect already rejected it; a cache hit cannot reach here with a bad value
+	}
+	stats.App.RequestsToday = h.requestsSince(r.Context(), since, sinceParam, ownerScopeFromIdentity(r))
 }
 
 // cachedSystemFor returns a copy of the cached payload for `since` when it is
@@ -236,26 +279,31 @@ func writeSystemJSON(w http.ResponseWriter, stats *SystemStats) {
 // pinned. Keeping this COUNT off every collect is what stops a stale-planner-stats
 // seq-scan on a freshly restarted primary from tipping the whole status endpoint
 // past a caller's timeout.
-func (h *SystemHandler) requestsSince(ctx context.Context, since time.Time, sinceKey string) int64 {
+func (h *SystemHandler) requestsSince(ctx context.Context, since time.Time, sinceKey, ownerScope string) int64 {
 	reqTodayMu.Lock()
-	if reqTodaySince == sinceKey && time.Since(reqTodayTime) < requestsTodayTTL {
-		v := reqTodayVal
+	if e, ok := reqTodayByOwner[ownerScope]; ok && e.since == sinceKey && time.Since(e.at) < requestsTodayTTL {
 		reqTodayMu.Unlock()
-		return v
+		return e.val
 	}
 	reqTodayMu.Unlock()
 
+	// rl is the alias ownerFilterFragment writes its predicate against. An empty
+	// ownerScope (an admin) yields no fragment and the fleet-wide count; a
+	// non-admin is restricted to traffic they own, keyed rows through the key's
+	// current owner and keyless rows through the stamped owner_user_id. A
+	// malformed id fails CLOSED to " AND 1=0" rather than to no filter.
+	ownerFrag, ownerArgs := ownerFilterFragment(ownerScope, 2)
+	args := append([]any{since}, ownerArgs...)
+
 	var n int64
 	if err := h.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM request_logs WHERE created_at >= $1`, since).Scan(&n); err != nil {
+		`SELECT COUNT(*) FROM request_logs rl WHERE rl.created_at >= $1`+ownerFrag, args...).Scan(&n); err != nil {
 		debuglog.Error("system: query failed", "query", "requestsToday", "error", err)
 		return 0
 	}
 
 	reqTodayMu.Lock()
-	reqTodayVal = n
-	reqTodayTime = time.Now()
-	reqTodaySince = sinceKey
+	reqTodayByOwner[ownerScope] = reqTodayEntry{val: n, at: time.Now(), since: sinceKey}
 	reqTodayMu.Unlock()
 	return n
 }
@@ -280,15 +328,13 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	diskReadPerSec, diskWritePerSec := util.ReadCgroupDiskIO()
 	procs := util.ReadCgroupProcs()
 
-	since := time.Now().Truncate(24 * time.Hour) // fallback: UTC midnight
-	if sinceParam != "" {
-		parsed, err := time.Parse(time.RFC3339, sinceParam)
-		if err != nil {
-			return nil, fmt.Errorf("invalid since parameter: %w", err)
-		}
-		since = parsed
+	// The `since` parse stays here so a malformed value is still rejected before
+	// anything else runs; the COUNT it used to feed is per-caller and is attached
+	// in GetSystem instead. This payload is shared by every caller through the 3s
+	// cache, so an owner-scoped number must not live in it.
+	if _, err := sinceTime(sinceParam); err != nil {
+		return nil, err
 	}
-	requestsToday := h.requestsSince(ctx, since, sinceParam)
 
 	stats.App = AppStats{
 		HeapAllocMB:       float64(heapAlloc) / 1024 / 1024,
@@ -300,7 +346,6 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		InContainer:       inContainer,
 		UptimeSeconds:     int64(time.Since(startedAt).Seconds()),
 		CPUPercent:        cpuPercent,
-		RequestsToday:     requestsToday,
 		NetRxBytesSec:     netRxPerSec,
 		NetTxBytesSec:     netTxPerSec,
 		DiskReadBytesSec:  diskReadPerSec,
