@@ -62,21 +62,7 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 	if json.Unmarshal(body, &resp) != nil || !util.JSONMemberSet(resp.Usage) {
 		return ResponseUsage{}
 	}
-	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
-	// whatever decoded. That rule assumes independent members: losing
-	// completion_tokens there cannot corrupt prompt_tokens. These figures are
-	// DERIVED — summed across members, or falling back to a sum — so a lost
-	// addend leaves a number that is wrong AND non-zero, which reads as
-	// authoritative and stops estimateMissingUsage ever firing. A cache-read
-	// count of 20000 lost that way bills 4.
-	//
-	// Absent is the honest report, and it is what master did for these bodies
-	// too — except master lost the answer with it.
-	var usage antUsage
-	if err := util.DecodeCounts(resp.Usage, &usage); err != nil {
-		return ResponseUsage{}
-	}
-	return usage.summary()
+	return readUsage(resp.Usage)
 }
 
 // antUsage is an Anthropic usage block. The cache fields are absent from
@@ -231,7 +217,11 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		}
 		if usage, ok := readEventUsage(raw); ok {
 			u := usage.summary()
-			info.InputTokens, info.HasInput = u.PromptTokens, true
+			// HasInput means there is a READING, so it follows the figure rather
+			// than the event: readEventUsage drops a prompt figure whose addend
+			// it could not read, and claiming a reading of zero for that would
+			// have the caller overwrite a good count with nothing.
+			info.InputTokens, info.HasInput = u.PromptTokens, u.PromptTokens > 0
 			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
 			if usage.OutputTokens > 0 {
 				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
@@ -265,19 +255,49 @@ func readEventUsage(raw json.RawMessage) (antUsage, bool) {
 	if !util.JSONMemberSet(raw) {
 		return antUsage{}, false
 	}
-	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
-	// whatever decoded. That rule assumes independent members: losing
-	// completion_tokens there cannot corrupt prompt_tokens. These figures are
-	// DERIVED — summed across members, or falling back to a sum — so a lost
-	// addend leaves a number that is wrong AND non-zero, which reads as
-	// authoritative and stops estimateMissingUsage ever firing. A cache-read
-	// count of 20000 lost that way bills 4.
-	//
-	// Absent is the honest report, and it is what master did for these bodies
-	// too — except master lost the answer with it.
 	var u antUsage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return antUsage{}, false
 	}
+	// A member that could not be read costs the figures it FEEDS, not the whole
+	// block. See readUsage.
+	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+		u.OutputTokens = 0
+	}
 	return u, true
+}
+
+// promptAddends are the members Anthropic's prompt figure is SUMMED from.
+var promptAddends = []string{"input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"}
+
+// readUsage decodes an Anthropic usage block per FIGURE, not per block.
+//
+// Two rules were tried and both were wrong. Keeping whatever decoded corrupted
+// the prompt figure, which is input_tokens plus both cache counts: a cache-read
+// count of 20000 lost to an unreadable sibling billed 4, and 4 is non-zero, so
+// estimateMissingUsage never replaced it. Dropping the whole block instead threw
+// away output_tokens — read straight off one member, so never in doubt — and an
+// answer with a perfectly good completion count then read as empty, which since
+// #812 charges the provider's circuit breaker.
+//
+// So a member that could not be read costs the figures it FEEDS. output_tokens
+// stands or falls alone; the prompt figure needs all three of its addends.
+func readUsage(raw json.RawMessage) ResponseUsage {
+	if !util.JSONMemberSet(raw) {
+		return ResponseUsage{}
+	}
+	var u antUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return ResponseUsage{}
+	}
+	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+		u.OutputTokens = 0
+	}
+	return u.summary()
 }

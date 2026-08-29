@@ -223,23 +223,24 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// util.DecodeCounts, and a failure yields no usage rather than no answer: a
-	// count is a count however the provider spelled it, and a member this
-	// package cannot read at all is still only the usage.
-	//
-	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
-	// whatever decoded. That rule assumes independent members: losing
-	// completion_tokens there cannot corrupt prompt_tokens. These figures are
-	// DERIVED -- summed across members, or falling back to a sum -- so a lost
-	// addend leaves a number that is wrong AND non-zero, which reads as
-	// authoritative and stops estimateMissingUsage ever firing. A cache-read
-	// count of 20000 lost that way bills 4.
-	//
-	// Absent is the honest report, and it is what master did for these bodies
-	// too -- except master lost the answer with it.
+	// Per FIGURE, not per block. A figure read straight off one member is right
+	// or absent; a SUMMED one is only as good as its addends, and a lost addend
+	// leaves a number that is wrong AND non-zero, which reads as authoritative
+	// and stops estimateMissingUsage replacing it. Dropping the whole block
+	// instead threw away counts that were never in doubt — and a completion
+	// count is what tells the breaker the provider answered at all.
 	var u genUsage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
+	}
+	if len(util.UnreadableCounts(raw, "candidatesTokenCount", "thoughtsTokenCount")) > 0 {
+		u.CandidatesTokenCount, u.ThoughtsTokenCount = 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "promptTokenCount")) > 0 {
+		u.PromptTokenCount = 0
+	}
+	if len(util.UnreadableCounts(raw, "totalTokenCount")) > 0 {
+		u.TotalTokenCount = 0
 	}
 	out := &oaiUsage{
 		PromptTokens:     u.PromptTokenCount,

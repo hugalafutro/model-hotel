@@ -122,37 +122,44 @@ func TestBuildChatCompletion_AnAbsentUsageIsNotAZeroedOne(t *testing.T) {
 	}
 }
 
-// One unreadable member costs the WHOLE usage, and that is deliberate — the
-// opposite of the rule proxy.Usage uses.
+// A member that could not be read costs the figures it FEEDS, and nothing else.
 //
-// That rule keeps whatever decoded because its members are independent. These
-// figures are derived: summed across members, or falling back to a sum. A lost
-// addend would leave a number that is wrong AND non-zero, which reads as
-// authoritative and stops estimateMissingUsage ever firing — a cache-read count
-// of 20000 lost that way bills 4. Absent is the honest report, and the estimator
-// then does its job.
-// Sharpest here: prompt_tokens is input + both cache counts, so a lost
-// cache_read of 20000 would bill 4.
-func TestBuildChatCompletion_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
+// Two blunter rules were tried and both were wrong. Keeping whatever decoded
+// corrupted a SUMMED figure: an Anthropic prompt count is input plus both cache
+// counts, so a cache-read of 20000 lost to an unreadable sibling bills 4 — and 4
+// is non-zero, so the estimator never replaces it. Dropping the whole block
+// instead threw away counts read straight off one member, which are never in
+// doubt — and a completion count is what tells the circuit breaker the provider
+// answered at all, so losing it charges a provider for an answer it gave.
+//
+// Sharpest here: prompt_tokens is input plus both cache counts, while
+// output_tokens is read straight off its own member.
+func TestBuildChatCompletion_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
 	t.Parallel()
 	body := `{"type":"message","content":[{"type":"text","text":"hello"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}}`
 	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	if !strings.Contains(string(out), "hello") {
-		t.Errorf("the answer was lost with the usage: %s", out)
+	if strings.Contains(string(out), `"prompt_tokens":4`) {
+		t.Errorf("a prompt figure missing its cache addend was reported as authoritative: %s", out)
 	}
-	if strings.Contains(string(out), `"usage"`) {
-		t.Errorf("a prompt count missing its cache addend was reported as authoritative: %s", out)
+	if !strings.Contains(string(out), `"completion_tokens":5`) {
+		t.Errorf("the completion count was read straight off its own member and was thrown away: %s", out)
 	}
 }
 
-// The same for the non-streaming native reader, where the sum is computed in
-// summary().
-func TestReadEventUsage_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
+// The streaming reader keeps the same rule.
+func TestReadEventUsage_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
 	t.Parallel()
-	if _, ok := readEventUsage([]byte(`{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`)); ok {
-		t.Error("a half-read usage was accepted")
+	u, ok := readEventUsage([]byte(`{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`))
+	if !ok {
+		t.Fatal("the whole block was rejected for one unreadable member")
+	}
+	if u.InputTokens != 0 {
+		t.Errorf("InputTokens = %d, want the prompt addends dropped together", u.InputTokens)
+	}
+	if u.OutputTokens != 5 {
+		t.Errorf("OutputTokens = %d, want 5: it is read straight off its own member", u.OutputTokens)
 	}
 }

@@ -108,3 +108,52 @@ func TestInspectStreamEvent_ANullUsageIsNotAReading(t *testing.T) {
 		})
 	}
 }
+
+// A member that could not be read costs the figures it FEEDS, and nothing else.
+// The prompt figure is input_tokens plus both cache counts; output_tokens is
+// read straight off its own member and is never in doubt.
+func TestParseResponseUsage_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name            string
+		usage           string
+		wantIn, wantOut int
+	}{
+		// The cache-read count of 20000 lost here billed 4, and 4 is non-zero,
+		// so the estimator never replaced it.
+		{"a lost prompt addend", `{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`, 0, 5},
+		{"a lost completion count", `{"input_tokens":4,"output_tokens":"lots","cache_read_input_tokens":20000}`, 20004, 0},
+		{"all readable", `{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":20000}`, 20004, 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body := `{"type":"message","content":[{"type":"text","text":"hi"}],"usage":` + tc.usage + `}`
+			got := ParseResponseUsage([]byte(body))
+			if got.PromptTokens != tc.wantIn || got.CompletionTokens != tc.wantOut {
+				t.Errorf("got %d/%d, want %d/%d", got.PromptTokens, got.CompletionTokens, tc.wantIn, tc.wantOut)
+			}
+		})
+	}
+}
+
+// The streaming reader keeps the same rule — and this is the path where getting
+// it wrong bites hardest: message_start reports output_tokens 1, so a
+// message_delta whose usage is dropped leaves that 1 standing as the whole
+// completion count for the request.
+func TestInspectStreamEvent_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
+	t.Parallel()
+	got := InspectStreamEvent([]byte(`{"type":"message_delta","usage":{"output_tokens":1520,"input_tokens":[]}}`))
+	if !got.HasOutput || got.OutputTokens != 1520 {
+		t.Errorf("OutputTokens = %d (has=%v), want the count read straight off its own member", got.OutputTokens, got.HasOutput)
+	}
+
+	// And the other half of the rule, on the event that carries the prompt: a
+	// figure whose addend was lost is dropped rather than reported short.
+	start := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_read_input_tokens":[]}}}`))
+	if start.HasInput || start.InputTokens != 0 {
+		t.Errorf("InputTokens = %d (has=%v), want the prompt figure dropped: its cache addend was lost", start.InputTokens, start.HasInput)
+	}
+	if !start.HasOutput || start.OutputTokens != 1 {
+		t.Errorf("OutputTokens = %d (has=%v), want 1: it is read straight off its own member", start.OutputTokens, start.HasOutput)
+	}
+}

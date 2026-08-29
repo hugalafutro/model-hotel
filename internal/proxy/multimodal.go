@@ -712,17 +712,17 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	if err := util.DecodeCounts(envelope.Usage, &usage); err != nil && shapeError(envelope.Usage, err) == nil {
 		return 0, 0
 	}
-	promptTokens = usage.PromptTokens
-	if promptTokens == 0 {
-		promptTokens = usage.InputTokens
-	}
-	if promptTokens == 0 {
-		promptTokens = usage.TotalTokens
-	}
-	completionTokens = usage.CompletionTokens
-	if completionTokens == 0 {
-		completionTokens = usage.OutputTokens
-	}
+	// The fallback stops at the first member the provider SENT, readable or not.
+	// Falling past an unreadable one reported total_tokens as the prompt when
+	// prompt_tokens was the member lost — the same wrong-but-non-zero figure the
+	// translators refuse, and it stops the estimator replacing it.
+	promptTokens = firstSentCount(envelope.Usage,
+		count{"prompt_tokens", usage.PromptTokens},
+		count{"input_tokens", usage.InputTokens},
+		count{"total_tokens", usage.TotalTokens})
+	completionTokens = firstSentCount(envelope.Usage,
+		count{"completion_tokens", usage.CompletionTokens},
+		count{"output_tokens", usage.OutputTokens})
 	return promptTokens, completionTokens
 }
 
@@ -749,4 +749,26 @@ func (fw flushWriter) Write(p []byte) (int, error) {
 		fw.f.Flush()
 	}
 	return n, err
+}
+
+// count pairs a usage member's name with what decoding it produced.
+type count struct {
+	member string
+	value  int
+}
+
+// firstSentCount walks a fallback chain and stops at the first member the
+// provider actually sent. A member that was sent but could not be read yields
+// zero rather than deferring to the next: it was meant to carry this figure, and
+// the next one is a different number.
+func firstSentCount(raw json.RawMessage, chain ...count) int {
+	for _, c := range chain {
+		if len(util.UnreadableCounts(raw, c.member)) > 0 {
+			return 0
+		}
+		if c.value != 0 {
+			return c.value
+		}
+	}
+	return 0
 }

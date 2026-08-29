@@ -236,19 +236,21 @@ func translateUsage(raw json.RawMessage) *completionUsage {
 	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
-	// whatever decoded. That rule assumes independent members: losing
-	// completion_tokens there cannot corrupt prompt_tokens. These figures are
-	// DERIVED — summed across members, or falling back to a sum — so a lost
-	// addend leaves a number that is wrong AND non-zero, which reads as
-	// authoritative and stops estimateMissingUsage ever firing. A cache-read
-	// count of 20000 lost that way bills 4.
-	//
-	// Absent is the honest report, and it is what master did for these bodies
-	// too — except master lost the answer with it.
+	// Per FIGURE, not per block. A figure read straight off one member is right
+	// or absent; a SUMMED one is only as good as its addends, and a lost addend
+	// leaves a number that is wrong AND non-zero, which reads as authoritative
+	// and stops estimateMissingUsage replacing it. Dropping the whole block
+	// instead threw away counts that were never in doubt — and a completion
+	// count is what tells the breaker the provider answered at all.
 	var u antRespUsage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
+	}
+	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+		u.OutputTokens = 0
 	}
 	return buildUsage(u)
 }
@@ -271,3 +273,6 @@ func buildUsage(u antRespUsage) *completionUsage {
 	}
 	return out
 }
+
+// promptAddends are the members the prompt figure is SUMMED from.
+var promptAddends = []string{"input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"}

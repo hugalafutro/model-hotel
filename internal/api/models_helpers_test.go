@@ -793,10 +793,9 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 	}
 }
 
-// A member this struct has no type for — a token count the provider quoted, say
-// — must not blank the answer the dashboard exists to show. encoding/json
-// records the type error and carries on with the siblings, so what did decode is
-// all there.
+// The counts are what this site lost. Its decode already logged and carried on,
+// so the answer was never at risk here — a claim an earlier commit message made
+// and this corrects.
 func TestParseTestModelResponse_ReadsASpelledCount(t *testing.T) {
 	body := []byte(`{"choices":[{"message":{"content":"hello"}}],"usage":{"prompt_tokens":"12","completion_tokens":"3"}}`)
 	content, tps, prompt, completion := parseTestModelResponse(body, 1000)

@@ -113,26 +113,43 @@ func translateUsage(raw json.RawMessage) *chatUsage {
 	if !util.JSONMemberSet(raw) {
 		return nil
 	}
-	// A shape error yields NO usage here, unlike proxy.Usage, which keeps
-	// whatever decoded. That rule assumes independent members: losing
-	// completion_tokens there cannot corrupt prompt_tokens. These figures are
-	// DERIVED — summed across members, or falling back to a sum — so a lost
-	// addend leaves a number that is wrong AND non-zero, which reads as
-	// authoritative and stops estimateMissingUsage ever firing. A cache-read
-	// count of 20000 lost that way bills 4.
+	// Per FIGURE, not per block. A figure read straight off one member is right
+	// or absent; a SUMMED one is only as good as its addends, and a lost addend
+	// leaves a number that is wrong AND non-zero, which reads as authoritative
+	// and stops estimateMissingUsage replacing it. Dropping the whole block
+	// instead threw away counts that were never in doubt — and a completion
+	// count is what tells the breaker the provider answered at all.
 	//
-	// Absent is the honest report, and it is what master did for these bodies
-	// too — except master lost the answer with it.
+	// Every figure here is read directly — the details blocks are separate
+	// members, and output_tokens_details as [] rather than {} is a routine relay
+	// habit that must not cost the counts beside it. Only the FALLBACK total is
+	// a sum, so it is the only one an addend can take down.
 	var u Usage
-	if err := util.DecodeCounts(raw, &u); err != nil {
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
+	}
+	lostAddend := len(util.UnreadableCounts(raw, "input_tokens", "output_tokens")) > 0
+	for _, key := range []string{"input_tokens", "output_tokens", "total_tokens"} {
+		if len(util.UnreadableCounts(raw, key)) == 0 {
+			continue
+		}
+		switch key {
+		case "input_tokens":
+			u.InputTokens = 0
+		case "output_tokens":
+			u.OutputTokens = 0
+		case "total_tokens":
+			u.TotalTokens = 0
+		}
 	}
 	out := &chatUsage{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
 		TotalTokens:      u.TotalTokens,
 	}
-	if out.TotalTokens == 0 {
+	// The fallback total is the one sum here, so a lost addend is the one thing
+	// that can take it down.
+	if out.TotalTokens == 0 && !lostAddend {
 		out.TotalTokens = u.InputTokens + u.OutputTokens
 	}
 	if u.InputTokensDetails != nil && u.InputTokensDetails.CachedTokens > 0 {

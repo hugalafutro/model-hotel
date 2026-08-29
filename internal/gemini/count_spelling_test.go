@@ -102,26 +102,31 @@ func TestBuildChatCompletion_ANullUsageIsNotAZeroedOne(t *testing.T) {
 	}
 }
 
-// One unreadable member costs the WHOLE usage, and that is deliberate — the
-// opposite of the rule proxy.Usage uses.
+// A member that could not be read costs the figures it FEEDS, and nothing else.
 //
-// That rule keeps whatever decoded because its members are independent. These
-// figures are derived: summed across members, or falling back to a sum. A lost
-// addend would leave a number that is wrong AND non-zero, which reads as
-// authoritative and stops estimateMissingUsage ever firing — a cache-read count
-// of 20000 lost that way bills 4. Absent is the honest report, and the estimator
-// then does its job.
-func TestBuildChatCompletion_AnUnreadableMemberCostsTheWholeUsage(t *testing.T) {
+// Two blunter rules were tried and both were wrong. Keeping whatever decoded
+// corrupted a SUMMED figure: an Anthropic prompt count is input plus both cache
+// counts, so a cache-read of 20000 lost to an unreadable sibling bills 4 — and 4
+// is non-zero, so the estimator never replaces it. Dropping the whole block
+// instead threw away counts read straight off one member, which are never in
+// doubt — and a completion count is what tells the circuit breaker the provider
+// answered at all, so losing it charges a provider for an answer it gave.
+//
+// Here the completion figure is candidates + thoughts, while prompt and total
+// are each read straight off their own member.
+func TestBuildChatCompletion_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
 	t.Parallel()
 	body := `{"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":"lots","totalTokenCount":15}}`
 	out, err := BuildChatCompletion([]byte(body), "id", "m", 0)
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}
-	if !strings.Contains(string(out), "hello") {
-		t.Errorf("the answer was lost with the usage: %s", out)
+	if !strings.Contains(string(out), `"prompt_tokens":12`) {
+		t.Errorf("a figure read straight off its own member was thrown away: %s", out)
 	}
-	if strings.Contains(string(out), `"usage"`) {
-		t.Errorf("a half-read usage was reported as authoritative: %s", out)
+	if strings.Contains(string(out), `"completion_tokens":0,"total_tokens":15`) == false && strings.Contains(string(out), `"completion_tokens"`) {
+		if !strings.Contains(string(out), `"completion_tokens":0`) {
+			t.Errorf("a completion figure missing an addend was reported anyway: %s", out)
+		}
 	}
 }

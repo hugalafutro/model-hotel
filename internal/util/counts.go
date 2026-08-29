@@ -218,3 +218,50 @@ func roundToCount(f float64) (json.Number, bool) {
 	}
 	return json.Number(strconv.FormatInt(int64(r), 10)), true
 }
+
+// UnreadableCounts returns those of the named members that are PRESENT in a JSON
+// object but hold something no reading of a count can make sense of.
+//
+// It exists for figures that are SUMMED. A figure read straight off one member
+// does not care what happened to the others: it is right, or it is absent. A
+// sum is only as good as its addends — losing one leaves a number that is wrong
+// AND non-zero, which reads as authoritative and stops any estimate replacing
+// it. An Anthropic prompt figure is input_tokens plus both cache counts, so a
+// cache-read count of 20000 lost that way bills 4.
+//
+// Absent is not unreadable: a count the provider did not send is zero, and zero
+// is a correct addend.
+func UnreadableCounts(raw json.RawMessage, keys ...string) []string {
+	var members map[string]json.RawMessage
+	if json.Unmarshal(raw, &members) != nil {
+		return keys
+	}
+	var lost []string
+	for _, key := range keys {
+		member, present := members[key]
+		if !present {
+			continue
+		}
+		if !readsAsCount(member) {
+			lost = append(lost, key)
+		}
+	}
+	return lost
+}
+
+// readsAsCount asks DecodeCounts itself whether a member is a count, by handing
+// it the member wrapped in an object.
+//
+// The wrapper is not decoration: DecodeCounts locates the member to rewrite by
+// the path encoding/json names, and a bare value has no path. Asking the same
+// function rather than re-deciding here is what keeps one answer to "is this a
+// count" — a second opinion is only ever a way for the two to disagree.
+func readsAsCount(member json.RawMessage) bool {
+	if !JSONMemberSet(member) {
+		return false
+	}
+	var wrapped struct {
+		N int `json:"n"`
+	}
+	return DecodeCounts(append(append([]byte(`{"n":`), member...), '}'), &wrapped) == nil
+}
