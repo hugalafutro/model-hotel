@@ -13,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming OpenAI chat-completions request shape ---
@@ -57,8 +58,14 @@ type oaiContentPart struct {
 type oaiToolCall struct {
 	ID       string `json:"id"`
 	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
+		Name string `json:"name"`
+		// util.ToolArguments, not a plain string: the spec says a JSON string and
+		// several providers send the object, so #808 taught the RESPONSE side to
+		// accept both — which means the caller receives the object form, echoes
+		// the assistant turn back in its next request, and this decoder rejected
+		// what the gateway itself had handed it. In a failover group whose next
+		// turn lands here, that 400s for the life of the conversation.
+		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
 

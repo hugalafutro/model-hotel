@@ -11,7 +11,11 @@
 // anthropic package this is a leaf: the proxy composes it, never the reverse.
 package openairesponses
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
+)
 
 // --- Responses API request shape (outgoing) ---
 
@@ -74,10 +78,12 @@ type contentPart struct {
 
 // functionCallItem replays a prior assistant tool call from the transcript.
 type functionCallItem struct {
-	Type      string `json:"type"` // "function_call"
-	CallID    string `json:"call_id"`
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
+	Type   string `json:"type"` // "function_call"
+	CallID string `json:"call_id"`
+	Name   string `json:"name"`
+	// Built from the caller's chat request, and marshalled as the spec's JSON
+	// string whatever spelling arrived.
+	Arguments util.ToolArguments `json:"arguments"`
 }
 
 // functionCallOutputItem replays a prior tool result from the transcript.
@@ -129,9 +135,11 @@ type OutputItem struct {
 	// reasoning
 	Summary []SummaryPart `json:"summary"`
 	// function_call
-	CallID    string `json:"call_id"`
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
+	CallID string `json:"call_id"`
+	Name   string `json:"name"`
+	// The provider's side of the same asymmetry: an object here failed the whole
+	// Response decode, so a tool call cost the caller the answer around it.
+	Arguments util.ToolArguments `json:"arguments"`
 }
 
 // OutputContent is one content part of a message output item.
@@ -202,8 +210,14 @@ type chatToolCall struct {
 }
 
 type chatToolCallFunc struct {
-	Name      string `json:"name,omitempty"`
-	Arguments string `json:"arguments"`
+	Name string `json:"name,omitempty"`
+	// util.ToolArguments, not a plain string: the spec says a JSON string and
+	// several providers send the object, so #808 taught the response side to
+	// accept both — which means the caller receives the object form, echoes the
+	// assistant turn back in its next request, and this decoder rejected what
+	// the gateway itself had handed it. It marshals back as the spec's string,
+	// so the caller is still answered in the shape it asked for.
+	Arguments util.ToolArguments `json:"arguments"`
 }
 
 type chatUsage struct {

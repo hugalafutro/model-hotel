@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // StreamTranslator converts the Responses API typed SSE event stream into the
@@ -121,7 +122,7 @@ func (t *StreamTranslator) TranslateEvent(data []byte) ([]byte, error) {
 		idx := t.toolIndex(ev.OutputIndex)
 		return t.deltaChunk(chatDelta{ToolCalls: []chatToolCall{{
 			Index:    &idx,
-			Function: chatToolCallFunc{Arguments: ev.Delta},
+			Function: chatToolCallFunc{Arguments: util.ToolArguments(ev.Delta)},
 		}}}), nil
 
 	case "response.completed", "response.incomplete":
