@@ -450,7 +450,7 @@ func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 			Type:  "tool_use",
 			ID:    tc.ID,
 			Name:  tc.Function.Name,
-			Input: toolInput(string(tc.Function.Arguments)),
+			Input: util.ToolArgumentsObject(tc.Function.Arguments),
 		})
 	}
 	if len(blocks) == 0 {
@@ -661,15 +661,6 @@ func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
 // toolInput converts OpenAI's tool-call arguments — a JSON string — into the
 // JSON object Anthropic's tool_use input expects. Empty, unparseable and
 // non-object arguments all become an empty object; anything else would be a
-// malformed tool_use block the model cannot read.
-func toolInput(arguments string) json.RawMessage {
-	raw := json.RawMessage(strings.TrimSpace(arguments))
-	if len(raw) == 0 || raw[0] != '{' || !json.Valid(raw) {
-		return json.RawMessage(`{}`)
-	}
-	return raw
-}
-
 // flattenText reduces a content field (string or part array) to plain text, for
 // the fields Anthropic types as text: the system prompt and tool_result content.
 func flattenText(raw json.RawMessage) string {

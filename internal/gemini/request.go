@@ -232,10 +232,10 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 			}
 			for _, tc := range m.ToolCalls {
 				callNames[tc.ID] = tc.Function.Name
-				args := json.RawMessage(tc.Function.Arguments)
-				if len(args) == 0 || !json.Valid(args) {
-					args = json.RawMessage("{}")
-				}
+				// Gemini types functionCall.args as a Struct, so forwarding a
+				// non-object was a 400 from the provider where the other two
+				// egress paths quietly substituted something. One decision now.
+				args := util.ToolArgumentsObject(tc.Function.Arguments)
 				parts = append(parts, genPart{FunctionCall: &genFunctionCall{Name: tc.Function.Name, Args: args}})
 			}
 			if len(parts) > 0 {

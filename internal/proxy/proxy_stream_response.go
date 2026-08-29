@@ -402,14 +402,15 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			_ = json.Unmarshal(masked, &chunk)
 		}
 
-		// Rewrite an object-form tool call into the spec's JSON string before
-		// it leaves the gateway. Accepting the object on the way IN is what
-		// stops the frame being dropped; forwarding it on the way OUT would
-		// hand the caller a shape this gateway's own request translators
-		// (anthropicegress, gemini, openairesponses) cannot read back — and the
-		// caller echoes the assistant turn into the next request. In a failover
-		// group whose next turn lands on an Anthropic or Gemini member, that
-		// request 400s, and keeps 400ing for the life of the conversation.
+		// Rewrite an object-form tool call into the spec's JSON string before it
+		// leaves the gateway. Accepting the object on the way IN is what stops
+		// the frame being dropped; rewriting it on the way OUT is what makes the
+		// caller's next request spec-shaped, whoever reads it.
+		//
+		// This used to be load-bearing for the gateway's own egress translators,
+		// which could not read the object form back. They can now, so what is
+		// left is conformance: the caller asked this gateway for the OpenAI
+		// shape, and an SDK or another gateway downstream is entitled to it.
 		if normalized, changed := normalizeToolArguments(payload); changed {
 			payload = normalized
 			line = append([]byte("data: "), normalized...)

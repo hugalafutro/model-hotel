@@ -1,6 +1,9 @@
 package util
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // ToolArguments is an OpenAI tool-call arguments value.
 //
@@ -17,7 +20,8 @@ import "encoding/json"
 // wherever the value is re-encoded rather than relayed.
 //
 // The streaming surface relays bytes rather than re-encoding, so it normalises
-// explicitly — see normalizeToolArguments.
+// explicitly — see normalizeToolArguments. That normalisation is conformance
+// rather than repair: every decoder in this repo reads either spelling now.
 type ToolArguments string
 
 // UnmarshalJSON accepts the spec's JSON string or the argument object itself.
@@ -32,4 +36,27 @@ func (a *ToolArguments) UnmarshalJSON(b []byte) error {
 	// The object (or array, or number) form: its own JSON is the argument text.
 	*a = ToolArguments(b)
 	return nil
+}
+
+// ToolArgumentsObject renders tool-call arguments as the JSON OBJECT the
+// dialects that type them as one require.
+//
+// Anything that is not one becomes an empty object. That is this repo's existing
+// decision, not a new one — see TestTranslateRequest_ToolCallArgumentsBecomeAnObject:
+// a model that emits junk arguments mid-conversation should not kill the whole
+// request, and a call with no arguments is still a call.
+//
+// One helper because the three egress translators each made that decision for
+// themselves and each made it differently: an array became {} for Anthropic, was
+// forwarded to Gemini as a non-Struct `args` it answers 400 to, and reached the
+// Responses API as a quoted array the model reads as garbage. Which of those a
+// caller met depended on which member of a failover group the turn landed on —
+// and removing exactly that divergence is what these arguments are decoded
+// tolerantly for. The coercion was never the defect; three of them were.
+func ToolArgumentsObject(a ToolArguments) json.RawMessage {
+	raw := json.RawMessage(strings.TrimSpace(string(a)))
+	if len(raw) == 0 || raw[0] != '{' || !json.Valid(raw) {
+		return json.RawMessage(`{}`)
+	}
+	return raw
 }
