@@ -13,17 +13,24 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
+// isTerminalLogState reports whether a request-log state is one a row can end
+// on. A terminal update is the last thing that will ever touch its row, so it is
+// the one that must not lose the race with the INSERT it is updating.
+func isTerminalLogState(state string) bool {
+	return state == "completed" || state == "failed"
+}
+
 // updateLogOption configures updateRequestLog behavior.
 type updateLogOption struct {
 	// skipWaitForInsert skips the WaitForInsert call before the UPDATE.
 	// Used for all log updates that run before the response is written to the
 	// client, to avoid adding up to 5s INSERT-wait latency under DB stress.
 	//
-	// Tradeoff: if the UPDATE wins the race against the async INSERT goroutine,
-	// the UPDATE hits 0 rows and the row stays at state='pending' with no final
-	// metrics. This is a low-probability event (the INSERT has the entire
-	// provider round-trip to complete). Only the streaming final update (after
-	// the stream completes, off the hot path) still waits.
+	// Honoured for interim states only. A terminal state overrides it in
+	// updateRequestLog, because an UPDATE that wins the race against the async
+	// INSERT hits 0 rows and strands the request at 'pending' — see the comment
+	// there for why the "the INSERT has the entire provider round-trip to
+	// complete" reasoning does not hold on the paths that strand.
 	skipWaitForInsert bool
 }
 
@@ -198,6 +205,27 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		if o.skipWaitForInsert {
 			skipWait = true
 		}
+	}
+
+	// That last sentence is an invariant, so it is decided HERE rather than by
+	// each caller remembering: every terminal caller passed the flag, and a
+	// terminal UPDATE that beat its own INSERT hit 0 rows and left the request
+	// at 'pending' for ever — no status, no duration, no error, and a row the
+	// dashboard shows as still in flight.
+	//
+	// The flag's reasoning is sound for an interim update and false for a
+	// terminal one on the paths that need it most. "The INSERT has the entire
+	// provider round-trip to complete" is true of a request that reached a
+	// provider; a request that failed before one — an unknown model, an invalid
+	// model format, a rejected key — updates microseconds after the insert is
+	// queued, so for those it was not a low-probability race but the normal
+	// case. And those are exactly the rows whose error is the only thing worth
+	// reading.
+	//
+	// The cost where the premise did hold is nil: the insert is long finished by
+	// then, so the wait returns at once. WaitForInsert is bounded either way.
+	if isTerminalLogState(logEntry.state) {
+		skipWait = false
 	}
 
 	if !skipWait {
