@@ -421,16 +421,17 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			// read of it is incomplete, so the end-of-stream verdict must not
 			// conclude the provider sent nothing (see unparsedChunks).
 			//
-			// The mismatch, not the payload. Field is the member's path and Value
-			// names the JSON shape that arrived — for a number it is the literal,
-			// which is an index or a count and not the model's text. That is the
-			// whole diagnosis ("choices.finish_reason arrived as a number") and it
-			// is what an operator can act on; the frame itself is the provider's.
+			// The mismatch, not the payload: which member, and what shape
+			// arrived. "choices.0.finish_reason arrived as a number" is the whole
+			// diagnosis and the part an operator can act on; the frame itself is
+			// the provider's, and the commonest reason one lands here is that the
+			// model's own output was written in a shape this gateway has no struct
+			// for — so the payload does not go in the log.
 			st.unparsedChunks++
 			debuglog.Warn("proxy: forwarding a chunk shape this gateway does not model",
 				"model", logData.modelID, "provider", logData.providerName,
 				"chunk_number", chunkCount, "json_field", typeErr.Field,
-				"json_got", typeErr.Value, "payload_bytes", len(payload))
+				"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
 			goto forwardUntypeable
 		}
 
@@ -536,6 +537,17 @@ forwardUntypeable:
 // It works on the raw map rather than the typed chunk because the frame is
 // forwarded as bytes: rebuilding it from streamChunk would drop every field
 // this gateway does not model.
+// jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
+//
+// encoding/json writes a number's LITERAL into that field ("number 42"), and a
+// relay that sends the model's numeric answer where the schema wants a string is
+// exactly how a frame reaches the untypeable path — so logging Value whole put
+// response content in the app log. The shape is the diagnosis; the value is not.
+func jsonShapeName(v string) string {
+	shape, _, _ := strings.Cut(v, " ")
+	return shape
+}
+
 func normalizeToolArguments(payload string) (string, bool) {
 	// Cheap reject first. Without it every frame of every stream paid for three
 	// json.Unmarshal calls (~5us and ~1.8KB of garbage each) to discover it has

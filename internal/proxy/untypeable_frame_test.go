@@ -347,3 +347,23 @@ func TestHandleStreamingResponse_UntypeableFrameStillNormalisesToolArguments(t *
 		t.Errorf("the untypeable member was not preserved: %q", body)
 	}
 }
+
+// encoding/json writes a number's literal into UnmarshalTypeError.Value, and a
+// relay sending the model's numeric answer where the schema wants a string is
+// exactly how a frame reaches the untypeable path. Only the shape is loggable.
+func TestJSONShapeName(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ value, want string }{
+		{"array", "array"},
+		{"object", "object"},
+		{"string", "string"},
+		{"bool", "bool"},
+		{"number 42", "number"},
+		{"number -3.5e10", "number"},
+		{"", ""},
+	} {
+		if got := jsonShapeName(tc.value); got != tc.want {
+			t.Errorf("jsonShapeName(%q) = %q, want %q", tc.value, got, tc.want)
+		}
+	}
+}
