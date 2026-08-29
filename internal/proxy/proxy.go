@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -42,17 +41,20 @@ var newRequestWithContext = http.NewRequestWithContext
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
-func nonStreamingFailureDetail(resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
+func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if readErr != nil {
-			// A caller that hung up is not the provider failing. The body is read
-			// under the request context, so a client cancel arrives here as a
-			// read error — and reporting it as a provider fault put the tenant's
-			// own cancel on the provider's row in the dashboard. The streaming
-			// side already records KindClientDisconnect for this.
-			if errors.Is(readErr, context.Canceled) {
-				detail = "client disconnected before the response was read"
-				return detail, detail, KindClientDisconnect, "the request was cancelled"
+			// A read the provider did not break is not the provider failing. The
+			// body is read under the attempt's context, so a caller hanging up
+			// AND this gateway's own request_timeout both arrive here as read
+			// errors — and reporting either as a provider fault put someone
+			// else's cancellation on the provider's row and, once the breaker
+			// started reading these, its circuit. cancelKind is the package's own
+			// classifier; hand-rolling a narrower one here is what dropped the
+			// deadline case.
+			if kind, aborted := cancelKind(ctx, readErr); aborted {
+				detail = "the request was interrupted before the response was read"
+				return detail, detail, kind, "the request was interrupted"
 			}
 			// A body that died on the wire is not a body this gateway could not
 			// parse, and the two were collapsed into one kind. The parse failure
@@ -231,7 +233,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, readErr, decodeErr, logData.modelID)
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID)
 		// body is already exact-masked; the log row also gets the key-shape
 		// layer, like every other stored error message.
 		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))
@@ -285,8 +287,11 @@ func readNonStreamingBody(resp *http.Response, masker credentialMasker) (body []
 		}
 		return body, chatResp, readErr, err
 	}
-	// It decoded, so whatever the wire did afterwards cost nothing.
-	return body, chatResp, nil, nil
+	// readErr is returned as it was rather than cleared. It is only ever
+	// consulted alongside a decode failure — a clean decode means the 2xx branch
+	// serves the answer and never looks at it — so clearing it claimed a
+	// meaning it did not have.
+	return body, chatResp, readErr, nil
 }
 
 // failRequest populates logData with failure details and updates the request log.

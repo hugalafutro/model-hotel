@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -687,7 +688,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`{"choices":[{"message":{"role":"assistant","content":"private answer"}}],"created":"1"}`)
 		resp := &http.Response{StatusCode: http.StatusOK, Header: jsonHeader}
 
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, nil, decodeErr, "m")
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m")
 
 		for _, s := range []string{logMsg, detail} {
 			if strings.Contains(s, "private answer") || strings.Contains(s, "choices") {
@@ -710,7 +711,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`{"error":{"message":"rate limit reached for gpt-4o"}}`)
 		resp := &http.Response{StatusCode: http.StatusTooManyRequests, Header: jsonHeader}
 
-		logMsg, detail, kind, _ := nonStreamingFailureDetail(resp, body, nil, nil, "gpt-4o")
+		logMsg, detail, kind, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, nil, "gpt-4o")
 
 		if !strings.Contains(logMsg, "upstream HTTP 429") || !strings.Contains(logMsg, "rate limit reached") {
 			t.Errorf("logMsg = %q", logMsg)
@@ -728,7 +729,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`<html>502 Bad Gateway</html>`)
 		resp := &http.Response{StatusCode: http.StatusBadGateway, Header: http.Header{"Content-Type": []string{"text/html"}}}
 
-		logMsg, _, _, _ := nonStreamingFailureDetail(resp, body, nil, decodeErr, "m")
+		logMsg, _, _, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m")
 
 		if !strings.Contains(logMsg, "response decode error") || !strings.Contains(logMsg, "502 Bad Gateway") {
 			t.Errorf("logMsg = %q", logMsg)

@@ -346,10 +346,11 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
 	if err != nil {
-		// Not when the CLIENT hung up: this read runs under the caller's
-		// context, so an abandoned request surfaces here as a failed read. The
-		// first-byte probe below has always had this guard; this branch did not.
-		if r.Context().Err() == nil {
+		// Not when the read was interrupted rather than broken: it runs under
+		// the attempt's context, so a caller hanging up or this gateway's own
+		// request_timeout both surface here as a failed read, and neither is the
+		// provider's doing. cancelKind is the package's classifier for that.
+		if _, aborted := cancelKind(r.Context(), err); !aborted {
 			h.chargeBreaker(st, candidate, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
@@ -388,7 +389,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// written and used for the streak alone.
 	switch {
 	case r.Context().Err() != nil:
-		// The client is gone; nothing here is the provider's doing.
+		// The request was interrupted; nothing here is the provider's doing.
 	case answered:
 		if st.circuitBreakerEnabled {
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)

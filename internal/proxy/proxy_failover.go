@@ -231,7 +231,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	//
 	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
-		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
+		outcome := h.handleNativeNonStreaming(w, r.WithContext(failoverCtx), st, resp, attempt, responseHeaderMs)
 		h.recordAnswerOutcome(st, candidate, logData, r)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
@@ -239,7 +239,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcome
 	}
 
-	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	// The handler reads the upstream body, and that read runs under failoverCtx —
+	// so that is the context it must judge an interrupted read by. Handing it the
+	// bare client request made this gateway's own request_timeout look like the
+	// provider dying.
+	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
 	h.recordAnswerOutcome(st, candidate, logData, r)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -203,25 +204,99 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 	}
 }
 
-// A client that hangs up mid-read is not a provider failure. The upstream body
-// is read under the caller's context, so a user pressing stop — or a load
-// balancer's client-side timeout — surfaces here as a failed read, and charging
-// for it opens the circuit for every tenant after five impatient cancels.
+// An interrupted read is not a provider failure, and the KIND is what says so.
+// recordAnswerOutcome no longer carries a second client-gone guard of its own:
+// it reads the kind the handler classified, which is the one place that knows
+// what interrupted the read.
 //
-// doUpstream, judgeStreamForBreaker, classifyProbeError and the pass-through
-// first-byte probe all refuse to charge for this. This verdict is the one that
-// did not.
-func TestRecordAnswerOutcome_AClientHangingUpIsNotAProviderFailure(t *testing.T) {
-	cb := failover.NewCircuitBreaker(nil)
-	h := &Handler{circuitBreaker: cb}
-	providerID := uuid.New()
-	st := &requestState{circuitBreakerEnabled: true}
-	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
+// Both interruptions matter. A caller hanging up is the obvious one; this
+// gateway's OWN request_timeout is the one that got missed, because it produces
+// context.DeadlineExceeded — which a check for context.Canceled does not match —
+// while the client's context stays perfectly healthy. Five slow-but-alive
+// answers would have taken the provider out of rotation for every tenant.
+func TestCancelKind_ClassifiesEveryWayAnAttemptIsInterrupted(t *testing.T) {
+	t.Parallel()
+	withOrigin := func(origin string) context.Context {
+		return context.WithValue(context.Background(), ctxkeys.CancelOriginKey, origin)
+	}
+	for _, tc := range []struct {
+		name    string
+		ctx     context.Context
+		err     error
+		want    ErrorKind
+		aborted bool
+	}{
+		{"the caller hung up", context.Background(), context.Canceled, KindClientDisconnect, true},
+		{"this gateway's request_timeout", withOrigin("failover_timeout"), context.DeadlineExceeded, KindFailoverTimeout, true},
+		{"a retry's own timeout", withOrigin("retry_timeout"), context.DeadlineExceeded, KindRetryTimeout, true},
+		// The context went down underneath a read that reported something else.
+		{"a cancelled context under another error", cancelledContext(), errors.New("connection reset by peer"), KindClientDisconnect, true},
+		// A real provider failure, with the attempt still live.
+		{"the provider broke", context.Background(), errors.New("connection reset by peer"), "", false},
+		{"nothing went wrong", context.Background(), nil, "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			kind, aborted := cancelKind(tc.ctx, tc.err)
+			if aborted != tc.aborted || kind != tc.want {
+				t.Errorf("cancelKind = (%q, %v), want (%q, %v)", kind, aborted, tc.want, tc.aborted)
+			}
+			if aborted && providerAtFault(kind) {
+				t.Errorf("kind %q is an interruption and must never be the provider's fault", kind)
+			}
+		})
+	}
+}
 
-	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, cancelledRequest())
+func cancelledContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
 
-	if _, seen := cbConsecutiveFails(cb, providerID); seen {
-		t.Error("an abandoned request was charged to the provider")
+// End to end: an interrupted body read must classify as the interruption and
+// must not charge, whichever context went down.
+func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		origin   string
+		readErr  error
+		wantKind ErrorKind
+	}{
+		{"the caller hung up", "", context.Canceled, KindClientDisconnect},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindFailoverTimeout},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			withBreakerThresholdOne(t, h)
+
+			providerID := uuid.New()
+			st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
+			candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
+			logData := &requestLogData{
+				modelID: "m", providerID: providerID, providerName: "p", state: "pending",
+				virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+			}
+			body := io.MultiReader(bytes.NewBufferString(`{"id":"x","choices":[{"messa`), &errorReader{err: tc.readErr})
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
+
+			ctx := context.Background()
+			if tc.origin != "" {
+				ctx = context.WithValue(ctx, ctxkeys.CancelOriginKey, tc.origin)
+			}
+			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)).WithContext(ctx)
+
+			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+			h.recordAnswerOutcome(st, candidate, logData, req)
+
+			if logData.errorKind != tc.wantKind {
+				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
+			}
+			if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+				t.Error("an interrupted read was charged to the provider")
+			}
+		})
 	}
 }
 
@@ -294,6 +369,16 @@ func TestEmptyCompletion_IsOnlyACompletionWithNothingInIt(t *testing.T) {
 		{"a safety refusal", `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"no"}}]}`, false},
 		{"an audio answer", `{"choices":[{"message":{"role":"assistant","content":null,"audio":{"data":"UklGRg=="}}}]}`, false},
 		{"a legacy function_call", `{"choices":[{"message":{"role":"assistant","content":null,"function_call":{"name":"f"}}}]}`, false},
+		{"annotations", `{"choices":[{"message":{"role":"assistant","content":"","annotations":[{"type":"url_citation"}]}}]}`, false},
+		// The WHOLE answer for these models, and charged before the allowlist
+		// covered them.
+		{"an OpenRouter generated image", `{"choices":[{"message":{"role":"assistant","content":"","images":[{"image_url":{"url":"data:image/png;base64,AA"}}]}}]}`, false},
+		{"Perplexity citations", `{"choices":[{"message":{"role":"assistant","content":"","citations":["http://x"]}}]}`, false},
+		{"thinking blocks", `{"choices":[{"message":{"role":"assistant","content":"","thinking_blocks":[{"thinking":"x"}]}}]}`, false},
+		{"ollama style reasoning", `{"choices":[{"message":{"role":"assistant","content":"","reasoning":"thinking"}}]}`, false},
+		// Present but carrying nothing is not an answer: OpenAI stamps
+		// "refusal": null and "annotations": [] on ordinary completions.
+		{"the empty forms of those members", `{"choices":[{"message":{"role":"assistant","content":"","refusal":null,"annotations":[],"images":[]}}]}`, true},
 		// A stop reason about the provider's own output. Gemini's SAFETY maps here.
 		{"a content filter block", `{"choices":[{"finish_reason":"content_filter","message":{"role":"assistant","content":null}}]}`, false},
 		{"a length cut", `{"choices":[{"finish_reason":"length","message":{"role":"assistant","content":null}}]}`, false},
@@ -314,17 +399,69 @@ func TestEmptyCompletion_IsOnlyACompletionWithNothingInIt(t *testing.T) {
 	}
 }
 
-// And the retirement bar stays where it was: a refusal envelope must not clear a
-// model's gone-strike streak.
-func TestChatAnswerCarriesContent_StaysStrictForRetirement(t *testing.T) {
+// And the retirement bar stays narrow, which is a different bar from the one
+// above. It gained exactly one thing on this branch: it reads ReasoningDetails,
+// which it had been judging BEFORE the normalisation that folds them into
+// ReasoningContent, so a reasoning-only answer read as nothing at all.
+func TestChatAnswerCarriesContent_StaysNarrowForRetirement(t *testing.T) {
 	t.Parallel()
-	var out ChatCompletionResponse
-	body := `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"this model is no longer available"}}]}`
-	if err := json.Unmarshal([]byte(body), &out); err != nil {
-		t.Fatalf("fixture did not decode: %v", err)
+	for _, tc := range []struct {
+		name string
+		body string
+		want bool
+	}{
+		// An aggregator writes its gone-marker into refusal. Counting it would
+		// clear the streak that is meant to retire the model.
+		{"a refusal envelope", `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"this model is no longer available"}}]}`, false},
+		{"an audio answer", `{"choices":[{"message":{"role":"assistant","content":null,"audio":{"data":"AA"}}}]}`, false},
+		{"generated images", `{"choices":[{"message":{"role":"assistant","content":"","images":[{"image_url":{"url":"data:x"}}]}}]}`, false},
+		// The one addition, and why.
+		{"reasoning_details only", `{"choices":[{"message":{"role":"assistant","content":"","reasoning_details":[{"type":"reasoning.text","text":"t"}]}}]}`, true},
+		{"real text", `{"choices":[{"message":{"role":"assistant","content":"hello"}}]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var out ChatCompletionResponse
+			if err := json.Unmarshal([]byte(tc.body), &out); err != nil {
+				t.Fatalf("fixture did not decode: %v", err)
+			}
+			if got := chatAnswerCarriesContent(out); got != tc.want {
+				t.Errorf("chatAnswerCarriesContent = %v, want %v", got, tc.want)
+			}
+		})
 	}
-	if chatAnswerCarriesContent(out) {
-		t.Error("a refusal envelope cleared the retirement streak: an aggregator writes its gone-marker there")
+}
+
+// The oversized-body refusal is THIS gateway's policy, not the provider dying.
+// Folded into the read error it reported "the provider stopped sending its
+// response" for a provider that sent too much, and charged its circuit.
+func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
+	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
+	logData := &requestLogData{
+		modelID: "m", providerID: providerID, providerName: "p", state: "pending",
+		virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+	}
+	huge := `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"` +
+		strings.Repeat("x", nonStreamingBodyCap) + `"}}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(huge)), Header: make(http.Header)}
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.recordAnswerOutcome(st, candidate, logData, nil)
+
+	if logData.errorKind != KindProviderBadRequest {
+		t.Errorf("errorKind = %q, want provider_bad_request: refusing a body is this gateway's policy", logData.errorKind)
+	}
+	if !strings.Contains(logData.errorMessage, "body cap") {
+		t.Errorf("errorMessage = %q, want the cap named", logData.errorMessage)
+	}
+	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+		t.Error("a provider was charged for sending too much")
 	}
 }
 
@@ -722,7 +859,7 @@ func TestNonStreamingFailureDetail_ClassifiesTheReadFailure(t *testing.T) {
 			if decodeErr == nil {
 				decodeErr = errors.New("invalid character")
 			}
-			_, _, kind, _ := nonStreamingFailureDetail(resp, []byte("{"), tc.readErr, decodeErr, "m")
+			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m")
 			if kind != tc.want {
 				t.Errorf("kind = %q, want %q", kind, tc.want)
 			}
@@ -759,5 +896,47 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	}
 	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
 		t.Error("a provider that delivered a complete answer was charged")
+	}
+}
+
+// The native Anthropic path hard-coded provider_error for any body-read
+// failure, so the identical event — a caller hanging up, or this gateway's own
+// request_timeout, mid-read — logged provider_error on /v1/messages and the
+// interruption on /v1/chat/completions, decided by nothing but which dialect the
+// request came in on.
+func TestHandleNativeNonStreaming_AnInterruptedReadIsClassified(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		origin   string
+		readErr  error
+		wantKind ErrorKind
+	}{
+		{"the caller hung up", "", context.Canceled, KindClientDisconnect},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindFailoverTimeout},
+		{"the provider broke", "", errors.New("connection reset by peer"), KindProviderError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+
+			logData := &requestLogData{
+				modelID: "claude-x", providerID: uuid.New(), providerName: "p", state: "pending",
+				virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+			}
+			st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(&errorReader{err: tc.readErr}), Header: make(http.Header)}
+
+			ctx := context.Background()
+			if tc.origin != "" {
+				ctx = context.WithValue(ctx, ctxkeys.CancelOriginKey, tc.origin)
+			}
+			req := httptest.NewRequest("POST", "/v1/messages", http.NoBody).WithContext(ctx)
+
+			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, resp, 1, 5)
+
+			if logData.errorKind != tc.wantKind {
+				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
+			}
+		})
 	}
 }

@@ -85,24 +85,20 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 	// Read here rather than at the call sites: two copies of the same expression
 	// is how one of them comes to be missing it, which is what happened to the
 	// third charge site this change added.
-	gone := clientGone(r)
 	if logData.state != "completed" {
 		// The attempt failed after the headers.
 		//
-		// Not when the CLIENT hung up: the upstream body is read under the
-		// caller's context, so a user pressing stop, or a load balancer's
-		// client-side timeout, surfaces here as a failed read — and charging for
-		// it would open the circuit for every tenant after five impatient
-		// cancels. doUpstream, judgeStreamForBreaker, classifyProbeError and the
-		// pass-through first-byte probe all refuse to charge for this.
+		// The KIND decides, and nothing else. Every way an attempt can fail after
+		// the headers already has one: a caller hanging up, this gateway's own
+		// request_timeout, a body it could not decode, a body that died on the
+		// wire. providerAtFault excludes all but the last, which is the same
+		// predicate judgeStreamForBreaker uses.
 		//
-		// And only a fault that is the PROVIDER'S counts, by the same predicate
-		// judgeStreamForBreaker uses. A 2xx this gateway could not decode is
-		// classified provider_bad_request and still holds the model's text (a
-		// relay quoting its token counts is the named cause), so it says nothing
-		// about whether the provider is up. A body that died on the wire is a
-		// different kind now, and does charge.
-		if gone || !providerAtFault(logData.errorKind) {
+		// A separate client-gone guard used to sit here as well. It read the
+		// CLIENT's context, so it was blind to a failover-timeout cancel, and it
+		// was a second rule that had to agree with the first — the shape three
+		// review rounds kept finding a hole in.
+		if !providerAtFault(logData.errorKind) {
 			return
 		}
 		h.chargeBreaker(st, candidate, "response failed after headers")
@@ -142,10 +138,10 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reas
 func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, err error, attempt int, r *http.Request) candidateOutcome {
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
 	// Both translators read the body with an unbounded ReadAll under the
-	// caller's context, so an abandoned request arrives here as a translation
-	// failure — the same false charge the two sibling verdicts guard against,
-	// and this third charge site was created in the same change without it.
-	if !clientGone(r) && translationIsProviderFault(err) {
+	// attempt's context, so an interrupted request arrives here as a translation
+	// failure — a caller hanging up or this gateway's own request_timeout, and
+	// neither is the provider's doing.
+	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, "upstream body could not be translated")
 	}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
@@ -170,9 +166,12 @@ func translationIsProviderFault(err error) bool {
 // shape a 200 is charged for.
 //
 // Deliberately NOT chatAnswerCarriesContent, which backs the retirement verdict
-// and stays strict: `refusal` is the likeliest field for an aggregator to write
-// "this model is gone" into behind a 200, and widening the retirement bar to
-// count it would let such a provider clear its gone-strikes forever.
+// and stays narrow: `refusal` is the likeliest field for an aggregator to write
+// "this model is gone" into behind a 200, and letting the retirement bar count
+// it would clear such a provider's gone-strikes forever. That bar gained exactly
+// one thing on this branch — it reads ReasoningDetails, which it had been
+// judging BEFORE the normalisation that folds them into ReasoningContent, so a
+// reasoning-only answer read as nothing at all.
 //
 // And deliberately not `len(Choices) == 0` either, which is what this was first
 // narrowed to. Every egress translator synthesises a one-element Choices literal
@@ -220,18 +219,19 @@ func choiceCarriesSomething(choice Choice) bool {
 		return true
 	}
 	// The unmodelled shapes that ARE the answer: a safety refusal, the audio
-	// object on a speech completion, a legacy function_call, a citation set.
-	for _, key := range []string{"refusal", "audio", "function_call", "annotations"} {
+	// object on a speech completion, a legacy function_call, OpenRouter's
+	// generated `images`, Perplexity's `citations`, an Anthropic-shaped relay's
+	// `thinking_blocks`. For the image and citation models those members are the
+	// WHOLE answer, so a relay forwarding one without a usage block would have
+	// had a correct answer charged against it.
+	//
+	// An allowlist rather than "any member that carries", because a relay
+	// stamping a bookkeeping field on the assistant message would otherwise make
+	// the breaker inert with nothing to show for it.
+	for _, key := range []string{"refusal", "audio", "function_call", "annotations", "images", "citations", "thinking_blocks"} {
 		if util.ValueCarries(msg.Extra[key]) {
 			return true
 		}
 	}
 	return false
-}
-
-// clientGone reports whether the caller has already hung up. One spelling,
-// because the two hand-written copies this replaced were mutually inverted and
-// sixty lines apart — the shape that let the third charge site ship without one.
-func clientGone(r *http.Request) bool {
-	return r != nil && r.Context().Err() != nil
 }
