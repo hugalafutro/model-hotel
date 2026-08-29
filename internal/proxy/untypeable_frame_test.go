@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -199,5 +200,116 @@ func TestHandleStreamingResponse_MalformedFrameIsStillDropped(t *testing.T) {
 				t.Errorf("broken bytes were forwarded to the caller: %q", w.Body.String())
 			}
 		})
+	}
+}
+
+// P1-C reads the Anthropic error event with its own decoder, one struct away
+// from the member the rest of the gateway now shares a rule for. Two defects
+// followed from that.
+//
+// It typed the member as an object, so any other shape failed the whole decode
+// and the branch recorded nothing — the event's TYPE went with it, and the
+// observer beneath had to catch what it could from a member it reads correctly.
+//
+// Worse, it counted an error whose message is empty. errorChunkCount>0 is what
+// tells writeTerminalError the client has already seen the provider's error, so
+// an empty one suppressed the terminal frame while leaving lastErrMsg blank: the
+// caller's stream simply stopped, with no error frame and no [DONE].
+var anthropicErrorEvents = []struct {
+	name     string
+	payload  string
+	wantMsg  string
+	isError  bool
+	wantType string
+}{
+	{"object with a message", `{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}`, "overloaded", true, "overloaded_error"},
+	{"bare string", `{"type":"error","error":"overloaded"}`, "overloaded", true, ""},
+	{"list", `{"type":"error","error":["overloaded"]}`, `["overloaded"]`, true, ""},
+	// A type and no message: something to report, and the caller must still be
+	// told the stream ended because of it.
+	{"type only", `{"type":"error","error":{"type":"overloaded_error"}}`, `{"type":"overloaded_error"}`, true, "overloaded_error"},
+	// Nothing to report. Counting it suppressed the terminal frame.
+	{"empty object", `{"type":"error","error":{}}`, "", false, ""},
+	{"null", `{"type":"error","error":null}`, "", false, ""},
+	{"no error member", `{"type":"error"}`, "", false, ""},
+}
+
+func TestCaptureSSEError_AnthropicErrorEventShapes(t *testing.T) {
+	t.Parallel()
+	for _, tc := range anthropicErrorEvents {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			st := &streamState{lastAnthropicEvent: "error"}
+			counted := st.captureSSEError(tc.payload, &st.lastAnthropicEvent, 1, &requestLogData{modelID: "m", providerName: "p"})
+
+			if counted != tc.isError {
+				t.Errorf("counted an Anthropic error = %v, want %v", counted, tc.isError)
+			}
+			if (st.errorChunkCount > 0) != tc.isError {
+				t.Errorf("errorChunkCount = %d, want an error = %v", st.errorChunkCount, tc.isError)
+			}
+			if st.lastErrMsg != tc.wantMsg {
+				t.Errorf("lastErrMsg = %q, want %q", st.lastErrMsg, tc.wantMsg)
+			}
+			if st.lastAnthropicEvent != "" {
+				t.Errorf("the event carry was not consumed: %q", st.lastAnthropicEvent)
+			}
+		})
+	}
+}
+
+// The consequence, end to end. errorChunkCount is what tells writeTerminalError
+// the client has already seen the provider's error, so counting an error with no
+// message spends that budget on nothing: when the stream then really does fail,
+// the frame that would have told the caller why is suppressed, and the caller is
+// left holding a cut connection.
+func TestHandleStreamingResponse_EmptyAnthropicErrorDoesNotEatTheTerminalFrame(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// A delta, an error event carrying nothing, then the upstream connection
+	// breaks. The broken read is the error the caller has to be told about.
+	body := io.MultiReader(
+		strings.NewReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{}}\n\n"),
+		&errorReader{err: errors.New("connection reset by peer")},
+	)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(body),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	logData := newErrorFrameLog()
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.state != "failed" {
+		t.Fatalf("state = %q, want failed", logData.state)
+	}
+	if !strings.Contains(w.Body.String(), `"server_error"`) {
+		t.Errorf("the caller got no terminal error frame: %q", w.Body.String())
+	}
+}
+
+// An error the P1-C branch does record must not be counted twice by the observer
+// reading the same member off the same line.
+func TestHandleStreamingResponse_AnthropicErrorIsCountedOnce(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("event: error\ndata: {\"type\":\"error\",\"error\":\"overloaded\"}\n\n")),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	logData := newErrorFrameLog()
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.state != "failed" || !strings.Contains(logData.errorMessage, "overloaded") {
+		t.Errorf("state = %q, errorMessage = %q, want the provider's error", logData.state, logData.errorMessage)
 	}
 }
