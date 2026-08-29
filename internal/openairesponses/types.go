@@ -98,7 +98,12 @@ type Response struct {
 	IncompleteDetails *IncompleteDetails `json:"incomplete_details"`
 	Error             *ResponseError     `json:"error"`
 	Output            []OutputItem       `json:"output"`
-	Usage             *Usage             `json:"usage"`
+	// Held raw and decoded on its own, so a usage block this package cannot read
+	// costs the usage and nothing else. Decoded inline it was part of the
+	// response object, and one count the provider spelled differently — quoted,
+	// or with a fraction on it — failed the whole translation and cost the
+	// caller the answer the model had already produced.
+	Usage json.RawMessage `json:"usage"`
 }
 
 // IncompleteDetails says why a response stopped early.

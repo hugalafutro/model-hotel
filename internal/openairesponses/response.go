@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TranslateResponsesToChat converts a non-streaming Responses API response
@@ -104,16 +105,51 @@ func chatCompletionID(respID string) string {
 // translateUsage maps Responses usage to the chat usage block the metering
 // pipeline reads (prompt/completion totals plus reasoning and cached-token
 // details).
-func translateUsage(u *Usage) *chatUsage {
-	if u == nil {
+func translateUsage(raw json.RawMessage) *chatUsage {
+	// JSONMemberSet, not len(raw) > 0: a RawMessage for null is four non-empty
+	// bytes where the *Usage this replaced was nil, and the Responses API emits
+	// "usage": null on a non-terminal response snapshot. Reading only the length
+	// turned that into a positive claim of zero tokens.
+	if !util.JSONMemberSet(raw) {
 		return nil
+	}
+	// Per FIGURE, not per block. A figure read straight off one member is right
+	// or absent; a SUMMED one is only as good as its addends, and a lost addend
+	// leaves a number that is wrong AND non-zero, which reads as authoritative
+	// and stops estimateMissingUsage replacing it. Dropping the whole block
+	// instead threw away counts that were never in doubt — and a completion
+	// count is what tells the breaker the provider answered at all.
+	//
+	// Every figure here is read directly — the details blocks are separate
+	// members, and output_tokens_details as [] rather than {} is a routine relay
+	// habit that must not cost the counts beside it. Only the FALLBACK total is
+	// a sum, so it is the only one an addend can take down.
+	var u Usage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return nil
+	}
+	lostAddend := len(util.UnreadableCounts(raw, "input_tokens", "output_tokens")) > 0
+	for _, key := range []string{"input_tokens", "output_tokens", "total_tokens"} {
+		if len(util.UnreadableCounts(raw, key)) == 0 {
+			continue
+		}
+		switch key {
+		case "input_tokens":
+			u.InputTokens = 0
+		case "output_tokens":
+			u.OutputTokens = 0
+		case "total_tokens":
+			u.TotalTokens = 0
+		}
 	}
 	out := &chatUsage{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
 		TotalTokens:      u.TotalTokens,
 	}
-	if out.TotalTokens == 0 {
+	// The fallback total is the one sum here, so a lost addend is the one thing
+	// that can take it down.
+	if out.TotalTokens == 0 && !lostAddend {
 		out.TotalTokens = u.InputTokens + u.OutputTokens
 	}
 	if u.InputTokensDetails != nil && u.InputTokensDetails.CachedTokens > 0 {

@@ -940,3 +940,32 @@ func TestHandleNativeNonStreaming_AnInterruptedReadIsClassified(t *testing.T) {
 		})
 	}
 }
+
+// The Anthropic writer dropped a whole streaming frame when it could not type
+// one member, taking any content riding with it. The streaming path forwards
+// payloads verbatim, so a provider's own token-count spelling reaches here —
+// and handleDataChunk forwards such a frame rather than dropping it.
+func TestAnthropicWriter_AnUntypeableChunkIsNotDropped(t *testing.T) {
+	rec := httptest.NewRecorder()
+	native := false
+	aw := newAnthropicResponseWriter(rec, "msg_1", "m")
+	aw.bindNativeFlag(&native)
+	// The writer only translates when the upstream said it was streaming.
+	aw.Header().Set("Content-Type", "text/event-stream")
+	aw.WriteHeader(http.StatusOK)
+
+	// A count the provider quoted, riding on a frame that also carries content.
+	_, _ = aw.Write([]byte("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"CONTENTMARKER\"}}],\"usage\":{\"prompt_tokens\":\"12\",\"completion_tokens\":\"3\"}}\n\n"))
+	_, _ = aw.Write([]byte("data: [DONE]\n\n"))
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "CONTENTMARKER") {
+		t.Errorf("a frame carrying the answer was dropped for a count spelling: %q", body)
+	}
+	// And the count itself is read, not merely survived. Keeping the frame while
+	// losing the count told the client the model produced zero output tokens for
+	// a real answer.
+	if !strings.Contains(body, `"output_tokens":3`) {
+		t.Errorf("the spelled count was dropped: %q", body)
+	}
+}

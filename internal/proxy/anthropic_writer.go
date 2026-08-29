@@ -2,12 +2,12 @@ package proxy
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // anthropicResponseWriter wraps the client http.ResponseWriter so the entire
@@ -167,7 +167,16 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 		return
 	}
 	var chunk anthropic.OAStreamChunk
-	if err := json.Unmarshal(payload, &chunk); err != nil {
+	// A shape this gateway has no struct for is not broken bytes, and the frame
+	// may carry the model's answer: the streaming path forwards payloads
+	// verbatim, so a provider's own token-count spelling reaches here, and
+	// dropping the frame for one dropped the content riding with it. Same rule
+	// handleDataChunk reads, for the same reason.
+	// util.DecodeCounts as well as the shape tolerance: this is the OpenAI ->
+	// Anthropic translator, so a count the provider spelled differently reaches
+	// it verbatim, and keeping the frame while losing the count told the client
+	// the model produced zero output tokens for a real answer.
+	if err := util.DecodeCounts(payload, &chunk); err != nil && shapeError(payload, err) == nil {
 		debuglog.Debug("anthropic: skip unparseable upstream chunk", "error", err)
 		return
 	}

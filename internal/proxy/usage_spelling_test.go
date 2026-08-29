@@ -295,3 +295,31 @@ func TestUsage_KeepsTheBreakdownItCouldRead(t *testing.T) {
 	assert.Equal(t, 12, neither.PromptTokens)
 	assert.Nil(t, neither.PromptTokensDetails)
 }
+
+// The fallback chain stops at the first member the provider SENT. Falling past
+// an unreadable one reported total_tokens as the prompt when prompt_tokens was
+// the member lost — a wrong figure, and non-zero, so the estimator never
+// replaces it.
+func TestExtractPassthroughUsage_AnUnreadableMemberIsNotFallenPast(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name            string
+		body            string
+		wantIn, wantOut int
+	}{
+		// prompt_tokens is the member that was meant to carry the figure.
+		{"the first link is unreadable", `{"usage":{"prompt_tokens":[],"total_tokens":9999}}`, 0, 0},
+		// Absent is not unreadable: the chain is free to move on.
+		{"the first link is absent", `{"usage":{"input_tokens":12,"output_tokens":3}}`, 12, 3},
+		{"a later link is unreadable but unused", `{"usage":{"prompt_tokens":12,"completion_tokens":3,"total_tokens":[]}}`, 12, 3},
+		{"the completion chain too", `{"usage":{"prompt_tokens":12,"completion_tokens":{},"output_tokens":9999}}`, 12, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			in, out := extractPassthroughUsage([]byte(tc.body))
+			if in != tc.wantIn || out != tc.wantOut {
+				t.Errorf("got %d/%d, want %d/%d", in, out, tc.wantIn, tc.wantOut)
+			}
+		})
+	}
+}

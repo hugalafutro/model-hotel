@@ -256,10 +256,12 @@ func TestStreamTranslator_DecodeErrorOmitsPayload(t *testing.T) {
 			secret: "Kohlrabi",
 		},
 		{
+			// See the response-side twin: a usage member is no longer a decode
+			// error, candidates still is, and the guarantee is unchanged.
 			name:   "type error",
-			chunk:  `{"usageMetadata":{"promptTokenCount":8675309.42}}`,
+			chunk:  `{"candidates":"Kohlrabi8675309"}`,
 			want:   "unexpected JSON value at byte ",
-			secret: "8675309.42",
+			secret: "Kohlrabi8675309",
 		},
 	}
 	for _, tc := range cases {

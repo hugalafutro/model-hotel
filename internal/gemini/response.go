@@ -8,13 +8,21 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Gemini generateContent response shape ---
 
 type genResponse struct {
-	Candidates     []genCandidate `json:"candidates"`
-	UsageMetadata  *genUsage      `json:"usageMetadata"`
+	Candidates []genCandidate `json:"candidates"`
+	// Held raw and decoded on its own, so a usage block this package cannot read
+	// costs the usage and nothing else. Decoded inline it was part of the
+	// response object, and one count the provider spelled differently — quoted,
+	// or with a fraction on it because a relay did its arithmetic in floating
+	// point — failed the whole translation and cost the caller the answer the
+	// model had already produced. Since #812 it charged the provider's circuit
+	// breaker for it too.
+	UsageMetadata  json.RawMessage `json:"usageMetadata"`
 	PromptFeedback *struct {
 		BlockReason string `json:"blockReason"`
 	} `json:"promptFeedback"`
@@ -207,9 +215,32 @@ func mapFinishReason(reason string, hasToolCalls bool) string {
 // billed output on Gemini, so completion_tokens includes them (this is what
 // MH's metering should count) with the split surfaced in
 // completion_tokens_details.reasoning_tokens, matching OpenAI's convention.
-func translateUsage(u *genUsage) *oaiUsage {
-	if u == nil {
+func translateUsage(raw json.RawMessage) *oaiUsage {
+	// JSONMemberSet, not len(raw) > 0: a RawMessage for null is four non-empty
+	// bytes, where the *genUsage this replaced was nil for absent AND null
+	// alike. Reading only the length turned an omitted usage into a positive
+	// claim of zero tokens.
+	if !util.JSONMemberSet(raw) {
 		return nil
+	}
+	// Per FIGURE, not per block. A figure read straight off one member is right
+	// or absent; a SUMMED one is only as good as its addends, and a lost addend
+	// leaves a number that is wrong AND non-zero, which reads as authoritative
+	// and stops estimateMissingUsage replacing it. Dropping the whole block
+	// instead threw away counts that were never in doubt — and a completion
+	// count is what tells the breaker the provider answered at all.
+	var u genUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return nil
+	}
+	if len(util.UnreadableCounts(raw, "candidatesTokenCount", "thoughtsTokenCount")) > 0 {
+		u.CandidatesTokenCount, u.ThoughtsTokenCount = 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "promptTokenCount")) > 0 {
+		u.PromptTokenCount = 0
+	}
+	if len(util.UnreadableCounts(raw, "totalTokenCount")) > 0 {
+		u.TotalTokenCount = 0
 	}
 	out := &oaiUsage{
 		PromptTokens:     u.PromptTokenCount,

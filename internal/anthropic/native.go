@@ -57,12 +57,12 @@ type ResponseUsage struct {
 // internal/anthropicegress.translateUsage), so both Anthropic paths agree.
 func ParseResponseUsage(body []byte) ResponseUsage {
 	var resp struct {
-		Usage antUsage `json:"usage"`
+		Usage json.RawMessage `json:"usage"`
 	}
-	if json.Unmarshal(body, &resp) != nil {
+	if json.Unmarshal(body, &resp) != nil || !util.JSONMemberSet(resp.Usage) {
 		return ResponseUsage{}
 	}
-	return resp.Usage.summary()
+	return readUsage(resp.Usage)
 }
 
 // antUsage is an Anthropic usage block. The cache fields are absent from
@@ -181,9 +181,14 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	var ev struct {
 		Type    string `json:"type"`
 		Message *struct {
-			Usage *antUsage `json:"usage"`
+			Usage json.RawMessage `json:"usage"`
 		} `json:"message"`
-		Usage *antUsage `json:"usage"`
+		// json.RawMessage for the same reason the error member below is one: a
+		// count the provider spelled differently — quoted, or with a fraction on
+		// it — failed the WHOLE event unmarshal, so the event lost its TYPE with
+		// its counts and message_stop and the error events stopped being
+		// recognised for that frame.
+		Usage json.RawMessage `json:"usage"`
 		// json.RawMessage, not a typed object: a relay is free to send a bare
 		// string here, and a typed field failed the WHOLE event unmarshal — so
 		// the event lost its type too, the error went uncounted, and the frame
@@ -206,17 +211,25 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	info := StreamEvent{Type: ev.Type}
 	switch ev.Type {
 	case "message_start":
-		if ev.Message != nil && ev.Message.Usage != nil {
-			u := ev.Message.Usage.summary()
-			info.InputTokens, info.HasInput = u.PromptTokens, true
+		var raw json.RawMessage
+		if ev.Message != nil {
+			raw = ev.Message.Usage
+		}
+		if usage, ok := readEventUsage(raw); ok {
+			u := usage.summary()
+			// HasInput means there is a READING, so it follows the figure rather
+			// than the event: readEventUsage drops a prompt figure whose addend
+			// it could not read, and claiming a reading of zero for that would
+			// have the caller overwrite a good count with nothing.
+			info.InputTokens, info.HasInput = u.PromptTokens, u.PromptTokens > 0
 			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
-			if ev.Message.Usage.OutputTokens > 0 {
-				info.OutputTokens, info.HasOutput = ev.Message.Usage.OutputTokens, true
+			if usage.OutputTokens > 0 {
+				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 			}
 		}
 	case "message_delta":
-		if ev.Usage != nil {
-			info.OutputTokens, info.HasOutput = ev.Usage.OutputTokens, true
+		if usage, ok := readEventUsage(ev.Usage); ok {
+			info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 		}
 	case "error":
 		if util.ErrorMemberCarries(ev.Error) {
@@ -232,4 +245,59 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		}
 	}
 	return info
+}
+
+// readEventUsage decodes a stream event's usage member on its own, reporting
+// whether there was one to read. A count spelled differently must not cost the
+// event its type, and a member that cannot be read at all must not cost the
+// counts beside it.
+func readEventUsage(raw json.RawMessage) (antUsage, bool) {
+	if !util.JSONMemberSet(raw) {
+		return antUsage{}, false
+	}
+	var u antUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return antUsage{}, false
+	}
+	// A member that could not be read costs the figures it FEEDS, not the whole
+	// block. See readUsage.
+	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+		u.OutputTokens = 0
+	}
+	return u, true
+}
+
+// promptAddends are the members Anthropic's prompt figure is SUMMED from.
+var promptAddends = []string{"input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"}
+
+// readUsage decodes an Anthropic usage block per FIGURE, not per block.
+//
+// Two rules were tried and both were wrong. Keeping whatever decoded corrupted
+// the prompt figure, which is input_tokens plus both cache counts: a cache-read
+// count of 20000 lost to an unreadable sibling billed 4, and 4 is non-zero, so
+// estimateMissingUsage never replaced it. Dropping the whole block instead threw
+// away output_tokens — read straight off one member, so never in doubt — and an
+// answer with a perfectly good completion count then read as empty, which since
+// #812 charges the provider's circuit breaker.
+//
+// So a member that could not be read costs the figures it FEEDS. output_tokens
+// stands or falls alone; the prompt figure needs all three of its addends.
+func readUsage(raw json.RawMessage) ResponseUsage {
+	if !util.JSONMemberSet(raw) {
+		return ResponseUsage{}
+	}
+	var u antUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return ResponseUsage{}
+	}
+	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
+	}
+	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+		u.OutputTokens = 0
+	}
+	return u.summary()
 }
