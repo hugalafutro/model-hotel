@@ -295,6 +295,10 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// the row either appears while we wait or the INSERT itself failed, which no
 	// amount of waiting up front would have repaired either.
 	if err == nil && rows == 0 && skipWait && isTerminalLogState(logEntry.state) {
+		// Debug, not Warn: this is the repair working, and on the paths that
+		// strand it is the normal case rather than an incident. What is worth a
+		// Warn is the retry ALSO finding no row, which falls through below.
+		debuglog.Debug("proxy: terminal log update arrived before its own insert", "request_id", logEntry.id, "state", logEntry.state)
 		h.WaitForInsert(logEntry)
 		rows, err = h.execRequestLogUpdate(logEntry)
 	}
