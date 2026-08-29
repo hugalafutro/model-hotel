@@ -16,12 +16,14 @@ import (
 // bytes it emits are converted to the Anthropic Messages wire format on the way
 // out. It dispatches on the response the pipeline produces:
 //
-//   - text/event-stream + 200  -> streaming mode: parse the OpenAI chunk SSE and
+//   - text/event-stream + 2xx  -> streaming mode: parse the OpenAI chunk SSE and
 //     re-emit the Anthropic message_start/content_block_*/message_delta/stop
 //     event sequence incrementally via anthropic.StreamTranslator.
-//   - application/json + 200    -> buffered mode: collect the OpenAI
+//   - application/json + 2xx    -> buffered mode: collect the OpenAI
 //     chat-completion response and, on Finalize, emit one Anthropic message.
-//   - any non-200               -> buffered mode: collect the OpenAI error body
+//   - 204/205                   -> passed through: a status that forbids a body
+//     has nothing to translate.
+//   - any non-2xx               -> buffered mode: collect the OpenAI error body
 //     and, on Finalize, emit the Anthropic {"type":"error",...} shape.
 //
 // This is the "wrap the client sink" seam the plan calls for, lifted one level
@@ -37,10 +39,11 @@ type anthropicResponseWriter struct {
 	status    int  // captured status for buffered mode
 
 	// nativeFlag points at requestState.anthropicNativeAttempt, set per failover
-	// attempt. When the attempt that actually serves a 200 is the native
-	// Anthropic passthrough, the upstream bytes are already Anthropic-shaped and
-	// are forwarded verbatim. Errors (status != 200) always go through
-	// translation so the client still gets a well-formed Anthropic error.
+	// attempt. When the attempt that actually serves a SUCCESS (any 2xx) is the
+	// native Anthropic passthrough, the upstream bytes are already
+	// Anthropic-shaped and are forwarded verbatim. Errors (any non-2xx) always
+	// go through translation so the client still gets a well-formed Anthropic
+	// error.
 	nativeFlag *bool
 
 	// streaming-mode state
@@ -109,9 +112,12 @@ func (a *anthropicResponseWriter) Flush() {
 
 // commit decides the output mode once, from the native flag + Content-Type the
 // pipeline set:
-//   - native 200  -> verbatim: forward the already-Anthropic upstream bytes
-//   - event-stream 200 -> streaming translation
+//   - native SUCCESS (any 2xx) -> verbatim: forward the already-Anthropic bytes
+//   - event-stream SUCCESS (any 2xx) -> streaming translation
 //   - anything else (incl. all errors) -> buffered translation until Finalize
+//
+// Any 2xx, not a bare 200: a relay may answer a completion 201 or 202, and
+// reading those as failures dropped a good answer into an error envelope.
 //
 // Native errors deliberately fall through to buffered translation so the client
 // always gets a well-formed Anthropic error envelope.
@@ -212,8 +218,8 @@ func (a *anthropicResponseWriter) finishStream() {
 
 // Finalize emits the translated response. In streaming mode it closes the stream
 // if the upstream ended without a [DONE] sentinel. In buffered mode it converts
-// the collected OpenAI response (200) or error (non-200) and writes it with the
-// right status. It must be called exactly once after the pipeline returns.
+// the collected OpenAI response (any 2xx) or error (non-2xx) and writes it with
+// the right status; a status that forbids a body is passed through untranslated. It must be called exactly once after the pipeline returns.
 func (a *anthropicResponseWriter) Finalize() {
 	if !a.committed {
 		// Pipeline wrote nothing (e.g. it returned before any response). Nothing
@@ -226,6 +232,15 @@ func (a *anthropicResponseWriter) Finalize() {
 	}
 	if a.streaming {
 		a.finishStream()
+		return
+	}
+
+	if bodilessSuccessStatus(a.status) {
+		// 204/205 carry no body by definition, so there is nothing to translate.
+		// Running the translator on the empty bytes fails and rewrites the answer
+		// to 502, which turned a provider's legitimate No Content into a gateway
+		// error while the request log still said completed/204.
+		a.w.WriteHeader(a.status)
 		return
 	}
 

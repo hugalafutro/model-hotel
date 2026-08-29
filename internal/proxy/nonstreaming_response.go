@@ -40,7 +40,7 @@ import (
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
 func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if servedSuccessStatus(resp.StatusCode) {
 		if readErr != nil {
 			// A read the provider did not break is not the provider failing. The
 			// body is read under the attempt's context, so a caller hanging up
@@ -127,7 +127,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	// to read `.error.message` off. Status decides, the body only says whether the
 	// success shape is even available.
 	switch {
-	case decodeErr == nil && resp.StatusCode >= 200 && resp.StatusCode < 300:
+	case decodeErr == nil && servedSuccessStatus(resp.StatusCode):
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		var tps float64
 		var reasoningTokens int

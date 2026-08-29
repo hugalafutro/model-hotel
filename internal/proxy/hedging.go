@@ -343,7 +343,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	}
 
 	if ttftTimeout <= 0 {
-		// No TTFT probe configured: a 200 is an immediate win (backward compat).
+		// No TTFT probe configured: a success status is an immediate win (backward compat).
 		return commitHedgeWin(ctx, res, resp, nil, 0, candidate)
 	}
 

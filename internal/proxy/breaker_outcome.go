@@ -20,9 +20,9 @@ import (
 //
 // For a failover-eligible status it applies the breakerRecordAction mapping
 // (failure / no-op / success). For a non-eligible status it records a success,
-// except for a 200 — on either path.
+// except for a SUCCESS status (any 2xx) — on either path.
 //
-// A 200 is a status, not an answer, and these headers arrive before a byte of
+// A 2xx is a status, not an answer, and these headers arrive before a byte of
 // the body has been read. The verdict is deferred to whoever reads it:
 // judgeStreamForBreaker once the stream ends, recordAnswerOutcome once the
 // completion is decoded. Crediting here meant a provider answering

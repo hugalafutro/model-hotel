@@ -362,8 +362,11 @@ const (
 // servedSuccessStatus reports whether an upstream status is one the gateway
 // treats as an answer it served, rather than a failure to route or report.
 //
-// The 2xx RANGE, because a relay or aggregator may answer a completion 201 or
-// 202. This is the single definition; every site that used to spell it
+// The 2xx RANGE. 201 and 202 are the ones seen in the wild (relays and
+// aggregators), but the rule is the HTTP class rather than a list: a status
+// this gateway has never seen is still the provider saying it succeeded, and
+// guessing which members of the class are "real" successes is how the split
+// this function exists to end got started. This is the single definition; every site that used to spell it
 // `== http.StatusOK` now asks here, which is what stops two of them drifting
 // apart again. A 201 that was a success to the router and a failure to the
 // circuit breaker credited the provider at header time and erased the answer

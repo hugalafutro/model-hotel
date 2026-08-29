@@ -225,7 +225,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	if !servedSuccessStatus(resp.StatusCode) {
 		// A definitive non-failover-eligible error (e.g. 400) means the
 		// provider is alive: record the success before forwarding, matching
 		// chat's recordBreakerOutcome for non-eligible statuses.

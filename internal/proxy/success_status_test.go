@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -137,13 +138,20 @@ func TestAttemptCandidate_ASuccessIsNeverFailedOver(t *testing.T) {
 
 // The deliberate narrowing that came with the fix. A 2xx carrying something
 // that is not a completion used to be forwarded to the client verbatim,
-// unmetered, with the row written as failed. It is now an error.
+// unmetered, with the row written as failed. It now gets an error BODY.
 //
 // The caller asked for a chat completion; `accepted` is not one, and an OpenAI
 // client cannot parse it either. Forwarding an unreadable success is also
 // exactly how the unmetered path stayed invisible. 204/205 remain the one
 // exception, because their status promises no body — see
 // TestAttemptCandidate_A204IsForwardedWithoutAnInventedBody.
+//
+// The STATUS stays the upstream's 2xx, which an OpenAI SDK will not raise on:
+// it unmarshals and finds no choices. That is long-standing behaviour for a 200
+// with an undecodable body (TestHandleNonStreamingResponse_EmptyBody pins it),
+// and this change widens the set of statuses it applies to rather than
+// introducing it. Answering 502 instead, as the multimodal twin already does,
+// is a separate change to a contract clients depend on.
 func TestAttemptCandidate_A2xxThatIsNotACompletionIsAnError(t *testing.T) {
 	w, st, vkRepo := serveStatus(t, http.StatusAccepted, `accepted`)
 
@@ -163,15 +171,19 @@ func TestAttemptCandidate_A2xxThatIsNotACompletionIsAnError(t *testing.T) {
 // recordBreakerOutcome credited a success for any non-200 at header time, which
 // was harmless only while a non-200 success could never reach the body readers.
 // Once the routing let 201 through, that credit reset consecutiveFails and
-// erased the charge recordAnswerOutcome was about to make — so a relay
-// answering 201 with no completion could never open its circuit. That is the
-// #805 hole re-opened on the statuses the routing had just started admitting.
+// erased the charge recordAnswerOutcome was about to make.
+//
+// Threshold TWO, and two requests, because that is the only shape that shows it.
+// At a threshold of one the erased credit is invisible: the charge that follows
+// microseconds later opens the circuit by itself, so the test passes with the
+// bug in place — which is exactly what the first version of this test did while
+// its own comment said the circuit "could never open above a threshold of one".
 func TestAttemptCandidate_AnEmptySuccessChargesTheBreakerWhateverIts2xx(t *testing.T) {
 	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			h := newIntegrationHandler()
 			t.Cleanup(func() { stopUnitHandler(h) })
-			withBreakerThresholdOne(t, h)
+			withBreakerThreshold(t, h, "2")
 
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -183,24 +195,27 @@ func TestAttemptCandidate_AnEmptySuccessChargesTheBreakerWhateverIts2xx(t *testi
 
 			m := &model.Model{ID: uuid.New(), ModelID: "relay-model"}
 			cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
-			st := &requestState{
-				startTime: time.Now(), reqModel: "relay-model",
-				bodyBytes:             []byte(`{"model":"relay-model","messages":[{"role":"user","content":"hi"}]}`),
-				failoverTimeout:       30 * time.Second,
-				circuitBreakerEnabled: true,
-				vkHash:                "test-hash",
-				logData: &requestLogData{
-					id: uuid.New().String(), modelID: "relay-model",
-					providerID: cand.provider.ID, providerName: "Relay",
-					endpointType: endpointTypeChat, state: "pending",
-					virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
-				},
+			for range 2 {
+				st := &requestState{
+					startTime: time.Now(), reqModel: "relay-model",
+					bodyBytes:             []byte(`{"model":"relay-model","messages":[{"role":"user","content":"hi"}]}`),
+					failoverTimeout:       30 * time.Second,
+					circuitBreakerEnabled: true,
+					vkHash:                "test-hash",
+					logData: &requestLogData{
+						id: uuid.New().String(), modelID: "relay-model",
+						providerID: cand.provider.ID, providerName: "Relay",
+						endpointType: endpointTypeChat, state: "pending",
+						virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+					},
+				}
+				h.insertRequestLogAsync(st.logData)
+				h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
 			}
-			h.insertRequestLogAsync(st.logData)
-			h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
 
 			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
-				t.Errorf("a %d carrying no answer was credited instead of charged", status)
+				t.Errorf("two %d answers carrying nothing did not open the circuit: "+
+					"a header-time credit erased each charge as it was made", status)
 			}
 		})
 	}
@@ -261,22 +276,184 @@ func TestAttemptCandidate_A205IsAlsoBodiless(t *testing.T) {
 	}
 }
 
-// The Anthropic ingress wraps the writer, and that wrapper decided verbatim vs
-// error-envelope on `status == 200`. Preserving the provider's 201 therefore
-// dropped a perfectly good completion into an Anthropic error envelope — with
+// The Anthropic ingress wraps the writer, and that wrapper decided every one of
+// its three output modes on `status == 200`. Preserving the provider's 201
+// therefore dropped a good completion into an Anthropic error envelope — with
 // the model's own text inside error.message — and the metering fix meant the
 // caller was now CHARGED for it.
+//
+// All three modes are covered, because the first version of this test drove only
+// the buffered one and two of the three mutations survived it.
 func TestAnthropicResponseWriter_TreatsEverySuccessAsASuccess(t *testing.T) {
+	const completion = `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`
+
 	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run("buffered/"+http.StatusText(status), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			aw := newAnthropicResponseWriter(rec, "msg_1", "claude-x")
+			aw.WriteHeader(status)
+			_, _ = aw.Write([]byte(completion))
+			aw.Finalize()
+
+			if got := rec.Body.String(); strings.Contains(got, `"type":"error"`) {
+				t.Errorf("a %d completion was delivered as an Anthropic error: %s", status, got)
+			}
+		})
+
+		// Native passthrough: the upstream is already Anthropic-shaped, so the
+		// bytes must go out untouched rather than through the translator.
+		t.Run("native/"+http.StatusText(status), func(t *testing.T) {
+			const native = `{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}]}`
+			rec := httptest.NewRecorder()
+			aw := newAnthropicResponseWriter(rec, "msg_1", "claude-x")
+			isNative := true
+			aw.bindNativeFlag(&isNative)
+			aw.WriteHeader(status)
+			_, _ = aw.Write([]byte(native))
+			aw.Finalize()
+
+			if got := rec.Body.String(); got != native {
+				t.Errorf("a %d native answer was not forwarded verbatim:\n got: %s\nwant: %s", status, got, native)
+			}
+		})
+
+		// Streaming: an SSE success must be translated incrementally, not
+		// collected into a buffered error.
+		t.Run("stream/"+http.StatusText(status), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			aw := newAnthropicResponseWriter(rec, "msg_1", "claude-x")
+			aw.Header().Set("Content-Type", "text/event-stream")
+			aw.WriteHeader(status)
+			_, _ = aw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n"))
+			aw.Finalize()
+
+			got := rec.Body.String()
+			if strings.Contains(got, `"type":"error"`) {
+				t.Errorf("a %d SSE success was delivered as an Anthropic error: %s", status, got)
+			}
+			if !strings.Contains(got, "message_start") {
+				t.Errorf("a %d SSE success was not translated as a stream: %s", status, got)
+			}
+		})
+	}
+}
+
+// A status that forbids a body has nothing to translate, and running the
+// translator on nothing fails and rewrites the answer to 502. That turned a
+// provider's legitimate No Content into a gateway error on the Anthropic
+// ingress, while the OpenAI ingress and the request log both said 204.
+func TestAnthropicResponseWriter_BodilessSuccessIsPassedThrough(t *testing.T) {
+	for _, status := range []int{http.StatusNoContent, http.StatusResetContent} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			aw := newAnthropicResponseWriter(rec, "msg_1", "claude-x")
 			aw.WriteHeader(status)
-			_, _ = aw.Write([]byte(`{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`))
 			aw.Finalize()
 
-			if got := rec.Body.String(); strings.Contains(got, `"type":"error"`) {
-				t.Errorf("a %d completion was delivered as an Anthropic error: %s", status, got[:min(200, len(got))])
+			if rec.Code != status {
+				t.Errorf("client status = %d, want %d", rec.Code, status)
+			}
+			if got := rec.Body.String(); got != "" {
+				t.Errorf("%d answered with an invented body: %s", status, got)
+			}
+		})
+	}
+}
+
+// The retirement probe judged any non-200 a probe FAILURE, so a relay that
+// answers 201 could push a live model toward retirement — the probe exists
+// precisely to stop a model being retired while it is still answering.
+func TestProbeModel_ASuccessStatusOtherThan200IsNotAProbeFailure(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			h := newProbeHandler(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"still here"},"finish_reason":"stop"}]}`)
+			}))
+			t.Cleanup(srv.Close)
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			if got := runProbe(t, h, probeCandidateFor(srv.URL, "relay-model"), endpointTypeChat); got != probeServed {
+				t.Errorf("a %d answer gave verdict %v, want probeServed: a model that answers must never be retired", status, got)
+			}
+		})
+	}
+}
+
+// The hedge race dropped any non-200 candidate, so with hedging on, the same
+// 201 the sequential path serves and meters was thrown away — and if it was the
+// only candidate the request failed outright.
+func TestProbeStreamingCandidate_ASuccessStatusOtherThan200CanWin(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+			}))
+			t.Cleanup(srv.Close)
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			st, cand := probeStateForServer(srv.URL)
+			res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 2*time.Second, time.Second)
+			if !res.won {
+				t.Errorf("a %d stream lost the hedge race: %+v", status, res.reqErr)
+			}
+		})
+	}
+}
+
+// The native Anthropic path recorded and returned a hardcoded 200 for whatever
+// the provider sent, so a native 201 was logged as a status no upstream ever
+// returned — the same flattening the OpenAI path was just fixed not to do.
+func TestAttemptCandidate_NativeAnthropicKeepsItsSuccessStatus(t *testing.T) {
+	const native = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-x","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":3,"output_tokens":2}}`
+	for _, status := range []int{http.StatusOK, http.StatusCreated} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, native)
+			}))
+			t.Cleanup(srv.Close)
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			m := &model.Model{ID: uuid.New(), ModelID: "claude-x"}
+			cand := goneCandidateAt(m, "Anthropic", "http://api.anthropic.com")
+			st := &requestState{
+				startTime: time.Now(), reqModel: "claude-x",
+				bodyBytes:        []byte(`{"model":"claude-x","messages":[{"role":"user","content":"hi"}]}`),
+				anthropicRawBody: []byte(`{"model":"claude-x","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`),
+				anthropicIn:      true,
+				failoverTimeout:  30 * time.Second,
+				vkHash:           "test-hash",
+				logData: &requestLogData{
+					id: uuid.New().String(), modelID: "claude-x",
+					providerID: cand.provider.ID, providerName: "Anthropic",
+					endpointType: endpointTypeChat, state: "pending",
+					virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+				},
+			}
+			h.insertRequestLogAsync(st.logData)
+			w := httptest.NewRecorder()
+			h.attemptCandidate(w, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, cand, 0, 1)
+
+			if st.logData.statusCode != status {
+				t.Errorf("row status = %d, want %d: the native path flattened it", st.logData.statusCode, status)
+			}
+			if w.Code != status {
+				t.Errorf("client status = %d, want %d", w.Code, status)
 			}
 		})
 	}
