@@ -313,3 +313,37 @@ func TestHandleStreamingResponse_AnthropicErrorIsCountedOnce(t *testing.T) {
 		t.Errorf("state = %q, errorMessage = %q, want the provider's error", logData.state, logData.errorMessage)
 	}
 }
+
+// The transforms are skipped for an untypeable frame because they rebuild it
+// from the struct. normalizeToolArguments does not — it works over the payload
+// as a map of raw members, so everything it does not rewrite survives verbatim,
+// and it is the one rewrite an untypeable frame still needs.
+//
+// Forwarding the object form is not a smaller loss than dropping the frame, it
+// is a different one: the caller echoes the assistant turn into its next
+// request, and a failover group whose next turn lands on an Anthropic or Gemini
+// member 400s on it for the life of the conversation.
+func TestHandleStreamingResponse_UntypeableFrameStillNormalisesToolArguments(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	payload := `{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"lookup","arguments":{"city":"Oslo"}}}]},"finish_reason":0}]}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+
+	h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+	if !strings.Contains(body, `"arguments":"{\"city\":\"Oslo\"}"`) {
+		t.Errorf("tool-call arguments left in the object form: %q", body)
+	}
+	// The member that could not be typed still rides through untouched.
+	if !strings.Contains(body, `"finish_reason":0`) {
+		t.Errorf("the untypeable member was not preserved: %q", body)
+	}
+}

@@ -346,10 +346,15 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	// observers, the masking and the error member all went unread. The frame is
 	// the provider's answer whether or not this gateway has a struct for it.
 	//
-	// What it cannot do is go through the transforms. They rebuild the frame from
-	// that struct, and the member that failed is missing from it — rebuilding a
+	// What it cannot go through are the transforms that rebuild the frame from
+	// that struct: the member that failed is missing from it, so rebuilding a
 	// content-as-parts frame would re-emit it with an empty delta, which is the
-	// same loss by another route. It is observed, masked, and forwarded verbatim.
+	// same loss by another route. It is observed, masked, and forwarded verbatim,
+	// stopping short of strip_reasoning, the reasoning/empty-content transforms
+	// and finish_reason normalisation. Tool-argument normalisation is deliberately
+	// NOT skipped — it works over the payload as a map of raw members rather than
+	// the struct, so it rewrites the one member it understands and leaves the rest
+	// of the frame exactly as it arrived.
 	decodeErr := json.Unmarshal([]byte(payload), &chunk)
 	var typeErr *json.UnmarshalTypeError
 	untypeable := decodeErr != nil && errors.As(decodeErr, &typeErr)
