@@ -553,8 +553,30 @@ func chatAnswerCarriesContent(out ChatCompletionResponse) bool {
 		if choice.Message.ReasoningContent != "" || choice.Message.Reasoning != "" {
 			return true
 		}
+		// Read here rather than after the reasoning normalisation that folds it
+		// into ReasoningContent: that runs several statements LATER than the
+		// caller which judges this, so a reasoning-only OpenRouter answer read as
+		// nothing at all.
+		if len(choice.Message.ReasoningDetails) > 0 {
+			return true
+		}
 		if len(choice.Message.ToolCalls) > 0 {
 			return true
+		}
+		// Everything this package does not model rides in Extra, and some of it
+		// is unmistakably the model answering: a safety `refusal`, the `audio`
+		// object that IS the answer on a speech completion, a legacy
+		// `function_call`. Judged by the shared emptiness rule so a member that
+		// is present but carries nothing does not count.
+		//
+		// The generosity is deliberate and asymmetric. A false negative here
+		// charges the circuit breaker against a provider that answered
+		// correctly, which after five requests takes it out of rotation for
+		// every tenant; a false positive merely fails to strike a model.
+		for _, raw := range choice.Message.Extra {
+			if util.ValueCarries(raw) {
+				return true
+			}
 		}
 	}
 	return out.Usage.CompletionTokens > 0

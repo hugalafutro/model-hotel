@@ -161,7 +161,7 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(`{"data":"` + strings.Repeat("a", passthroughJSONBufferCap) + `"}`)),
 	}
 	rec := httptest.NewRecorder()
-	h.serveBufferedJSONPassthrough(rec, st, modelCandidate{
+	h.serveBufferedJSONPassthrough(rec, httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -218,7 +218,7 @@ func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"created":1,"data":[{"b64":"AAAA"}]}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-3"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -259,7 +259,7 @@ func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"usage":{"prompt_tokens":7,"total_tokens":7}}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -352,7 +352,7 @@ func TestPassthrough_EmptyAnswerIsNotCharged(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -457,7 +457,7 @@ func TestMultipartPassthrough_NoPromptFieldStillMeters(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"text":"hello there"}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -510,7 +510,7 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Body:       io.NopCloser(strings.NewReader(`{"text":"ok"}`)),
 		}
-		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 		}, resp, "application/json", 1, 10.0)
@@ -537,7 +537,7 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(
 				`{"text":"ok","usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}}`)),
 		}
-		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 		}, resp, "application/json", 1, 10.0)
@@ -584,7 +584,7 @@ func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)
@@ -630,7 +630,7 @@ func TestOversizedPassthrough_ZeroPromptStillMeters(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(huge)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-2"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0)

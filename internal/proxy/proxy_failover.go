@@ -232,7 +232,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
-		h.recordAnswerOutcome(st, candidate, logData)
+		h.recordAnswerOutcome(st, candidate, logData, r.Context().Err() != nil)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
 		}
@@ -240,7 +240,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
-	h.recordAnswerOutcome(st, candidate, logData)
+	h.recordAnswerOutcome(st, candidate, logData, r.Context().Err() != nil)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}

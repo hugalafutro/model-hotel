@@ -76,19 +76,38 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 // body read that died, a body the gateway could not decode, an upstream that
 // sent a success shape behind a failure status. The old code had already
 // credited every one of those before the read was even attempted.
-func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData) {
+func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, clientGone bool) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
-	if logData.state == "completed" && producedOutput(logData) {
+	// A client that hangs up mid-read is not a provider failure. The upstream
+	// body is read under the caller's context, so a user pressing stop, or a
+	// load balancer's client-side timeout, surfaces here as a failed read — and
+	// charging for it would open the circuit for every tenant after N impatient
+	// cancels. doUpstream, judgeStreamForBreaker, classifyProbeError and the
+	// pass-through first-byte probe all refuse to charge for this; this was the
+	// one verdict that did not.
+	if clientGone {
+		return
+	}
+	if logData.state != "completed" {
+		// The attempt failed after the headers. Only a fault that is the
+		// PROVIDER'S counts — the same predicate judgeStreamForBreaker uses, and
+		// for the same reason it uses it. A 2xx this gateway could not decode is
+		// classified provider_bad_request and still holds the model's text (a
+		// relay quoting its token counts is the named cause), so it says nothing
+		// about whether the provider is up; the streaming side calls recording
+		// nothing the honest verdict there, and it is the honest verdict here.
+		if providerAtFault(logData.errorKind) {
+			h.chargeBreaker(st, candidate, "response failed after headers")
+		}
+		return
+	}
+	if producedOutput(logData) {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		return
 	}
-	reason := "response completed without delivering content"
-	if logData.state != "completed" {
-		reason = "response failed after headers"
-	}
-	h.chargeBreaker(st, candidate, reason)
+	h.chargeBreaker(st, candidate, "response completed without delivering content")
 }
 
 // chargeBreaker records one breaker failure with its cause in the log. The
