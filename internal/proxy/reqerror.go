@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -80,6 +82,37 @@ type reqError struct {
 // cancelOriginToKind maps an internal cancel-origin identifier (the value
 // stored under ctxkeys.CancelOriginKey, also fed to humanReadableCancelOrigin)
 // to its error kind.
+// cancelKind classifies a failure that is a context error rather than the
+// provider misbehaving, and reports whether it was one.
+//
+// It exists because a second, narrower spelling of this rule kept being
+// hand-rolled at each new site and kept dropping a case. The one that cost most:
+// checking only errors.Is(err, context.Canceled) missed context.DeadlineExceeded,
+// which is what this gateway's own request_timeout produces mid-body-read — so a
+// slow but healthy provider was charged with a breaker failure, five of them
+// taking it out of rotation for every tenant.
+//
+// Two inputs, one question: the error itself, and the attempt's context going
+// down underneath a read that reported something else. Keeping those as two
+// separate guards at each site is what let one of them ship without the other.
+//
+// Whoever cancelled, it was not the provider: every kind this returns is
+// excluded by providerAtFault, so a caller that classifies with this and then
+// gates on providerAtFault needs no separate client-gone guard at all.
+func cancelKind(ctx context.Context, err error) (ErrorKind, bool) {
+	interrupted := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	if !interrupted && ctx.Err() == nil {
+		return "", false
+	}
+	if !interrupted {
+		// The context went down underneath a read that reported something else.
+		// The cancellation is still the reason there is no answer, and it is
+		// still not the provider's doing.
+		err = ctx.Err()
+	}
+	return cancelOriginToKind(resolveCancelOrigin(ctx, err)), true
+}
+
 func cancelOriginToKind(origin string) ErrorKind {
 	switch origin {
 	case "client_disconnect":

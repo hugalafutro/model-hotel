@@ -553,6 +553,15 @@ func chatAnswerCarriesContent(out ChatCompletionResponse) bool {
 		if choice.Message.ReasoningContent != "" || choice.Message.Reasoning != "" {
 			return true
 		}
+		// The one thing this bar gained: read here rather than after the
+		// reasoning normalisation that folds it into ReasoningContent, which
+		// runs several statements LATER than the caller judging this — so a
+		// reasoning-only OpenRouter answer read as nothing at all. A modelled
+		// field the model plainly produced, unlike the overflow members that
+		// belong to the breaker's bar alone (see answerCarriesSomething).
+		if len(choice.Message.ReasoningDetails) > 0 {
+			return true
+		}
 		if len(choice.Message.ToolCalls) > 0 {
 			return true
 		}

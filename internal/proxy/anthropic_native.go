@@ -48,12 +48,20 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
 		// Finalize the log row so it does not orphan in the in-flight state: a
-		// read failure on a 200 body is a provider/transport fault.
+		// read failure on a 200 body is a provider/transport fault — unless it
+		// was interrupted rather than broken, which the translated path already
+		// classifies and this one hard-coded past. The identical event logged
+		// provider_error here and client_disconnect there, decided by nothing but
+		// which dialect the request came in on.
+		kind := KindProviderError
+		if cancelled, aborted := cancelKind(r.Context(), err); aborted {
+			kind = cancelled
+		}
 		logData.statusCode = http.StatusBadGateway
 		logData.durationMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
-		logData.errorKind = KindProviderError
+		logData.errorKind = kind
 		logData.errorMessage = "failed to read upstream response: " + err.Error()
 		logData.state = "failed"
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
@@ -95,6 +103,11 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// corroborate, for a provider that answers without reporting usage. Same
 	// judgement the OpenAI-shaped path makes with chatAnswerCarriesContent.
 	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	// The question the breaker asks of the same body: did anything come back.
+	// ResponseCarriesContent reads block PRESENCE, which is the native analogue
+	// of the translated path's "any choice carrying something" — so on this path
+	// the two bars do coincide, and the negation is exact.
+	logData.emptyCompletion = outputTokens == 0 && !anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	inputTokens, outputTokens, _ = estimateMissingUsage(inputTokens, outputTokens, 0, logData, anthropic.ResponseTextBytes(body))

@@ -159,6 +159,18 @@ type requestLogData struct {
 	// can be switched off — and a real success that reports neither would
 	// otherwise look indistinguishable from a stream that emitted nothing.
 	deliveredContent bool
+	// emptyCompletion records that the upstream answered with nothing at all --
+	// no choices and no completion tokens -- which is the only shape the circuit
+	// breaker charges a 200 for.
+	//
+	// A different question from !deliveredContent, not a narrower one. That flag
+	// backs the RETIREMENT verdict and stays strict, because `refusal` is the
+	// likeliest field for an aggregator to write "this model is gone" into
+	// behind a 200 and it must not clear a gone-strike streak. This one asks
+	// only whether ANYTHING came back, so a safety refusal, an audio answer, an
+	// Azure content_filter block or a legacy function_call all count as the
+	// provider answering. See answerCarriesSomething.
+	emptyCompletion bool
 	// promptTextBytes is the size of the prompt text in the client's request
 	// (message text and tool definitions, never inline media), recorded at
 	// ingest so every response path can estimate the prompt when the provider

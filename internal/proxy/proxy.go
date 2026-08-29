@@ -41,8 +41,30 @@ var newRequestWithContext = http.NewRequestWithContext
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
-func nonStreamingFailureDetail(resp *http.Response, body []byte, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
+func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if readErr != nil {
+			// A read the provider did not break is not the provider failing. The
+			// body is read under the attempt's context, so a caller hanging up
+			// AND this gateway's own request_timeout both arrive here as read
+			// errors — and reporting either as a provider fault put someone
+			// else's cancellation on the provider's row and, once the breaker
+			// started reading these, its circuit. cancelKind is the package's own
+			// classifier; hand-rolling a narrower one here is what dropped the
+			// deadline case.
+			if kind, aborted := cancelKind(ctx, readErr); aborted {
+				detail = "the request was interrupted before the response was read"
+				return detail, detail, kind, "the request was interrupted"
+			}
+			// A body that died on the wire is not a body this gateway could not
+			// parse, and the two were collapsed into one kind. The parse failure
+			// is provider_bad_request because the answer is probably still in
+			// there; a transport failure is the provider breaking after it
+			// committed the status, which is what the breaker exists to catch —
+			// and classifying it as the parse failure left it uncharged.
+			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
+			return detail, detail, KindProviderError, "the provider stopped sending its response"
+		}
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
 			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
 		// Not "upstream provider returned HTTP 200": reporting the status as the
@@ -98,19 +120,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	// cap+1 is refused as oversized rather than decoded, because a truncated
 	// completion re-encoded as a valid one would hand the client silently
 	// mutilated content.
-	body, readErr := io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
-	if readErr == nil && len(body) > nonStreamingBodyCap {
-		readErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap", nonStreamingBodyCap)
-	}
-	// Exact-key scrub on the whole body: the client answer and the failure
-	// log message both derive from it, and a success body is content where
-	// the key-shape regex must not run.
-	body = logData.masker.maskExact(body)
-	var chatResp ChatCompletionResponse
-	decodeErr := readErr
-	if decodeErr == nil {
-		decodeErr = json.NewDecoder(bytes.NewReader(body)).Decode(&chatResp)
-	}
+	body, chatResp, readErr, decodeErr := readNonStreamingBody(resp, logData.masker)
 
 	// Only a 2xx that decodes is a completion. Some upstreams (OpenCode Zen and
 	// OpenCode Go both do this) answer a failed request with a non-2xx carrying a
@@ -160,6 +170,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// completion is what an aggregator in front of a retired model returns,
 		// resetting the count so the model is never nominated.
 		logData.deliveredContent = chatAnswerCarriesContent(chatResp)
+		// And the different question the breaker asks of the same body: see
+		// answerCarriesSomething.
+		logData.emptyCompletion = !answerCarriesSomething(chatResp)
 		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
 		// The async INSERT is very likely complete by now; if not, the
 		// UPDATE simply affects 0 rows (harmless, logged as warning).
@@ -220,7 +233,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(resp, body, decodeErr, logData.modelID)
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID)
 		// body is already exact-masked; the log row also gets the key-shape
 		// layer, like every other stored error message.
 		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))
@@ -232,6 +245,53 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", detail, "duration_ms", totalDuration)
 		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), resp.StatusCode)
 	}
+}
+
+// readNonStreamingBody reads the upstream body once and decodes it, returning
+// the bytes both branches below need, the decoded completion, and the two
+// failures kept apart: what went wrong on the wire, and what went wrong parsing.
+//
+// The read is bounded (nonStreamingBodyCap) so one upstream cannot make the
+// gateway buffer an arbitrary amount: cap+1 is read, and a body that reaches
+// cap+1 is refused rather than decoded, because a truncated completion
+// re-encoded as a valid one would hand the client silently mutilated content.
+// That refusal is THIS gateway's policy and not the provider failing, so it is
+// reported as a decode failure — folding it into readErr had an oversized answer
+// reported as "the provider stopped sending its response" and its provider's
+// circuit breaker charged for sending too much.
+//
+// json.Decoder, not json.Unmarshal: a decoder stops at the end of the first JSON
+// value, so a completion with trailing bytes after it still decodes.
+//
+// The decode is attempted even when the read errored, because JSON is
+// self-delimiting: a provider that sent the whole document and then dropped the
+// connection without its terminal chunk yields ErrUnexpectedEOF from a body that
+// parses perfectly. Discarding that threw away a complete answer and charged the
+// provider for it. If the bytes really were cut short the decode fails too, and
+// the read error is what gets reported. Same salvage rule as #810.
+func readNonStreamingBody(resp *http.Response, masker credentialMasker) (body []byte, chatResp ChatCompletionResponse, readErr, decodeErr error) {
+	body, readErr = io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
+	if readErr == nil && len(body) > nonStreamingBodyCap {
+		decodeErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap", nonStreamingBodyCap)
+	}
+	// Exact-key scrub on the whole body: the client answer and the failure log
+	// message both derive from it, and a success body is content where the
+	// key-shape regex must not run.
+	body = masker.maskExact(body)
+	if decodeErr != nil {
+		return body, chatResp, readErr, decodeErr
+	}
+	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&chatResp); err != nil {
+		if readErr != nil {
+			return body, chatResp, readErr, readErr
+		}
+		return body, chatResp, readErr, err
+	}
+	// readErr is returned as it was rather than cleared. It is only ever
+	// consulted alongside a decode failure — a clean decode means the 2xx branch
+	// serves the answer and never looks at it — so clearing it claimed a
+	// meaning it did not have.
+	return body, chatResp, readErr, nil
 }
 
 // failRequest populates logData with failure details and updates the request log.

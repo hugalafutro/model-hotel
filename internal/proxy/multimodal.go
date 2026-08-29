@@ -329,7 +329,7 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	isJSON := !isSSE && (strings.Contains(contentType, "json") || st.logData.endpointType == endpointTypeEmbeddings)
 
 	if isJSON {
-		h.serveBufferedJSONPassthrough(w, st, candidate, resp, contentType, attempt, responseHeaderMs)
+		h.serveBufferedJSONPassthrough(w, r, st, candidate, resp, contentType, attempt, responseHeaderMs)
 		return
 	}
 	h.serveStreamedPassthrough(w, r, st, candidate, resp, contentType, isSSE, attempt, responseHeaderMs)
@@ -341,21 +341,22 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 // whose body dies mid-read records a failure, not a success — and response
 // headers are only written after that point, so the read-error path emits a
 // clean OpenAI error response.
-func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64) {
+func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64) {
 	logData := st.logData
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
 	if err != nil {
-		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+		// Not when the read was interrupted rather than broken: it runs under
+		// the attempt's context, so a caller hanging up or this gateway's own
+		// request_timeout both surface here as a failed read, and neither is the
+		// provider's doing. cancelKind is the package's classifier for that.
+		if _, aborted := cancelKind(r.Context(), err); !aborted {
+			h.chargeBreaker(st, candidate, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
 		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
 		return
-	}
-	if st.circuitBreakerEnabled {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 	// The commit point is where the model has proved it is alive, so it is where
 	// its gone-strike streak stops being current. Without it "three CONSECUTIVE
@@ -379,6 +380,29 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	answered := passthroughAnswered(logData.endpointType, body)
 	if answered {
 		h.noteModelServed(candidate.model, logData.endpointType)
+	}
+	// The breaker verdict reads the same answer, and until now it did not: the
+	// success was recorded the moment the read succeeded, so an embeddings
+	// provider replying 200 {"data":[]} to every request recorded a success
+	// every time and its circuit could never open. That is the chat-path bug
+	// this change fixes, on the surface whose detection function was already
+	// written and used for the streak alone.
+	switch {
+	case r.Context().Err() != nil:
+		// The request was interrupted; nothing here is the provider's doing.
+	case answered:
+		if st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		}
+	case resp.StatusCode != http.StatusOK:
+		// A 204 or 202 legitimately carries an empty body and the provider is
+		// plainly alive — the streamed twin says exactly this and credits it, so
+		// charging here would have the two disagree about one response.
+		if st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		}
+	default:
+		h.chargeBreaker(st, candidate, "response completed without delivering content")
 	}
 	// Oversized is judged on the bytes read, before masking can shrink a
 	// cap+1 read under the cap and drop the streamed remainder.

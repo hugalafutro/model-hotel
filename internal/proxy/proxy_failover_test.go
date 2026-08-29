@@ -66,7 +66,7 @@ func resp400(body string) *http.Response {
 // breakerOutcome describes the observable effect of recordBreakerOutcome on a
 // fresh circuit: failure creates a circuit with one consecutive fail, success
 // creates a circuit with zero, and "untouched" means no circuit was created
-// (no-op / disabled / deferred streaming-200).
+// (no-op / disabled / a 200 whose verdict is deferred until the body is read).
 type breakerOutcome int
 
 const (
@@ -93,7 +93,10 @@ func TestRecordBreakerOutcome(t *testing.T) {
 		{"eligible 200 -> success (exhaustive switch)", true, false, 200, true, breakerSuccessRecorded},
 		{"eligible 502 -> failure", true, false, 502, true, breakerFailureRecorded},
 		{"eligible 503 -> failure", true, false, 503, true, breakerFailureRecorded},
-		{"non-eligible 200 non-streaming -> success", true, false, 200, false, breakerSuccessRecorded},
+		// A 200 is a status, not an answer, on BOTH paths: the verdict waits for
+		// the body — judgeStreamForBreaker for a stream, recordAnswerOutcome for
+		// a completion.
+		{"non-eligible 200 non-streaming -> deferred (untouched)", true, false, 200, false, breakerUntouched},
 		{"non-eligible 200 streaming -> deferred (untouched)", true, true, 200, false, breakerUntouched},
 		{"non-eligible non-200 streaming -> success", true, true, 204, false, breakerSuccessRecorded},
 		{"non-eligible 204 non-streaming -> success", true, false, 204, false, breakerSuccessRecorded},
