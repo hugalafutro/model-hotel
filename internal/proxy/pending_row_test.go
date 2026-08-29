@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -160,6 +161,251 @@ func TestIsTerminalLogState(t *testing.T) {
 	} {
 		if got := isTerminalLogState(state); got != want {
 			t.Errorf("isTerminalLogState(%q) = %v, want %v", state, got, want)
+		}
+	}
+}
+
+// The production shape end to end: the real insertRequestLogAsync, and a
+// terminal update fired the instant it returns — which is what a request that
+// fails before reaching a provider does.
+//
+// The hand-rolled tests above reproduce the RACE; this one reproduces the
+// INSERT as well, so a change to insertRequestLogAsync (moving the id
+// assignment inside the goroutine, say) cannot leave them green while
+// production re-breaks. Run against master it strands the majority of the
+// batch; the fix must strand none of it.
+func TestUpdateRequestLog_ConcurrentTerminalUpdatesNeverStrand(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	const requests = 60
+	entries := make([]*requestLogData, requests)
+	var wg sync.WaitGroup
+	for i := range entries {
+		logData := &requestLogData{
+			modelID: "concurrent-model", virtualKeyName: "k", state: "pending",
+			endpointType: endpointTypeChat,
+		}
+		entries[i] = logData
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			h.insertRequestLogAsync(logData)
+			// No pause: an unknown model or an invalid model format fails here,
+			// microseconds after the insert was queued.
+			logData.state = "failed"
+			logData.statusCode = 400
+			logData.errorKind = KindValidation
+			logData.errorMessage = "invalid model format"
+			h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+		}()
+	}
+	wg.Wait()
+
+	ids := make([]string, 0, requests)
+	for _, e := range entries {
+		e.insertWg.Wait() // every row is certainly written by now
+		ids = append(ids, e.id)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	rows, err := h.dbPool.Query(ctx, `SELECT state FROM request_logs WHERE id = ANY($1)`, ids)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	defer rows.Close()
+	stranded, seen := 0, 0
+	for rows.Next() {
+		var state string
+		if err := rows.Scan(&state); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		seen++
+		if state != "failed" {
+			stranded++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+	if seen != requests {
+		t.Fatalf("read back %d rows, want %d", seen, requests)
+	}
+	if stranded != 0 {
+		t.Errorf("%d of %d requests stranded before the terminal update landed", stranded, requests)
+	}
+}
+
+// A terminal caller that did NOT skip the wait does not wait a second time.
+//
+// stream_finalize is the one such caller. Its up-front WaitForInsert can only
+// return with the insert still outstanding by timing out, and the insert
+// goroutine is bounded by a context of its own — so 0 rows there means the
+// INSERT failed outright, which no further waiting repairs.
+func TestUpdateRequestLog_ATerminalUpdateThatAlreadyWaitedDoesNotWaitAgain(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	h.waitInsertTimeout = 300 * time.Millisecond
+
+	logData := &requestLogData{modelID: "m", virtualKeyName: "k", endpointType: endpointTypeChat}
+	logData.id = uuid.New().String()
+	logData.requestHash = generateRequestHash()
+	logData.insertWg.Add(1)
+	defer logData.insertWg.Done()
+
+	// No row and an insert that never completes: the up-front wait times out,
+	// the UPDATE finds nothing. One timeout is the whole budget.
+	logData.state = "completed"
+	start := time.Now()
+	h.updateRequestLog(logData)
+	if waited := time.Since(start); waited > 450*time.Millisecond {
+		t.Errorf("waited %s, about twice the %s timeout: the update waited for the insert twice", waited, h.waitInsertTimeout)
+	}
+}
+
+// An UPDATE that ERRORS is not the race and must not be treated as one. There
+// is no row count to believe either way, and waiting for an insert cannot fix a
+// statement the database refused.
+func TestUpdateRequestLog_AFailedUpdateDoesNotWait(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	logData := &requestLogData{modelID: "m", virtualKeyName: "k", endpointType: endpointTypeChat}
+	// Non-empty, so it clears the "no ID" guard, and not a UUID, so Postgres
+	// rejects the statement rather than matching no rows.
+	logData.id = "not-a-uuid"
+	logData.insertWg.Add(1)
+	defer logData.insertWg.Done()
+
+	logData.state = "failed"
+	start := time.Now()
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+	if waited := time.Since(start); waited > time.Second {
+		t.Errorf("a rejected UPDATE blocked for %s waiting for an insert that could not have helped", waited)
+	}
+}
+
+// Twenty-eight positional parameters, and this PR is what moved them into a
+// function of their own. A transposition between two columns of the same type
+// is silent — every figure below is distinct, and exactly representable in
+// float4, so it can only read back from the column it was written to.
+func TestUpdateRequestLog_WritesEachFigureToItsOwnColumn(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	logData := &requestLogData{
+		modelID: "column-model", virtualKeyName: "k", state: "pending",
+		endpointType: endpointTypeChat,
+	}
+	logData.id = uuid.New().String()
+	logData.requestHash = generateRequestHash()
+	seedRequestLogRow(t, h, logData)
+
+	logData.state = "completed"
+	logData.statusCode = 201
+	logData.durationMs = 111.5
+	logData.proxyOverheadMs = 22.25 // latencyMs is derived: 111.5 - 22.25
+	logData.parseMs = 1.5
+	logData.failoverLookupMs = 2.5
+	logData.modelLookupMs = 3.5
+	logData.providerLookupMs = 4.5
+	logData.keyDecryptMs = 5.5
+	logData.dialMs = 6.5
+	logData.settingsReadMs = 7.5
+	logData.responseHeaderMs = 8.5
+	logData.ttftMs = 9.5
+	logData.tokensPerSecond = 12.5
+	logData.tokensPrompt = 101
+	logData.tokensCompletion = 102
+	logData.tokensCompletionReasoning = 103
+	logData.tokensPromptCacheHit = 104
+	logData.tokensPromptCacheMiss = 105
+	logData.failoverAttempt = 3
+	logData.errorMessage = "column-error"
+	logData.resolvedModelID = "column-resolved"
+	logData.errorKind = KindValidation
+	h.updateRequestLog(logData)
+
+	var got struct {
+		model                                     string
+		status, attempt                           int
+		prompt, completion, reasoning, hit, miss  int
+		duration, latency, overhead, parse, fLook float64
+		mLook, pLook, keyDec, dial, settings      float64
+		header, ttft, tps                         float64
+		errMsg, resolved, kind, state             string
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := h.dbPool.QueryRow(ctx, `
+		SELECT model_id, status_code, failover_attempt,
+		       tokens_prompt, tokens_completion, tokens_completion_reasoning,
+		       tokens_prompt_cache_hit, tokens_prompt_cache_miss,
+		       duration_ms, latency_ms, proxy_overhead_ms, parse_ms, failover_lookup_ms,
+		       model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
+		       response_header_ms, ttft_ms, tokens_per_second,
+		       error_message, resolved_model_id, error_kind, state
+		  FROM request_logs WHERE id = $1`, logData.id).Scan(
+		&got.model, &got.status, &got.attempt,
+		&got.prompt, &got.completion, &got.reasoning, &got.hit, &got.miss,
+		&got.duration, &got.latency, &got.overhead, &got.parse, &got.fLook,
+		&got.mLook, &got.pLook, &got.keyDec, &got.dial, &got.settings,
+		&got.header, &got.ttft, &got.tps,
+		&got.errMsg, &got.resolved, &got.kind, &got.state)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+
+	for _, c := range []struct {
+		column    string
+		got, want float64
+	}{
+		{"duration_ms", got.duration, 111.5},
+		{"latency_ms", got.latency, 89.25},
+		{"proxy_overhead_ms", got.overhead, 22.25},
+		{"parse_ms", got.parse, 1.5},
+		{"failover_lookup_ms", got.fLook, 2.5},
+		{"model_lookup_ms", got.mLook, 3.5},
+		{"provider_lookup_ms", got.pLook, 4.5},
+		{"key_decrypt_ms", got.keyDec, 5.5},
+		{"dial_ms", got.dial, 6.5},
+		{"settings_read_ms", got.settings, 7.5},
+		{"response_header_ms", got.header, 8.5},
+		{"ttft_ms", got.ttft, 9.5},
+		{"tokens_per_second", got.tps, 12.5},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s = %v, want %v", c.column, c.got, c.want)
+		}
+	}
+	for _, c := range []struct {
+		column    string
+		got, want int
+	}{
+		{"status_code", got.status, 201},
+		{"failover_attempt", got.attempt, 3},
+		{"tokens_prompt", got.prompt, 101},
+		{"tokens_completion", got.completion, 102},
+		{"tokens_completion_reasoning", got.reasoning, 103},
+		{"tokens_prompt_cache_hit", got.hit, 104},
+		{"tokens_prompt_cache_miss", got.miss, 105},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s = %d, want %d", c.column, c.got, c.want)
+		}
+	}
+	for _, c := range []struct {
+		column, got, want string
+	}{
+		{"model_id", got.model, "column-model"},
+		{"error_message", got.errMsg, "column-error"},
+		{"resolved_model_id", got.resolved, "column-resolved"},
+		{"error_kind", got.kind, string(KindValidation)},
+		{"state", got.state, "completed"},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s = %q, want %q", c.column, c.got, c.want)
 		}
 	}
 }

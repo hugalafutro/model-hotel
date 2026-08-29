@@ -294,6 +294,11 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// is paid where it buys something instead: 0 rows IS the race, and from there
 	// the row either appears while we wait or the INSERT itself failed, which no
 	// amount of waiting up front would have repaired either.
+	//
+	// 0 rows is not the only way a row is left behind, and this repairs only that
+	// one. An UPDATE that ERRORS — an exhausted pool, a reset connection — has no
+	// row count to believe and no insert to wait for, so it strands the same row
+	// by a different door and only staleLogCleanupPass will reach it.
 	if err == nil && rows == 0 && skipWait && isTerminalLogState(logEntry.state) {
 		// Debug, not Warn: this is the repair working, and on the paths that
 		// strand it is the normal case rather than an incident. What is worth a
