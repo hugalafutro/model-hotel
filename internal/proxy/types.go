@@ -163,13 +163,13 @@ type requestLogData struct {
 	// no choices and no completion tokens -- which is the only shape the circuit
 	// breaker charges a 200 for.
 	//
-	// Deliberately narrower than !deliveredContent. That flag backs the
-	// RETIREMENT verdict, where missing an answer merely fails to clear a
-	// streak; here a false positive takes the provider out of rotation for every
-	// tenant after five requests. So a choice that exists but whose content this
-	// gateway does not recognise -- a safety refusal, an audio answer, an Azure
-	// content_filter block, a legacy function_call -- is the provider answering,
-	// and only a completion with no choices in it is not.
+	// A different question from !deliveredContent, not a narrower one. That flag
+	// backs the RETIREMENT verdict and stays strict, because `refusal` is the
+	// likeliest field for an aggregator to write "this model is gone" into
+	// behind a 200 and it must not clear a gone-strike streak. This one asks
+	// only whether ANYTHING came back, so a safety refusal, an audio answer, an
+	// Azure content_filter block or a legacy function_call all count as the
+	// provider answering. See answerCarriesSomething.
 	emptyCompletion bool
 	// promptTextBytes is the size of the prompt text in the client's request
 	// (message text and tool definitions, never inline media), recorded at

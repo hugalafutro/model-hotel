@@ -88,13 +88,17 @@ type oaiUsage struct {
 	} `json:"completion_tokens_details,omitempty"`
 }
 
-// ErrNoCandidates marks the one translation failure that is NOT the provider
-// malfunctioning: Gemini answered, and its answer carried no candidate — which
-// is what a prompt blocked by its safety filter looks like. The body is a
-// perfectly good Gemini object and the provider is plainly alive, so a caller
-// deciding whether to hold the provider at fault has to be able to tell this
-// apart from bytes that are not a Gemini response at all.
-var ErrNoCandidates = errors.New("gemini: response carried no candidates")
+// ErrPromptBlocked marks the one translation failure that is NOT the provider
+// malfunctioning: Gemini answered, and its answer was a refusal — promptFeedback
+// carries a blockReason and no candidate. The body is a good Gemini object and
+// the provider is plainly alive, so a caller deciding whether to hold it at
+// fault has to be able to tell this apart from bytes that merely lack candidates.
+//
+// Keyed on the stated reason, not on candidate absence: {} , null and an
+// aggregator's 200 {"error":…} all unmarshal into genResponse with no
+// candidates, and exempting those left no non-streaming body a Gemini provider
+// could return that would ever charge its breaker.
+var ErrPromptBlocked = errors.New("gemini: prompt blocked")
 
 // BuildChatCompletion converts a non-streaming Gemini generateContent response
 // body into an OpenAI chat-completion body. id, model and created are supplied
@@ -105,11 +109,14 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 		return nil, fmt.Errorf("gemini: invalid upstream response: %s", jsonfault.Describe(err, len(body)))
 	}
 	if len(resp.Candidates) == 0 {
-		reason := "no candidates in response"
 		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-			reason = "prompt blocked: " + resp.PromptFeedback.BlockReason
+			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", resp.PromptFeedback.BlockReason, ErrPromptBlocked)
 		}
-		return nil, fmt.Errorf("gemini: %s: %w", reason, ErrNoCandidates)
+		// No candidates and no stated reason. That is not Gemini declining to
+		// answer, it is a body that does not carry one — an aggregator's error
+		// envelope, a bare {}, a null — all of which unmarshal into genResponse
+		// without complaint.
+		return nil, fmt.Errorf("gemini: no candidates in response")
 	}
 
 	cand := resp.Candidates[0]

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The circuit-breaker verdict for a non-streaming attempt lives here, beside
@@ -68,11 +69,10 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 // non-streaming attempt, and is the completion-side sibling of
 // judgeStreamForBreaker.
 //
-// The bar is producedOutput, the same one the retirement verdict uses two lines
-// from each call site — text, content parts, reasoning, a tool call, or usage
-// reporting completion tokens. `200 {"choices":[]}` is what an aggregator in
-// front of a retired model returns between its refusals, and it is not an
-// answer whichever question is being asked of it.
+// The bar is emptyCompletion — did ANYTHING come back — and deliberately not the
+// retirement verdict's bar two lines from each call site. See
+// answerCarriesSomething for why the two questions differ and why the answer to
+// this one cannot be `len(Choices) == 0`.
 //
 // A state other than "completed" means the attempt failed after the headers: a
 // body read that died, a body the gateway could not decode, an upstream that
@@ -85,7 +85,7 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 	// Read here rather than at the call sites: two copies of the same expression
 	// is how one of them comes to be missing it, which is what happened to the
 	// third charge site this change added.
-	clientGone := r != nil && r.Context().Err() != nil
+	gone := clientGone(r)
 	if logData.state != "completed" {
 		// The attempt failed after the headers.
 		//
@@ -102,7 +102,7 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		// relay quoting its token counts is the named cause), so it says nothing
 		// about whether the provider is up. A body that died on the wire is a
 		// different kind now, and does charge.
-		if clientGone || !providerAtFault(logData.errorKind) {
+		if gone || !providerAtFault(logData.errorKind) {
 			return
 		}
 		h.chargeBreaker(st, candidate, "response failed after headers")
@@ -145,7 +145,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// caller's context, so an abandoned request arrives here as a translation
 	// failure — the same false charge the two sibling verdicts guard against,
 	// and this third charge site was created in the same change without it.
-	if (r == nil || r.Context().Err() == nil) && translationIsProviderFault(err) {
+	if !clientGone(r) && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, "upstream body could not be translated")
 	}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
@@ -162,5 +162,76 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // Charging for it took a healthy provider out of rotation for every tenant after
 // five blocked prompts, which is exactly what a client retries.
 func translationIsProviderFault(err error) bool {
-	return !errors.Is(err, gemini.ErrNoCandidates)
+	return !errors.Is(err, gemini.ErrPromptBlocked)
+}
+
+// answerCarriesSomething reports whether a completion carries anything at all
+// from the provider. Its negation is requestLogData.emptyCompletion, the one
+// shape a 200 is charged for.
+//
+// Deliberately NOT chatAnswerCarriesContent, which backs the retirement verdict
+// and stays strict: `refusal` is the likeliest field for an aggregator to write
+// "this model is gone" into behind a 200, and widening the retirement bar to
+// count it would let such a provider clear its gone-strikes forever.
+//
+// And deliberately not `len(Choices) == 0` either, which is what this was first
+// narrowed to. Every egress translator synthesises a one-element Choices literal
+// on success, so an emptied Gemini, Anthropic-egress or Responses answer always
+// had a choice and the charge could never fire for any of them — the fix was a
+// no-op for three whole dialects.
+//
+// The bar is therefore: did any choice come back with SOMETHING in it. An
+// allowlist for the unmodelled shapes rather than "any member that carries",
+// because a relay stamping a bookkeeping field on the assistant message would
+// otherwise make the breaker inert with no signal anywhere.
+func answerCarriesSomething(out ChatCompletionResponse) bool {
+	if out.Usage.CompletionTokens > 0 {
+		return true
+	}
+	for _, choice := range out.Choices {
+		if choiceCarriesSomething(choice) {
+			return true
+		}
+	}
+	return false
+}
+
+func choiceCarriesSomething(choice Choice) bool {
+	// A stop reason the provider reported about its own output. A filtered
+	// answer is the provider answering — Gemini's SAFETY maps here too — and a
+	// length cut means there was output to cut.
+	if choice.FinishReason != nil {
+		switch *choice.FinishReason {
+		case "content_filter", "length":
+			return true
+		}
+	}
+	msg := choice.Message
+	if text, ok := msg.Content.(string); ok && text != "" {
+		return true
+	}
+	if parts, ok := msg.Content.([]any); ok && len(parts) > 0 {
+		return true
+	}
+	if msg.ReasoningContent != "" || msg.Reasoning != "" || len(msg.ReasoningDetails) > 0 {
+		return true
+	}
+	if len(msg.ToolCalls) > 0 {
+		return true
+	}
+	// The unmodelled shapes that ARE the answer: a safety refusal, the audio
+	// object on a speech completion, a legacy function_call, a citation set.
+	for _, key := range []string{"refusal", "audio", "function_call", "annotations"} {
+		if util.ValueCarries(msg.Extra[key]) {
+			return true
+		}
+	}
+	return false
+}
+
+// clientGone reports whether the caller has already hung up. One spelling,
+// because the two hand-written copies this replaced were mutually inverted and
+// sixty lines apart — the shape that let the third charge site ship without one.
+func clientGone(r *http.Request) bool {
+	return r != nil && r.Context().Err() != nil
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,12 +37,15 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 		// The only shape charged: nothing came back at all. This is what an
 		// aggregator in front of a retired model returns between its refusals.
 		{"no choices at all", `{"id":"x","object":"chat.completion","choices":[]}`, true},
-		// A choice that EXISTS is the provider answering, even when this gateway
-		// cannot find content in it. Charging these darkens a provider for every
-		// tenant after five requests; not charging them merely leaves the breaker
-		// blind to one shape.
-		{"a choice with empty content", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":""}}]}`, false},
-		{"a null content", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":null}}]}`, false},
+		// A choice whose message holds literally nothing is an empty answer too,
+		// and it has to be: every egress translator synthesises exactly this
+		// shape for an emptied Gemini, Anthropic or Responses answer, so a rule
+		// that stopped at "a choice exists" could never charge any of them.
+		{"a choice with empty content", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":""}}]}`, true},
+		{"a null content", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":null}}]}`, true},
+		// What that rule must NOT catch is a choice carrying something this
+		// gateway does not model, or a stop reason about the provider's own
+		// output. Those follow.
 		{"a safety refusal", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":null,"refusal":"I can't help with that."}}]}`, false},
 		{"an audio answer", `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":null,"audio":{"id":"a","data":"UklGRg==","transcript":"hi"}}}]}`, false},
 		{"an azure content filter block", `{"id":"x","object":"chat.completion","choices":[{"index":0,"finish_reason":"content_filter","content_filter_results":{"hate":{"filtered":true}},"message":{"role":"assistant","content":null}}]}`, false},
@@ -96,7 +100,7 @@ func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
 	h.circuitBreaker.RecordFailure(providerID, "p")
 
-	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", deliveredContent: true, providerID: providerID, providerName: "p"}, nil)
+	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, nil)
 
 	h.circuitBreaker.RecordFailure(providerID, "p")
 	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
@@ -277,10 +281,25 @@ func TestEmptyCompletion_IsOnlyACompletionWithNothingInIt(t *testing.T) {
 		want bool
 	}{
 		{"no choices at all", `{"choices":[]}`, true},
+		// What every egress translator synthesises for an emptied answer.
+		{"a synthesised empty message", `{"choices":[{"index":0,"message":{"role":"assistant","content":""},"finish_reason":"stop"}]}`, true},
+		{"a null content", `{"choices":[{"message":{"role":"assistant","content":null}}]}`, true},
 		{"no choices but usage", `{"choices":[],"usage":{"completion_tokens":7}}`, false},
-		{"an empty message is still an answer", `{"choices":[{"message":{"role":"assistant","content":""}}]}`, false},
-		{"a safety refusal", `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"no"}}]}`, false},
 		{"real text", `{"choices":[{"message":{"role":"assistant","content":"hello"}}]}`, false},
+		{"content as parts", `{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}]}`, false},
+		{"reasoning only", `{"choices":[{"message":{"role":"assistant","content":"","reasoning_content":"thinking"}}]}`, false},
+		{"reasoning_details only", `{"choices":[{"message":{"role":"assistant","content":"","reasoning_details":[{"type":"reasoning.text","text":"t"}]}}]}`, false},
+		{"a tool call", `{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"id":"c","type":"function","function":{"name":"f","arguments":"{}"}}]}}]}`, false},
+		// Unmodelled, and unmistakably the answer.
+		{"a safety refusal", `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"no"}}]}`, false},
+		{"an audio answer", `{"choices":[{"message":{"role":"assistant","content":null,"audio":{"data":"UklGRg=="}}}]}`, false},
+		{"a legacy function_call", `{"choices":[{"message":{"role":"assistant","content":null,"function_call":{"name":"f"}}}]}`, false},
+		// A stop reason about the provider's own output. Gemini's SAFETY maps here.
+		{"a content filter block", `{"choices":[{"finish_reason":"content_filter","message":{"role":"assistant","content":null}}]}`, false},
+		{"a length cut", `{"choices":[{"finish_reason":"length","message":{"role":"assistant","content":null}}]}`, false},
+		// An allowlist, not "any member that carries": a relay stamping a
+		// bookkeeping field must not silently make the breaker inert.
+		{"a bookkeeping field only", `{"choices":[{"message":{"role":"assistant","content":"","name":"assistant","provider":"acme"}}]}`, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -288,8 +307,7 @@ func TestEmptyCompletion_IsOnlyACompletionWithNothingInIt(t *testing.T) {
 			if err := json.Unmarshal([]byte(tc.body), &out); err != nil {
 				t.Fatalf("fixture did not decode: %v", err)
 			}
-			got := len(out.Choices) == 0 && out.Usage.CompletionTokens == 0
-			if got != tc.want {
+			if got := !answerCarriesSomething(out); got != tc.want {
 				t.Errorf("emptyCompletion = %v, want %v", got, tc.want)
 			}
 		})
@@ -463,7 +481,14 @@ func TestAttemptCandidate_AGeminiSafetyBlockIsNotAProviderFault(t *testing.T) {
 		wantCharge bool
 	}{
 		{"prompt blocked by the safety filter", `{"promptFeedback":{"blockReason":"SAFETY"},"candidates":[]}`, false},
-		{"no candidates and no reason", `{"candidates":[]}`, false},
+		// No candidates and no stated reason is not Gemini declining to answer,
+		// it is a body that does not carry one — {} , null and an aggregator's
+		// 200 {"error":…} all unmarshal into the Gemini shape without complaint,
+		// so exempting candidate-absence left no body a Gemini provider could
+		// return that would ever charge its breaker.
+		{"no candidates and no reason", `{"candidates":[]}`, true},
+		{"an aggregator error envelope", `{"error":{"code":404,"message":"model gone"}}`, true},
+		{"a bare null", `null`, true},
 		// Still a fault: these bytes are not a Gemini response at all.
 		{"not a gemini object", `<html>502 Bad Gateway</html>`, true},
 	} {
@@ -619,5 +644,120 @@ func passthroughState(providerID uuid.UUID) *requestState {
 			endpointType: endpointTypeEmbeddings, state: "pending",
 			virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
 		},
+	}
+}
+
+// The hole the narrow bar left, driven end to end. Every egress translator
+// synthesises a one-element Choices literal on success, so an emptied Gemini,
+// Anthropic-egress or Responses answer always arrives with a choice — and a rule
+// that charged only `len(Choices) == 0` could never fire for any of them. The
+// same upstream emptiness charged on the native path and credited here, chosen
+// by nothing but which dialect the request came in on.
+func TestAttemptCandidate_AnEmptiedEgressAnswerIsCharged(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		baseURL string
+		body    string
+	}{
+		{"gemini egress", "http://us-central1-aiplatform.googleapis.com/v1", `{"candidates":[{"content":{"parts":[],"role":"model"},"finishReason":"STOP"}]}`},
+		{"anthropic egress", "http://api.anthropic.com", `{"id":"msg_1","type":"message","role":"assistant","model":"m","content":[],"usage":{"input_tokens":3,"output_tokens":0}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			withBreakerThresholdOne(t, h)
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer srv.Close()
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			m := &model.Model{ID: uuid.New(), ModelID: "m"}
+			cand := goneCandidateAt(m, "egress", tc.baseURL)
+
+			st := &requestState{
+				startTime:             time.Now(),
+				reqModel:              "m",
+				bodyBytes:             []byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`),
+				failoverTimeout:       30 * time.Second,
+				circuitBreakerEnabled: true,
+				vkHash:                "test-hash",
+				logData: &requestLogData{
+					modelID: "m", providerID: cand.provider.ID, providerName: "egress",
+					endpointType: endpointTypeChat, state: "pending",
+					virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+				},
+			}
+			r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+			h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 1)
+
+			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+				t.Errorf("an emptied %s answer was credited (state %q)", tc.name, st.logData.state)
+			}
+		})
+	}
+}
+
+// A caller that hangs up is not the provider failing, and the row has to say so:
+// the body is read under the request context, so a client cancel arrives as a
+// read error and was being reported as the provider dying.
+func TestNonStreamingFailureDetail_ClassifiesTheReadFailure(t *testing.T) {
+	t.Parallel()
+	resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header)}
+	for _, tc := range []struct {
+		name    string
+		readErr error
+		want    ErrorKind
+	}{
+		{"the client cancelled", context.Canceled, KindClientDisconnect},
+		{"the provider stopped sending", errors.New("connection reset by peer"), KindProviderError},
+		{"a body this gateway could not parse", nil, KindProviderBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			decodeErr := tc.readErr
+			if decodeErr == nil {
+				decodeErr = errors.New("invalid character")
+			}
+			_, _, kind, _ := nonStreamingFailureDetail(resp, []byte("{"), tc.readErr, decodeErr, "m")
+			if kind != tc.want {
+				t.Errorf("kind = %q, want %q", kind, tc.want)
+			}
+		})
+	}
+}
+
+// JSON is self-delimiting, so a provider that sent the whole document and then
+// dropped the connection without its terminal chunk yields ErrUnexpectedEOF from
+// a body that parses perfectly. Discarding it threw away a complete answer, and
+// once the breaker started reading the outcome it charged for one too.
+func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
+	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
+	logData := &requestLogData{
+		modelID: "m", providerID: providerID, providerName: "p", state: "pending",
+		virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+	}
+	complete := `{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"}}]}`
+	body := io.MultiReader(bytes.NewBufferString(complete), &errorReader{err: io.ErrUnexpectedEOF})
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
+	w := httptest.NewRecorder()
+
+	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.recordAnswerOutcome(st, candidate, logData, nil)
+
+	if !strings.Contains(w.Body.String(), "hello") {
+		t.Errorf("a complete answer was discarded: %q", w.Body.String())
+	}
+	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+		t.Error("a provider that delivered a complete answer was charged")
 	}
 }

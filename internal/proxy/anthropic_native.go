@@ -95,8 +95,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// corroborate, for a provider that answers without reporting usage. Same
 	// judgement the OpenAI-shaped path makes with chatAnswerCarriesContent.
 	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
-	// The narrower question the breaker asks of the same body, mirroring the
-	// translated path: nothing at all came back. See requestLogData.emptyCompletion.
+	// The question the breaker asks of the same body: did anything come back.
+	// ResponseCarriesContent reads block PRESENCE, which is the native analogue
+	// of the translated path's "any choice carrying something" — so on this path
+	// the two bars do coincide, and the negation is exact.
 	logData.emptyCompletion = outputTokens == 0 && !anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
