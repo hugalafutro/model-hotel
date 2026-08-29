@@ -174,7 +174,14 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcomeFailover
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	// The 2xx RANGE, not a bare 200. A relay or aggregator may answer a chat
+	// completion 201 or 202, and routing those to forwardUpstreamError served
+	// the client a complete answer while writing the row as state="failed" and
+	// metering nothing at all: no tokens against the virtual key, no TPM debit.
+	// The pass-through families already route on the range (see multimodal),
+	// so this is one definition of "a success the gateway served" rather than
+	// two that disagree.
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
 

@@ -41,9 +41,15 @@ func forwardableErrorStatus(status int) bool {
 // answered with the synthesised envelope instead.
 const forwardableErrorBodyCap = 1 << 20
 
-// forwardUpstreamError handles a non-200 upstream response that is NOT being
+// forwardUpstreamError handles a FAILED upstream response that is NOT being
 // failed over (phase G): log + meter the failure via failRequest, then answer the
-// client. isFailoverEligible carries the caller's shouldFailover verdict; what
+// client.
+//
+// Callers must only ever hand it a non-2xx. It answers by writing an error, and
+// a success routed here would be served to the client while failRequest wrote
+// the row as a failure and metered nothing — the quota bypass that made the
+// caller-side status test a RANGE rather than an equality. Both call sites now
+// route on that range. isFailoverEligible carries the caller's shouldFailover verdict; what
 // the client may see is decided by it together with the static
 // forwardableErrorStatus class. A payload-class refusal (a plain 400 and its
 // kin) judged this caller's own request, so the upstream's error object is
@@ -60,18 +66,19 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	masker := logData.masker
 	mayForwardError := !isFailoverEligible && forwardableErrorStatus(resp.StatusCode)
 	// How much of the body is worth holding depends on what happens to it
-	// below. A 2xx is forwarded whole - truncating a success would corrupt it.
-	// A forwardable error is read under its own cap, and one that overflows it
-	// is demoted to the envelope rather than forwarded truncated, so a client
-	// never receives invalid JSON where the provider sent something complete.
-	// A discarded body is read under the same cap as the two drain sites,
-	// since all that is left to take from it is a classification and the first
-	// 10 000 bytes of request log.
+	// below. A forwardable error is read under its own cap, and one that
+	// overflows it is demoted to the envelope rather than forwarded truncated,
+	// so a client never receives invalid JSON where the provider sent something
+	// complete. A discarded body is read under the same cap as the two drain
+	// sites, since all that is left to take from it is a classification and the
+	// first 10 000 bytes of request log.
+	//
+	// Every branch is bounded. The unbounded read that used to sit here was for
+	// the 2xx case, on the reasoning that truncating a success corrupts it —
+	// true, and the reason a success does not belong in this function at all.
 	var body []byte
 	oversized := false
 	switch {
-	case resp.StatusCode/100 == 2:
-		body, _ = io.ReadAll(resp.Body)
 	case mayForwardError:
 		body, _ = io.ReadAll(io.LimitReader(resp.Body, forwardableErrorBodyCap+1))
 		if len(body) > forwardableErrorBodyCap {
@@ -98,20 +105,6 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
 	h.failRequest(logData, resp.StatusCode, kind, string(masker.mask([]byte(errMsg))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-
-	// A 2xx that reached this function (any success status other than a bare
-	// 200) is not an error at all and is forwarded whatever its body is,
-	// including a non-JSON or empty one. That is what lets a 204 answer with
-	// no body: an envelope written under a No Content status would be a body
-	// this gateway invented for a request the provider considered successful.
-	// Checked before eligibility so a success can never be rewritten.
-	if resp.StatusCode/100 == 2 {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(resp.StatusCode)
-		//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
-		_, _ = w.Write(masker.maskExact(body))
-		return outcomeFatal
-	}
 
 	if !mayForwardError {
 		// Auth, billing, rate-limit, not-found and server-fault classes -

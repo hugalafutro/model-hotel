@@ -1039,66 +1039,11 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 	}
 }
 
-// A success status other than a bare 200 reaches this function too (the caller
-// only special-cases 200). It is not an error and must not be rewritten,
-// whatever its body looks like.
-func TestForwardUpstreamError_2xxBodyUntouched(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	t.Run("json body", func(t *testing.T) {
-		w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, false)
-
-		if w.Code != http.StatusCreated {
-			t.Errorf("expected status 201, got %d", w.Code)
-		}
-		if got := w.Body.String(); got != zenChatShapedBody {
-			t.Errorf("2xx body not forwarded byte for byte:\n got: %s\nwant: %s", got, zenChatShapedBody)
-		}
-	})
-
-	// A 204 is the case that makes forwarding rather than wrapping the right
-	// rule for every 2xx: writing an error envelope under a No Content status
-	// would be a body invented by this gateway for a request the provider
-	// considered successful.
-	t.Run("empty 204 body stays empty", func(t *testing.T) {
-		w, _ := runForwardUpstreamError(t, h, http.StatusNoContent, "", false)
-
-		if w.Code != http.StatusNoContent {
-			t.Errorf("expected status 204, got %d", w.Code)
-		}
-		if got := w.Body.String(); got != "" {
-			t.Errorf("204 answered with a body: %s", got)
-		}
-	})
-
-	// The 2xx check sits before the eligibility gate on purpose: whatever the
-	// caller's verdict claims, a success is never rewritten into an envelope.
-	t.Run("forwarded even when marked eligible", func(t *testing.T) {
-		w, _ := runForwardUpstreamError(t, h, http.StatusCreated, zenChatShapedBody, true)
-
-		if w.Code != http.StatusCreated {
-			t.Errorf("expected status 201, got %d", w.Code)
-		}
-		if got := w.Body.String(); got != zenChatShapedBody {
-			t.Errorf("2xx body rewritten under an eligible verdict:\n got: %s\nwant: %s", got, zenChatShapedBody)
-		}
-	})
-
-	// The same rule with a body that is not JSON at all: still a success status,
-	// still the provider's answer, still forwarded untouched.
-	t.Run("non-json body", func(t *testing.T) {
-		const plain = `accepted`
-		w, _ := runForwardUpstreamError(t, h, http.StatusAccepted, plain, false)
-
-		if w.Code != http.StatusAccepted {
-			t.Errorf("expected status 202, got %d", w.Code)
-		}
-		if got := w.Body.String(); got != plain {
-			t.Errorf("non-JSON 2xx body rewritten: %s", got)
-		}
-	})
-}
+// forwardUpstreamError is never handed a success any more, so the old
+// "a 2xx body is forwarded untouched" contract moved to the caller: see
+// TestAttemptCandidate_ASuccessStatusOtherThan200IsMetered and its siblings in
+// success_status_test.go, which prove a 2xx is served, metered and logged
+// completed instead of reaching this function at all.
 
 // A custom or self-hosted gateway key has no prefix the shape regex knows, so
 // the exact decrypted credential is the control that covers it. Both forwarded
