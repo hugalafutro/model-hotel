@@ -189,3 +189,16 @@ func TestDecodeCounts_LeavesOtherNumbersLiteral(t *testing.T) {
 		t.Errorf("cost = %s, want the literal the provider wrote", got.Cost)
 	}
 }
+
+// An integer too large for the field it lands in is a type error on a value that
+// is already written as an integer. There is no other spelling to try, and
+// rewriting it would hand the loop the document that just failed.
+func TestDecodeCounts_IntegerTooLargeForItsFieldStillFails(t *testing.T) {
+	t.Parallel()
+	var got struct {
+		Small int8 `json:"prompt_tokens"`
+	}
+	if err := util.DecodeCounts([]byte(`{"prompt_tokens":300}`), &got); err == nil {
+		t.Errorf("300 decoded into an int8 as %d", got.Small)
+	}
+}

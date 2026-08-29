@@ -59,10 +59,10 @@ func DecodeCounts(data []byte, dst any) error {
 		if !ok {
 			return err
 		}
+		// dst is not cleared between passes: every pass decodes the same
+		// document with one member rewritten, so each sets the same fields to the
+		// same values, and encoding/json never clears a field it does not visit.
 		data = coerced
-		// Cleared between passes so a member that decoded on an earlier one
-		// cannot survive into a document it is no longer in.
-		zero(dst)
 		err = json.Unmarshal(data, dst)
 	}
 	return err
@@ -78,13 +78,6 @@ func isIntegerKind(t reflect.Type) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func zero(dst any) {
-	v := reflect.ValueOf(dst)
-	if v.Kind() == reflect.Pointer && !v.IsNil() {
-		v.Elem().Set(reflect.Zero(v.Elem().Type()))
 	}
 }
 
@@ -133,8 +126,13 @@ func locate(v any, path string) (map[string]any, string, bool) {
 }
 
 // asCount reads a count out of the two spellings that are not a JSON integer.
-// A value that already IS one is refused: it was not what the decoder tripped
-// over, and rewriting it would be a change with no reason behind it.
+//
+// A value that already IS one is refused. It is not what this function is for,
+// and rewriting it would produce a document identical to the one that just
+// failed — so the loop above would spend its whole budget re-running a decode
+// that cannot start succeeding. That is reachable: an integer too large for the
+// field it lands in (300 into an int8) is a type error on a value already
+// written as an integer.
 func asCount(v any) (json.Number, bool) {
 	switch v := v.(type) {
 	case json.Number:
