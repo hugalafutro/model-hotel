@@ -747,3 +747,47 @@ func TestUntypedDeltaBytes_SkipsTheRoleMarker(t *testing.T) {
 		t.Error("content counted as nothing")
 	}
 }
+
+// The number debits a customer's quota, so it counts the model's text and not
+// the JSON around it. Streaming deltas are a few tokens each, which is exactly
+// where the part wrapper dominates: measuring the raw member bills six to eight
+// times what the model produced.
+func TestUntypedDeltaBytes_CountsTextNotItsWrapper(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		payload string
+		want    int
+	}{
+		{"content as parts", `{"choices":[{"delta":{"content":[{"type":"text","text":"hello"}]}}]}`, 5},
+		{"several parts", `{"choices":[{"delta":{"content":[{"type":"text","text":"hel"},{"type":"text","text":"lo"}]}}]}`, 5},
+		{"a plain string beside an untypeable sibling", `{"choices":[{"delta":{"content":"hello"}}]}`, 5},
+		{"reasoning as parts", `{"choices":[{"delta":{"reasoning":[{"type":"text","text":"hello"}]}}]}`, 5},
+		// A shape neither reading covers is measured whole rather than dropped.
+		{"content as a number", `{"choices":[{"delta":{"content":8675309}}]}`, 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p, ok := parseChunkPayload(tc.payload)
+			if !ok {
+				t.Fatal("fixture did not parse")
+			}
+			if got := untypedDeltaBytes(p.delta); got != tc.want {
+				t.Errorf("counted %d bytes, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// The scaffolding that addresses a tool call is not what the model produced;
+// the arguments are.
+func TestUntypedDeltaBytes_SkipsToolCallScaffolding(t *testing.T) {
+	t.Parallel()
+	p, ok := parseChunkPayload(`{"choices":[{"delta":{"index":0,"id":"call_abcdefghijklmnop","content":"hi"}}]}`)
+	if !ok {
+		t.Fatal("fixture did not parse")
+	}
+	if got := untypedDeltaBytes(p.delta); got != 2 {
+		t.Errorf("counted %d bytes, want the 2 the model produced", got)
+	}
+}

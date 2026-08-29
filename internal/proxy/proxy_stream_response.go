@@ -571,28 +571,61 @@ func deltaCarriesReasoning(delta map[string]json.RawMessage) bool {
 	return false
 }
 
-// untypedDeltaBytes approximates what the model produced in a delta this gateway
-// could not type, for the usage estimate that runs when a provider reports no
-// usage at all.
+// untypedDeltaBytes counts what the model produced in a delta this gateway could
+// not type, for the usage estimate that runs when a provider reports no usage at
+// all — which on the streaming API is the common case, because usage there is
+// opt-in.
 //
-// The raw JSON length of the delta's members, which is what deliveredBytes
-// already counts for reasoning_details — the one other member it holds without
-// being able to break down. It overstates: the quoting and the part wrappers
-// around a content array are not text the model produced. Zero understates far
-// worse, and zero is what this was: a provider sending content as parts and no
-// usage chunk delivered a full answer and was metered nothing at all, so the
-// caller's quota and TPM bucket were debited for none of it. Reading the text
-// out of a part array properly belongs with the rest of content-as-parts.
+// The text is read out of the members that carry it rather than measured as raw
+// JSON, because this number debits a customer's quota and TPM bucket. Streaming
+// deltas are a few tokens each, so the part wrapper around them is most of the
+// bytes: [{"type":"text","text":"hello"}] is 32 bytes for 5 characters, and
+// billing the wrapper overcharges by six to eight times on a real stream. A
+// member whose shape is unreadable even here falls back to its raw length, which
+// is what deliveredBytes already does for reasoning_details.
+//
+// Zero is what this was, and it is the worse error in the other direction: a
+// provider sending content as parts and no usage chunk delivered a full answer
+// while the caller was debited for none of it.
 func untypedDeltaBytes(delta map[string]json.RawMessage) int {
 	total := 0
 	for key, raw := range delta {
-		// role and refusal markers are not output.
-		if key == "role" {
+		switch key {
+		// Not output: a role marker, and the ids/indices that address a tool
+		// call rather than carrying its arguments.
+		case "role", "index", "id":
 			continue
+		case "content", "reasoning", "reasoning_content":
+			total += deltaTextBytes(raw)
+		default:
+			total += len(raw)
 		}
-		total += len(raw)
 	}
 	return total
+}
+
+// deltaTextBytes reads the model's text out of a member that carries it, whether
+// the provider wrote a plain string or the array of parts the OpenAI schema now
+// permits. Anything else is measured whole, which is the honest answer for a
+// shape neither reading covers.
+func deltaTextBytes(raw json.RawMessage) int {
+	var text string
+	if json.Unmarshal(raw, &text) == nil {
+		return len(text)
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &parts) == nil {
+		total := 0
+		for _, part := range parts {
+			total += len(part.Text)
+		}
+		if total > 0 {
+			return total
+		}
+	}
+	return len(raw)
 }
 
 // jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
