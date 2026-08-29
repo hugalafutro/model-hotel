@@ -3,18 +3,39 @@ package api
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// A batch the database refused used to vanish with `_ = err`: up to 50 entries
-// gone from the App Logs history with no evidence anywhere, which reads exactly
-// like the gateway never having logged at all. That is what made a filtered
-// docker-logs surface look like a stack "dropping INFO logs".
-func TestDBLogWriter_ReportsEntriesItCouldNotPersist(t *testing.T) {
+// syncBuffer is a capture destination safe to read while the writer goroutine
+// is still writing to it. A plain bytes.Buffer here is a data race, and the
+// race is the point of one of the tests below.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
+}
+
+// closedTestPool returns a pool whose every Exec fails, for driving the
+// batch-insert failure path.
+func closedTestPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
 	if apiTestDBURL == "" {
 		t.Fatal("apiTestDBURL not set: test database required")
 	}
@@ -22,12 +43,20 @@ func TestDBLogWriter_ReportsEntriesItCouldNotPersist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create pool: %v", err)
 	}
-	pool.Close() // every Exec from here on fails
+	pool.Close()
+	return pool
+}
 
-	var out bytes.Buffer
-	w := newDBLogWriter(pool, dbLogFlushInterval)
-	defer w.stop()
-	w.drops.dst = &out
+// A batch the database refused used to vanish with `_ = err`: up to 50 entries
+// gone from the App Logs history with no evidence anywhere, which reads exactly
+// like the gateway never having logged at all.
+func TestDBLogWriter_ReportsEntriesItCouldNotPersist(t *testing.T) {
+	t.Parallel()
+	var out syncBuffer
+	// Built as a literal rather than through newDBLogWriter: flush needs only
+	// the pool and the reporter, and this way the capture destination is set
+	// before anything could read it, with no run goroutine in the picture.
+	w := &dbLogWriter{pool: closedTestPool(t), drops: &logDropReporter{dst: &out, interval: time.Hour}}
 
 	w.flush([]AppLogEntry{
 		{Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Level: "info", Source: "test", Message: "first"},
@@ -39,14 +68,15 @@ func TestDBLogWriter_ReportsEntriesItCouldNotPersist(t *testing.T) {
 	if got == "" {
 		t.Fatal("a batch was discarded with no notice anywhere")
 	}
-	if !strings.Contains(got, "3") {
+	// Anchored to the start of the notice: "3 entries dropped" is itself a
+	// substring of "33 entries dropped", so only the prefix pins the count.
+	if !strings.Contains(got, "applog: 3 entries dropped") {
 		t.Errorf("notice does not say how many were lost: %q", got)
 	}
 	// The reason has to be actionable, not just "something failed".
 	if !strings.Contains(got, "closed") {
 		t.Errorf("notice does not carry the database's own reason: %q", got)
 	}
-	// The entries themselves are not repeated into the notice.
 	for _, msg := range []string{"first", "second", "third"} {
 		if strings.Contains(got, msg) {
 			t.Errorf("notice echoes log content %q: %q", msg, got)
@@ -59,12 +89,12 @@ func TestDBLogWriter_ReportsEntriesItCouldNotPersist(t *testing.T) {
 // in between are still counted, and still reported.
 func TestLogDropReporter_ThrottlesWithoutLosingTheCount(t *testing.T) {
 	t.Parallel()
-	var out bytes.Buffer
+	var out syncBuffer
 	r := &logDropReporter{dst: &out, interval: time.Hour}
 
 	r.drop(3, "first failure")
 	first := out.String()
-	if !strings.Contains(first, "3") {
+	if !strings.Contains(first, "applog: 3 entries dropped") {
 		t.Fatalf("the first drop must be reported at once, got %q", first)
 	}
 
@@ -74,11 +104,51 @@ func TestLogDropReporter_ThrottlesWithoutLosingTheCount(t *testing.T) {
 		t.Errorf("drops inside the interval were not throttled: %q", out.String())
 	}
 
-	// Shutdown must not swallow what the throttle was holding.
 	r.reportPending()
 	tail := strings.TrimPrefix(out.String(), first)
-	if !strings.Contains(tail, "7") {
+	if !strings.Contains(tail, "applog: 7 entries dropped") {
 		t.Errorf("the 7 suppressed entries were never accounted for: %q", tail)
+	}
+}
+
+// And the tail reaches stderr through the shutdown path that actually runs:
+// main calls StopAppLogWriter before closing the database, which is what makes
+// reportPending more than a method nothing invokes.
+func TestDBLogWriter_StopReportsTheSuppressedTail(t *testing.T) {
+	t.Parallel()
+	var out syncBuffer
+	w := &dbLogWriter{
+		pool:          closedTestPool(t),
+		ch:            make(chan AppLogEntry, 16),
+		done:          make(chan struct{}),
+		flushInterval: 10 * time.Millisecond,
+		sendTimeout:   time.Second,
+		drops:         &logDropReporter{dst: &out, interval: time.Hour},
+	}
+	go w.run()
+
+	entry := func(m string) AppLogEntry {
+		return AppLogEntry{Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Level: "info", Source: "test", Message: m}
+	}
+	// First failing flush: reported immediately, and it starts the interval.
+	w.ch <- entry("one")
+	deadline := time.Now().Add(5 * time.Second)
+	for out.String() == "" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	firstNotice := out.String()
+	if firstNotice == "" {
+		t.Fatal("the first failing flush was never reported")
+	}
+
+	// Second one is inside the interval, so it is suppressed and must survive
+	// only on the pending count.
+	w.ch <- entry("two")
+	w.stop()
+
+	tail := strings.TrimPrefix(out.String(), firstNotice)
+	if !strings.Contains(tail, "(final)") {
+		t.Errorf("shutdown swallowed the throttled tail: %q", tail)
 	}
 }
 
@@ -86,7 +156,7 @@ func TestLogDropReporter_ThrottlesWithoutLosingTheCount(t *testing.T) {
 // rather than blocking the caller.
 func TestDBLogWriter_ReportsAnEntryTheQueueCouldNotTake(t *testing.T) {
 	t.Parallel()
-	var out bytes.Buffer
+	var out syncBuffer
 	w := &dbLogWriter{
 		ch:          make(chan AppLogEntry, 1),
 		sendTimeout: 50 * time.Millisecond,
@@ -100,7 +170,7 @@ func TestDBLogWriter_ReportsAnEntryTheQueueCouldNotTake(t *testing.T) {
 	if got == "" {
 		t.Fatal("an entry was dropped from a full queue with no notice")
 	}
-	if !strings.Contains(got, "1") {
+	if !strings.Contains(got, "applog: 1 entries dropped") {
 		t.Errorf("notice does not say how many were lost: %q", got)
 	}
 	if strings.Contains(got, "dropped-entry-text") {
@@ -108,8 +178,11 @@ func TestDBLogWriter_ReportsAnEntryTheQueueCouldNotTake(t *testing.T) {
 	}
 }
 
-// A writer built the normal way reports to stderr and uses the real timeout;
-// nothing here is wired only for the tests above.
+// A writer built the normal way reports to STDERR and uses the real timeout.
+//
+// The destination is the assertion that matters: point it at io.Discard and
+// every other test here still passes while production is silently dropping
+// entries again, which is the whole bug.
 func TestNewDBLogWriter_ProductionDefaults(t *testing.T) {
 	t.Parallel()
 	w := newDBLogWriter(nil, dbLogFlushInterval)
@@ -120,21 +193,33 @@ func TestNewDBLogWriter_ProductionDefaults(t *testing.T) {
 	if w.drops == nil {
 		t.Fatal("a writer with no drop reporter discards entries silently again")
 	}
+	if w.drops.dst != os.Stderr {
+		t.Errorf("drop notices go to %T, not os.Stderr: nothing would ever see them", w.drops.dst)
+	}
 	if w.drops.interval != dbLogDropReportInterval {
 		t.Errorf("report interval = %s, want %s", w.drops.interval, dbLogDropReportInterval)
 	}
 }
 
-// A writer assembled without a reporter still works. The nil check is not
-// decoration: dbLogWriter is built as a struct literal in several tests, and a
-// dropped entry must not take the whole process down over a missing diagnostic.
+// A reporter that is missing, or has nowhere to write, must not take the
+// process down. flush runs on the run goroutine, which has no recover of its
+// own, so a panic there would kill the server over a missing diagnostic.
 func TestLogDropReporter_NilIsInert(t *testing.T) {
 	t.Parallel()
-	var r *logDropReporter
-	r.drop(5, "no reporter attached")
-	r.reportPending()
+	var nilReporter *logDropReporter
+	nilReporter.drop(5, "no reporter attached")
+	nilReporter.reportPending()
 
-	w := &dbLogWriter{ch: make(chan AppLogEntry, 1), sendTimeout: 10 * time.Millisecond}
-	w.ch <- AppLogEntry{Message: "occupies the queue"}
-	w.write(AppLogEntry{Level: "info", Source: "test", Message: "discarded"})
+	noDst := &logDropReporter{interval: time.Hour}
+	noDst.drop(5, "reporter with nowhere to write")
+	noDst.reportPending()
+
+	for _, w := range []*dbLogWriter{
+		{ch: make(chan AppLogEntry, 1), sendTimeout: 10 * time.Millisecond},
+		{ch: make(chan AppLogEntry, 1), sendTimeout: 10 * time.Millisecond, drops: noDst},
+	} {
+		w.ch <- AppLogEntry{Message: "occupies the queue"}
+		w.write(AppLogEntry{Level: "info", Source: "test", Message: "discarded"})
+		w.flush([]AppLogEntry{{Level: "info", Source: "test", Message: "discarded"}})
+	}
 }

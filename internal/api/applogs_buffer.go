@@ -115,10 +115,11 @@ type dbLogWriter struct {
 	ch            chan AppLogEntry
 	done          chan struct{}
 	flushInterval time.Duration
-	// sendTimeout is how long write blocks before discarding an entry. A field
-	// for the same reason flushInterval is one: the writer goroutine reads it
-	// while another test would be assigning to a package var, which is a real
-	// race and not a test artifact.
+	// sendTimeout is how long write blocks before discarding an entry, always
+	// dbLogSendTimeout in production. A field purely so the queue-full test can
+	// prove the drop in milliseconds instead of sitting out the real five
+	// seconds; nothing else varies it, and no race requires it — write runs on
+	// the CALLER's goroutine, and the run goroutine reads only flushInterval.
 	sendTimeout time.Duration
 	drops       *logDropReporter
 }
@@ -152,37 +153,51 @@ type logDropReporter struct {
 // drop records n dropped entries, reporting them unless the last report was
 // inside the interval. Suppressed entries stay on the count and are carried into
 // the next report, or into reportPending at shutdown.
+//
+// The count covers every drop since the last notice; the reason is the most
+// recent one, which is why it is labelled as such rather than presented as the
+// cause of all of them. "not persisted" is also the confident reading of an
+// ambiguous case — a deadline that expires after the server committed but before
+// the reply arrives reports rows that did in fact land — but over-reporting a
+// hole is the right default when the alternative is silence.
 func (r *logDropReporter) drop(n int, reason string) {
-	if r == nil || n <= 0 {
+	if r == nil || r.dst == nil || n <= 0 {
 		return
 	}
+	// Held across the write. drop is called from the run goroutine (flush) and
+	// from arbitrary callers (write), and a notice is at most one per interval,
+	// so there is nothing to gain by releasing early and a interleaved line to
+	// lose. os.Stderr survives concurrent writes; an io.Writer in general does
+	// not, and this type carries a mutex precisely so it need not care which.
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.pending += n
 	now := time.Now()
-	if !r.lastReport.IsZero() && now.Sub(r.lastReport) < r.interval {
-		r.mu.Unlock()
+	// No IsZero special case: the zero Time is far enough in the past that Sub
+	// saturates well past any interval, so the first drop always reports.
+	if now.Sub(r.lastReport) < r.interval {
 		return
 	}
 	r.lastReport = now
-	dropped, dst := r.pending, r.dst
+	dropped := r.pending
 	r.pending = 0
-	r.mu.Unlock()
-	_, _ = fmt.Fprintf(dst, "applog: %d entries dropped, not persisted: %s\n", dropped, reason)
+	_, _ = fmt.Fprintf(r.dst, "applog: %d entries dropped, not persisted (most recent: %s)\n", dropped, reason)
 }
 
 // reportPending states whatever the throttle is still holding, so a shutdown
 // during an outage does not swallow the tail of it.
 func (r *logDropReporter) reportPending() {
-	if r == nil {
+	if r == nil || r.dst == nil {
 		return
 	}
 	r.mu.Lock()
-	dropped, dst := r.pending, r.dst
-	r.pending = 0
-	r.mu.Unlock()
-	if dropped > 0 {
-		_, _ = fmt.Fprintf(dst, "applog: %d entries dropped, not persisted (final)\n", dropped)
+	defer r.mu.Unlock()
+	if r.pending == 0 {
+		return
 	}
+	dropped := r.pending
+	r.pending = 0
+	_, _ = fmt.Fprintf(r.dst, "applog: %d entries dropped, not persisted (final)\n", dropped)
 }
 
 // newDBLogWriter starts a writer that drains a partial batch every
@@ -281,8 +296,10 @@ func (w *dbLogWriter) write(entry AppLogEntry) {
 	case <-timer.C:
 		// DB writer is backed up — drop the entry rather than blocking the
 		// caller. The ring buffer still has it for live UI, and this only
-		// happens if the DB is unreachable for >25 seconds. Reported, because a
-		// history with holes in it and no notice is worse than a slow caller.
+		// happens once the DB has been unreachable long enough to fill the
+		// channel (~25s, see dbLogChannelSize) and then hold this caller for
+		// sendTimeout on top. Reported, because a history with holes in it and
+		// no notice is worse than a slow caller.
 		w.drops.drop(1, "writer queue full for "+w.sendTimeout.String())
 	}
 }
