@@ -450,8 +450,13 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			// diagnosis and the part an operator can act on; the frame itself is
 			// the provider's, and the commonest reason one lands here is that the
 			// model's own output was written in a shape this gateway has no struct
-			// for — so the payload does not go in the log. Field is bounded
-			// because a map key is provider-controlled and lands in it verbatim.
+			// for — so the payload does not go in the log.
+			//
+			// Field is bounded even though streamChunk has no member that could
+			// make it long today: encoding/json writes a MAP KEY into it
+			// verbatim, so the day a map is added to that struct is the day this
+			// line starts carrying provider text, and the bound is cheaper than
+			// remembering.
 			st.untypedChunks++
 			debuglog.Warn("proxy: forwarding a chunk shape this gateway does not model",
 				"model", logData.modelID, "provider", logData.providerName,

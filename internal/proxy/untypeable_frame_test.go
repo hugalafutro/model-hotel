@@ -509,3 +509,42 @@ func TestHandleStreamingResponse_UnreadableUsageDoesNotZeroWhatWasCounted(t *tes
 		t.Errorf("got prompt=%d completion=%d, want the counts the provider reported (100/50)", logData.tokensPrompt, logData.tokensCompletion)
 	}
 }
+
+// The warn that reports an untypeable frame must name the mismatch and nothing
+// else. The commonest reason a frame lands there is that the model's own output
+// was written in a shape this gateway has no struct for, so the payload is
+// response content and the app log, the live viewer and the OTLP export are the
+// three places it must never reach.
+//
+// Asserted over every attribute rather than the two known ones, because the next
+// attribute added here is the one that would leak.
+func TestHandleStreamingResponse_UntypeableWarnCarriesNoneOfTheFrame(t *testing.T) {
+	capture := captureProxyLogs(t)
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	const secret = "MODELANSWERTHATMUSTNOTBELOGGED"
+	payload := `{"choices":[{"delta":{"content":"` + secret + `"},"finish_reason":0}],"note":8675309}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+		Header:     make(http.Header),
+	}
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	h.handleStreamingResponse(httptest.NewRecorder(), req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	var sawWarn bool
+	for _, rec := range capture.all() {
+		if strings.Contains(rec.msg, "does not model") {
+			sawWarn = true
+		}
+		for k, text := range rec.attrs {
+			if strings.Contains(text, secret) || strings.Contains(text, "8675309") {
+				t.Errorf("attribute %q carried the frame: %q", k, text)
+			}
+		}
+	}
+	if !sawWarn {
+		t.Fatal("the untypeable warn never fired, so nothing was asserted")
+	}
+}
