@@ -39,20 +39,14 @@ type streamState struct {
 	promptCacheMissTokens int
 	chunkCount            int
 	errorChunkCount       int
-	// unparsedChunks counts data frames the gateway could not read AND did not
-	// forward: bytes that are not well-formed JSON, and the frames dropped
-	// because strip_reasoning could not be applied to a shape this gateway
-	// cannot read. The caller lost them too, so whether the provider answered is
-	// unknowable from here — the delivery accounting must neither conclude the
-	// response was empty nor credit one.
+	// unparsedChunks counts data frames this gateway could not read: bytes that
+	// are not well-formed JSON (dropped), a shape its types do not cover
+	// (forwarded verbatim), and the frames dropped because strip_reasoning could
+	// not be applied to one. Whether the provider actually answered in them is
+	// unknowable from here, so they are neither evidence of emptiness nor
+	// evidence against it — see judgeStreamForBreaker, which reads delivery
+	// FIRST and falls back to this only when nothing typed reached the caller.
 	unparsedChunks int
-	// untypedChunks counts data frames that were forwarded verbatim because they
-	// are well-formed JSON in a shape this gateway's types do not cover
-	// (content as an array of parts, a numeric finish_reason). The delivery
-	// accounting cannot see into them either — but the caller received them, so
-	// they are delivery, and a provider whose every frame is one of these must
-	// still be able to clear its failure count.
-	untypedChunks  int
 	lastErrMsg     string
 	sawDone        bool
 	sawMessageStop bool // native Anthropic passthrough: terminal message_stop event seen
@@ -134,10 +128,7 @@ func providerAtFault(kind ErrorKind) bool {
 // charge against a provider that answered correctly, which after five requests
 // takes it out of rotation for every tenant — so this errs toward "delivered".
 func streamDeliveredOutput(st *streamState) bool {
-	// untypedChunks is delivery for the same reason: the frame went out. Its
-	// contents are opaque to the accounting above, so without this a provider
-	// whose shapes this gateway does not model reads as having answered nothing.
-	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0 || st.untypedChunks > 0
+	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0
 }
 
 // judgeStreamForBreaker decides what a finished stream tells the circuit
@@ -180,19 +171,29 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 		// sibling, the one that produced frames carrying no output and was
 		// already committed to by the time that became clear.
 		//
-		// unparsedChunks holds the charge back: those frames were dropped by
-		// THIS gateway's parser, not left out by the provider, so their contents
-		// are unknown and emptiness cannot be pinned on the upstream. Recording
-		// nothing is the honest verdict — neither a charge nor a credit.
+		// Delivery is read FIRST, and unparsedChunks only decides what to do
+		// when nothing typed arrived. Read the other way round, one frame this
+		// gateway could not parse withheld the CREDIT from a stream that plainly
+		// answered — so a provider whose shapes it does not model never cleared
+		// its consecutive-failure count, and old failures accumulated until an
+		// unrelated one opened the circuit.
+		if streamDeliveredOutput(st) {
+			// Includes the stream whose absent [DONE] was injected above: the
+			// sentinel was missing, the answer was not.
+			return streamBreakerVerdict{success: true}
+		}
+		// Nothing typed reached the caller, and frames went unread. Those were
+		// unreadable to THIS gateway's parser, not left out by the provider, so
+		// emptiness cannot be pinned on the upstream. Recording nothing is the
+		// honest verdict — neither a charge nor a credit. Calling them delivery
+		// instead was worse than either: a relay that numbers its stop reasons
+		// emits one untypeable frame per stream, on the terminal chunk, which
+		// carries no output at all — so every empty response it gave would have
+		// cleared its failure streak, and its circuit could never open.
 		if st.unparsedChunks > 0 {
 			return streamBreakerVerdict{}
 		}
-		if !streamDeliveredOutput(st) {
-			return streamBreakerVerdict{failureReason: "stream completed without delivering content"}
-		}
-		// Includes the stream whose absent [DONE] was injected above: the
-		// sentinel was missing, the answer was not.
-		return streamBreakerVerdict{success: true}
+		return streamBreakerVerdict{failureReason: "stream completed without delivering content"}
 	}
 	// Reached only with a non-empty errMsg, so errorKind is always set:
 	// deriveStreamError writes the two together. The clean-finish charge above
@@ -300,7 +301,16 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// Carried for the retirement verdict, which has to decide whether the model
 	// answered. On the native Anthropic passthrough the chunks are never parsed
 	// into deltas, so its terminal message_stop stands in for the same fact.
-	logData.deliveredContent = st.sawContent || st.sawMessageStop
+	//
+	// deliveredBytes, not sawContent alone: sawContent watches content and
+	// reasoning on choices[0], so a stream whose whole answer is a tool call, or
+	// one delivered in a shape this gateway forwarded without being able to
+	// type, read as having produced nothing — and the streak a real answer
+	// should have cleared stayed on the model. It is the same bar the breaker
+	// uses (streamDeliveredOutput), and it can only ever turn an inconclusive
+	// verdict into a served one: verdictForStream decides gone from the error
+	// kind, before it looks at this at all.
+	logData.deliveredContent = st.sawContent || st.sawMessageStop || st.deliveredBytes > 0
 	if errMsg != "" {
 		h.writeTerminalError(sink, st, opts, logData, errMsg)
 	}

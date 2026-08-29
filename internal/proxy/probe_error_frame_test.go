@@ -1110,10 +1110,12 @@ func TestJudgeStreamForBreaker_EmptyNativeStreamIsCharged(t *testing.T) {
 	}
 }
 
-// A frame this gateway could not parse is not evidence the provider sent
-// nothing — it may have answered in a shape our types do not cover (tool-call
-// arguments as an object, content as an array of parts). The contents are
-// unknown, so the verdict is neither a charge nor a credit.
+// A frame this gateway could not read is not evidence the provider sent nothing
+// — it may have answered in a shape our types do not cover, whether that frame
+// was dropped as broken bytes or forwarded verbatim. The contents are unknown,
+// so with nothing else delivered the verdict is neither a charge nor a credit.
+// A stream that DID deliver is credited regardless; see
+// TestJudgeStreamForBreaker_UntypeableFrames.
 func TestJudgeStreamForBreaker_UnparseableFramesWithholdTheVerdict(t *testing.T) {
 	st := &streamState{sawDone: true, unparsedChunks: 1}
 	v := judgeStreamForBreaker(st, &requestLogData{}, "", true)

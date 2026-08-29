@@ -416,34 +416,36 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			_ = json.Unmarshal([]byte(normalized), &chunk)
 		}
 
-		if untypeable && stripReasoning {
-			// strip_reasoning is a promise to the caller, and forwarding a frame
-			// this gateway cannot read is no way to keep it. computeStripReasoning
-			// works over the payload and would run — but its "does this delta still
-			// carry anything" verdict reads content as a plain string, so a
-			// content-as-parts delta looks empty to it and becomes a keep-alive,
-			// taking the answer with it.
-			//
-			// So the frame is dropped, which is what a key with this setting got
-			// before untypeable frames were forwarded at all. The delivery fix is
-			// for the streams where nothing was promised.
-			st.unparsedChunks++
-			debuglog.Warn("proxy: dropping a chunk shape this gateway cannot strip reasoning from",
-				"model", logData.modelID, "provider", logData.providerName,
-				"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
-				"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
-			sink.swallowBlank = true
-			return false
-		}
-
 		if untypeable {
-			// untypedChunks, NOT unparsedChunks. The two say different things to
-			// the end-of-stream verdict: a DROPPED frame's contents are unknown
-			// to the caller as well, so emptiness cannot be pinned on anyone and
-			// no verdict is recorded — while a frame that went out is delivery,
-			// whatever this gateway made of it. Counting a forwarded frame as a
-			// dropped one withheld the breaker's success credit from every stream
-			// a provider sent, and its consecutive-failure count then never reset.
+			untypedDelta, _ := parseChunkPayload(payload)
+			if stripReasoning && deltaCarriesReasoning(untypedDelta.delta) {
+				// strip_reasoning is a promise to the caller, and forwarding a
+				// frame this gateway cannot read is no way to keep it.
+				// computeStripReasoning works over the payload and would run — but
+				// its "does this delta still carry anything" verdict reads content
+				// as a plain string, so a content-as-parts delta looks empty to it
+				// and becomes a keep-alive, taking the answer with it.
+				//
+				// Only a frame that actually carries reasoning is dropped. Gating
+				// on untypeable alone deleted the answer out of an ordinary
+				// content delta whose finish_reason happened to be a number, for
+				// no gain: there was nothing there to strip.
+				st.unparsedChunks++
+				debuglog.Warn("proxy: dropping a chunk shape this gateway cannot strip reasoning from",
+					"model", logData.modelID, "provider", logData.providerName,
+					"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
+					"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
+				sink.swallowBlank = true
+				return false
+			}
+			st.deliveredBytes += untypedDeltaBytes(untypedDelta.delta)
+			// Counted like any frame this gateway could not read: the end-of-stream
+			// verdict must not conclude the provider sent nothing on the strength
+			// of frames it could not see into (judgeStreamForBreaker reads
+			// delivery first, so a stream that plainly answered is still
+			// credited). Calling a forwarded frame delivery in its own right was
+			// worse: the terminal chunk is exactly where a relay numbers its stop
+			// reason, and that frame carries no output at all.
 			//
 			// The mismatch, not the payload: which member, and what shape
 			// arrived. "choices.0.finish_reason arrived as a number" is the whole
@@ -457,7 +459,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			// verbatim, so the day a map is added to that struct is the day this
 			// line starts carrying provider text, and the bound is cheaper than
 			// remembering.
-			st.untypedChunks++
+			st.unparsedChunks++
 			debuglog.Warn("proxy: forwarding a chunk shape this gateway does not model",
 				"model", logData.modelID, "provider", logData.providerName,
 				"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
@@ -555,6 +557,58 @@ forwardUntypeable:
 	return false
 }
 
+// deltaCarriesReasoning reports whether a delta holds any of the three spellings
+// of reasoning this gateway knows about.
+func deltaCarriesReasoning(delta map[string]json.RawMessage) bool {
+	for _, key := range []string{"reasoning_content", "reasoning_details", "reasoning"} {
+		if raw, ok := delta[key]; ok && len(raw) > 0 && string(raw) != "null" {
+			return true
+		}
+	}
+	return false
+}
+
+// untypedDeltaBytes approximates what the model produced in a delta this gateway
+// could not type, for the usage estimate that runs when a provider reports no
+// usage at all.
+//
+// The raw JSON length of the delta's members, which is what deliveredBytes
+// already counts for reasoning_details — the one other member it holds without
+// being able to break down. It overstates: the quoting and the part wrappers
+// around a content array are not text the model produced. Zero understates far
+// worse, and zero is what this was: a provider sending content as parts and no
+// usage chunk delivered a full answer and was metered nothing at all, so the
+// caller's quota and TPM bucket were debited for none of it. Reading the text
+// out of a part array properly belongs with the rest of content-as-parts.
+func untypedDeltaBytes(delta map[string]json.RawMessage) int {
+	total := 0
+	for key, raw := range delta {
+		// role and refusal markers are not output.
+		if key == "role" {
+			continue
+		}
+		total += len(raw)
+	}
+	return total
+}
+
+// jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
+//
+// encoding/json writes a number's LITERAL into that field, but only when the
+// number lands on a NUMERIC field: {"content":8675309} into a *string reports
+// "number", while {"n":3.5} into an int reports "number 3.5". No integer field
+// under streamChunk is reachable from here — the only ones live inside Usage,
+// whose own decoder keeps what it can read rather than returning a type error —
+// so today the value is always a bare shape word.
+//
+// It is kept anyway, and cheaply: the shape is the whole diagnosis, the literal
+// is provider data, and one integer field added to that struct is all it would
+// take for this line to start carrying it. TestJSONShapeName is what holds it.
+func jsonShapeName(v string) string {
+	shape, _, _ := strings.Cut(v, " ")
+	return shape
+}
+
 // normalizeToolArguments rewrites any tool-call arguments the provider sent as
 // an object (or array, or number) into the spec's JSON string, and reports
 // whether anything changed. The spec form is left untouched, so an ordinary
@@ -567,17 +621,6 @@ forwardUntypeable:
 // It works on the raw map rather than the typed chunk because the frame is
 // forwarded as bytes: rebuilding it from streamChunk would drop every field
 // this gateway does not model.
-// jsonShapeName reduces an UnmarshalTypeError's Value to the shape alone.
-//
-// encoding/json writes a number's LITERAL into that field ("number 42"), and a
-// relay that sends the model's numeric answer where the schema wants a string is
-// exactly how a frame reaches the untypeable path — so logging Value whole put
-// response content in the app log. The shape is the diagnosis; the value is not.
-func jsonShapeName(v string) string {
-	shape, _, _ := strings.Cut(v, " ")
-	return shape
-}
-
 func normalizeToolArguments(payload string) (string, bool) {
 	// Cheap reject first. Without it every frame of every stream paid for three
 	// json.Unmarshal calls (~5us and ~1.8KB of garbage each) to discover it has

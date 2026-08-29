@@ -241,10 +241,40 @@ func TestHandleNonStreamingResponse_UnreadableUsageStillAnswers(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Hello, world!")
 	assert.Equal(t, 12, logData.tokensPrompt)
-	// What the re-encoded body says about the member it could not read: its zero
-	// value, because encoding/json allocated the struct before it hit the type
-	// error. A cached count of zero is what an absent breakdown already means to
-	// every consumer, and it is the honest report — the gateway could not read
-	// what the provider put there.
-	assert.Contains(t, w.Body.String(), `"prompt_tokens_details":{"cached_tokens":0}`)
+	// And what it says about the member it could NOT read: nothing. The decoder
+	// allocated that struct before it reached the value, so keeping it would
+	// have the gateway emit {"cached_tokens":0} — a positive claim that nothing
+	// was cached, which a cost calculator acts on — in place of whatever the
+	// provider actually wrote. Absent is the honest report.
+	assert.NotContains(t, w.Body.String(), "prompt_tokens_details")
+}
+
+// The pass-through surfaces (/v1/embeddings, /v1/images/*, /v1/audio/*, rerank)
+// read usage with a decoder of their own, and it had the same defect: a count
+// quoted or written with a fraction on it failed the whole decode and the
+// request metered as zero. Same package, same fix.
+func TestExtractPassthroughUsage_CountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name            string
+		body            string
+		wantIn, wantOut int
+	}{
+		{"plain", `{"usage":{"prompt_tokens":12,"completion_tokens":3}}`, 12, 3},
+		{"quoted", `{"usage":{"prompt_tokens":"12","completion_tokens":"3"}}`, 12, 3},
+		{"fractional", `{"usage":{"input_tokens":12.0,"output_tokens":3.0}}`, 12, 3},
+		{"quoted total only", `{"usage":{"total_tokens":"15"}}`, 15, 0},
+		// One member unreadable must not cost the counts beside it.
+		{"partly unreadable", `{"usage":{"prompt_tokens":12,"completion_tokens":3,"detail":{"x":1},"total_tokens":["nope"]}}`, 12, 3},
+		{"no usage", `{"data":[]}`, 0, 0},
+		{"not json", `{`, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			in, out := extractPassthroughUsage([]byte(tc.body))
+			if in != tc.wantIn || out != tc.wantOut {
+				t.Errorf("got %d/%d, want %d/%d", in, out, tc.wantIn, tc.wantOut)
+			}
+		})
+	}
 }

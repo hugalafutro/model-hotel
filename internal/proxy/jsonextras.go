@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -28,12 +29,19 @@ import (
 //
 // errors.As also unwraps, so a nested custom UnmarshalJSON returning a type
 // error of its own reaches here too; the check covers that case for free.
+//
+// The error must NAME a member. A type error with an empty Field is the whole
+// value being the wrong kind of thing — `data: 42`, `data: "[DONE]"`, a usage
+// member that is a number — and that is not "a member this package does not
+// model", it is not the document at all. Relaying such a frame put a quoted
+// sentinel into an OpenAI-shaped stream as a data event, and keeping such a
+// usage block made the gateway emit a zeroed one the provider never sent.
 func shapeError(data []byte, decodeErr error) *json.UnmarshalTypeError {
 	if decodeErr == nil {
 		return nil
 	}
 	var typeErr *json.UnmarshalTypeError
-	if !errors.As(decodeErr, &typeErr) || !json.Valid(data) {
+	if !errors.As(decodeErr, &typeErr) || typeErr.Field == "" || !json.Valid(data) {
 		return nil
 	}
 	return typeErr
@@ -241,11 +249,43 @@ func (c ChatCompletionResponse) MarshalJSON() ([]byte, error) {
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	type alias Usage
 	var a alias
-	if err := util.DecodeCounts(data, &a); err != nil && shapeError(data, err) == nil {
-		return err
+	if err := util.DecodeCounts(data, &a); err != nil {
+		if shapeError(data, err) == nil {
+			return err
+		}
+		// encoding/json allocates a breakdown's pointer before it reaches the
+		// value, so a member it could not read leaves a struct full of zeros —
+		// and re-encoding that emits {"cached_tokens":0}, a positive claim that
+		// nothing was cached, in place of whatever the provider wrote. A
+		// breakdown this package could not read is reported as absent, which is
+		// what it is.
+		a.PromptTokensDetails = keepIfObject(data, "prompt_tokens_details", a.PromptTokensDetails)
+		a.CompletionTokensDetails = keepIfObject(data, "completion_tokens_details", a.CompletionTokensDetails)
 	}
 	*u = Usage(a)
 	u.Extra = decodeExtras(data, usageJSONFields)
+	return nil
+}
+
+// keepIfObject returns ptr when the named member of data really is a JSON
+// object, and nil otherwise — the breakdown was allocated by the decoder before
+// it saw the value, so a non-object there leaves a zeroed struct standing for
+// something that was never read.
+func keepIfObject[T any](data []byte, member string, ptr *T) *T {
+	if ptr == nil {
+		return nil
+	}
+	var members map[string]json.RawMessage
+	if json.Unmarshal(data, &members) != nil {
+		return ptr
+	}
+	raw, ok := members[member]
+	if !ok {
+		return ptr
+	}
+	if trimmed := bytes.TrimSpace(raw); len(trimmed) > 0 && trimmed[0] == '{' {
+		return ptr
+	}
 	return nil
 }
 

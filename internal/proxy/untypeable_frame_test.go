@@ -37,12 +37,45 @@ var untypeableFrames = []struct {
 	{"reasoning as a list", `{"choices":[{"delta":{"content":"CONTENTMARKER","reasoning":["step one"]}}]}`},
 	// choices as an object rather than the array of choices.
 	{"choices as an object", `{"choices":{"0":{"delta":{"content":"CONTENTMARKER"}}}}`},
-	// Not an object at all. The type error carries no member path, so the log
-	// line has nothing to name — but the same rule applies: the bytes are the
-	// provider's answer, and this gateway having no struct for them is not a
-	// reason to delete them from the caller's stream.
-	{"a bare list", `["CONTENTMARKER"]`},
-	{"a bare string", `"CONTENTMARKER"`},
+}
+
+// Not an object at all. The type error names no member, because the whole value
+// is the wrong kind of thing rather than one part of it — that is not a frame
+// this gateway has no struct for, it is not a chat-completion frame. Relaying
+// them put a quoted sentinel into an OpenAI-shaped stream as a data event.
+var notFrames = []string{
+	`["CONTENTMARKER"]`,
+	`"CONTENTMARKER"`,
+	`42`,
+	`"[DONE]"`,
+}
+
+func TestHandleStreamingResponse_TopLevelNonObjectIsNotAFrame(t *testing.T) {
+	for _, payload := range notFrames {
+		t.Run(payload, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			body := w.Body.String()
+			if strings.Contains(body, "CONTENTMARKER") || strings.Contains(body, "42") {
+				t.Errorf("a non-frame was relayed to the caller: %q", body)
+			}
+			// One [DONE], the gateway's own, not the provider's quoted one.
+			if n := strings.Count(body, "[DONE]"); n != 1 {
+				t.Errorf("[DONE] appears %d times: %q", n, body)
+			}
+		})
+	}
 }
 
 // A frame the gateway cannot type is still the provider's answer. encoding/json
@@ -149,8 +182,21 @@ func TestHandleStreamingResponse_UntypeableErrorFrameIsMasked(t *testing.T) {
 
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
 
-	if strings.Contains(w.Body.String(), "sk-proj-1234") {
-		t.Errorf("a credential quoted in an untypeable error frame reached the caller: %q", w.Body.String())
+	body := w.Body.String()
+	// The positive half first. Both assertions below are satisfied by a frame
+	// that never went out at all, and a dropped frame runs no observers either —
+	// so without this the test passes with the whole forward reverted.
+	if !strings.Contains(body, "rejected by") {
+		t.Fatalf("the error frame never reached the caller, so nothing was masked: %q", body)
+	}
+	if !strings.Contains(body, "[redacted]") {
+		t.Errorf("the credential was not redacted for the caller: %q", body)
+	}
+	if strings.Contains(body, "sk-proj-1234") {
+		t.Errorf("a credential quoted in an untypeable error frame reached the caller: %q", body)
+	}
+	if !strings.Contains(logData.errorMessage, "rejected by") {
+		t.Fatalf("the observer never read the error member: %q", logData.errorMessage)
 	}
 	if strings.Contains(logData.errorMessage, "sk-proj-1234") {
 		t.Errorf("a credential reached the request log: %q", logData.errorMessage)
@@ -250,11 +296,12 @@ var anthropicErrorEvents = []struct {
 	{"no error member", `{"type":"error"}`, "", false, ""},
 }
 
+// Not parallel: it reads the shared default logger, which captureProxyLogs
+// swaps out for the duration of each case.
 func TestCaptureSSEError_AnthropicErrorEventShapes(t *testing.T) {
-	t.Parallel()
 	for _, tc := range anthropicErrorEvents {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			capture := captureProxyLogs(t)
 			st := &streamState{lastAnthropicEvent: "error"}
 			counted := st.captureSSEError(tc.payload, &st.lastAnthropicEvent, 1, &requestLogData{modelID: "m", providerName: "p"})
 
@@ -269,6 +316,18 @@ func TestCaptureSSEError_AnthropicErrorEventShapes(t *testing.T) {
 			}
 			if st.lastAnthropicEvent != "" {
 				t.Errorf("the event carry was not consumed: %q", st.lastAnthropicEvent)
+			}
+			// The event's own type is the thing the old private struct lost on
+			// every shape but one, and it is logged rather than stored — so the
+			// log is where it has to be read.
+			var loggedType string
+			for _, rec := range capture.all() {
+				if strings.Contains(rec.msg, "Anthropic SSE error event") {
+					loggedType = rec.attrs["error_type"]
+				}
+			}
+			if loggedType != tc.wantType {
+				t.Errorf("logged error_type = %q, want %q", loggedType, tc.wantType)
 			}
 		})
 	}
@@ -546,5 +605,124 @@ func TestHandleStreamingResponse_UntypeableWarnCarriesNoneOfTheFrame(t *testing.
 	}
 	if !sawWarn {
 		t.Fatal("the untypeable warn never fired, so nothing was asserted")
+	}
+}
+
+// Forwarding a frame is not the same as knowing it carried anything. The
+// terminal chunk is exactly where a relay numbers its stop reason, and that
+// frame carries no output at all — so treating a forwarded frame as delivery in
+// its own right meant every empty response from such a provider cleared its
+// failure streak and its circuit could never open.
+//
+// What the counter is for is the other direction: it must not let an unreadable
+// frame CHARGE the provider either. Silence is the verdict when nothing typed
+// arrived; a stream that plainly answered is still credited.
+func TestJudgeStreamForBreaker_UntypeableFrames(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		st          *streamState
+		wantSuccess bool
+		wantCharge  bool
+	}{
+		{"nothing but an unreadable frame", &streamState{sawDone: true, unparsedChunks: 1}, false, false},
+		{"an unreadable frame beside a real answer", &streamState{sawDone: true, unparsedChunks: 1, sawContent: true}, true, false},
+		{"an unreadable frame beside counted output", &streamState{sawDone: true, unparsedChunks: 1, deliveredBytes: 40}, true, false},
+		{"a genuinely empty stream", &streamState{sawDone: true}, false, true},
+		{"an ordinary answered stream", &streamState{sawDone: true, sawContent: true}, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := judgeStreamForBreaker(tc.st, &requestLogData{}, "", true)
+			if got.success != tc.wantSuccess {
+				t.Errorf("success = %v, want %v", got.success, tc.wantSuccess)
+			}
+			if (got.failureReason != "") != tc.wantCharge {
+				t.Errorf("failureReason = %q, want a charge = %v", got.failureReason, tc.wantCharge)
+			}
+		})
+	}
+}
+
+// A frame this gateway forwarded but could not read still carried the model's
+// answer, and the estimator is what bills a stream whose provider reported no
+// usage — streaming usage is opt-in, so that is the common case, not the rare
+// one. Counting nothing for it delivered a full answer and debited the caller's
+// quota and TPM bucket for none of it.
+func TestHandleStreamingResponse_UntypeableContentIsStillMetered(t *testing.T) {
+	vkRepo := &mockVirtualKeyRepo{}
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	h.virtualKeyRepo = vkRepo
+
+	body := `data: {"choices":[{"delta":{"content":[{"type":"text","text":"a reasonably long answer from the model"}]}}]}` + "\n\ndata: [DONE]\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	logData := newErrorFrameLog()
+	logData.promptTextBytes = 40
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+
+	h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", vkHash: "test-hash"})
+
+	if got := singleAddTokens(t, vkRepo); got == 0 {
+		t.Error("an answer the caller received was metered as nothing")
+	}
+}
+
+// The strip is owed only where there is reasoning to strip. Dropping every
+// untypeable frame deleted the answer out of an ordinary content delta whose
+// finish_reason happened to be a number, for no gain at all.
+func TestHandleStreamingResponse_StripReasoningKeepsFramesWithNoneOfIt(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	payload := `{"choices":[{"delta":{"content":"CONTENTMARKER"},"finish_reason":0}]}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+		Header:     make(http.Header),
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+	h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	if !strings.Contains(w.Body.String(), "CONTENTMARKER") {
+		t.Errorf("an answer with no reasoning in it was dropped: %q", w.Body.String())
+	}
+}
+
+// The retirement verdict asks the same question the breaker does and used a
+// narrower signal to answer it. sawContent watches content and reasoning on
+// choices[0], so a stream whose whole answer is a tool call — or one delivered
+// in a shape this gateway forwarded without being able to type — read as having
+// produced nothing, and the gone-strike streak a real answer should have
+// cleared stayed on the model.
+func TestFinalizeStream_DeliveredContentCountsEveryShapeOfOutput(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"a tool call and no text", `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"lookup","arguments":"{}"}}]}}]}`},
+		{"content this gateway cannot type", `{"choices":[{"delta":{"content":[{"type":"text","text":"an answer"}]}}]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + tc.body + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			logData := newErrorFrameLog()
+
+			h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if !logData.deliveredContent {
+				t.Error("the model answered and the retirement verdict was told it did not")
+			}
+		})
 	}
 }
