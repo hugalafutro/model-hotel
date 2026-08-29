@@ -15,9 +15,10 @@ import (
 )
 
 // This file is the non-streaming half of the proxy: reading an upstream answer
-// once, deciding whether it is a completion, and serving or failing it. Split
-// out of proxy.go when that file passed the size ceiling; nothing moved changed
-// behaviour.
+// once, deciding whether it is a completion, and serving or failing it. Moved
+// here verbatim from proxy.go, which the 2xx-metering change pushed past the
+// 800-line ceiling. The same commit then changed what moved, so read the diff
+// rather than trusting the move to be inert.
 
 // nonStreamingFailureDetail decides what a response that is not a 2xx
 // completion may say about itself: the message stored in the request log
@@ -246,6 +247,13 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
+		// Completed, and empty. recordAnswerOutcome credits the provider for a
+		// completed answer unless told otherwise, so without these two a relay
+		// answering 204 to every request would be credited a breaker success
+		// each time and its circuit could never open — the group would route to
+		// a black hole for ever.
+		logData.emptyCompletion = true
+		logData.deliveredContent = false
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		w.WriteHeader(resp.StatusCode)
 		debuglog.Info("proxy: upstream answered with no content", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "duration_ms", totalDuration)

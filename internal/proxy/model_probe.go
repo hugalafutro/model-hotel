@@ -365,7 +365,10 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// normalised before it is judged — exactly as attemptCandidate does.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
-	if resp.StatusCode != http.StatusOK {
+	// Any 2xx is an answer, so the model is plainly still served. Reading a 201
+	// as a probe FAILURE would let a relay that answers 201 push a live model
+	// towards retirement.
+	if !servedSuccessStatus(resp.StatusCode) {
 		return judgeProbeFailure(resp, candidate, endpointType)
 	}
 	return judgeProbeSuccess(resp, st, candidate, endpointType)

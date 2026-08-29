@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -154,5 +155,129 @@ func TestAttemptCandidate_A2xxThatIsNotACompletionIsAnError(t *testing.T) {
 	}
 	if got := w.Body.String(); !strings.Contains(got, `"error"`) {
 		t.Errorf("client got %q, want an error envelope it can parse", got)
+	}
+}
+
+// The breaker must judge a 201 by its answer, not by its headers.
+//
+// recordBreakerOutcome credited a success for any non-200 at header time, which
+// was harmless only while a non-200 success could never reach the body readers.
+// Once the routing let 201 through, that credit reset consecutiveFails and
+// erased the charge recordAnswerOutcome was about to make — so a relay
+// answering 201 with no completion could never open its circuit. That is the
+// #805 hole re-opened on the statuses the routing had just started admitting.
+func TestAttemptCandidate_AnEmptySuccessChargesTheBreakerWhateverIts2xx(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			withBreakerThresholdOne(t, h)
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, `{"id":"x","object":"chat.completion","choices":[]}`)
+			}))
+			t.Cleanup(srv.Close)
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			m := &model.Model{ID: uuid.New(), ModelID: "relay-model"}
+			cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
+			st := &requestState{
+				startTime: time.Now(), reqModel: "relay-model",
+				bodyBytes:             []byte(`{"model":"relay-model","messages":[{"role":"user","content":"hi"}]}`),
+				failoverTimeout:       30 * time.Second,
+				circuitBreakerEnabled: true,
+				vkHash:                "test-hash",
+				logData: &requestLogData{
+					id: uuid.New().String(), modelID: "relay-model",
+					providerID: cand.provider.ID, providerName: "Relay",
+					endpointType: endpointTypeChat, state: "pending",
+					virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+				},
+			}
+			h.insertRequestLogAsync(st.logData)
+			h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
+
+			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+				t.Errorf("a %d carrying no answer was credited instead of charged", status)
+			}
+		})
+	}
+}
+
+// Delivering nothing is not delivering. A 204 is a legitimate HTTP success, but
+// for a chat completion it means the model produced no answer, so it must not
+// buy the provider a breaker credit — a relay answering 204 to everything would
+// otherwise black-hole a whole failover group with its circuit permanently shut.
+func TestAttemptCandidate_A204DoesNotCreditTheBreaker(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "relay-model"}
+	cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
+	st := &requestState{
+		startTime: time.Now(), reqModel: "relay-model",
+		bodyBytes:             []byte(`{"model":"relay-model","messages":[{"role":"user","content":"hi"}]}`),
+		failoverTimeout:       30 * time.Second,
+		circuitBreakerEnabled: true,
+		vkHash:                "test-hash",
+		logData: &requestLogData{
+			id: uuid.New().String(), modelID: "relay-model",
+			providerID: cand.provider.ID, providerName: "Relay",
+			endpointType: endpointTypeChat, state: "pending",
+			virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+		},
+	}
+	h.insertRequestLogAsync(st.logData)
+	h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
+
+	if !st.logData.emptyCompletion {
+		t.Error("a 204 was recorded as having delivered something")
+	}
+	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+		t.Error("a 204 bought the provider a breaker credit")
+	}
+}
+
+// 205 Reset Content is the other status HTTP forbids a body on. Untested, it
+// was one character away from being dropped from bodilessSuccessStatus without
+// anything noticing.
+func TestAttemptCandidate_A205IsAlsoBodiless(t *testing.T) {
+	w, st, _ := serveStatus(t, http.StatusResetContent, "")
+
+	if w.Code != http.StatusResetContent {
+		t.Errorf("client status = %d, want 205", w.Code)
+	}
+	if st.logData.state != "completed" || st.logData.statusCode != http.StatusResetContent {
+		t.Errorf("row = %s/%d, want completed/205", st.logData.state, st.logData.statusCode)
+	}
+}
+
+// The Anthropic ingress wraps the writer, and that wrapper decided verbatim vs
+// error-envelope on `status == 200`. Preserving the provider's 201 therefore
+// dropped a perfectly good completion into an Anthropic error envelope — with
+// the model's own text inside error.message — and the metering fix meant the
+// caller was now CHARGED for it.
+func TestAnthropicResponseWriter_TreatsEverySuccessAsASuccess(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			aw := newAnthropicResponseWriter(rec, "msg_1", "claude-x")
+			aw.WriteHeader(status)
+			_, _ = aw.Write([]byte(`{"id":"x","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`))
+			aw.Finalize()
+
+			if got := rec.Body.String(); strings.Contains(got, `"type":"error"`) {
+				t.Errorf("a %d completion was delivered as an Anthropic error: %s", status, got[:min(200, len(got))])
+			}
+		})
 	}
 }

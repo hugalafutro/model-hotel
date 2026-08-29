@@ -359,6 +359,20 @@ const (
 // function; the caller's else branch intentionally records it as a success
 // (stay on the rate-limited provider rather than tripping its breaker). The 429
 // treatment is therefore consistent with the configured policy, not contradictory.
+// servedSuccessStatus reports whether an upstream status is one the gateway
+// treats as an answer it served, rather than a failure to route or report.
+//
+// The 2xx RANGE, because a relay or aggregator may answer a completion 201 or
+// 202. This is the single definition; every site that used to spell it
+// `== http.StatusOK` now asks here, which is what stops two of them drifting
+// apart again. A 201 that was a success to the router and a failure to the
+// circuit breaker credited the provider at header time and erased the answer
+// verdict — the #805 hole, re-opened on statuses the router had just started
+// letting through.
+func servedSuccessStatus(statusCode int) bool {
+	return statusCode >= 200 && statusCode <= 299
+}
+
 func breakerRecordAction(statusCode int) breakerAction {
 	switch {
 	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403 || statusCode == 402:

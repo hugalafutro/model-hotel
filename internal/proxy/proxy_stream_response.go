@@ -142,6 +142,12 @@ func (h *Handler) initStreamResponse(w http.ResponseWriter, logData *requestLogD
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
+	// 200 on the wire even when the upstream answered another 2xx, unlike the
+	// non-streaming half which passes the provider's status through. This is the
+	// gateway's own SSE stream, and EventSource treats any non-200 as a
+	// connection failure, so forwarding a 201 here would break browser clients
+	// for a status they never needed to see. The upstream's real status is
+	// recorded on the row below.
 	w.WriteHeader(http.StatusOK)
 	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerName)
 

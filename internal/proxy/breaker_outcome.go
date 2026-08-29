@@ -60,7 +60,12 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 		}
 		return
 	}
-	if statusCode != http.StatusOK {
+	// Not a 2xx. A success of ANY 2xx defers its verdict to whoever reads the
+	// body — recordAnswerOutcome or judgeStreamForBreaker — for the reason the
+	// comment above gives: RecordSuccess resets consecutiveFails, so crediting
+	// here at header time erases the charge the answer verdict is about to make
+	// and the circuit can never open above a threshold of one.
+	if !servedSuccessStatus(statusCode) {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 }

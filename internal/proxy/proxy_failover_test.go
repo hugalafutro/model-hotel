@@ -93,13 +93,25 @@ func TestRecordBreakerOutcome(t *testing.T) {
 		{"eligible 200 -> success (exhaustive switch)", true, false, 200, true, breakerSuccessRecorded},
 		{"eligible 502 -> failure", true, false, 502, true, breakerFailureRecorded},
 		{"eligible 503 -> failure", true, false, 503, true, breakerFailureRecorded},
-		// A 200 is a status, not an answer, on BOTH paths: the verdict waits for
+		// A 2xx is a status, not an answer, on BOTH paths: the verdict waits for
 		// the body — judgeStreamForBreaker for a stream, recordAnswerOutcome for
 		// a completion.
+		//
+		// EVERY 2xx, not just 200. These four used to credit a success here at
+		// header time, which was harmless only while a non-200 success could
+		// never reach the body readers. Now that it can, crediting here would
+		// reset consecutiveFails and erase the charge the answer verdict is
+		// about to make, so a relay answering 201 to every request could never
+		// open its circuit above a threshold of one.
 		{"non-eligible 200 non-streaming -> deferred (untouched)", true, false, 200, false, breakerUntouched},
 		{"non-eligible 200 streaming -> deferred (untouched)", true, true, 200, false, breakerUntouched},
-		{"non-eligible non-200 streaming -> success", true, true, 204, false, breakerSuccessRecorded},
-		{"non-eligible 204 non-streaming -> success", true, false, 204, false, breakerSuccessRecorded},
+		{"non-eligible 201 non-streaming -> deferred (untouched)", true, false, 201, false, breakerUntouched},
+		{"non-eligible 202 streaming -> deferred (untouched)", true, true, 202, false, breakerUntouched},
+		{"non-eligible 204 streaming -> deferred (untouched)", true, true, 204, false, breakerUntouched},
+		{"non-eligible 204 non-streaming -> deferred (untouched)", true, false, 204, false, breakerUntouched},
+		// A real non-2xx that is not failover-eligible still credits here: the
+		// provider is plainly alive and no body reader will run.
+		{"non-eligible 400 non-streaming -> success", true, false, 400, false, breakerSuccessRecorded},
 		{"breaker disabled -> untouched", false, false, 500, true, breakerUntouched},
 		{"breaker disabled 200 streaming -> untouched", false, true, 200, false, breakerUntouched},
 	}

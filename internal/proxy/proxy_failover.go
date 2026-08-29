@@ -178,10 +178,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// completion 201 or 202, and routing those to forwardUpstreamError served
 	// the client a complete answer while writing the row as state="failed" and
 	// metering nothing at all: no tokens against the virtual key, no TPM debit.
-	// The pass-through families already route on the range (see multimodal),
-	// so this is one definition of "a success the gateway served" rather than
-	// two that disagree.
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	// The pass-through families already routed on the range (see multimodal).
+	// servedSuccessStatus is now that one definition, asked here and at every
+	// other site that judges an upstream status — the breaker, the hedge race,
+	// the retirement probe and the Anthropic ingress writer — because a 201 that
+	// was a success to one of them and a failure to another is how this bug got
+	// in.
+	if !servedSuccessStatus(resp.StatusCode) {
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
 

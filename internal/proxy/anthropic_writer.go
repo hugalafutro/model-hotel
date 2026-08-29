@@ -120,13 +120,13 @@ func (a *anthropicResponseWriter) commit() {
 		return
 	}
 	a.committed = true
-	if a.nativeFlag != nil && *a.nativeFlag && a.status == http.StatusOK {
+	if a.nativeFlag != nil && *a.nativeFlag && servedSuccessStatus(a.status) {
 		a.verbatim = true
 		a.w.WriteHeader(a.status)
 		return
 	}
 	ct := a.w.Header().Get("Content-Type")
-	if a.status == http.StatusOK && strings.Contains(ct, "text/event-stream") {
+	if servedSuccessStatus(a.status) && strings.Contains(ct, "text/event-stream") {
 		a.streaming = true
 		a.translator = anthropic.NewStreamTranslator(a.messageID, a.model)
 		a.w.WriteHeader(a.status)
@@ -231,7 +231,7 @@ func (a *anthropicResponseWriter) Finalize() {
 
 	raw := a.body.Bytes()
 	var out []byte
-	if a.status == http.StatusOK {
+	if servedSuccessStatus(a.status) {
 		translated, err := anthropic.BuildMessageResponse(raw, a.messageID, a.model)
 		if err != nil {
 			debuglog.Warn("anthropic: response translate failed; emitting error", "error", err)
