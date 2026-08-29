@@ -3,6 +3,8 @@ package proxy
 import (
 	"encoding/json"
 	"reflect"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Provider-specific fields that this package does not model must survive the
@@ -190,7 +192,11 @@ func (c ChatCompletionResponse) MarshalJSON() ([]byte, error) {
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	type alias Usage
 	var a alias
-	if err := json.Unmarshal(data, &a); err != nil {
+	// util.DecodeCounts, not a plain Unmarshal: a count is a count however the
+	// provider spelled it, and an error here does not merely blank the usage —
+	// it stops the decode of the response object around it, so one quoted token
+	// count cost the caller the answer the model had already produced.
+	if err := util.DecodeCounts(data, &a); err != nil {
 		return err
 	}
 	*u = Usage(a)
