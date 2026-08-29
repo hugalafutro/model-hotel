@@ -720,10 +720,16 @@ func cancelledRequest() *http.Request {
 	return httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
 }
 
-// A 204 or 202 legitimately carries an empty body and the provider is plainly
-// alive. The streamed pass-through twin says exactly that and credits it, so
-// charging here would have the two disagree about one response.
-func TestServeBufferedJSONPassthrough_AnEmptyNon200IsCredited(t *testing.T) {
+// A 204 legitimately carries an empty body, so it proves nothing about the
+// provider — and proving nothing must mean recording nothing.
+//
+// It used to record a SUCCESS. The breaker is keyed on the provider alone, so
+// that credit reset consecutiveFails for every other endpoint family on the
+// same provider, including the chat path which charges this same shape. A
+// tenant sending chat and embeddings to one relay answering 204 to everything
+// had each chat charge erased by the next embeddings call, and the circuit
+// never opened however many requests black-holed.
+func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 	withBreakerThreshold(t, h, "2")
@@ -739,9 +745,11 @@ func TestServeBufferedJSONPassthrough_AnEmptyNon200IsCredited(t *testing.T) {
 
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5)
 
+	// The earlier failure must still be on the clock: at threshold 2 a second
+	// one opens the circuit, which it cannot do if the 204 credited a success.
 	h.circuitBreaker.RecordFailure(providerID, "p")
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
-		t.Error("an empty 204 recorded no success, so an old failure was still on the clock")
+	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+		t.Error("an empty 204 credited a success and erased the failure before it")
 	}
 }
 

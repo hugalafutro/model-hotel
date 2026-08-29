@@ -366,9 +366,13 @@ const (
 // aggregators), but the rule is the HTTP class rather than a list: a status
 // this gateway has never seen is still the provider saying it succeeded, and
 // guessing which members of the class are "real" successes is how the split
-// this function exists to end got started. This is the single definition; every site that used to spell it
-// `== http.StatusOK` now asks here, which is what stops two of them drifting
-// apart again. A 201 that was a success to the router and a failure to the
+// this function exists to end got started.
+//
+// This is the single definition for "did the upstream succeed": the router, the
+// circuit breaker, the hedge race, the retirement probe, the Anthropic ingress
+// writer, the pass-through families and the MiniMax remap all ask here. What it
+// does NOT cover is the separate question of whether a status is the DEFAULT
+// one, which is a plain equality test and stays that way. A 201 that was a success to the router and a failure to the
 // circuit breaker credited the provider at header time and erased the answer
 // verdict — the #805 hole, re-opened on statuses the router had just started
 // letting through.

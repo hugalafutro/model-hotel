@@ -458,3 +458,105 @@ func TestAttemptCandidate_NativeAnthropicKeepsItsSuccessStatus(t *testing.T) {
 		})
 	}
 }
+
+// The breaker is keyed on the PROVIDER, not on the endpoint family, so the
+// surfaces cannot disagree about one response shape without one of them undoing
+// the other.
+//
+// A relay black-holing with 204 gets charged by the chat path. While the
+// pass-through path credited the same shape, a tenant sending both to that
+// relay had every chat charge erased by the next embeddings call, and the
+// circuit never opened however many requests vanished. Chat-only traffic opened
+// it in two; mixed traffic never did.
+func TestBreaker_PassthroughDoesNotEraseTheChatChargeForTheSameShape(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThreshold(t, h, "2")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "relay-model"}
+	cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
+
+	chatOnce := func() {
+		st := &requestState{
+			startTime: time.Now(), reqModel: "relay-model",
+			bodyBytes:             []byte(`{"model":"relay-model","messages":[{"role":"user","content":"hi"}]}`),
+			failoverTimeout:       30 * time.Second,
+			circuitBreakerEnabled: true,
+			vkHash:                "test-hash",
+			logData: &requestLogData{
+				id: uuid.New().String(), modelID: "relay-model",
+				providerID: cand.provider.ID, providerName: "Relay",
+				endpointType: endpointTypeChat, state: "pending",
+				virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+			},
+		}
+		h.insertRequestLogAsync(st.logData)
+		h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
+	}
+	// The interleaved call: the same provider, a different family, same 204.
+	passthroughOnce := func() {
+		pst := passthroughState(cand.provider.ID)
+		pst.logData.id = uuid.New().String()
+		h.insertRequestLogAsync(pst.logData)
+		resp := &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}
+		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody),
+			pst, modelCandidate{model: m, provider: cand.provider}, resp, "application/json", 1, 5)
+	}
+
+	chatOnce()
+	passthroughOnce()
+	chatOnce()
+
+	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+		t.Error("an embeddings 204 erased the chat charge before it: the circuit never opens under mixed traffic")
+	}
+}
+
+// The pass-through families route on the 2xx range too, and always did. This
+// pins it: narrowing that test to a bare 200 sends a 201 embeddings answer into
+// forwardUpstreamError, which — now that its 2xx branch is gone — answers the
+// client with an error envelope instead of the provider's vectors.
+func TestAttemptPassthroughCandidate_ASuccessStatusOtherThan200IsServed(t *testing.T) {
+	const vectors = `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}],"usage":{"prompt_tokens":4,"total_tokens":4}}`
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, vectors)
+	}))
+	t.Cleanup(srv.Close)
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"}
+	cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
+	st := &requestState{
+		startTime: time.Now(), reqModel: "text-embedding-3-small",
+		bodyBytes:       []byte(`{"model":"text-embedding-3-small","input":"hi"}`),
+		failoverTimeout: 30 * time.Second,
+		vkHash:          "test-hash",
+		logData: &requestLogData{
+			id: uuid.New().String(), modelID: "text-embedding-3-small",
+			providerID: cand.provider.ID, providerName: "Relay",
+			endpointType: endpointTypeEmbeddings, state: "pending",
+			virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+		},
+	}
+	h.insertRequestLogAsync(st.logData)
+	w := httptest.NewRecorder()
+	h.attemptPassthroughCandidate(w, httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 1)
+
+	if strings.Contains(w.Body.String(), `"error"`) {
+		t.Errorf("a 201 embeddings answer was rewritten as an error: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "embedding") {
+		t.Errorf("the provider's vectors did not reach the client: %s", w.Body.String())
+	}
+}

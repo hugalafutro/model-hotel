@@ -418,7 +418,7 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 
 // judgeProbeSuccess turns a success (any 2xx) probe response into a verdict.
 //
-// A 200 that carries nothing is NOT a success: a stream can open, emit nothing
+// A success that carries nothing is NOT a success: a stream can open, emit nothing
 // and end cleanly. It is not a refusal either — the provider did not say the
 // model is gone — so an empty answer postpones like every other unproven case.
 func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCandidate, endpointType string) probeVerdict {

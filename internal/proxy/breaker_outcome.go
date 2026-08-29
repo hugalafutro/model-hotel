@@ -132,7 +132,7 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reas
 }
 
 // rejectUntranslatableBody is the single outcome all three egress adapters have
-// for a 200 whose body they cannot turn into a completion.
+// for a success whose body they cannot turn into a completion.
 //
 // One place because the outcome has four parts — the log, the breaker charge,
 // the request error and the failover — and three copies of it is how the charge

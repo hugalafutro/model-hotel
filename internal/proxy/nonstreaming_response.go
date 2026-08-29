@@ -248,12 +248,16 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
 		// Completed, and empty. recordAnswerOutcome credits the provider for a
-		// completed answer unless told otherwise, so without these two a relay
+		// completed answer unless told otherwise, so without this a relay
 		// answering 204 to every request would be credited a breaker success
 		// each time and its circuit could never open — the group would route to
 		// a black hole for ever.
+		//
+		// deliveredContent is deliberately not set alongside it: it is already
+		// false, and every site that sets it sits on a terminal path that cannot
+		// precede this branch, so writing it here would be a line no mutation
+		// could kill.
 		logData.emptyCompletion = true
-		logData.deliveredContent = false
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		w.WriteHeader(resp.StatusCode)
 		debuglog.Info("proxy: upstream answered with no content", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "duration_ms", totalDuration)

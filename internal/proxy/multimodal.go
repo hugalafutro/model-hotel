@@ -394,10 +394,20 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		if st.circuitBreakerEnabled {
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
-	case resp.StatusCode != http.StatusOK:
-		// A 204 or 202 legitimately carries an empty body and the provider is
-		// plainly alive — the streamed twin says exactly this and credits it, so
-		// charging here would have the two disagree about one response.
+	case bodilessSuccessStatus(resp.StatusCode):
+		// 204/205 legitimately carry no body, so an empty one proves nothing
+		// either way — and this is a NO-OP rather than the credit it used to be.
+		//
+		// The credit was the harm. The breaker is keyed on the provider alone
+		// (RecordSuccess takes a provider ID, not a surface), so crediting here
+		// reset consecutiveFails for every other endpoint family on the same
+		// provider — including the chat path, which charges this same shape. A
+		// tenant sending both to one relay that answers 204 to everything had
+		// each chat charge erased by the next embeddings call, and the circuit
+		// never opened. Same argument as the 404 no-op in breakerRecordAction:
+		// recording a success erases real failure history.
+	case !servedSuccessStatus(resp.StatusCode):
+		// A definitive non-2xx: the provider is plainly alive and answered.
 		if st.circuitBreakerEnabled {
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
@@ -541,14 +551,15 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, isSSE bool, attempt int, responseHeaderMs float64) {
 	logData := st.logData
 
-	// Commit-point probe: a 200 whose body errors — or ends — before the
-	// first byte is a provider failure, not a success: SSE and binary 200s
+	// Commit-point probe: a success whose body errors — or ends — before the
+	// first byte is a provider failure, not a success: SSE and binary successes
 	// promise content (audio bytes, events), so an empty body means the
-	// provider broke after committing the status. Non-200 2xx statuses
-	// (e.g. 204 No Content) legitimately carry empty bodies and pass through.
+	// provider broke after committing the status. Only 204/205 legitimately
+	// carry an empty body, and only those pass through — a 201 or 202 promises
+	// content exactly as a 200 does.
 	firstByte := make([]byte, 1)
 	n, readErr := resp.Body.Read(firstByte)
-	emptyBodyIsFailure := resp.StatusCode == http.StatusOK || !errors.Is(readErr, io.EOF)
+	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
@@ -558,7 +569,9 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		writeOpenAIError(w, "upstream produced no response data", http.StatusBadGateway)
 		return
 	}
-	if st.circuitBreakerEnabled {
+	// Not for a bodiless success: see the buffered twin above for why crediting
+	// an empty 204 erases the chat path's charges on the same provider.
+	if st.circuitBreakerEnabled && !bodilessSuccessStatus(resp.StatusCode) {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of

@@ -49,7 +49,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
 		// Finalize the log row so it does not orphan in the in-flight state: a
-		// read failure on a 200 body is a provider/transport fault — unless it
+		// read failure on a success body is a provider/transport fault — unless it
 		// was interrupted rather than broken, which the translated path already
 		// classifies and this one hard-coded past. The identical event logged
 		// provider_error here and client_disconnect there, decided by nothing but

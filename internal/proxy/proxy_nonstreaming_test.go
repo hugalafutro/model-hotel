@@ -453,7 +453,19 @@ func nonStreamingLogData() *requestLogData {
 // carry only the decode diagnostics. errorMessage is dashboard-visible and
 // stored, and it is the same string handed to the debug log, so asserting on it
 // covers both sinks.
+// Every 2xx, not just 200: the metering fix is what made 201/202 reach this
+// handler at all, so the no-content rule became load-bearing for statuses it
+// had never had to cover.
 func TestHandleNonStreamingResponse_Undecodable2xxDoesNotLogContent(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			undecodable2xxDoesNotLogContent(t, status)
+		})
+	}
+}
+
+func undecodable2xxDoesNotLogContent(t *testing.T, status int) {
+	t.Helper()
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
@@ -465,7 +477,7 @@ func TestHandleNonStreamingResponse_Undecodable2xxDoesNotLogContent(t *testing.T
 		`"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
 
 	resp := &http.Response{
-		StatusCode: http.StatusOK,
+		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 	}
