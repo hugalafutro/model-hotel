@@ -202,3 +202,23 @@ func TestDecodeCounts_IntegerTooLargeForItsFieldStillFails(t *testing.T) {
 		t.Errorf("300 decoded into an int8 as %d", got.Small)
 	}
 }
+
+// encoding/json puts array indices in the member path (choices.0.finish_reason
+// is what the streaming warn logs), so the walk has to step through slices as
+// well as objects. Usage carries no arrays today; a caller that does must not
+// silently lose the coercion.
+func TestDecodeCounts_WalksArrayIndices(t *testing.T) {
+	t.Parallel()
+	var got struct {
+		Rows []struct {
+			Count int `json:"count"`
+		} `json:"rows"`
+	}
+	raw := `{"rows":[{"count":1},{"count":"2"}]}`
+	if err := util.DecodeCounts([]byte(raw), &got); err != nil {
+		t.Fatalf("DecodeCounts: %v", err)
+	}
+	if len(got.Rows) != 2 || got.Rows[1].Count != 2 {
+		t.Errorf("rows = %+v, want the second count read as 2", got.Rows)
+	}
+}

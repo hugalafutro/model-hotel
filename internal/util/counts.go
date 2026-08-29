@@ -91,15 +91,15 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 	if dec.Decode(&root) != nil {
 		return nil, false
 	}
-	obj, key, ok := locate(root, path)
+	holder, key, ok := locate(root, path)
 	if !ok {
 		return nil, false
 	}
-	n, ok := asCount(obj[key])
+	n, ok := asCount(holder.get(key))
 	if !ok {
 		return nil, false
 	}
-	obj[key] = n
+	holder.set(key, n)
 	out, err := json.Marshal(root)
 	if err != nil {
 		return nil, false
@@ -108,21 +108,64 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 }
 
 // locate walks the dotted member path encoding/json reports and returns the
-// object holding the leaf. A key containing a dot is matched whole before the
-// path is split, which covers it at the level it appears on.
-func locate(v any, path string) (map[string]any, string, bool) {
-	obj, ok := v.(map[string]any)
-	if !ok {
+// container holding the leaf, addressed by a key or an index.
+//
+// The path steps through arrays as well as objects: the decoder writes the index
+// into it, so a count inside a list reads as rows.1.count. A key containing a
+// dot is matched whole before the path is split, which covers it at the level it
+// appears on. A path that does not resolve simply yields no rewrite, and the
+// caller returns the decoder's original error.
+func locate(v any, path string) (container, string, bool) {
+	head, rest, nested := strings.Cut(path, ".")
+	switch v := v.(type) {
+	case map[string]any:
+		if _, exists := v[path]; exists {
+			return objectContainer(v), path, true
+		}
+		if !nested {
+			return nil, "", false
+		}
+		return locate(v[head], rest)
+	case []any:
+		i, err := strconv.Atoi(head)
+		if err != nil || i < 0 || i >= len(v) {
+			return nil, "", false
+		}
+		if !nested {
+			return sliceContainer(v), head, true
+		}
+		return locate(v[i], rest)
+	default:
 		return nil, "", false
 	}
-	if _, exists := obj[path]; exists {
-		return obj, path, true
+}
+
+// container is the object or array a located member sits in, read and written
+// by the key or index the path named.
+type container interface {
+	get(key string) any
+	set(key string, v json.Number)
+}
+
+type objectContainer map[string]any
+
+func (c objectContainer) get(key string) any            { return c[key] }
+func (c objectContainer) set(key string, v json.Number) { c[key] = v }
+
+type sliceContainer []any
+
+func (c sliceContainer) get(key string) any {
+	i, err := strconv.Atoi(key)
+	if err != nil || i < 0 || i >= len(c) {
+		return nil
 	}
-	head, rest, found := strings.Cut(path, ".")
-	if !found {
-		return nil, "", false
+	return c[i]
+}
+
+func (c sliceContainer) set(key string, v json.Number) {
+	if i, err := strconv.Atoi(key); err == nil && i >= 0 && i < len(c) {
+		c[i] = v
 	}
-	return locate(obj[head], rest)
 }
 
 // asCount reads a count out of the two spellings that are not a JSON integer.
