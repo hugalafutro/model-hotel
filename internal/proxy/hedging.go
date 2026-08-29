@@ -318,7 +318,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// and pass-through loops do, on a body being discarded either way.
 		errBodyMsg := util.SanitizeLogBody(string(errBody), 10000)
 		kind, _ := classifyUpstreamError(resp.StatusCode, errBodyMsg, candidate.model.ModelID)
-		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, errBodyMsg)
+		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, errBodyMsg)
 		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
 		}

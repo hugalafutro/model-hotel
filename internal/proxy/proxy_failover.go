@@ -171,7 +171,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			h.noteModelGone(candidate, logData.endpointType)
 		}
 		// The body is in hand, so a verdict deferred on the status can be made.
-		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, drainedMsg)
+		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, drainedMsg)
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		logData.failoverAttempt = attempt

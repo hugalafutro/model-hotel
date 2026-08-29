@@ -59,8 +59,9 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// drain — so the verdict is never simply dropped.
 		case breakerActionSuccess:
 			// Not reached for failover-eligible codes: shouldFailover only
-			// returns true for {5xx,429,401,403,402,404,499}, all of which map
-			// to failure or no-op above. Retained so the switch stays exhaustive
+			// returns true for {5xx,429,401,403,402,404,499}, which map to
+			// failure, no-op, or — for 429 — deferred above. Retained so the
+			// switch stays exhaustive
 			// over breakerAction — if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
@@ -90,8 +91,19 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 // Deliberately not a RecordSuccess: a refusal is not evidence of health either,
 // and crediting one would reset consecutiveFails and erase real failures the
 // provider had accrued — the hole #805 closed.
-func (h *Handler) recordClassifiedOutcome(st *requestState, candidate modelCandidate, statusCode int, kind ErrorKind, body string) {
+func (h *Handler) recordClassifiedOutcome(st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool, kind ErrorKind, body string) {
 	if !st.circuitBreakerEnabled || breakerRecordAction(statusCode) != breakerActionDeferred {
+		return
+	}
+	// Only a verdict that was actually DEFERRED can be finished here.
+	// recordBreakerOutcome defers only on the failover-eligible branch; a status
+	// that is not eligible took its else branch and has already been credited a
+	// success. For a 429 that credit is the configured policy — with
+	// failover_on_rate_limit off the operator has asked to ride out rate limits
+	// on this provider rather than trip its breaker — so charging on top of it
+	// would both contradict the setting and, at a threshold of one, open the
+	// circuit on the first rate limit.
+	if !isFailoverEligible {
 		return
 	}
 	if refusalIsAboutTheModel(kind, body) {

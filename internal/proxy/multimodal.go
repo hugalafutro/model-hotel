@@ -220,7 +220,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			if kind == KindProviderModelGone {
 				h.noteModelGone(candidate, logData.endpointType)
 			}
-			h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, drainedMsg)
+			h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, drainedMsg)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt

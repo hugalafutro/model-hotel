@@ -97,7 +97,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
 	// The last candidate's verdict: nothing after this reads the body, so a
 	// status whose meaning waited for it is decided here.
-	h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, errMsg)
+	h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, errMsg)
 	if kind == KindProviderModelGone {
 		// Same as the drain path above: the candidate carries what the
 		// pre-retirement probe needs, and logData.endpointType is the family
