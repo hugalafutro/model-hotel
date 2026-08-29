@@ -792,3 +792,15 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 		t.Errorf("expected 0 request_log rows (insert should have failed), got %d", count)
 	}
 }
+
+// A member this struct has no type for — a token count the provider quoted, say
+// — must not blank the answer the dashboard exists to show. encoding/json
+// records the type error and carries on with the siblings, so what did decode is
+// all there.
+func TestParseTestModelResponse_AQuotedCountKeepsTheAnswer(t *testing.T) {
+	body := []byte(`{"choices":[{"message":{"content":"hello"}}],"usage":{"prompt_tokens":"12","completion_tokens":"3"}}`)
+	content, _, _, _ := parseTestModelResponse(body, 1000)
+	if content != "hello" {
+		t.Errorf("content = %q, want the answer the model gave", content)
+	}
+}
