@@ -169,6 +169,35 @@ type streamChunk struct {
 	Error json.RawMessage `json:"error"`
 }
 
+// observeUsage records the counts a usage block reports.
+//
+// Each count is guarded on its own, the way the cache split already was. Two
+// providers make that necessary: one that rides a usage block on EVERY chunk,
+// and one whose usage block this gateway could only partly read —
+// encoding/json allocates the pointer before it calls the custom unmarshaler, so
+// a usage member in an unmodelled shape leaves a valid pointer to an all-zero
+// Usage, and a bare assignment then wrote zeros over counts an earlier chunk had
+// already reported. A usage chunk saying zero says nothing; only a count carries
+// a reading.
+func (st *streamState) observeUsage(usage *Usage) {
+	if usage == nil {
+		return
+	}
+	if usage.PromptTokens > 0 {
+		st.promptTokens = usage.PromptTokens
+	}
+	if usage.CompletionTokens > 0 {
+		st.completionTokens = usage.CompletionTokens
+	}
+	if usage.CompletionTokensDetails != nil && usage.CompletionTokensDetails.ReasoningTokens > 0 {
+		st.reasoningTokens = usage.CompletionTokensDetails.ReasoningTokens
+	}
+	if hit, miss := extractCacheTokens(*usage); hit > 0 || miss > 0 {
+		st.promptCacheHitTokens = hit
+		st.promptCacheMissTokens = miss
+	}
+}
+
 // observeDataChunk applies the four non-emitting, side-channel observers over a
 // parsed data chunk, updating streamState in place (Phase 4 — the first pipeline
 // stage extracted from handleStreamingResponse). It never writes to the client
@@ -182,17 +211,7 @@ type streamChunk struct {
 //   - P2-5 repeated-content detection (and the first-thinking log)
 //   - chunk.Error capture (clears errAccum so P1-B won't re-count)
 func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted bool, chunkCount int, logData *requestLogData) {
-	if chunk.Usage != nil {
-		st.promptTokens = chunk.Usage.PromptTokens
-		st.completionTokens = chunk.Usage.CompletionTokens
-		if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-			st.reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
-		}
-		if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
-			st.promptCacheHitTokens = hit
-			st.promptCacheMissTokens = miss
-		}
-	}
+	st.observeUsage(chunk.Usage)
 	// P2-7: Log native_finish_reason from OpenRouter for debugging.
 	// OpenRouter includes this field alongside the normalized finish_reason,
 	// preserving the original provider's value (e.g. "STOP" instead of "stop").

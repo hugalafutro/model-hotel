@@ -35,6 +35,11 @@ func TestDecodeCounts_Spellings(t *testing.T) {
 		// Rounded rather than truncated: a fractional count is floating-point
 		// residue, and 11.999999 is a report of 12.
 		{"rounds to nearest", `{"prompt_tokens":11.9999999}`, 12},
+		// Deliberately not floored. This helper changes the spelling of a
+		// number, and an unquoted -1 has always decoded to -1 — refusing the
+		// quoted one would put a validation rule in the one place that cannot
+		// enforce it. A count that must be non-negative belongs where it is
+		// metered, not where it is read.
 		{"negative", `{"prompt_tokens":"-1"}`, -1},
 		{"zero", `{"prompt_tokens":"0"}`, 0},
 	} {
@@ -146,33 +151,33 @@ func TestDecodeCounts_PassesThroughOtherErrors(t *testing.T) {
 	}
 }
 
-// The retry is bounded. A document with more differently-spelled counts than the
-// bound fails rather than looping, and one within it succeeds — which is what
-// makes the bound a limit rather than a number nothing ever reaches.
+// The retry is a runaway guard, and a guard has to actually stop. Each pass
+// fixes one member, so a document with more differently-spelled counts than the
+// bound must come back with an error rather than spin — and one within it must
+// decode, which is what keeps the bound from being a number nothing reaches.
 func TestDecodeCounts_RetryIsBounded(t *testing.T) {
 	t.Parallel()
-	type wide struct {
-		A, B, C, D, E, F, G, H, I, J int
+	var quoted struct {
+		Counts []int `json:"counts"`
 	}
-	build := func(n int) string {
-		names := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}
-		parts := make([]string, 0, len(names))
-		for i, name := range names {
-			if i < n {
-				parts = append(parts, `"`+name+`":"1"`)
-			} else {
-				parts = append(parts, `"`+name+`":1`)
-			}
+	build := func(n int) []byte {
+		parts := make([]string, n)
+		for i := range parts {
+			parts[i] = `"1"`
 		}
-		return "{" + strings.Join(parts, ",") + "}"
+		return []byte(`{"counts":[` + strings.Join(parts, ",") + `]}`)
 	}
-	var within wide
-	if err := util.DecodeCounts([]byte(build(8)), &within); err != nil {
-		t.Errorf("eight quoted counts must decode: %v", err)
+	if err := util.DecodeCounts(build(60), &quoted); err != nil {
+		t.Errorf("sixty quoted counts are within the bound: %v", err)
 	}
-	var beyond wide
-	if err := util.DecodeCounts([]byte(build(10)), &beyond); err == nil {
-		t.Error("ten quoted counts must exhaust the retry bound rather than loop")
+	if len(quoted.Counts) != 60 {
+		t.Errorf("read %d counts, want 60", len(quoted.Counts))
+	}
+	var beyond struct {
+		Counts []int `json:"counts"`
+	}
+	if err := util.DecodeCounts(build(100), &beyond); err == nil {
+		t.Error("a hundred must exhaust the bound rather than loop")
 	}
 }
 

@@ -412,7 +412,16 @@ func liveCandidate(name, baseURL string) modelCandidate {
 // test can observe "was the breaker charged" through GetState.
 func withBreakerThresholdOne(t *testing.T, h *Handler) {
 	t.Helper()
-	if err := h.settingsRepo.Set(context.Background(), "circuit_breaker_threshold", "1"); err != nil {
+	withBreakerThreshold(t, h, "1")
+}
+
+// withBreakerThreshold sets the consecutive-failure threshold for one test. A
+// threshold above one is what makes a recorded SUCCESS observable: it is the
+// only thing that resets the counter, so whether a later failure opens the
+// circuit reports whether the stream credited the provider.
+func withBreakerThreshold(t *testing.T, h *Handler, threshold string) {
+	t.Helper()
+	if err := h.settingsRepo.Set(context.Background(), "circuit_breaker_threshold", threshold); err != nil {
 		t.Fatalf("set circuit_breaker_threshold: %v", err)
 	}
 	h.settingsRepo.InvalidateCache("circuit_breaker_threshold")

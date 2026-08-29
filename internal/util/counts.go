@@ -10,11 +10,18 @@ import (
 	"strings"
 )
 
-// maxCountCoercions bounds the retry loop. Each pass fixes exactly one member,
-// so this is the number of differently-spelled counts one object may carry
-// before the decode is allowed to fail — comfortably more than any usage block
-// has fields, and a hard stop on a document that keeps producing type errors.
-const maxCountCoercions = 8
+// maxCountCoercions bounds the retry loop.
+//
+// A runaway guard, not a schema limit. Each pass fixes exactly one member, and
+// asCount refuses a value that already reads as an integer, so the loop cannot
+// re-fire on a member it has fixed and terminates on its own. The bound is here
+// only so a document nobody anticipated cannot spin.
+//
+// It was 8, with a comment calling that "comfortably more than any usage block
+// has fields". The usage block it was written for has NINE integer members, and
+// a relay that quotes one count quotes all of them — so the archetypal caller
+// was one member past the bound and lost the whole response.
+const maxCountCoercions = 64
 
 // maxCount is the largest value a count is accepted as. A token count is bounded
 // by a context window; a value past this is not a count in another spelling, it

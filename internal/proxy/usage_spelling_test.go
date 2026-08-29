@@ -62,22 +62,29 @@ func TestUsage_NestedCountSpellings(t *testing.T) {
 	assert.Equal(t, 2, u.CompletionTokensDetails.ReasoningTokens)
 }
 
-// A member that is not a count in any spelling is still a decode failure. The
-// tolerance is for how a number is written, not for a field holding something
-// else entirely.
-func TestUsage_NonNumericCountIsStillAnError(t *testing.T) {
+// A member that is not a count in any spelling reads as nothing. The tolerance
+// is for how a number is written, not for a field holding something else — and
+// no reading is invented for it, so the count stays zero and the estimator picks
+// the request up. What it must not do is take the rest of the response with it.
+func TestUsage_NonNumericCountReadsAsNothing(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{
-		`{"prompt_tokens":"lots"}`,
-		`{"prompt_tokens":{"value":12}}`,
-		`{"prompt_tokens":[12]}`,
-		`{"prompt_tokens":true}`,
+		`{"completion_tokens":3,"prompt_tokens":"lots"}`,
+		`{"completion_tokens":3,"prompt_tokens":{"value":12}}`,
+		`{"completion_tokens":3,"prompt_tokens":[12]}`,
+		`{"completion_tokens":3,"prompt_tokens":true}`,
 	} {
 		t.Run(raw, func(t *testing.T) {
 			t.Parallel()
 			var u Usage
-			if err := json.Unmarshal([]byte(raw), &u); err == nil {
-				t.Errorf("decoded %s as a count: %d", raw, u.PromptTokens)
+			if err := json.Unmarshal([]byte(raw), &u); err != nil {
+				t.Fatalf("usage did not decode: %v", err)
+			}
+			if u.PromptTokens != 0 {
+				t.Errorf("invented a count of %d from %s", u.PromptTokens, raw)
+			}
+			if u.CompletionTokens != 3 {
+				t.Errorf("the count beside it was lost: %d", u.CompletionTokens)
 			}
 		})
 	}
@@ -148,4 +155,90 @@ func TestHandleStreamingResponse_QuotedUsageIsMetered(t *testing.T) {
 
 	assert.Equal(t, 12, logData.tokensPrompt)
 	assert.Equal(t, 3, logData.tokensCompletion)
+}
+
+// The retry bound has to clear the struct it exists for. Usage carries nine
+// integer members and each pass fixes exactly one, and a relay that quotes one
+// count quotes all of them -- so a bound of eight failed on the archetypal
+// caller, which is the case the whole helper was written for.
+func TestUsage_EveryCountQuoted(t *testing.T) {
+	t.Parallel()
+	raw := `{"prompt_tokens":"1","completion_tokens":"2","total_tokens":"3",` +
+		`"prompt_cache_hit_tokens":"4","prompt_cache_miss_tokens":"5",` +
+		`"cache_read_input_tokens":"6","cache_creation_input_tokens":"7",` +
+		`"prompt_tokens_details":{"cached_tokens":"8"},` +
+		`"completion_tokens_details":{"reasoning_tokens":"9"}}`
+	var u Usage
+	require.NoError(t, json.Unmarshal([]byte(raw), &u))
+	assert.Equal(t, 1, u.PromptTokens)
+	assert.Equal(t, 2, u.CompletionTokens)
+	assert.Equal(t, 3, u.TotalTokens)
+	assert.Equal(t, 4, u.PromptCacheHitTokens)
+	assert.Equal(t, 5, u.PromptCacheMissTokens)
+	assert.Equal(t, 6, u.CacheReadInputTokens)
+	assert.Equal(t, 7, u.CacheCreationInputTokens)
+	require.NotNil(t, u.PromptTokensDetails)
+	require.NotNil(t, u.CompletionTokensDetails)
+	assert.Equal(t, 8, u.PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 9, u.CompletionTokensDetails.ReasoningTokens)
+}
+
+// A usage member in a shape this gateway has no struct for is the same defect
+// the streaming path fixes one level out, and it had the same cost: Usage
+// returned before assigning, so counts that decoded perfectly were thrown away
+// with it -- and on the non-streaming path that error stops the decode of the
+// response object and the caller loses the answer.
+//
+// [] where an object belongs is a routine relay habit, not an exotic one.
+func TestUsage_KeepsWhatItCouldRead(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"prompt_tokens":12,"completion_tokens":3,"prompt_tokens_details":[]}`,
+		`{"prompt_tokens":12,"completion_tokens":3,"completion_tokens_details":""}`,
+		`{"prompt_tokens":12,"completion_tokens":3,"total_tokens":"lots"}`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			t.Parallel()
+			var u Usage
+			if err := json.Unmarshal([]byte(raw), &u); err != nil {
+				t.Fatalf("usage did not decode: %v", err)
+			}
+			assert.Equal(t, 12, u.PromptTokens)
+			assert.Equal(t, 3, u.CompletionTokens)
+		})
+	}
+}
+
+// Bytes that are not JSON are still an error: there is nothing to keep.
+func TestUsage_MalformedIsStillAnError(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{`{"prompt_tokens":12`, `{"prompt_tokens":}`} {
+		t.Run(raw, func(t *testing.T) {
+			t.Parallel()
+			var u Usage
+			if err := json.Unmarshal([]byte(raw), &u); err == nil {
+				t.Errorf("decoded malformed usage as %+v", u)
+			}
+		})
+	}
+}
+
+// The whole point, end to end: a usage member the gateway cannot type must not
+// cost the caller the answer the model already produced.
+func TestHandleNonStreamingResponse_UnreadableUsageStillAnswers(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	h.virtualKeyRepo = &mockVirtualKeyRepo{}
+
+	upstreamBody := `{"id":"x","object":"chat.completion","usage":{"prompt_tokens":12,"completion_tokens":3,"prompt_tokens_details":[]},"choices":[{"index":0,"message":{"role":"assistant","content":"Hello, world!"}}]}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(upstreamBody)), Header: make(http.Header)}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := &requestLogData{modelID: "gpt-test", providerID: uuid.New(), virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "pending"}
+
+	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Hello, world!")
+	assert.Equal(t, 12, logData.tokensPrompt)
 }

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -10,7 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 // untypeableFrames are well-formed JSON frames carrying a member in a shape
@@ -33,6 +37,12 @@ var untypeableFrames = []struct {
 	{"reasoning as a list", `{"choices":[{"delta":{"content":"CONTENTMARKER","reasoning":["step one"]}}]}`},
 	// choices as an object rather than the array of choices.
 	{"choices as an object", `{"choices":{"0":{"delta":{"content":"CONTENTMARKER"}}}}`},
+	// Not an object at all. The type error carries no member path, so the log
+	// line has nothing to name — but the same rule applies: the bytes are the
+	// provider's answer, and this gateway having no struct for them is not a
+	// reason to delete them from the caller's stream.
+	{"a bare list", `["CONTENTMARKER"]`},
+	{"a bare string", `"CONTENTMARKER"`},
 }
 
 // A frame the gateway cannot type is still the provider's answer. encoding/json
@@ -73,8 +83,6 @@ func TestHandleStreamingResponse_UntypeableFrameIsForwardedVerbatim(t *testing.T
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	// strip_reasoning on and a reasoning member present: the transform this
-	// frame would otherwise be rebuilt by.
 	payload := `{"choices":[{"delta":{"content":[{"type":"text","text":"CONTENTMARKER"}],"reasoning_content":"thinking"}}]}`
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -83,7 +91,6 @@ func TestHandleStreamingResponse_UntypeableFrameIsForwardedVerbatim(t *testing.T
 	}
 	w := httptest.NewRecorder()
 	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
-	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
 
 	h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
 
@@ -153,23 +160,32 @@ func TestHandleStreamingResponse_UntypeableErrorFrameIsMasked(t *testing.T) {
 // The content of an untypeable frame is not an error, and the key-shape regex
 // matches prose. It must not run over a frame whose error member carries
 // nothing, whatever else about the frame failed to type.
+//
+// Every case here has an error member PRESENT. Without one the gate is never
+// read at all — a json.RawMessage for an absent member is nil, so the correct
+// gate and the presence gate that once rewrote model output both answer no, and
+// the test passes whichever is in the code.
 func TestHandleStreamingResponse_UntypeableFrameContentIsNotKeyShapeMasked(t *testing.T) {
-	h := newUnitHandler()
-	defer stopUnitHandler(h)
+	for _, member := range []string{`null`, `{}`, `""`, `false`, `{"code":0,"message":""}`} {
+		t.Run(member, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
 
-	payload := `{"choices":[{"delta":{"content":"use sk-proj-1234567890abcdefghij in the header"},"finish_reason":0}]}`
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
-		Header:     make(http.Header),
-	}
-	w := httptest.NewRecorder()
-	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			payload := `{"error":` + member + `,"choices":[{"delta":{"content":"use sk-proj-1234567890abcdefghij in the header"},"finish_reason":0}]}`
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
 
-	h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
 
-	if !strings.Contains(w.Body.String(), "sk-proj-1234567890abcdefghij") {
-		t.Errorf("the model's answer was rewritten mid-stream: %q", w.Body.String())
+			if !strings.Contains(w.Body.String(), "sk-proj-1234567890abcdefghij") {
+				t.Errorf("the model's answer was rewritten mid-stream: %q", w.Body.String())
+			}
+		})
 	}
 }
 
@@ -365,5 +381,131 @@ func TestJSONShapeName(t *testing.T) {
 		if got := jsonShapeName(tc.value); got != tc.want {
 			t.Errorf("jsonShapeName(%q) = %q, want %q", tc.value, got, tc.want)
 		}
+	}
+}
+
+// strip_reasoning is a promise to the caller, and forwarding a frame this
+// gateway cannot read is no way to keep it. computeStripReasoning works over the
+// payload, so it would run — but its "does this delta still carry anything"
+// verdict reads content as a plain string, so a content-as-parts delta looks
+// empty to it and becomes a keep-alive, and the answer is gone.
+//
+// So a key that asked for reasoning to be stripped gets the frame dropped, which
+// is what it got before an untypeable frame was forwarded at all. The delivery
+// fix is for the streams where nothing was promised.
+func TestHandleStreamingResponse_StripReasoningDropsUntypeableFrames(t *testing.T) {
+	for _, payload := range []string{
+		`{"choices":[{"delta":{"content":[{"type":"text","text":"CONTENTMARKER"}],"reasoning_content":"THINKINGMARKER"}}]}`,
+		`{"choices":[{"delta":{"content":"CONTENTMARKER","reasoning":["THINKINGMARKER"]}}]}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("data: " + payload + "\n\ndata: [DONE]\n\n")),
+				Header:     make(http.Header),
+			}
+			w := httptest.NewRecorder()
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyStripReasoningKey, true))
+
+			h.handleStreamingResponse(w, req, newErrorFrameLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+			if strings.Contains(w.Body.String(), "THINKINGMARKER") {
+				t.Errorf("reasoning reached a caller that asked for it stripped: %q", w.Body.String())
+			}
+		})
+	}
+}
+
+// The inference the forward path rests on — a type error proves the bytes are
+// well-formed — is a property of json.Unmarshal, which validates the whole
+// document before decoding any of it. json.Decoder does not promise it, and
+// GOEXPERIMENT=jsonv2 decodes streaming and so can report a type error on an
+// early member before reaching a syntax error later on.
+//
+// The predicate therefore checks rather than infers. If that guarantee ever goes
+// away this branch keeps dropping truncated bytes instead of forwarding them to
+// callers, which is the whole point of the drop branch existing.
+func TestShapeError_ChecksValidityRatherThanInferringIt(t *testing.T) {
+	t.Parallel()
+	typeErr := &json.UnmarshalTypeError{Value: "number", Field: "choices.0.finish_reason"}
+	if shapeError([]byte(`{"choices":[{"finish_reason":0}]}`), typeErr) == nil {
+		t.Error("a type error on well-formed JSON is an untypeable frame")
+	}
+	if got := shapeError([]byte(`{"choices":[{"finish_reason":0`), typeErr); got != nil {
+		t.Errorf("a type error on truncated bytes must not be forwarded, got %v", got)
+	}
+	if got := shapeError([]byte(`{"choices":[]}`), nil); got != nil {
+		t.Errorf("a clean decode is not an untypeable frame, got %v", got)
+	}
+	if got := shapeError([]byte(`{"choices":[`), &json.SyntaxError{}); got != nil {
+		t.Errorf("a syntax error is not an untypeable frame, got %v", got)
+	}
+}
+
+// A stream whose frames this gateway forwarded but could not read is not an
+// empty stream: the caller received them. Holding back the breaker's success
+// credit for every such stream leaves the provider's consecutive-failure count
+// never resetting, so old failures accumulate until an unrelated one opens the
+// circuit.
+func TestHandleStreamingResponse_UntypeableFramesStillCreditTheProvider(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThreshold(t, h, "2")
+
+	providerID := uuid.New()
+	logData := streamingLog()
+	logData.providerName = "wide-shape-provider"
+	h.insertRequestLogAsync(logData)
+	// A threshold of two with one failure already on the clock. Only a recorded
+	// SUCCESS clears it, so whether the second failure below opens the circuit
+	// is exactly the question of whether this stream credited the provider.
+	h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
+
+	body := "data: {\"choices\":[{\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}
+	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), streamOptions{
+		responseHeaderMs: 10,
+		providerID:       providerID,
+		providerName:     "wide-shape-provider",
+		circuitBreakerOn: true,
+		vkHash:           "test-hash",
+		attempt:          1,
+	})
+
+	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+		t.Fatal("a frame the gateway forwarded must not be charged to the provider")
+	}
+	h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider")
+	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+		t.Error("the stream recorded no success, so an old failure was still on the clock")
+	}
+}
+
+// A frame whose usage member could not be read leaves chunk.Usage a valid
+// pointer to an all-zero Usage: encoding/json allocates it before it calls the
+// custom unmarshaler. The observer gated on the pointer alone, so such a frame
+// wrote zeros over the counts an earlier usage chunk had already reported --
+// and a provider that rides usage on EVERY chunk gives it that chance on every
+// frame it sends.
+func TestHandleStreamingResponse_UnreadableUsageDoesNotZeroWhatWasCounted(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	body := `data: {"choices":[{"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}` + "\n\n" +
+		`data: {"choices":[{"delta":{"content":"there"}}],"usage":{"completion_tokens_details":["reasoning"]}}` + "\n\n" +
+		"data: [DONE]\n\n"
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+	logData := newErrorFrameLog()
+
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.tokensPrompt != 100 || logData.tokensCompletion != 50 {
+		t.Errorf("got prompt=%d completion=%d, want the counts the provider reported (100/50)", logData.tokensPrompt, logData.tokensCompletion)
 	}
 }

@@ -2,10 +2,42 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// shapeError reports the type error behind a failed decode when the frame
+// is nonetheless well-formed JSON — a shape this gateway has no struct for
+// rather than bytes that are broken — and nil otherwise.
+//
+// It is the difference between "this gateway has no struct for these bytes" and
+// "these bytes are broken", and both the streaming frame handler and Usage's own
+// decoder turn on it: the first keeps the frame, the second keeps the counts.
+//
+// The validity is CHECKED, not inferred. json.Unmarshal happens to validate the
+// whole document before decoding any of it, so today a type error already proves
+// the bytes are sound; json.Decoder makes no such promise, and GOEXPERIMENT
+// jsonv2 decodes streaming, where a type error on an early member can be
+// reported before a syntax error further on is ever reached. The check costs one
+// pass over a small frame on a path that has already failed, and without it a
+// change of build flag would start treating truncated bytes as merely
+// mis-shaped — forwarding half a frame to a caller, or keeping half a usage
+// block — which is the one thing the strictness exists to prevent.
+//
+// errors.As also unwraps, so a nested custom UnmarshalJSON returning a type
+// error of its own reaches here too; the check covers that case for free.
+func shapeError(data []byte, decodeErr error) *json.UnmarshalTypeError {
+	if decodeErr == nil {
+		return nil
+	}
+	var typeErr *json.UnmarshalTypeError
+	if !errors.As(decodeErr, &typeErr) || !json.Valid(data) {
+		return nil
+	}
+	return typeErr
+}
 
 // Provider-specific fields that this package does not model must survive the
 // decode/re-encode in handleNonStreamingResponse, because some of them are
@@ -189,14 +221,27 @@ func (c ChatCompletionResponse) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON decodes usage and retains the accounting fields this package
 // does not model, above all the per-request cost aggregators report.
+//
+// util.DecodeCounts, not a plain Unmarshal: a count is a count however the
+// provider spelled it, quoted or with a fraction on it.
+//
+// And a member left in a shape this package has no struct for costs that member
+// only. An error here does not merely blank the usage — Usage decodes inside the
+// response object, so returning one stops THAT decode where it stands and the
+// caller is handed "the provider returned a response the gateway could not
+// decode" in place of the answer the model already produced. prompt_tokens_details
+// as [] rather than {} is enough to do it, and an empty object written as an
+// empty array is a routine relay habit.
+//
+// So a type error keeps whatever did decode: encoding/json records it and
+// carries on with the siblings, and the counts that were readable are worth more
+// than the ones that were not. Bytes that are not well-formed JSON still fail —
+// there is nothing to keep — and that is checked rather than inferred, for the
+// reason given on untypeableFrame.
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	type alias Usage
 	var a alias
-	// util.DecodeCounts, not a plain Unmarshal: a count is a count however the
-	// provider spelled it, and an error here does not merely blank the usage —
-	// it stops the decode of the response object around it, so one quoted token
-	// count cost the caller the answer the model had already produced.
-	if err := util.DecodeCounts(data, &a); err != nil {
+	if err := util.DecodeCounts(data, &a); err != nil && shapeError(data, err) == nil {
 		return err
 	}
 	*u = Usage(a)

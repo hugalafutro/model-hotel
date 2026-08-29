@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -355,9 +354,10 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	// NOT skipped — it works over the payload as a map of raw members rather than
 	// the struct, so it rewrites the one member it understands and leaves the rest
 	// of the frame exactly as it arrived.
-	decodeErr := json.Unmarshal([]byte(payload), &chunk)
-	var typeErr *json.UnmarshalTypeError
-	untypeable := decodeErr != nil && errors.As(decodeErr, &typeErr)
+	raw := []byte(payload)
+	decodeErr := json.Unmarshal(raw, &chunk)
+	typeErr := shapeError(raw, decodeErr)
+	untypeable := typeErr != nil
 	jsonValid := decodeErr == nil || untypeable
 	if jsonValid {
 		// Side-channel observers (usage, native_finish_reason, repeated content,
@@ -416,21 +416,46 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			_ = json.Unmarshal([]byte(normalized), &chunk)
 		}
 
+		if untypeable && stripReasoning {
+			// strip_reasoning is a promise to the caller, and forwarding a frame
+			// this gateway cannot read is no way to keep it. computeStripReasoning
+			// works over the payload and would run — but its "does this delta still
+			// carry anything" verdict reads content as a plain string, so a
+			// content-as-parts delta looks empty to it and becomes a keep-alive,
+			// taking the answer with it.
+			//
+			// So the frame is dropped, which is what a key with this setting got
+			// before untypeable frames were forwarded at all. The delivery fix is
+			// for the streams where nothing was promised.
+			st.unparsedChunks++
+			debuglog.Warn("proxy: dropping a chunk shape this gateway cannot strip reasoning from",
+				"model", logData.modelID, "provider", logData.providerName,
+				"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
+				"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
+			sink.swallowBlank = true
+			return false
+		}
+
 		if untypeable {
-			// Counted the same as a dropped frame: what this gateway managed to
-			// read of it is incomplete, so the end-of-stream verdict must not
-			// conclude the provider sent nothing (see unparsedChunks).
+			// untypedChunks, NOT unparsedChunks. The two say different things to
+			// the end-of-stream verdict: a DROPPED frame's contents are unknown
+			// to the caller as well, so emptiness cannot be pinned on anyone and
+			// no verdict is recorded — while a frame that went out is delivery,
+			// whatever this gateway made of it. Counting a forwarded frame as a
+			// dropped one withheld the breaker's success credit from every stream
+			// a provider sent, and its consecutive-failure count then never reset.
 			//
 			// The mismatch, not the payload: which member, and what shape
 			// arrived. "choices.0.finish_reason arrived as a number" is the whole
 			// diagnosis and the part an operator can act on; the frame itself is
 			// the provider's, and the commonest reason one lands here is that the
 			// model's own output was written in a shape this gateway has no struct
-			// for — so the payload does not go in the log.
-			st.unparsedChunks++
+			// for — so the payload does not go in the log. Field is bounded
+			// because a map key is provider-controlled and lands in it verbatim.
+			st.untypedChunks++
 			debuglog.Warn("proxy: forwarding a chunk shape this gateway does not model",
 				"model", logData.modelID, "provider", logData.providerName,
-				"chunk_number", chunkCount, "json_field", typeErr.Field,
+				"chunk_number", chunkCount, "json_field", util.SanitizeLogBody(typeErr.Field, 200),
 				"json_got", jsonShapeName(typeErr.Value), "payload_bytes", len(payload))
 			goto forwardUntypeable
 		}

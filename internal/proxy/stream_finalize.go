@@ -39,13 +39,20 @@ type streamState struct {
 	promptCacheMissTokens int
 	chunkCount            int
 	errorChunkCount       int
-	// unparsedChunks counts data frames the gateway could not unmarshal into a
-	// streamChunk. They are dropped rather than forwarded, so the caller does
-	// lose them — but the provider may have answered perfectly well in a shape
-	// this gateway's types do not cover (tool-call arguments as an object,
-	// content as an array of parts). The delivery accounting cannot see into
-	// such a frame, so it must not conclude the response was empty.
+	// unparsedChunks counts data frames the gateway could not read AND did not
+	// forward: bytes that are not well-formed JSON, and the frames dropped
+	// because strip_reasoning could not be applied to a shape this gateway
+	// cannot read. The caller lost them too, so whether the provider answered is
+	// unknowable from here — the delivery accounting must neither conclude the
+	// response was empty nor credit one.
 	unparsedChunks int
+	// untypedChunks counts data frames that were forwarded verbatim because they
+	// are well-formed JSON in a shape this gateway's types do not cover
+	// (content as an array of parts, a numeric finish_reason). The delivery
+	// accounting cannot see into them either — but the caller received them, so
+	// they are delivery, and a provider whose every frame is one of these must
+	// still be able to clear its failure count.
+	untypedChunks  int
 	lastErrMsg     string
 	sawDone        bool
 	sawMessageStop bool // native Anthropic passthrough: terminal message_stop event seen
@@ -127,7 +134,10 @@ func providerAtFault(kind ErrorKind) bool {
 // charge against a provider that answered correctly, which after five requests
 // takes it out of rotation for every tenant — so this errs toward "delivered".
 func streamDeliveredOutput(st *streamState) bool {
-	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0
+	// untypedChunks is delivery for the same reason: the frame went out. Its
+	// contents are opaque to the accounting above, so without this a provider
+	// whose shapes this gateway does not model reads as having answered nothing.
+	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0 || st.untypedChunks > 0
 }
 
 // judgeStreamForBreaker decides what a finished stream tells the circuit
