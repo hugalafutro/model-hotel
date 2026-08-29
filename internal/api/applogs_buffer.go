@@ -115,6 +115,74 @@ type dbLogWriter struct {
 	ch            chan AppLogEntry
 	done          chan struct{}
 	flushInterval time.Duration
+	// sendTimeout is how long write blocks before discarding an entry. A field
+	// for the same reason flushInterval is one: the writer goroutine reads it
+	// while another test would be assigning to a package var, which is a real
+	// race and not a test artifact.
+	sendTimeout time.Duration
+	drops       *logDropReporter
+}
+
+// dbLogDropReportInterval throttles the drop notice. The condition that causes
+// drops — a database that is unreachable or refusing the batch — recurs on every
+// flush, so an unthrottled notice would become the flood it is reporting.
+const dbLogDropReportInterval = 10 * time.Second
+
+// logDropReporter accounts for app-log entries that never reached the database
+// and says so on stderr.
+//
+// Straight to stderr, never through debuglog: a notice about the log writer
+// would route back into the log writer and recurse. That is why the flush error
+// was swallowed outright — but swallowing it loses up to a whole batch from the
+// App Logs history with no evidence anywhere, which is indistinguishable from
+// the gateway never having logged at all. The ring buffer is not a substitute:
+// it holds appLogBufferSize entries for the live view, not the history.
+//
+// Only the count and the database's own reason are printed. A pgx PgError
+// renders as severity, message and SQLSTATE — never its DETAIL — so a rejected
+// row's contents are not echoed into the notice.
+type logDropReporter struct {
+	dst        io.Writer
+	interval   time.Duration
+	mu         sync.Mutex
+	pending    int
+	lastReport time.Time
+}
+
+// drop records n dropped entries, reporting them unless the last report was
+// inside the interval. Suppressed entries stay on the count and are carried into
+// the next report, or into reportPending at shutdown.
+func (r *logDropReporter) drop(n int, reason string) {
+	if r == nil || n <= 0 {
+		return
+	}
+	r.mu.Lock()
+	r.pending += n
+	now := time.Now()
+	if !r.lastReport.IsZero() && now.Sub(r.lastReport) < r.interval {
+		r.mu.Unlock()
+		return
+	}
+	r.lastReport = now
+	dropped, dst := r.pending, r.dst
+	r.pending = 0
+	r.mu.Unlock()
+	_, _ = fmt.Fprintf(dst, "applog: %d entries dropped, not persisted: %s\n", dropped, reason)
+}
+
+// reportPending states whatever the throttle is still holding, so a shutdown
+// during an outage does not swallow the tail of it.
+func (r *logDropReporter) reportPending() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	dropped, dst := r.pending, r.dst
+	r.pending = 0
+	r.mu.Unlock()
+	if dropped > 0 {
+		_, _ = fmt.Fprintf(dst, "applog: %d entries dropped, not persisted (final)\n", dropped)
+	}
 }
 
 // newDBLogWriter starts a writer that drains a partial batch every
@@ -128,6 +196,8 @@ func newDBLogWriter(pool *pgxpool.Pool, flushInterval time.Duration) *dbLogWrite
 		ch:            make(chan AppLogEntry, dbLogChannelSize),
 		done:          make(chan struct{}),
 		flushInterval: flushInterval,
+		sendTimeout:   dbLogSendTimeout,
+		drops:         &logDropReporter{dst: os.Stderr, interval: dbLogDropReportInterval},
 	}
 	go w.run()
 	return w
@@ -187,9 +257,9 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 	}
 	_, err := w.pool.Exec(ctx, builder.String(), args...)
 	if err != nil {
-		// Don't log with log.Printf here — that would cause infinite recursion!
-		// Just silently drop — the ring buffer still has the data for live view.
-		_ = err
+		// Never debuglog here — it routes back into this writer and recurses.
+		// The reporter writes to stderr directly for that reason.
+		w.drops.drop(len(entries), "batch insert failed: "+err.Error())
 	}
 }
 
@@ -203,7 +273,7 @@ func (w *dbLogWriter) write(entry AppLogEntry) {
 			fmt.Fprintf(os.Stderr, "applog: entry dropped, write panicked: %v\n", r)
 		}
 	}()
-	timer := time.NewTimer(dbLogSendTimeout)
+	timer := time.NewTimer(w.sendTimeout)
 	defer timer.Stop()
 	select {
 	case w.ch <- entry:
@@ -211,13 +281,16 @@ func (w *dbLogWriter) write(entry AppLogEntry) {
 	case <-timer.C:
 		// DB writer is backed up — drop the entry rather than blocking the
 		// caller. The ring buffer still has it for live UI, and this only
-		// happens if the DB is unreachable for >25 seconds.
+		// happens if the DB is unreachable for >25 seconds. Reported, because a
+		// history with holes in it and no notice is worse than a slow caller.
+		w.drops.drop(1, "writer queue full for "+w.sendTimeout.String())
 	}
 }
 
 func (w *dbLogWriter) stop() {
 	close(w.ch)
 	<-w.done
+	w.drops.reportPending()
 }
 
 // InitAppLogBuffer initializes the application log ring buffer and optional DB writer.
