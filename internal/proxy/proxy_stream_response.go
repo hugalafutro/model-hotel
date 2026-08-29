@@ -517,9 +517,12 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	}
 forwardUntypeable:
 	if !written && !jsonValid {
-		// Drop JSON that is not well-formed instead of forwarding broken bytes.
-		// A frame this gateway merely has no struct for does NOT come here — it
-		// is valid JSON, and it is forwarded verbatim below.
+		// Drop what is not a frame instead of forwarding it: bytes that are not
+		// well-formed JSON, and a top-level value that is not an object at all —
+		// a bare number, a list, or the quoted sentinel "[DONE]", none of which a
+		// client can read as a chunk. A frame this gateway merely has no struct
+		// for does NOT come here; it is valid JSON and is forwarded verbatim
+		// below.
 		//
 		// The size, not the bytes. This used to log an 80-rune preview of the
 		// payload, and the commonest reason a frame fails to parse is that the
@@ -532,7 +535,7 @@ forwardUntypeable:
 		// delivered is incomplete, and does not charge the provider for an
 		// emptiness it cannot actually vouch for.
 		st.unparsedChunks++
-		debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
+		debuglog.Warn("proxy: skipping a data line that is not a chunk",
 			"model", logData.modelID, "provider", logData.providerName,
 			"chunk_number", chunkCount, "payload_bytes", len(payload))
 		sink.swallowBlank = true
