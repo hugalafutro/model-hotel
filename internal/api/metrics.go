@@ -69,7 +69,13 @@ func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return
 		}
-		// No dedicated token configured — fall back to admin auth.
-		h.AuthMiddleware(next).ServeHTTP(w, r)
+		// No dedicated token configured — fall back to ADMIN auth, which is
+		// AuthMiddleware plus requireAdmin. AuthMiddleware alone only proves the
+		// caller is authenticated: it admits any resolved identity, including a
+		// non-admin multi-user session. The exported counters carry provider and
+		// model labels but no owner label, so they are fleet-wide totals across
+		// every virtual-key owner and belong to nobody in particular — the same
+		// cross-tenant aggregate /api/stats scopes with an owner filter.
+		h.AuthMiddleware(requireAdmin(next)).ServeHTTP(w, r)
 	})
 }

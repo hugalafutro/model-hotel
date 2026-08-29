@@ -470,7 +470,8 @@ func TestRequestsSince_CachesWithinTTL(t *testing.T) {
 	const key = "cache-test-window"
 	since := time.Now().Add(-time.Hour)
 
-	baseline := sh.requestsSince(ctx, since, key)
+	// Empty scope: the admin/unscoped case, which is what this test is about.
+	baseline := sh.requestsSince(ctx, since, key, "")
 
 	// Insert a row inside the window AFTER the value was cached. Within the TTL the
 	// cached baseline must come back: the COUNT is not re-run on every collect,
@@ -479,13 +480,13 @@ func TestRequestsSince_CachesWithinTTL(t *testing.T) {
 		`INSERT INTO request_logs (created_at) VALUES ($1)`, time.Now()); err != nil {
 		t.Fatalf("insert request_log: %v", err)
 	}
-	if got := sh.requestsSince(ctx, since, key); got != baseline {
+	if got := sh.requestsSince(ctx, since, key, ""); got != baseline {
 		t.Errorf("within TTL expected cached %d, got %d (COUNT re-ran)", baseline, got)
 	}
 
 	// After a cache reset the fresh COUNT sees the inserted row.
 	resetSystemCache()
-	if got := sh.requestsSince(ctx, since, key); got != baseline+1 {
+	if got := sh.requestsSince(ctx, since, key, ""); got != baseline+1 {
 		t.Errorf("after reset expected fresh %d, got %d", baseline+1, got)
 	}
 }

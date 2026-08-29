@@ -222,3 +222,28 @@ func TestMetricsEventSeams(t *testing.T) {
 		}
 	}
 }
+
+// The admin fallback must mean ADMIN, not merely authenticated.
+//
+// It ran requireAuth alone, which admits every authenticated caller including a
+// PAIRED DEVICE — the very thing requireAdmin exists to refuse. So a phone
+// paired as operator or monitor could scrape the fleet's Prometheus counters,
+// which carry no per-device scoping at all. The comment above the function
+// called that "admin auth"; it was authenticated auth.
+func TestMetricsAdminFallback_RefusesPairedDevices(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	for _, role := range []DeviceRole{RoleOperator, RoleMonitor} {
+		t.Run(string(role), func(t *testing.T) {
+			token, _ := pairDevice(t, srv, role, "Pixel "+string(role))
+			if rec := scrape(t, srv, token); rec.Code != http.StatusForbidden {
+				t.Errorf("paired %s device GET /metrics = %d, want 403: %s", role, rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	// The admin path is unaffected.
+	if rec := scrape(t, srv, testFrontdeskToken); rec.Code != http.StatusOK {
+		t.Errorf("admin GET /metrics = %d, want 200", rec.Code)
+	}
+}
