@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -139,5 +140,45 @@ func TestChargeBreaker_UntranslatableBodyIsCharged(t *testing.T) {
 
 	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
 		t.Error("a body the gateway could not translate must be charged to the provider")
+	}
+}
+
+// And the charge has to happen at the three sites that produce it, not just in
+// the helper. Driven through attemptCandidate with a Gemini candidate whose 200
+// is not a Gemini answer, which is the shape translateEgressResponseBody
+// rejects — the case each adapter's own comment already calls a provider fault,
+// and the case the old code credited before the translation was attempted.
+func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `<html>502 Bad Gateway</html>`)
+	}))
+	defer srv.Close()
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	// The hostname decides the dialect; the transport dials the test server.
+	cand := goneCandidateAt(m, "Vertex Express", "http://us-central1-aiplatform.googleapis.com/v1")
+
+	st := &requestState{
+		startTime:             time.Now(),
+		reqModel:              "gemini-2.0-flash",
+		bodyBytes:             []byte(`{"model":"gemini-2.0-flash","messages":[{"role":"user","content":"hi"}]}`),
+		failoverTimeout:       30 * time.Second,
+		circuitBreakerEnabled: true,
+		logData:               &requestLogData{modelID: "gemini-2.0-flash", endpointType: endpointTypeChat},
+	}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+	// Two candidates, so the attempt is free to reject this one.
+	if got := h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2); got != outcomeFailover {
+		t.Fatalf("outcome = %v, want a failover on an untranslatable 200", got)
+	}
+	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+		t.Error("a 200 whose body could not be translated was not charged to the provider")
 	}
 }

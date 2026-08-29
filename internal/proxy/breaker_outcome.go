@@ -102,3 +102,20 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reas
 	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 }
+
+// rejectUntranslatableBody is the single outcome all three egress adapters have
+// for a 200 whose body they cannot turn into a completion.
+//
+// One place because the outcome has four parts — the log, the breaker charge,
+// the request error and the failover — and three copies of it is how the charge
+// came to be missing from all three: a 200 was credited at header time, before
+// any translation was attempted, and each adapter's own comment already called
+// this a provider fault. Mutation testing then showed two of the three copies
+// had no test behind them.
+func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, err error, attempt int) candidateOutcome {
+	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
+	h.chargeBreaker(st, candidate, "upstream body could not be translated")
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+	logData.failoverAttempt = attempt
+	return outcomeFailover
+}

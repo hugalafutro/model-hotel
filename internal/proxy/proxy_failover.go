@@ -189,11 +189,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		} else if err := translateResponsesResponseBody(resp, st.reqModel); err != nil {
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
-			debuglog.Warn("proxy: responses api translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
-			h.chargeBreaker(st, candidate, "upstream body could not be translated")
-			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-			logData.failoverAttempt = attempt
-			return outcomeFailover
+			return h.rejectUntranslatableBody(st, candidate, logData, "responses api", err, attempt)
 		}
 	}
 	if st.geminiAttempt {
@@ -201,11 +197,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			debuglog.Warn("proxy: gemini translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
-			h.chargeBreaker(st, candidate, "upstream body could not be translated")
-			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-			logData.failoverAttempt = attempt
-			return outcomeFailover
+			return h.rejectUntranslatableBody(st, candidate, logData, "gemini", err, attempt)
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -213,11 +205,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			debuglog.Warn("proxy: anthropic egress translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
-			h.chargeBreaker(st, candidate, "upstream body could not be translated")
-			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-			logData.failoverAttempt = attempt
-			return outcomeFailover
+			return h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", err, attempt)
 		}
 	}
 	if st.isStreaming {
