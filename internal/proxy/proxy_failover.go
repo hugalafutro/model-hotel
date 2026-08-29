@@ -165,9 +165,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// and the decrypted key already in hand here. The endpoint family comes
 		// off the log entry and decides whether the refusal can be adjudicated at
 		// all.
-		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+		drainedMsg := util.SanitizeLogBody(string(drained), 10000)
+		kind, _ := classifyUpstreamError(resp.StatusCode, drainedMsg, candidate.model.ModelID)
+		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, logData.endpointType)
 		}
+		// The body is in hand, so a verdict deferred on the status can be made.
+		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, drainedMsg)
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		logData.failoverAttempt = attempt

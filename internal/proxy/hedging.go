@@ -316,7 +316,10 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// happened to win — almost never, since a model answering 404 loses the
 		// TTFT contest to anything that works. Same classification the sequential
 		// and pass-through loops do, on a body being discarded either way.
-		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(errBody), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+		errBodyMsg := util.SanitizeLogBody(string(errBody), 10000)
+		kind, _ := classifyUpstreamError(resp.StatusCode, errBodyMsg, candidate.model.ModelID)
+		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, kind, errBodyMsg)
+		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
 		}
 		res.reqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
