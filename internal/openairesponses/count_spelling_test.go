@@ -138,3 +138,81 @@ func TestTranslateResponsesToChat_AnUnreadableMemberCostsOnlyWhatItFeeds(t *test
 		})
 	}
 }
+
+// The streaming surface, which #813 left untested: the terminal usage chunk is
+// built by finishChunks from the raw usage member held on the response event, so
+// the count spellings have to survive the stream's own path to the client, not
+// only the non-streaming one. A count read here is what the metering pipeline
+// bills.
+func TestStreamTranslator_CountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name                    string
+		usage                   string
+		wantIn, wantOut, wantTo int
+	}{
+		{"plain integers", `{"input_tokens":12,"output_tokens":3,"total_tokens":15}`, 12, 3, 15},
+		{"quoted", `{"input_tokens":"12","output_tokens":"3","total_tokens":"15"}`, 12, 3, 15},
+		{"fractional", `{"input_tokens":12.0,"output_tokens":3.0,"total_tokens":15.0}`, 12, 3, 15},
+		// A member this translator has no field for keeps the counts beside it.
+		{"unmodelled sibling", `{"input_tokens":12,"output_tokens":3,"total_tokens":15,"input_tokens_details":[]}`, 12, 3, 15},
+		// Not a count in any spelling: the figures read straight off their own
+		// member stand, the one that could not be read is not invented.
+		{"one figure unreadable", `{"input_tokens":12,"output_tokens":"lots","total_tokens":15}`, 12, 0, 15},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tr := NewStreamTranslator("m")
+			if _, err := tr.TranslateEvent([]byte(`{"type":"response.output_text.delta","delta":"hi"}`)); err != nil {
+				t.Fatalf("delta event: %v", err)
+			}
+			out, err := tr.TranslateEvent([]byte(`{"type":"response.completed","response":{"id":"resp_1","status":"completed","usage":` + tc.usage + `}}`))
+			if err != nil {
+				t.Fatalf("a usage member cost the stream its terminal event: %v", err)
+			}
+			got := streamUsage(t, out)
+			if got.PromptTokens != tc.wantIn || got.CompletionTokens != tc.wantOut || got.TotalTokens != tc.wantTo {
+				t.Errorf("metered %d/%d/%d, want %d/%d/%d",
+					got.PromptTokens, got.CompletionTokens, got.TotalTokens, tc.wantIn, tc.wantOut, tc.wantTo)
+			}
+		})
+	}
+}
+
+type streamUsageCounts struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// streamUsage reads the usage block off the last translated chunk that carries
+// one, on top of the frame splitter the rest of the stream tests use.
+//
+// The re-encode is what makes the read typed: collectChunks hands back
+// map[string]any, where every count is a float64 to be re-asserted, and
+// asserting on the SSE bytes as a string would match "12" inside "121" — a count
+// is exactly the thing that must not be matched loosely.
+func streamUsage(t *testing.T, sse []byte) streamUsageCounts {
+	t.Helper()
+	chunks, _ := collectChunks(t, sse)
+	var last streamUsageCounts
+	var seen bool
+	for _, chunk := range chunks {
+		block, ok := chunk["usage"]
+		if !ok || block == nil {
+			continue
+		}
+		encoded, err := json.Marshal(block)
+		if err != nil {
+			t.Fatalf("usage block did not re-encode: %v", err)
+		}
+		if err := json.Unmarshal(encoded, &last); err != nil {
+			t.Fatalf("usage block did not decode: %v\n%s", err, encoded)
+		}
+		seen = true
+	}
+	if !seen {
+		t.Fatalf("no chunk carried a usage block: %s", sse)
+	}
+	return last
+}
