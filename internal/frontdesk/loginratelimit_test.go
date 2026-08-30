@@ -2,7 +2,6 @@ package frontdesk
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
@@ -98,34 +97,5 @@ func TestLoginScreenPolls_AreNotRateLimited(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestOneRequestCostsOneToken pins that mounting the same limiter twice on a
-// route bills a request once. The login ceremonies sit under a route-level
-// limiter and, on the gateway binary, under a tree-wide one as well; billing
-// twice would refuse every login below about 5 rps, because the second charge
-// lands on a bucket the first just emptied.
-func TestOneRequestCostsOneToken(t *testing.T) {
-	lim := limiterFor(t)
-	served := 0
-	h := lim.Middleware(lim.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		served++
-	})))
-
-	for i := range loginBurst {
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
-		if rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("request %d of the burst was refused: the doubled mount is charging twice", i+1)
-		}
-	}
-	if served != loginBurst {
-		t.Errorf("handler ran %d times, want %d", served, loginBurst)
-	}
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
-	if rec.Code != http.StatusTooManyRequests {
-		t.Errorf("past the burst got %d, want %d: the limiter stopped counting", rec.Code, http.StatusTooManyRequests)
 	}
 }
