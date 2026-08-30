@@ -99,24 +99,28 @@ describe("AppLogs live polling", () => {
 		expect(cursorCalls).toBe(afterLoad);
 	});
 
-	it("refreshes when the tab comes back to the foreground", async () => {
+	it("refreshes when the tab comes back to the foreground, not when it leaves", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			expect(cursorCalls).toBeGreaterThan(0);
 		});
+		const beforeHiding = cursorCalls;
 
+		// The event fires on the way out too. That one must do nothing: the
+		// whole point of the guard is that a tab nobody is looking at stops
+		// asking for logs.
 		setTabHidden(true);
 		await act(async () => {
 			document.dispatchEvent(new Event("visibilitychange"));
 		});
-		const whileHidden = cursorCalls;
+		expect(cursorCalls).toBe(beforeHiding);
 
 		setTabHidden(false);
 		await act(async () => {
 			document.dispatchEvent(new Event("visibilitychange"));
 		});
 		await waitFor(() => {
-			expect(cursorCalls).toBeGreaterThan(whileHidden);
+			expect(cursorCalls).toBeGreaterThan(beforeHiding);
 		});
 	});
 

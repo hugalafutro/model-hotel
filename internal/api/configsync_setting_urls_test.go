@@ -2,6 +2,8 @@ package api
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -55,23 +57,12 @@ func TestValidateSyncedSetting_URLTypes(t *testing.T) {
 			}
 			// The import response quotes this error to the operator, so it has
 			// to name the offending key: "some URL was invalid" is not enough
-			// to find it among a whole envelope of settings.
-			if !containsQuoted(err.Error(), tt.key) {
+			// to find it among a whole envelope of settings. The key is matched
+			// WITH its quotes, so a short key cannot pass by appearing as a
+			// prefix of a longer one inside the netguard message.
+			if !strings.Contains(err.Error(), strconv.Quote(tt.key)) {
 				t.Errorf("error %q does not name the key %q", err.Error(), tt.key)
 			}
 		})
 	}
-}
-
-// containsQuoted reports whether s contains key wrapped in double quotes. The
-// quotes matter: they stop a short key name matching as a prefix of a longer
-// one that happens to appear in the netguard message.
-func containsQuoted(s, key string) bool {
-	q := `"` + key + `"`
-	for i := 0; i+len(q) <= len(s); i++ {
-		if s[i:i+len(q)] == q {
-			return true
-		}
-	}
-	return false
 }

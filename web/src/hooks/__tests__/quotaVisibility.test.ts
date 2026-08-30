@@ -35,6 +35,22 @@ describe("isQuotaPayloadVisible", () => {
 			},
 		},
 		{
+			// NanoGPT has returned both spellings, so both are checked. Testing
+			// only one leaves the other clause free to be deleted.
+			type: "nanogpt",
+			why: "the plan is cancelled, spelled the American way",
+			visible: {
+				providerStatus: "active",
+				limits: { weeklyInputTokens: 1_000_000 },
+				weeklyInputTokens: { used: 12 },
+			},
+			hidden: {
+				providerStatus: "canceled",
+				limits: { weeklyInputTokens: 1_000_000 },
+				weeklyInputTokens: { used: 12 },
+			},
+		},
+		{
 			type: "zai-coding",
 			why: "a failed call carries no windows",
 			visible: {

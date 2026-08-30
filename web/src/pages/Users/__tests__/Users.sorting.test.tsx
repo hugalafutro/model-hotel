@@ -8,20 +8,22 @@ import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Users } from "../index";
 
-// Three accounts that disagree on every sortable column, so no two columns
-// produce the same order and a comparator wired to the wrong field shows up.
+// Three accounts chosen so that no two columns produce the same order. Last
+// login in particular deliberately does NOT track the username order: bob
+// sorts second by name but last by login, so a comparator wired to the wrong
+// field cannot pass by accident.
 //
 //            username   role    enabled   last login
-//  carol     3rd        user    yes       newest
+//  carol     3rd        user    yes       middle
 //  alice     1st        admin   no        never
-//  bob       2nd        user    no        oldest
+//  bob       2nd        user    no        newest
 const carol: DashboardUser = {
 	...mockDashboardUser,
 	id: "aaaaaaaa-1111-4111-8111-111111111111",
 	username: "carol",
 	role: "user",
 	enabled: true,
-	last_login_at: "2026-08-20T10:00:00Z",
+	last_login_at: "2026-01-05T10:00:00Z",
 };
 const alice: DashboardUser = {
 	...mockDashboardUser,
@@ -37,7 +39,7 @@ const bob: DashboardUser = {
 	username: "bob",
 	role: "user",
 	enabled: false,
-	last_login_at: "2026-01-05T10:00:00Z",
+	last_login_at: "2026-08-20T10:00:00Z",
 };
 
 /**
@@ -116,11 +118,14 @@ describe("Users page sorting", () => {
 			expect(screen.getByText("carol")).toBeInTheDocument();
 		});
 
+		// Oldest first, and the never-logged-in account is the oldest of all.
+		// This order differs from every other column's, so it can only come
+		// from the last_login arm.
 		await sortBy(user, "users.table.lastLogin");
-		expect(renderedOrder(container)).toEqual(["alice", "bob", "carol"]);
+		expect(renderedOrder(container)).toEqual(["alice", "carol", "bob"]);
 
 		await sortBy(user, "users.table.lastLogin");
-		expect(renderedOrder(container)).toEqual(["carol", "bob", "alice"]);
+		expect(renderedOrder(container)).toEqual(["bob", "carol", "alice"]);
 	});
 
 	it("starts a newly picked column ascending rather than inheriting the last direction", async () => {
@@ -135,6 +140,6 @@ describe("Users page sorting", () => {
 		expect(renderedOrder(container)).toEqual(["carol", "bob", "alice"]);
 
 		await sortBy(user, "users.table.lastLogin");
-		expect(renderedOrder(container)).toEqual(["alice", "bob", "carol"]);
+		expect(renderedOrder(container)).toEqual(["alice", "carol", "bob"]);
 	});
 });
