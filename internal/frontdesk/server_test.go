@@ -74,6 +74,18 @@ func newTestServerUI(t *testing.T, ui fs.FS) (*Server, *Store) {
 // for tests that assert which routes the limiter actually covers.
 func newTestServerLimited(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMiddleware) (*Server, *Store) {
 	t.Helper()
+	return newTestServerCfg(t, ui, limiter, "")
+}
+
+// newTestServerTraefikToken builds a server whose /traefik/config is bearer
+// gated, for tests about the gated half of that endpoint.
+func newTestServerTraefikToken(t *testing.T, token string) (*Server, *Store) {
+	t.Helper()
+	return newTestServerCfg(t, nil, ratelimit.NewIPLimiter(1000, 1000, nil, nil), token)
+}
+
+func newTestServerCfg(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMiddleware, traefikToken string) (*Server, *Store) {
+	t.Helper()
 	store := newTestStore(t)
 	bus := events.NewBus()
 	poller := NewPoller(store, bus, "")
@@ -95,6 +107,7 @@ func newTestServerLimited(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMid
 		RelyingParty: rp,
 		IPLimiter:    limiter,
 		UI:           ui,
+		TraefikToken: traefikToken,
 	})
 	// Drain any detached background goroutine (e.g. an auto-sync kick) before
 	// the store and its temp dir are torn down. Registered here so it runs

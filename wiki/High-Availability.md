@@ -38,7 +38,12 @@ with the last config it fetched; only membership changes pause until it returns.
   members. It pulls its routing config from Front Desk over the internal compose
   network via Traefik's HTTP provider, polling `GET /traefik/config` every ~5s
   (optionally locked to a shared `FRONTDESK_TRAEFIK_TOKEN` bearer; see
-  [TLS Proxy](#tls-proxy)).
+  [TLS Proxy](#tls-proxy)). Setting that token is worth more than the member
+  URLs it hides: serving the config also stamps the poll that the
+  Traefik-stalled watchdog measures silence against, so while the endpoint is
+  open, any caller that reaches it resets that watchdog and a Traefik that has
+  actually died is never reported. Front Desk logs a warning at startup when the
+  token is unset.
 - **Front Desk (control plane)** is a small Go binary with an embedded SQLite
   database and its own web UI. You add, drain, and remove members here, replicate
   config across the fleet, and watch health. It is **never** in the request path.
