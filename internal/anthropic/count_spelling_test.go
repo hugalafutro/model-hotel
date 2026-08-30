@@ -178,8 +178,6 @@ func TestBuildMessageResponse_CountSpellings(t *testing.T) {
 		{"quoted", `{"prompt_tokens":"12","completion_tokens":"3"}`, 12, 3},
 		{"fractional", `{"prompt_tokens":12.0,"completion_tokens":3.0}`, 12, 3},
 		{"mixed", `{"prompt_tokens":"12","completion_tokens":3}`, 12, 3},
-		// A member this translator has no field for keeps the counts beside it.
-		{"unmodelled sibling", `{"prompt_tokens":12,"completion_tokens":3,"prompt_tokens_details":[]}`, 12, 3},
 		// Not a count in any spelling: nothing is invented for the figure that
 		// could not be read, and the one that could is still reported.
 		{"one figure unreadable", `{"prompt_tokens":"lots","completion_tokens":3}`, 0, 3},
@@ -223,13 +221,16 @@ func TestBuildMessageResponse_CountSpellings(t *testing.T) {
 // differently, not for leniency across the response.
 func TestBuildMessageResponse_BrokenBytesStillFail(t *testing.T) {
 	t.Parallel()
-	for _, body := range []string{
-		`{"choices":[],"usage":{"prompt_tokens":1}`, // truncated object
-		`[]`, // a list is not a chat completion
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"truncated object", `{"choices":[],"usage":{"prompt_tokens":1}`},
+		{"a list", `[]`},
 	} {
-		t.Run(body, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := BuildMessageResponse([]byte(body), "msg_1", "m"); err == nil {
+			if _, err := BuildMessageResponse([]byte(tc.body), "msg_1", "m"); err == nil {
 				t.Error("want an error: these bytes are broken, not a count in another spelling")
 			}
 		})

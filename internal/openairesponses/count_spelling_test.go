@@ -185,28 +185,31 @@ type streamUsageCounts struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-// streamUsage reads the usage block off the last chat chunk that carries one.
-// Parsing the frames rather than substring-matching the SSE bytes: "12" is a
-// substring of "121", and a count is exactly the thing that must not be matched
-// loosely.
+// streamUsage reads the usage block off the last translated chunk that carries
+// one, on top of the frame splitter the rest of the stream tests use.
+//
+// The re-encode is what makes the read typed: collectChunks hands back
+// map[string]any, where every count is a float64 to be re-asserted, and
+// asserting on the SSE bytes as a string would match "12" inside "121" — a count
+// is exactly the thing that must not be matched loosely.
 func streamUsage(t *testing.T, sse []byte) streamUsageCounts {
 	t.Helper()
+	chunks, _ := collectChunks(t, sse)
 	var last streamUsageCounts
 	var seen bool
-	for _, line := range strings.Split(string(sse), "\n") {
-		payload, ok := strings.CutPrefix(line, "data: ")
-		if !ok || strings.TrimSpace(payload) == "[DONE]" {
+	for _, chunk := range chunks {
+		block, ok := chunk["usage"]
+		if !ok || block == nil {
 			continue
 		}
-		var chunk struct {
-			Usage *streamUsageCounts `json:"usage"`
+		encoded, err := json.Marshal(block)
+		if err != nil {
+			t.Fatalf("usage block did not re-encode: %v", err)
 		}
-		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
-			t.Fatalf("stream frame did not decode: %v", err)
+		if err := json.Unmarshal(encoded, &last); err != nil {
+			t.Fatalf("usage block did not decode: %v\n%s", err, encoded)
 		}
-		if chunk.Usage != nil {
-			last, seen = *chunk.Usage, true
-		}
+		seen = true
 	}
 	if !seen {
 		t.Fatalf("no chunk carried a usage block: %s", sse)
