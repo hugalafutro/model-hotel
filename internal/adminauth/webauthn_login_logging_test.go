@@ -162,8 +162,9 @@ func TestWebAuthnHandler_LoginFinish_LogsRejectedAssertions(t *testing.T) {
 	}
 }
 
-// A successful ceremony logs no failure line, so the brute-force bucket never
-// fills from legitimate logins.
+// A ceremony id that resolves to nothing never reached a credential, so it is
+// not a rejected passkey and must not fill the brute-force bucket. A stale
+// browser tab retrying its old session produces exactly this.
 func TestWebAuthnHandler_LoginFinish_SessionMissLogsNoPasskeyFailure(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Fatal("test database not available")

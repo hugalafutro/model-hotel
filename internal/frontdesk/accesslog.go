@@ -76,8 +76,21 @@ func isStaticAsset(path string) bool {
 
 // isPollingEndpoint reports whether the request is machine-to-machine liveness
 // traffic rather than a person using Front Desk: the container HEALTHCHECK,
-// Traefik's provider poll, a Prometheus scrape, and the dashboard's own event
-// stream. At their frequency one info line apiece buries everything else.
+// Traefik's provider poll, a Prometheus scrape, the dashboard's own event
+// stream, and the reads the open dashboard repeats on a timer.
+//
+// The timed reads matter more here than they do on the gateway. Front Desk's
+// stdout handler has no stderr filter in front of it, so an info line really is
+// written, and the SPA re-reads the member list and the device list every five
+// seconds (frontdesk/web/src/hooks/useMembers.ts and
+// frontdesk/web/src/components/PairedDevicesPanel.tsx),
+// the Traffic page re-pulls every member's traffic on the same cadence, and the
+// quota panel reads every minute. One idle tab would otherwise write a dozen
+// lines a minute forever, which buries the rejections this log exists for. They
+// are the SPA's and Bellhop's liveness reads, not a person doing anything.
+//
+// Only GET qualifies among the API reads: the same paths are mutating routes
+// under another method, and a mutation is never noise.
 //
 // The comparison is against a slash-normalized path, so a trailing slash from a
 // client or a reverse proxy cannot defeat an exact match and lift the endpoint
@@ -87,11 +100,16 @@ func isPollingEndpoint(method, path string) bool {
 	if len(np) > 1 {
 		np = strings.TrimRight(np, "/")
 	}
-	switch np {
-	case "/healthz", "/traefik/config", "/metrics":
+	if np == "/healthz" || np == "/traefik/config" || np == "/metrics" {
 		return true
-	case "/api/sse":
-		return method == http.MethodGet
 	}
-	return false
+	if method != http.MethodGet {
+		return false
+	}
+	switch np {
+	case "/api/sse", "/api/members", "/api/devices", "/api/quota":
+		return true
+	}
+	// Per-member traffic, which the Traffic page pulls once per member per tick.
+	return strings.HasPrefix(np, "/api/members/") && strings.HasSuffix(np, "/traffic")
 }

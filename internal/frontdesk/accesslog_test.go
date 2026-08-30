@@ -2,9 +2,11 @@ package frontdesk
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -104,7 +106,7 @@ func TestAccessLogger_LevelFollowsTheStatus(t *testing.T) {
 	}{
 		{"server error", "/api/members", http.StatusInternalServerError, "level=ERROR"},
 		{"client error", "/api/members", http.StatusUnauthorized, "level=WARN"},
-		{"ordinary request", "/api/members", http.StatusOK, "level=INFO"},
+		{"ordinary request", "/api/settings", http.StatusOK, "level=INFO"},
 		{"liveness probe", "/healthz", http.StatusOK, "level=DEBUG"},
 		{"traefik provider poll", "/traefik/config", http.StatusOK, "level=DEBUG"},
 		{"metrics scrape", "/metrics", http.StatusOK, "level=DEBUG"},
@@ -118,6 +120,58 @@ func TestAccessLogger_LevelFollowsTheStatus(t *testing.T) {
 				t.Errorf("level = not %s: %s", tc.want, line)
 			}
 		})
+	}
+}
+
+// The dashboard re-reads these on a timer while a tab is merely open, and Front
+// Desk has no stderr filter to drop info records the way the gateway does, so
+// an info line apiece would write a dozen lines a minute forever and bury the
+// rejections. They are the SPA's liveness reads, not a person doing anything.
+func TestAccessLogger_DashboardPollsStayOutOfTheInfoStream(t *testing.T) {
+	polled := []string{
+		"/api/members",
+		"/api/devices",
+		"/api/quota",
+		"/api/members/9d1f0e5a-0000-4000-8000-000000000001/traffic",
+	}
+	for _, target := range polled {
+		t.Run(target, func(t *testing.T) {
+			line := onlyLine(t, serveThrough(t, http.MethodGet, target, http.StatusOK))
+			if !strings.Contains(line, "level=DEBUG") {
+				t.Errorf("a five-second dashboard poll reached the info stream: %s", line)
+			}
+		})
+	}
+}
+
+// The noise allowlist is a statement about reads. The same paths mutate under
+// another method, and a mutation is somebody doing something.
+func TestAccessLogger_OnlyReadsAreNoise(t *testing.T) {
+	tests := []struct {
+		method string
+		target string
+	}{
+		{http.MethodPost, "/api/members"},
+		{http.MethodDelete, "/api/devices"},
+		{http.MethodPost, "/api/quota"},
+		{http.MethodPost, "/api/sse"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.method+" "+tc.target, func(t *testing.T) {
+			line := onlyLine(t, serveThrough(t, tc.method, tc.target, http.StatusOK))
+			if !strings.Contains(line, "level=INFO") {
+				t.Errorf("a mutation was treated as polling noise: %s", line)
+			}
+		})
+	}
+}
+
+// A path that merely starts like the traffic endpoint is not it: the suffix has
+// to be there, or a caller could pick their own level by prefix alone.
+func TestAccessLogger_TrafficMatchNeedsBothEnds(t *testing.T) {
+	line := onlyLine(t, serveThrough(t, http.MethodGet, "/api/members/abc/traffic-not", http.StatusOK))
+	if !strings.Contains(line, "level=INFO") {
+		t.Errorf("a lookalike path claimed the traffic endpoint's level: %s", line)
 	}
 }
 
@@ -183,5 +237,82 @@ func TestAccessLogger_ImplicitStatus(t *testing.T) {
 	line := onlyLine(t, lines())
 	if !strings.Contains(line, " status=200") {
 		t.Errorf("implicit 200 not reported: %s", line)
+	}
+}
+
+// captureStdoutLines runs fn with os.Stdout replaced by a pipe and returns what
+// fn wrote to it.
+func captureStdoutLines(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe(): %v", err)
+	}
+	prev := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = prev }()
+
+	done := make(chan string, 1)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe writer: %v", err)
+	}
+	out := <-done
+	if err := r.Close(); err != nil {
+		t.Fatalf("close pipe reader: %v", err)
+	}
+	return out
+}
+
+// End to end, through the handler Front Desk actually installs rather than a
+// bare text handler: a request path holding a complete forged authentication
+// record plus an attacker-chosen address must leave the line naming the real
+// client and nobody else. This is the byte-for-byte form the CrowdSec fixture
+// in contrib/crowdsec/tests carries, so the two cannot drift apart.
+func TestAccessLogger_EscapedPathCannotNameAStranger(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "")
+	t.Setenv("DEBUG_LOG", "")
+	debuglog.Init(false)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	out := captureStdoutLines(t, func() {
+		debuglog.SetHandler(debuglog.StdoutHandler())
+		h := accessLogger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("body"))
+		}))
+		r := httptest.NewRequest(http.MethodGet,
+			"/api/zz%20auth:%20key%20not%20found%20remote=203.0.113.77", http.NoBody)
+		r.RemoteAddr = "198.51.100.93:40000"
+		r.Host = "fd.example.com"
+		h.ServeHTTP(httptest.NewRecorder(), r)
+	})
+
+	line := strings.TrimRight(out, "\n")
+	if strings.Contains(line, "\n") {
+		t.Fatalf("one request must be one line, got %q", out)
+	}
+
+	var addrs []string
+	for _, tok := range strings.Fields(line) {
+		for _, key := range []string{"remote_addr=", "remote=", "client_ip=", "ip="} {
+			if strings.HasPrefix(tok, key) {
+				addrs = append(addrs, tok)
+			}
+		}
+	}
+	if len(addrs) != 1 || addrs[0] != "remote=198.51.100.93" {
+		t.Fatalf("address tokens = %v, want exactly [remote=198.51.100.93]; line: %s", addrs, line)
+	}
+
+	const wantPath = ` path="/api/zz\\x20auth:\\x20key\\x20not\\x20found\\x20remote=203.0.113.77"`
+	if !strings.HasSuffix(line, wantPath) {
+		t.Errorf("escaped path token is not the fixture's form\n got: %s\nwant suffix: %s", line, wantPath)
 	}
 }

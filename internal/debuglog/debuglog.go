@@ -120,7 +120,11 @@ func StdoutHandler() slog.Handler {
 //
 // The built-in time/level/msg/source attributes are the handler's own and are
 // left alone: the message carries the "scope: message" text every log reader
-// classifies on, and its spaces are load-bearing.
+// classifies on, and its spaces are load-bearing. That exemption is by key
+// name, so it rests on no caller passing a caller-controlled value under one of
+// those four keys. No call site does today, and a new one must not: an
+// attribute keyed "msg" carrying upstream text would be exempt from the
+// escaping and could present a "key=value" token of its own.
 func escapeAttrSpaces(groups []string, a slog.Attr) slog.Attr {
 	if len(groups) == 0 {
 		switch a.Key {

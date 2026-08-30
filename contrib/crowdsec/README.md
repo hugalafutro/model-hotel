@@ -380,16 +380,29 @@ docker restart <crowdsec-container>
 
 ## What is not covered
 
-- **Only warning and error records reach the container log.** With `DEBUG_LOG=false` (the default)
-  info and debug records never reach stderr; they still land in the App Logs page and in Postgres.
-  Every authentication failure is logged at warn or error, so the security signal is complete, but
-  successful requests are invisible to CrowdSec. `DEBUG_LOG=true` would expose them at a cost of
-  roughly six extra lines per request, which is not a trade worth making for this.
+- **On the gateway, only warning and error records reach the container log.** With
+  `DEBUG_LOG=false` (the default) info and debug records never reach stderr; they still land in the
+  App Logs page and in Postgres. Every authentication failure is logged at warn or error, so the
+  security signal is complete, but successful requests are invisible to CrowdSec. `DEBUG_LOG=true`
+  would expose them at a cost of roughly six extra lines per request, which is not a trade worth
+  making for this.
+
+  Front Desk is different: it writes straight to stdout with no such filter, so its info records
+  DO reach the container log. Successful requests to it are therefore visible, apart from the
+  reads the dashboard repeats on a timer (the member and device lists, per-member traffic, quota,
+  the event stream) and the machine probes (`/healthz`, `/traefik/config`, `/metrics`), which are
+  logged at debug on purpose so an idle browser tab does not fill the log.
 
 - **Front Desk's access log is opt-in like the gateway's.** Front Desk writes the same
   `access: request` line the gateway does, but the parser that maps it onto `http_access-log` is
   the opt-in `hugalafutro/model-hotel-access-logs`, not part of this collection. Without it, the
   authentication lines below are what CrowdSec sees from Front Desk.
+
+- **Front Desk's role refusals are not logged.** A paired Bellhop device reaching above its role
+  (a monitor device on a mutating route, any device on an admin-only route) gets a 403 from
+  `requireOperator` / `requireAdmin` with no line at all, so it produces no `forbidden` event the
+  way the gateway's `auth: insufficient permissions` does. A device holds a token an operator
+  issued, so this is an over-reaching companion app rather than an intruder, but it is a gap.
 
 - **Nothing here reads the database.** The App Logs page holds more than the container log does,
   and it is not an acquisition source. If a failure only appears in App Logs, no scenario will see
@@ -426,10 +439,18 @@ one an instance emits.
    ```
 
    Its attribute values escape their spaces the same way the gateway's do, so a value is always a
-   single whitespace-delimited token. slog quotes a value holding an `=` or a quote, which escapes
-   the backslash of that escape a second time, so a request path with a space reads
-   `path="/x\\x20y"` on Front Desk against `path="/x\x20y"` on the gateway. Both are one token
-   and both carry the same address rules; only the depth of quoting differs.
+   single whitespace-delimited token. The two differ only in how much quoting ends up around that
+   token, because Front Desk escapes first and slog then decides whether to quote the result:
+
+   | value | gateway writes | Front Desk writes |
+   |---|---|---|
+   | `/x y` | `path="/x\x20y"` | `path=/x\x20y` |
+   | `/x y?a=b` | `path="/x\x20y?a=b"` | `path="/x\\x20y?a=b"` |
+
+   The gateway always quotes a value it escaped. Front Desk leaves the escaped value bare unless it
+   also holds an `=`, a quote or a control character, and when slog does quote it, it escapes the
+   backslash of the escape a second time. Neither form can hold a literal space, so both are one
+   token and both carry the same address rules.
 
 ### Why a request path cannot ban a stranger
 

@@ -143,7 +143,7 @@ func TestRequireAdminOrSession_AdmittedRequestLogsNothing(t *testing.T) {
 	r.RemoteAddr = "203.0.113.42:51000"
 	r.Header.Set("Authorization", "Bearer "+adminTok)
 	w := httptest.NewRecorder()
-	RequireAdminOrSession(adminOnly, mgr, nil, authcookie.FrontDesk, "auto", w2h(t)).ServeHTTP(w, r)
+	RequireAdminOrSession(adminOnly, mgr, nil, authcookie.FrontDesk, "auto", admittedHandler()).ServeHTTP(w, r)
 
 	for _, msg := range []string{
 		"auth: admin request missing bearer token",
@@ -156,8 +156,8 @@ func TestRequireAdminOrSession_AdmittedRequestLogsNothing(t *testing.T) {
 	}
 }
 
-// w2h is a next handler that records nothing and answers 200.
-func w2h(t *testing.T) http.Handler {
-	t.Helper()
+// admittedHandler stands in for whatever the middleware protects: it answers
+// 200, so reaching it means the request was admitted.
+func admittedHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 }
