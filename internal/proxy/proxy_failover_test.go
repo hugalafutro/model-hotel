@@ -85,10 +85,10 @@ func TestRecordBreakerOutcome(t *testing.T) {
 		want        breakerOutcome
 	}{
 		{"eligible 5xx -> failure", true, false, 500, true, breakerFailureRecorded},
-		// A 429 records nothing at header time — see breakerRecordAction. The
-		// charge, when it is owed, is made by recordClassifiedOutcome once the
-		// body has said which kind of 429 this is.
-		{"eligible 429 -> deferred (untouched)", true, false, 429, true, breakerUntouched},
+		// A 429 charges like any other failure — see breakerRecordAction. The
+		// charge lands on the candidate's resolved upstream model, so a plan that
+		// excludes one model darkens that model rather than the provider.
+		{"eligible 429 -> failure", true, false, 429, true, breakerFailureRecorded},
 		{"eligible 401 -> failure", true, false, 401, true, breakerFailureRecorded},
 		{"eligible 403 -> failure", true, false, 403, true, breakerFailureRecorded},
 		{"eligible 404 -> no-op", true, false, 404, true, breakerUntouched},
@@ -142,6 +142,46 @@ func TestRecordBreakerOutcome(t *testing.T) {
 				if !seen || fails != 0 {
 					t.Errorf("expected success recorded (circuit at 0 fails), got seen=%v fails=%d", seen, fails)
 				}
+			}
+		})
+	}
+}
+
+// The credit has to land on the circuit the charges land on. Circuits are keyed
+// (provider, resolved upstream model) and RecordSuccess creates whatever circuit
+// it is handed, so a credit under the wrong key leaves the real charge on the
+// clock and opens the model on a count it should never have reached — silently,
+// because both keys look like healthy bookkeeping from the outside.
+//
+// Threshold 2: at 1 the first charge opens the circuit and an erased credit is
+// invisible. Both success routes through recordBreakerOutcome are driven: the
+// non-eligible branch and the exhaustive-switch success inside the eligible one.
+func TestRecordBreakerOutcome_TheCreditLandsOnTheChargedModel(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		status   int
+		eligible bool
+	}{
+		{"a non-eligible 400", 400, false},
+		{"the exhaustive-switch success", 200, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := failover.NewCircuitBreaker(nil)
+			cb.Threshold = 2
+			h := &Handler{circuitBreaker: cb}
+			st := &requestState{circuitBreakerEnabled: true}
+			provID := uuid.New()
+			cand := modelCandidate{
+				model:    &model.Model{ModelID: "credited-model"},
+				provider: &provider.Provider{ID: provID, Name: "p"},
+			}
+
+			cb.RecordFailure(provID, "p", cand.model.ModelID)
+			h.recordBreakerOutcome(st, cand, tc.status, tc.eligible)
+			cb.RecordFailure(provID, "p", cand.model.ModelID)
+
+			if got := cb.GetState(provID, cand.model.ModelID); got == failover.StateOpen {
+				t.Error("the credit missed the charged model's circuit: an erased failure was still on the clock")
 			}
 		})
 	}

@@ -220,7 +220,6 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			if kind == KindProviderModelGone {
 				h.noteModelGone(candidate, logData.endpointType)
 			}
-			h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, drainedMsg)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
@@ -233,7 +232,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		// provider is alive: record the success before forwarding, matching
 		// chat's recordBreakerOutcome for non-eligible statuses.
 		if !isFailoverEligible && st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
@@ -395,24 +394,25 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// The request was interrupted; nothing here is the provider's doing.
 	case answered:
 		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 	case bodilessSuccessStatus(resp.StatusCode):
 		// 204/205 legitimately carry no body, so an empty one proves nothing
 		// either way — and this is a NO-OP rather than the credit it used to be.
 		//
-		// The credit was the harm. The breaker is keyed on the provider alone
-		// (RecordSuccess takes a provider ID, not a surface), so crediting here
-		// reset consecutiveFails for every other endpoint family on the same
-		// provider — including the chat path, which charges this same shape. A
-		// tenant sending both to one relay that answers 204 to everything had
-		// each chat charge erased by the next embeddings call, and the circuit
-		// never opened. Same argument as the 404 no-op in breakerRecordAction:
-		// recording a success erases real failure history.
+		// The credit is the harm. The breaker is keyed (provider, resolved
+		// upstream model) and NOT by endpoint family, so a model served on two
+		// surfaces shares one circuit: crediting an empty 204 here resets the
+		// consecutiveFails the chat path charges for that same model, which
+		// charges this same shape. A tenant sending both to one relay that
+		// answers 204 to everything had each chat charge erased by the next
+		// embeddings call, and the circuit never opened. Same argument as the 404
+		// no-op in breakerRecordAction: recording a success erases real failure
+		// history.
 	case !servedSuccessStatus(resp.StatusCode):
 		// A definitive non-2xx: the provider is plainly alive and answered.
 		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 	default:
 		h.chargeBreaker(st, candidate, "response completed without delivering content")
@@ -565,7 +565,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
@@ -573,9 +573,9 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	// Not for a bodiless success: see the buffered twin above for why crediting
-	// an empty 204 erases the chat path's charges on the same provider.
+	// an empty 204 erases the chat path's charges on the same model.
 	if st.circuitBreakerEnabled && !bodilessSuccessStatus(resp.StatusCode) {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of
 	// the provider is where a 200 stops being a promise. See the twin call in

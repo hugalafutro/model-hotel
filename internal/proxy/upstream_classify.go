@@ -313,12 +313,12 @@ func modelGoneAbout(body, modelID string) bool {
 // funnels balance errors into the rate-limit path so failover moves on), and
 // returning a new kind here must never change where a request is routed.
 //
-// The CIRCUIT BREAKER is no longer in that list. A 429 defers its verdict to
-// this classification (see breakerActionDeferred and refusalIsAboutTheModel),
-// so the phrase lists below are load-bearing for it: a phrase added here that
-// catches an ordinary overload body would turn it into KindProviderNotEntitled
-// and stop that provider's circuit ever opening. Adding to the entitlement
-// phrases in particular is a breaker change, not just a label change.
+// The CIRCUIT BREAKER is in that list too: it decides from the status alone
+// (see breakerRecordAction), and the phrases below label the row without
+// changing what it charges. Circuits are keyed per resolved upstream model, so
+// the refusal that made the phrase lists load-bearing — a plan excluding one
+// model, answered 429 — now darkens that model and leaves its siblings alone
+// without anything having to read the sentence.
 //
 // The returned reason is always gateway-authored static text. The upstream body
 // is never echoed to the caller: it can quote the request back at us, and the

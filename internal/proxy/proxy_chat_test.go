@@ -888,7 +888,7 @@ func TestChatCompletions_TTFTProbeTimeout(t *testing.T) {
 	}
 
 	// Verify circuit breaker recorded failure (threshold=1 → open).
-	cbState := handler.circuitBreaker.GetState(prov.ID, "")
+	cbState := handler.circuitBreaker.GetState(prov.ID, modelName)
 	if cbState != failover.StateOpen {
 		t.Errorf("expected circuit breaker StateOpen after probe timeout, got %s", cbState)
 	}

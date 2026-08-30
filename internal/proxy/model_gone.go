@@ -275,17 +275,22 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// probeModel asks this too, but from inside the goroutine, by which point the
 	// five minutes are already gone.
 	//
-	// The window is narrow: resolveCandidates skips providers whose circuit is
-	// open, so while it stays open nothing is routed to them and no strike is
-	// recorded. Only nominations already at the threshold when the circuit opened
-	// are affected, and each is delayed once.
+	// The window is narrow: resolveCandidates skips a candidate whose model
+	// circuit is open, so while it stays open nothing is routed to it and no
+	// strike is recorded. Only nominations already at the threshold when the
+	// circuit opened are affected, and each is delayed once.
 	//
 	// GetState rather than IsOpen, exactly as probeModel does — IsOpen is the
-	// routing gate and would spend the provider's one half-open trial slot on a
+	// routing gate and would spend this model's one half-open trial slot on a
 	// request the operator never made. The check inside probeModel stays where it
 	// is: it is that function's own contract.
-	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID, "") == failover.StateOpen {
-		debuglog.Debug("proxy: postponing auto-disable, the provider's circuit is open", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
+	//
+	// This model's own circuit, not the provider's: the probe that would follow
+	// goes to this model, and it is this model's darkness that would make the
+	// probe's refusal say nothing. A provider dark for OTHER models does not stop
+	// this one answering.
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID, m.ModelID) == failover.StateOpen {
+		debuglog.Debug("proxy: postponing auto-disable, the model's circuit is open", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
 		return
 	}
 

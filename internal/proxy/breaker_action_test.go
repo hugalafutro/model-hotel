@@ -6,6 +6,9 @@ import (
 
 // TestBreakerRecordAction is the authoritative table test for the proxy's
 // status→circuit-breaker mapping. 16 cases: 8 failure, 2 no-op, 6 success.
+//
+// One of the eight failures is the 429: the old mapping deferred it so a body
+// sniff could tell an overload from a plan that excludes one model.
 func TestBreakerRecordAction(t *testing.T) {
 	t.Parallel()
 
@@ -19,10 +22,10 @@ func TestBreakerRecordAction(t *testing.T) {
 		{name: "502_bad_gateway", statusCode: 502, want: breakerActionFailure},
 		{name: "503_service_unavailable", statusCode: 503, want: breakerActionFailure},
 		{name: "504_gateway_timeout", statusCode: 504, want: breakerActionFailure},
-		// Deferred, not failure: a 429 is either overload (provider health) or a
-		// plan that does not cover this model (not provider health), and only the
-		// body separates them. recordClassifiedOutcome finishes the verdict.
-		{name: "429_rate_limited", statusCode: 429, want: breakerActionDeferred},
+		// A 429 is either overload or a plan that does not cover this model, and
+		// both charge: the circuit key is the resolved upstream model, so the
+		// second kind darkens only the model it was about.
+		{name: "429_rate_limited", statusCode: 429, want: breakerActionFailure},
 		{name: "401_unauthorized", statusCode: 401, want: breakerActionFailure},
 		{name: "403_forbidden", statusCode: 403, want: breakerActionFailure},
 		{name: "402_payment_required", statusCode: 402, want: breakerActionFailure},
