@@ -36,6 +36,49 @@ type circuit struct {
 	// orders eviction, so the circuits that are dropped when a provider exceeds
 	// the cap are the ones nothing has routed to in the longest time.
 	lastCharged time.Time
+	// opens counts the transitions into Open inside the window that began at
+	// openWindowStart. A model whose circuit keeps reopening is failing in a way
+	// no single cooldown fixes, which is worth telling an operator once.
+	opens           int
+	openWindowStart time.Time
+}
+
+const (
+	// reopenWindow is how long the open transitions that escalate together must
+	// fall within. A day is long enough to catch a model that breaks a few times
+	// across a working day and short enough that failures months apart never add
+	// up to a report about the present.
+	reopenWindow = 24 * time.Hour
+	// opensBeforeEscalation is how many times a circuit opens inside one window
+	// before the breaker says so. Three, because two is an ordinary bad
+	// afternoon for a provider and the second open is already the first repeat.
+	opensBeforeEscalation = 3
+)
+
+// noteOpen records a transition into Open and reports whether this circuit has
+// now opened often enough inside one window to be worth escalating.
+//
+// A transition arriving after the window has run out starts a new window rather
+// than extending the old one, so an escalation is always drawn from one run of
+// recent failures rather than from unrelated outages that share a model. This
+// mirrors goneStreak.strike, for the same reason.
+//
+// Crossing the threshold clears the window: one window escalates once. Without
+// that, the fourth, fifth and sixth open each report the same unhealthy model
+// again, and the operator learns nothing from any of them.
+func (c *circuit) noteOpen(now time.Time) bool {
+	if c.openWindowStart.IsZero() || now.Sub(c.openWindowStart) > reopenWindow {
+		c.openWindowStart = now
+		c.opens = 1
+		return false
+	}
+	c.opens++
+	if c.opens < opensBeforeEscalation {
+		return false
+	}
+	c.openWindowStart = time.Time{}
+	c.opens = 0
+	return true
 }
 
 // modelCircuits holds one provider's circuits, keyed by the resolved upstream

@@ -139,10 +139,15 @@ func TestCatalogTypesAreEmitted(t *testing.T) {
 	}
 
 	for _, def := range Catalog() {
+		// Most circuit_breaker.* types name a circuit STATE and are built by
+		// concatenating it, so the literal never appears and the state passed to
+		// publishEvent is the only evidence they are emitted. The ones that
+		// report something other than a state are published as literals like
+		// every other event, so either form counts as wired.
 		if strings.HasPrefix(def.Type, cbPrefix) {
 			state := strings.TrimPrefix(def.Type, cbPrefix)
-			if !cbStates[state] {
-				t.Errorf("catalog event %q: no publishEvent call passes state %q (circuit_breaker.* types are built by concatenation, not as a literal); remove the entry or wire the emit", def.Type, state)
+			if !cbStates[state] && !strings.Contains(haystack, `"`+def.Type+`"`) {
+				t.Errorf("catalog event %q: no publishEvent call passes state %q and the type appears as no literal either; remove the entry or wire the emit", def.Type, state)
 			}
 			continue
 		}
