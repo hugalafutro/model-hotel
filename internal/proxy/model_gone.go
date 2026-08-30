@@ -284,7 +284,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// routing gate and would spend the provider's one half-open trial slot on a
 	// request the operator never made. The check inside probeModel stays where it
 	// is: it is that function's own contract.
-	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID, "") == failover.StateOpen {
 		debuglog.Debug("proxy: postponing auto-disable, the provider's circuit is open", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
 		return
 	}

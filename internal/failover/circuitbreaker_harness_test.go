@@ -27,6 +27,9 @@ func newTestCB(threshold int, cooldown time.Duration) *CircuitBreaker {
 type stubSettings struct {
 	threshold int
 	cooldown  time.Duration
+	// span overrides circuit_breaker_span_models when non-zero. Negative values
+	// are passed through so the fallback to the default can be asserted.
+	span int
 	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
 	pinEnabled *bool
 	// pinMax overrides circuit_breaker_quota_pin_max when positive.
@@ -36,6 +39,9 @@ type stubSettings struct {
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
 	if key == "circuit_breaker_threshold" && s.threshold > 0 {
 		return s.threshold
+	}
+	if key == "circuit_breaker_span_models" && s.span != 0 {
+		return s.span
 	}
 	return def
 }
@@ -68,9 +74,9 @@ func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
 func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
 	t.Helper()
 	for i := 0; i < cb.effectiveThreshold(); i++ {
-		cb.RecordFailure(id, "test-provider")
+		cb.RecordFailure(id, "test-provider", "")
 	}
-	if got := cb.GetState(id); got != StateOpen {
+	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Fatalf("setup: got state %v, want open", got)
 	}
 }
@@ -195,7 +201,7 @@ func backdateOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, by time.Durati
 	t.Helper()
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	c, ok := cb.circuits[id.String()]
+	c, ok := cb.circuits[id.String()][""]
 	if !ok {
 		t.Fatalf("setup: no circuit tracked for %s", id)
 	}
@@ -209,11 +215,30 @@ func overrideFor(t *testing.T, cb *CircuitBreaker, id uuid.UUID) time.Duration {
 	t.Helper()
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	c, ok := cb.circuits[id.String()]
+	c, ok := cb.circuits[id.String()][""]
 	if !ok {
 		t.Fatalf("no circuit tracked for %s", id)
 	}
 	return c.cooldownOverride
+}
+
+// countCircuits reports how many model circuits a provider is tracking. The
+// eviction cap has no observable effect on routing (that is the point of it),
+// so the only honest way to assert it is to read the map the cap bounds.
+func countCircuits(t *testing.T, cb *CircuitBreaker, id uuid.UUID) int {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return len(cb.circuits[id.String()])
+}
+
+// hasCircuit reports whether one model circuit survived eviction.
+func hasCircuit(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string) bool {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	_, ok := cb.circuits[id.String()][model]
+	return ok
 }
 
 func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {

@@ -233,7 +233,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		// provider is alive: record the success before forwarding, matching
 		// chat's recordBreakerOutcome for non-eligible statuses.
 		if !isFailoverEligible && st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
@@ -395,7 +395,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// The request was interrupted; nothing here is the provider's doing.
 	case answered:
 		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 		}
 	case bodilessSuccessStatus(resp.StatusCode):
 		// 204/205 legitimately carry no body, so an empty one proves nothing
@@ -412,7 +412,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	case !servedSuccessStatus(resp.StatusCode):
 		// A definitive non-2xx: the provider is plainly alive and answered.
 		if st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 		}
 	default:
 		h.chargeBreaker(st, candidate, "response completed without delivering content")
@@ -565,7 +565,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
@@ -575,7 +575,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// Not for a bodiless success: see the buffered twin above for why crediting
 	// an empty 204 erases the chat path's charges on the same provider.
 	if st.circuitBreakerEnabled && !bodilessSuccessStatus(resp.StatusCode) {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of
 	// the provider is where a 200 stops being a promise. See the twin call in

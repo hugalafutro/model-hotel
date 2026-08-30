@@ -80,7 +80,7 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, nil)
 
-			charged := h.circuitBreaker.GetState(providerID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("circuit open = %v, want %v (state %q)", charged, tc.wantCharge, logData.state)
 			}
@@ -99,12 +99,12 @@ func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 	providerID := uuid.New()
 	st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
 	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
-	h.circuitBreaker.RecordFailure(providerID, "p")
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
 
 	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, nil)
 
-	h.circuitBreaker.RecordFailure(providerID, "p")
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an answered completion recorded no success, so an old failure was still on the clock")
 	}
 }
@@ -122,7 +122,7 @@ func TestRecordAnswerOutcome_AFailedAttemptIsCharged(t *testing.T) {
 
 	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, nil)
 
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a completion that failed after the headers must be charged")
 	}
 }
@@ -156,7 +156,7 @@ func TestChargeBreaker_UntranslatableBodyIsCharged(t *testing.T) {
 
 	h.chargeBreaker(st, candidate, "upstream body could not be translated")
 
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a body the gateway could not translate must be charged to the provider")
 	}
 }
@@ -199,7 +199,7 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 	if got := h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2); got != outcomeFailover {
 		t.Fatalf("outcome = %v, want a failover on an untranslatable 200", got)
 	}
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 		t.Error("a 200 whose body could not be translated was not charged to the provider")
 	}
 }
@@ -293,7 +293,7 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
 			}
-			if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+			if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 				t.Error("an interrupted read was charged to the provider")
 			}
 		})
@@ -460,7 +460,7 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 	if !strings.Contains(logData.errorMessage, "body cap") {
 		t.Errorf("errorMessage = %q, want the cap named", logData.errorMessage)
 	}
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("a provider was charged for sending too much")
 	}
 }
@@ -503,7 +503,7 @@ func TestServeBufferedJSONPassthrough_EmptyEmbeddingsChargesTheBreaker(t *testin
 
 			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5)
 
-			charged := h.circuitBreaker.GetState(providerID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("circuit open = %v, want %v", charged, tc.wantCharge)
 			}
@@ -541,7 +541,7 @@ func TestServeBufferedJSONPassthrough_AClientHangingUpIsNotCharged(t *testing.T)
 
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
 
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through read was charged to the provider")
 	}
 }
@@ -599,7 +599,7 @@ func TestAttemptCandidate_EmptyAnswerChargesTheBreaker(t *testing.T) {
 
 			h.attemptCandidate(w, r, st, cand, 0, 1)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 				t.Errorf("a 200 carrying no answer was not charged (state %q, body %q)", st.logData.state, w.Body.String())
 			}
 		})
@@ -656,7 +656,7 @@ func TestAttemptCandidate_AGeminiSafetyBlockIsNotAProviderFault(t *testing.T) {
 
 			h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2)
 
-			charged := h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(cand.provider.ID, "") == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("charged = %v, want %v", charged, tc.wantCharge)
 			}
@@ -708,7 +708,7 @@ func TestHandleNonStreamingResponse_ABodyThatDiedOnTheWireIsCharged(t *testing.T
 	if logData.errorKind != KindProviderError {
 		t.Errorf("errorKind = %q, want provider_error: a dead read is not a parse failure", logData.errorKind)
 	}
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a provider that broke after committing its status was not charged")
 	}
 }
@@ -735,7 +735,7 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 	withBreakerThreshold(t, h, "2")
 
 	providerID := uuid.New()
-	h.circuitBreaker.RecordFailure(providerID, "p")
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
 	st := passthroughState(providerID)
 	candidate := modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
@@ -747,8 +747,8 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 
 	// The earlier failure must still be on the clock: at threshold 2 a second
 	// one opens the circuit, which it cannot do if the 204 credited a success.
-	h.circuitBreaker.RecordFailure(providerID, "p")
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("an empty 204 credited a success and erased the failure before it")
 	}
 }
@@ -775,7 +775,7 @@ func TestServeBufferedJSONPassthrough_AnAbandonedRequestIsNotCharged(t *testing.
 
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
 
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through request was charged to the provider")
 	}
 }
@@ -839,7 +839,7 @@ func TestAttemptCandidate_AnEmptiedEgressAnswerIsCharged(t *testing.T) {
 
 			h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 1)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 				t.Errorf("an emptied %s answer was credited (state %q)", tc.name, st.logData.state)
 			}
 		})
@@ -902,7 +902,7 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	if !strings.Contains(w.Body.String(), "hello") {
 		t.Errorf("a complete answer was discarded: %q", w.Body.String())
 	}
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("a provider that delivered a complete answer was charged")
 	}
 }

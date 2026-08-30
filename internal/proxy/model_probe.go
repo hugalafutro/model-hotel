@@ -284,7 +284,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// provider's probes deferred until the breaker's own cooldown clears, and a
 	// deferred probe can only leave a model enabled longer. If a later change
 	// threads a testable settings source through here, honor the setting then.
-	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID, "") == failover.StateOpen {
 		debuglog.Debug("proxy: retirement probe skipped, the provider's circuit is open", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
 		return probeInconclusive
 	}

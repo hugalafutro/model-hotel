@@ -735,7 +735,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 
 	// Open the circuit breaker for the provider (threshold=5 by default)
 	for range 5 {
-		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name)
+		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name, "")
 	}
 
 	candidates, _, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
@@ -1181,7 +1181,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpen(t *testing.T) {
 	}
 
 	// Open the circuit breaker
-	cb.RecordFailure(providerID, providerName)
+	cb.RecordFailure(providerID, providerName, "")
 
 	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, true)
 
@@ -1221,7 +1221,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpenButDisabled(t *testing.T) {
 	}
 
 	// Open the circuit breaker
-	cb.RecordFailure(providerID, providerName)
+	cb.RecordFailure(providerID, providerName, "")
 
 	// cbEnabled=false → circuit breaker should be skipped
 	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)

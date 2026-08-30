@@ -601,7 +601,7 @@ func TestStallWatchdog_CircuitBreakerOnStall(t *testing.T) {
 	}
 	// Verify circuit breaker was actually called: with threshold=1, a
 	// single RecordFailure should transition the provider to StateOpen.
-	cbState := h.circuitBreaker.GetState(providerID)
+	cbState := h.circuitBreaker.GetState(providerID, "")
 	if cbState != failover.StateOpen {
 		t.Errorf("expected circuit breaker StateOpen after stall, got %s", cbState)
 	}

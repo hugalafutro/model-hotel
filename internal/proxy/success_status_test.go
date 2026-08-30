@@ -244,7 +244,7 @@ func TestAttemptCandidate_AnEmptySuccessChargesTheBreakerWhateverIts2xx(t *testi
 				h.attemptCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cand, 0, 1)
 			}
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 				t.Errorf("two %d answers carrying nothing did not open the circuit: "+
 					"a header-time credit erased each charge as it was made", status)
 			}
@@ -288,7 +288,7 @@ func TestAttemptCandidate_A204DoesNotCreditTheBreaker(t *testing.T) {
 	if !st.logData.emptyCompletion {
 		t.Error("a 204 was recorded as having delivered something")
 	}
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 		t.Error("a 204 bought the provider a breaker credit")
 	}
 }
@@ -544,7 +544,7 @@ func TestBreaker_PassthroughDoesNotEraseTheChatChargeForTheSameShape(t *testing.
 	passthroughOnce()
 	chatOnce()
 
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 		t.Error("an embeddings 204 erased the chat charge before it: the circuit never opens under mixed traffic")
 	}
 }

@@ -384,7 +384,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
@@ -730,7 +730,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// retry never counts against the provider.
 		if !isContextErr {
 			if st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
 			}
 		}
 		return nil, false

@@ -123,7 +123,7 @@ func TestProbeStreamingCandidate_ErrorFrameLosesAndIsChargedToTheProvider(t *tes
 	}
 	// Charged to the breaker, which is the half that stops the next 35
 	// requests walking into the same provider.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(cand.provider.ID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: an error-frame probe is a provider failure", got)
 	}
 }
@@ -242,7 +242,7 @@ func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) 
 		}
 	}
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s after %d committed-then-failed streams, want open", got, attempts)
 	}
 }
@@ -288,7 +288,7 @@ func TestHandleStreamingResponse_CompletedStreamClearsTheFailureCount(t *testing
 	}
 	succeed()
 	fail()
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 		t.Errorf("circuit = %s, want closed: a completed stream must clear the failure count", got)
 	}
 }
@@ -390,7 +390,7 @@ func TestHandleStreamingResponse_ErrorAfterContentDoesNotChargeTheBreaker(t *tes
 		attempt:          1,
 	})
 
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 		t.Error("a provider that delivered content before failing must not be broken for it")
 	}
 }
@@ -692,7 +692,7 @@ func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
 		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
 	}
 	// Threshold is 1 here, so a single charge shows immediately.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(cand.provider.ID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: a provider that produced nothing is charged", got)
 	}
 }
@@ -999,7 +999,7 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 		}
 	}
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
 	}
 }
@@ -1050,7 +1050,7 @@ func TestHandleStreamingResponse_ToolCallOnlyIsNotAnEmptyResponse(t *testing.T) 
 				t.Errorf("state = %q, want completed", logData.state)
 			}
 			// Threshold is 1, so a single stray charge shows immediately.
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Error("a completion whose only output is a tool call or reasoning is not empty and must not break the circuit")
 			}
 		})
@@ -1085,7 +1085,7 @@ func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
 		attempt:          1,
 	})
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: the caller received nothing", got)
 	}
 }
@@ -1159,7 +1159,7 @@ func TestHandleStreamingResponse_ReasoningSpellingsAreDelivery(t *testing.T) {
 				attempt:          1,
 			})
 
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Errorf("a reasoning answer spelled %q is output and must not break the circuit", name)
 			}
 		})
@@ -1195,7 +1195,7 @@ func TestHandleStreamingResponse_UnparseableChunkDoesNotCharge(t *testing.T) {
 				attempt:          1,
 			})
 
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Error("a frame our own parser dropped must not be charged to the provider")
 			}
 		})

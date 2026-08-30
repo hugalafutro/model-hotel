@@ -43,7 +43,7 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// upstream status, so without this line a breaker opening on
 			// repeated 5xx has no recorded cause anywhere.
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
 		case breakerActionNoOp:
 			// Model-specific client error (404/499): provider is alive
 			// but rejecting this request. No-op for the breaker — neither
@@ -64,7 +64,7 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// switch stays exhaustive
 			// over breakerAction — if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 		}
 		return
 	}
@@ -74,7 +74,7 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 	// here at header time erases the charge the answer verdict is about to make
 	// and the circuit can never open above a threshold of one.
 	if !servedSuccessStatus(statusCode) {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 	}
 }
 
@@ -184,7 +184,7 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		h.chargeBreaker(st, candidate, "response completed without delivering content")
 		return
 	}
-	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, "")
 }
 
 // chargeBreaker records one breaker failure with its cause in the log. The
@@ -196,7 +196,7 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reas
 		return
 	}
 	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, "")
 }
 
 // rejectUntranslatableBody is the single outcome all three egress adapters have

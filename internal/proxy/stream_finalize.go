@@ -329,9 +329,9 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// say and which is otherwise invisible above Debug.
 	if verdict := judgeStreamForBreaker(st, logData, errMsg, opts.circuitBreakerOn); verdict.failureReason != "" {
 		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration)
-		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
+		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName, "")
 	} else if verdict.success {
-		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName)
+		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName, "")
 	}
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")

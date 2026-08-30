@@ -347,7 +347,7 @@ func TestJudgeStreamForBreaker_UntypeableErrorFrameOpensTheCircuit(t *testing.T)
 
 	providerID := uuid.New()
 	const providerName = "mock"
-	if h.circuitBreaker.IsOpen(providerID, providerName) {
+	if h.circuitBreaker.IsOpen(providerID, providerName, "") {
 		t.Fatal("circuit is open before any request")
 	}
 
@@ -372,7 +372,7 @@ func TestJudgeStreamForBreaker_UntypeableErrorFrameOpensTheCircuit(t *testing.T)
 		if !providerAtFault(logData.errorKind) {
 			t.Fatalf("request %d: errorKind = %q, want a kind the provider answers for", i+1, logData.errorKind)
 		}
-		if open := h.circuitBreaker.IsOpen(providerID, providerName); open != (i+1 >= h.circuitBreaker.Threshold) {
+		if open := h.circuitBreaker.IsOpen(providerID, providerName, ""); open != (i+1 >= h.circuitBreaker.Threshold) {
 			t.Errorf("after %d failures: open = %v, threshold %d", i+1, open, h.circuitBreaker.Threshold)
 		}
 	}

@@ -86,7 +86,7 @@ func TestAttemptCandidate_AModelOutsideThePlanDoesNotDarkenTheProvider(t *testin
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, "") == failover.StateOpen {
 				t.Error("a model outside the plan opened the provider's circuit: every other model on it is now skipped")
 			}
 		})
@@ -110,7 +110,7 @@ func TestAttemptCandidate_AnOrdinaryRateLimitStillChargesTheBreaker(t *testing.T
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 				t.Error("two rate-limit 429s did not open the circuit: the breaker stopped reacting to overload")
 			}
 		})
@@ -123,7 +123,7 @@ func TestAttemptCandidate_AServerFaultStillChargesTheBreaker(t *testing.T) {
 	runEntitlementAttempt(t, h, cand, 1)
 	runEntitlementAttempt(t, h, cand, 1)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 		t.Error("two 500s did not open the circuit")
 	}
 }
@@ -157,7 +157,7 @@ func TestAttemptCandidate_ARateLimitIsNotChargedWhenFailoverIsOff(t *testing.T) 
 
 	runEntitlementAttempt(t, h, cand, 1)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") == failover.StateOpen {
 		t.Error("a 429 opened the circuit with failover_on_rate_limit off: the setting asks to stay on the provider")
 	}
 }
@@ -183,7 +183,7 @@ func TestProbeStreamingCandidate_ChargesARateLimit(t *testing.T) {
 	if res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second); res.won {
 		t.Fatal("a 429 must not win the race")
 	}
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") != failover.StateOpen {
 		t.Error("the hedge race did not charge a rate limit: nothing else does on that path now")
 	}
 }
@@ -207,7 +207,7 @@ func TestProbeStreamingCandidate_DoesNotChargeAPlanRefusal(t *testing.T) {
 	st.circuitBreakerEnabled = true
 	_ = h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, "") == failover.StateOpen {
 		t.Error("a model outside the plan opened the provider's circuit on the hedged path")
 	}
 }
@@ -255,7 +255,7 @@ func TestAttemptPassthroughCandidate_ChargesARateLimitButNotAPlanRefusal(t *test
 			// totalCandidates 2: eligible AND a fallback, which is the drain path.
 			h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 2)
 
-			if open := h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen; open != tc.wantOpen {
+			if open := h.circuitBreaker.GetState(cand.provider.ID, "") == failover.StateOpen; open != tc.wantOpen {
 				t.Errorf("circuit open = %v, want %v", open, tc.wantOpen)
 			}
 		})
