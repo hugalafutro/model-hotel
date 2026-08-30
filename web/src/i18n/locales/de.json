@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-Identität mit einem Konto verknüpft",
 				"discovery_claims_outstanding": "Modellabweichungen bleiben unbearbeitet",
 				"model_auto_disabled_gone": "Modell deaktiviert (Anbieter stellt es nicht mehr bereit)",
-				"provider_scheduled_disable": "Anbieter planmäßig deaktiviert"
+				"provider_scheduled_disable": "Anbieter planmäßig deaktiviert",
+				"circuit_breaker_unstable": "Modell fällt wiederholt aus (Circuit Breaker mehrfach ausgelöst)"
 			},
 			"events": {
 				"all": "Alles auswählen",

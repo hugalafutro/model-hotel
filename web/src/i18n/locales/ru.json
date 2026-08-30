@@ -2128,7 +2128,8 @@
 				"auth_sso_identity_bound": "Идентификатор SSO привязан к учётной записи",
 				"discovery_claims_outstanding": "Расхождения по моделям остались без внимания",
 				"model_auto_disabled_gone": "Модель отключена (провайдер больше её не предоставляет)",
-				"provider_scheduled_disable": "Провайдер отключён по расписанию"
+				"provider_scheduled_disable": "Провайдер отключён по расписанию",
+				"circuit_breaker_unstable": "Модель постоянно отказывает (автоматический выключатель срабатывал многократно)"
 			},
 			"events": {
 				"all": "Выделить всё",

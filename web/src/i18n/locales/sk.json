@@ -2128,7 +2128,8 @@
 				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom",
 				"discovery_claims_outstanding": "Nezrovnalosti modelov ponechané bez riešenia",
 				"model_auto_disabled_gone": "Model deaktivovaný (poskytovateľ ho už neposkytuje)",
-				"provider_scheduled_disable": "Poskytovateľ deaktivovaný podľa plánu"
+				"provider_scheduled_disable": "Poskytovateľ deaktivovaný podľa plánu",
+				"circuit_breaker_unstable": "Model opakovane zlyháva (istič sa opakovane otvoril)"
 			},
 			"events": {
 				"all": "Vybrať všetko",

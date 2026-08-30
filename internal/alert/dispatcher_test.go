@@ -276,6 +276,33 @@ func TestDebounceDistinctEntities(t *testing.T) {
 	}
 }
 
+// TestDebounceTwoModelsOnOneProvider covers the event that names a model AND
+// its provider. Both models fail for the same upstream reason, so they cross
+// their thresholds inside one cooldown and stay in phase; keying on the provider
+// would drop the second every time, and the operator would never learn that a
+// second model is broken.
+func TestDebounceTwoModelsOnOneProvider(t *testing.T) {
+	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "circuit_breaker.unstable")}, nil)
+	d.cooldown = time.Minute
+
+	unstable := func(model string) events.Event {
+		return events.Event{
+			Type:     "circuit_breaker.unstable",
+			Severity: "warning",
+			Metadata: map[string]any{"provider_id": "p1", "provider": "Z.ai", "model": model, "model_id": model},
+		}
+	}
+	if !d.handle(context.Background(), unstable("glm-5.2")) {
+		t.Fatal("the first model's report should dispatch")
+	}
+	if !d.handle(context.Background(), unstable("glm-4.6")) {
+		t.Error("a sibling model on the same provider was suppressed by the first")
+	}
+	if d.handle(context.Background(), unstable("glm-5.2")) {
+		t.Error("the same model repeated inside the cooldown should be suppressed")
+	}
+}
+
 func TestDebounceAllowsAfterCooldown(t *testing.T) {
 	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "circuit_breaker.open")}, nil)
 	d.cooldown = 30 * time.Millisecond

@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel",
 				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly",
 				"model_auto_disabled_gone": "Model gedeaktiveer (verskaffer bied dit nie meer aan nie)",
-				"provider_scheduled_disable": "Verskaffer gedeaktiveer soos geskeduleer"
+				"provider_scheduled_disable": "Verskaffer gedeaktiveer soos geskeduleer",
+				"circuit_breaker_unstable": "Model bly breek (kringbreker herhaaldelik oopgemaak)"
 			},
 			"events": {
 				"all": "Kies alles",

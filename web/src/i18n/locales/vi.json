@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản",
 				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý",
 				"model_auto_disabled_gone": "Đã tắt mô hình (nhà cung cấp không còn phục vụ)",
-				"provider_scheduled_disable": "Nhà cung cấp đã bị tắt theo lịch"
+				"provider_scheduled_disable": "Nhà cung cấp đã bị tắt theo lịch",
+				"circuit_breaker_unstable": "Mô hình liên tục lỗi (cầu dao ngắt mạch mở nhiều lần)"
 			},
 			"events": {
 				"all": "Chọn tất cả",

@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva",
 				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések",
 				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)",
-				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint"
+				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint",
+				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)"
 			},
 			"events": {
 				"all": "Összes kijelölése",

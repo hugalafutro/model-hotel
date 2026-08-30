@@ -656,10 +656,16 @@ only a request refused by name establishes that; a model failing that way is
 already handled by the model-gone path on its first refusal. What is left for
 this event is the model that fails some other way over and over (timeouts, 5xx,
 a provider having a bad week), and disabling that model would take a working one
-out of routing on evidence that says only "upstream is unwell". It is off by
-default in the alert catalogue, because an instance upgrading with a
-long-flaky provider would otherwise be alerted on the third open about a
-condition its operator already lives with. Turn it on under Settings, Alerts.
+out of routing on evidence that says only "upstream is unwell". It reports at
+most once per model per 24 hours: the window keeps running after it fires, so a
+permanently broken model does not report every third open.
+
+It is off by default in the alert catalogue, so it sends no outbound (Apprise)
+notification until an operator turns it on under Settings, Alerts. That default
+covers outbound alerting only: the dashboard's live event feed is not
+catalogue-gated, so the event still appears there as it happens. It is off by
+default because an instance upgrading with a long-flaky provider would otherwise
+notify on the third open about a condition its operator already lives with.
 
 The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event: it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
 

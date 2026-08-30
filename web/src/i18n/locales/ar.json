@@ -2232,7 +2232,8 @@
 				"auth_sso_identity_bound": "تم ربط هوية SSO بحساب",
 				"discovery_claims_outstanding": "تباينات النماذج التي تُركت دون معالجة",
 				"model_auto_disabled_gone": "تم تعطيل النموذج (المزود لم يعد يقدمه)",
-				"provider_scheduled_disable": "تم تعطيل المزود حسب الجدولة"
+				"provider_scheduled_disable": "تم تعطيل المزود حسب الجدولة",
+				"circuit_breaker_unstable": "النموذج يتعطل باستمرار (فُتح قاطع الدائرة مرارًا)"
 			},
 			"events": {
 				"all": "تحديد الكل",

@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
 				"discovery_claims_outstanding": "Modellavvik forblir uhåndtert",
 				"model_auto_disabled_gone": "Modell deaktivert (leverandøren tilbyr den ikke lenger)",
-				"provider_scheduled_disable": "Leverandør deaktivert som planlagt"
+				"provider_scheduled_disable": "Leverandør deaktivert som planlagt",
+				"circuit_breaker_unstable": "Modellen feiler gjentatte ganger (kretsbryter åpnet flere ganger)"
 			},
 			"events": {
 				"all": "Velg alt",

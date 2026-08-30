@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 )
@@ -37,10 +38,12 @@ type circuit struct {
 	// the cap are the ones nothing has routed to in the longest time.
 	lastCharged time.Time
 	// opens counts the transitions into Open inside the window that began at
-	// openWindowStart. A model whose circuit keeps reopening is failing in a way
-	// no single cooldown fixes, which is worth telling an operator once.
-	opens           int
-	openWindowStart time.Time
+	// openWindowStart, and unstableReported records whether that window has
+	// already been reported. A model whose circuit keeps reopening is failing in
+	// a way no single cooldown fixes, which is worth telling an operator once.
+	opens            int
+	openWindowStart  time.Time
+	unstableReported bool
 }
 
 const (
@@ -55,6 +58,13 @@ const (
 	opensBeforeEscalation = 3
 )
 
+// reopenWindowLabel writes the window the way an operator reads it and the way
+// the event publishes it. Duration.String renders a day as "24h0m0s", which is
+// noise in a sentence and a surprise to a consumer comparing the metadata
+// against the documented value. Derived rather than written twice so the
+// sentence cannot drift from the constant it describes.
+var reopenWindowLabel = fmt.Sprintf("%dh", int(reopenWindow.Hours()))
+
 // noteOpen records a transition into Open and reports whether this circuit has
 // now opened often enough inside one window to be worth escalating.
 //
@@ -63,21 +73,24 @@ const (
 // recent failures rather than from unrelated outages that share a model. This
 // mirrors goneStreak.strike, for the same reason.
 //
-// Crossing the threshold clears the window: one window escalates once. Without
-// that, the fourth, fifth and sixth open each report the same unhealthy model
-// again, and the operator learns nothing from any of them.
+// Crossing the threshold marks the window reported rather than clearing it, so
+// the window keeps running and a report costs a full reopenWindow before another
+// can follow. Clearing it instead would start a fresh window on the very next
+// open: a model failing every cooldown reaches three opens again within minutes,
+// and the operator would be told every few minutes that it "broke 3 times in
+// 24h" — a sentence the cadence itself contradicts.
 func (c *circuit) noteOpen(now time.Time) bool {
 	if c.openWindowStart.IsZero() || now.Sub(c.openWindowStart) > reopenWindow {
 		c.openWindowStart = now
 		c.opens = 1
+		c.unstableReported = false
 		return false
 	}
 	c.opens++
-	if c.opens < opensBeforeEscalation {
+	if c.opens < opensBeforeEscalation || c.unstableReported {
 		return false
 	}
-	c.openWindowStart = time.Time{}
-	c.opens = 0
+	c.unstableReported = true
 	return true
 }
 

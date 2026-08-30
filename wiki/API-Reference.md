@@ -1477,11 +1477,13 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
 
 `circuit_breaker.unstable` is not a state transition and carries its own smaller
-block: `provider_id`, `provider`, `model`, `opens` (how many times the circuit
-opened, always 3) and `window` (the span they fell within, always `24h`). It
-fires at most once per model per window, and the count restarts afterwards, so a
-model that stays broken reports again on its next three opens rather than on
-every one. It reports and never retires: a model the provider has stopped
+block: `provider_id`, `provider`, `model`, `model_id` (the same value as `model`,
+carried separately because it is the identity outbound alerts debounce on),
+`opens` (how many times the circuit opened, always 3) and `window` (the span they
+fell within, the string `24h`). It fires at most once per model per window: the
+window keeps running after it reports, so a model that stays broken reports again
+only once a full 24 hours has passed since the window's first open, not every
+three opens. It reports and never retires: a model the provider has stopped
 serving is refused by name and retired by the model-gone path instead, so what
 reaches this event is a model failing some other way, which disabling would be
 wrong about.

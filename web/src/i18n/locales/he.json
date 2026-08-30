@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "זהות SSO שויכה לחשבון",
 				"discovery_claims_outstanding": "אי-התאמות במודלים שנותרו ללא טיפול",
 				"model_auto_disabled_gone": "הדגם הושבת (הספק כבר אינו מספק אותו)",
-				"provider_scheduled_disable": "הספק הושבת לפי התזמון"
+				"provider_scheduled_disable": "הספק הושבת לפי התזמון",
+				"circuit_breaker_unstable": "המודל נכשל שוב ושוב (מפסק הזרם נפתח פעמים רבות)"
 			},
 			"events": {
 				"all": "בחר הכל",

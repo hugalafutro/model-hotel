@@ -282,7 +282,7 @@ func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, provider
 	debuglog.Warn(msg, "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c), "model", model)
 	cb.publishEvent(providerID, providerName, "open", model, c)
 	if c.noteOpen(now) {
-		cb.reportUnstable(providerID, providerName, model)
+		cb.reportUnstable(providerID, providerName, model, c.opens)
 	}
 	cb.notifyOpen(providerID)
 }
@@ -305,22 +305,33 @@ func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, provider
 //
 // Routing metadata only, and the model id goes last because it is the one
 // attribute a request can influence.
-func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, model string) {
+func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, model string, opens int) {
 	debuglog.Warn("circuit-breaker: model keeps reopening its circuit",
 		"provider", providerName, "provider_id", providerID,
-		"opens", opensBeforeEscalation, "window", reopenWindow.String(), "model", model)
+		"opens", opens, "window", reopenWindowLabel, "model", model)
 	events.Publish(events.Event{
 		Type:     "circuit_breaker.unstable",
 		Severity: "warning",
 		Source:   "failover",
-		Message: fmt.Sprintf("%s on %s has broken %d times in %s and keeps returning to service unhealthy",
-			model, providerName, opensBeforeEscalation, "24h"),
+		// What the counter establishes is how many times the circuit opened, not
+		// what the model was doing in between: a success does not reset the
+		// count, so three recovered blips across a working day land here too.
+		// The sentence says only what was counted.
+		Message: fmt.Sprintf("%s on %s opened its circuit %d times in %s",
+			model, providerName, opens, reopenWindowLabel),
 		Metadata: map[string]any{
 			"provider_id": providerID.String(),
 			"provider":    providerName,
 			"model":       model,
-			"opens":       opensBeforeEscalation,
-			"window":      reopenWindow.String(),
+			// model_id repeats model as the identity the alert dispatcher
+			// debounces on. Without it the most specific key present is
+			// provider_id, and two models crossing the threshold on one provider
+			// inside the dispatcher's cooldown collapse to one alert, silently
+			// dropping the second - which is the failure debouncing per entity
+			// exists to prevent.
+			"model_id": model,
+			"opens":    opens,
+			"window":   reopenWindowLabel,
 		},
 	})
 }

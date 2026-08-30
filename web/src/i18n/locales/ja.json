@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました",
 				"discovery_claims_outstanding": "未対応のモデルの不一致",
 				"model_auto_disabled_gone": "モデルを無効化（プロバイダーが提供を終了）",
-				"provider_scheduled_disable": "プロバイダーをスケジュールどおり無効化"
+				"provider_scheduled_disable": "プロバイダーをスケジュールどおり無効化",
+				"circuit_breaker_unstable": "モデルが繰り返し停止（サーキットブレーカーが何度も作動）"
 			},
 			"events": {
 				"all": "すべて選択",

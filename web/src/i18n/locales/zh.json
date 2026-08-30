@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO 身份已绑定到账户",
 				"discovery_claims_outstanding": "未处理的模型差异",
 				"model_auto_disabled_gone": "模型已禁用（提供商不再提供）",
-				"provider_scheduled_disable": "提供商已按计划禁用"
+				"provider_scheduled_disable": "提供商已按计划禁用",
+				"circuit_breaker_unstable": "模型反复故障（断路器多次打开）"
 			},
 			"events": {
 				"all": "全选",
