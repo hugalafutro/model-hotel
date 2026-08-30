@@ -136,7 +136,8 @@
 			"conn": "lig.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Pedidos hoje (todos)",
-			"requestsTodayOwn": "Pedidos hoje (seus)"
+			"requestsTodayOwn": "Pedidos hoje (seus)",
+			"requestsToday": "Pedidos hoje"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiado para o clipboard",
@@ -200,8 +201,9 @@
 			"dbHitRatio": "Taxa de acertos do cache de buffer sobre a atividade recente (maior é melhor; em branco enquanto o banco de dados está ocioso)",
 			"dbConnections": "Conexões ativas com base de dados",
 			"dbTxPerSec": "Transações do banco de dados por segundo",
-			"requestsTodayAll": "Número de requisições LLM encaminhadas pelo proxy de todas as chaves virtuais desde a meia-noite local de hoje",
-			"requestsTodayOwn": "Número de requisições LLM encaminhadas pelo proxy das suas próprias chaves virtuais desde a meia-noite local de hoje"
+			"requestsTodayAll": "Número de pedidos LLM encaminhados pelo proxy de todas as chaves virtuais desde a meia-noite local de hoje",
+			"requestsTodayOwn": "Número de pedidos LLM encaminhados pelo proxy das suas próprias chaves virtuais desde a meia-noite local de hoje",
+			"requestsToday": "Número de pedidos LLM de proxy desde a meia-noite local de hoje"
 		},
 		"githubRepo": "Repositório do GitHub",
 		"readOnly": {

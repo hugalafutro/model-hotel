@@ -136,7 +136,8 @@
 			"conn": "con.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Sol·l. avui (totes)",
-			"requestsTodayOwn": "Sol·l. avui (teves)"
+			"requestsTodayOwn": "Sol·l. avui (teves)",
+			"requestsToday": "Sol·l. avui"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat al porta-retalls",
@@ -201,7 +202,8 @@
 			"dbConnections": "Connexions actives a la base de dades",
 			"dbTxPerSec": "Transaccions de base de dades per segon",
 			"requestsTodayAll": "Nombre de sol·licituds a LLM gestionades per proxy per a totes les claus virtuals des de la mitjanit hora local d'avui",
-			"requestsTodayOwn": "Nombre de sol·licituds a LLM gestionades per proxy per a les teves pròpies claus virtuals des de la mitjanit hora local d'avui"
+			"requestsTodayOwn": "Nombre de sol·licituds a LLM gestionades per proxy per a les teves pròpies claus virtuals des de la mitjanit hora local d'avui",
+			"requestsToday": "Nombre de sol·licituds a LLM gestionades per proxy des de la mitjanit hora local d'avui"
 		},
 		"githubRepo": "Dipòsit de GitHub",
 		"readOnly": {

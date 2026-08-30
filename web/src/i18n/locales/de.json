@@ -131,7 +131,8 @@
 			"conn": "Verb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Anfr. heute (alle)",
-			"requestsTodayOwn": "Anfr. heute (Ihre)"
+			"requestsTodayOwn": "Anfr. heute (Ihre)",
+			"requestsToday": "Anfr. heute"
 		},
 		"toast": {
 			"copiedToClipboard": "In Zwischenablage kopiert",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktive Datenbankverbindungen",
 			"dbTxPerSec": "Datenbanktransaktionen pro Sekunde",
 			"requestsTodayAll": "Anzahl der proxiierten LLM-Anfragen aller virtuellen Schlüssel seit Mitternacht Ortszeit heute",
-			"requestsTodayOwn": "Anzahl der proxiierten LLM-Anfragen Ihrer eigenen virtuellen Schlüssel seit Mitternacht Ortszeit heute"
+			"requestsTodayOwn": "Anzahl der proxiierten LLM-Anfragen Ihrer eigenen virtuellen Schlüssel seit Mitternacht Ortszeit heute",
+			"requestsToday": "Anzahl der proxiierten LLM-Anfragen seit Mitternacht Ortszeit heute"
 		},
 		"githubRepo": "GitHub-Repository",
 		"readOnly": {

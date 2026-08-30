@@ -131,7 +131,8 @@
 			"conn": "kapcs.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Mai kérések (összes)",
-			"requestsTodayOwn": "Mai kérések (sajátok)"
+			"requestsTodayOwn": "Mai kérések (sajátok)",
+			"requestsToday": "Mai kérések"
 		},
 		"toast": {
 			"copiedToClipboard": "A vágólapra másolva",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktív adatbázis-kapcsolatok",
 			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként",
 			"requestsTodayAll": "A mai nap helyi idő szerint éjfél óta az összes virtuális kulcson továbbított LLM-kérelmek száma",
-			"requestsTodayOwn": "A mai nap helyi idő szerint éjfél óta a saját virtuális kulcsain továbbított LLM-kérelmek száma"
+			"requestsTodayOwn": "A mai nap helyi idő szerint éjfél óta a saját virtuális kulcsain továbbított LLM-kérelmek száma",
+			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma"
 		},
 		"githubRepo": "GitHub-tároló",
 		"readOnly": {

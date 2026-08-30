@@ -136,7 +136,8 @@
 			"conn": "conn.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Rich. oggi (tutte)",
-			"requestsTodayOwn": "Rich. oggi (tue)"
+			"requestsTodayOwn": "Rich. oggi (tue)",
+			"requestsToday": "Rich. oggi"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiato negli appunti",
@@ -201,7 +202,8 @@
 			"dbConnections": "Connessioni attive del database",
 			"dbTxPerSec": "Transazioni del database al secondo",
 			"requestsTodayAll": "Numero di richieste LLM inoltrate dal proxy per tutte le chiavi virtuali a partire dalla mezzanotte ora locale oggi",
-			"requestsTodayOwn": "Numero di richieste LLM inoltrate dal proxy per le tue chiavi virtuali a partire dalla mezzanotte ora locale oggi"
+			"requestsTodayOwn": "Numero di richieste LLM inoltrate dal proxy per le tue chiavi virtuali a partire dalla mezzanotte ora locale oggi",
+			"requestsToday": "Numero di richieste LLM proxy a partire dalla mezzanotte ora locale oggi"
 		},
 		"githubRepo": "Repository GitHub",
 		"readOnly": {

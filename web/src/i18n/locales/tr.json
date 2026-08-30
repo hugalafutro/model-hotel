@@ -131,7 +131,8 @@
 			"conn": "bağl.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Bugün istek (tümü)",
-			"requestsTodayOwn": "Bugün istek (sizin)"
+			"requestsTodayOwn": "Bugün istek (sizin)",
+			"requestsToday": "Bugün istek"
 		},
 		"toast": {
 			"copiedToClipboard": "Panoya kopyalandı",
@@ -196,7 +197,8 @@
 			"dbConnections": "Etkin veritabanı bağlantıları",
 			"dbTxPerSec": "Saniye başına veritabanı işlemleri",
 			"requestsTodayAll": "Bugün yerel saatle gece yarısından bu yana tüm sanal anahtarlarla proxy üzerinden gönderilen LLM isteklerinin sayısı",
-			"requestsTodayOwn": "Bugün yerel saatle gece yarısından bu yana kendi sanal anahtarlarınızla proxy üzerinden gönderilen LLM isteklerinin sayısı"
+			"requestsTodayOwn": "Bugün yerel saatle gece yarısından bu yana kendi sanal anahtarlarınızla proxy üzerinden gönderilen LLM isteklerinin sayısı",
+			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı"
 		},
 		"githubRepo": "GitHub deposu",
 		"readOnly": {

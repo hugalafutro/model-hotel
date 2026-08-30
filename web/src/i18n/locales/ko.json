@@ -131,7 +131,8 @@
 			"conn": "연결",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "오늘 요청(전체)",
-			"requestsTodayOwn": "오늘 요청(내 요청)"
+			"requestsTodayOwn": "오늘 요청(내 요청)",
+			"requestsToday": "오늘 요청"
 		},
 		"toast": {
 			"copiedToClipboard": "클립보드에 복사됨",
@@ -196,7 +197,8 @@
 			"dbConnections": "활성 데이터베이스 연결",
 			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수",
 			"requestsTodayAll": "오늘 현지 시간 자정 이후 모든 가상 키로 프록시를 통해 전송된 LLM 요청 건수",
-			"requestsTodayOwn": "오늘 현지 시간 자정 이후 내 가상 키로 프록시를 통해 전송된 LLM 요청 건수"
+			"requestsTodayOwn": "오늘 현지 시간 자정 이후 내 가상 키로 프록시를 통해 전송된 LLM 요청 건수",
+			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수"
 		},
 		"githubRepo": "GitHub 저장소",
 		"readOnly": {

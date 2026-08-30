@@ -136,7 +136,8 @@
 			"conn": "con.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Cereri azi (toate)",
-			"requestsTodayOwn": "Cereri azi (ale tale)"
+			"requestsTodayOwn": "Cereri azi (ale tale)",
+			"requestsToday": "Cereri azi"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat în clipboard",
@@ -201,7 +202,8 @@
 			"dbConnections": "Conexiuni active la baza de date",
 			"dbTxPerSec": "Baza de date tranzacţii pe secundă",
 			"requestsTodayAll": "Numărul de cereri LLM transmise prin proxy de la toate cheile virtuale de la miezul nopții locale astăzi",
-			"requestsTodayOwn": "Numărul de cereri LLM transmise prin proxy de la propriile tale chei virtuale de la miezul nopții locale astăzi"
+			"requestsTodayOwn": "Numărul de cereri LLM transmise prin proxy de la propriile tale chei virtuale de la miezul nopții locale astăzi",
+			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi"
 		},
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {

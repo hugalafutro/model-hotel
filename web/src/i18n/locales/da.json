@@ -131,7 +131,8 @@
 			"conn": "forb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Anmodn. i dag (alle)",
-			"requestsTodayOwn": "Anmodn. i dag (dine)"
+			"requestsTodayOwn": "Anmodn. i dag (dine)",
+			"requestsToday": "Anmodn. i dag"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopieret til udklipsholder",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktive databaseforbindelser",
 			"dbTxPerSec": "Database transaktioner pr. sekund",
 			"requestsTodayAll": "Antal proxyformidlede LLM-anmodninger fra alle virtuelle nøgler siden midnat lokal tid i dag",
-			"requestsTodayOwn": "Antal proxyformidlede LLM-anmodninger fra dine egne virtuelle nøgler siden midnat lokal tid i dag"
+			"requestsTodayOwn": "Antal proxyformidlede LLM-anmodninger fra dine egne virtuelle nøgler siden midnat lokal tid i dag",
+			"requestsToday": "Antal proxied LLM anmodninger siden midnat lokal tid i dag"
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {

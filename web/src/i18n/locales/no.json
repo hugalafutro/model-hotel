@@ -131,7 +131,8 @@
 			"conn": "tilk.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Foresp. i dag (alle)",
-			"requestsTodayOwn": "Foresp. i dag (dine)"
+			"requestsTodayOwn": "Foresp. i dag (dine)",
+			"requestsToday": "Foresp. i dag"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopiert til utklippstavle",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktive databasetilkoblinger",
 			"dbTxPerSec": "Databasetransaksjoner per sekund",
 			"requestsTodayAll": "Antall proxyede LLM-forespørsler fra alle virtuelle nøkler siden midnatt lokal tid i dag",
-			"requestsTodayOwn": "Antall proxyede LLM-forespørsler fra dine egne virtuelle nøkler siden midnatt lokal tid i dag"
+			"requestsTodayOwn": "Antall proxyede LLM-forespørsler fra dine egne virtuelle nøkler siden midnatt lokal tid i dag",
+			"requestsToday": "Antall proxyede LLM-forespørsler siden midnatt lokal tid i dag"
 		},
 		"githubRepo": "GitHub-repositorium",
 		"readOnly": {

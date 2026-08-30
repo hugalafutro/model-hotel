@@ -131,7 +131,8 @@
 			"conn": "yht.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Pyyntöjä tänään (kaikki)",
-			"requestsTodayOwn": "Pyyntöjä tänään (omat)"
+			"requestsTodayOwn": "Pyyntöjä tänään (omat)",
+			"requestsToday": "Pyyntöjä tänään"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopioitu leikepöydälle",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktiiviset tietokantayhteydet",
 			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa",
 			"requestsTodayAll": "Kaikkien virtuaaliavainten välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen",
-			"requestsTodayOwn": "Omien virtuaaliavaintesi välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen"
+			"requestsTodayOwn": "Omien virtuaaliavaintesi välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen",
+			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään"
 		},
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {

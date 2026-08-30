@@ -141,7 +141,8 @@
 			"conn": "prip.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Žiad. dnes (všetky)",
-			"requestsTodayOwn": "Žiad. dnes (vaše)"
+			"requestsTodayOwn": "Žiad. dnes (vaše)",
+			"requestsToday": "Žiad. dnes"
 		},
 		"toast": {
 			"copiedToClipboard": "Skopírované do schránky",
@@ -206,7 +207,8 @@
 			"dbConnections": "Aktívne pripojenia k databáze",
 			"dbTxPerSec": "Počet transakcií v databáze za sekundu",
 			"requestsTodayAll": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy zo všetkých virtuálnych kľúčov od dnešnej polnoci miestneho času",
-			"requestsTodayOwn": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy z vašich vlastných virtuálnych kľúčov od dnešnej polnoci miestneho času"
+			"requestsTodayOwn": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy z vašich vlastných virtuálnych kľúčov od dnešnej polnoci miestneho času",
+			"requestsToday": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy od dnešnej polnoci miestneho času"
 		},
 		"githubRepo": "Repozitár GitHub",
 		"readOnly": {

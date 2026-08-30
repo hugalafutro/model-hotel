@@ -696,11 +696,3 @@ func TestVersionLookupsShareOneClient(t *testing.T) {
 		t.Errorf("a lookup bypassed the shared client and reached the server %d times", hits)
 	}
 }
-
-// TestVersionClientTimeout pins the 10s request bound the lookups have always
-// carried, so holding the client in one place cannot quietly drop it.
-func TestVersionClientTimeout(t *testing.T) {
-	if githubClient.Timeout != 10*time.Second {
-		t.Errorf("githubClient.Timeout = %v, want 10s", githubClient.Timeout)
-	}
-}

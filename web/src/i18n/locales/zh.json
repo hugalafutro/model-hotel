@@ -131,7 +131,8 @@
 			"conn": "连接",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "今日请求（全部）",
-			"requestsTodayOwn": "今日请求（我的）"
+			"requestsTodayOwn": "今日请求（我的）",
+			"requestsToday": "今日请求"
 		},
 		"toast": {
 			"copiedToClipboard": "复制到剪贴板",
@@ -196,7 +197,8 @@
 			"dbConnections": "活跃的数据库连接",
 			"dbTxPerSec": "每秒数据库事务数",
 			"requestsTodayAll": "自今天当地时间午夜以来所有虚拟密钥代理的LLM请求数量",
-			"requestsTodayOwn": "自今天当地时间午夜以来您自己的虚拟密钥代理的LLM请求数量"
+			"requestsTodayOwn": "自今天当地时间午夜以来您自己的虚拟密钥代理的LLM请求数量",
+			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量"
 		},
 		"githubRepo": "GitHub 仓库",
 		"readOnly": {

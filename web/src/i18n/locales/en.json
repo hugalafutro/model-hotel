@@ -144,7 +144,8 @@
 			"conn": "conn",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Req Today (all)",
-			"requestsTodayOwn": "Req Today (yours)"
+			"requestsTodayOwn": "Req Today (yours)",
+			"requestsToday": "Req Today"
 		},
 		"toast": {
 			"copiedToClipboard": "Copied to clipboard",
@@ -221,7 +222,8 @@
 			"dbConnections": "Active database connections",
 			"dbTxPerSec": "Database transactions per second",
 			"requestsTodayAll": "Number of proxied LLM requests across every virtual key since midnight local time today",
-			"requestsTodayOwn": "Number of proxied LLM requests from your own virtual keys since midnight local time today"
+			"requestsTodayOwn": "Number of proxied LLM requests from your own virtual keys since midnight local time today",
+			"requestsToday": "Number of proxied LLM requests since midnight local time today"
 		},
 		"githubRepo": "GitHub repository",
 		"readOnly": {

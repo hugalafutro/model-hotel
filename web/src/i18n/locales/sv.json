@@ -131,7 +131,8 @@
 			"conn": "anslutn.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Förfr. idag (alla)",
-			"requestsTodayOwn": "Förfr. idag (dina)"
+			"requestsTodayOwn": "Förfr. idag (dina)",
+			"requestsToday": "Förfr. idag"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopierad till urklipp",
@@ -196,7 +197,8 @@
 			"dbConnections": "Aktiva databasanslutningar",
 			"dbTxPerSec": "Databastransaktioner per sekund",
 			"requestsTodayAll": "Antal proxierade LLM-förfrågningar från alla virtuella nycklar sedan midnatt lokal tid idag",
-			"requestsTodayOwn": "Antal proxierade LLM-förfrågningar från dina egna virtuella nycklar sedan midnatt lokal tid idag"
+			"requestsTodayOwn": "Antal proxierade LLM-förfrågningar från dina egna virtuella nycklar sedan midnatt lokal tid idag",
+			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag"
 		},
 		"githubRepo": "GitHub-repo",
 		"readOnly": {

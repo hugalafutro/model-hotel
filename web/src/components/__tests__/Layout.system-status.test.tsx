@@ -7,10 +7,11 @@ import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Layout } from "../Layout";
 
-// The sidebar names the scope of requests_today, and the default test identity
-// is an admin, so the fleet-wide label is the one these render. Read back
-// through i18next by key so the suite stays locale-independent.
-const REQ_TODAY_LABEL = i18n.t("layout.stats.requestsTodayAll");
+// The sidebar names the scope of requests_today only once the caller's role is
+// known, and these render Layout without an IdentityProvider, so the label they
+// meet is the scope-less one. Read back through i18next by key so the suite
+// stays locale-independent.
+const REQ_TODAY_LABEL = i18n.t("layout.stats.requestsToday");
 
 describe("Layout", () => {
 	const mockChildren = <div data-testid="main-content">Page Content</div>;

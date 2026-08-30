@@ -131,7 +131,8 @@
 			"conn": "verb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Verz. vandaag (alle)",
-			"requestsTodayOwn": "Verz. vandaag (die van u)"
+			"requestsTodayOwn": "Verz. vandaag (die van u)",
+			"requestsToday": "Verz. vandaag"
 		},
 		"toast": {
 			"copiedToClipboard": "Gekopieerd naar klembord",
@@ -196,7 +197,8 @@
 			"dbConnections": "Actieve database verbindingen",
 			"dbTxPerSec": "Database transacties per seconde",
 			"requestsTodayAll": "Aantal via de proxy verwerkte LLM-aanvragen van alle virtuele sleutels sinds middernacht lokale tijd vandaag",
-			"requestsTodayOwn": "Aantal via de proxy verwerkte LLM-aanvragen van uw eigen virtuele sleutels sinds middernacht lokale tijd vandaag"
+			"requestsTodayOwn": "Aantal via de proxy verwerkte LLM-aanvragen van uw eigen virtuele sleutels sinds middernacht lokale tijd vandaag",
+			"requestsToday": "Aantal proxied LLM aanvragen sinds middernacht lokale tijd vandaag"
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
