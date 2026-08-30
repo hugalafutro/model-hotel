@@ -430,6 +430,11 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 	// logs an address, so every warn/error line reports the real client.
 	r.Use(clientip.Middleware(s.trustedProxies))
 
+	// One line per request, in the gateway's own access-log shape, immediately
+	// inside the address resolution so it reports the real client. Front Desk
+	// otherwise leaves no trace of a rejected request at all.
+	r.Use(accessLogger)
+
 	// Security headers. The Front Desk admin UI manages the whole HA fleet
 	// (member admin tokens, device pairing, config sync, OIDC/alert settings),
 	// so framing it is only ever an attack: a same-origin frame inherits the

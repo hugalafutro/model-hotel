@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -44,6 +45,7 @@ func RequireAdminOrSession(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if tok, res, ok := adminCookieSession(r, sessionMgr, jar, true); ok {
 			if !authcookie.IsSafeMethod(r.Method) && !jar.ValidCSRF(r) {
+				debuglog.Warn("auth: CSRF check failed", "remote_addr", clientip.From(r), "path", r.URL.Path)
 				http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 				return
 			}
@@ -58,8 +60,16 @@ func RequireAdminOrSession(
 		// carrying one that does not resolve is told it was rejected. The two
 		// messages stay distinct, so the bearer branch is asked separately
 		// rather than folded into one boolean.
+		//
+		// Both rejections are logged at warning with the client address, never
+		// the token, so repeated attempts against the admin surface are visible
+		// to abuse detection without polluting the operator-actionable Error
+		// stream. The messages match the ones the gateway's own admin gate
+		// emits (internal/api/admin.go), so one log parser covers both binaries;
+		// the caller-controlled path goes last.
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
+			debuglog.Warn("auth: admin request missing bearer token", "remote_addr", clientip.From(r), "path", r.URL.Path)
 			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
@@ -69,6 +79,7 @@ func RequireAdminOrSession(
 			return
 		}
 
+		debuglog.Warn("auth: admin request with invalid token", "remote_addr", clientip.From(r), "path", r.URL.Path)
 		http.Error(w, "Invalid admin token or session token", http.StatusUnauthorized)
 	})
 }

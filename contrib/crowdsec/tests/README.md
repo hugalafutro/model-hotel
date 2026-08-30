@@ -20,17 +20,17 @@ overflows, and a scenario test sets `ignore_parsers: true` and asserts nothing a
 
 ## What each test covers
 
-`model-hotel-logs` is the parser test. Its 25 lines carry one example of every `sub_type` the
+`model-hotel-logs` is the parser test. Its 31 lines carry one example of every `sub_type` the
 parser can emit (`vk_invalid`, `admin_token`, `login`, `sso`, `csrf`, `forbidden`,
 `backup_signature`), three throttling lines, all three log shapes Model Hotel and Front Desk emit
 (Model Hotel text, `LOG_FORMAT=json`, Front Desk slog text), one address that still carries a TCP
 port the way pre-#674 builds logged it, and one info level line the parser has to refuse. The
 asserts pin `log_type`, `sub_type`, `source_ip`, `log_format`, `service`, and where the line
-carries them `http_path` and `target_user`, per line. The last line, `auth: authenticated`,
-asserts `Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is
-what keeps successful requests out of the buckets.
+carries them `http_path` and `target_user`, per line. Line 19, `auth: authenticated`, asserts
+`Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is what keeps
+successful requests out of the buckets.
 
-The last six lines are the log-injection regression, and they come in pairs: the escaped form a
+Lines 20 to 25 are the log-injection regression, and they come in pairs: the escaped form a
 v0.9.99 instance emits, and the bare form an older build does. Two are access lines whose request
 path holds a complete copy of an authentication failure plus an attacker-chosen `remote_addr`, and
 neither may classify. Two are real auth failures whose path holds an injected address; the escaped
@@ -44,10 +44,20 @@ classify. Scan for the first thing that looks like an address instead of taking 
 token and the bare auth line picks the attacker's. Drop the duplicate-address check and the bare
 lines start naming strangers.
 
+Lines 26 to 31, the last six, are Front Desk's own, in its slog framing: an access record, the two
+admin-gate rejections and the CSRF rejection its control plane emits, a rejected passkey assertion,
+and one
+admin rejection whose path carries an injected address. They pin that Front Desk reaches the same
+`admin_token`, `csrf` and `login` buckets as the gateway with the same messages, that its access
+record is refused by the main parser (it belongs to the opt-in access parser instead), and that its
+escaped path still resolves to the real client.
+
 `model-hotel-access-logs` covers the opt-in parser that is deliberately left out of the collection.
-It pins the mapping onto the generic `http_access-log` contract for both text and JSON, a pre-#674
-address that still carries its TCP port, and the same injection case: an auth line whose path holds
-a fake access record must not become an access log.
+It pins the mapping onto the generic `http_access-log` contract for all three shapes (Model Hotel
+text, JSON, Front Desk slog text), a pre-#674 address that still carries its TCP port, and the same
+injection case in both framings: an auth line whose path holds a fake access record must not become
+an access log, and an access line whose path holds an injected address must still name the real
+client.
 
 `model-hotel-vk-bf`, `model-hotel-admin-bf` and `model-hotel-throttled` are the scenario tests.
 Each pours enough lines from a single source address to overflow its bucket exactly once and

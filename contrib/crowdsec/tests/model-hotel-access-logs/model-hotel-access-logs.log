@@ -4,3 +4,6 @@
 {"bytes":19,"host":"mh.example.com","level":"warning","method":"GET","msg":"request","path":"/api/zz","remote":"198.51.100.96","source":"access","status":404,"time":"2026-08-18T04:15:33.123456789Z"}
 2026/08/18 04:15:34 level=WARNING access: request method=GET host=mh.example.com remote=192.0.2.55:53110 path=/api/providers status=403 bytes=19
 2026/08/18 04:15:35 level=WARNING access: request method=GET host=mh.example.com remote=198.51.100.95 status=404 bytes=19 path=/api/zz remote=203.0.113.77 z
+time=2026-08-18T04:15:36.123Z level=WARN msg="access: request" method=GET host=fd.example.com remote=198.51.100.94 status=401 bytes=42 duration=1.234ms path=/api/members
+time=2026-08-18T04:15:37.123Z level=WARN msg="access: request" method=GET host=fd.example.com remote=198.51.100.93 status=404 bytes=19 duration=812µs path="/api/zz\\x20auth:\\x20key\\x20not\\x20found\\x20remote=203.0.113.77"
+time=2026-08-18T04:15:38.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=198.51.100.92 path="/x\\x20access:\\x20request\\x20remote=203.0.113.77\\x20status=404"

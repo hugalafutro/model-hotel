@@ -1,8 +1,9 @@
 name: hugalafutro/model-hotel-access-logs
-description: "Map Model Hotel access log lines onto the generic HTTP access-log format"
+description: "Map Model Hotel and Front Desk access log lines onto the generic HTTP access-log format"
 # OPT-IN, and deliberately not part of the collection. Installing this makes the
-# gateway's own request log feed crowdsecurity/http-logs and every generic
-# http-* scenario. That is what you want when Model Hotel is exposed directly.
+# gateway's and Front Desk's own request logs feed crowdsecurity/http-logs and
+# every generic http-* scenario. That is what you want when either is exposed
+# directly.
 # Behind a reverse proxy whose logs CrowdSec already reads, it is not: the same
 # request then fills two buckets and one visitor earns two alerts.
 #
@@ -14,9 +15,10 @@ description: "Map Model Hotel access log lines onto the generic HTTP access-log 
 # rules as hugalafutro/model-hotel-logs: the line is recognised by a
 # position-anchored capture rather than by searching it, and every field is read
 # from the first "key=value" token of its name, the address being validated only
-# after it is taken. Model Hotel logs the path last, after every field read
-# here, and from v0.9.99 escapes the spaces inside quoted values so a path
-# cannot present a "key=value" token at all.
+# after it is taken. Both binaries log the path last, after every field read
+# here, and escape the spaces inside a value (Model Hotel from v0.9.99, Front
+# Desk from the release that gave it an access log), so a path cannot present a
+# "key=value" token at all.
 filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
 pattern_syntax:
   MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
@@ -49,6 +51,16 @@ nodes:
     statics:
       - target: evt.StrTime
         expression: evt.Parsed.mha_time
+  # Front Desk text (stdlib slog) quotes the whole "scope: message" into msg=,
+  # so the message arrives already delimited. Front Desk writes the same access
+  # record as the gateway, field for field; only this framing differs.
+  - grok:
+      pattern: '^time=%{NOTSPACE:mha_fdtime} level=%{WORD:mha_level} msg="%{DATA:mha_body}"'
+      apply_on: message
+    statics:
+      - target: evt.StrTime
+        expression: evt.Parsed.mha_fdtime
+
   - grok:
       pattern: '(^| )remote=%{NOTSPACE:mha_addr}( |$)'
       apply_on: message
