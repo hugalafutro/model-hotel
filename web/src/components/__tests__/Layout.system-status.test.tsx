@@ -2,9 +2,15 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../../i18n";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Layout } from "../Layout";
+
+// The sidebar names the scope of requests_today, and the default test identity
+// is an admin, so the fleet-wide label is the one these render. Read back
+// through i18next by key so the suite stays locale-independent.
+const REQ_TODAY_LABEL = i18n.t("layout.stats.requestsTodayAll");
 
 describe("Layout", () => {
 	const mockChildren = <div data-testid="main-content">Page Content</div>;
@@ -22,7 +28,7 @@ describe("Layout", () => {
 			"Disk",
 			"Memory",
 			"Go routines",
-			"Req Today",
+			REQ_TODAY_LABEL,
 			"DB",
 		];
 
@@ -116,7 +122,7 @@ describe("Layout", () => {
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
-				expect(screen.getByText("Req Today")).toBeInTheDocument();
+				expect(screen.getByText(REQ_TODAY_LABEL)).toBeInTheDocument();
 			});
 		});
 
@@ -933,9 +939,9 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
-				expect(screen.getByText("Req Today")).toBeInTheDocument();
+				expect(screen.getByText(REQ_TODAY_LABEL)).toBeInTheDocument();
 			});
-			const reqRow = screen.getByText("Req Today").closest("div");
+			const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
 			expect(
 				reqRow?.querySelector(".text-\\(--text-muted\\)"),
 			).toBeInTheDocument();
@@ -973,9 +979,9 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
-				expect(screen.getByText("Req Today")).toBeInTheDocument();
+				expect(screen.getByText(REQ_TODAY_LABEL)).toBeInTheDocument();
 			});
-			const reqRow = screen.getByText("Req Today").closest("div");
+			const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
 			expect(reqRow?.textContent).toContain("5.0");
 			expect(reqRow?.textContent).toContain("M");
 		});

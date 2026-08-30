@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { useIdentity } from "../context/IdentityContext";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import {
 	formatCount,
@@ -29,6 +30,12 @@ export function SystemStatus() {
 	const { collapsed, toggle: toggleCollapsed } = useCollapsible(
 		"sidebarStatsCollapsed",
 	);
+
+	// GET /api/system counts requests_today across every virtual key for an
+	// admin and only the caller's own keys for anyone else, so the label has to
+	// name the scope it is showing. The server does the scoping; this only
+	// picks which of the two labels is true.
+	const { isAdmin: requestsTodayIsAll } = useIdentity();
 
 	const app = stats?.app;
 	// HA fleet membership. Present only while Front Desk is in contact; a
@@ -300,9 +307,19 @@ export function SystemStatus() {
 						{/* Requests Today */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title={t("layout.tooltips.requestsToday")}
+							title={t(
+								requestsTodayIsAll
+									? "layout.tooltips.requestsTodayAll"
+									: "layout.tooltips.requestsTodayOwn",
+							)}
 						>
-							<span>{t("layout.stats.requestsToday")}</span>
+							<span>
+								{t(
+									requestsTodayIsAll
+										? "layout.stats.requestsTodayAll"
+										: "layout.stats.requestsTodayOwn",
+								)}
+							</span>
 							<span className="text-(--text-secondary)">
 								{app && app.requests_today > 0
 									? formatCount(app.requests_today)

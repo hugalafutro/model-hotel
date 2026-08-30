@@ -127,7 +127,6 @@
 			"disk": "Dysk",
 			"memory": "Pamięć",
 			"goroutines": "Gorutyny",
-			"requestsToday": "Żąd. dziś",
 			"db": "BD",
 			"procs_one": "proces",
 			"procs_few": "procesy",
@@ -140,7 +139,9 @@
 			"heap": "sterta",
 			"hit": "Trafienie",
 			"conn": "poł.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Żąd. dziś (wszystkie)",
+			"requestsTodayOwn": "Żąd. dziś (twoje)"
 		},
 		"toast": {
 			"copiedToClipboard": "Skopiowano do schowka",
@@ -200,11 +201,12 @@
 		"tooltips": {
 			"uptime": "Jak długo działa proces serwera",
 			"goroutines": "Aktywne gorutyny środowiska Go (lekkie wątki)",
-			"requestsToday": "Liczba żądań programu LLM proxy od północy czasu lokalnego dzisiaj",
 			"dbSize": "Rozmiar bazy danych postgres na dysku",
 			"dbHitRatio": "Współczynnik trafień pamięci podręcznej bufora dla ostatniej aktywności (wyższy jest lepszy; puste, gdy baza danych jest bezczynna)",
 			"dbConnections": "Aktywne połączenia z bazą danych",
-			"dbTxPerSec": "Transakcje w bazie danych na sekundę"
+			"dbTxPerSec": "Transakcje w bazie danych na sekundę",
+			"requestsTodayAll": "Liczba żądań LLM przekazanych przez proxy ze wszystkich kluczy wirtualnych od dzisiejszej północy czasu lokalnego",
+			"requestsTodayOwn": "Liczba żądań LLM przekazanych przez proxy z twoich własnych kluczy wirtualnych od dzisiejszej północy czasu lokalnego"
 		},
 		"githubRepo": "Repozytorium GitHub",
 		"readOnly": {

@@ -127,7 +127,6 @@
 			"disk": "Disk",
 			"memory": "Paměť",
 			"goroutines": "Gorutiny",
-			"requestsToday": "Pož. dnes",
 			"db": "DB",
 			"procs_one": "proces",
 			"procs_few": "procesy",
@@ -140,7 +139,9 @@
 			"heap": "halda",
 			"hit": "Zásah",
 			"conn": "připojení",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Pož. dnes (vše)",
+			"requestsTodayOwn": "Pož. dnes (vaše)"
 		},
 		"toast": {
 			"copiedToClipboard": "Zkopírováno do schránky",
@@ -200,11 +201,12 @@
 		"tooltips": {
 			"uptime": "Jak dlouho již běží proces serveru",
 			"goroutines": "Aktivní goroutiny v prostředí Go (odlehčená vlákna)",
-			"requestsToday": "Počet požadavků na LLM zpracovaných prostřednictvím proxy od dnešní půlnoci místního času",
 			"dbSize": "Velikost databáze Postgres na disku",
 			"dbHitRatio": "Míra úspěšnosti zásahů do vyrovnávací paměti za nedávnou aktivitu (čím vyšší, tím lepší; prázdné, když je databáze nečinná)",
 			"dbConnections": "Aktivní připojení k databázi",
-			"dbTxPerSec": "Počet databázových transakcí za sekundu"
+			"dbTxPerSec": "Počet databázových transakcí za sekundu",
+			"requestsTodayAll": "Počet požadavků na LLM zpracovaných prostřednictvím proxy ze všech virtuálních klíčů od dnešní půlnoci místního času",
+			"requestsTodayOwn": "Počet požadavků na LLM zpracovaných prostřednictvím proxy z vašich vlastních virtuálních klíčů od dnešní půlnoci místního času"
 		},
 		"githubRepo": "repozitář GitHub",
 		"readOnly": {

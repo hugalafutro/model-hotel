@@ -119,7 +119,6 @@
 			"disk": "Disk",
 			"memory": "Bellek",
 			"goroutines": "Go rutinleri",
-			"requestsToday": "Bugün istek",
 			"db": "VT",
 			"procs_one": "işlem",
 			"procs_other": "işlemler",
@@ -130,7 +129,9 @@
 			"heap": "heap",
 			"hit": "İsabet",
 			"conn": "bağl.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Bugün istek (tümü)",
+			"requestsTodayOwn": "Bugün istek (sizin)"
 		},
 		"toast": {
 			"copiedToClipboard": "Panoya kopyalandı",
@@ -190,11 +191,12 @@
 		"tooltips": {
 			"uptime": "Sunucu işlemi ne kadar süredir çalışıyor?",
 			"goroutines": "Etkin Go çalışma zamanı goroutine'leri (hafif iş parçacıkları)",
-			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı",
 			"dbSize": "Diskteki Postgres veritabanı boyutu",
 			"dbHitRatio": "Son etkinlik üzerinden tampon önbellek isabet oranı (yüksek olması daha iyidir; veritabanı boştayken boş görünür)",
 			"dbConnections": "Etkin veritabanı bağlantıları",
-			"dbTxPerSec": "Saniye başına veritabanı işlemleri"
+			"dbTxPerSec": "Saniye başına veritabanı işlemleri",
+			"requestsTodayAll": "Bugün yerel saatle gece yarısından bu yana tüm sanal anahtarlarla proxy üzerinden gönderilen LLM isteklerinin sayısı",
+			"requestsTodayOwn": "Bugün yerel saatle gece yarısından bu yana kendi sanal anahtarlarınızla proxy üzerinden gönderilen LLM isteklerinin sayısı"
 		},
 		"githubRepo": "GitHub deposu",
 		"readOnly": {

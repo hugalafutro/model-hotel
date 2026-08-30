@@ -119,7 +119,6 @@
 			"disk": "ディスク",
 			"memory": "メモリ",
 			"goroutines": "Goルーチン",
-			"requestsToday": "本日のリクエスト",
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,9 @@
 			"heap": "ヒープ",
 			"hit": "ヒット",
 			"conn": "接続",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "本日のリクエスト（全体）",
+			"requestsTodayOwn": "本日のリクエスト（自分）"
 		},
 		"toast": {
 			"copiedToClipboard": "クリップボードにコピーしました",
@@ -190,11 +191,12 @@
 		"tooltips": {
 			"uptime": "サーバープロセスの実行期間",
 			"goroutines": "アクティブな Go ランタイムのゴルーチン（軽量スレッド）",
-			"requestsToday": "本日深夜0時以降のプロキシ付きLLMリクエストの数",
 			"dbSize": "ディスク上のPostgres データベースのサイズ",
 			"dbHitRatio": "直近のアクティビティにおけるバッファーキャッシュヒット率 (高い方が良いです。データベースがアイドル状態の間は空欄になります)",
 			"dbConnections": "アクティブなデータベース接続",
-			"dbTxPerSec": "データベーストランザクション/秒"
+			"dbTxPerSec": "データベーストランザクション/秒",
+			"requestsTodayAll": "本日の現地時間午前0時以降にすべての仮想キーで中継されたLLMリクエストの数",
+			"requestsTodayOwn": "本日の現地時間午前0時以降にご自身の仮想キーで中継されたLLMリクエストの数"
 		},
 		"githubRepo": "GitHubリポジトリ",
 		"readOnly": {

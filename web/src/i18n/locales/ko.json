@@ -119,7 +119,6 @@
 			"disk": "디스크",
 			"memory": "메모리",
 			"goroutines": "Go 루틴",
-			"requestsToday": "오늘 요청",
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "프로세스",
@@ -130,7 +129,9 @@
 			"heap": "힙",
 			"hit": "적중",
 			"conn": "연결",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "오늘 요청(전체)",
+			"requestsTodayOwn": "오늘 요청(내 요청)"
 		},
 		"toast": {
 			"copiedToClipboard": "클립보드에 복사됨",
@@ -190,11 +191,12 @@
 		"tooltips": {
 			"uptime": "서버 프로세스가 실행된 지 얼마나 되었는지",
 			"goroutines": "실행 중인 Go 런타임 고루틴(경량 스레드)",
-			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수",
 			"dbSize": "디스크상의 Postgres 데이터베이스 크기",
 			"dbHitRatio": "최근 활동 기준 버퍼 캐시 적중률 (높을수록 좋음, 데이터베이스가 유휴 상태이면 표시되지 않음)",
 			"dbConnections": "활성 데이터베이스 연결",
-			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수"
+			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수",
+			"requestsTodayAll": "오늘 현지 시간 자정 이후 모든 가상 키로 프록시를 통해 전송된 LLM 요청 건수",
+			"requestsTodayOwn": "오늘 현지 시간 자정 이후 내 가상 키로 프록시를 통해 전송된 LLM 요청 건수"
 		},
 		"githubRepo": "GitHub 저장소",
 		"readOnly": {

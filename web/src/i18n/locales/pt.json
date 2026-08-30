@@ -123,7 +123,6 @@
 			"disk": "Disco",
 			"memory": "Memória",
 			"goroutines": "Goroutines",
-			"requestsToday": "Pedidos hoje",
 			"db": "BD",
 			"procs_one": "processo",
 			"procs_many": "processos",
@@ -135,7 +134,9 @@
 			"heap": "heap",
 			"hit": "Acerto",
 			"conn": "lig.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Pedidos hoje (todos)",
+			"requestsTodayOwn": "Pedidos hoje (seus)"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiado para o clipboard",
@@ -195,11 +196,12 @@
 		"tooltips": {
 			"uptime": "Quanto tempo o processo do servidor está em execução",
 			"goroutines": "Goroutines ativas do runtime Go (threads leves)",
-			"requestsToday": "Número de pedidos LLM de proxy desde a meia-noite local de hoje",
 			"dbSize": "Tamanho do banco de dados Postgres no disco",
 			"dbHitRatio": "Taxa de acertos do cache de buffer sobre a atividade recente (maior é melhor; em branco enquanto o banco de dados está ocioso)",
 			"dbConnections": "Conexões ativas com base de dados",
-			"dbTxPerSec": "Transações do banco de dados por segundo"
+			"dbTxPerSec": "Transações do banco de dados por segundo",
+			"requestsTodayAll": "Número de requisições LLM encaminhadas pelo proxy de todas as chaves virtuais desde a meia-noite local de hoje",
+			"requestsTodayOwn": "Número de requisições LLM encaminhadas pelo proxy das suas próprias chaves virtuais desde a meia-noite local de hoje"
 		},
 		"githubRepo": "Repositório do GitHub",
 		"readOnly": {

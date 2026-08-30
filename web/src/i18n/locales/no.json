@@ -119,7 +119,6 @@
 			"disk": "Disk",
 			"memory": "Minne",
 			"goroutines": "Go-rutiner",
-			"requestsToday": "Foresp. i dag",
 			"db": "DB",
 			"procs_one": "prosess",
 			"procs_other": "Prosesser",
@@ -130,7 +129,9 @@
 			"heap": "heap",
 			"hit": "Treff",
 			"conn": "tilk.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Foresp. i dag (alle)",
+			"requestsTodayOwn": "Foresp. i dag (dine)"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopiert til utklippstavle",
@@ -190,11 +191,12 @@
 		"tooltips": {
 			"uptime": "Hvor lang tid prosessen med serveren har kjørt",
 			"goroutines": "Active Go runtime goroutines (lettvekts tråder)",
-			"requestsToday": "Antall proxyede LLM-forespørsler siden midnatt lokal tid i dag",
 			"dbSize": "Postgres-databasens størrelse på disk",
 			"dbHitRatio": "Hurtigbufferforholdstall for nylig aktivitet (høyere er bedre; tom mens databasen er inaktiv)",
 			"dbConnections": "Aktive databasetilkoblinger",
-			"dbTxPerSec": "Databasetransaksjoner per sekund"
+			"dbTxPerSec": "Databasetransaksjoner per sekund",
+			"requestsTodayAll": "Antall proxyede LLM-forespørsler fra alle virtuelle nøkler siden midnatt lokal tid i dag",
+			"requestsTodayOwn": "Antall proxyede LLM-forespørsler fra dine egne virtuelle nøkler siden midnatt lokal tid i dag"
 		},
 		"githubRepo": "GitHub-repositorium",
 		"readOnly": {

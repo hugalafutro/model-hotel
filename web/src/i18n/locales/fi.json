@@ -119,7 +119,6 @@
 			"disk": "Levy",
 			"memory": "Muisti",
 			"goroutines": "Go-rutiinit",
-			"requestsToday": "Pyyntöjä tänään",
 			"db": "Tietokanta",
 			"procs_one": "prok",
 			"procs_other": "prosessit",
@@ -130,7 +129,9 @@
 			"heap": "keko",
 			"hit": "Osuma",
 			"conn": "yht.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Pyyntöjä tänään (kaikki)",
+			"requestsTodayOwn": "Pyyntöjä tänään (omat)"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopioitu leikepöydälle",
@@ -190,11 +191,12 @@
 		"tooltips": {
 			"uptime": "Kuinka kauan palvelimen prosessi on ollut käynnissä",
 			"goroutines": "Aktiiviset Go-ajonaikaiset goroutinet (kevyet säikeet)",
-			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään",
 			"dbSize": "Postgres tietokannan koko levyllä",
 			"dbHitRatio": "Puskurin välimuistin osumasuhde viimeaikaisesta toiminnasta (korkeampi on parempi; tyhjä, kun tietokanta on jouten)",
 			"dbConnections": "Aktiiviset tietokantayhteydet",
-			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa"
+			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa",
+			"requestsTodayAll": "Kaikkien virtuaaliavainten välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen",
+			"requestsTodayOwn": "Omien virtuaaliavaintesi välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen"
 		},
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {
