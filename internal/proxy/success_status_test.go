@@ -185,8 +185,11 @@ func TestAttemptCandidate_A2xxThatIsNotACompletionIsAnError(t *testing.T) {
 			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 				t.Fatalf("client body is not an error envelope it can parse: %v (%s)", err, w.Body.String())
 			}
-			// The upstream status is not lost: it moves into the message, which
-			// is where an operator reads what the provider claimed.
+			// The upstream status is not lost: the row keeps it, and it reaches
+			// the client in the message too whenever the provider is named,
+			// which is the case here. upstreamClientMessage returns the bare
+			// reason for an unnamed provider, so the row is the guarantee and
+			// the message is the convenience.
 			if want := "upstream HTTP " + strconv.Itoa(status); !strings.Contains(body.Error.Message, want) {
 				t.Errorf("client message = %q, want it to name %q", body.Error.Message, want)
 			}

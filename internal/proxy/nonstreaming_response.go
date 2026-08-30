@@ -303,8 +303,15 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 //
 // 502 rather than any other code because the multimodal pass-through already
 // answers exactly that for the same shape (serveBufferedJSONPassthrough on a
-// broken read, serveStreamedPassthrough on an empty body), and the upstream
-// status is not lost: upstreamClientMessage carries it in the message.
+// broken read, serveStreamedPassthrough on an empty body). The upstream status
+// still reaches the request-log row either way, and reaches the CLIENT only when
+// the provider is named: upstreamClientMessage appends it to the message with
+// the provider, and returns the bare reason without one.
+//
+// The non-2xx return is defensive rather than live. Every caller reaches this
+// handler through attemptCandidate, which sends anything that is not a 2xx to
+// forwardUpstreamError first (proxy_failover.go), so in production only the 2xx
+// branch runs; the other keeps the function total for a handler driven directly.
 //
 // This is not reached for 204/205, which are served by their own branch, nor for
 // a 2xx that decodes as a completion.
