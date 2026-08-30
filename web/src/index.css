@@ -1188,6 +1188,11 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 html.light .ui-fleet-banner {
 	color: var(--color-amber-800, #92400e);
 }
+/* Terminal squares every corner; the fleet and demo read-only banners follow. */
+html[data-ui-style="cyber-terminal"] .ui-fleet-banner,
+html[data-ui-style="cyber-terminal"] .ui-readonly-banner {
+	border-radius: 0;
+}
 /* HA (fleet config-sync) errors take an indigo hue, distinct from the error-red
    and warning-amber of the request/app chips. Indigo (#6366f1) is fixed rather
    than theme-tokenized; only the text needs a light/dark contrast swap. */

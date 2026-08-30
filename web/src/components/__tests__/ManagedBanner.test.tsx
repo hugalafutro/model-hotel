@@ -21,7 +21,11 @@ describe("ManagedBanner", () => {
 			http.get("/api/system", () => HttpResponse.json(withFleet("member"))),
 		);
 		renderWithProviders(<ManagedBanner />);
-		expect(await screen.findByTestId("managed-banner")).toBeInTheDocument();
+		const banner = await screen.findByTestId("managed-banner");
+		expect(banner).toBeInTheDocument();
+		// The semantic class carries the amber tone and is the hook the terminal
+		// theme uses to square the banner's corners (index.css).
+		expect(banner).toHaveClass("ui-fleet-banner");
 	});
 
 	it("renders nothing for a standalone instance", async () => {
