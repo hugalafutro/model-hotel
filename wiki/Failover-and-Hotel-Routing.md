@@ -555,7 +555,7 @@ type circuit struct {
 }
 ```
 
-The map is capped at 256 circuits per provider. When a provider exceeds it, the least recently charged **closed** circuit is evicted; an open or half-open circuit is never dropped, because evicting one would silently restore a model the breaker has decided is broken.
+The map is capped at 256 circuits per provider. When a provider reaches it, the least recently charged **closed** circuit is evicted to make room; an open or half-open circuit is never dropped, because evicting one would silently restore a model the breaker has decided is broken. The cap is therefore a soft one: a provider holding 256 circuits that are all open has no eligible victim, so the map keeps every one of them and is allowed to grow past 256 rather than un-darken a broken model.
 
 **State Transitions** (per model circuit):
 

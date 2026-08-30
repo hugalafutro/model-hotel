@@ -591,6 +591,66 @@ func TestModelCircuits_StatusProviderOpenFollowsTheQuotaPin(t *testing.T) {
 	}
 }
 
+// quota_pinned is the operator's explanation for a provider the breaker is
+// skipping, and the verdict's pin arm asks "is ANY blocking circuit pinned",
+// so the flag beside it has to ask the same question. Read off the row's
+// dominant circuit instead, a provider indicted by a pinned sibling reported
+// provider_open true with quota_pinned false, and the dashboard bucketed it as
+// skipped outright rather than as waiting for a quota window that can be days
+// out. The span of 3 leaves the pin as the only thing indicting the provider.
+func TestModelCircuits_StatusQuotaPinnedFollowsAnyBlockingCircuit(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 2, cooldown: time.Hour, span: 3})
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+	chargeToOpen(t, cb, id, modelB)
+	// modelB opened 90 minutes ago and is pinned for two hours: still dark, but
+	// its retry instant lands half an hour out, ahead of modelA's full hour. That
+	// makes the unpinned modelA the dominant circuit and the pin a sibling's.
+	pinSibling(t, cb, id, modelB, 90*time.Minute, 2*time.Hour)
+
+	s := onlyStatus(t, cb)
+	if s.CooldownMs != time.Hour.Milliseconds() {
+		t.Fatalf("setup: cooldown_ms=%d, want the unpinned circuit's %d: the pinned sibling must not be the dominant one", s.CooldownMs, time.Hour.Milliseconds())
+	}
+	if !s.ProviderOpen {
+		t.Fatalf("setup: provider_open false, want the pin to indict the provider below the span of 3 (open_models=%v)", s.OpenModels)
+	}
+	if !s.QuotaPinned {
+		t.Error("quota_pinned false while a blocking sibling is pinned: the provider reads as skipped entirely instead of waiting for its quota reset")
+	}
+}
+
+// Status runs on every Prometheus scrape, under the same lock the request path
+// takes, and a deployment that never overrode the cooldown has no settings row
+// to serve it from cache: every read is a DB round trip. So the number of reads
+// one Status call takes must not grow with the number of circuits it walks.
+func TestModelCircuits_StatusSettingsReadsDoNotScaleWithCircuitCount(t *testing.T) {
+	readsForCircuits := func(circuits int) int {
+		settings := newCountingSettings()
+		cb := NewCircuitBreaker(settings)
+		cb.Threshold, cb.Cooldown, cb.HalfOpenMaxProbes = 1, time.Hour, 1
+		id := uuid.New()
+		for i := 0; i < circuits; i++ {
+			chargeToOpen(t, cb, id, fmt.Sprintf("model-%02d", i))
+		}
+		// Only the Status call below is measured, never the failures that set it up.
+		settings.reset()
+		if got := len(onlyStatus(t, cb).OpenModels); got != circuits {
+			t.Fatalf("setup: %d blocking circuits reported, want %d", got, circuits)
+		}
+		return settings.reads("circuit_breaker_cooldown")
+	}
+
+	few, many := readsForCircuits(2), readsForCircuits(16)
+	if few != many {
+		t.Errorf("Status() took %d cooldown reads over 2 circuits and %d over 16: hoist the read out of the per-circuit walk, or a scrape costs one DB round trip per circuit under the breaker lock", few, many)
+	}
+	if few != 1 {
+		t.Errorf("Status() took %d cooldown reads for one provider, want exactly 1: the value is identical for every circuit and every provider in the scan", few)
+	}
+}
+
 // The transition event has to carry the derived verdict, or a consumer watching
 // the stream has to re-derive it from the span setting it cannot see. The same
 // event type fires for the first model (provider still usable) and the second

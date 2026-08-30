@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../../i18n";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Layout } from "../Layout";
@@ -495,7 +496,16 @@ describe("Layout", () => {
 			const line = badgeTooltipLines().find((l) =>
 				l.includes("Recovering Provider"),
 			);
-			expect(line).not.toContain("(");
+			// Asserted as the exact line the bare-name rendering produces, read back
+			// through i18next by key. Checking for the decoration's punctuation
+			// instead would pass vacuously in any locale that brackets the model
+			// list differently.
+			expect(line).toBe(
+				i18n.t("layout.nav.failoverBadgeTooltip", {
+					count: 1,
+					providers: "Recovering Provider",
+				}),
+			);
 		});
 	});
 });

@@ -123,7 +123,9 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 		return false
 	}
 
-	open, _ := cb.providerReport(models)
+	// The cooldown is read only now, after the pre-pass has established there is
+	// a verdict to derive, and once for the whole walk.
+	open, _, _ := cb.providerReport(models, cb.effectiveCooldown())
 	return open
 }
 
@@ -136,10 +138,18 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 // blocked is sorted, because it is printed in a provider detail that refetches
 // every few seconds and Go's map iteration order would otherwise reshuffle it.
 //
+// pinned is the third thing the same walk already knows: whether any of the
+// blocking circuits is held dark by a quota pin. It is returned rather than
+// re-derived from the row's dominant circuit, because those two readings
+// disagree at exactly the shape this arm exists for — a provider indicted by a
+// pinned sibling while its most degraded circuit carries no pin would otherwise
+// be reported as skipped outright rather than as waiting for a quota window.
+//
+// base is the configured cooldown, hoisted by the caller so a walk over one
+// provider's circuits reads the setting once instead of once per circuit.
+//
 // Must be called with cb.mu held (read lock suffices).
-func (cb *CircuitBreaker) providerReport(models modelCircuits) (open bool, blocked []string) {
-	base := cb.effectiveCooldown()
-	pinned := false
+func (cb *CircuitBreaker) providerReport(models modelCircuits, base time.Duration) (open bool, blocked []string, pinned bool) {
 	for model, c := range models {
 		if !cb.blocking(c, base) {
 			continue
@@ -150,7 +160,7 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits) (open bool, block
 		}
 	}
 	slices.Sort(blocked)
-	return pinned || len(blocked) >= cb.effectiveSpan(), blocked
+	return pinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
 }
 
 // blocking reports whether a circuit is turning requests away right now: open
@@ -243,17 +253,23 @@ func stateRank(s State) int {
 }
 
 // dominant returns the circuit that represents a provider on the per-provider
-// surfaces, or nil when the provider tracks none. Must be called with cb.mu
-// held (read lock suffices).
-func (cb *CircuitBreaker) dominant(models modelCircuits) *circuit {
-	base := cb.effectiveCooldown()
+// surfaces, or nil when the provider tracks none.
+//
+// base is the configured cooldown, hoisted by the caller: every read in this
+// walk goes through the *With helpers, so ranking a provider's circuits reads
+// settings zero times however many circuits it holds. That matters because
+// Status runs this for every provider on every Prometheus scrape, under the
+// lock the request path takes, and an uncached settings read is a DB round trip.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) dominant(models modelCircuits, base time.Duration) *circuit {
 	var best *circuit
 	var bestRank circuitRank
 	for model, c := range models {
 		r := circuitRank{
 			model: model,
 			state: stateRank(cb.logicalStateWith(c, base)),
-			retry: c.openedAt.Add(cb.effectiveCooldownFor(c)),
+			retry: c.openedAt.Add(cb.effectiveCooldownForWith(c, base)),
 			fails: c.consecutiveFails,
 		}
 		if best == nil || r.beats(bestRank) {
@@ -311,6 +327,17 @@ func (cb *CircuitBreaker) effectiveCooldownFor(c *circuit) time.Duration {
 		return c.cooldownOverride
 	}
 	return cb.effectiveCooldown()
+}
+
+// effectiveCooldownForWith is effectiveCooldownFor with the configured cooldown
+// supplied by the caller, for walks that would otherwise re-read the setting per
+// circuit. It pairs with logicalStateWith: the same hoisted base serves both, so
+// a per-provider walk costs one settings read rather than one per circuit.
+func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, base time.Duration) time.Duration {
+	if cb.quotaPinnedFor(c) {
+		return c.cooldownOverride
+	}
+	return base
 }
 
 // quotaPinnedFor reports whether a quota pin is actually governing this circuit

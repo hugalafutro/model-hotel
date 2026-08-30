@@ -63,6 +63,43 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return def
 }
 
+// countingSettings answers every key with the caller's default, like a
+// deployment that has never overridden a breaker setting, and counts the reads.
+// That is the shape the read cost matters in: with no row to serve, each read is
+// an uncached DB round trip taken under the breaker's lock.
+type countingSettings struct {
+	mu        sync.Mutex
+	durations map[string]int
+}
+
+func newCountingSettings() *countingSettings {
+	return &countingSettings{durations: make(map[string]int)}
+}
+
+func (s *countingSettings) GetInt(_ context.Context, _ string, def int) int { return def }
+
+func (s *countingSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.durations[key]++
+	return def
+}
+
+func (s *countingSettings) GetBool(_ context.Context, _ string, def bool) bool { return def }
+
+// reset drops the reads taken during setup, so a count describes one call.
+func (s *countingSettings) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.durations = make(map[string]int)
+}
+
+func (s *countingSettings) reads(key string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.durations[key]
+}
+
 type stubAdvisor struct {
 	at time.Time
 	ok bool
@@ -206,6 +243,23 @@ func backdateOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, by time.Durati
 		t.Fatalf("setup: no circuit tracked for %s", id)
 	}
 	c.openedAt = c.openedAt.Add(-by)
+}
+
+// pinSibling backdates one model circuit's open instant and stamps a quota
+// override on it. It builds the shape a fleet reaches whenever a provider's
+// models go dark at different moments: a blocking, quota-pinned circuit that is
+// NOT the provider's most degraded one, because the sibling that opened later
+// has an ordinary cooldown running further out.
+func pinSibling(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string, openedAgo, override time.Duration) {
+	t.Helper()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	c, ok := cb.circuits[id.String()][model]
+	if !ok {
+		t.Fatalf("setup: no circuit tracked for %s/%s", id, model)
+	}
+	c.openedAt = c.openedAt.Add(-openedAgo)
+	c.cooldownOverride = override
 }
 
 // overrideFor reads a circuit's stored quota override. Status reports the

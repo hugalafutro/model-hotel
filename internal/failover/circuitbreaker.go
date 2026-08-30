@@ -598,20 +598,31 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
+	// Read once for the whole scan, not once per circuit: this is the Prometheus
+	// scrape path, it holds the lock the request path takes, and a deployment that
+	// never overrode the cooldown has no settings row to cache, so every read is a
+	// DB round trip. Everything below takes the hoisted value.
+	base := cb.effectiveCooldown()
+
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, models := range cb.circuits {
-		c := cb.dominant(models)
+		c := cb.dominant(models, base)
 		if c == nil {
 			continue
 		}
-		cooldown := cb.effectiveCooldownFor(c)
-		state := cb.logicalState(c)
-		providerOpen, openModels := cb.providerReport(models)
+		cooldown := cb.effectiveCooldownForWith(c, base)
+		state := cb.logicalStateWith(c, base)
+		// quotaPinned comes from this walk rather than from the dominant circuit:
+		// the verdict's pin arm is "any blocking circuit is pinned", and a row that
+		// answered the flag from the dominant circuit alone would tell an operator
+		// a provider is skipped outright when it is in fact waiting out a quota
+		// window on a sibling model.
+		providerOpen, openModels, quotaPinned := cb.providerReport(models, base)
 		s := ProviderStatus{
 			ProviderID:       id,
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
-			QuotaPinned:      cb.quotaPinnedFor(c),
+			QuotaPinned:      quotaPinned,
 			ProviderOpen:     providerOpen,
 			OpenModels:       openModels,
 		}
@@ -654,11 +665,12 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	c := cb.dominant(cb.circuits[providerID.String()])
+	base := cb.effectiveCooldown()
+	c := cb.dominant(cb.circuits[providerID.String()], base)
 	if c == nil {
 		return StateClosed
 	}
-	prev := cb.logicalState(c)
+	prev := cb.logicalStateWith(c, base)
 	delete(cb.circuits, providerID.String())
 	return prev
 }
@@ -676,10 +688,15 @@ func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
+	// Hoisted for the same reason Status hoists it: this walks every circuit in
+	// the fleet under the write lock, and reading the cooldown per circuit would
+	// take a DB round trip per circuit on a deployment that never overrode it.
+	base := cb.effectiveCooldown()
+
 	for _, models := range cb.circuits {
 		cleared += len(models)
 		for _, c := range models {
-			if cb.logicalState(c) != StateClosed {
+			if cb.logicalStateWith(c, base) != StateClosed {
 				recovered++
 			}
 		}
