@@ -1267,10 +1267,16 @@ html.light .ui-error-shelf-chip--sso {
 	overflow: hidden;
 }
 
-/* Terminal squares every corner; chips and badge follow suit. */
+/* Terminal squares every corner: the shelf with all its inner chrome, and the
+   fleet / demo read-only banners that share the same top-of-page strip family. */
 html[data-ui-style="cyber-terminal"] .ui-error-shelf,
 html[data-ui-style="cyber-terminal"] .ui-error-shelf-chip,
-html[data-ui-style="cyber-terminal"] .ui-error-shelf-badge {
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-badge,
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-rowbtn,
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-action,
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-toggle:focus-visible,
+html[data-ui-style="cyber-terminal"] .ui-fleet-banner,
+html[data-ui-style="cyber-terminal"] .ui-readonly-banner {
 	border-radius: 0;
 }
 

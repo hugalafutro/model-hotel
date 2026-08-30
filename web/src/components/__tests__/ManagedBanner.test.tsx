@@ -21,7 +21,11 @@ describe("ManagedBanner", () => {
 			http.get("/api/system", () => HttpResponse.json(withFleet("member"))),
 		);
 		renderWithProviders(<ManagedBanner />);
-		expect(await screen.findByTestId("managed-banner")).toBeInTheDocument();
+		const banner = await screen.findByTestId("managed-banner");
+		expect(banner).toBeInTheDocument();
+		// The semantic class carries the amber tone and is the hook the terminal
+		// theme uses to square the banner's corners (index.css).
+		expect(banner).toHaveClass("ui-fleet-banner");
 	});
 
 	it("renders nothing for a standalone instance", async () => {
@@ -50,7 +54,11 @@ describe("ManagedBanner", () => {
 			http.get("/api/system", () => HttpResponse.json(withFleet("primary"))),
 		);
 		renderWithProviders(<ManagedBanner fleetBoundary />);
-		expect(await screen.findByTestId("primary-banner")).toBeInTheDocument();
+		const banner = await screen.findByTestId("primary-banner");
+		expect(banner).toBeInTheDocument();
+		// Same node as the member variant today, but pin the class on both
+		// testids so a future split keeps the theme hook on each.
+		expect(banner).toHaveClass("ui-fleet-banner");
 		expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument();
 	});
 

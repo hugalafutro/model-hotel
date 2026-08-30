@@ -28,6 +28,11 @@ describe("Layout read-only banner", () => {
 		await waitFor(() => {
 			expect(screen.getByTestId("read-only-banner")).toBeInTheDocument();
 		});
+		// The semantic class is the hook the terminal theme uses to square the
+		// banner's corners (index.css targets .ui-readonly-banner).
+		expect(screen.getByTestId("read-only-banner")).toHaveClass(
+			"ui-readonly-banner",
+		);
 	});
 
 	it("does not show the banner when not read-only", async () => {

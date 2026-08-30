@@ -27,7 +27,7 @@ function ReadOnlyBanner() {
 		<div
 			role="status"
 			data-testid="read-only-banner"
-			className="mb-2 flex items-center gap-2 rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] px-3 py-1.5 text-xs text-[var(--error-text)]"
+			className="ui-readonly-banner mb-2 flex items-center gap-2 rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] px-3 py-1.5 text-xs text-[var(--error-text)]"
 		>
 			<AlertTriangle size={14} className="shrink-0 text-[var(--error-icon)]" />
 			<span>{t("layout.readOnly.banner")}</span>
