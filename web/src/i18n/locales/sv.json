@@ -98,7 +98,7 @@
 			"appLogs": "Loggar",
 			"settings": "Inställningar",
 			"security": "Säkerhet",
-			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
+			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} dirigerar fortfarande / {{open}} överhoppade",
 			"discoveryClaimsBadge_one": "{{count}} modellavvikelse kräver åtgärd - klicka för att granska",
 			"discoveryClaimsBadge_other": "{{count}} modellavvikelser kräver åtgärd - klicka för att granska",
 			"users": "Användare",

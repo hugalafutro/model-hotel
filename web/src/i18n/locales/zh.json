@@ -98,7 +98,7 @@
 			"appLogs": "日志",
 			"settings": "设置",
 			"security": "安全",
-			"failoverBadgeExplain": "按断路器状态分组的故障转移提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
+			"failoverBadgeExplain": "按断路器状态分组的故障转移提供商 - {{closed}} 正常 / {{halfOpen}} 仍在路由 / {{open}} 已跳过",
 			"discoveryClaimsBadge_one": "{{count}} 项模型差异需要处理 - 点击查看",
 			"discoveryClaimsBadge_other": "{{count}} 项模型差异需要处理 - 点击查看",
 			"users": "用户",

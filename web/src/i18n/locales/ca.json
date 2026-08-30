@@ -100,7 +100,7 @@
 			"appLogs": "Registres",
 			"settings": "Configuració",
 			"security": "Seguretat",
-			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} en recuperació / {{open}} disparats",
+			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} encara encaminant / {{open}} omesos",
 			"discoveryClaimsBadge_one": "{{count}} discrepància de model requereix atenció - fes clic per revisar",
 			"discoveryClaimsBadge_many": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",
 			"discoveryClaimsBadge_other": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",

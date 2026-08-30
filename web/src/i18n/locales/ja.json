@@ -98,7 +98,7 @@
 			"appLogs": "ログ",
 			"settings": "設定",
 			"security": "セキュリティ",
-			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
+			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} ルーティング継続中 / {{open}} スキップ",
 			"discoveryClaimsBadge_one": "対応が必要なモデルの不一致が {{count}} 件あります - クリックして確認",
 			"discoveryClaimsBadge_other": "対応が必要なモデルの不一致が {{count}} 件あります - クリックして確認",
 			"users": "ユーザー",

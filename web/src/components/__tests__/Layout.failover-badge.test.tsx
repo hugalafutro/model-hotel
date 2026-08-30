@@ -33,7 +33,10 @@ describe("Layout", () => {
 			expect(countElements?.length).toBe(0);
 		});
 
-		it("shows CB badge with half-open/open counts when breakers are active", async () => {
+		it("falls back to the endpoint tally when no detail rows are sent", async () => {
+			// The plain list endpoint carries no provider rows, so there is no
+			// derived verdict to read and its own counts are the whole truth of
+			// that response. Reporting them unchanged is the truthful fallback.
 			server.use(
 				http.get("/api/failover-groups/circuit-breaker-status", () =>
 					HttpResponse.json({ closed: 3, half_open: 1, open: 2 }),
@@ -42,18 +45,175 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				// Amber half-open count
-				const halfOpenCounts = screen.getAllByText("1");
-				expect(halfOpenCounts.length).toBeGreaterThan(0);
-				// Red open count
-				const openCounts = screen.getAllByText("2");
-				expect(openCounts.length).toBeGreaterThan(0);
+				expect(screen.getByTestId("failover-badge-routing")).toHaveTextContent(
+					"1",
+				);
 			});
+			expect(screen.getByTestId("failover-badge-skipped")).toHaveTextContent(
+				"2",
+			);
 
 			// The healthy (closed) count is no longer surfaced in the badge —
 			// it was almost always just the provider count and confused users.
 			const failoverLink = screen.getByText("Failover").closest("a");
 			expect(failoverLink?.textContent).not.toContain("3");
+		});
+
+		it("counts only the providers the breaker is skipping in the red number", async () => {
+			// The endpoint's `open` tally counts providers whose most degraded model
+			// circuit is open, which since circuits are keyed per model includes a
+			// provider still serving every other model. Reporting that as the red
+			// "skipped" number is an outage the operator does not have. The provider
+			// is not lost, it moves to the amber count.
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 0,
+						half_open: 0,
+						open: 2,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Partial Provider",
+								state: "open",
+								consecutive_fails: 5,
+								provider_open: false,
+								open_models: ["beta-1"],
+							},
+							{
+								provider_id: "p-2",
+								provider_name: "Skipped Provider",
+								state: "open",
+								consecutive_fails: 5,
+								provider_open: true,
+								open_models: ["alpha-1", "alpha-2"],
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("failover-badge-skipped")).toHaveTextContent(
+					"1",
+				);
+			});
+			expect(screen.getByTestId("failover-badge-routing")).toHaveTextContent(
+				"1",
+			);
+		});
+
+		it("explains the numbers the badge actually shows", async () => {
+			// The first tooltip line names the same three counts the badge renders.
+			// If it kept quoting the endpoint's tally it would contradict the badge
+			// beside it: 3 tripped in the sentence, 1 in red. The numbers are chosen
+			// so the derived and the raw readings share no digit.
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 5,
+						half_open: 0,
+						open: 3,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Skipped Provider",
+								state: "open",
+								consecutive_fails: 5,
+								provider_open: true,
+								open_models: ["alpha-1", "alpha-2"],
+							},
+							{
+								provider_id: "p-2",
+								provider_name: "Partial One",
+								state: "open",
+								consecutive_fails: 5,
+								provider_open: false,
+								open_models: ["beta-1"],
+							},
+							{
+								provider_id: "p-3",
+								provider_name: "Partial Two",
+								state: "open",
+								consecutive_fails: 5,
+								provider_open: false,
+								open_models: ["gamma-1"],
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("failover-badge-skipped")).toHaveTextContent(
+					"1",
+				);
+			});
+			expect(screen.getByTestId("failover-badge-routing")).toHaveTextContent(
+				"2",
+			);
+
+			const explainLine = badgeTooltipLines()[0];
+			expect(explainLine).toContain("5");
+			expect(explainLine).toContain("2");
+			expect(explainLine).not.toContain("3");
+		});
+
+		it("counts a quota-pinned provider as skipped", async () => {
+			// A quota pin is one of the two arms of the derived verdict, so a pinned
+			// provider is out of rotation however few of its model circuits are open.
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 0,
+						half_open: 0,
+						open: 1,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Quota Provider",
+								state: "open",
+								consecutive_fails: 5,
+								quota_pinned: true,
+								provider_open: true,
+								open_models: ["alpha-1"],
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("failover-badge-skipped")).toHaveTextContent(
+					"1",
+				);
+			});
+			expect(screen.getByTestId("failover-badge-routing")).toHaveTextContent(
+				"0",
+			);
+		});
+
+		it("renders a zero rather than a blank for a tally the payload omits", async () => {
+			// A truncated or proxy-mangled response must not put "undefined" or a
+			// gap in the sidebar where a number belongs.
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({ half_open: 2 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("failover-badge-routing")).toHaveTextContent(
+					"2",
+				);
+			});
+			expect(screen.getByTestId("failover-badge-skipped")).toHaveTextContent(
+				"0",
+			);
 		});
 
 		it("does not show the badge when only healthy (closed) providers exist", async () => {

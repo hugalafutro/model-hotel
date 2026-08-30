@@ -100,7 +100,7 @@
 			"appLogs": "Registros",
 			"settings": "Ajustes",
 			"security": "Seguridad",
-			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
+			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} aún enrutando / {{open}} omitidos",
 			"discoveryClaimsBadge_one": "{{count}} discrepancia de modelo requiere atención - haz clic para revisarla",
 			"discoveryClaimsBadge_many": "{{count}} discrepancias de modelos requieren atención - haz clic para revisarlas",
 			"discoveryClaimsBadge_other": "{{count}} discrepancias de modelos requieren atención - haz clic para revisarlas",

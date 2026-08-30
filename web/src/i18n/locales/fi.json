@@ -98,7 +98,7 @@
 			"appLogs": "Lokit",
 			"settings": "Asetukset",
 			"security": "Turvallisuus",
-			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
+			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} yhä reitittää / {{open}} ohitettu",
 			"discoveryClaimsBadge_one": "{{count}} mallipoikkeama vaatii huomiota - napsauta tarkistaaksesi",
 			"discoveryClaimsBadge_other": "{{count}} mallipoikkeamaa vaatii huomiota - napsauta tarkistaaksesi",
 			"users": "Käyttäjät",

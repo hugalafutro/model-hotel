@@ -98,7 +98,7 @@
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
 			"security": "Beveiliging",
-			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
+			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} routeert nog / {{open}} overgeslagen",
 			"discoveryClaimsBadge_one": "{{count}} modelafwijking vraagt aandacht - klik om te bekijken",
 			"discoveryClaimsBadge_other": "{{count}} modelafwijkingen vragen aandacht - klik om te bekijken",
 			"users": "Gebruikers",

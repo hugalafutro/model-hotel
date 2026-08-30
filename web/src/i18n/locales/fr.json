@@ -100,7 +100,7 @@
 			"appLogs": "Journaux",
 			"settings": "Paramètres",
 			"security": "Sécurité",
-			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
+			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} toujours en service / {{open}} ignorés",
 			"discoveryClaimsBadge_one": "{{count}} écart de modèle requiert votre attention - cliquez pour le consulter",
 			"discoveryClaimsBadge_many": "{{count}} écarts de modèles requièrent votre attention - cliquez pour les consulter",
 			"discoveryClaimsBadge_other": "{{count}} écarts de modèles requièrent votre attention - cliquez pour les consulter",

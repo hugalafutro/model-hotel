@@ -98,7 +98,7 @@
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
 			"security": "Sikkerhed",
-			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
+			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} sender stadig / {{open}} sprunget over",
 			"discoveryClaimsBadge_one": "{{count}} modeluoverensstemmelse kræver opmærksomhed - klik for at gennemgå",
 			"discoveryClaimsBadge_other": "{{count}} modeluoverensstemmelser kræver opmærksomhed - klik for at gennemgå",
 			"users": "Brugere",

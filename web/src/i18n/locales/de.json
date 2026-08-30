@@ -98,7 +98,7 @@
 			"appLogs": "Protokolle",
 			"settings": "Einstellungen",
 			"security": "Sicherheit",
-			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
+			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status - {{closed}} intakt / {{halfOpen}} weiterhin aktiv / {{open}} übersprungen",
 			"discoveryClaimsBadge_one": "{{count}} Modellabweichung erfordert Aufmerksamkeit - zum Überprüfen anklicken",
 			"discoveryClaimsBadge_other": "{{count}} Modellabweichungen erfordern Aufmerksamkeit - zum Überprüfen anklicken",
 			"users": "Benutzer",

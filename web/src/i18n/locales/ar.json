@@ -94,7 +94,7 @@
 			"appLogs": "السجلات",
 			"settings": "الإعدادات",
 			"security": "الأمان",
-			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
+			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} ما زال يوجه / {{open}} تم تخطيه",
 			"users": "المستخدمون",
 			"audit": "التدقيق",
 			"discoveryClaimsBadge_zero": "{{count}} تباين في النماذج يحتاج إلى انتباه - انقر للمراجعة",

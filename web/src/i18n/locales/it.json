@@ -100,7 +100,7 @@
 			"appLogs": "Log",
 			"settings": "Impostazioni",
 			"security": "Sicurezza",
-			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
+			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} ancora in uso / {{open}} ignorati",
 			"discoveryClaimsBadge_one": "{{count}} discrepanza di modello richiede attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_many": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_other": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",

@@ -100,7 +100,7 @@
 			"appLogs": "יומנים",
 			"settings": "הגדרות",
 			"security": "אבטחה",
-			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
+			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} עדיין מנתב / {{open}} מדולג",
 			"discoveryClaimsBadge_one": "{{count}} אי-התאמה במודל דורשת טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_two": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_other": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",

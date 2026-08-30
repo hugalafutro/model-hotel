@@ -95,7 +95,7 @@
 			"failoverBadgeOpenModels": "{{provider}} (open for: {{models}})",
 			"failoverBadgeQuotaTooltip_one": "{{count}} circuit breaker waiting for a quota reset: {{providers}}",
 			"failoverBadgeQuotaTooltip_other": "{{count}} circuit breakers waiting for a quota reset: {{providers}}",
-			"failoverBadgeExplain": "Failover providers by circuit-breaker state - {{closed}} healthy / {{halfOpen}} recovering / {{open}} tripped",
+			"failoverBadgeExplain": "Failover providers by circuit-breaker state - {{closed}} healthy / {{halfOpen}} still routing / {{open}} skipped",
 			"virtualKeys": "Virtual Keys",
 			"logs": "Logs",
 			"requests": "Requests",

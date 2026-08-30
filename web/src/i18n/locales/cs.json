@@ -102,7 +102,7 @@
 			"appLogs": "Logy appky",
 			"settings": "Nastavení",
 			"security": "Zabezpečení",
-			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe - {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
+			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe - {{closed}} v pořádku / {{halfOpen}} stále směruje / {{open}} vynechán",
 			"discoveryClaimsBadge_one": "{{count}} nesrovnalost modelu vyžaduje pozornost - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_few": "{{count}} nesrovnalosti modelů vyžadují pozornost - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_many": "{{count}} nesrovnalosti modelů vyžaduje pozornost - kliknutím zobrazíte přehled",

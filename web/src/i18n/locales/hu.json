@@ -98,7 +98,7 @@
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
 			"security": "Biztonság",
-			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
+			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} még továbbít / {{open}} kihagyva",
 			"discoveryClaimsBadge_one": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"discoveryClaimsBadge_other": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"users": "Felhasználók",

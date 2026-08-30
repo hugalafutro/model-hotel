@@ -98,7 +98,7 @@
 			"appLogs": "Nhật ký",
 			"settings": "Cài đặt",
 			"security": "Bảo mật",
-			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
+			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} vẫn định tuyến / {{open}} bị bỏ qua",
 			"discoveryClaimsBadge_one": "{{count}} sai lệch mô hình cần được chú ý - nhấp để xem lại",
 			"discoveryClaimsBadge_other": "{{count}} sai lệch mô hình cần được chú ý - nhấp để xem lại",
 			"users": "Người dùng",

@@ -102,7 +102,7 @@
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
 			"security": "Zabezpečenie",
-			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
+			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} stále smeruje / {{open}} preskočený",
 			"discoveryClaimsBadge_one": "{{count}} nezrovnalosť modelu si vyžaduje pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_few": "{{count}} nezrovnalosti modelov si vyžadujú pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_many": "{{count}} nezrovnalosti modelov si vyžaduje pozornosť - kliknite na prehliadnutie",

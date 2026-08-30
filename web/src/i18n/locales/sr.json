@@ -100,7 +100,7 @@
 			"appLogs": "Записи",
 			"settings": "Подешавања",
 			"security": "Безбедност",
-			"failoverBadgeExplain": "Фејловер провајдери по стању прекидача - {{closed}} здравих / {{halfOpen}} у опоравку / {{open}} активираних",
+			"failoverBadgeExplain": "Фејловер провајдери по стању прекидача - {{closed}} здравих / {{halfOpen}} и даље рутирају / {{open}} прескочених",
 			"discoveryClaimsBadge_one": "{{count}} одступање модела захтева пажњу - кликните да бисте прегледали",
 			"discoveryClaimsBadge_few": "{{count}} одступања модела захтевају пажњу - кликните да бисте прегледали",
 			"discoveryClaimsBadge_other": "{{count}} одступања модела захтева пажњу - кликните да бисте прегледали",

@@ -98,7 +98,7 @@
 			"appLogs": "Αρχεία καταγραφής",
 			"settings": "Ρυθμίσεις",
 			"security": "Ασφάλεια",
-			"failoverBadgeExplain": "Πάροχοι failover ανά κατάσταση διακόπτη κυκλώματος - {{closed}} υγιείς / {{halfOpen}} σε ανάκαμψη / {{open}} σε διακοπή",
+			"failoverBadgeExplain": "Πάροχοι failover ανά κατάσταση διακόπτη κυκλώματος - {{closed}} υγιείς / {{halfOpen}} εξακολουθούν να δρομολογούν / {{open}} παρακάμπτονται",
 			"discoveryClaimsBadge_one": "{{count}} απόκλιση μοντέλου χρειάζεται προσοχή - κάντε κλικ για έλεγχο",
 			"discoveryClaimsBadge_other": "{{count}} αποκλίσεις μοντέλων χρειάζονται προσοχή - κάντε κλικ για έλεγχο",
 			"users": "Χρήστες",

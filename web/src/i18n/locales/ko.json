@@ -98,7 +98,7 @@
 			"appLogs": "로그",
 			"settings": "설정",
 			"security": "보안",
-			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 - {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨",
+			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 - {{closed}} 정상 / {{halfOpen}} 계속 라우팅 중 / {{open}} 건너뜀",
 			"discoveryClaimsBadge_one": "확인이 필요한 모델 불일치 {{count}}건 - 클릭하여 검토",
 			"discoveryClaimsBadge_other": "확인이 필요한 모델 불일치 {{count}}건 - 클릭하여 검토",
 			"users": "사용자",

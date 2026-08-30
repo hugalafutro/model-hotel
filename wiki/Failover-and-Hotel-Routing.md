@@ -578,6 +578,8 @@ Nothing stores that verdict; it is recomputed from the circuits on every read, s
 
 The span default of `2` is the smallest number that requires corroboration: one model refusing is evidence about that model, two models refusing is evidence about the provider. Setting it to `1` restores the older behaviour, where the first open circuit sidelines the whole provider, and is the escape hatch if you want that back.
 
+The dashboard reads it the same way. The **red number** in the Failover nav badge counts providers the breaker is skipping - the derived verdict, read off the `provider_open` field of the detail rows - and the amber number beside it counts providers that hold an open or probing circuit but are still routing. The status endpoint's own `closed` / `half_open` / `open` counts are per-circuit-state tallies of the most degraded circuit per provider, which is a different question: a provider serving three models with one dark appears under `open` there and in the **amber** number here.
+
 ### Failover Integration
 
 Blocked candidates are filtered out during provider resolution:

@@ -102,7 +102,7 @@
 			"appLogs": "Logi",
 			"settings": "Ustawienia",
 			"security": "Bezpieczeństwo",
-			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
+			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} nadal kieruje ruch / {{open}} pominięty",
 			"discoveryClaimsBadge_one": "{{count}} rozbieżność modelu wymaga uwagi - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_few": "{{count}} rozbieżności modeli wymagają uwagi - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_many": "{{count}} rozbieżności modeli wymaga uwagi - kliknij, aby przejrzeć",

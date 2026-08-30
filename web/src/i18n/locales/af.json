@@ -98,7 +98,7 @@
 			"appLogs": "Logboeke",
 			"settings": "Instellings",
 			"security": "Sekuriteit",
-			"failoverBadgeExplain": "Failover-verskaffers volgens kringbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
+			"failoverBadgeExplain": "Failover-verskaffers volgens kringbreker-toestand - {{closed}} gesond / {{halfOpen}} stuur nog / {{open}} oorgeslaan",
 			"discoveryClaimsBadge_one": "{{count}} modelafwyking verg aandag - klik om te hersien",
 			"discoveryClaimsBadge_other": "{{count}} modelafwykings verg aandag - klik om te hersien",
 			"users": "Gebruikers",

@@ -100,7 +100,7 @@
 			"appLogs": "Jurnale",
 			"settings": "Setări",
 			"security": "Securitate",
-			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
+			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} încă rutează / {{open}} ocoliți",
 			"discoveryClaimsBadge_one": "{{count}} discrepanță de model necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_few": "{{count}} discrepanțe de modele necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_other": "{{count}} de discrepanțe de modele necesită atenție - faceți clic pentru a revizui",

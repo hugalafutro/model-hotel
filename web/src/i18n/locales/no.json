@@ -98,7 +98,7 @@
 			"appLogs": "Logger",
 			"settings": "Innstillinger",
 			"security": "Sikkerhet",
-			"failoverBadgeExplain": "Failover-leverandører etter kretsbrytertilstand - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
+			"failoverBadgeExplain": "Failover-leverandører etter kretsbrytertilstand - {{closed}} i orden / {{halfOpen}} ruter fortsatt / {{open}} hoppet over",
 			"discoveryClaimsBadge_one": "{{count}} modellavvik krever oppmerksomhet - klikk for å se gjennom",
 			"discoveryClaimsBadge_other": "{{count}} modellavvik krever oppmerksomhet - klikk for å se gjennom",
 			"users": "Brukere",

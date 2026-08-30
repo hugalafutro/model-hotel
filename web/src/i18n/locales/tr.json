@@ -98,7 +98,7 @@
 			"appLogs": "Günlükler",
 			"settings": "Ayarlar",
 			"security": "Güvenlik",
-			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
+			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} hâlâ yönlendiriyor / {{open}} atlanıyor",
 			"discoveryClaimsBadge_one": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"discoveryClaimsBadge_other": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"users": "Kullanıcılar",

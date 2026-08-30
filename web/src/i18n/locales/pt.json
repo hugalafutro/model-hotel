@@ -100,7 +100,7 @@
 			"appLogs": "Registos",
 			"settings": "Definições",
 			"security": "Segurança",
-			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
+			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} ainda roteando / {{open}} ignorados",
 			"discoveryClaimsBadge_one": "{{count}} divergência de modelo exige atenção - clique para revisar",
 			"discoveryClaimsBadge_many": "{{count}} divergências de modelos exigem atenção - clique para revisar",
 			"discoveryClaimsBadge_other": "{{count}} divergências de modelos exigem atenção - clique para revisar",
