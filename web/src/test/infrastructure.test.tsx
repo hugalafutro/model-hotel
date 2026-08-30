@@ -6,6 +6,7 @@
 import { screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
+import { api } from "../api/client";
 import { mockProvider } from "./mocks/data";
 import { server } from "./mocks/server";
 import { renderWithProviders } from "./utils";
@@ -57,6 +58,34 @@ describe("Test infrastructure", () => {
 		const response = await fetch("/api/providers");
 		const data = await response.json();
 		expect(data).toHaveLength(0);
+	});
+
+	// The suite's onUnhandledRequest policy is "warn", so a path with no handler
+	// leaves the test process talking to a real socket and only a log line to
+	// show for it. These endpoints are polled by the settings screens, so they
+	// are asserted to be intercepted rather than merely warned about.
+	it("intercepts the TOTP status and backup prune-preview calls", async () => {
+		const unhandled: string[] = [];
+		const record = ({ request }: { request: Request }) => {
+			unhandled.push(`${request.method} ${new URL(request.url).pathname}`);
+		};
+		server.events.on("request:unhandled", record);
+
+		const [totpStatus, prunePreview] = await Promise.allSettled([
+			api.totp.status(),
+			api.backups.prunePreview(),
+		]);
+		server.events.removeListener("request:unhandled", record);
+
+		expect(unhandled).toEqual([]);
+		expect(totpStatus).toMatchObject({
+			status: "fulfilled",
+			value: { enabled: false },
+		});
+		expect(prunePreview).toMatchObject({
+			status: "fulfilled",
+			value: { son: [], father: [], grandfather: [], prune: [] },
+		});
 	});
 
 	it("EventSource mock is available globally", async () => {
