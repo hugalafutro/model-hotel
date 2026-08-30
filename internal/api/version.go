@@ -39,6 +39,13 @@ type versionCache struct {
 
 var vCache versionCache
 
+// githubClient is the single client both GitHub lookups use, holding the 10s
+// per-request bound each of them runs under. Its nil Transport is
+// http.DefaultTransport, so connections to api.github.com pool across calls
+// either way; one client is about having one definition of that timeout rather
+// than two that can drift, and no per-call allocation on a polled route.
+var githubClient = &http.Client{Timeout: 10 * time.Second}
+
 // errNotFound indicates the GitHub releases endpoint returned 404.
 var errNotFound = errors.New("no releases found")
 
@@ -89,14 +96,13 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 
 // fetchLatestTag fetches the latest release tag from GitHub.
 func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	resp, err := client.Do(req)
+	resp, err := githubClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -126,14 +132,13 @@ func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error
 // fetchLatestTagFromTags falls back to the tags API when no GitHub Releases exist.
 // The tags are returned most-recent-first, so per_page=1 gives us the latest tag.
 func (h *Handler) fetchLatestTagFromTags(ctx context.Context, url string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("create tags request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	resp, err := client.Do(req)
+	resp, err := githubClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("tags request failed: %w", err)
 	}
