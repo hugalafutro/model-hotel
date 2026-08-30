@@ -54,7 +54,11 @@ describe("ManagedBanner", () => {
 			http.get("/api/system", () => HttpResponse.json(withFleet("primary"))),
 		);
 		renderWithProviders(<ManagedBanner fleetBoundary />);
-		expect(await screen.findByTestId("primary-banner")).toBeInTheDocument();
+		const banner = await screen.findByTestId("primary-banner");
+		expect(banner).toBeInTheDocument();
+		// Same node as the member variant today, but pin the class on both
+		// testids so a future split keeps the theme hook on each.
+		expect(banner).toHaveClass("ui-fleet-banner");
 		expect(screen.queryByTestId("managed-banner")).not.toBeInTheDocument();
 	});
 
