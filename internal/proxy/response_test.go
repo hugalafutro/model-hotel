@@ -282,7 +282,9 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 	result := w.Result()
 	defer result.Body.Close()
 
-	assert.Equal(t, http.StatusOK, result.StatusCode)
+	// 502, not the provider's 200: an error envelope under a success status is
+	// one an OpenAI SDK unmarshals into an empty completion instead of raising.
+	assert.Equal(t, http.StatusBadGateway, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
 	var responseBody map[string]any
@@ -337,7 +339,11 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 	result := w.Result()
 	defer result.Body.Close()
 
-	assert.Equal(t, http.StatusOK, result.StatusCode)
+	// A 200 with an empty body is a provider that answered nothing, so it fails,
+	// and the failure reaches the client as a 502 rather than hiding under the
+	// provider's success status. Only 204/205 promise no body, and they take
+	// their own branch.
+	assert.Equal(t, http.StatusBadGateway, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
 	var responseBody map[string]any

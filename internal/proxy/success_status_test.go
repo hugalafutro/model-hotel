@@ -2,9 +2,11 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -136,9 +138,8 @@ func TestAttemptCandidate_ASuccessIsNeverFailedOver(t *testing.T) {
 	}
 }
 
-// The deliberate narrowing that came with the fix. A 2xx carrying something
-// that is not a completion used to be forwarded to the client verbatim,
-// unmetered, with the row written as failed. It now gets an error BODY.
+// A 2xx carrying something that is not a completion is an error BODY under an
+// error STATUS.
 //
 // The caller asked for a chat completion; `accepted` is not one, and an OpenAI
 // client cannot parse it either. Forwarding an unreadable success is also
@@ -146,23 +147,50 @@ func TestAttemptCandidate_ASuccessIsNeverFailedOver(t *testing.T) {
 // exception, because their status promises no body — see
 // TestAttemptCandidate_A204IsForwardedWithoutAnInventedBody.
 //
-// The STATUS stays the upstream's 2xx, which an OpenAI SDK will not raise on:
-// it unmarshals and finds no choices. That is long-standing behaviour for a 200
-// with an undecodable body (TestHandleNonStreamingResponse_EmptyBody pins it),
-// and this change widens the set of statuses it applies to rather than
-// introducing it. Answering 502 instead, as the multimodal twin already does,
-// is a separate change to a contract clients depend on.
+// The status is 502 rather than the provider's 2xx, because an OpenAI SDK does
+// not raise on a 2xx: it unmarshals the gateway's error envelope, finds no
+// choices, and hands the caller an empty answer. Under the provider's status the
+// row reads failed while the client is told it succeeded, so nothing retries and
+// nothing alerts. The multimodal twin answers 502 for the same shape — a broken
+// read in serveBufferedJSONPassthrough, an empty body in
+// serveStreamedPassthrough — so the two paths agree rather than the chat path
+// inventing a rule.
+//
+// The ROW keeps the provider's own status: what the upstream said is the
+// diagnostic, and only what the client is told changes. A non-2xx keeps its
+// status on the way out too, which
+// TestHandleNonStreamingResponse_ChatShapedNon2xxGetsErrorEnvelope pins.
 func TestAttemptCandidate_A2xxThatIsNotACompletionIsAnError(t *testing.T) {
-	w, st, vkRepo := serveStatus(t, http.StatusAccepted, `accepted`)
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			w, st, vkRepo := serveStatus(t, status, `accepted`)
 
-	if st.logData.state != "failed" {
-		t.Errorf("row state = %q, want failed: a 202 that carried no completion was recorded as served", st.logData.state)
-	}
-	if n := len(vkRepo.addTokensCalls); n != 0 {
-		t.Errorf("charged %d times for a body that is not a completion, want 0", n)
-	}
-	if got := w.Body.String(); !strings.Contains(got, `"error"`) {
-		t.Errorf("client got %q, want an error envelope it can parse", got)
+			if st.logData.state != "failed" {
+				t.Errorf("row state = %q, want failed: a %d that carried no completion was recorded as served", st.logData.state, status)
+			}
+			if st.logData.statusCode != status {
+				t.Errorf("row status = %d, want %d: the row records what the upstream actually said", st.logData.statusCode, status)
+			}
+			if n := len(vkRepo.addTokensCalls); n != 0 {
+				t.Errorf("charged %d times for a body that is not a completion, want 0", n)
+			}
+			if w.Code != http.StatusBadGateway {
+				t.Errorf("client status = %d, want 502: the gateway's error envelope went out under the provider's %d", w.Code, status)
+			}
+			var body struct {
+				Error struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Fatalf("client body is not an error envelope it can parse: %v (%s)", err, w.Body.String())
+			}
+			// The upstream status is not lost: it moves into the message, which
+			// is where an operator reads what the provider claimed.
+			if want := "upstream HTTP " + strconv.Itoa(status); !strings.Contains(body.Error.Message, want) {
+				t.Errorf("client message = %q, want it to name %q", body.Error.Message, want)
+			}
+		})
 	}
 }
 
