@@ -305,6 +305,18 @@ func NewServer(cfg ServerConfig) *Server {
 	// contract, and the config secret rides the same MasterKey encryption as above.
 	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, true, s.cookieSecure, authcookie.FrontDesk)
 
+	// An open /traefik/config is a deliberate default: Traefik cannot log in, so
+	// there is no admin-auth fallback to give it. What the default costs is more
+	// than the member list it discloses. Serving the config stamps the poll that
+	// the Traefik-stalled watchdog measures silence against, so any caller that
+	// reaches the endpoint keeps that watchdog quiet, and a real Traefik that
+	// died is never reported. Said once, at construction, because a default
+	// whose consequence is a monitor that stops monitoring should not be silent.
+	if s.traefikToken == "" {
+		debuglog.Warn("frontdesk: /traefik/config is unauthenticated, set FRONTDESK_TRAEFIK_TOKEN to gate it",
+			"consequence", "any caller that reaches it resets the Traefik staleness watchdog")
+	}
+
 	s.router = s.buildRouter(webauthnHandler, totpHandler, oidcHandler, cfg.UI)
 	return s
 }
