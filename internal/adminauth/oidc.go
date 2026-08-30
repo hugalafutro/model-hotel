@@ -167,9 +167,19 @@ type oidcLoginState struct {
 // it. Mount on the same unauthenticated group as the WebAuthn/TOTP login routes.
 func (h *OIDCHandler) Register(r chi.Router) {
 	r.Route("/auth/oidc", func(r chi.Router) {
+		// Status is the login screen's poll: it builds no provider and touches
+		// no network or database, so it stays outside the limiter and a cold
+		// dashboard load cannot spend the ceremonies' budget on it.
 		r.Get("/status", h.Status)
-		r.Get("/start", h.Start)
-		r.Get("/callback", h.Callback)
+		// Start and Callback carry the per-IP request limiter the way the other
+		// login ceremonies do. Start writes a login-state row on every request
+		// that reaches a configured IdP, and only an hourly sweep reclaims
+		// them, so an unbounded request rate is an unbounded row count.
+		r.Group(func(r chi.Router) {
+			r.Use(h.ipLimiter.Middleware)
+			r.Get("/start", h.Start)
+			r.Get("/callback", h.Callback)
+		})
 	})
 }
 

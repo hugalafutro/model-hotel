@@ -88,7 +88,15 @@ func NewTotpHandler(
 func (h *TotpHandler) Register(r chi.Router) {
 	r.Route("/totp", func(r chi.Router) {
 		r.Get("/status", h.Status)
-		r.Post("/login", h.Login)
+		// The second factor is a public login ceremony, so it carries the
+		// per-IP request limiter the way the passkey login routes do. The
+		// loginThrottle below is a different bound: it counts FAILURES, so it
+		// engages only after maxFailures and never caps the rate of the
+		// attempts that reach the verification before it does.
+		r.Group(func(r chi.Router) {
+			r.Use(h.ipLimiter.Middleware)
+			r.Post("/login", h.Login)
+		})
 		r.Group(func(r chi.Router) {
 			if h.demoReadOnly {
 				r.Use(readOnlyGuard)
