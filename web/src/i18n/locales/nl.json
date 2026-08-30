@@ -119,7 +119,6 @@
 			"disk": "Schijf",
 			"memory": "Geheugen",
 			"goroutines": "Go-routines",
-			"requestsToday": "Verz. vandaag",
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,10 @@
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "verb.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Verz. vandaag (alle)",
+			"requestsTodayOwn": "Verz. vandaag (die van u)",
+			"requestsToday": "Verz. vandaag"
 		},
 		"toast": {
 			"copiedToClipboard": "Gekopieerd naar klembord",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "Hoe lang het serverproces loopt",
 			"goroutines": "Active Go runtime goroutines (lichtgewicht threads)",
-			"requestsToday": "Aantal proxied LLM aanvragen sinds middernacht lokale tijd vandaag",
 			"dbSize": "Postgres database grootte op schijf",
 			"dbHitRatio": "Buffercache hit ratio over recente activiteit (hoger is beter; leeg zolang de database inactief is)",
 			"dbConnections": "Actieve database verbindingen",
-			"dbTxPerSec": "Database transacties per seconde"
+			"dbTxPerSec": "Database transacties per seconde",
+			"requestsTodayAll": "Aantal via de proxy verwerkte LLM-aanvragen van alle virtuele sleutels sinds middernacht lokale tijd vandaag",
+			"requestsTodayOwn": "Aantal via de proxy verwerkte LLM-aanvragen van uw eigen virtuele sleutels sinds middernacht lokale tijd vandaag",
+			"requestsToday": "Aantal proxied LLM aanvragen sinds middernacht lokale tijd vandaag"
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {

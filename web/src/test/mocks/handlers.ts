@@ -671,6 +671,22 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json(newBackup, { status: 201 });
 	}),
 
+	// POST /api/backups/prune-preview classifies the scheduled backups into the
+	// son/father/grandfather rotation and lists what would be dropped. Nothing
+	// is deleted, and an empty classification is the honest default for a store
+	// whose fixtures carry no scheduled backups.
+	http.post("/api/backups/prune-preview", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({
+			son: [],
+			father: [],
+			grandfather: [],
+			prune: [],
+		});
+	}),
+
 	http.delete("/api/backups/:filename", ({ request }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -755,6 +771,10 @@ export const handlers: RequestHandler[] = [
 	http.get("/api/auth/me", () =>
 		HttpResponse.json({ username: "admin", role: "admin", grants: [] }),
 	),
+	// GET /api/totp/status is unauthenticated by design: the login screen reads
+	// it to decide whether to ask for a second factor. enabled_at is present
+	// only while TOTP is on, so the disabled default omits it.
+	http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
 	http.get("/api/auth/status", () => HttpResponse.json({ enabled: false })),
 	http.get("/api/users", () => HttpResponse.json([])),
 	http.get("/api/users/grants", () =>

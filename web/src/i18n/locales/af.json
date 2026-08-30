@@ -119,7 +119,6 @@
 			"disk": "Skyf",
 			"memory": "Geheue",
 			"goroutines": "Go-roetines",
-			"requestsToday": "Versoeke vandag",
 			"db": "DB",
 			"procs_one": "proses",
 			"procs_other": "prosesse",
@@ -130,7 +129,10 @@
 			"heap": "hoop",
 			"hit": "Treffer",
 			"conn": "verb.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Versoeke vandag (almal)",
+			"requestsTodayOwn": "Versoeke vandag (joune)",
+			"requestsToday": "Versoeke vandag"
 		},
 		"toast": {
 			"copiedToClipboard": "Na die knipbord gekopieer",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "Hoe lank die bedienerproses al aan die gang is",
 			"goroutines": "Aktiewe Go-uitvoer-goroutines (liggewig drade)",
-			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag",
 			"dbSize": "Postgres-databasisgrootte op skyf",
 			"dbHitRatio": "Vulgeheue-trefferkoers oor onlangse aktiwiteit (hoe hoër hoe beter; leeg terwyl die databasis ledig is)",
 			"dbConnections": "Aktiewe databasisverbindinge",
-			"dbTxPerSec": "Databasis-transaksies per sekonde"
+			"dbTxPerSec": "Databasis-transaksies per sekonde",
+			"requestsTodayAll": "Aantal LLM-versoeke via proxy vanaf alle virtuele sleutels sedert middernag plaaslike tyd vandag",
+			"requestsTodayOwn": "Aantal LLM-versoeke via proxy vanaf jou eie virtuele sleutels sedert middernag plaaslike tyd vandag",
+			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag"
 		},
 		"githubRepo": "GitHub-bewaarplek",
 		"readOnly": {

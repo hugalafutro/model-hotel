@@ -6,9 +6,9 @@
 // Unlike the proxy SafeDialer (internal/proxy), which blocks every private
 // range because upstream LLM providers are external SaaS, these guards allow
 // private and loopback addresses and refuse only the addresses that are never a
-// legitimate destination and are the classic SSRF targets: the unspecified
-// address, link-local unicast (which includes the 169.254.169.254 cloud-metadata
-// endpoint), and link-local multicast.
+// legitimate destination and are the classic SSRF targets: the "this host"
+// block (0.0.0.0/8 and ::), link-local unicast (which includes the
+// 169.254.169.254 cloud-metadata endpoint), and link-local multicast.
 package netguard
 
 import (
@@ -38,14 +38,23 @@ func parseHTTPURL(rawURL string) (*url.URL, error) {
 }
 
 // BlockedIP reports whether an IP is one of the SSRF targets that must never be
-// dialled by an internal-facing outbound client: the unspecified address, or
-// link-local unicast/multicast (169.254.0.0/16 and fe80::/10, which cover the
+// dialled by an internal-facing outbound client: the whole "this host on this
+// network" block (0.0.0.0/8 and ::, per RFC 1122), or link-local
+// unicast/multicast (169.254.0.0/16 and fe80::/10, which cover the
 // cloud-metadata endpoint). Private and loopback ranges are intentionally
 // allowed so internal IdPs, the apprise-api container, and Front Desk members
 // keep working.
 func BlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return false
+	}
+	// IsUnspecified covers only 0.0.0.0 and ::, but every address in 0.0.0.0/8
+	// is "this host": a Linux dial to 0.1.2.3 lands on the local machine the
+	// same way 0.0.0.0 does, so the whole block has to go. To4 normalises the
+	// IPv4-mapped spelling (::ffff:0.1.2.3) to the same four bytes, and returns
+	// nil for :: itself, which IsUnspecified already handles.
+	if v4 := ip.To4(); v4 != nil && v4[0] == 0 {
+		return true
 	}
 	return ip.IsUnspecified() ||
 		ip.IsLinkLocalUnicast() ||

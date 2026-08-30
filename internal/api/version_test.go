@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -626,5 +628,71 @@ func TestFetchLatestTagFromTags_InvalidURL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "create tags request") {
 		t.Errorf("expected error about creating request, got: %v", err)
+	}
+}
+
+// stubTransport answers every request itself and counts them, standing in for
+// the shared client's transport so a lookup that built its own client instead
+// would visibly miss it.
+type stubTransport struct {
+	mu   sync.Mutex
+	n    int
+	body string
+}
+
+func (s *stubTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
+	s.mu.Lock()
+	s.n++
+	s.mu.Unlock()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(s.body)),
+	}, nil
+}
+
+func (s *stubTransport) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.n
+}
+
+// TestVersionLookupsShareOneClient pins that both GitHub lookups go through the
+// package client rather than each constructing its own: a per-call client is a
+// per-call allocation and a second place the timeout can drift. Swapping the
+// package client for a counting transport makes the difference observable, and
+// the real server standing beside it must never be reached.
+func TestVersionLookupsShareOneClient(t *testing.T) {
+	hits := 0
+	var hitsMu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hitsMu.Lock()
+		hits++
+		hitsMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tag_name":"v0.0.0"}`))
+	}))
+	defer srv.Close()
+
+	stub := &stubTransport{body: `{"tag_name":"v9.9.9"}`}
+	original := githubClient
+	githubClient = &http.Client{Transport: stub, Timeout: original.Timeout}
+	t.Cleanup(func() { githubClient = original })
+
+	h := &Handler{ghReleasesURL: srv.URL, ghTagsURL: srv.URL}
+	if _, err := h.fetchLatestTag(context.Background(), h.ghReleasesURL); err != nil {
+		t.Fatalf("fetchLatestTag failed: %v", err)
+	}
+	// The tags body is a list, which the stub above cannot serve, so the second
+	// lookup is expected to fail decoding; reaching the stub at all is the point.
+	_, _ = h.fetchLatestTagFromTags(context.Background(), h.ghTagsURL)
+
+	if got := stub.count(); got != 2 {
+		t.Errorf("shared client carried %d of the 2 lookups", got)
+	}
+	hitsMu.Lock()
+	defer hitsMu.Unlock()
+	if hits != 0 {
+		t.Errorf("a lookup bypassed the shared client and reached the server %d times", hits)
 	}
 }

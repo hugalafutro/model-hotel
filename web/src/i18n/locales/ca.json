@@ -123,7 +123,6 @@
 			"disk": "Disc",
 			"memory": "Memòria",
 			"goroutines": "Gorutines",
-			"requestsToday": "Sol·l. avui",
 			"db": "BD",
 			"procs_one": "procés",
 			"procs_many": "processos",
@@ -135,7 +134,10 @@
 			"heap": "heap",
 			"hit": "Encert",
 			"conn": "con.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Sol·l. avui (totes)",
+			"requestsTodayOwn": "Sol·l. avui (teves)",
+			"requestsToday": "Sol·l. avui"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat al porta-retalls",
@@ -195,11 +197,13 @@
 		"tooltips": {
 			"uptime": "Quant de temps fa que s'executa el procés del servidor",
 			"goroutines": "Goroutines en execució de Go (fils lleugers)",
-			"requestsToday": "Nombre de sol·licituds a LLM gestionades per proxy des de la mitjanit hora local d'avui",
 			"dbSize": "Mida de la base de dades Postgres al disc",
 			"dbHitRatio": "Ràtio d'encerts de la memòria cau del búfer durant l'activitat recent (com més alta, millor; en blanc mentre la base de dades està inactiva)",
 			"dbConnections": "Connexions actives a la base de dades",
-			"dbTxPerSec": "Transaccions de base de dades per segon"
+			"dbTxPerSec": "Transaccions de base de dades per segon",
+			"requestsTodayAll": "Nombre de sol·licituds a LLM gestionades per proxy per a totes les claus virtuals des de la mitjanit hora local d'avui",
+			"requestsTodayOwn": "Nombre de sol·licituds a LLM gestionades per proxy per a les teves pròpies claus virtuals des de la mitjanit hora local d'avui",
+			"requestsToday": "Nombre de sol·licituds a LLM gestionades per proxy des de la mitjanit hora local d'avui"
 		},
 		"githubRepo": "Dipòsit de GitHub",
 		"readOnly": {

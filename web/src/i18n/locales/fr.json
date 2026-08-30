@@ -123,7 +123,6 @@
 			"disk": "Disque",
 			"memory": "Mémoire",
 			"goroutines": "Goroutines",
-			"requestsToday": "Req. auj.",
 			"db": "BdD",
 			"procs_one": "proc",
 			"procs_many": "procs",
@@ -135,7 +134,10 @@
 			"heap": "tas",
 			"hit": "Hit",
 			"conn": "conn.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Req. auj. (toutes)",
+			"requestsTodayOwn": "Req. auj. (les vôtres)",
+			"requestsToday": "Req. auj."
 		},
 		"toast": {
 			"copiedToClipboard": "Copié dans le presse-papiers",
@@ -195,11 +197,13 @@
 		"tooltips": {
 			"uptime": "Depuis combien de temps le processus serveur est en cours d'exécution",
 			"goroutines": "Goroutines d'exécution Go actives (fils légers)",
-			"requestsToday": "Nombre de requêtes LLM mandatées depuis minuit heure locale aujourd'hui",
 			"dbSize": "Taille de la base de données postgres sur le disque",
 			"dbHitRatio": "Ratio de réussite du cache tampon sur l'activité récente (plus élevé est mieux ; vide tant que la base de données est inactive)",
 			"dbConnections": "Connexions de base de données actives",
-			"dbTxPerSec": "Transactions de la base de données par seconde"
+			"dbTxPerSec": "Transactions de la base de données par seconde",
+			"requestsTodayAll": "Nombre de requêtes LLM mandatées pour toutes les clés virtuelles depuis minuit heure locale aujourd'hui",
+			"requestsTodayOwn": "Nombre de requêtes LLM mandatées pour vos propres clés virtuelles depuis minuit heure locale aujourd'hui",
+			"requestsToday": "Nombre de requêtes LLM mandatées depuis minuit heure locale aujourd'hui"
 		},
 		"githubRepo": "Dépôt GitHub",
 		"readOnly": {

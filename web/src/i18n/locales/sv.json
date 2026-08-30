@@ -119,7 +119,6 @@
 			"disk": "Disk",
 			"memory": "Minne",
 			"goroutines": "Go-rutiner",
-			"requestsToday": "Förfr. idag",
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,10 @@
 			"heap": "heap",
 			"hit": "Träff",
 			"conn": "anslutn.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Förfr. idag (alla)",
+			"requestsTodayOwn": "Förfr. idag (dina)",
+			"requestsToday": "Förfr. idag"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopierad till urklipp",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "Hur länge serverprocessen har körts",
 			"goroutines": "Aktiva Go runtime-goroutiner (lätta trådar)",
-			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag",
 			"dbSize": "Postgres databasstorlek på disk",
 			"dbHitRatio": "Buffertcachens träffförhållande för senaste aktivitet (högre är bättre; tomt medan databasen är inaktiv)",
 			"dbConnections": "Aktiva databasanslutningar",
-			"dbTxPerSec": "Databastransaktioner per sekund"
+			"dbTxPerSec": "Databastransaktioner per sekund",
+			"requestsTodayAll": "Antal proxierade LLM-förfrågningar från alla virtuella nycklar sedan midnatt lokal tid idag",
+			"requestsTodayOwn": "Antal proxierade LLM-förfrågningar från dina egna virtuella nycklar sedan midnatt lokal tid idag",
+			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag"
 		},
 		"githubRepo": "GitHub-repo",
 		"readOnly": {

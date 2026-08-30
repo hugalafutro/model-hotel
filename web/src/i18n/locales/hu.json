@@ -119,7 +119,6 @@
 			"disk": "Lemez",
 			"memory": "Memória",
 			"goroutines": "Go rutinok",
-			"requestsToday": "Mai kérések",
 			"db": "AB",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,10 @@
 			"heap": "heap",
 			"hit": "Találat",
 			"conn": "kapcs.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Mai kérések (összes)",
+			"requestsTodayOwn": "Mai kérések (sajátok)",
+			"requestsToday": "Mai kérések"
 		},
 		"toast": {
 			"copiedToClipboard": "A vágólapra másolva",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "Mióta fut a szerverfolyamat",
 			"goroutines": "Aktív Go futásidejű goroutine-ok (könnyű szálak)",
-			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma",
 			"dbSize": "A Postgres adatbázis mérete a lemezen",
 			"dbHitRatio": "A puffer-cache találati aránya a legutóbbi aktivitás alapján (minél magasabb, annál jobb; üres, amíg az adatbázis tétlen)",
 			"dbConnections": "Aktív adatbázis-kapcsolatok",
-			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként"
+			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként",
+			"requestsTodayAll": "A mai nap helyi idő szerint éjfél óta az összes virtuális kulcson továbbított LLM-kérelmek száma",
+			"requestsTodayOwn": "A mai nap helyi idő szerint éjfél óta a saját virtuális kulcsain továbbított LLM-kérelmek száma",
+			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma"
 		},
 		"githubRepo": "GitHub-tároló",
 		"readOnly": {

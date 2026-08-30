@@ -119,7 +119,6 @@
 			"disk": "磁盘",
 			"memory": "内存",
 			"goroutines": "Go 协程",
-			"requestsToday": "今日请求",
 			"db": "数据库",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,10 @@
 			"heap": "堆",
 			"hit": "命中",
 			"conn": "连接",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "今日请求（全部）",
+			"requestsTodayOwn": "今日请求（我的）",
+			"requestsToday": "今日请求"
 		},
 		"toast": {
 			"copiedToClipboard": "复制到剪贴板",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "服务器进程运行时间",
 			"goroutines": "激活运行时goroutines (轻量线程)",
-			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量",
 			"dbSize": "磁盘上的Postgres数据库大小",
 			"dbHitRatio": "近期活动的缓冲区缓存命中率 (越高越好；数据库空闲时留空)",
 			"dbConnections": "活跃的数据库连接",
-			"dbTxPerSec": "每秒数据库事务数"
+			"dbTxPerSec": "每秒数据库事务数",
+			"requestsTodayAll": "自今天当地时间午夜以来所有虚拟密钥代理的LLM请求数量",
+			"requestsTodayOwn": "自今天当地时间午夜以来您自己的虚拟密钥代理的LLM请求数量",
+			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量"
 		},
 		"githubRepo": "GitHub 仓库",
 		"readOnly": {

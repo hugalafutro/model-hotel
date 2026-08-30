@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { useIdentity } from "../context/IdentityContext";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import {
 	formatCount,
@@ -29,6 +30,30 @@ export function SystemStatus() {
 	const { collapsed, toggle: toggleCollapsed } = useCollapsible(
 		"sidebarStatsCollapsed",
 	);
+
+	// GET /api/system counts requests_today across every virtual key for an
+	// admin and only the caller's own keys for anyone else, so the label has to
+	// name the scope it is showing. The role it reads is `me`, the identity as
+	// actually resolved, not the context's isAdmin: that one answers "admin"
+	// while /api/auth/me is in flight AND whenever it has failed, which is the
+	// right fallback for deciding what the nav offers but would leave a
+	// non-admin's own count captioned as everyone's for as long as the call
+	// keeps failing. Until the role is known the label claims no scope at all.
+	const { me } = useIdentity();
+	const requestsTodayKeys = me
+		? me.role === "admin"
+			? {
+					label: "layout.stats.requestsTodayAll",
+					tooltip: "layout.tooltips.requestsTodayAll",
+				}
+			: {
+					label: "layout.stats.requestsTodayOwn",
+					tooltip: "layout.tooltips.requestsTodayOwn",
+				}
+		: {
+				label: "layout.stats.requestsToday",
+				tooltip: "layout.tooltips.requestsToday",
+			};
 
 	const app = stats?.app;
 	// HA fleet membership. Present only while Front Desk is in contact; a
@@ -300,9 +325,9 @@ export function SystemStatus() {
 						{/* Requests Today */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title={t("layout.tooltips.requestsToday")}
+							title={t(requestsTodayKeys.tooltip)}
 						>
-							<span>{t("layout.stats.requestsToday")}</span>
+							<span>{t(requestsTodayKeys.label)}</span>
 							<span className="text-(--text-secondary)">
 								{app && app.requests_today > 0
 									? formatCount(app.requests_today)

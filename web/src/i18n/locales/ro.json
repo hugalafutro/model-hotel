@@ -123,7 +123,6 @@
 			"disk": "Disc",
 			"memory": "Memorie",
 			"goroutines": "Gorutine",
-			"requestsToday": "Cereri azi",
 			"db": "BD",
 			"procs_one": "proc.",
 			"procs_few": "proc.",
@@ -135,7 +134,10 @@
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "con.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Cereri azi (toate)",
+			"requestsTodayOwn": "Cereri azi (ale tale)",
+			"requestsToday": "Cereri azi"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat în clipboard",
@@ -195,11 +197,13 @@
 		"tooltips": {
 			"uptime": "Cât timp a fost rulat serverul",
 			"goroutines": "Goroutine Go active în execuție (fire de execuție ușoare)",
-			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi",
 			"dbSize": "Dimensiunea bazei de date Postgres pe disc",
 			"dbHitRatio": "Rata de reușită a cache-ului buffer pentru activitatea recentă (mai mare este mai bună; goală cât timp baza de date este inactivă)",
 			"dbConnections": "Conexiuni active la baza de date",
-			"dbTxPerSec": "Baza de date tranzacţii pe secundă"
+			"dbTxPerSec": "Baza de date tranzacţii pe secundă",
+			"requestsTodayAll": "Numărul de cereri LLM transmise prin proxy de la toate cheile virtuale de la miezul nopții locale astăzi",
+			"requestsTodayOwn": "Numărul de cereri LLM transmise prin proxy de la propriile tale chei virtuale de la miezul nopții locale astăzi",
+			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi"
 		},
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {

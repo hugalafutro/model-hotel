@@ -123,7 +123,6 @@
 			"disk": "Disco",
 			"memory": "Memoria",
 			"goroutines": "Gorutinas",
-			"requestsToday": "Sol. hoy",
 			"db": "BD",
 			"procs_one": "proc",
 			"procs_many": "procs",
@@ -135,7 +134,10 @@
 			"heap": "heap",
 			"hit": "Acierto",
 			"conn": "con.",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Sol. hoy (todas)",
+			"requestsTodayOwn": "Sol. hoy (tuyas)",
+			"requestsToday": "Sol. hoy"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiado al portapapeles",
@@ -195,11 +197,13 @@
 		"tooltips": {
 			"uptime": "Cuánto tiempo ha estado ejecutándose el proceso del servidor",
 			"goroutines": "Gorutinas activas del runtime de Go (hilos ligeros)",
-			"requestsToday": "Número de peticiones LLM enviadas por el proxy desde la medianoche de hoy, hora local",
 			"dbSize": "Tamaño de base de datos en el disco",
 			"dbHitRatio": "Relación de aciertos de caché de búfer sobre la actividad reciente (mayor es mejor; en blanco mientras la base de datos está inactiva)",
 			"dbConnections": "Conexiones activas de base de datos",
-			"dbTxPerSec": "Transacciones de base de datos por segundo"
+			"dbTxPerSec": "Transacciones de base de datos por segundo",
+			"requestsTodayAll": "Número de peticiones LLM enviadas por el proxy con cualquier clave virtual desde la medianoche de hoy, hora local",
+			"requestsTodayOwn": "Número de peticiones LLM enviadas por el proxy con tus propias claves virtuales desde la medianoche de hoy, hora local",
+			"requestsToday": "Número de peticiones LLM enviadas por el proxy desde la medianoche de hoy, hora local"
 		},
 		"githubRepo": "Repositorio de GitHub",
 		"readOnly": {

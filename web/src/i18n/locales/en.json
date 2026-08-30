@@ -132,7 +132,6 @@
 			"disk": "Disk",
 			"memory": "Memory",
 			"goroutines": "Go routines",
-			"requestsToday": "Req Today",
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -143,7 +142,10 @@
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "conn",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Req Today (all)",
+			"requestsTodayOwn": "Req Today (yours)",
+			"requestsToday": "Req Today"
 		},
 		"toast": {
 			"copiedToClipboard": "Copied to clipboard",
@@ -215,11 +217,13 @@
 		"tooltips": {
 			"uptime": "How long the server process has been running",
 			"goroutines": "Active Go runtime goroutines (lightweight threads)",
-			"requestsToday": "Number of proxied LLM requests since midnight local time today",
 			"dbSize": "Postgres database size on disk",
 			"dbHitRatio": "Buffer cache hit ratio over recent activity (higher is better; blank while the database is idle)",
 			"dbConnections": "Active database connections",
-			"dbTxPerSec": "Database transactions per second"
+			"dbTxPerSec": "Database transactions per second",
+			"requestsTodayAll": "Number of proxied LLM requests across every virtual key since midnight local time today",
+			"requestsTodayOwn": "Number of proxied LLM requests from your own virtual keys since midnight local time today",
+			"requestsToday": "Number of proxied LLM requests since midnight local time today"
 		},
 		"githubRepo": "GitHub repository",
 		"readOnly": {

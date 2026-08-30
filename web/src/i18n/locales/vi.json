@@ -119,7 +119,6 @@
 			"disk": "Ổ đĩa",
 			"memory": "Bộ nhớ",
 			"goroutines": "Go routine",
-			"requestsToday": "Yêu cầu hôm nay",
 			"db": "CSDL",
 			"procs_one": "proc",
 			"procs_other": "procs",
@@ -130,7 +129,10 @@
 			"heap": "heap",
 			"hit": "Trúng",
 			"conn": "k.nối",
-			"txPerSec": "tx/s"
+			"txPerSec": "tx/s",
+			"requestsTodayAll": "Yêu cầu hôm nay (tất cả)",
+			"requestsTodayOwn": "Yêu cầu hôm nay (của bạn)",
+			"requestsToday": "Yêu cầu hôm nay"
 		},
 		"toast": {
 			"copiedToClipboard": "Đã sao chép vào khay nhớ tạm",
@@ -190,11 +192,13 @@
 		"tooltips": {
 			"uptime": "Quá trình máy chủ đã chạy được bao lâu",
 			"goroutines": "Các goroutine đang hoạt động trong môi trường chạy Active Go (luồng nhẹ)",
-			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay",
 			"dbSize": "Dung lượng cơ sở dữ liệu Postgres trên đĩa",
 			"dbHitRatio": "Tỷ lệ trúng bộ đệm trong hoạt động gần đây (càng cao càng tốt; để trống khi cơ sở dữ liệu không hoạt động)",
 			"dbConnections": "Các kết nối cơ sở dữ liệu đang hoạt động",
-			"dbTxPerSec": "Số giao dịch cơ sở dữ liệu mỗi giây"
+			"dbTxPerSec": "Số giao dịch cơ sở dữ liệu mỗi giây",
+			"requestsTodayAll": "Số lượng yêu cầu LLM được chuyển tiếp từ tất cả khóa ảo kể từ nửa đêm theo giờ địa phương hôm nay",
+			"requestsTodayOwn": "Số lượng yêu cầu LLM được chuyển tiếp từ khóa ảo của riêng bạn kể từ nửa đêm theo giờ địa phương hôm nay",
+			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay"
 		},
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
