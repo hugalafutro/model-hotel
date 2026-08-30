@@ -667,11 +667,11 @@ func TestHandleNonStreamingResponse_UpstreamNonJSONResponse(t *testing.T) {
 	if !strings.Contains(logData.errorMessage, "response decode error") {
 		t.Errorf("expected errorMessage containing 'response decode error', got %q", logData.errorMessage)
 	}
-	// Non-JSON upstream body on a 200 response causes handleNonStreamingResponse
-	// to wrap it in an OpenAI error envelope at proxy.go line 825.
-	// The upstream status (200) is forwarded, so client gets 200 with error JSON.
-	if inner.Code != http.StatusOK {
-		t.Errorf("expected 200 (upstream status forwarded), got %d", inner.Code)
+	// A non-JSON body under a 200 is not a completion, so the client gets the
+	// gateway's OpenAI error envelope under 502 rather than under the provider's
+	// success — see nonCompletionClientStatus.
+	if inner.Code != http.StatusBadGateway {
+		t.Errorf("expected 502 for a 200 that carried no completion, got %d", inner.Code)
 	}
 }
 

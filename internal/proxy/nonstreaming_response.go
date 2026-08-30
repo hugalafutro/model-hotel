@@ -284,8 +284,42 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", detail, "duration_ms", totalDuration)
-		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), resp.StatusCode)
+		// The ROW keeps resp.StatusCode above: what the upstream said is the
+		// diagnostic. Only what the CLIENT is told changes.
+		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), nonCompletionClientStatus(resp.StatusCode))
 	}
+}
+
+// nonCompletionClientStatus is the status the CLIENT is answered with when an
+// upstream response is not a completion: the provider's own status, except for a
+// 2xx.
+//
+// A 2xx becomes 502, because the gateway's own error envelope must never travel
+// under a success status. An OpenAI SDK does not raise on a 2xx: it unmarshals
+// the envelope, finds no choices, and hands the caller an empty answer instead
+// of an error. A relay answering 200 with something that is not a completion
+// therefore leaves the request log reading "failed" beside a client that
+// believes it succeeded, and nothing retries and nothing alerts.
+//
+// 502 rather than any other code because the multimodal pass-through already
+// answers exactly that for the same shape (serveBufferedJSONPassthrough on a
+// broken read, serveStreamedPassthrough on an empty body). The upstream status
+// still reaches the request-log row either way, and reaches the CLIENT only when
+// the provider is named: upstreamClientMessage appends it to the message with
+// the provider, and returns the bare reason without one.
+//
+// The non-2xx return is defensive rather than live. Every caller reaches this
+// handler through attemptCandidate, which sends anything that is not a 2xx to
+// forwardUpstreamError first (proxy_failover.go), so in production only the 2xx
+// branch runs; the other keeps the function total for a handler driven directly.
+//
+// This is not reached for 204/205, which are served by their own branch, nor for
+// a 2xx that decodes as a completion.
+func nonCompletionClientStatus(upstreamStatus int) int {
+	if servedSuccessStatus(upstreamStatus) {
+		return http.StatusBadGateway
+	}
+	return upstreamStatus
 }
 
 // bodilessSuccessStatus reports whether a 2xx status is one HTTP forbids a body
