@@ -29,5 +29,16 @@ services:
             # can turn the trust OFF; :- would resurrect the fallback.
             - KNOWN_PROXIES=${KNOWN_PROXIES-}
             - TRUSTED_PROXIES=${TRUSTED_PROXIES-172.16.0.0/12}
+            # Observability passthroughs, same .env pattern as the proxy CIDRs
+            # above: all three are inert when .env does not define them (empty
+            # LOG_FORMAT falls back to text, an empty OTLP endpoint disables
+            # the export, an empty METRICS_TOKEN behaves like an unset one).
+            # With them in .env a plain `make docker-build` keeps the local
+            # observability overlay's log/metric/trace exports wired instead
+            # of silently dropping them on every rebuild.
+            - LOG_FORMAT=${LOG_FORMAT-}
+            - METRICS_TOKEN=${METRICS_TOKEN-}
+            - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT-}
+            - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME-model-hotel-dev}
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
