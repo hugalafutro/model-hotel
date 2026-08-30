@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identiteit gekoppeld aan een account",
 				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost",
 				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)",
-				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning"
+				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning",
+				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)"
 			},
 			"events": {
 				"all": "Alles selecteren",

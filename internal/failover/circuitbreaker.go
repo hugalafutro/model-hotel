@@ -275,12 +275,65 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, mode
 //
 // Must be called with cb.mu held.
 func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, providerName, model string, c *circuit) {
+	now := time.Now()
 	c.state = StateOpen
-	c.openedAt = time.Now()
+	c.openedAt = now
 	cb.applyQuotaPin(providerID, c)
 	debuglog.Warn(msg, "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c), "model", model)
 	cb.publishEvent(providerID, providerName, "open", model, c)
+	if c.noteOpen(now) {
+		cb.reportUnstable(providerID, providerName, model, c.opens)
+	}
 	cb.notifyOpen(providerID)
+}
+
+// reportUnstable says once that a model has opened its circuit repeatedly inside
+// one window, so a chronically broken model stops being invisible.
+//
+// It reports rather than retires, and that is the whole design. Retiring means
+// "the provider no longer serves this model", which only a request refused BY
+// NAME establishes, and a model failing that way is already nominated by the
+// gone-classified streak on the first refusal. What is left here is the model
+// that fails some OTHER way, repeatedly: timeouts, 5xx, a provider having a bad
+// week. Disabling that model would take a working one out of routing on
+// evidence that says only "upstream is unwell".
+//
+// It cannot hand the model to the retirement probe either, even to let the probe
+// decide. That path refuses to probe a model whose circuit is open (see
+// model_gone.go), which is by definition this model's state at the moment this
+// fires, so a nomination from here would be postponed and dropped every time.
+//
+// Routing metadata only, and the model id goes last because it is the one
+// attribute a request can influence.
+func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, model string, opens int) {
+	debuglog.Warn("circuit-breaker: model keeps reopening its circuit",
+		"provider", providerName, "provider_id", providerID,
+		"opens", opens, "window", reopenWindowLabel, "model", model)
+	events.Publish(events.Event{
+		Type:     "circuit_breaker.unstable",
+		Severity: "warning",
+		Source:   "failover",
+		// What the counter establishes is how many times the circuit opened, not
+		// what the model was doing in between: a success does not reset the
+		// count, so three recovered blips across a working day land here too.
+		// The sentence says only what was counted.
+		Message: fmt.Sprintf("%s on %s opened its circuit %d times in %s",
+			model, providerName, opens, reopenWindowLabel),
+		Metadata: map[string]any{
+			"provider_id": providerID.String(),
+			"provider":    providerName,
+			"model":       model,
+			// model_id repeats model as the identity the alert dispatcher
+			// debounces on. Without it the most specific key present is
+			// provider_id, and two models crossing the threshold on one provider
+			// inside the dispatcher's cooldown collapse to one alert, silently
+			// dropping the second - which is the failure debouncing per entity
+			// exists to prevent.
+			"model_id": model,
+			"opens":    opens,
+			"window":   reopenWindowLabel,
+		},
+	})
 }
 
 // RecordSuccess records a successful request to one of a provider's models. It

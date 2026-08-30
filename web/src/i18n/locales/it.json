@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "Identità SSO associata a un account",
 				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite",
 				"model_auto_disabled_gone": "Modello disattivato (il provider non lo fornisce più)",
-				"provider_scheduled_disable": "Provider disabilitato come programmato"
+				"provider_scheduled_disable": "Provider disabilitato come programmato",
+				"circuit_breaker_unstable": "Il modello continua a fallire (interruttore di sicurezza riaperto più volte)"
 			},
 			"events": {
 				"all": "Seleziona tutto",

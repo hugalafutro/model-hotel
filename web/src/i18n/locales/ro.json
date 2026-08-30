@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "Identitate SSO asociată unui cont",
 				"discovery_claims_outstanding": "Discrepanțe ale modelelor nerezolvate",
 				"model_auto_disabled_gone": "Model dezactivat (furnizorul nu îl mai oferă)",
-				"provider_scheduled_disable": "Furnizor dezactivat conform programării"
+				"provider_scheduled_disable": "Furnizor dezactivat conform programării",
+				"circuit_breaker_unstable": "Modelul eșuează repetat (disjunctor deschis de mai multe ori)"
 			},
 			"events": {
 				"all": "Selectați tot",

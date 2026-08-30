@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "SSO идентитет је повезан са налогом",
 				"discovery_claims_outstanding": "Одступања модела остала нерешена",
 				"model_auto_disabled_gone": "Модел је онемогућен (провајдер га више не нуди)",
-				"provider_scheduled_disable": "Провајдер је онемогућен по распореду"
+				"provider_scheduled_disable": "Провајдер је онемогућен по распореду",
+				"circuit_breaker_unstable": "Модел стално отказује (прекидач се више пута отварао)"
 			},
 			"events": {
 				"all": "Изабери све",

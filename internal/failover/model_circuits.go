@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 )
@@ -36,6 +37,61 @@ type circuit struct {
 	// orders eviction, so the circuits that are dropped when a provider exceeds
 	// the cap are the ones nothing has routed to in the longest time.
 	lastCharged time.Time
+	// opens counts the transitions into Open inside the window that began at
+	// openWindowStart, and unstableReported records whether that window has
+	// already been reported. A model whose circuit keeps reopening is failing in
+	// a way no single cooldown fixes, which is worth telling an operator once.
+	opens            int
+	openWindowStart  time.Time
+	unstableReported bool
+}
+
+const (
+	// reopenWindow is how long the open transitions that escalate together must
+	// fall within. A day is long enough to catch a model that breaks a few times
+	// across a working day and short enough that failures months apart never add
+	// up to a report about the present.
+	reopenWindow = 24 * time.Hour
+	// opensBeforeEscalation is how many times a circuit opens inside one window
+	// before the breaker says so. Three, because two is an ordinary bad
+	// afternoon for a provider and the second open is already the first repeat.
+	opensBeforeEscalation = 3
+)
+
+// reopenWindowLabel writes the window the way an operator reads it and the way
+// the event publishes it. Duration.String renders a day as "24h0m0s", which is
+// noise in a sentence and a surprise to a consumer comparing the metadata
+// against the documented value. Derived rather than written twice so the
+// sentence cannot drift from the constant it describes.
+var reopenWindowLabel = fmt.Sprintf("%dh", int(reopenWindow.Hours()))
+
+// noteOpen records a transition into Open and reports whether this circuit has
+// now opened often enough inside one window to be worth escalating.
+//
+// A transition arriving after the window has run out starts a new window rather
+// than extending the old one, so an escalation is always drawn from one run of
+// recent failures rather than from unrelated outages that share a model. This
+// mirrors goneStreak.strike, for the same reason.
+//
+// Crossing the threshold marks the window reported rather than clearing it, so
+// the window keeps running and a report costs a full reopenWindow before another
+// can follow. Clearing it instead would start a fresh window on the very next
+// open: a model failing every cooldown reaches three opens again within minutes,
+// and the operator would be told every few minutes that it "broke 3 times in
+// 24h" — a sentence the cadence itself contradicts.
+func (c *circuit) noteOpen(now time.Time) bool {
+	if c.openWindowStart.IsZero() || now.Sub(c.openWindowStart) > reopenWindow {
+		c.openWindowStart = now
+		c.opens = 1
+		c.unstableReported = false
+		return false
+	}
+	c.opens++
+	if c.opens < opensBeforeEscalation || c.unstableReported {
+		return false
+	}
+	c.unstableReported = true
+	return true
 }
 
 // modelCircuits holds one provider's circuits, keyed by the resolved upstream

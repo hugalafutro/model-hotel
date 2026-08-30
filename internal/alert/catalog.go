@@ -32,6 +32,13 @@ type EventDef struct {
 var catalog = []EventDef{
 	{Type: "circuit_breaker.open", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "circuit_breaker.closed", Category: "Failover", Severity: "success", DefaultOn: true},
+	// One model has opened its circuit three times inside a day. Default-off
+	// like the Discovery backlog events and for the same reason: an instance
+	// upgrading with a provider that has been flaky for weeks would be notified
+	// on the third open about a condition its operator already lives with. The
+	// flag gates outbound notification only; the dashboard's event feed is not
+	// catalogue-gated and shows it either way.
+	{Type: "circuit_breaker.unstable", Category: "Failover", Severity: "warning", DefaultOn: false},
 	{Type: "failover.sync_error", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "discovery.provider_failed", Category: "Discovery", Severity: "error", DefaultOn: false},
 	// The Models badge has been asking for attention for longer than the

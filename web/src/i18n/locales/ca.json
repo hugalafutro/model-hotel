@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "Identitat SSO vinculada a un compte",
 				"discovery_claims_outstanding": "Discrepàncies de models sense atendre",
 				"model_auto_disabled_gone": "Model desactivat (el proveïdor ja no l'ofereix)",
-				"provider_scheduled_disable": "Proveïdor desactivat segons la programació"
+				"provider_scheduled_disable": "Proveïdor desactivat segons la programació",
+				"circuit_breaker_unstable": "El model falla repetidament (disjuntor obert diverses vegades)"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",

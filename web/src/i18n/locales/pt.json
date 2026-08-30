@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "Identidade SSO vinculada a uma conta",
 				"discovery_claims_outstanding": "Divergências de modelos não tratadas",
 				"model_auto_disabled_gone": "Modelo desativado (o provedor já não o disponibiliza)",
-				"provider_scheduled_disable": "Provedor desativado conforme agendado"
+				"provider_scheduled_disable": "Provedor desativado conforme agendado",
+				"circuit_breaker_unstable": "O modelo falha repetidamente (disjuntor aberto várias vezes)"
 			},
 			"events": {
 				"all": "Selecionar tudo",

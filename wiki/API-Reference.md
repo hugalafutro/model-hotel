@@ -1451,6 +1451,7 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `failover.sync_error` | `warning` | Error during failover group synchronization |
 | `circuit_breaker.open` | `warning` | Provider circuit breaker opened |
 | `circuit_breaker.closed` | `success` | Circuit breaker closed (recovered) |
+| `circuit_breaker.unstable` | `warning` | One model opened its circuit 3 times in 24h, so it keeps returning to service still broken |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
 | `tokens.error` | `error` | Error counting tokens |
 | `backup.created` | `success` | Database backup created (manual or scheduled) |
@@ -1474,6 +1475,18 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is currently governing this circuit's cooldown rather than `circuit_breaker_cooldown` |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
+
+`circuit_breaker.unstable` is not a state transition and carries its own smaller
+block: `provider_id`, `provider`, `model`, `model_id` (the same value as `model`,
+carried separately because it is the identity outbound alerts debounce on),
+`opens` (how many times the circuit opened, always 3) and `window` (the span they
+fell within, the string `24h`). It fires at most once per model per window: the
+window keeps running after it reports, so a model that stays broken reports again
+only once a full 24 hours has passed since the window's first open, not every
+three opens. It reports and never retires: a model the provider has stopped
+serving is refused by name and retired by the model-gone path instead, so what
+reaches this event is a model failing some other way, which disabling would be
+wrong about.
 
 `next_retry_at` is the **retry deadline, not the quota reset time**. It is the moment the circuit opened plus the pin after it has been clamped to `circuit_breaker_quota_pin_max` and jittered, so on a weekly plan whose quota resets days out it lands at the 24h ceiling instead. It is the same value the circuit-breaker status API publishes under that name, and both derive from one predicate, so the number and the explanation beside it can never disagree.
 

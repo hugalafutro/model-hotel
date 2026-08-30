@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identitet kopplad till ett konto",
 				"discovery_claims_outstanding": "Modellavvikelser förblir oåtgärdade",
 				"model_auto_disabled_gone": "Modellen inaktiverad (leverantören tillhandahåller den inte längre)",
-				"provider_scheduled_disable": "Leverantören inaktiverad enligt schema"
+				"provider_scheduled_disable": "Leverantören inaktiverad enligt schema",
+				"circuit_breaker_unstable": "Modellen fallerar upprepade gånger (strömavbrytaren har löst ut flera gånger)"
 			},
 			"events": {
 				"all": "Markera allt",

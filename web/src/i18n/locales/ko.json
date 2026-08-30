@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO 아이디가 계정에 연결됨",
 				"discovery_claims_outstanding": "처리되지 않은 모델 불일치",
 				"model_auto_disabled_gone": "모델 비활성화됨 (프로바이더가 더 이상 제공하지 않음)",
-				"provider_scheduled_disable": "프로바이더가 예약대로 비활성화됨"
+				"provider_scheduled_disable": "프로바이더가 예약대로 비활성화됨",
+				"circuit_breaker_unstable": "모델이 반복적으로 실패함 (서킷 브레이커가 여러 번 개방됨)"
 			},
 			"events": {
 				"all": "모두 선택",

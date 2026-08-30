@@ -1664,7 +1664,8 @@
 				"auth_sso_identity_bound": "SSO identity bound to an account",
 				"discovery_claims_outstanding": "Model discrepancies left unaddressed",
 				"model_auto_disabled_gone": "Model disabled (provider no longer serves it)",
-				"provider_scheduled_disable": "Provider disabled as scheduled"
+				"provider_scheduled_disable": "Provider disabled as scheduled",
+				"circuit_breaker_unstable": "Model keeps breaking (circuit reopened repeatedly)"
 			},
 			"events": {
 				"title": "Events to notify on",
