@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
@@ -12,6 +13,21 @@ import (
 // is broken": the first requests must be ADMITTED and only the one past the
 // burst refused.
 const loginBurst = 2
+
+// loginRPS refills the bucket once every 100 seconds, so a burst spent inside a
+// test cannot refill mid-test. At 1 rps the middleware's graceful backpressure
+// sleeps and serves whenever ~800ms passes between the burst and the probe,
+// which would make these tests depend on how long the routes' own DB work took.
+const loginRPS = 0.01
+
+// limiterFor builds a per-IP limiter tight enough to observe and stops its
+// cleanup goroutine with the test.
+func limiterFor(t *testing.T) *ratelimit.IPLimiter {
+	t.Helper()
+	lim := ratelimit.NewIPLimiter(loginRPS, loginBurst, nil, nil)
+	t.Cleanup(lim.Stop)
+	return lim
+}
 
 // TestPublicLoginRoutes_RideThePerIPLimiter pins the property the Front Desk
 // route table claims: every unauthenticated login front-end is behind the
@@ -37,6 +53,9 @@ func TestPublicLoginRoutes_RideThePerIPLimiter(t *testing.T) {
 		{"totp login", http.MethodPost, "/api/totp/login", `{"code":"000000"}`},
 		{"oidc start", http.MethodGet, "/api/auth/oidc/start", ""},
 		{"oidc callback", http.MethodGet, "/api/auth/oidc/callback", ""},
+		// Public like the two status polls, but it runs an uncached credential
+		// listing per request, so it is limited rather than exempt.
+		{"webauthn available", http.MethodGet, "/api/webauthn/available", ""},
 		// The control: this one was already limited, so a failure here means
 		// the limiter itself stopped working rather than the scope regressing.
 		{"pair", http.MethodPost, "/api/pair", `{"code":"nope"}`},
@@ -44,7 +63,7 @@ func TestPublicLoginRoutes_RideThePerIPLimiter(t *testing.T) {
 
 	for _, rt := range routes {
 		t.Run(rt.name, func(t *testing.T) {
-			srv, _ := newTestServerLimited(t, nil, ratelimit.NewIPLimiter(1, loginBurst, nil, nil))
+			srv, _ := newTestServerLimited(t, nil, limiterFor(t))
 
 			for i := range loginBurst {
 				if rec := do(t, srv, rt.method, rt.path, rt.body, false); rec.Code == http.StatusTooManyRequests {
@@ -59,22 +78,54 @@ func TestPublicLoginRoutes_RideThePerIPLimiter(t *testing.T) {
 	}
 }
 
-// TestLoginScreenPolls_AreNotRateLimited is the other half of the scope: the
-// login screen polls these two to decide which buttons to render, and they do
-// no work an attacker can amplify. Putting the whole /api tree behind a 5 rps
-// limiter would throttle a dashboard cold-load, so the fix is deliberately
-// scoped to the ceremonies rather than the tree.
+// TestLoginScreenPolls_AreNotRateLimited is the other half of the scope: these
+// two polls are served from a TTL cache and write nothing, so they stay outside
+// the limiter. Putting the whole /api tree behind Front Desk's 5 rps limiter
+// would throttle a dashboard cold load, so the fix is scoped to the ceremonies
+// rather than the tree.
+//
+// The 200 assertion is load-bearing: without it, deleting the route entirely
+// would 404 and satisfy a "never 429" check.
 func TestLoginScreenPolls_AreNotRateLimited(t *testing.T) {
 	for _, path := range []string{"/api/totp/status", "/api/auth/oidc/status"} {
 		t.Run(path, func(t *testing.T) {
-			srv, _ := newTestServerLimited(t, nil, ratelimit.NewIPLimiter(1, loginBurst, nil, nil))
+			srv, _ := newTestServerLimited(t, nil, limiterFor(t))
 
 			for i := range loginBurst + 3 {
-				if rec := do(t, srv, http.MethodGet, path, "", false); rec.Code == http.StatusTooManyRequests {
-					t.Fatalf("GET %s was rate limited on request %d: the login screen's poll must not share the ceremonies' budget",
-						path, i+1)
+				if rec := do(t, srv, http.MethodGet, path, "", false); rec.Code != http.StatusOK {
+					t.Fatalf("GET %s returned %d on request %d, want %d: the login screen's poll must stay served and outside the ceremonies' budget",
+						path, rec.Code, i+1, http.StatusOK)
 				}
 			}
 		})
+	}
+}
+
+// TestOneRequestCostsOneToken pins that mounting the same limiter twice on a
+// route bills a request once. The login ceremonies sit under a route-level
+// limiter and, on the gateway binary, under a tree-wide one as well; billing
+// twice would refuse every login below about 5 rps, because the second charge
+// lands on a bucket the first just emptied.
+func TestOneRequestCostsOneToken(t *testing.T) {
+	lim := limiterFor(t)
+	served := 0
+	h := lim.Middleware(lim.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		served++
+	})))
+
+	for i := range loginBurst {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+		if rec.Code == http.StatusTooManyRequests {
+			t.Fatalf("request %d of the burst was refused: the doubled mount is charging twice", i+1)
+		}
+	}
+	if served != loginBurst {
+		t.Errorf("handler ran %d times, want %d", served, loginBurst)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("past the burst got %d, want %d: the limiter stopped counting", rec.Code, http.StatusTooManyRequests)
 	}
 }
