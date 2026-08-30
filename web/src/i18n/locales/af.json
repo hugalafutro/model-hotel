@@ -105,7 +105,10 @@
 			"audit": "Oudit",
 			"discoveryNewsBadge_one": "{{count}} ongelese verandering vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
 			"discoveryNewsBadge_other": "{{count}} ongelese veranderinge vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
-			"discoveryPinnedBadge": "Modelle wat jy self geaktiveer het, ontbreek steeds uit die verskaffer se lys. Slegs inligting, nie iets wat aandag verg nie - klik om te lees."
+			"discoveryPinnedBadge": "Modelle wat jy self geaktiveer het, ontbreek steeds uit die verskaffer se lys. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} verskaffer heeltemal oorgeslaan: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} verskaffers heeltemal oorgeslaan: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (oop vir: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Hoe lank om op die eerste verskaffer se eerste teken te wag voordat ook 'n rugsteunverskaffer afgevuur word",
 			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modelle voor verskaffer oorgeslaan word",
+			"spanModels.description": "Hoeveel van 'n verskaffer se modelle 'n oop kring moet hê voordat die kringbreker die hele verskaffer oorslaan. By 1 skakel een falende model elke model agter daardie verskaffer uit."
 		},
 		"logging": {
 			"title": "Logboekregistrasie",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Verwyder die onbeskikbare lede uit hierdie groep.",
 			"deleteNaConfirmTitle": "Skrap hierdie groep?",
 			"deleteNaConfirmMessage": "Om die onbeskikbare lede te verwyder, sal minder as 2 roeteerbare lede oorlaat, dus die hele groep sal geskrap word.",
-			"deleteNaConfirmLabel": "Skrap groep"
+			"deleteNaConfirmLabel": "Skrap groep",
+			"circuitBreakerProviderOpen": "Hele verskaffer oorgeslaan - kringbreker oop vir: {{models}}"
 		}
 	},
 	"virtualKeys": {

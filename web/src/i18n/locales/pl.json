@@ -113,7 +113,12 @@
 			"discoveryNewsBadge_few": "{{count}} nieprzejrzane zmiany z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
 			"discoveryNewsBadge_many": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
 			"discoveryNewsBadge_other": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
-			"discoveryPinnedBadge": "Modele włączone przez Ciebie ręcznie nadal nie występują na liście dostawcy. Tylko informacyjnie, nie wymaga uwagi - kliknij, aby przejrzeć."
+			"discoveryPinnedBadge": "Modele włączone przez Ciebie ręcznie nadal nie występują na liście dostawcy. Tylko informacyjnie, nie wymaga uwagi - kliknij, aby przejrzeć.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} dostawca całkowicie pominięty: {{providers}}",
+			"failoverBadgeSkippedTooltip_few": "{{count}} dostawcy całkowicie pominięci: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} dostawców całkowicie pominiętych: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} dostawcy całkowicie pominiętego: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (otwarty dla: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Status API",
@@ -1746,7 +1751,9 @@
 			"hedgeDelay.description": "Jak długo czekać na pierwszy token pierwszego dostawcy, zanim zostanie uruchomiony także dostawca zapasowy",
 			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Liczba modeli przed pominięciem dostawcy",
+			"spanModels.description": "Ile modeli dostawcy musi mieć otwarty wyłącznik, zanim pominięty zostanie cały dostawca. Przy 1 jeden awaryjny model odstawia wszystkie modele tego dostawcy."
 		},
 		"logging": {
 			"title": "Rejestrowanie",
@@ -3050,7 +3057,8 @@
 			"deleteNaHelp": "Usuwa niedostępnych członków z tej grupy.",
 			"deleteNaConfirmTitle": "Usunąć tę grupę?",
 			"deleteNaConfirmMessage": "Usunięcie niedostępnych członków pozostawiłoby mniej niż 2 członków możliwych do routowania, więc cała grupa zostanie usunięta.",
-			"deleteNaConfirmLabel": "Usuń grupę"
+			"deleteNaConfirmLabel": "Usuń grupę",
+			"circuitBreakerProviderOpen": "Cały dostawca pominięty - wyłącznik otwarty dla: {{models}}"
 		}
 	},
 	"virtualKeys": {

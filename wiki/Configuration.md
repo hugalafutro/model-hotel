@@ -370,7 +370,8 @@ Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `r
 
 #### Circuit Breaker & Failover
 Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_enabled`, `circuit_breaker_quota_pin_max`, `failover_on_rate_limit`
-- **Failure Threshold:** Number of consecutive failures before circuit opens (default 5).
+- **Failure Threshold:** Number of consecutive failures before a model's circuit opens (default 5).
+- **Models Before Provider Skip:** How many of a provider's models must have an open circuit before the provider itself is skipped for every model (default 2, range 1-100). At 1 the first open circuit sidelines the whole provider.
 - **Cooldown Duration:** Duration an open circuit stays open before transitioning to half-open (default `60s`).
 - **Quota Pinning:** When a circuit opens on a spent quota window, hold it open until the provider's quota actually resets rather than re-probing every cooldown (default on). The toggle is the off switch, and switching it off releases a pin already in force within about 30 seconds.
 - **Quota Pin Maximum:** Ceiling on a pinned cooldown (default `24h`). Setting it to zero falls back to 24h rather than disabling pinning.

@@ -105,7 +105,10 @@
 			"audit": "Auditointi",
 			"discoveryNewsBadge_one": "{{count}} lukematon muutos taustatunnistuksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi.",
 			"discoveryNewsBadge_other": "{{count}} lukematonta muutosta taustatunnistuksesta. Vain tiedoksi, eivät vaadi toimenpiteitä - napsauta lukeaksesi.",
-			"discoveryPinnedBadge": "Itse käyttöön ottamasi mallit puuttuvat yhä tarjoajan listauksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi."
+			"discoveryPinnedBadge": "Itse käyttöön ottamasi mallit puuttuvat yhä tarjoajan listauksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} palveluntarjoaja ohitetaan kokonaan: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} palveluntarjoajaa ohitetaan kokonaan: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (auki malleille: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Kuinka kauan odotetaan ensimmäisen tarjoajan ensimmäistä tokenia ennen kuin myös varantarjoaja käynnistetään",
 			"hedgingNotice": "Suojaus käynnistää toisen tarjoajan rinnakkain, kun ensimmäinen on hidas alkuun, ja pitää sen, joka vastaa ensin. Hitaissa aloituksissa tämä kaksinkertaistaa ylävirran pyynnön, joten tarjoajan nopeusrajat ja kapasiteetti kuluvat nopeammin, ja peruutuksen ohittava varatarjoaja voi jatkaa tuottamista taustalla. Ota käyttöön vain, jos hitaat ensimmäiset tokenit haittaavat enemmän kuin lisäkuorma.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Mallien määrä ennen tarjoajan ohitusta",
+			"spanModels.description": "Kuinka monella palveluntarjoajan mallilla on oltava katkaisija auki, ennen kuin koko palveluntarjoaja ohitetaan. Arvolla 1 yksi epäonnistuva malli syrjäyttää kaikki kyseisen tarjoajan mallit."
 		},
 		"logging": {
 			"title": "Lokitus",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Poistaa ei-saatavilla olevat jäsenet tästä ryhmästä.",
 			"deleteNaConfirmTitle": "Poistetaanko tämä ryhmä?",
 			"deleteNaConfirmMessage": "Ei-saatavilla olevien jäsenten poistaminen jättäisi alle 2 reititettävää jäsentä, joten koko ryhmä poistetaan.",
-			"deleteNaConfirmLabel": "Poista ryhmä"
+			"deleteNaConfirmLabel": "Poista ryhmä",
+			"circuitBreakerProviderOpen": "Koko palveluntarjoaja ohitetaan - katkaisija auki malleille: {{models}}"
 		}
 	},
 	"virtualKeys": {

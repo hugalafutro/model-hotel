@@ -324,8 +324,8 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
         // Skip if model/provider disabled
         if !m.Enabled || !prov.Enabled { continue }
 
-        // Skip if circuit breaker open
-        if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) { continue }
+        // Skip if this model's circuit is open, or the provider verdict is
+        if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name, m.ModelID) { continue }
 
         // Decrypt API key
         apiKey, _ := auth.DecryptCached(prov.EncryptedKey, ...)
@@ -355,7 +355,7 @@ The provider selection algorithm builds an ordered list of candidates from a fai
 
 1. **Priority order preserved**: Candidates are always in `priority_order` sequence
 2. **Graceful degradation**: Disabled/failed entries are skipped, not fatal
-3. **Circuit breaker integration**: Unhealthy providers filtered before failover loop
+3. **Circuit breaker integration**: Candidates whose own model circuit is open, and every candidate of a provider the derived verdict indicts, are filtered before the failover loop
 4. **Batch efficiency**: Single DB query for all models, single query for all providers
 
 ---
@@ -515,13 +515,15 @@ During proxy requests, token usage is tracked against the virtual key used for a
 
 ## Circuit Breaker
 
-The proxy includes a per-provider circuit breaker that prevents sending requests to providers that are consistently failing, giving them time to recover.
+The proxy includes a circuit breaker that prevents sending requests to models that are consistently failing, giving them time to recover.
 
-**Success Recording:** The circuit breaker records success for **any response that does NOT trigger failover**. This includes 400 errors (parameter rejections), since these indicate the provider successfully processed the request but rejected it due to invalid parameters - not a provider health issue. Only 5xx, 429 (when enabled), 401/403, and timeouts are recorded as failures.
+**What a circuit is keyed on:** one circuit per **(provider, resolved upstream model)** pair - the model id actually sent upstream, never the `hotel/` group alias. A model that fails for its own reasons (a plan that excludes it, a retired id, a per-model refusal) darkens only itself; its healthy siblings behind the same provider keep serving. The provider as a whole is a **derived** verdict, never a circuit that anything charges directly: see [Provider-wide verdict](#provider-wide-verdict).
+
+**Success Recording:** The circuit breaker records success for **any response that does NOT trigger failover**. This includes 400 errors (parameter rejections), since these indicate the provider successfully processed the request but rejected it due to invalid parameters - not a provider health issue. Only 5xx, 429 (when enabled), 401/403, and timeouts are recorded as failures. A success resets **that model's** circuit only: a working model says nothing about a failing sibling, and crediting the sibling is how a broken model stays in rotation forever.
 
 ### State Machine
 
-The circuit breaker operates as a three-state machine:
+Each model circuit is a three-state machine:
 
 ![Circuit Breaker States](screenshots/circuit-breaker-transitions.svg)
 
@@ -530,59 +532,77 @@ The circuit breaker operates as a three-state machine:
 ```go
 // internal/failover/circuitbreaker.go
 type CircuitBreaker struct {
-    mu       sync.RWMutex
-    circuits map[string]*circuit  // provider UUID → circuit state
+    mu sync.RWMutex
+    // provider UUID → resolved upstream model id → circuit state
+    circuits map[string]modelCircuits
 
     Threshold         int           // Default: 5 consecutive failures
+    SpanModels        int           // Default: 2 open model circuits to indict the provider
     Cooldown          time.Duration // Default: 60s
     HalfOpenMaxProbes int           // Default: 1 success to close
 }
 
+// internal/failover/model_circuits.go
+type modelCircuits map[string]*circuit
+
 type circuit struct {
-    state            State       // Closed, Open, or HalfOpen
+    state            State         // Closed, Open, or HalfOpen
     consecutiveFails int
-    openedAt         time.Time   // When transitioned to Open
-    halfOpenProbes   int         // Successful probes in HalfOpen
+    openedAt         time.Time     // When transitioned to Open
+    halfOpenProbes   int           // Successful probes in HalfOpen
+    cooldownOverride time.Duration // Quota pin, when one governs this circuit
+    lastCharged      time.Time     // Orders eviction above the per-provider cap
 }
 ```
 
-**State Transitions:**
+The map is capped at 256 circuits per provider. When a provider exceeds it, the least recently charged **closed** circuit is evicted; an open or half-open circuit is never dropped, because evicting one would silently restore a model the breaker has decided is broken.
+
+**State Transitions** (per model circuit):
 
 | Current State | Trigger | Next State | Action |
 |---------------|---------|------------|--------|
-| Closed | Failure count >= threshold | Open | Block all requests, start cooldown |
-| Closed | Success | Closed | Reset failure counter |
-| Open | Cooldown elapsed | HalfOpen | Allow one probe request |
+| Closed | Failure count >= threshold | Open | Block requests for that model, start cooldown |
+| Closed | Success | Closed | Reset that model's failure counter |
+| Open | Cooldown elapsed | HalfOpen | Allow one probe request for that model |
 | HalfOpen | Probe success | Closed | Resume normal operation |
 | HalfOpen | Probe failure | Open | Restart cooldown |
 
+### Provider-wide verdict
+
+A provider is skipped for **every** model when either of these holds:
+
+- a **quota pin** is in force, i.e. the provider itself reported that its window is spent (see [Quota-pinned cooldowns](#quota-pinned-cooldowns)), or
+- at least `circuit_breaker_span_models` distinct model circuits are open and still inside their cooldown.
+
+Nothing stores that verdict; it is recomputed from the circuits on every read, so it cannot go stale against a cooldown that elapsed a moment ago. A circuit owed a probe blocks nothing, so it counts towards neither the verdict nor the list of models beside it.
+
+The span default of `2` is the smallest number that requires corroboration: one model refusing is evidence about that model, two models refusing is evidence about the provider. Setting it to `1` restores the older behaviour, where the first open circuit sidelines the whole provider, and is the escape hatch if you want that back.
+
 ### Failover Integration
 
-Open circuits are filtered out during provider resolution:
+Blocked candidates are filtered out during provider resolution:
 
 ```go
 // internal/proxy/resolve.go:resolveHotelModel
 cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
-if cbEnabled && h.circuitBreaker.IsOpen(prov.ID) {
-    debuglog.Info("resolve: skipping candidate: circuit breaker open")
-    continue  // Skip this provider entirely
+if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name, m.ModelID) {
+    debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
+    continue  // Skip this candidate
 }
 ```
 
-This means providers with open circuits are **never tried at all** - they are skipped during the initial provider selection phase, not during the failover process.
+`IsOpen` skips a candidate when **its own** model circuit is open, or when the provider-wide verdict is open. So a group member whose model is dark is never tried at all, while its sibling behind the same provider stays in rotation until the span is reached.
 
 **Client Disconnections:**
 
 Client disconnections (`context.Canceled`) and deadlines (`context.DeadlineExceeded`) do NOT count as provider failures:
 
 ```go
-// internal/proxy/proxy.go:ChatCompletions
-if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-    if circuitBreakerEnabled {
-        h.circuitBreaker.RecordFailure(candidate.provider.ID)
+// internal/proxy/proxy_failover.go:attemptCandidate
+if !isContextErr {
+    if st.circuitBreakerEnabled {
+        h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
     }
-} else {
-    debuglog.Info("proxy: client disconnected - not counting as provider failure")
 }
 ```
 
@@ -601,7 +621,7 @@ These are treated as user-side cancellations rather than provider health issues.
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 
-All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, cooldown, failover-on-429, quota pinning and its ceiling) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
+All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, model span, cooldown, failover-on-429, quota pinning and its ceiling) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
 
 #### Quota-pinned cooldowns
 
@@ -624,8 +644,8 @@ The circuit breaker publishes real-time events via the SSE event bus:
 
 | Event | When |
 |-------|------|
-| `circuit_breaker.open` | A provider's circuit transitions from Closed to Open |
-| `circuit_breaker.closed` | Circuit recovers (Half-Open → Closed) |
+| `circuit_breaker.open` | One model circuit transitions from Closed to Open. `provider_open` says whether that also takes the whole provider out |
+| `circuit_breaker.closed` | One model circuit recovers (Half-Open → Closed) |
 
 The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event: it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
 
@@ -653,7 +673,7 @@ meta := map[string]any{
     "provider":          providerName,
     "model":             model,
     "state":             state,
-    "provider_open":     cb.providerOpen(cb.circuits[providerID.String()]),
+    "provider_open":     providerOpen,
     "consecutive_fails": c.consecutiveFails,
     "quota_pinned":      pinned,
 }
@@ -664,10 +684,12 @@ events.Publish(events.Event{
     Type:     "circuit_breaker." + state,
     Severity: cb.severityForState(state),
     Source:   "failover",
-    Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state),
+    Message:  breakerEventMessage(providerName, state, model, providerOpen),
     Metadata: meta,
 })
 ```
+
+The message names the model, because the event is about one model circuit: `Provider zai circuit breaker: open for model glm-4.6`. When that transition also flips the provider-wide verdict, the message says so as well - `... for model glm-4.6 (provider skipped)` - since that is the moment the remaining models leave rotation. Without the model in the sentence, a toast or an Apprise alert about one sidelined model reads as a whole provider going down.
 
 A separate `quota.schema_drift` event fires when a provider changes the *shape* of its quota response (the set of key paths, not the values). It carries the added and removed paths and is alert-only: it never opens a circuit, never pins a cooldown, and never affects routing. See [Alerting](Alerting) and the [API Reference](API-Reference) for its metadata.
 

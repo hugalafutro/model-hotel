@@ -2,7 +2,7 @@
 
 Model Hotel can push outbound notifications for noteworthy operational events (a provider going down, a circuit breaker tripping, a failover group failing to sync) to wherever you want them: Telegram, email, Discord, Slack, Matrix, a raw webhook, and ~80 other destinations.
 
-It does this through [Apprise](https://github.com/caronc/apprise): you run a small, stateless `apprise-api` container, Model Hotel POSTs a short event summary to it, and Apprise fans the notification out to your chosen service. Model Hotel writes no per-service integration code, ships no Python in its image, and (consistent with its [[Privacy]] stance) **never sends request or response content**, only the event summary (e.g. "Provider openai circuit breaker: open").
+It does this through [Apprise](https://github.com/caronc/apprise): you run a small, stateless `apprise-api` container, Model Hotel POSTs a short event summary to it, and Apprise fans the notification out to your chosen service. Model Hotel writes no per-service integration code, ships no Python in its image, and (consistent with its [[Privacy]] stance) **never sends request or response content**, only the event summary (e.g. "Provider openai circuit breaker: open for model gpt-5").
 
 ---
 

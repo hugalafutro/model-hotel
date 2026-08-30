@@ -105,7 +105,10 @@
 			"audit": "Kiểm tra",
 			"discoveryNewsBadge_other": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
 			"discoveryNewsBadge_one": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
-			"discoveryPinnedBadge": "Các mô hình bạn tự bật vẫn vắng mặt trong danh sách của nhà cung cấp. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem."
+			"discoveryPinnedBadge": "Các mô hình bạn tự bật vẫn vắng mặt trong danh sách của nhà cung cấp. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} nhà cung cấp bị bỏ qua hoàn toàn: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} nhà cung cấp bị bỏ qua hoàn toàn: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (mở cho: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Thời gian chờ token đầu tiên của nhà cung cấp đầu tiên trước khi cũng khởi chạy nhà cung cấp dự phòng",
 			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Số mô hình trước khi bỏ qua nhà cung cấp",
+			"spanModels.description": "Bao nhiêu mô hình của một nhà cung cấp phải có mạch ngắt đang mở trước khi bỏ qua toàn bộ nhà cung cấp. Ở mức 1, một mô hình lỗi sẽ loại bỏ mọi mô hình phía sau nhà cung cấp đó."
 		},
 		"logging": {
 			"title": "Ghi nhật ký",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Xóa các thành viên không khả dụng khỏi nhóm này.",
 			"deleteNaConfirmTitle": "Xóa nhóm này?",
 			"deleteNaConfirmMessage": "Việc xóa các thành viên không khả dụng sẽ còn lại ít hơn 2 thành viên có thể định tuyến, vì vậy toàn bộ nhóm sẽ bị xóa.",
-			"deleteNaConfirmLabel": "Xóa nhóm"
+			"deleteNaConfirmLabel": "Xóa nhóm",
+			"circuitBreakerProviderOpen": "Bỏ qua toàn bộ nhà cung cấp - mạch ngắt đang mở cho: {{models}}"
 		}
 	},
 	"virtualKeys": {

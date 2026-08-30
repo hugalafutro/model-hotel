@@ -113,7 +113,12 @@
 			"discoveryNewsBadge_few": "{{count}} nezkontrolované změny ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
 			"discoveryNewsBadge_many": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
 			"discoveryNewsBadge_other": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
-			"discoveryPinnedBadge": "Modely, které jste zapnuli ručně, v nabídce poskytovatele stále chybí. Pouze informativní, nevyžaduje pozornost - kliknutím zobrazíte."
+			"discoveryPinnedBadge": "Modely, které jste zapnuli ručně, v nabídce poskytovatele stále chybí. Pouze informativní, nevyžaduje pozornost - kliknutím zobrazíte.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} poskytovatel zcela vynechán: {{providers}}",
+			"failoverBadgeSkippedTooltip_few": "{{count}} poskytovatelé zcela vynecháni: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} poskytovatele zcela vynecháno: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} poskytovatelů zcela vynecháno: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (otevřeno pro: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -1746,7 +1751,9 @@
 			"hedgeDelay.description": "Jak dlouho čekat na první token prvního poskytovatele, než se spustí i záložní poskytovatel",
 			"hedgingNotice": "Zajištění souběžně spustí druhého poskytovatele, když první pomalu začíná, a ponechá toho, kdo odpoví dřív. Při pomalém startu to zdvojnásobí požadavek nahoru, takže limity a kapacita poskytovatele se vyčerpávají rychleji a záloha, která ignoruje zrušení, může dál generovat na pozadí. Zapněte jen tehdy, když pomalé první tokeny škodí víc než zátěž navíc.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Počet modelů před vynecháním poskytovatele",
+			"spanModels.description": "Kolik modelů poskytovatele musí mít otevřený jistič, než jistič vynechá celého poskytovatele. Při hodnotě 1 jediný selhávající model odstaví všechny modely daného poskytovatele."
 		},
 		"logging": {
 			"title": "Logování",
@@ -3050,7 +3057,8 @@
 			"deleteNaHelp": "Odebere nedostupné členy z této skupiny.",
 			"deleteNaConfirmTitle": "Smazat tuto skupinu?",
 			"deleteNaConfirmMessage": "Odebráním nedostupných členů by zůstali méně než 2 směrovatelní členové, takže se smaže celá skupina.",
-			"deleteNaConfirmLabel": "Smazat skupinu"
+			"deleteNaConfirmLabel": "Smazat skupinu",
+			"circuitBreakerProviderOpen": "Celý poskytovatel vynechán - jistič otevřený pro: {{models}}"
 		}
 	},
 	"virtualKeys": {

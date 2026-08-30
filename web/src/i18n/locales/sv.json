@@ -105,7 +105,10 @@
 			"audit": "Granskning",
 			"discoveryNewsBadge_one": "{{count}} oläst ändring från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa.",
 			"discoveryNewsBadge_other": "{{count}} olästa ändringar från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa.",
-			"discoveryPinnedBadge": "Modeller du själv har aktiverat saknas fortfarande i leverantörens lista. Endast information, inget som kräver åtgärd - klicka för att läsa."
+			"discoveryPinnedBadge": "Modeller du själv har aktiverat saknas fortfarande i leverantörens lista. Endast information, inget som kräver åtgärd - klicka för att läsa.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} leverantör hoppas över helt: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} leverantörer hoppas över helt: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (öppen för: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Hur länge den första leverantörens första token inväntas innan en reservleverantör också startas",
 			"hedgingNotice": "Säkring startar en andra leverantör parallellt när den första är långsam i gång och behåller den som svarar först. Vid långsamma starter fördubblar detta uppströmsbegäran, så leverantörens hastighetsgränser och kapacitet förbrukas snabbare, och en reserv som ignorerar avbrytning kan fortsätta generera i bakgrunden. Slå bara på det om långsamma första tokens skadar mer än den extra belastningen.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modeller innan leverantören hoppas över",
+			"spanModels.description": "Hur många av en leverantörs modeller som måste ha en öppen brytare innan hela leverantören hoppas över. Vid 1 sätter en enda felande modell alla modeller bakom den leverantören ur spel."
 		},
 		"logging": {
 			"title": "Loggar",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Tar bort de otillgängliga medlemmarna från den här gruppen.",
 			"deleteNaConfirmTitle": "Ta bort den här gruppen?",
 			"deleteNaConfirmMessage": "Om du tar bort de otillgängliga medlemmarna blir det färre än 2 dirigerbara medlemmar kvar, så hela gruppen tas bort.",
-			"deleteNaConfirmLabel": "Ta bort grupp"
+			"deleteNaConfirmLabel": "Ta bort grupp",
+			"circuitBreakerProviderOpen": "Hela leverantören hoppas över - brytare öppen för: {{models}}"
 		}
 	},
 	"virtualKeys": {

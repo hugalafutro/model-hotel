@@ -86,24 +86,30 @@ describe("Layout", () => {
 								provider_name: "Healthy Provider",
 								state: "closed",
 								consecutive_fails: 0,
+								provider_open: false,
 							},
 							{
 								provider_id: "p-2",
 								provider_name: "Wobbly Provider",
 								state: "half-open",
 								consecutive_fails: 2,
+								provider_open: false,
 							},
 							{
 								provider_id: "p-3",
 								provider_name: "Down Provider",
 								state: "open",
 								consecutive_fails: 5,
+								provider_open: true,
+								open_models: ["m-1", "m-2"],
 							},
 							{
 								provider_id: "p-4",
 								provider_name: "Also Down",
 								state: "open",
 								consecutive_fails: 3,
+								provider_open: true,
+								open_models: ["m-3", "m-4"],
 							},
 						],
 					}),
@@ -162,6 +168,8 @@ describe("Layout", () => {
 					provider_name: "Down Provider",
 					state: "open",
 					consecutive_fails: 5,
+					provider_open: true,
+					open_models: ["m-1", "m-2"],
 				},
 				{
 					provider_id: "p-2",
@@ -169,6 +177,8 @@ describe("Layout", () => {
 					state: "open",
 					consecutive_fails: 5,
 					quota_pinned: true,
+					provider_open: true,
+					open_models: ["m-3"],
 				},
 			]);
 
@@ -197,6 +207,8 @@ describe("Layout", () => {
 					state: "open",
 					consecutive_fails: 5,
 					quota_pinned: true,
+					provider_open: true,
+					open_models: ["m-1"],
 				},
 				{
 					provider_id: "p-2",
@@ -204,6 +216,7 @@ describe("Layout", () => {
 					state: "half-open",
 					consecutive_fails: 5,
 					quota_pinned: true,
+					provider_open: false,
 				},
 			]);
 
@@ -227,6 +240,8 @@ describe("Layout", () => {
 					state: "open",
 					consecutive_fails: 5,
 					quota_pinned: true,
+					provider_open: true,
+					open_models: ["m-1"],
 				},
 				{
 					provider_id: "p-2",
@@ -234,6 +249,8 @@ describe("Layout", () => {
 					state: "open",
 					consecutive_fails: 5,
 					quota_pinned: true,
+					provider_open: true,
+					open_models: ["m-2"],
 				},
 			]);
 
@@ -243,6 +260,82 @@ describe("Layout", () => {
 			expect(lines).toHaveLength(2);
 			expect(lines[1]).toContain("Quota One");
 			expect(lines[1]).toContain("Quota Two");
+		});
+
+		it("keeps a provider with one dark model off the skipped-providers line", async () => {
+			// Circuits are keyed per model, so an open circuit is not an outage: at
+			// the default span of 2 the provider goes on serving every other model.
+			// Listing it beside the providers the breaker refuses outright is the
+			// mistake the derived verdict exists to prevent.
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Skipped Provider",
+					state: "open",
+					consecutive_fails: 5,
+					provider_open: true,
+					open_models: ["alpha-1", "alpha-2"],
+				},
+				{
+					provider_id: "p-2",
+					provider_name: "Partial Provider",
+					state: "open",
+					consecutive_fails: 5,
+					provider_open: false,
+					open_models: ["beta-1"],
+				},
+			]);
+
+			const lines = badgeTooltipLines();
+			expect(lines).toHaveLength(3);
+			const skippedLine = lines.find((l) => l.includes("Skipped Provider"));
+			const partialLine = lines.find((l) => l.includes("Partial Provider"));
+			expect(skippedLine).toBeDefined();
+			expect(partialLine).toBeDefined();
+			expect(skippedLine).not.toContain("Partial Provider");
+			expect(partialLine).not.toContain("Skipped Provider");
+		});
+
+		it("names the models each unhealthy provider is blocking", async () => {
+			// The verdict alone cannot be acted on: an operator needs to know which
+			// models are dark to tell a provider outage from unrelated model
+			// failures. Model ids are data, never translated, so asserting them
+			// stays locale-independent.
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Partial Provider",
+					state: "open",
+					consecutive_fails: 5,
+					provider_open: false,
+					open_models: ["beta-1", "beta-2"],
+				},
+			]);
+
+			const line = badgeTooltipLines().find((l) =>
+				l.includes("Partial Provider"),
+			);
+			expect(line).toContain("beta-1");
+			expect(line).toContain("beta-2");
+		});
+
+		it("names no models for a provider that is only owed a probe", async () => {
+			// A circuit owed a probe blocks nothing, so open_models is empty and
+			// there is no model to attribute the state to.
+			await renderWithProviderStatuses([
+				{
+					provider_id: "p-1",
+					provider_name: "Recovering Provider",
+					state: "half-open",
+					consecutive_fails: 5,
+					provider_open: false,
+				},
+			]);
+
+			const line = badgeTooltipLines().find((l) =>
+				l.includes("Recovering Provider"),
+			);
+			expect(line).not.toContain("(");
 		});
 	});
 });

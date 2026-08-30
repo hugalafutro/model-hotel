@@ -323,6 +323,7 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 	// circuit that has banked a probe still carries its override until
 	// RecordSuccess closes it.
 	pinned := cb.quotaPinnedFor(c)
+	providerOpen := cb.providerOpen(cb.circuits[providerID.String()])
 	meta := map[string]any{
 		"provider_id": providerID.String(),
 		"provider":    providerName,
@@ -333,7 +334,7 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		// first model to open leaves the provider serving everything else, so
 		// without this flag a consumer would have to re-derive the verdict from a
 		// span setting it cannot see and circuits it is not shown.
-		"provider_open":     cb.providerOpen(cb.circuits[providerID.String()]),
+		"provider_open":     providerOpen,
 		"consecutive_fails": c.consecutiveFails,
 		"quota_pinned":      pinned,
 	}
@@ -348,9 +349,31 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
 		Source:   "failover",
-		Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state),
+		Message:  breakerEventMessage(providerName, state, model, providerOpen),
 		Metadata: meta,
 	})
+}
+
+// breakerEventMessage is the sentence an operator reads in a dashboard toast and
+// in an Apprise alert. It names the model because the breaker charges one model
+// circuit at a time: at the default span of 2 the first model to open leaves the
+// provider serving everything else, and "Provider X circuit breaker: open" alone
+// reports an outage that is not happening. The provider-wide verdict is spelled
+// out when it flips, because that is the transition that takes the remaining
+// models out of rotation, and it is the part worth acting on.
+//
+// The model id goes last in the sentence, and the closed form deliberately says
+// nothing about the verdict: a recovery says only what recovered.
+func breakerEventMessage(providerName, state, model string, providerOpen bool) string {
+	msg := fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state)
+	if model == "" {
+		return msg
+	}
+	msg += " for model " + model
+	if state == "open" && providerOpen {
+		msg += " (provider skipped)"
+	}
+	return msg
 }
 
 func (cb *CircuitBreaker) severityForState(state string) string {

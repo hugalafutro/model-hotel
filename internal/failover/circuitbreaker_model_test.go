@@ -429,6 +429,76 @@ func TestModelCircuits_EventAndLogCarryTheModel(t *testing.T) {
 	}
 }
 
+// The event message is what an operator reads in the dashboard toast and in an
+// Apprise alert, and it is authored here: nothing downstream can put the model
+// back into a sentence that leaves it out. At the default span of 2 the first
+// model to open leaves the provider serving everything else, so a message that
+// says only "Provider X circuit breaker: open" reports an outage that is not
+// happening.
+func TestModelCircuits_EventMessageNamesTheModelAndTheVerdict(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := newTestCB(2, time.Hour)
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+	ev := waitForOpenEvent(t, sub, id)
+	want := "Provider test-provider circuit breaker: open for model " + modelA
+	if ev.Message != want {
+		t.Errorf("first open event message = %q, want %q", ev.Message, want)
+	}
+
+	// Now the failures span two models, the provider verdict flips, and the
+	// message has to say so: that is the transition that takes every remaining
+	// model out of rotation.
+	chargeToOpen(t, cb, id, modelB)
+	ev = waitForOpenEvent(t, sub, id)
+	want = "Provider test-provider circuit breaker: open for model " + modelB + " (provider skipped)"
+	if ev.Message != want {
+		t.Errorf("second open event message = %q, want %q", ev.Message, want)
+	}
+}
+
+func TestBreakerEventMessage(t *testing.T) {
+	cases := []struct {
+		name         string
+		state        string
+		model        string
+		providerOpen bool
+		want         string
+	}{
+		{
+			name:  "one model dark says so and claims nothing about the provider",
+			state: "open", model: "glm-4.6",
+			want: "Provider zai circuit breaker: open for model glm-4.6",
+		},
+		{
+			name:  "the verdict is named only when the provider is actually skipped",
+			state: "open", model: "glm-4.6", providerOpen: true,
+			want: "Provider zai circuit breaker: open for model glm-4.6 (provider skipped)",
+		},
+		{
+			name:  "a recovery names the model that recovered and nothing else",
+			state: "closed", model: "glm-4.6", providerOpen: true,
+			want: "Provider zai circuit breaker: closed for model glm-4.6",
+		},
+		{
+			name:  "no model id leaves a whole sentence rather than a dangling one",
+			state: "open", providerOpen: true,
+			want: "Provider zai circuit breaker: open",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := breakerEventMessage("zai", tc.state, tc.model, tc.providerOpen)
+			if got != tc.want {
+				t.Errorf("breakerEventMessage() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 // The provider row carries the derived verdict and the evidence behind it. Both
 // halves matter: at the default span of 2 one open model leaves the provider
 // usable, so a row that only reported the dominant circuit's state would show

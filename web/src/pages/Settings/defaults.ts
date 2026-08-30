@@ -36,6 +36,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Circuit breaker & failover
 	circuit_breaker_enabled: "true",
 	circuit_breaker_threshold: "5",
+	circuit_breaker_span_models: "2",
 	circuit_breaker_cooldown: "1m0s",
 	circuit_breaker_quota_pin_enabled: "true",
 	circuit_breaker_quota_pin_max: "24h",
@@ -109,6 +110,7 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 	circuitBreaker: [
 		"circuit_breaker_enabled",
 		"circuit_breaker_threshold",
+		"circuit_breaker_span_models",
 		"circuit_breaker_cooldown",
 		"circuit_breaker_quota_pin_enabled",
 		"circuit_breaker_quota_pin_max",
@@ -144,6 +146,7 @@ export type SettingKey =
 	| "rate_limit_max_wait_ms"
 	| "circuit_breaker_enabled"
 	| "circuit_breaker_threshold"
+	| "circuit_breaker_span_models"
 	| "circuit_breaker_cooldown"
 	| "circuit_breaker_quota_pin_enabled"
 	| "circuit_breaker_quota_pin_max"
@@ -182,6 +185,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	rate_limit_max_wait_ms: "settings.rateLimit.maxWait",
 	circuit_breaker_enabled: "settings.circuitBreaker.enable",
 	circuit_breaker_threshold: "settings.circuitBreaker.failureThreshold",
+	circuit_breaker_span_models: "settings.circuitBreaker.spanModels",
 	circuit_breaker_cooldown: "settings.circuitBreaker.cooldownPeriod",
 	circuit_breaker_quota_pin_enabled: "settings.circuitBreaker.quotaPin",
 	circuit_breaker_quota_pin_max: "settings.circuitBreaker.quotaPinMax",

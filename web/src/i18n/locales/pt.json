@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} alteração não revista da deteção em segundo plano. Apenas informativa, não requer atenção - clique para rever.",
 			"discoveryNewsBadge_many": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever.",
 			"discoveryNewsBadge_other": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever.",
-			"discoveryPinnedBadge": "Os modelos que ativou manualmente continuam ausentes da lista do fornecedor. Apenas informativo, não requer atenção - clique para rever."
+			"discoveryPinnedBadge": "Os modelos que ativou manualmente continuam ausentes da lista do fornecedor. Apenas informativo, não requer atenção - clique para rever.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} provedor ignorado por completo: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} provedores ignorados por completo: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} provedores ignorados por completo: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (aberto para: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "Quanto tempo esperar pelo primeiro token do primeiro provedor antes de também iniciar um provedor de reserva",
 			"hedgingNotice": "A cobertura inicia um segundo provedor em paralelo quando o primeiro demora a começar e mantém o que responder primeiro. Em inícios lentos isso duplica a solicitação a montante, então os limites de taxa e a capacidade do provedor se esgotam mais rápido, e uma reserva que ignora o cancelamento pode continuar gerando em segundo plano. Ative apenas se os primeiros tokens lentos prejudicarem mais do que a carga extra.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modelos antes de ignorar o provedor",
+			"spanModels.description": "Quantos modelos de um provedor precisam estar com o disjuntor aberto antes que o provedor inteiro seja ignorado. Com 1, um único modelo com falha tira de rota todos os modelos daquele provedor."
 		},
 		"logging": {
 			"title": "Registro",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "Remove os membros indisponíveis deste grupo.",
 			"deleteNaConfirmTitle": "Eliminar este grupo?",
 			"deleteNaConfirmMessage": "Remover os membros indisponíveis deixaria menos de 2 membros encaminháveis, por isso todo o grupo será eliminado.",
-			"deleteNaConfirmLabel": "Eliminar grupo"
+			"deleteNaConfirmLabel": "Eliminar grupo",
+			"circuitBreakerProviderOpen": "Provedor inteiro ignorado - disjuntor aberto para: {{models}}"
 		}
 	},
 	"virtualKeys": {

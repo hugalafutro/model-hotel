@@ -26,6 +26,13 @@ export interface SortableEntryProps {
 		// deadline instead of the ordinary retry backoff; next_retry_at is then
 		// that deadline.
 		quota_pinned?: boolean;
+		// The derived verdict that the breaker is skipping this provider for
+		// every model, and the model ids it is blocking. Which entries get a
+		// status at all is entryCircuitStatus's decision; these two are here so
+		// the tooltip can say whether the whole provider is out and name the
+		// models the verdict rests on.
+		provider_open?: boolean;
+		open_models?: string[];
 	};
 	// Forces this provider's circuit closed. Omitted when the caller cannot
 	// reset (read-only demo mode), which is what hides the control. Deliberately
@@ -181,6 +188,14 @@ export function SortableEntry({
 		remainingMs > 0 &&
 		remainingMs <= FUSE_ANIMATION_MAX_MS;
 
+	// The provider itself is skipped, so this entry is turned away whatever its
+	// own model is doing. Naming the models the verdict rests on is the only way
+	// an operator can tell a provider outage from two unrelated models failing.
+	const openModels = cbStatus?.open_models;
+	const providerSkipped = Boolean(
+		showFuse && cbStatus.provider_open && openModels && openModels.length > 0,
+	);
+
 	const fuseColor = cooldownOver ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
 	const fuseTitle = !showFuse
 		? undefined
@@ -190,7 +205,11 @@ export function SortableEntry({
 				? t("failoverGroups.entry.circuitBreakerQuotaPinned", {
 						resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
 					})
-				: t("failoverGroups.entry.circuitBreakerOpen");
+				: providerSkipped
+					? t("failoverGroups.entry.circuitBreakerProviderOpen", {
+							models: openModels?.join(", "),
+						})
+					: t("failoverGroups.entry.circuitBreakerOpen");
 
 	return (
 		<div

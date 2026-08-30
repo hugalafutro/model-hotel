@@ -105,7 +105,10 @@
 			"audit": "監査",
 			"discoveryNewsBadge_other": "バックグラウンド検出による未確認の変更が {{count}} 件あります。情報のみで、対応が必要な問題ではありません。クリックして確認してください。",
 			"discoveryNewsBadge_one": "バックグラウンド検出による未確認の変更が {{count}} 件あります。情報のみで、対応が必要な問題ではありません。クリックして確認してください。",
-			"discoveryPinnedBadge": "手動で有効にしたモデルがプロバイダーの一覧に載らないままです。情報のみで、対応が必要な問題ではありません。クリックして確認してください。"
+			"discoveryPinnedBadge": "手動で有効にしたモデルがプロバイダーの一覧に載らないままです。情報のみで、対応が必要な問題ではありません。クリックして確認してください。",
+			"failoverBadgeSkippedTooltip_one": "{{count}} 件のプロバイダーを完全にスキップ: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} 件のプロバイダーを完全にスキップ: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}}（オープン対象: {{models}}）"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "バックアップも起動するまでに、最初のプロバイダーの最初のトークンをどれだけ待つか",
 			"hedgingNotice": "ヘッジは最初のプロバイダーの開始が遅いときに2つ目を並行して実行し、先に応答した方を採用します。開始が遅い場合は上流へのリクエストが2倍になるため、プロバイダーのレート制限や処理能力の消費が早まり、キャンセルを無視するバックアップはバックグラウンドで生成を続けることがあります。最初のトークンの遅さが追加負荷より問題になる場合のみ有効にしてください。",
 			"failoverGroup": "フェイルオーバー",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "プロバイダーをスキップするまでのモデル数",
+			"spanModels.description": "プロバイダー全体をスキップするまでに、サーキットブレーカーがオープンになっている必要があるモデルの数です。1 にすると、1 つのモデルの失敗でそのプロバイダーのすべてのモデルが外されます。"
 		},
 		"logging": {
 			"title": "ログ",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "利用できないメンバーをこのグループから削除します。",
 			"deleteNaConfirmTitle": "このグループを削除しますか？",
 			"deleteNaConfirmMessage": "利用できないメンバーを削除すると、ルーティング可能なメンバーが2未満になるため、グループ全体が削除されます。",
-			"deleteNaConfirmLabel": "グループを削除"
+			"deleteNaConfirmLabel": "グループを削除",
+			"circuitBreakerProviderOpen": "プロバイダー全体をスキップ中 - サーキットブレーカーのオープン対象: {{models}}"
 		}
 	},
 	"virtualKeys": {

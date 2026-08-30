@@ -105,7 +105,10 @@
 			"audit": "Denetim",
 			"discoveryNewsBadge_one": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
 			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
-			"discoveryPinnedBadge": "Elle etkinleştirdiğiniz modeller sağlayıcının listesinde hâlâ görünmüyor. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
+			"discoveryPinnedBadge": "Elle etkinleştirdiğiniz modeller sağlayıcının listesinde hâlâ görünmüyor. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} sağlayıcı tamamen atlanıyor: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} sağlayıcı tamamen atlanıyor: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (şunlar için açık: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Yedek sağlayıcı da başlatılmadan önce ilk sağlayıcının ilk belirteci ne kadar beklenir",
 			"hedgingNotice": "Hedge, ilk sağlayıcı yavaş başladığında ikinci bir sağlayıcıyı paralel çalıştırır ve önce yanıt vereni tutar. Yavaş başlangıçlarda bu, üst akış isteğini ikiye katlar; böylece sağlayıcının hız sınırları ve kapasitesi daha hızlı tükenir ve iptali yok sayan bir yedek arka planda üretmeye devam edebilir. Yalnızca yavaş ilk belirteçler ek yükten daha çok zarar veriyorsa açın.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Sağlayıcı atlanmadan önceki model sayısı",
+			"spanModels.description": "Devre kesicinin sağlayıcının tamamını atlaması için kaç modelin devresinin açık olması gerektiği. 1 olduğunda, başarısız olan tek bir model o sağlayıcının arkasındaki tüm modelleri devre dışı bırakır."
 		},
 		"logging": {
 			"title": "Günlük kaydı",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Kullanılamayan üyeleri bu gruptan kaldırır.",
 			"deleteNaConfirmTitle": "Bu grup silinsin mi?",
 			"deleteNaConfirmMessage": "Kullanılamayan üyeleri kaldırmak, 2'den az yönlendirilebilir üye bırakacağından grubun tamamı silinecek.",
-			"deleteNaConfirmLabel": "Grubu sil"
+			"deleteNaConfirmLabel": "Grubu sil",
+			"circuitBreakerProviderOpen": "Sağlayıcının tamamı atlanıyor - devre kesici şunlar için açık: {{models}}"
 		}
 	},
 	"virtualKeys": {

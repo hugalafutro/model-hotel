@@ -105,7 +105,10 @@
 			"audit": "Revisjon",
 			"discoveryNewsBadge_one": "{{count}} ulest endring fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
 			"discoveryNewsBadge_other": "{{count}} uleste endringer fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
-			"discoveryPinnedBadge": "Modeller du selv har aktivert, mangler fortsatt i leverandørens liste. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese."
+			"discoveryPinnedBadge": "Modeller du selv har aktivert, mangler fortsatt i leverandørens liste. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} leverandør hoppes helt over: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} leverandører hoppes helt over: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (åpen for: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Hvor lenge det ventes på den første leverandørens første token før en reserveleverandør også startes",
 			"hedgingNotice": "Sikring starter en annen leverandør parallelt når den første er treg i gang, og beholder den som svarer først. Ved treg start dobler dette oppstrømsforespørselen, så leverandørens hastighetsgrenser og kapasitet brukes opp raskere, og en reserve som ignorerer avbrudd kan fortsette å generere i bakgrunnen. Slå det på bare hvis trege første tokens skader mer enn den ekstra belastningen.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modeller før leverandøren hoppes over",
+			"spanModels.description": "Hvor mange av en leverandørs modeller som må ha åpen kretsbryter før hele leverandøren hoppes over. Ved 1 setter én sviktende modell alle modeller bak den leverandøren ut av spill."
 		},
 		"logging": {
 			"title": "Logger",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Fjerner de utilgjengelige medlemmene fra denne gruppen.",
 			"deleteNaConfirmTitle": "Slette denne gruppen?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgjengelige medlemmene, blir det færre enn 2 rutbare medlemmer igjen, så hele gruppen slettes.",
-			"deleteNaConfirmLabel": "Slett gruppe"
+			"deleteNaConfirmLabel": "Slett gruppe",
+			"circuitBreakerProviderOpen": "Hele leverandøren hoppes over - kretsbryter åpen for: {{models}}"
 		}
 	},
 	"virtualKeys": {

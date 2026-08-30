@@ -105,7 +105,10 @@
 			"audit": "审计",
 			"discoveryNewsBadge_other": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
 			"discoveryNewsBadge_one": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
-			"discoveryPinnedBadge": "你手动启用的模型仍未出现在提供方的列表中。仅供参考，并非需要处理的问题 - 点击查看。"
+			"discoveryPinnedBadge": "你手动启用的模型仍未出现在提供方的列表中。仅供参考，并非需要处理的问题 - 点击查看。",
+			"failoverBadgeSkippedTooltip_one": "{{count}} 个提供商被完全跳过：{{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} 个提供商被完全跳过：{{providers}}",
+			"failoverBadgeOpenModels": "{{provider}}（对以下模型断开：{{models}}）"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "在同时启动备用提供商之前，等待第一个提供商首个令牌的时长",
 			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。",
 			"failoverGroup": "故障转移",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "跳过提供商所需的模型数",
+			"spanModels.description": "在断路器跳过整个提供商之前，该提供商需要有多少个模型的电路处于断开状态。设为 1 时，单个失败的模型就会使该提供商的所有模型停止路由。"
 		},
 		"logging": {
 			"title": "日志记录",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "从该组中移除不可用的成员。",
 			"deleteNaConfirmTitle": "删除该组？",
 			"deleteNaConfirmMessage": "移除不可用的成员后可路由成员将少于 2 个，因此整个组将被删除。",
-			"deleteNaConfirmLabel": "删除组"
+			"deleteNaConfirmLabel": "删除组",
+			"circuitBreakerProviderOpen": "已跳过整个提供商 - 断路器对以下模型断开：{{models}}"
 		}
 	},
 	"virtualKeys": {

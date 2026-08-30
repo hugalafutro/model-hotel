@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} changement non consulté issu de la découverte en arrière-plan. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
 			"discoveryNewsBadge_many": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
 			"discoveryNewsBadge_other": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
-			"discoveryPinnedBadge": "Des modèles que vous avez activés à la main restent absents de la liste du fournisseur. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter."
+			"discoveryPinnedBadge": "Des modèles que vous avez activés à la main restent absents de la liste du fournisseur. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} fournisseur entièrement ignoré : {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} fournisseurs entièrement ignorés : {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} fournisseurs entièrement ignorés : {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (ouvert pour : {{models}})"
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "Combien de temps attendre le premier jeton du premier fournisseur avant de lancer aussi un fournisseur de secours",
 			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modèles avant d'ignorer le fournisseur",
+			"spanModels.description": "Combien de modèles d'un fournisseur doivent avoir un disjoncteur ouvert avant que le fournisseur entier soit ignoré. À 1, un seul modèle en échec écarte tous les modèles de ce fournisseur."
 		},
 		"logging": {
 			"title": "Journalisation",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "Retire les membres indisponibles de ce groupe.",
 			"deleteNaConfirmTitle": "Supprimer ce groupe ?",
 			"deleteNaConfirmMessage": "Retirer les membres indisponibles laisserait moins de 2 membres routables, donc tout le groupe sera supprimé.",
-			"deleteNaConfirmLabel": "Supprimer le groupe"
+			"deleteNaConfirmLabel": "Supprimer le groupe",
+			"circuitBreakerProviderOpen": "Fournisseur entièrement ignoré - disjoncteur ouvert pour : {{models}}"
 		}
 	},
 	"virtualKeys": {

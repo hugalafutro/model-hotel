@@ -4,7 +4,9 @@ import type { CircuitBreakerStatus } from "../../api/types";
 /**
  * The half-open / open circuit counts beside the Failover item, with a
  * tooltip that always explains what the counts mean (they track providers,
- * not groups, a common mix-up) and names the unhealthy providers.
+ * not groups, a common mix-up) and names the unhealthy providers, split by
+ * what the breaker is actually doing with each: skipping it entirely, waiting
+ * on its quota reset, or keeping it in rotation with only some models blocked.
  */
 export function FailoverNavBadge({
 	cbStatus,
@@ -36,16 +38,45 @@ export function FailoverNavBadge({
 		// cooldown-over wins over the quota tooltip.
 		const stillPinned = (p: (typeof unhealthy)[number]) =>
 			Boolean(p.quota_pinned) && p.state === "open";
+		// Circuits are keyed per model, so a provider with an open circuit is not
+		// necessarily a provider that is down: at the default span of 2 the first
+		// model to go dark leaves every other model of that provider serving. Only
+		// the derived verdict says the breaker is skipping the provider outright,
+		// and the two buckets get separate lines so a partial outage is never read
+		// as a dead provider. Each name carries the models it is blocking, since
+		// that is what tells an operator which of the two this is.
 		const names = (list: typeof unhealthy) =>
-			list.map((p) => p.provider_name || p.provider_id).join(", ");
+			list
+				.map((p) => {
+					const name = p.provider_name || p.provider_id;
+					const models = p.open_models;
+					return models && models.length > 0
+						? t("layout.nav.failoverBadgeOpenModels", {
+								provider: name,
+								models: models.join(", "),
+							})
+						: name;
+				})
+				.join(", ");
 		const pinned = unhealthy.filter(stillPinned);
-		const ordinary = unhealthy.filter((p) => !stillPinned(p));
+		const skipped = unhealthy.filter((p) => !stillPinned(p) && p.provider_open);
+		const partial = unhealthy.filter(
+			(p) => !stillPinned(p) && !p.provider_open,
+		);
 		const lines = [explain];
-		if (ordinary.length > 0) {
+		if (skipped.length > 0) {
+			lines.push(
+				t("layout.nav.failoverBadgeSkippedTooltip", {
+					count: skipped.length,
+					providers: names(skipped),
+				}),
+			);
+		}
+		if (partial.length > 0) {
 			lines.push(
 				t("layout.nav.failoverBadgeTooltip", {
-					count: ordinary.length,
-					providers: names(ordinary),
+					count: partial.length,
+					providers: names(partial),
 				}),
 			);
 		}
