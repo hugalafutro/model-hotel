@@ -15,7 +15,14 @@ type oaiResponse struct {
 	ID      string      `json:"id"`
 	Model   string      `json:"model"`
 	Choices []oaiChoice `json:"choices"`
-	Usage   *OAUsage    `json:"usage"`
+	// Held raw and decoded on its own, so a usage block this package cannot read
+	// costs the usage and nothing else. Decoded inline it was part of the
+	// response object, and one count the provider spelled differently — quoted,
+	// or with a fraction on it — failed the whole decode, which the caller met
+	// as a 502 in place of the answer the model had already produced. The
+	// streaming twin of this path already reads counts that way; see
+	// proxy.anthropicResponseWriter.handleStreamLine.
+	Usage json.RawMessage `json:"usage"`
 }
 
 type oaiChoice struct {
@@ -70,6 +77,27 @@ type oaiRespToolCall struct {
 	} `json:"function"`
 }
 
+// readOAUsage maps an OpenAI usage block to the Anthropic token accounting.
+//
+// util.DecodeCounts, so a count written as "12" or 12.0 is still a count; the
+// shape tolerance (util.ShapeError) so a member this translator has no field
+// for, or one figure that is not a count in any spelling, keeps the figure
+// beside it. Both counts are read straight off their own member — neither is a
+// sum — so an unreadable one costs only itself.
+//
+// Absent, null and unreadable all land on the same zeros, and there is no
+// util.JSONMemberSet guard here because there is nothing for it to protect: the
+// Anthropic Message schema makes usage mandatory, this translation reports one
+// response rather than accumulating across chunks, and metering reads the
+// upstream body, not this output.
+func readOAUsage(raw json.RawMessage) usage {
+	var u OAUsage
+	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
+		return usage{}
+	}
+	return usage{InputTokens: u.PromptTokens, OutputTokens: u.CompletionTokens}
+}
+
 // BuildMessageResponse converts a non-streaming OpenAI chat-completion response
 // body into an Anthropic Messages response body. model is echoed back to the
 // client (the model string it requested); messageID is the Anthropic id to
@@ -87,7 +115,6 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 		Role:    "assistant",
 		Model:   model,
 		Content: []contentBlock{},
-		Usage:   usage{InputTokens: 0, OutputTokens: 0},
 	}
 
 	finish := "stop"
@@ -118,10 +145,7 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 	stop := mapStopReason(finish)
 	msg.StopReason = &stop
 
-	if resp.Usage != nil {
-		msg.Usage.InputTokens = resp.Usage.PromptTokens
-		msg.Usage.OutputTokens = resp.Usage.CompletionTokens
-	}
+	msg.Usage = readOAUsage(resp.Usage)
 
 	out, err := json.Marshal(msg)
 	if err != nil {

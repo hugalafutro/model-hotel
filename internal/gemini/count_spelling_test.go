@@ -130,3 +130,76 @@ func TestBuildChatCompletion_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T
 		}
 	}
 }
+
+// The streaming surface, which #813 left untested: the terminal usage chunk is
+// assembled by Finish() from the raw usageMetadata Translate() stashed, so the
+// count spellings have to survive the stream's own path to the client, not only
+// the non-streaming one. A count read here is what the metering pipeline bills.
+func TestStreamTranslator_CountSpellings(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name            string
+		usage           string
+		wantIn, wantOut int
+	}{
+		{"plain integers", `{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}`, 12, 3},
+		{"quoted", `{"promptTokenCount":"12","candidatesTokenCount":"3","totalTokenCount":"15"}`, 12, 3},
+		{"fractional", `{"promptTokenCount":12.0,"candidatesTokenCount":3.0,"totalTokenCount":15.0}`, 12, 3},
+		// A member this translator has no field for keeps the counts beside it.
+		{"unmodelled sibling", `{"promptTokenCount":12,"candidatesTokenCount":3,"promptTokensDetails":[]}`, 12, 3},
+		// Not a count in any spelling: the prompt figure is read straight off
+		// its own member and stands, the one that could not be read is not
+		// invented.
+		{"one figure unreadable", `{"promptTokenCount":12,"candidatesTokenCount":"lots"}`, 12, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tr := NewStreamTranslator("id", "m", 0)
+			if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"}}],"usageMetadata":` + tc.usage + `}`)); err != nil {
+				t.Fatalf("a usage member cost the stream its chunk: %v", err)
+			}
+			out, err := tr.Finish()
+			if err != nil {
+				t.Fatalf("finish: %v", err)
+			}
+			got := streamUsage(t, out)
+			if got.PromptTokens != tc.wantIn || got.CompletionTokens != tc.wantOut {
+				t.Errorf("metered %d/%d, want %d/%d", got.PromptTokens, got.CompletionTokens, tc.wantIn, tc.wantOut)
+			}
+		})
+	}
+}
+
+type streamUsageCounts struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+}
+
+// streamUsage reads the usage block off the last chat chunk that carries one.
+// Parsing the frames rather than substring-matching the SSE bytes: "12" is a
+// substring of "121", and a count is exactly the thing that must not be matched
+// loosely.
+func streamUsage(t *testing.T, sse []byte) streamUsageCounts {
+	t.Helper()
+	var last streamUsageCounts
+	var seen bool
+	for _, line := range strings.Split(string(sse), "\n") {
+		payload, ok := strings.CutPrefix(line, "data: ")
+		if !ok || strings.TrimSpace(payload) == "[DONE]" {
+			continue
+		}
+		var chunk struct {
+			Usage *streamUsageCounts `json:"usage"`
+		}
+		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+			t.Fatalf("stream frame did not decode: %v", err)
+		}
+		if chunk.Usage != nil {
+			last, seen = *chunk.Usage, true
+		}
+	}
+	if !seen {
+		t.Fatalf("no chunk carried a usage block: %s", sse)
+	}
+	return last
+}
