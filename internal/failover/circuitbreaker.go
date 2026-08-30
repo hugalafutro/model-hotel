@@ -613,18 +613,25 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 	return prev
 }
 
-// ResetAll clears all circuit breaker state. It returns how many providers were
-// discarded in total and how many of those were actually being sidelined
+// ResetAll clears all circuit breaker state. It returns how many model circuits
+// were discarded in total and how many of those were actually being sidelined
 // (logically open or half-open), so a bulk reset can report what it recovered
-// instead of implying every tracked provider was broken.
+// instead of implying every tracked circuit was broken.
+//
+// Both counts are circuits, not providers: the map holds one entry per
+// (provider, resolved upstream model), and a provider serving five models that
+// have all been charged is five things the lever just threw away. The API hands
+// these numbers to the operator verbatim.
 func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	cleared = len(cb.circuits)
 	for _, models := range cb.circuits {
-		if c := cb.dominant(models); c != nil && cb.logicalState(c) != StateClosed {
-			recovered++
+		cleared += len(models)
+		for _, c := range models {
+			if cb.logicalState(c) != StateClosed {
+				recovered++
+			}
 		}
 	}
 	cb.circuits = make(map[string]modelCircuits)

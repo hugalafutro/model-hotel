@@ -427,3 +427,31 @@ func TestModelCircuits_EventAndLogCarryTheModel(t *testing.T) {
 		t.Errorf("open-transition log model %q, want %q", got, modelA)
 	}
 }
+
+// ResetAll's two counts are about CIRCUITS, which is what the map now holds two
+// levels of. Counting the top-level provider entries reported "cleared 1" for a
+// provider whose five models had all been charged, and the API hands that number
+// to the operator verbatim as the size of what the bulk lever just threw away.
+//
+// Three circuits over two providers, only two of them open, so provider-counting
+// (2, 2), circuit-counting (3, 2) and "every circuit was blocking" (3, 3) are all
+// distinguishable.
+func TestModelCircuits_ResetAllCountsCircuitsNotProviders(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	busy, other := uuid.New(), uuid.New()
+
+	chargeToOpen(t, cb, busy, modelA)
+	chargeToOpen(t, cb, busy, modelB)
+	cb.RecordFailure(other, "test-provider", modelA) // tracked, below threshold, closed
+
+	cleared, recovered := cb.ResetAll()
+	if cleared != 3 {
+		t.Errorf("cleared = %d, want 3 (two model circuits on one provider plus one on the other)", cleared)
+	}
+	if recovered != 2 {
+		t.Errorf("recovered = %d, want 2 (both open model circuits, not the closed one)", recovered)
+	}
+	if cb.IsOpen(busy, "test-provider", modelA) || cb.IsOpen(busy, "test-provider", modelB) {
+		t.Error("ResetAll left a circuit open")
+	}
+}
