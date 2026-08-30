@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"slices"
 	"time"
 )
 
@@ -108,8 +109,9 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 	// Cheap pre-pass: a provider with nothing stored open has no verdict to
 	// derive. That is the state nearly every request finds, and this way it
 	// reads no settings at all to establish it — a cold settings cache turns
-	// each of the two reads below into a DB round trip taken under the lock, on
-	// the request path.
+	// each of the settings reads below into a DB round trip taken under the
+	// lock, on the request path. It also keeps the healthy path allocation-free,
+	// because providerReport builds a list.
 	anyOpen := false
 	for _, c := range models {
 		if c.state == StateOpen {
@@ -121,19 +123,44 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 		return false
 	}
 
+	open, _ := cb.providerReport(models)
+	return open
+}
+
+// providerReport derives the provider-wide verdict together with the model ids
+// it rests on. It is the single implementation of the rule: the request path
+// takes the verdict alone (providerOpen) and the status surfaces take both, so
+// the flag an operator reads and the models listed beside it can never disagree
+// about a cooldown that elapsed between two separate walks.
+//
+// blocked is sorted, because it is printed in a provider detail that refetches
+// every few seconds and Go's map iteration order would otherwise reshuffle it.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) providerReport(models modelCircuits) (open bool, blocked []string) {
 	base := cb.effectiveCooldown()
-	span := cb.effectiveSpan()
-	open := 0
-	for _, c := range models {
-		if c.state != StateOpen || !cb.stillDark(c, base) {
+	pinned := false
+	for model, c := range models {
+		if !cb.blocking(c, base) {
 			continue
 		}
+		blocked = append(blocked, model)
 		if cb.quotaPinnedFor(c) {
-			return true
+			pinned = true
 		}
-		open++
 	}
-	return open >= span
+	slices.Sort(blocked)
+	return pinned || len(blocked) >= cb.effectiveSpan(), blocked
+}
+
+// blocking reports whether a circuit is turning requests away right now: open
+// and still inside the cooldown that governs it. A circuit owed a probe is not
+// blocking, which is why it counts for neither the verdict nor the list beside
+// it. base is the configured cooldown, hoisted by the caller.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) blocking(c *circuit, base time.Duration) bool {
+	return c.state == StateOpen && cb.stillDark(c, base)
 }
 
 // stillDark reports whether an open circuit is still inside the cooldown that

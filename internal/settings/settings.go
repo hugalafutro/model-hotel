@@ -32,6 +32,7 @@ var AllowedSettings = map[string]bool{
 	"failover_on_rate_limit":            true,
 	"circuit_breaker_enabled":           true,
 	"circuit_breaker_threshold":         true,
+	"circuit_breaker_span_models":       true,
 	"circuit_breaker_cooldown":          true,
 	"circuit_breaker_quota_pin_enabled": true,
 	"circuit_breaker_quota_pin_max":     true,

@@ -594,6 +594,7 @@ These are treated as user-side cancellations rather than provider health issues.
 |---------|------|---------|-------------|
 | `circuit_breaker_enabled` | bool | `true` | Global kill switch. When disabled, no circuit tracking occurs. |
 | `circuit_breaker_threshold` | int | `5` | Number of consecutive failures before a circuit opens. Only effective when value > 0. |
+| `circuit_breaker_span_models` | int | `2` | How many of a provider's models must have an open circuit before the provider itself is skipped for every model. `1` restores the older behaviour, where the first open circuit sidelines the whole provider. |
 | `circuit_breaker_cooldown` | duration | `60s` | How long an open circuit stays open before transitioning to half-open. |
 | `circuit_breaker_quota_pin_enabled` | bool | `true` | When a provider's circuit opens because its quota window is spent, pin the cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`. |
 | `circuit_breaker_quota_pin_max` | duration | `24h` | Ceiling on how far out a quota pin may push the cooldown. |
@@ -636,8 +637,10 @@ These events appear in the real-time sidebar and dashboard.
 |-------|------|---------|---------|
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name |
+| `model` | string | always | The resolved upstream model id whose circuit changed state |
 | `state` | string | always | `open` or `closed` |
-| `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
+| `provider_open` | bool | always | Whether the provider as a whole is now being skipped, derived from how many of its model circuits are open (see `circuit_breaker_span_models`) |
+| `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | `true` when a quota reset deadline, not `circuit_breaker_cooldown`, is governing this circuit |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
 
@@ -648,7 +651,9 @@ These events appear in the real-time sidebar and dashboard.
 meta := map[string]any{
     "provider_id":       providerID.String(),
     "provider":          providerName,
+    "model":             model,
     "state":             state,
+    "provider_open":     cb.providerOpen(cb.circuits[providerID.String()]),
     "consecutive_fails": c.consecutiveFails,
     "quota_pinned":      pinned,
 }

@@ -2,6 +2,7 @@ package failover
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -425,6 +426,122 @@ func TestModelCircuits_EventAndLogCarryTheModel(t *testing.T) {
 	}
 	if got, _ := attrs["model"].(string); got != modelA {
 		t.Errorf("open-transition log model %q, want %q", got, modelA)
+	}
+}
+
+// The provider row carries the derived verdict and the evidence behind it. Both
+// halves matter: at the default span of 2 one open model leaves the provider
+// usable, so a row that only reported the dominant circuit's state would show
+// "open" for a provider that is still serving every other model.
+func TestModelCircuits_StatusReportsTheDerivedProviderVerdict(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+
+	s := onlyStatus(t, cb)
+	if s.ProviderOpen {
+		t.Error("one open model at span 2: provider_open true, want the provider still usable")
+	}
+	if !slices.Equal(s.OpenModels, []string{modelA}) {
+		t.Errorf("open_models = %v, want [%s]", s.OpenModels, modelA)
+	}
+
+	chargeToOpen(t, cb, id, modelB)
+
+	s = onlyStatus(t, cb)
+	if !s.ProviderOpen {
+		t.Error("two open models at span 2: provider_open false, want the provider indicted")
+	}
+	if !slices.Equal(s.OpenModels, []string{modelA, modelB}) {
+		t.Errorf("open_models = %v, want both open models", s.OpenModels)
+	}
+}
+
+// The list is what a provider detail prints, and it is refetched every few
+// seconds, so its order must not depend on Go's randomized map iteration. The
+// models are opened in reverse order, so insertion order cannot pass for sorted.
+func TestModelCircuits_StatusListsOpenModelsInAStableOrder(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	id := uuid.New()
+
+	want := []string{"model-a", "model-b", "model-c", "model-d"}
+	for i := len(want) - 1; i >= 0; i-- {
+		chargeToOpen(t, cb, id, want[i])
+	}
+
+	if got := onlyStatus(t, cb).OpenModels; !slices.Equal(got, want) {
+		t.Errorf("open_models = %v, want %v in sorted order", got, want)
+	}
+}
+
+// A circuit whose cooldown has elapsed is owed a probe and blocks nothing, so it
+// counts for neither the verdict nor the list. Reporting it would tell an
+// operator a model is sidelined at the very moment the breaker has handed it
+// back to the request path.
+func TestModelCircuits_StatusDropsAnOpenCircuitOwedAProbe(t *testing.T) {
+	cb := newTestCB(2, 40*time.Millisecond)
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+	chargeToOpen(t, cb, id, modelB)
+
+	s := onlyStatus(t, cb)
+	if !s.ProviderOpen || len(s.OpenModels) != 2 {
+		t.Fatalf("setup: provider_open=%v open_models=%v, want an indicted provider with both models dark", s.ProviderOpen, s.OpenModels)
+	}
+
+	time.Sleep(60 * time.Millisecond)
+
+	s = onlyStatus(t, cb)
+	if s.ProviderOpen {
+		t.Error("both cooldowns elapsed: provider_open true, want the provider owed its probes")
+	}
+	if len(s.OpenModels) != 0 {
+		t.Errorf("open_models = %v, want empty: neither circuit is blocking any more", s.OpenModels)
+	}
+}
+
+// A quota pin indicts the provider on its own, below the span, and the row must
+// say so: the operator's explanation for a provider skipped on one open model is
+// quota_pinned beside provider_open, not a second open model that never appears.
+func TestModelCircuits_StatusProviderOpenFollowsTheQuotaPin(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(5 * time.Hour), ok: true})
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+
+	s := onlyStatus(t, cb)
+	if !s.ProviderOpen {
+		t.Error("quota-pinned circuit: provider_open false, want the pin to indict the provider below span")
+	}
+	if !slices.Equal(s.OpenModels, []string{modelA}) {
+		t.Errorf("open_models = %v, want [%s]: the pin does not invent a second open model", s.OpenModels, modelA)
+	}
+}
+
+// The transition event has to carry the derived verdict, or a consumer watching
+// the stream has to re-derive it from the span setting it cannot see. The same
+// event type fires for the first model (provider still usable) and the second
+// (provider indicted), so the flag is the only thing that tells them apart.
+func TestModelCircuits_EventCarriesTheDerivedProviderVerdict(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := newTestCB(2, time.Hour)
+	id := uuid.New()
+
+	chargeToOpen(t, cb, id, modelA)
+	ev := waitForOpenEvent(t, sub, id)
+	if open, _ := ev.Metadata["provider_open"].(bool); open {
+		t.Error("first model open at span 2: event provider_open true, want false")
+	}
+
+	chargeToOpen(t, cb, id, modelB)
+	ev = waitForOpenEvent(t, sub, id)
+	if open, _ := ev.Metadata["provider_open"].(bool); !open {
+		t.Error("second model open at span 2: event provider_open false, want true")
 	}
 }
 

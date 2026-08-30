@@ -459,6 +459,35 @@ func TestAllowedSettingsSync(t *testing.T) {
 	}
 }
 
+// A runtime key the breaker reads has to be in BOTH allowlists, and
+// TestAllowedSettingsSync only proves the two maps agree — it is equally happy
+// when a key is in neither, which is the state a key nothing registers is in.
+// The circuit-breaker span decides how many open model circuits it takes to skip
+// a provider outright, so a member where it is unregistered is a member where the
+// operator cannot change it, config sync will not carry it, and every read of it
+// misses the settings cache. Name it explicitly, on both sides, with the bound
+// the handler must enforce.
+func TestCircuitBreakerSpanModelsIsRegisteredInBothAllowlists(t *testing.T) {
+	const key = "circuit_breaker_span_models"
+
+	if !settings.AllowedSettings[key] {
+		t.Errorf("%s missing from settings.AllowedSettings: the DB layer refuses to write it", key)
+	}
+	rule, ok := allowedSettings[key]
+	if !ok {
+		t.Fatalf("%s missing from api.allowedSettings: PUT /api/settings rejects it as an unknown setting", key)
+	}
+	if rule.typeName != "int" {
+		t.Errorf("%s type %q, want int", key, rule.typeName)
+	}
+	if rule.min != 1 {
+		t.Errorf("%s min %v, want 1: a span below 1 is not a span, it is a provider skipped on no evidence", key, rule.min)
+	}
+	if rule.max < 1 {
+		t.Errorf("%s max %v, want a ceiling above the floor", key, rule.max)
+	}
+}
+
 // TestUpdateSettings_EmptySettings tests that UpdateSettings returns 400
 // when the request body is an empty object.
 func TestUpdateSettings_EmptySettings(t *testing.T) {

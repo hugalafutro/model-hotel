@@ -43,6 +43,13 @@ func (s State) MarshalText() ([]byte, error) {
 
 // ProviderStatus represents the health status of a single provider for
 // API responses and SSE events.
+//
+// State and the fields beside it describe the provider's most degraded model
+// circuit. ProviderOpen and OpenModels describe the provider as a whole: the
+// derived verdict and the evidence it is derived from. The two answer different
+// questions and can disagree — one open model at the default span of 2 gives
+// State "open" and ProviderOpen false, which is exactly the case an operator
+// needs to see, because the provider is still serving every other model.
 type ProviderStatus struct {
 	ProviderID       string `json:"provider_id"`
 	ProviderName     string `json:"provider_name,omitempty"`
@@ -52,6 +59,17 @@ type ProviderStatus struct {
 	CooldownMs       int64  `json:"cooldown_ms,omitempty"`
 	NextRetryAt      string `json:"next_retry_at,omitempty"`
 	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
+	// ProviderOpen is the derived provider-wide verdict: whether the breaker is
+	// skipping this provider for every model. Always emitted, including its
+	// false, so a consumer can tell "the provider is fine" from "the field is
+	// missing" without re-deriving it from OpenModels and the span setting.
+	ProviderOpen bool `json:"provider_open"`
+	// OpenModels lists the resolved upstream model ids the breaker is currently
+	// blocking, sorted so a polling UI does not reshuffle the list. It is exactly
+	// the set ProviderOpen is counted from, so a provider detail can name the
+	// models a verdict rests on. Circuits owed a probe are not in it: they are no
+	// longer blocking anything.
+	OpenModels []string `json:"open_models,omitempty"`
 }
 
 // SettingsReader provides dynamic configuration for the circuit breaker.
@@ -306,10 +324,16 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 	// RecordSuccess closes it.
 	pinned := cb.quotaPinnedFor(c)
 	meta := map[string]any{
-		"provider_id":       providerID.String(),
-		"provider":          providerName,
-		"model":             model,
-		"state":             state,
+		"provider_id": providerID.String(),
+		"provider":    providerName,
+		"model":       model,
+		"state":       state,
+		// provider_open is the derived verdict as it stands after this
+		// transition. The event names one model, and at the default span of 2 the
+		// first model to open leaves the provider serving everything else, so
+		// without this flag a consumer would have to re-derive the verdict from a
+		// span setting it cannot see and circuits it is not shown.
+		"provider_open":     cb.providerOpen(cb.circuits[providerID.String()]),
 		"consecutive_fails": c.consecutiveFails,
 		"quota_pinned":      pinned,
 	}
@@ -559,11 +583,14 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 		}
 		cooldown := cb.effectiveCooldownFor(c)
 		state := cb.logicalState(c)
+		providerOpen, openModels := cb.providerReport(models)
 		s := ProviderStatus{
 			ProviderID:       id,
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
 			QuotaPinned:      cb.quotaPinnedFor(c),
+			ProviderOpen:     providerOpen,
+			OpenModels:       openModels,
 		}
 		if state == StateOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)

@@ -64,6 +64,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `request_timeout` | `1m0s` | Timeout for upstream proxy requests (e.g. `30s`, `1m0s`, `2m0s`). |
 | `circuit_breaker_enabled` | `true` | Enable circuit breaker for failover groups. When a provider fails repeatedly, the circuit opens and requests skip it until the cooldown expires. |
 | `circuit_breaker_threshold` | `5` | Number of consecutive failures before the circuit breaker opens (1-100). |
+| `circuit_breaker_span_models` | `2` | How many of a provider's models must have an open circuit before the provider itself is skipped for every model (1-100). `1` skips the whole provider as soon as one model's circuit opens. |
 | `circuit_breaker_cooldown` | `1m0s` | Duration the circuit breaker stays open before allowing a half-open retry (e.g. `30s`, `1m0s`, `5m0s`). |
 | `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var. |
 | `pwned_password_check_enabled` | `true` | Runtime toggle for breached-password screening. Overridden by the `PWNED_PASSWORD_CHECK_ENABLED` env var: if the env var is `false`, this setting has no effect. Lets an operator turn the check off without a redeploy. |

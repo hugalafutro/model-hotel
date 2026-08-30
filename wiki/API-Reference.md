@@ -1228,6 +1228,7 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `failover_on_rate_limit` | string | `"true"` or `"false"` |
 | `circuit_breaker_enabled` | string | `"true"` or `"false"` |
 | `circuit_breaker_threshold` | int | 1-100 |
+| `circuit_breaker_span_models` | int | 1-100 (default `2`); open model circuits it takes to skip the provider itself |
 | `circuit_breaker_cooldown` | string | Duration |
 | `circuit_breaker_quota_pin_enabled` | string | `"true"` or `"false"` (default `"true"`); pin an open circuit's cooldown to the provider's quota reset |
 | `circuit_breaker_quota_pin_max` | string | Duration ceiling for a quota pin (default `"24h0m0s"`); a non-positive value falls back to 24h |
@@ -1467,8 +1468,10 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 |-------|------|---------|---------|
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name, so the event reads without a lookup |
+| `model` | string | always | The resolved upstream model id whose circuit changed state (the id sent upstream, never a `hotel/` alias) |
 | `state` | string | always | `open` or `closed` |
-| `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
+| `provider_open` | bool | always | Whether the provider as a whole is now being skipped. One model's circuit opening does not skip the provider until `circuit_breaker_span_models` of them are open, so this is `false` on most `circuit_breaker.open` events |
+| `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is currently governing this circuit's cooldown rather than `circuit_breaker_cooldown` |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
 
