@@ -2,9 +2,10 @@ type: leaky
 name: hugalafutro/model-hotel-admin-bf
 description: "Detect brute force on the Model Hotel admin API and dashboard login"
 # Wrong admin tokens, failed dashboard passwords, wrong TOTP codes, rejected
-# CSRF tokens and unsigned backup restores all end up here. These are the
-# credentials that own the gateway, so the bucket is smaller and drains slower
-# than the virtual-key one.
+# passkey assertions, rejected CSRF tokens and unsigned backup restores all end
+# up here, from either binary: Front Desk's whole control plane sits behind the
+# same admin-or-session gate. These are the credentials that own the gateway and
+# the fleet, so the bucket is smaller and drains slower than the virtual-key one.
 filter: "evt.Meta.log_type == 'model-hotel_auth_fail' && evt.Meta.sub_type in ['admin_token', 'login', 'csrf', 'backup_signature'] && evt.Meta.source_ip != ''"
 groupby: evt.Meta.source_ip
 capacity: 5

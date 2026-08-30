@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -352,6 +353,21 @@ type loginFinishRequest struct {
 	Credential json.RawMessage `json:"credential"`
 }
 
+// logPasskeyLoginFailure records a passkey assertion that did not check out.
+//
+// The endpoint is unauthenticated, so a rejected assertion is a failed login by
+// an anonymous caller and the line has to name that caller: without an address
+// it tells an operator, and any log-driven ban, nothing. Warning, not error:
+// this is the caller's failure, not the server's, and it shares the level with
+// every other login rejection (userlogin, totp, oidc).
+//
+// reason is one of a fixed set chosen here, so it is safe to read before the
+// error; the error text quotes a caller-supplied credential blob, so it goes
+// last. Nothing about the credential itself is logged.
+func logPasskeyLoginFailure(r *http.Request, reason string, err error) {
+	debuglog.Warn("webauthn: passkey login failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
+}
+
 // LoginFinish completes a WebAuthn discoverable login ceremony.
 // POST /webauthn/login/finish (no auth required)
 func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
@@ -411,7 +427,7 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		io.NopCloser(bytes.NewReader(req.Credential)),
 	)
 	if err != nil {
-		debuglog.Error("webauthn: failed to parse credential request response", "error", err)
+		logPasskeyLoginFailure(r, "assertion_unparseable", err)
 		respondBadRequest(w, "invalid credential response", err)
 		return
 	}
@@ -428,7 +444,7 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	user, parsedCred, err := h.relyingParty.ValidatePasskeyLogin(userLookup, session, parsedResponse)
 	if err != nil {
-		debuglog.Error("webauthn: ValidatePasskeyLogin failed", "error", err)
+		logPasskeyLoginFailure(r, "assertion_rejected", err)
 		respondBadRequest(w, "passkey login verification failed", err)
 		return
 	}

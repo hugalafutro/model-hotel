@@ -44,7 +44,7 @@ application-level one. The point is to drop the connection before it costs the g
 | Scenario | Counts | capacity / leakspeed / blackhole |
 |---|---|---|
 | `hugalafutro/model-hotel-vk-bf` | Rejected requests to `/v1`: a missing `Authorization` header, a virtual key the gateway does not know, a key whose owner is disabled. | 5 / 20s / 5m |
-| `hugalafutro/model-hotel-admin-bf` | Credentials that own the gateway: a wrong or missing admin token (admin API, metrics endpoint, backup restore), a failed dashboard login, a wrong TOTP code, a failed CSRF check, a restore archive not signed by this instance. | 5 / 60s / 5m |
+| `hugalafutro/model-hotel-admin-bf` | Credentials that own the gateway or the fleet: a wrong or missing admin token (admin API, metrics endpoint, backup restore, and Front Desk's whole control plane), a failed dashboard login, a wrong TOTP code, a rejected passkey assertion, a failed CSRF check, a restore archive not signed by this instance. | 5 / 60s / 5m |
 | `hugalafutro/model-hotel-throttled` | Throttling episodes from the gateway's own limiters: the IP rate limiter, and the login, TOTP and SSO callback throttles. | 3 / 60s / 10m |
 
 All three are leaky buckets grouped by source address. `capacity` is how many events fit at once,
@@ -386,13 +386,10 @@ docker restart <crowdsec-container>
   successful requests are invisible to CrowdSec. `DEBUG_LOG=true` would expose them at a cost of
   roughly six extra lines per request, which is not a trade worth making for this.
 
-- **Front Desk coverage is partial.** Front Desk has no access logger, and its session gate returns
-  401 without logging anything. What does reach CrowdSec from Front Desk is metrics-scrape failures
-  with a bad or missing token, TOTP and OIDC failures, and IP throttling. Ordinary rejected session
-  cookies do not.
-
-- **Passkey failures carry no client address.** They are logged, but with no IP in the record there
-  is nothing for a scenario to group on, so they cannot produce a decision.
+- **Front Desk's access log is opt-in like the gateway's.** Front Desk writes the same
+  `access: request` line the gateway does, but the parser that maps it onto `http_access-log` is
+  the opt-in `hugalafutro/model-hotel-access-logs`, not part of this collection. Without it, the
+  authentication lines below are what CrowdSec sees from Front Desk.
 
 - **Nothing here reads the database.** The App Logs page holds more than the container log does,
   and it is not an acquisition source. If a failure only appears in App Logs, no scenario will see
@@ -427,6 +424,12 @@ one an instance emits.
    ```
    time=2026-08-18T04:15:02.123Z level=WARN msg="frontdesk: metrics scrape with invalid token" remote_addr=203.0.113.7
    ```
+
+   Its attribute values escape their spaces the same way the gateway's do, so a value is always a
+   single whitespace-delimited token. slog quotes a value holding an `=` or a quote, which escapes
+   the backslash of that escape a second time, so a request path with a space reads
+   `path="/x\\x20y"` on Front Desk against `path="/x\x20y"` on the gateway. Both are one token
+   and both carry the same address rules; only the depth of quoting differs.
 
 ### Why a request path cannot ban a stranger
 

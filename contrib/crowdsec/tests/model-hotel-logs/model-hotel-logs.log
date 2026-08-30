@@ -23,3 +23,9 @@ time=2026-08-18T04:15:19.123Z level=WARN msg="ratelimit-ip: throttling started" 
 2026/08/18 04:15:24 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.33 path=/api/x remote_addr=203.0.113.77
 2026/08/18 04:15:25 level=WARNING auth: key owner disabled remote_addr=198.51.100.34 key="pwn\x20remote_addr=203.0.113.99\x20x"
 2026/08/18 04:15:26 level=WARNING auth: key owner disabled key=pwn remote_addr=203.0.113.99 x remote_addr=198.51.100.35
+time=2026-08-18T04:15:27.123Z level=WARN msg="access: request" method=GET host=fd.example.com remote=203.0.113.21 status=401 bytes=42 duration=1.234ms path=/api/members
+time=2026-08-18T04:15:28.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.23 path=/api/members
+time=2026-08-18T04:15:29.123Z level=WARN msg="auth: admin request missing bearer token" remote_addr=203.0.113.24 path=/api/fleet/status
+time=2026-08-18T04:15:30.123Z level=WARN msg="auth: CSRF check failed" remote_addr=203.0.113.25 path=/api/members/abc
+time=2026-08-18T04:15:31.123Z level=WARN msg="webauthn: passkey login failed" remote_addr=203.0.113.26 reason=assertion_rejected error=webauthn:\x20signature\x20is\x20not\x20valid
+time=2026-08-18T04:15:32.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.27 path="/x\\x20remote_addr=203.0.113.77\\x20y"

@@ -18,10 +18,10 @@ description: "Parse Model Hotel and Front Desk security logs"
 #      rather than scanning for the first thing that looks like an IP, means a
 #      line whose real address is unparseable yields nothing instead of falling
 #      through to whatever a caller wrote further along.
-# From v0.9.99 Model Hotel also escapes the spaces inside any quoted attribute
-# value, so a caller-controlled value is a single token and cannot present a
-# "key=value" pair at all. Both rules hold without that, so this parser is safe
-# to point at an older instance.
+# From v0.9.99 Model Hotel also escapes the spaces inside any attribute value,
+# and Front Desk's stdout handler does the same, so a caller-controlled value is
+# a single token and cannot present a "key=value" pair at all. Both rules hold
+# without that, so this parser is safe to point at an older instance.
 filter: "evt.Parsed.program startsWith 'model-hotel' || evt.Parsed.program startsWith 'front-desk'"
 pattern_syntax:
   MH_TIME: '%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME}'
@@ -88,7 +88,9 @@ nodes:
         value: vk_invalid
 
   # A request to the admin API, the metrics endpoint or the restore endpoint
-  # with a missing or wrong admin token.
+  # with a missing or wrong admin token. The two "auth: admin request …"
+  # messages come from both binaries: the gateway's admin middleware and the
+  # shared admin-or-session gate that fronts Front Desk's whole control plane.
   - filter: 'evt.Parsed.mh_body startsWith "auth: admin request with invalid token" || evt.Parsed.mh_body startsWith "auth: admin request missing bearer token" || evt.Parsed.mh_body startsWith "auth: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "auth: metrics scrape missing bearer token" || evt.Parsed.mh_body startsWith "auth: backup restore with invalid admin token" || evt.Parsed.mh_body startsWith "auth: backup restore with missing admin token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape missing bearer token"'
     statics:
       - meta: log_type
@@ -96,9 +98,11 @@ nodes:
       - meta: sub_type
         value: admin_token
 
-  # Dashboard login: wrong password, wrong TOTP code, or a failed admin-token
-  # exchange behind the TOTP gate.
-  - filter: 'evt.Parsed.mh_body startsWith "userlogin: login failed" || evt.Parsed.mh_body startsWith "userlogin: invalid TOTP code" || evt.Parsed.mh_body startsWith "totp: login failed"'
+  # Dashboard login: wrong password, wrong TOTP code, a failed admin-token
+  # exchange behind the TOTP gate, or a passkey assertion that did not verify.
+  # The passkey endpoint is unauthenticated on both binaries, so a rejected
+  # assertion is an anonymous caller failing a login like any other.
+  - filter: 'evt.Parsed.mh_body startsWith "userlogin: login failed" || evt.Parsed.mh_body startsWith "userlogin: invalid TOTP code" || evt.Parsed.mh_body startsWith "totp: login failed" || evt.Parsed.mh_body startsWith "webauthn: passkey login failed"'
     statics:
       - meta: log_type
         value: model-hotel_auth_fail

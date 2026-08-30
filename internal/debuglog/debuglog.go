@@ -86,7 +86,58 @@ func StdoutHandler() slog.Handler {
 	if JSONFormat() {
 		return newJSONHandler(os.Stdout, currentLevel)
 	}
-	return slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: currentLevel})
+	return slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level:       currentLevel,
+		ReplaceAttr: escapeAttrSpaces,
+	})
+}
+
+// escapeAttrSpaces renders every attribute value as a single whitespace
+// delimited token by escaping the spaces inside it, the same guarantee the
+// gateway's own handler gives (quoteLogValue in internal/api/applogs_slog.go).
+//
+// slog's text handler quotes a value holding a space, but the space survives
+// inside the quotes. Request paths, key names and error strings are
+// caller-controlled and are logged as attributes, so a value like
+//
+//	pwn remote_addr=203.0.113.99 x
+//
+// would otherwise still present a "key=value" token to any reader that splits
+// on whitespace before it considers quotes (a CrowdSec grok, a fail2ban regex,
+// an awk one-liner), and that token would read as the binary's own.
+//
+// Backslashes are escaped first, so a value that already spells "\x20" cannot
+// masquerade as an escaped space. Values with no space are returned untouched,
+// so ordinary lines read exactly as before.
+//
+// slog resolves a LogValuer and skips a group attribute before it calls this,
+// so a value here is already final and never a container.
+//
+// Only text-shaped values are considered. A number, a bool, a duration or a
+// time renders without a space and has its own rendering in the text handler
+// (a time is RFC3339 there, not the sprawling form its String method gives),
+// so rewriting one to a string would change how it reads for no gain.
+//
+// The built-in time/level/msg/source attributes are the handler's own and are
+// left alone: the message carries the "scope: message" text every log reader
+// classifies on, and its spaces are load-bearing.
+func escapeAttrSpaces(groups []string, a slog.Attr) slog.Attr {
+	if len(groups) == 0 {
+		switch a.Key {
+		case slog.TimeKey, slog.LevelKey, slog.MessageKey, slog.SourceKey:
+			return a
+		}
+	}
+	switch a.Value.Kind() {
+	case slog.KindString, slog.KindAny:
+	default:
+		return a
+	}
+	if s := a.Value.String(); strings.Contains(s, " ") {
+		s = strings.ReplaceAll(s, `\`, `\\`)
+		return slog.String(a.Key, strings.ReplaceAll(s, " ", `\x20`))
+	}
+	return a
 }
 
 // maybeScopeFilter wraps h with per-scope Debug filtering, but only when
