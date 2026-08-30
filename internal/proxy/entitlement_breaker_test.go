@@ -61,18 +61,18 @@ func entitlementHandler(t *testing.T, status int, body string) (*Handler, modelC
 }
 
 // A plan that does not cover ONE model says nothing about the provider's health,
-// and must not take the whole provider out of rotation.
+// and one such model must not take the whole provider out of rotation.
 //
 // Z.ai answers 429 for a model outside the coding plan while other models on the
 // same provider and the same key answer 200 — verified against production:
-// glm-5.1 returned 200 while glm-4.7-flashx and glm-4.5-x returned 429. Two
-// probes to an uncovered model used to black out every Z.ai model for the
-// cooldown, the working ones included.
+// glm-5.1 returns 200 while glm-4.7-flashx and glm-4.5-x return 429.
 //
-// The 429 is charged now, and the circuit KEY is what confines it: the refused
-// model goes dark, and one open model is below the default span of 2 so the
-// provider stays usable for everything else. That is why the sibling probe below
-// is the assertion and the model's own state is only its precondition.
+// The 429 is charged, and the circuit KEY is what confines it: the refused model
+// goes dark, and ONE open model is below the default span of 2, so the provider
+// stays usable for everything else. That is why the sibling probe below is the
+// assertion and the model's own state is only its precondition. Two refused
+// models is a different case with a different answer, pinned by
+// TestAttemptCandidate_TwoPlanRefusalsReachTheProviderVerdict.
 //
 // Both routes through attemptCandidate are covered: the last candidate (which
 // classifies inside forwardUpstreamError) and a failover-eligible one with a
@@ -97,6 +97,79 @@ func TestAttemptCandidate_AModelOutsideThePlanDoesNotDarkenTheProvider(t *testin
 				t.Error("a model outside the plan darkened a sibling: the models the plan DOES cover are now skipped")
 			}
 		})
+	}
+}
+
+// withBreakerSpan sets circuit_breaker_span_models for one test. The span is
+// read at IsOpen time rather than at charge time, so raising it re-derives the
+// verdict over circuits that are already open.
+func withBreakerSpan(t *testing.T, h *Handler, span string) {
+	t.Helper()
+	if err := h.settingsRepo.Set(context.Background(), "circuit_breaker_span_models", span); err != nil {
+		t.Fatalf("set circuit_breaker_span_models: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("circuit_breaker_span_models")
+	t.Cleanup(func() {
+		_ = h.settingsRepo.Set(context.Background(), "circuit_breaker_span_models", "2")
+		h.settingsRepo.InvalidateCache("circuit_breaker_span_models")
+	})
+}
+
+// TWO plan-refused models is the real #819 incident shape, and this is the
+// accepted trade of the per-model-breaker design, pinned here so nobody has to
+// rediscover it from a production report.
+//
+// Z.ai's coding plan refuses glm-4.7-flashx AND glm-4.5-x with 429 while
+// glm-5.1 answers 200 on the same key. Each refusal charges the model it names,
+// so two circuits open — and the design says a provider is down once `span`
+// distinct models corroborate. At the default span of 2 they do, so the derived
+// provider verdict skips healthy glm-5.1 as well.
+//
+// That is deliberate, not a gap. The design forbids exempting a refusal by its
+// wording (a phrase list only ever recognises refusals somebody has already
+// seen), and "two of this provider's models are refusing" is genuinely the
+// shape a provider-wide fault has. The operator's lever is the span setting,
+// and arm (b) is that lever: at span 3 the same two open circuits leave glm-5.1
+// routable, so an operator who knows their plan excludes several models can buy
+// the tolerance back without turning the breaker off.
+//
+// Threshold 2, so each model needs two refusals to open and one stray charge
+// cannot stand in for corroboration.
+func TestAttemptCandidate_TwoPlanRefusalsReachTheProviderVerdict(t *testing.T) {
+	h, cand := entitlementHandler(t, http.StatusTooManyRequests, zaiEntitlementBody)
+
+	// Two models on the SAME provider: the candidate's provider pointer is shared,
+	// which is what makes them siblings under one circuit map.
+	flashx, x45 := cand, cand
+	flashx.model = &model.Model{ID: uuid.New(), ModelID: "glm-4.7-flashx"}
+	x45.model = &model.Model{ID: uuid.New(), ModelID: "glm-4.5-x"}
+
+	for _, refused := range []modelCandidate{flashx, x45} {
+		runEntitlementAttempt(t, h, refused, 1)
+		runEntitlementAttempt(t, h, refused, 1)
+		if got := h.circuitBreaker.GetState(cand.provider.ID, refused.model.ModelID); got != failover.StateOpen {
+			t.Fatalf("setup: %s circuit is %v, want open", refused.model.ModelID, got)
+		}
+	}
+
+	// (a) At the default span of 2, two corroborating models ARE the provider
+	// verdict, and it reaches the model that never failed.
+	if !h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+		t.Error("two open models did not reach the provider verdict at span 2: the derivation is not firing")
+	}
+
+	// (b) The escape hatch, over the very same circuits: raising the span above
+	// the number of refused models leaves the healthy sibling routable.
+	withBreakerSpan(t, h, "3")
+	if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+		t.Error("glm-5.1 is still skipped at span 3: the operator's span lever does not lift the provider verdict")
+	}
+	// And the refused models stay dark on their own circuits, which the span
+	// setting has no business touching.
+	for _, refused := range []modelCandidate{flashx, x45} {
+		if !h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, refused.model.ModelID) {
+			t.Errorf("%s became routable at span 3: the span governs the provider verdict, not a model's own circuit", refused.model.ModelID)
+		}
 	}
 }
 
@@ -188,9 +261,9 @@ func TestAttemptCandidate_ARateLimitIsNotChargedWhenFailoverIsOff(t *testing.T) 
 	}
 }
 
-// The hedged-streaming path charges its own 429s: the header-time charge that
-// used to cover it is gone, and deleting that one line left the whole suite
-// green before this test existed.
+// The hedged-streaming path charges its own 429s. Nothing else on that path
+// does: the probe never reaches the sequential loop's charge sites, so deleting
+// the one line under test here leaves the whole rest of the suite green.
 func TestProbeStreamingCandidate_ChargesARateLimit(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
