@@ -103,7 +103,13 @@ func (h *WebAuthnHandler) Available(w http.ResponseWriter, r *http.Request) {
 // Login endpoints are public (called from the login screen).
 func (h *WebAuthnHandler) Register(r chi.Router) {
 	r.Route("/webauthn", func(r chi.Router) {
-		r.Get("/available", h.Available)
+		// Available is public like the other login-screen polls, but unlike them
+		// it runs an uncached credential listing on every request, so it rides
+		// the per-IP limiter rather than the polls' exemption.
+		r.Group(func(r chi.Router) {
+			r.Use(h.ipLimiter.Middleware)
+			r.Get("/available", h.Available)
+		})
 		r.Group(func(r chi.Router) {
 			// In read-only (demo) mode, passkey management is an admin mutation
 			// and must be refused like the rest of the admin CRUD surface —

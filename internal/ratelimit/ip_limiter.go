@@ -103,9 +103,21 @@ func (l *IPLimiter) ClientIP(r *http.Request) string {
 	return clientip.Resolve(r, l.trustedProxies)
 }
 
+// chargedMarker marks a request as already charged against one limiter.
+//
+// The same limiter is mounted both across a whole route tree and again on
+// individual login ceremonies, so without this a single login request draws two
+// tokens from its bucket. That is not merely wasteful: the second charge is
+// billed when the bucket is already one token poorer, so below ~5 rps its delay
+// exceeds max_wait and every login attempt is refused, locking an operator out
+// of every way in. The marker is keyed by the limiter so two DIFFERENT limiters
+// on one request still charge independently.
+type chargedMarker struct{ limiter *IPLimiter }
+
 // Middleware returns an HTTP middleware that rate-limits requests per
 // client IP. On limit violation the middleware responds with HTTP 429
-// and sets Retry-After and X-RateLimit-* headers.
+// and sets Retry-After and X-RateLimit-* headers. One request costs one token
+// however many times this limiter is mounted on the route.
 func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Runtime toggle from DB settings; default true for safety.
@@ -115,6 +127,12 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 				return
 			}
 		}
+
+		if r.Context().Value(chargedMarker{l}) != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		r = r.WithContext(context.WithValue(r.Context(), chargedMarker{l}, struct{}{}))
 
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)

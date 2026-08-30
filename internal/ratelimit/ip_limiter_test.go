@@ -78,6 +78,80 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 	}
 }
 
+// TestIPLimiter_MountedTwiceChargesOnce pins that one request costs one token
+// no matter how many times the same limiter wraps the route.
+//
+// The login ceremonies carry a route-level limiter and, on the gateway, sit
+// under the tree-wide one as well. Charging twice bills the second token
+// against a bucket the first just emptied, so below roughly 5 rps the second
+// charge's delay exceeds max_wait and every login is refused, locking an
+// operator out of passkey, 2FA and SSO alike.
+func TestIPLimiter_MountedTwiceChargesOnce(t *testing.T) {
+	lim := NewIPLimiter(10, 3, nil, ipSettingsNoBackpressure())
+	defer lim.Stop()
+
+	served := 0
+	handler := lim.Middleware(lim.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	// The burst is 3, so a double charge runs out of tokens on request 2.
+	for i := range 3 {
+		req := httptest.NewRequest("POST", "/api/totp/login", http.NoBody)
+		req.RemoteAddr = "1.2.3.4:1234"
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("request %d: got %d, want 200: the doubled mount is charging twice", i+1, rr.Code)
+		}
+	}
+	if served != 3 {
+		t.Errorf("handler ran %d times, want 3", served)
+	}
+
+	// Still counting: the marker must skip the second charge, not the first.
+	req := httptest.NewRequest("POST", "/api/totp/login", http.NoBody)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("past the burst: got %d, want 429: the limiter stopped counting", rr.Code)
+	}
+}
+
+// TestIPLimiter_TwoLimitersChargeIndependently guards the other side of the
+// marker: it is keyed by limiter, so a second, different limiter on the same
+// request still takes its own token.
+func TestIPLimiter_TwoLimitersChargeIndependently(t *testing.T) {
+	outer := NewIPLimiter(10, 5, nil, ipSettingsNoBackpressure())
+	defer outer.Stop()
+	inner := NewIPLimiter(10, 1, nil, ipSettingsNoBackpressure())
+	defer inner.Stop()
+
+	handler := outer.Middleware(inner.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	req := httptest.NewRequest("POST", "/api/totp/login", http.NoBody)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: got %d, want 200", rr.Code)
+	}
+
+	// The inner limiter's burst of 1 is spent, so it must refuse even though
+	// the outer one still has tokens.
+	req = httptest.NewRequest("POST", "/api/totp/login", http.NoBody)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("second request: got %d, want 429: the marker is suppressing a different limiter's charge", rr.Code)
+	}
+}
+
 func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 	lim := NewIPLimiter(10, 3, nil, ipSettingsNoBackpressure())
 	defer lim.Stop()

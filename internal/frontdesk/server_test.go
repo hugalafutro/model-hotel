@@ -18,6 +18,7 @@ import (
 	otptotp "github.com/pquerna/otp/totp"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -65,6 +66,14 @@ func newTestServer(t *testing.T) (*Server, *Store) {
 // exercise the "/" UI surface (e.g. security headers on the framed page).
 func newTestServerUI(t *testing.T, ui fs.FS) (*Server, *Store) {
 	t.Helper()
+	// A limit no test can reach, so unrelated suites never see a 429.
+	return newTestServerLimited(t, ui, ratelimit.NewIPLimiter(1000, 1000, nil, nil))
+}
+
+// newTestServerLimited is newTestServerUI with a caller-chosen per-IP limiter,
+// for tests that assert which routes the limiter actually covers.
+func newTestServerLimited(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMiddleware) (*Server, *Store) {
+	t.Helper()
 	store := newTestStore(t)
 	bus := events.NewBus()
 	poller := NewPoller(store, bus, "")
@@ -84,7 +93,7 @@ func newTestServerUI(t *testing.T, ui fs.FS) (*Server, *Store) {
 		AdminMgr:     adminMgr,
 		MasterKey:    testMasterKey,
 		RelyingParty: rp,
-		IPLimiter:    ratelimit.NewIPLimiter(1000, 1000, nil, nil),
+		IPLimiter:    limiter,
 		UI:           ui,
 	})
 	// Drain any detached background goroutine (e.g. an auto-sync kick) before
