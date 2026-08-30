@@ -2128,7 +2128,8 @@
 				"auth_sso_identity_bound": "Tożsamość SSO powiązana z kontem",
 				"discovery_claims_outstanding": "Nierozwiązane rozbieżności modeli",
 				"model_auto_disabled_gone": "Model wyłączony (dostawca już go nie udostępnia)",
-				"provider_scheduled_disable": "Dostawca wyłączony zgodnie z harmonogramem"
+				"provider_scheduled_disable": "Dostawca wyłączony zgodnie z harmonogramem",
+				"circuit_breaker_unstable": "Model wielokrotnie zawodzi (wyłącznik obwodu otwierany wielokrotnie)"
 			},
 			"events": {
 				"all": "Zaznacz wszystko",

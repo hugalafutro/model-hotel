@@ -50,7 +50,10 @@ const defaultTitlePrefix = "Model Hotel"
 // defaultDebounceKeys are the metadata keys, most specific first, that identify
 // the entity an event concerns so distinct entities debounce independently. The
 // main app labels providers/models; Front Desk overrides this with member_id.
-var defaultDebounceKeys = []string{"provider_id", "provider", "model_id"}
+// model_id leads because it is the narrowest: an event that names both a model
+// and its provider concerns that one model, and keying it on the provider would
+// let the first model to fail suppress every sibling that fails beside it.
+var defaultDebounceKeys = []string{"model_id", "provider_id", "provider"}
 
 // Dispatcher consumes an events bus and forwards selected events to a
 // stateless apprise-api container as outbound notifications.

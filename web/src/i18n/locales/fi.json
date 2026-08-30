@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identiteetti liitettiin tiliin",
 				"discovery_claims_outstanding": "Mallien poikkeamat jääneet käsittelemättä",
 				"model_auto_disabled_gone": "Malli poistettu käytöstä (palveluntarjoaja ei enää tarjoa sitä)",
-				"provider_scheduled_disable": "Palveluntarjoaja poistettu käytöstä ajastuksen mukaisesti"
+				"provider_scheduled_disable": "Palveluntarjoaja poistettu käytöstä ajastuksen mukaisesti",
+				"circuit_breaker_unstable": "Malli vikaantuu toistuvasti (katkaisija auennut useita kertoja)"
 			},
 			"events": {
 				"all": "Valitse kaikki",

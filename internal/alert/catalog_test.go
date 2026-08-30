@@ -92,11 +92,14 @@ func TestDefaultEnabledCSVOnlyKnownTypes(t *testing.T) {
 // builds that event's Type by string concatenation ("circuit_breaker." +
 // state), never as a literal, so a plain quoted-string search would never
 // find "circuit_breaker.open" or "circuit_breaker.closed" even though both
-// are genuinely emitted. Those two are instead verified by confirming the
-// state suffix appears as a literal argument to a publishEvent(...) call.
+// are genuinely emitted. Those are instead verified by confirming the state
+// suffix appears as a literal argument to a publishEvent(...) call.
 // This is exactly what caught circuit_breaker.half_open as dead: no call
 // ever passes "half_open" (nor even "half-open", the state string's actual
 // spelling) to publishEvent.
+//
+// A circuit_breaker.* type that names something other than a circuit state is
+// published as a whole literal like every other event, so either form counts.
 func TestCatalogTypesAreEmitted(t *testing.T) {
 	const repoRoot = "../.."
 	skipFile := filepath.Join(repoRoot, "internal", "alert", "catalog.go")
@@ -139,10 +142,15 @@ func TestCatalogTypesAreEmitted(t *testing.T) {
 	}
 
 	for _, def := range Catalog() {
+		// Most circuit_breaker.* types name a circuit STATE and are built by
+		// concatenating it, so the literal never appears and the state passed to
+		// publishEvent is the only evidence they are emitted. The ones that
+		// report something other than a state are published as literals like
+		// every other event, so either form counts as wired.
 		if strings.HasPrefix(def.Type, cbPrefix) {
 			state := strings.TrimPrefix(def.Type, cbPrefix)
-			if !cbStates[state] {
-				t.Errorf("catalog event %q: no publishEvent call passes state %q (circuit_breaker.* types are built by concatenation, not as a literal); remove the entry or wire the emit", def.Type, state)
+			if !cbStates[state] && !strings.Contains(haystack, `"`+def.Type+`"`) {
+				t.Errorf("catalog event %q: no publishEvent call passes state %q and the type appears as no literal either; remove the entry or wire the emit", def.Type, state)
 			}
 			continue
 		}

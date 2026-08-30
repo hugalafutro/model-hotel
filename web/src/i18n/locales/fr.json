@@ -2076,7 +2076,8 @@
 				"auth_sso_identity_bound": "Identité SSO associée à un compte",
 				"discovery_claims_outstanding": "Écarts de modèles non traités",
 				"model_auto_disabled_gone": "Modèle désactivé (le fournisseur ne le propose plus)",
-				"provider_scheduled_disable": "Fournisseur désactivé comme planifié"
+				"provider_scheduled_disable": "Fournisseur désactivé comme planifié",
+				"circuit_breaker_unstable": "Le modèle échoue à répétition (disjoncteur ouvert plusieurs fois)"
 			},
 			"events": {
 				"all": "Tout sélectionner",

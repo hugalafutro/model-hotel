@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı",
 				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları",
 				"model_auto_disabled_gone": "Model devre dışı bırakıldı (sağlayıcı artık sunmuyor)",
-				"provider_scheduled_disable": "Sağlayıcı zamanlandığı gibi devre dışı bırakıldı"
+				"provider_scheduled_disable": "Sağlayıcı zamanlandığı gibi devre dışı bırakıldı",
+				"circuit_breaker_unstable": "Model tekrar tekrar başarısız oluyor (devre kesici defalarca açıldı)"
 			},
 			"events": {
 				"all": "Tümünü seç",

@@ -2024,7 +2024,8 @@
 				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
 				"discovery_claims_outstanding": "Modeluoverensstemmelser efterladt uadresseret",
 				"model_auto_disabled_gone": "Model deaktiveret (udbyderen leverer den ikke længere)",
-				"provider_scheduled_disable": "Udbyder deaktiveret som planlagt"
+				"provider_scheduled_disable": "Udbyder deaktiveret som planlagt",
+				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)"
 			},
 			"events": {
 				"all": "Vælg alt",
