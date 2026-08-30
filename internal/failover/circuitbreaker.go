@@ -209,9 +209,11 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 		c.halfOpenProbes = 0
 		debuglog.Info("circuit-breaker: model state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID, "model", model)
 	}
-	// The model circuit is no longer blocking, but the provider may be: a
-	// half-open circuit still counts as one of the provider's failures until a
-	// probe closes it, and the other circuits have not changed.
+	// This circuit is owed a probe and so counts for nothing in the provider
+	// verdict: only circuits still inside their cooldown do. That is what lets a
+	// provider recover, because a circuit that kept counting after its cooldown
+	// elapsed would keep the provider dark and block the very probes that close
+	// it. The provider can still be open on the others, which have not changed.
 	return cb.providerOpen(models)
 }
 
