@@ -15,16 +15,24 @@ func TestBlockedIP(t *testing.T) {
 		ip   string
 		want bool
 	}{
-		{"169.254.169.254", true}, // AWS/GCP cloud metadata (link-local)
-		{"169.254.0.1", true},     // link-local unicast
-		{"0.0.0.0", true},         // unspecified
-		{"::", true},              // unspecified v6
-		{"fe80::1", true},         // link-local v6
-		{"127.0.0.1", false},      // loopback allowed (internal services)
-		{"10.0.0.5", false},       // private allowed (docker network)
-		{"192.168.1.10", false},   // private allowed
-		{"172.17.0.2", false},     // docker bridge allowed (apprise-api)
-		{"8.8.8.8", false},        // public
+		{"169.254.169.254", true},  // AWS/GCP cloud metadata (link-local)
+		{"169.254.0.1", true},      // link-local unicast
+		{"0.0.0.0", true},          // unspecified
+		{"0.0.0.1", true},          // 0.0.0.0/8: another spelling of "this host"
+		{"0.1.2.3", true},          // 0.0.0.0/8
+		{"0.255.255.255", true},    // 0.0.0.0/8, last address
+		{"::ffff:0.1.2.3", true},   // 0.0.0.0/8 in IPv4-mapped form
+		{"::", true},               // unspecified v6
+		{"fe80::1", true},          // link-local v6
+		{"1.0.0.1", false},         // 1.0.0.0/8 is public, the range next door
+		{"127.0.0.1", false},       // loopback allowed (internal services)
+		{"10.0.0.5", false},        // private allowed (docker network)
+		{"::ffff:10.0.0.5", false}, // the same private address, IPv4-mapped
+		{"192.168.1.10", false},    // private allowed
+		{"172.17.0.2", false},      // docker bridge allowed (apprise-api)
+		{"fc00::1", false},         // ULA allowed, the v6 equivalent of RFC1918
+		{"fd12:3456::1", false},    // ULA allowed
+		{"8.8.8.8", false},         // public
 	}
 	for _, tc := range cases {
 		ip := net.ParseIP(tc.ip)
