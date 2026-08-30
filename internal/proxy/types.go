@@ -341,7 +341,12 @@ type streamOptions struct {
 	streamStallTimeout time.Duration // 0 = no stall watchdog
 	providerID         uuid.UUID
 	providerName       string
-	circuitBreakerOn   bool
+	// model is the candidate's resolved upstream model id, the key
+	// finalizeStream charges and credits the breaker under. It rides here rather
+	// than being read off logData, whose modelID is what the CLIENT asked for
+	// (a hotel/ alias on a failover group) and so is not a circuit key at all.
+	model            string
+	circuitBreakerOn bool
 	// timing fields
 	proxyOverheadMs  float64
 	parseMs          float64

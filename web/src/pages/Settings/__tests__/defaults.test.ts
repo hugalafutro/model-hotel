@@ -39,6 +39,7 @@ describe("SETTING_DEFAULTS", () => {
 			"rate_limit_ip_burst",
 			"rate_limit_max_wait_ms",
 			"circuit_breaker_threshold",
+			"circuit_breaker_span_models",
 		];
 		for (const key of numericKeys) {
 			expect(

@@ -102,7 +102,7 @@
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
 			"security": "Zabezpečenie",
-			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
+			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} stále smeruje / {{open}} preskočený",
 			"discoveryClaimsBadge_one": "{{count}} nezrovnalosť modelu si vyžaduje pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_few": "{{count}} nezrovnalosti modelov si vyžadujú pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_many": "{{count}} nezrovnalosti modelov si vyžaduje pozornosť - kliknite na prehliadnutie",
@@ -113,7 +113,12 @@
 			"discoveryNewsBadge_few": "{{count}} neskontrolované zmeny zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
 			"discoveryNewsBadge_many": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
 			"discoveryNewsBadge_other": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
-			"discoveryPinnedBadge": "Modely, ktoré ste zapli ručne, v ponuke poskytovateľa stále chýbajú. Len informatívne, nevyžaduje pozornosť - kliknutím zobrazíte."
+			"discoveryPinnedBadge": "Modely, ktoré ste zapli ručne, v ponuke poskytovateľa stále chýbajú. Len informatívne, nevyžaduje pozornosť - kliknutím zobrazíte.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} poskytovateľ úplne preskočený: {{providers}}",
+			"failoverBadgeSkippedTooltip_few": "{{count}} poskytovatelia úplne preskočení: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} poskytovateľa úplne preskočeného: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} poskytovateľov úplne preskočených: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (otvorený pre: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -1746,7 +1751,9 @@
 			"hedgeDelay.description": "Ako dlho čakať na prvý token prvého poskytovateľa, než sa spustí aj záložný poskytovateľ",
 			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Počet modelov pred preskočením poskytovateľa",
+			"spanModels.description": "Koľko modelov poskytovateľa musí mať otvorený istič, kým sa preskočí celý poskytovateľ. Pri hodnote 1 jediný zlyhávajúci model odstaví všetky modely daného poskytovateľa."
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",
@@ -3050,7 +3057,8 @@
 			"deleteNaHelp": "Odstráni nedostupných členov z tejto skupiny.",
 			"deleteNaConfirmTitle": "Odstrániť túto skupinu?",
 			"deleteNaConfirmMessage": "Odstránením nedostupných členov by zostali menej ako 2 smerovateľní členovia, takže sa odstráni celá skupina.",
-			"deleteNaConfirmLabel": "Odstrániť skupinu"
+			"deleteNaConfirmLabel": "Odstrániť skupinu",
+			"circuitBreakerProviderOpen": "Celý poskytovateľ preskočený - istič otvorený pre: {{models}}"
 		}
 	},
 	"virtualKeys": {

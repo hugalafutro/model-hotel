@@ -123,7 +123,7 @@ func TestProbeStreamingCandidate_ErrorFrameLosesAndIsChargedToTheProvider(t *tes
 	}
 	// Charged to the breaker, which is the half that stops the next 35
 	// requests walking into the same provider.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: an error-frame probe is a provider failure", got)
 	}
 }
@@ -205,6 +205,13 @@ func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) 
 	// only bring the count back to 1. A threshold of 1 is the single value at
 	// which that is invisible.
 	providerID := uuid.New()
+	// Hoisted so the assertion below can name the very model the charges were
+	// routed to, rather than a second copy of the id that could drift from it.
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "test-model"},
+		provider: &provider.Provider{ID: providerID, Name: "error-frame-provider"},
+		apiKey:   "sk-test",
+	}
 	const attempts = 5
 	for i := range attempts {
 		// A valid opening frame, so the probe passes and the provider is
@@ -227,11 +234,6 @@ func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) 
 			circuitBreakerEnabled: true,
 			logData:               logData,
 		}
-		cand := modelCandidate{
-			model:    &model.Model{ModelID: "test-model"},
-			provider: &provider.Provider{ID: providerID, Name: "error-frame-provider"},
-			apiKey:   "sk-test",
-		}
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeServed {
@@ -242,7 +244,7 @@ func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) 
 		}
 	}
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s after %d committed-then-failed streams, want open", got, attempts)
 	}
 }
@@ -288,7 +290,7 @@ func TestHandleStreamingResponse_CompletedStreamClearsTheFailureCount(t *testing
 	}
 	succeed()
 	fail()
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 		t.Errorf("circuit = %s, want closed: a completed stream must clear the failure count", got)
 	}
 }
@@ -390,7 +392,7 @@ func TestHandleStreamingResponse_ErrorAfterContentDoesNotChargeTheBreaker(t *tes
 		attempt:          1,
 	})
 
-	if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 		t.Error("a provider that delivered content before failing must not be broken for it")
 	}
 }
@@ -692,7 +694,7 @@ func TestProbeStreamingCandidate_EmptyStreamLosesAndIsCharged(t *testing.T) {
 		t.Errorf("kind = %s, want %s", res.reqErr.Kind, KindProviderError)
 	}
 	// Threshold is 1 here, so a single charge shows immediately.
-	if got := h.circuitBreaker.GetState(cand.provider.ID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: a provider that produced nothing is charged", got)
 	}
 }
@@ -970,6 +972,12 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 	defer stopUnitHandlerIntegration(h)
 
 	providerID := uuid.New()
+	// Hoisted so the assertion below reads the model the charges were routed to.
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "test-model"},
+		provider: &provider.Provider{ID: providerID, Name: "empty-provider"},
+		apiKey:   "sk-test",
+	}
 	const attempts = 5
 	for i := range attempts {
 		resp := &http.Response{
@@ -987,11 +995,6 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 			circuitBreakerEnabled: true,
 			logData:               logData,
 		}
-		cand := modelCandidate{
-			model:    &model.Model{ModelID: "test-model"},
-			provider: &provider.Provider{ID: providerID, Name: "empty-provider"},
-			apiKey:   "sk-test",
-		}
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeFailover {
@@ -999,7 +1002,7 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 		}
 	}
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
 	}
 }
@@ -1050,7 +1053,7 @@ func TestHandleStreamingResponse_ToolCallOnlyIsNotAnEmptyResponse(t *testing.T) 
 				t.Errorf("state = %q, want completed", logData.state)
 			}
 			// Threshold is 1, so a single stray charge shows immediately.
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Error("a completion whose only output is a tool call or reasoning is not empty and must not break the circuit")
 			}
 		})
@@ -1085,7 +1088,7 @@ func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
 		attempt:          1,
 	})
 
-	if got := h.circuitBreaker.GetState(providerID); got != failover.StateOpen {
+	if got := h.circuitBreaker.GetState(providerID, ""); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: the caller received nothing", got)
 	}
 }
@@ -1159,7 +1162,7 @@ func TestHandleStreamingResponse_ReasoningSpellingsAreDelivery(t *testing.T) {
 				attempt:          1,
 			})
 
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Errorf("a reasoning answer spelled %q is output and must not break the circuit", name)
 			}
 		})
@@ -1195,9 +1198,96 @@ func TestHandleStreamingResponse_UnparseableChunkDoesNotCharge(t *testing.T) {
 				attempt:          1,
 			})
 
-			if got := h.circuitBreaker.GetState(providerID); got == failover.StateOpen {
+			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Error("a frame our own parser dropped must not be charged to the provider")
 			}
 		})
+	}
+}
+
+// The stream verdict's CREDIT has to land on the circuit its charges land on.
+// finalizeStream reads opts.model, filled from the candidate by whichever
+// dispatch built the options; a credit under any other key leaves the real
+// charge on the clock and the model opens on a count it never reached.
+//
+// Threshold 2, where an erased credit is visible: at 1 the first charge opens
+// the circuit on its own. Charge, serve a complete stream, charge — the circuit
+// must still be closed.
+func TestDispatchStreaming_TheStreamCreditLandsOnTheServedModel(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	withBreakerThreshold(t, h, "2")
+
+	providerID := uuid.New()
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "streaming-model"},
+		provider: &provider.Provider{ID: providerID, Name: "streaming-provider"},
+		apiKey:   "sk-test",
+	}
+	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID)
+
+	logData := streamingLog()
+	logData.providerName = cand.provider.Name
+	h.insertRequestLogAsync(logData)
+	st := &requestState{
+		startTime:             time.Now(),
+		reqModel:              "streaming-model",
+		isStreaming:           true,
+		circuitBreakerEnabled: true,
+		logData:               logData,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")),
+	}
+	if got := h.dispatchStreaming(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody),
+		st, cand, resp, 1, 10, "failover_timeout"); got != outcomeServed {
+		t.Fatalf("outcome = %v, want served", got)
+	}
+
+	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID)
+	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got == failover.StateOpen {
+		t.Errorf("circuit = %s, want closed: the completed stream credited a circuit other than the model it served", got)
+	}
+}
+
+// The hedged winner builds its own streamOptions, so it carries its own copy of
+// the model the stream verdict is keyed on. A winner that commits and then fails
+// mid-stream must charge the model it was serving.
+//
+// The sequential dispatch's twin cannot cover this: the two option literals are
+// separate lines, and the hedged one going empty leaves every hedged stream's
+// verdict landing on a circuit nothing routes by.
+func TestRunHedgedStreaming_TheWinnersVerdictLandsOnItsModel(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		// A valid opening frame so the TTFT probe passes and this candidate wins,
+		// then the error the finalizer charges for.
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n"+errorFrameSSE)
+	}))
+	defer srv.Close()
+
+	st, logData := newHedgeState(25 * time.Millisecond)
+	st.circuitBreakerEnabled = true
+	st.reqModel = "orig-model"
+	st.bodyBytes = []byte(`{"model":"orig-model","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+	logData.endpointType = endpointTypeChat
+
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "hedged-model"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "hedge-winner", BaseURL: srv.URL},
+	}
+
+	h.runHedgedStreaming(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody),
+		st, []modelCandidate{cand}, h.probeStreamingCandidate)
+
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: the hedged winner's stream verdict missed its own model", got)
 	}
 }

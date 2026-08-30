@@ -265,12 +265,16 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 
 	// Skipping the breaker's ACCOUNTING is argued above; skipping its CHECK is a
 	// separate decision and not one this makes. If the gateway has already
-	// sidelined this provider, a probe to it is a guaranteed-wasted call whose
+	// sidelined this model, a probe to it is a guaranteed-wasted call whose
 	// answer would be inconclusive anyway.
+	//
+	// This model's own circuit, keyed the way every charge site keys it. A
+	// provider dark for other models says nothing about whether this one still
+	// answers, and that is precisely the question the probe exists to settle.
 	//
 	// GetState rather than IsOpen, and the difference is what makes the check
 	// safe. IsOpen is the routing gate: it takes a write lock and performs the
-	// Open->HalfOpen transition, spending the provider's one half-open trial slot
+	// Open->HalfOpen transition, spending this model's one half-open trial slot
 	// on a request the operator did not make. GetState takes a read lock and
 	// derives the same logical state without touching the circuit, so an open
 	// circuit past its cooldown already reads as half-open here. A nil breaker
@@ -281,11 +285,11 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// calling h.settingsRepo.GetBool and h.settingsRepo is nil on the path the
 	// probe unit tests exercise. The failure mode is bounded and safe: an
 	// operator who disables the breaker after a circuit has opened sees that
-	// provider's probes deferred until the breaker's own cooldown clears, and a
+	// model's probes deferred until the breaker's own cooldown clears, and a
 	// deferred probe can only leave a model enabled longer. If a later change
 	// threads a testable settings source through here, honor the setting then.
-	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
-		debuglog.Debug("proxy: retirement probe skipped, the provider's circuit is open", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID, candidate.model.ModelID) == failover.StateOpen {
+		debuglog.Debug("proxy: retirement probe skipped, the model's circuit is open", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
 		return probeInconclusive
 	}
 

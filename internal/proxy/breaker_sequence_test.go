@@ -148,8 +148,12 @@ func TestChatCompletions_CircuitBreakerSequence_FailoverThen200(t *testing.T) {
 	// RecordSuccess (reset to 0) is distinguishable from "never called".
 	// 2 < threshold (5), so the circuit stays Closed and the provider remains
 	// a valid candidate, in group order, after provider1.
-	cb.RecordFailure(provider2.ID, provider2Name)
-	cb.RecordFailure(provider2.ID, provider2Name)
+	//
+	// Seeded on model2's resolved upstream id: circuits are keyed per model, so a
+	// seed under any other key is a different circuit and the success under test
+	// would have nothing to reset.
+	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID)
+	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID)
 	if f, _ := cbConsecutiveFails(cb, provider2.ID); f != 2 {
 		t.Fatalf("pre-seed sanity: expected provider2 consecutiveFails=2, got %d", f)
 	}
@@ -176,7 +180,7 @@ func TestChatCompletions_CircuitBreakerSequence_FailoverThen200(t *testing.T) {
 	if f, ok := cbConsecutiveFails(cb, provider2.ID); !ok || f != 0 {
 		t.Errorf("provider2: expected consecutiveFails=0 (RecordSuccess reset), got %d (seen=%v)", f, ok)
 	}
-	if st := cb.GetState(provider2.ID); st != failover.StateClosed {
+	if st := cb.GetState(provider2.ID, model2.ModelID); st != failover.StateClosed {
 		t.Errorf("provider2: expected StateClosed after success, got %s", st)
 	}
 }
@@ -220,9 +224,10 @@ func TestChatCompletions_CircuitBreakerSequence_400RetryThen200(t *testing.T) {
 
 	cb := handler.circuitBreaker
 	// Pre-seed 2 failures (< threshold 5 → still Closed) so the expected
-	// RecordSuccess on the 200 retry is observable as a reset to 0.
-	cb.RecordFailure(env.ProviderID, env.ProviderName)
-	cb.RecordFailure(env.ProviderID, env.ProviderName)
+	// RecordSuccess on the 200 retry is observable as a reset to 0. env.ModelName
+	// is the resolved upstream model id, which is the circuit the retry credits.
+	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName)
+	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName)
 
 	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "stream": false, "messages": [{"role": "user", "content": "hi"}], "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -244,7 +249,7 @@ func TestChatCompletions_CircuitBreakerSequence_400RetryThen200(t *testing.T) {
 	if f, ok := cbConsecutiveFails(cb, env.ProviderID); !ok || f != 0 {
 		t.Errorf("expected consecutiveFails=0 after 400-retry success, got %d (seen=%v)", f, ok)
 	}
-	if st := cb.GetState(env.ProviderID); st != failover.StateClosed {
+	if st := cb.GetState(env.ProviderID, env.ModelName); st != failover.StateClosed {
 		t.Errorf("expected StateClosed after 400-retry success, got %s", st)
 	}
 }

@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -301,5 +302,48 @@ func TestChatCompletions_TransientResetRetryStreaming(t *testing.T) {
 	}
 	if !strings.Contains(responseBody, "data: [DONE]") {
 		t.Error("expected [DONE] sentinel")
+	}
+}
+
+// A transport failure that survives the transient retries is charged to the
+// model the request was routed to. It is the one charge site with no upstream
+// status behind it, and the provider-scoped assertions elsewhere cannot see
+// which circuit it landed on: Status() reports whichever circuit is most
+// degraded, so a charge under any key looks the same from there.
+//
+// Threshold 1, because a single charge is the whole claim.
+func TestDoUpstream_ATransportFailureChargesTheModelItRoutedTo(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	upstream, _ := newResettingUpstream(t, int(^uint(0)>>1), func(w http.ResponseWriter, r *http.Request) {
+		t.Error("success handler should never be reached")
+	})
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL, bytes.NewReader([]byte(`{"model":"m"}`)))
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	// No replayable body, so the retry loop stops at the first transport error
+	// and reaches the charge immediately.
+	req.GetBody = func() (io.ReadCloser, error) { return nil, errors.New("body replay failed") }
+
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "unreachable-model"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}
+	st := &requestState{
+		circuitBreakerEnabled: true,
+		logData:               &requestLogData{modelID: "unreachable-model", providerName: "test-provider"},
+	}
+	var dialMs float64
+	if _, ok := h.doUpstream(context.Background(), req, st, cand, 0, &dialMs); ok {
+		t.Fatal("a resetting upstream must not report success")
+	}
+
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
+		t.Errorf("the model's circuit is %v, want open: the transport failure was charged somewhere else", got)
 	}
 }

@@ -267,6 +267,74 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
+	// The span slider is looked up by element id rather than by its label, so the
+	// assertions hold whatever locale the suite runs under.
+	function spanSlider(): HTMLInputElement | null {
+		return document.querySelector<HTMLInputElement>(
+			"#circuit-breaker-span-models",
+		);
+	}
+
+	it("shows the model span with the breaker's own default and bounds", async () => {
+		// An unset key means the breaker is running its own default of 2, so the
+		// slider has to show that rather than a zero nothing obeys. The bounds
+		// mirror the floor the breaker enforces (1 reproduces the old
+		// provider-wide behaviour) and a ceiling above any real catalog.
+		server.use(...mockSettings({ body: { circuit_breaker_enabled: "true" } }));
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(spanSlider()).toBeInTheDocument();
+		});
+		expect(spanSlider()).toHaveValue("2");
+		expect(spanSlider()).toHaveAttribute("min", "1");
+		expect(spanSlider()).toHaveAttribute("max", "100");
+	});
+
+	it("shows the stored model span and writes the key the breaker reads", async () => {
+		let written: unknown;
+		server.use(
+			...mockSettings({
+				body: {
+					circuit_breaker_enabled: "true",
+					circuit_breaker_span_models: "3",
+				},
+			}),
+			http.put("/api/settings", async ({ request }) => {
+				written = await request.json();
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(spanSlider()).toHaveValue("3");
+		});
+
+		const input = spanSlider() as HTMLInputElement;
+		fireEvent.change(input, { target: { value: "5" } });
+		fireEvent.pointerUp(input);
+
+		await waitFor(() => {
+			expect(written).toEqual({ circuit_breaker_span_models: "5" });
+		});
+	});
+
+	it("disables the model span while the breaker itself is off", async () => {
+		server.use(...mockSettings({ body: { circuit_breaker_enabled: "false" } }));
+		renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(spanSlider()).toBeDisabled();
+		});
+	});
+
 	it("calls mutation when cooldown slider changes", async () => {
 		let mutationCalled = false;
 

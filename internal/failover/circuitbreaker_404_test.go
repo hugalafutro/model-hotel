@@ -19,7 +19,7 @@ func TestCircuitBreaker_NoOpPreservesFailureHistory(t *testing.T) {
 
 	// 4 × RecordFailure (simulating 5xx responses)
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider")
+		cb.RecordFailure(pid, "test-provider", "")
 	}
 
 	// 404/499: the proxy calls neither RecordFailure nor RecordSuccess.
@@ -28,9 +28,9 @@ func TestCircuitBreaker_NoOpPreservesFailureHistory(t *testing.T) {
 	// consecutiveFails to 0 here.
 
 	// 1 more RecordFailure should open the circuit (counter at 5).
-	cb.RecordFailure(pid, "test-provider")
+	cb.RecordFailure(pid, "test-provider", "")
 
-	if !cb.IsOpen(pid, "test-provider") {
+	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("no-op should preserve failure count: expected circuit open at 5 failures")
 	}
 }
@@ -46,17 +46,17 @@ func TestCircuitBreaker_NoOpInHalfOpenDoesNotCloseCircuit(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit with a single failure
-	cb.RecordFailure(pid, "test-provider")
-	if !cb.IsOpen(pid, "test-provider") {
+	cb.RecordFailure(pid, "test-provider", "")
+	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("circuit should be open")
 	}
 
 	// Wait for cooldown → half-open
 	time.Sleep(80 * time.Millisecond)
-	if cb.IsOpen(pid, "test-provider") {
+	if cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("circuit should have transitioned to half-open after cooldown")
 	}
-	if cb.GetState(pid) != StateHalfOpen {
+	if cb.GetState(pid, "") != StateHalfOpen {
 		t.Fatal("expected StateHalfOpen")
 	}
 
@@ -65,13 +65,13 @@ func TestCircuitBreaker_NoOpInHalfOpenDoesNotCloseCircuit(t *testing.T) {
 	// If this were RecordSuccess, the circuit would close immediately.
 
 	// Circuit must still be in half-open state after the no-op.
-	if cb.GetState(pid) != StateHalfOpen {
+	if cb.GetState(pid, "") != StateHalfOpen {
 		t.Error("no-op should not close half-open circuit")
 	}
 
 	// Verify: a subsequent 5xx failure should re-open the circuit.
-	cb.RecordFailure(pid, "test-provider")
-	if !cb.IsOpen(pid, "test-provider") {
+	cb.RecordFailure(pid, "test-provider", "")
+	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("circuit should have re-opened after 5xx in half-open state")
 	}
 }
@@ -89,23 +89,23 @@ func TestCircuitBreaker_RecordSuccessResetsFailures(t *testing.T) {
 
 	// 4 × RecordFailure (5xx)
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider")
+		cb.RecordFailure(pid, "test-provider", "")
 	}
 
 	// RecordSuccess (what we USED to do for 404 — the wrong behavior)
-	cb.RecordSuccess(pid, "test-provider")
+	cb.RecordSuccess(pid, "test-provider", "")
 
 	// Counter was reset to 0 — need 5 MORE failures to open
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider")
+		cb.RecordFailure(pid, "test-provider", "")
 	}
-	if cb.IsOpen(pid, "test-provider") {
+	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("circuit should still be closed — only 4 failures after reset")
 	}
 
-	cb.RecordFailure(pid, "test-provider") // 5th after reset → opens
+	cb.RecordFailure(pid, "test-provider", "") // 5th after reset → opens
 
-	if !cb.IsOpen(pid, "test-provider") {
+	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("circuit should be open after 5 failures post-reset")
 	}
 }

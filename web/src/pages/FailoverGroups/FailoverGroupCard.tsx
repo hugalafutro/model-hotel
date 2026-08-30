@@ -22,6 +22,7 @@ import type {
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatTokens } from "../../utils/format";
+import { entryCircuitStatus } from "./entryCircuit";
 import { SortableEntry } from "./SortableEntry";
 
 // Derive a stable key from entries so the card resets local state
@@ -228,7 +229,10 @@ export function FailoverGroupCard({
 								groupEnabled={group.group_enabled}
 								onToggle={onToggleEntry}
 								locked={managed}
-								cbStatus={cbProviderMap.get(entry.provider_id)}
+								cbStatus={entryCircuitStatus(
+									cbProviderMap.get(entry.provider_id),
+									entry.model_id,
+								)}
 								onResetCircuit={onResetCircuit}
 								resetPending={resetPendingProviderId === entry.provider_id}
 							/>

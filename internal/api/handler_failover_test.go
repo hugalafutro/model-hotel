@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -893,6 +894,95 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 			t.Error("closed provider should not have cooldown_ms")
 		}
 	})
+}
+
+// The provider detail is where a per-model breaker becomes diagnosable: two
+// providers can both hold an open circuit while only one of them is actually
+// being skipped, so the row has to publish the derived verdict and the models it
+// rests on under stable names. provider_open is emitted even when false, or a
+// consumer cannot tell a healthy provider from an older member that never sent
+// the field.
+func TestCircuitBreakerStatus_DetailCarriesProviderOpenAndOpenModels(t *testing.T) {
+	h := newTestHandler(t)
+
+	mockCB := &mockCircuitBreaker{
+		statuses: []failover.ProviderStatus{
+			{
+				ProviderID:       uuid.New().String(),
+				State:            failover.StateOpen.String(),
+				ConsecutiveFails: 5,
+				ProviderOpen:     true,
+				OpenModels:       []string{"model-a", "model-b"},
+			},
+			{
+				ProviderID:       uuid.New().String(),
+				State:            failover.StateOpen.String(),
+				ConsecutiveFails: 5,
+				ProviderOpen:     false,
+				OpenModels:       []string{"model-a"},
+			},
+		},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status?detail=1", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	providers, ok := resp["providers"].([]any)
+	if !ok || len(providers) != 2 {
+		t.Fatalf("expected 2 providers, got %v", resp["providers"])
+	}
+
+	indicted, _ := providers[0].(map[string]any)
+	if open, ok := indicted["provider_open"].(bool); !ok || !open {
+		t.Errorf("provider_open = %v, want true for the provider the breaker is skipping", indicted["provider_open"])
+	}
+	if got := decodeOpenModels(t, indicted); !slices.Equal(got, []string{"model-a", "model-b"}) {
+		t.Errorf("open_models = %v, want both models the verdict rests on", got)
+	}
+
+	single, _ := providers[1].(map[string]any)
+	raw, present := single["provider_open"]
+	if !present {
+		t.Error("provider_open missing on a usable provider; a false must be emitted, not omitted")
+	}
+	if open, ok := raw.(bool); !ok || open {
+		t.Errorf("provider_open = %v, want false: one open model does not indict the provider", raw)
+	}
+	if got := decodeOpenModels(t, single); !slices.Equal(got, []string{"model-a"}) {
+		t.Errorf("open_models = %v, want the single open model", got)
+	}
+}
+
+// decodeOpenModels reads the open_models array off a decoded provider row,
+// failing the test if any entry is not a string.
+func decodeOpenModels(t *testing.T, row map[string]any) []string {
+	t.Helper()
+	raw, ok := row["open_models"].([]any)
+	if !ok {
+		t.Fatalf("open_models = %v, want a JSON array of model ids", row["open_models"])
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			t.Fatalf("open_models entry %v is not a string", v)
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {

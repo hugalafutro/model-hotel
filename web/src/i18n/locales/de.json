@@ -98,14 +98,17 @@
 			"appLogs": "Protokolle",
 			"settings": "Einstellungen",
 			"security": "Sicherheit",
-			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
+			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status - {{closed}} intakt / {{halfOpen}} weiterhin aktiv / {{open}} übersprungen",
 			"discoveryClaimsBadge_one": "{{count}} Modellabweichung erfordert Aufmerksamkeit - zum Überprüfen anklicken",
 			"discoveryClaimsBadge_other": "{{count}} Modellabweichungen erfordern Aufmerksamkeit - zum Überprüfen anklicken",
 			"users": "Benutzer",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} ungeprüfte Änderung aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
 			"discoveryNewsBadge_other": "{{count}} ungeprüfte Änderungen aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
-			"discoveryPinnedBadge": "Von Hand aktivierte Modelle fehlen weiterhin in der Liste des Anbieters. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken."
+			"discoveryPinnedBadge": "Von Hand aktivierte Modelle fehlen weiterhin in der Liste des Anbieters. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} Anbieter vollständig übersprungen: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} Anbieter vollständig übersprungen: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (offen für: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-Status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Wie lange auf das erste Token des ersten Anbieters gewartet wird, bevor zusätzlich ein Backup-Anbieter gestartet wird",
 			"hedgingNotice": "Bei der Absicherung wird ein zweiter Anbieter parallel gestartet, wenn der erste langsam anläuft, und der zuerst antwortende behalten. Bei langsamem Start verdoppelt das die Upstream-Anfrage, sodass Ratenlimits und Kapazität des Anbieters schneller verbraucht werden und ein Backup, das den Abbruch ignoriert, im Hintergrund weiter generieren kann. Aktivieren Sie es nur, wenn langsame erste Tokens mehr schaden als die zusätzliche Last.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modelle bis zum Überspringen des Anbieters",
+			"spanModels.description": "Wie viele Modelle eines Anbieters einen offenen Schutzschalter haben müssen, bevor der gesamte Anbieter übersprungen wird. Bei 1 legt ein einzelnes fehlerhaftes Modell alle Modelle dieses Anbieters still."
 		},
 		"logging": {
 			"title": "Protokollierung",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Entfernt die nicht verfügbaren Mitglieder aus dieser Gruppe.",
 			"deleteNaConfirmTitle": "Diese Gruppe löschen?",
 			"deleteNaConfirmMessage": "Durch das Entfernen der nicht verfügbaren Mitglieder blieben weniger als 2 routingfähige Mitglieder übrig, daher wird die gesamte Gruppe gelöscht.",
-			"deleteNaConfirmLabel": "Gruppe löschen"
+			"deleteNaConfirmLabel": "Gruppe löschen",
+			"circuitBreakerProviderOpen": "Gesamter Anbieter übersprungen - Schutzschalter offen für: {{models}}"
 		}
 	},
 	"virtualKeys": {

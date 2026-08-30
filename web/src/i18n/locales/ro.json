@@ -100,7 +100,7 @@
 			"appLogs": "Jurnale",
 			"settings": "Setări",
 			"security": "Securitate",
-			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
+			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} încă rutează / {{open}} ocoliți",
 			"discoveryClaimsBadge_one": "{{count}} discrepanță de model necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_few": "{{count}} discrepanțe de modele necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_other": "{{count}} de discrepanțe de modele necesită atenție - faceți clic pentru a revizui",
@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} modificare neverificată din descoperirea în fundal. Doar informativă, nu necesită atenție - clic pentru a citi.",
 			"discoveryNewsBadge_few": "{{count}} modificări neverificate din descoperirea în fundal. Doar informative, nu necesită atenție - clic pentru a citi.",
 			"discoveryNewsBadge_other": "{{count}} de modificări neverificate din descoperirea în fundal. Doar informative, nu necesită atenție - clic pentru a citi.",
-			"discoveryPinnedBadge": "Modelele activate manual lipsesc în continuare din lista furnizorului. Doar informativ, nu necesită atenție - clic pentru a citi."
+			"discoveryPinnedBadge": "Modelele activate manual lipsesc în continuare din lista furnizorului. Doar informativ, nu necesită atenție - clic pentru a citi.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} furnizor ocolit complet: {{providers}}",
+			"failoverBadgeSkippedTooltip_few": "{{count}} furnizori ocoliți complet: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} de furnizori ocoliți complet: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (deschis pentru: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "Cât să aștepte primul token al primului furnizor înainte de a porni și un furnizor de rezervă",
 			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modele înainte de ocolirea furnizorului",
+			"spanModels.description": "Câte modele ale unui furnizor trebuie să aibă întrerupătorul deschis înainte ca întregul furnizor să fie ocolit. La 1, un singur model care eșuează scoate din rotație toate modelele acelui furnizor."
 		},
 		"logging": {
 			"title": "Logare",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "Elimină membrii indisponibili din acest grup.",
 			"deleteNaConfirmTitle": "Ștergeți acest grup?",
 			"deleteNaConfirmMessage": "Eliminarea membrilor indisponibili ar lăsa mai puțin de 2 membri rutabili, așa că întregul grup va fi șters.",
-			"deleteNaConfirmLabel": "Șterge grupul"
+			"deleteNaConfirmLabel": "Șterge grupul",
+			"circuitBreakerProviderOpen": "Întregul furnizor este ocolit - întrerupător deschis pentru: {{models}}"
 		}
 	},
 	"virtualKeys": {

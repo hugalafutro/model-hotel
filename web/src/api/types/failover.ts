@@ -62,6 +62,19 @@ export interface CircuitBreakerProviderStatus {
 	// describes the override in force, not a claim that traffic is blocked right
 	// now; when set, next_retry_at is that reset deadline.
 	quota_pinned?: boolean;
+	// The derived provider-wide verdict: whether the breaker is skipping this
+	// provider for every model. Circuits are keyed (provider, resolved upstream
+	// model), so `state` above describes the provider's most degraded circuit and
+	// the two legitimately disagree: one open model at the default span of 2
+	// gives state "open" with provider_open false, a provider still serving
+	// everything else. Always sent, false included, so a consumer never has to
+	// re-derive it from open_models and a span setting it cannot see.
+	provider_open: boolean;
+	// The resolved upstream model ids the breaker is currently blocking, sorted.
+	// Omitted when empty, so absent means none. Exactly the set provider_open is
+	// counted from; circuits owed a probe are not in it, because they block
+	// nothing.
+	open_models?: string[];
 }
 // Outcome of an operator forcing one provider's circuit back closed.
 // previous_state is what the breaker reported a moment before the reset, and

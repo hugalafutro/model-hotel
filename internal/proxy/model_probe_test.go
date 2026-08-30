@@ -405,9 +405,9 @@ func TestProbeModel_OpenCircuitCostsNoRequest(t *testing.T) {
 	// state: the check has to agree with what the routing path would see, and
 	// the threshold is the breaker's to define.
 	for range h.circuitBreaker.Threshold {
-		h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name)
+		h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, cand.model.ModelID)
 	}
-	if state := h.circuitBreaker.GetState(cand.provider.ID); state != failover.StateOpen {
+	if state := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); state != failover.StateOpen {
 		t.Fatalf("fixture: the circuit did not open, state = %v", state)
 	}
 

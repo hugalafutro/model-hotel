@@ -100,7 +100,7 @@
 			"appLogs": "יומנים",
 			"settings": "הגדרות",
 			"security": "אבטחה",
-			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
+			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} עדיין מנתב / {{open}} מדולג",
 			"discoveryClaimsBadge_one": "{{count}} אי-התאמה במודל דורשת טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_two": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_other": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} שינוי שלא נסקר מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
 			"discoveryNewsBadge_two": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
 			"discoveryNewsBadge_other": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
-			"discoveryPinnedBadge": "מודלים שהפעלת ידנית עדיין נעדרים מרשימת הספק. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה."
+			"discoveryPinnedBadge": "מודלים שהפעלת ידנית עדיין נעדרים מרשימת הספק. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} ספק מדולג לחלוטין: {{providers}}",
+			"failoverBadgeSkippedTooltip_two": "{{count}} ספקים מדולגים לחלוטין: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} ספקים מדולגים לחלוטין: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (פתוח עבור: {{models}})"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "כמה זמן להמתין לאסימון הראשון של הספק הראשון לפני הפעלת ספק גיבוי גם כן",
 			"hedgingNotice": "הגידור מפעיל ספק שני במקביל כשהראשון איטי להתחיל ושומר את זה שמשיב ראשון. בהתחלות איטיות הדבר מכפיל את הבקשה במעלה הזרם, ולכן מגבלות הקצב והקיבולת של הספק נצרכות מהר יותר, וגיבוי שמתעלם מביטול עשוי להמשיך לייצר ברקע. הפעל זאת רק אם אסימונים ראשונים איטיים מזיקים יותר מהעומס הנוסף.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "מספר מודלים לפני דילוג על ספק",
+			"spanModels.description": "כמה מהמודלים של ספק חייבים להיות עם מפסק פתוח לפני שהספק כולו מדולג. בערך 1, מודל כושל אחד מוציא משימוש את כל המודלים של אותו ספק."
 		},
 		"logging": {
 			"title": "רישום",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "מסיר את החברים הלא זמינים מהקבוצה הזו.",
 			"deleteNaConfirmTitle": "למחוק את הקבוצה הזו?",
 			"deleteNaConfirmMessage": "הסרת החברים הלא זמינים תשאיר פחות מ-2 חברים הניתנים לניתוב, ולכן הקבוצה כולה תימחק.",
-			"deleteNaConfirmLabel": "מחק קבוצה"
+			"deleteNaConfirmLabel": "מחק קבוצה",
+			"circuitBreakerProviderOpen": "הספק כולו מדולג - מפסק פתוח עבור: {{models}}"
 		}
 	},
 	"virtualKeys": {

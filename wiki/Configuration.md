@@ -122,6 +122,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `failover_on_rate_limit` | bool string | `true` | Whether to failover to the next provider when an upstream returns HTTP 429. 5xx errors always trigger failover. | `true`, `false` |
 | `circuit_breaker_enabled` | bool string | `true` | Enable per-provider circuit breaker for `hotel/` failover routes. When open, the provider is skipped during failover selection. | `true`, `false` |
 | `circuit_breaker_threshold` | int | `5` | Consecutive failures before a provider's circuit opens. | 1–100 |
+| `circuit_breaker_span_models` | int | `2` | How many of a provider's models must have an open circuit before the provider itself is skipped for every model. One model refusing is evidence about that model; corroboration across models is what indicts the provider. `1` restores the older behaviour, where the first open circuit sidelines the whole provider. | 1–100 |
 | `circuit_breaker_cooldown` | duration string | `60s` | Duration an open circuit stays open before transitioning to half-open. | `30s`, `60s`, `120s`, etc. |
 | `circuit_breaker_quota_pin_enabled` | bool string | `true` | When a circuit opens because the provider's quota window is spent, pin its cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`, so an exhausted provider is not re-probed every minute for the rest of the window. Turning this off also releases a pin already in force, though the change takes up to ~30s to reach the proxy (settings cache TTL). | `true`, `false` |
 | `circuit_breaker_quota_pin_max` | duration string | `24h` | Ceiling on how far out a quota pin may push an open circuit's cooldown. A non-positive value does **not** disable pinning - it falls back to 24h. Use `circuit_breaker_quota_pin_enabled` to turn the feature off. | `1h`, `6h`, `24h`, etc. |
@@ -229,6 +230,7 @@ Reset works by deleting the row from the `settings` table. The Go code then fall
 | `rate_limit_max_wait_ms` | `200` |
 | `circuit_breaker_enabled` | `true` |
 | `circuit_breaker_threshold` | `5` |
+| `circuit_breaker_span_models` | `2` |
 | `circuit_breaker_cooldown` | `1m0s` |
 | `circuit_breaker_quota_pin_enabled` | `true` |
 | `circuit_breaker_quota_pin_max` | `24h0m0s` |
@@ -367,8 +369,9 @@ A background scheduler (started about a minute after the server boots) drives pe
 Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_tpm`, `rate_limit_ip_enabled`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`
 
 #### Circuit Breaker & Failover
-Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_enabled`, `circuit_breaker_quota_pin_max`, `failover_on_rate_limit`
-- **Failure Threshold:** Number of consecutive failures before circuit opens (default 5).
+Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_enabled`, `circuit_breaker_quota_pin_max`, `failover_on_rate_limit`
+- **Failure Threshold:** Number of consecutive failures before a model's circuit opens (default 5).
+- **Models Before Provider Skip:** How many of a provider's models must have an open circuit before the provider itself is skipped for every model (default 2, range 1-100). At 1 the first open circuit sidelines the whole provider.
 - **Cooldown Duration:** Duration an open circuit stays open before transitioning to half-open (default `60s`).
 - **Quota Pinning:** When a circuit opens on a spent quota window, hold it open until the provider's quota actually resets rather than re-probing every cooldown (default on). The toggle is the off switch, and switching it off releases a pin already in force within about 30 seconds.
 - **Quota Pin Maximum:** Ceiling on a pinned cooldown (default `24h`). Setting it to zero falls back to 24h rather than disabling pinning.

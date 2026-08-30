@@ -61,14 +61,18 @@ func entitlementHandler(t *testing.T, status int, body string) (*Handler, modelC
 }
 
 // A plan that does not cover ONE model says nothing about the provider's health,
-// and must not take the whole provider out of rotation.
+// and one such model must not take the whole provider out of rotation.
 //
-// breakerRecordAction keyed purely on the status, so every 429 charged the
-// provider-wide breaker. Z.ai answers 429 for a model outside the coding plan
-// while other models on the same provider and the same key answer 200 — verified
-// against production: glm-5.1 returned 200 while glm-4.7-flashx and glm-4.5-x
-// returned 429. Two probes to an uncovered model therefore blacked out every
-// Z.ai model for the cooldown, the working ones included.
+// Z.ai answers 429 for a model outside the coding plan while other models on the
+// same provider and the same key answer 200 — verified against production:
+// glm-5.1 returns 200 while glm-4.7-flashx and glm-4.5-x return 429.
+//
+// The 429 is charged, and the circuit KEY is what confines it: the refused model
+// goes dark, and ONE open model is below the default span of 2, so the provider
+// stays usable for everything else. That is why the sibling probe below is the
+// assertion and the model's own state is only its precondition. Two refused
+// models is a different case with a different answer, pinned by
+// TestAttemptCandidate_TwoPlanRefusalsReachTheProviderVerdict.
 //
 // Both routes through attemptCandidate are covered: the last candidate (which
 // classifies inside forwardUpstreamError) and a failover-eligible one with a
@@ -86,16 +90,92 @@ func TestAttemptCandidate_AModelOutsideThePlanDoesNotDarkenTheProvider(t *testin
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
-				t.Error("a model outside the plan opened the provider's circuit: every other model on it is now skipped")
+			if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
+				t.Errorf("the refused model's own circuit is %v, want open: a 429 charges like any other failure", got)
+			}
+			if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+				t.Error("a model outside the plan darkened a sibling: the models the plan DOES cover are now skipped")
 			}
 		})
 	}
 }
 
+// withBreakerSpan sets circuit_breaker_span_models for one test. The span is
+// read at IsOpen time rather than at charge time, so raising it re-derives the
+// verdict over circuits that are already open.
+func withBreakerSpan(t *testing.T, h *Handler, span string) {
+	t.Helper()
+	if err := h.settingsRepo.Set(context.Background(), "circuit_breaker_span_models", span); err != nil {
+		t.Fatalf("set circuit_breaker_span_models: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("circuit_breaker_span_models")
+	t.Cleanup(func() {
+		_ = h.settingsRepo.Set(context.Background(), "circuit_breaker_span_models", "2")
+		h.settingsRepo.InvalidateCache("circuit_breaker_span_models")
+	})
+}
+
+// TWO plan-refused models is the real #819 incident shape, and this is the
+// accepted trade of the per-model-breaker design, pinned here so nobody has to
+// rediscover it from a production report.
+//
+// Z.ai's coding plan refuses glm-4.7-flashx AND glm-4.5-x with 429 while
+// glm-5.1 answers 200 on the same key. Each refusal charges the model it names,
+// so two circuits open — and the design says a provider is down once `span`
+// distinct models corroborate. At the default span of 2 they do, so the derived
+// provider verdict skips healthy glm-5.1 as well.
+//
+// That is deliberate, not a gap. The design forbids exempting a refusal by its
+// wording (a phrase list only ever recognises refusals somebody has already
+// seen), and "two of this provider's models are refusing" is genuinely the
+// shape a provider-wide fault has. The operator's lever is the span setting,
+// and arm (b) is that lever: at span 3 the same two open circuits leave glm-5.1
+// routable, so an operator who knows their plan excludes several models can buy
+// the tolerance back without turning the breaker off.
+//
+// Threshold 2, so each model needs two refusals to open and one stray charge
+// cannot stand in for corroboration.
+func TestAttemptCandidate_TwoPlanRefusalsReachTheProviderVerdict(t *testing.T) {
+	h, cand := entitlementHandler(t, http.StatusTooManyRequests, zaiEntitlementBody)
+
+	// Two models on the SAME provider: the candidate's provider pointer is shared,
+	// which is what makes them siblings under one circuit map.
+	flashx, x45 := cand, cand
+	flashx.model = &model.Model{ID: uuid.New(), ModelID: "glm-4.7-flashx"}
+	x45.model = &model.Model{ID: uuid.New(), ModelID: "glm-4.5-x"}
+
+	for _, refused := range []modelCandidate{flashx, x45} {
+		runEntitlementAttempt(t, h, refused, 1)
+		runEntitlementAttempt(t, h, refused, 1)
+		if got := h.circuitBreaker.GetState(cand.provider.ID, refused.model.ModelID); got != failover.StateOpen {
+			t.Fatalf("setup: %s circuit is %v, want open", refused.model.ModelID, got)
+		}
+	}
+
+	// (a) At the default span of 2, two corroborating models ARE the provider
+	// verdict, and it reaches the model that never failed.
+	if !h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+		t.Error("two open models did not reach the provider verdict at span 2: the derivation is not firing")
+	}
+
+	// (b) The escape hatch, over the very same circuits: raising the span above
+	// the number of refused models leaves the healthy sibling routable.
+	withBreakerSpan(t, h, "3")
+	if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+		t.Error("glm-5.1 is still skipped at span 3: the operator's span lever does not lift the provider verdict")
+	}
+	// And the refused models stay dark on their own circuits, which the span
+	// setting has no business touching.
+	for _, refused := range []modelCandidate{flashx, x45} {
+		if !h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, refused.model.ModelID) {
+			t.Errorf("%s became routable at span 3: the span governs the provider verdict, not a model's own circuit", refused.model.ModelID)
+		}
+	}
+}
+
 // The other half of the rule. An ordinary 429 is the provider saying it is
 // overloaded, which IS about its health, so it must keep charging — otherwise
-// this fix would simply stop the breaker reacting to rate limiting.
+// this would simply stop the breaker reacting to rate limiting.
 func TestAttemptCandidate_AnOrdinaryRateLimitStillChargesTheBreaker(t *testing.T) {
 	const rateLimited = `{"error":{"message":"Rate limit reached for this model, please retry shortly"}}`
 	for _, tc := range []struct {
@@ -110,10 +190,29 @@ func TestAttemptCandidate_AnOrdinaryRateLimitStillChargesTheBreaker(t *testing.T
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 			runEntitlementAttempt(t, h, cand, tc.totalCandidates)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 				t.Error("two rate-limit 429s did not open the circuit: the breaker stopped reacting to overload")
 			}
 		})
+	}
+}
+
+// The charge site and the skip site must agree on the key, and nothing warns
+// when they do not: RecordFailure creates whatever circuit it is handed, so a
+// charge landing on one key while resolveCandidates asks IsOpen about another
+// leaves the failing model routed to forever with a full ledger nobody reads.
+//
+// A 5xx, so the classification plays no part: this is about the key alone.
+func TestAttemptCandidate_TheChargedModelIsTheOneResolveSkips(t *testing.T) {
+	h, cand := entitlementHandler(t, http.StatusInternalServerError, `{"error":{"message":"boom"}}`)
+	runEntitlementAttempt(t, h, cand, 1)
+	runEntitlementAttempt(t, h, cand, 1)
+
+	if !h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, cand.model.ModelID) {
+		t.Error("the model the failures were routed to is not skipped: the charge and the skip disagree on the key")
+	}
+	if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "sibling-model") {
+		t.Error("a sibling model on the same provider is skipped: one model's failures darkened the whole provider")
 	}
 }
 
@@ -123,7 +222,7 @@ func TestAttemptCandidate_AServerFaultStillChargesTheBreaker(t *testing.T) {
 	runEntitlementAttempt(t, h, cand, 1)
 	runEntitlementAttempt(t, h, cand, 1)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 		t.Error("two 500s did not open the circuit")
 	}
 }
@@ -143,12 +242,12 @@ func withRateLimitFailover(t *testing.T, h *Handler, enabled string) {
 
 // With failover_on_rate_limit OFF, a 429 is deliberately recorded as a SUCCESS:
 // the operator has asked to ride out rate limits on this provider rather than
-// trip its breaker. Deferring the 429 verdict must not undo that.
+// trip its breaker. The status→action mapping charging every 429 must not undo
+// that: a 429 is only failover-eligible when the setting is on, and only the
+// eligible branch consults the mapping.
 //
-// The first cut gated recordClassifiedOutcome only on the status, so a 429 that
-// was never failover-eligible got the documented credit and then a charge on top
-// — at a threshold of one, the very first rate limit blacked the provider out,
-// which is the opposite of what the setting asks for.
+// Threshold 1, so a single stray charge is enough to open the circuit and be
+// seen.
 func TestAttemptCandidate_ARateLimitIsNotChargedWhenFailoverIsOff(t *testing.T) {
 	const rateLimited = `{"error":{"message":"Rate limit reached for this model, please retry shortly"}}`
 	h, cand := entitlementHandler(t, http.StatusTooManyRequests, rateLimited)
@@ -157,14 +256,14 @@ func TestAttemptCandidate_ARateLimitIsNotChargedWhenFailoverIsOff(t *testing.T) 
 
 	runEntitlementAttempt(t, h, cand, 1)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) == failover.StateOpen {
 		t.Error("a 429 opened the circuit with failover_on_rate_limit off: the setting asks to stay on the provider")
 	}
 }
 
-// The hedged-streaming path is now the ONLY thing charging the breaker for a 429
-// there, since the header-time charge this PR removed used to cover it. Deleting
-// that one line left the whole suite green before this test existed.
+// The hedged-streaming path charges its own 429s. Nothing else on that path
+// does: the probe never reaches the sequential loop's charge sites, so deleting
+// the one line under test here leaves the whole rest of the suite green.
 func TestProbeStreamingCandidate_ChargesARateLimit(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
@@ -183,14 +282,16 @@ func TestProbeStreamingCandidate_ChargesARateLimit(t *testing.T) {
 	if res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second); res.won {
 		t.Fatal("a 429 must not win the race")
 	}
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 		t.Error("the hedge race did not charge a rate limit: nothing else does on that path now")
 	}
 }
 
-// And its sibling: a plan refusal on the hedged path must not darken the
-// provider either.
-func TestProbeStreamingCandidate_DoesNotChargeAPlanRefusal(t *testing.T) {
+// And its sibling: a plan refusal on the hedged path charges the refused model
+// and leaves the rest of the provider alone. The refusal is one Z.ai answers for
+// a model outside the coding plan while glm-5.1 keeps answering 200 on the same
+// key, so a sibling still being routable is the whole point of the key.
+func TestProbeStreamingCandidate_ChargesAPlanRefusalToTheModelAlone(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 	withBreakerThreshold(t, h, "1")
@@ -207,21 +308,26 @@ func TestProbeStreamingCandidate_DoesNotChargeAPlanRefusal(t *testing.T) {
 	st.circuitBreakerEnabled = true
 	_ = h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
 
-	if h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen {
-		t.Error("a model outside the plan opened the provider's circuit on the hedged path")
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
+		t.Errorf("the refused model's circuit is %v, want open: the hedged path stopped charging plan refusals", got)
+	}
+	if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "glm-5.1") {
+		t.Error("a model outside the plan darkened a sibling on the hedged path")
 	}
 }
 
-// The multimodal drain path is the other site the header-time charge used to
-// cover. Two candidates, so the eligible-with-a-fallback branch runs.
-func TestAttemptPassthroughCandidate_ChargesARateLimitButNotAPlanRefusal(t *testing.T) {
+// The multimodal drain path charges its own 429s. Both flavours charge the model
+// they were routed to, and neither reaches a sibling: at the default span of 2
+// one open circuit is not a provider verdict.
+//
+// Two candidates, so the eligible-with-a-fallback branch runs.
+func TestAttemptPassthroughCandidate_ChargesARateLimitToTheModelAlone(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		body     string
-		wantOpen bool
+		name string
+		body string
 	}{
-		{"ordinary rate limit", `{"error":{"message":"Rate limit reached, retry shortly"}}`, true},
-		{"model outside the plan", zaiEntitlementBody, false},
+		{"ordinary rate limit", `{"error":{"message":"Rate limit reached, retry shortly"}}`},
+		{"model outside the plan", zaiEntitlementBody},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newIntegrationHandler()
@@ -255,30 +361,12 @@ func TestAttemptPassthroughCandidate_ChargesARateLimitButNotAPlanRefusal(t *test
 			// totalCandidates 2: eligible AND a fallback, which is the drain path.
 			h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 2)
 
-			if open := h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen; open != tc.wantOpen {
-				t.Errorf("circuit open = %v, want %v", open, tc.wantOpen)
+			if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
+				t.Errorf("the refused model's circuit is %v, want open", got)
+			}
+			if h.circuitBreaker.IsOpen(cand.provider.ID, cand.provider.Name, "text-embedding-3-large") {
+				t.Error("the refusal darkened a sibling embeddings model on the same provider")
 			}
 		})
-	}
-}
-
-// The model-gone clause of refusalIsAboutTheModel: a 429 whose body says the
-// model is gone is about the model, not the provider.
-func TestRefusalIsAboutTheModel_ModelGoneIsNotProviderHealth(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name string
-		kind ErrorKind
-		body string
-		want bool
-	}{
-		{"model gone", KindProviderModelGone, "the model has been retired", true},
-		{"plan excludes this model", KindProviderNotEntitled, zaiEntitlementBody, true},
-		{"account out of credit", KindProviderNotEntitled, "insufficient balance", false},
-		{"ordinary overload", KindProviderError, "rate limit reached", false},
-	} {
-		if got := refusalIsAboutTheModel(tc.kind, tc.body); got != tc.want {
-			t.Errorf("%s: refusalIsAboutTheModel = %v, want %v", tc.name, got, tc.want)
-		}
 	}
 }

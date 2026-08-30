@@ -253,8 +253,11 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 			continue
 		}
 
-		// Circuit breaker: skip providers that are in the open state.
-		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name) {
+		// Circuit breaker: skip a candidate whose own model circuit is open, and
+		// every candidate of a provider the derived verdict indicts. The model id
+		// is the resolved upstream one, which is what the charge sites record
+		// against, so what failed here is what is skipped here.
+		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name, m.ModelID) {
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}

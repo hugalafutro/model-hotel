@@ -224,8 +224,9 @@ type CircuitBreakerResetResponse struct {
 }
 
 // CircuitBreakerResetAllResponse reports the outcome of a bulk reset: Cleared
-// counts every circuit discarded, Recovered only those that were actually
-// sidelining their provider.
+// counts every model circuit discarded, Recovered only those that were
+// sidelining the model they belong to. Both are circuits, not providers, so a
+// provider with five charged models contributes five.
 type CircuitBreakerResetAllResponse struct {
 	Cleared   int `json:"cleared"`
 	Recovered int `json:"recovered"`

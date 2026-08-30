@@ -100,7 +100,7 @@
 			"appLogs": "Registres",
 			"settings": "Configuració",
 			"security": "Seguretat",
-			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} en recuperació / {{open}} disparats",
+			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} encara encaminant / {{open}} omesos",
 			"discoveryClaimsBadge_one": "{{count}} discrepància de model requereix atenció - fes clic per revisar",
 			"discoveryClaimsBadge_many": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",
 			"discoveryClaimsBadge_other": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",
@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} canvi sense revisar del descobriment en segon pla. Només informatiu, no és res que requereixi atenció - fes clic per revisar.",
 			"discoveryNewsBadge_many": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar.",
 			"discoveryNewsBadge_other": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar.",
-			"discoveryPinnedBadge": "Els models que has activat manualment continuen absents del llistat del proveïdor. Només informatiu, no és res que requereixi atenció - fes clic per revisar."
+			"discoveryPinnedBadge": "Els models que has activat manualment continuen absents del llistat del proveïdor. Només informatiu, no és res que requereixi atenció - fes clic per revisar.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} proveïdor omès completament: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} proveïdors omesos completament: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} proveïdors omesos completament: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (obert per a: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "Quant de temps s'ha d'esperar el primer token del primer proveïdor abans de llançar també un proveïdor de reserva",
 			"hedgingNotice": "La cobertura llança un segon proveïdor en paral·lel quan el primer triga a començar i conserva el que respon primer. En inicis lents això duplica la petició cap amunt, de manera que els límits de velocitat i la capacitat del proveïdor s'esgoten més de pressa, i una reserva que ignora la cancel·lació pot continuar generant en segon pla. Activa-ho només si els primers tokens lents fan més mal que la càrrega addicional.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Models abans d'ometre el proveïdor",
+			"spanModels.description": "Quants models d'un proveïdor han de tenir el circuit obert abans que l'interruptor ometi tot el proveïdor. Amb 1, un sol model que falla aparta tots els models d'aquell proveïdor."
 		},
 		"logging": {
 			"title": "Registre",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "Treu els membres no disponibles d'aquest grup.",
 			"deleteNaConfirmTitle": "Voleu eliminar aquest grup?",
 			"deleteNaConfirmMessage": "Si traieu els membres no disponibles, quedaran menys de 2 membres encaminables, de manera que s'eliminarà tot el grup.",
-			"deleteNaConfirmLabel": "Elimina el grup"
+			"deleteNaConfirmLabel": "Elimina el grup",
+			"circuitBreakerProviderOpen": "Proveïdor omès completament - interruptor obert per a: {{models}}"
 		}
 	},
 	"virtualKeys": {

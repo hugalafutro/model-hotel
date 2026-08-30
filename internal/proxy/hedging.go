@@ -318,7 +318,6 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// and pass-through loops do, on a body being discarded either way.
 		errBodyMsg := util.SanitizeLogBody(string(errBody), 10000)
 		kind, _ := classifyUpstreamError(resp.StatusCode, errBodyMsg, candidate.model.ModelID)
-		h.recordClassifiedOutcome(st, candidate, resp.StatusCode, isFailoverEligible, kind, errBodyMsg)
 		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
 		}
@@ -362,7 +361,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		res.reqErr = re
 		return res
@@ -428,6 +427,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		streamStallTimeout: stallTimeout,
 		providerID:         candidate.provider.ID,
 		providerName:       candidate.provider.Name,
+		model:              candidateModelID(candidate),
 		circuitBreakerOn:   st.circuitBreakerEnabled,
 		proxyOverheadMs:    st.proxyOverhead,
 		parseMs:            st.parseMs,

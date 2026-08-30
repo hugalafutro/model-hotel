@@ -823,6 +823,39 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	}
 }
 
+// The circuit-breaker span is fleet policy, like the threshold and cooldown it
+// sits beside: it decides how many of a provider's models must be sidelined
+// before the provider itself is skipped, and a member holding its own value
+// would reach a different verdict from the same failures. Only the setting
+// travels; breaker state is in-memory and stays member-local.
+func TestConfigSync_SyncsCircuitBreakerSpanModels(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	settingsRepo := settings.NewRepository(apiTestDB.Pool())
+	if err := settingsRepo.Set(ctx, "circuit_breaker_span_models", "3"); err != nil {
+		t.Fatalf("seed primary span: %v", err)
+	}
+
+	env := doExport(t, r)
+	if got := env.Config.Settings["circuit_breaker_span_models"]; got != "3" {
+		t.Fatalf("exported span = %q, want %q", got, "3")
+	}
+
+	cleanConfigTables(t)
+	if err := settingsRepo.Set(ctx, "circuit_breaker_span_models", "9"); err != nil {
+		t.Fatalf("seed member span: %v", err)
+	}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if got := settingsRepo.GetWithDefault(ctx, "circuit_breaker_span_models", ""); got != "3" {
+		t.Fatalf("member span = %q, want converged to the primary's %q", got, "3")
+	}
+}
+
 // A typo in ssoInstanceLocalKeys would silently leave the REAL key syncable
 // (the carve-out only excludes what it names, and an export test cannot catch
 // a key it does not know it should seed), so every entry must resolve to an

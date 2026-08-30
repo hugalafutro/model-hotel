@@ -63,8 +63,22 @@ func learnedScopeFor(candidate modelCandidate) string {
 // candidateModelID reads a candidate's upstream model id for diagnostics.
 // recordBreakerOutcome is reached on paths that only carry the provider, so the
 // model must never be assumed present.
+//
+// The empty string it falls back to is not inert: the breaker keys a circuit by
+// this id, so a modelless candidate charges the "" circuit, and that circuit
+// counts toward the span that indicts the provider. Every candidate the failover
+// loop routes carries a model, so reaching this branch means a candidate was
+// assembled without one and the breaker is now attributing that provider's
+// health to a key nothing routes by. It is logged at error, with routing
+// metadata only, because nothing downstream can tell the operator which model
+// went missing.
 func candidateModelID(candidate modelCandidate) string {
 	if candidate.model == nil {
+		providerName, providerID := "", ""
+		if candidate.provider != nil {
+			providerName, providerID = candidate.provider.Name, candidate.provider.ID.String()
+		}
+		debuglog.Error("proxy: candidate carries no model, charging the breaker's empty circuit", "provider", providerName, "provider_id", providerID)
 		return ""
 	}
 	return candidate.model.ModelID

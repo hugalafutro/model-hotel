@@ -98,14 +98,17 @@
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
 			"security": "Biztonság",
-			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
+			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} még továbbít / {{open}} kihagyva",
 			"discoveryClaimsBadge_one": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"discoveryClaimsBadge_other": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"users": "Felhasználók",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
 			"discoveryNewsBadge_other": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
-			"discoveryPinnedBadge": "A kézzel engedélyezett modellek továbbra is hiányoznak a szolgáltató listájából. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz."
+			"discoveryPinnedBadge": "A kézzel engedélyezett modellek továbbra is hiányoznak a szolgáltató listájából. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} szolgáltató teljesen kihagyva: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} szolgáltató teljesen kihagyva: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (nyitva ezekre: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-állapot",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Mennyi ideig várjon az első szolgáltató első tokenjére, mielőtt egy tartalék szolgáltatót is elindít",
 			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modellek száma a szolgáltató kihagyása előtt",
+			"spanModels.description": "Hány modellnek kell nyitott megszakítóval rendelkeznie, mielőtt a megszakító a teljes szolgáltatót kihagyja. 1 esetén egyetlen hibázó modell félreállítja a szolgáltató összes modelljét."
 		},
 		"logging": {
 			"title": "Naplózás",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Eltávolítja a nem elérhető tagokat ebből a csoportból.",
 			"deleteNaConfirmTitle": "Törli ezt a csoportot?",
 			"deleteNaConfirmMessage": "A nem elérhető tagok eltávolításával 2-nél kevesebb irányítható tag maradna, ezért a teljes csoport törlődik.",
-			"deleteNaConfirmLabel": "Csoport törlése"
+			"deleteNaConfirmLabel": "Csoport törlése",
+			"circuitBreakerProviderOpen": "A teljes szolgáltató kihagyva - a megszakító nyitva ezekre: {{models}}"
 		}
 	},
 	"virtualKeys": {

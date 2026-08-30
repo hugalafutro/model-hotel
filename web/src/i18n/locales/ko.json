@@ -98,14 +98,17 @@
 			"appLogs": "로그",
 			"settings": "설정",
 			"security": "보안",
-			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 - {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨",
+			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 - {{closed}} 정상 / {{halfOpen}} 계속 라우팅 중 / {{open}} 건너뜀",
 			"discoveryClaimsBadge_one": "확인이 필요한 모델 불일치 {{count}}건 - 클릭하여 검토",
 			"discoveryClaimsBadge_other": "확인이 필요한 모델 불일치 {{count}}건 - 클릭하여 검토",
 			"users": "사용자",
 			"audit": "감사",
 			"discoveryNewsBadge_other": "백그라운드 검색에서 확인하지 않은 변경 사항 {{count}}건. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요.",
 			"discoveryNewsBadge_one": "백그라운드 검색에서 확인하지 않은 변경 사항 {{count}}건. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요.",
-			"discoveryPinnedBadge": "직접 활성화한 모델이 공급자 목록에서 여전히 빠져 있습니다. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요."
+			"discoveryPinnedBadge": "직접 활성화한 모델이 공급자 목록에서 여전히 빠져 있습니다. 정보성 항목이며 조치가 필요한 문제는 아닙니다 - 클릭하여 확인하세요.",
+			"failoverBadgeSkippedTooltip_one": "{{count}}개 프로바이더 전체 건너뜀: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}}개 프로바이더 전체 건너뜀: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}}(개방 대상: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API 상태",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "백업 공급자도 시작하기 전에 첫 번째 공급자의 첫 토큰을 얼마나 기다릴지",
 			"hedgingNotice": "헤지는 첫 번째 공급자의 시작이 느릴 때 두 번째 공급자를 병렬로 실행하고 먼저 응답하는 쪽을 사용합니다. 시작이 느리면 업스트림 요청이 두 배가 되어 공급자의 속도 제한과 용량이 더 빨리 소모되며, 취소를 무시하는 백업은 백그라운드에서 계속 생성할 수 있습니다. 느린 첫 토큰이 추가 부하보다 더 해로울 때만 켜세요.",
 			"failoverGroup": "페일오버",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "프로바이더를 건너뛰기까지의 모델 수",
+			"spanModels.description": "프로바이더 전체를 건너뛰기 전에 서킷 브레이커가 개방되어 있어야 하는 모델 수입니다. 1이면 모델 하나만 실패해도 해당 프로바이더의 모든 모델이 제외됩니다."
 		},
 		"logging": {
 			"title": "로그 기록",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "이 그룹에서 사용할 수 없는 구성원을 제거합니다.",
 			"deleteNaConfirmTitle": "이 그룹을 삭제하시겠습니까?",
 			"deleteNaConfirmMessage": "사용할 수 없는 구성원을 제거하면 라우팅 가능한 구성원이 2명 미만이 되므로 전체 그룹이 삭제됩니다.",
-			"deleteNaConfirmLabel": "그룹 삭제"
+			"deleteNaConfirmLabel": "그룹 삭제",
+			"circuitBreakerProviderOpen": "프로바이더 전체 건너뜀 - 서킷 브레이커 개방 대상: {{models}}"
 		}
 	},
 	"virtualKeys": {

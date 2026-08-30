@@ -51,6 +51,11 @@ function useCircuit(state: "open" | "half-open" | "closed") {
 						provider_name: entry.provider_name,
 						state,
 						consecutive_fails: state === "closed" ? 0 : 5,
+						// One open model at the default span of 2 leaves the provider
+						// itself in rotation, so this entry is marked on the strength of
+						// its own model id being blocked, not on a provider verdict.
+						provider_open: false,
+						...(state === "open" ? { open_models: [entry.model_id] } : {}),
 					},
 				],
 			});

@@ -98,14 +98,17 @@
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
 			"security": "Sikkerhed",
-			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
+			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} sender stadig / {{open}} sprunget over",
 			"discoveryClaimsBadge_one": "{{count}} modeluoverensstemmelse kræver opmærksomhed - klik for at gennemgå",
 			"discoveryClaimsBadge_other": "{{count}} modeluoverensstemmelser kræver opmærksomhed - klik for at gennemgå",
 			"users": "Brugere",
 			"audit": "Revision",
 			"discoveryNewsBadge_one": "{{count}} ulæst ændring fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
 			"discoveryNewsBadge_other": "{{count}} ulæste ændringer fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
-			"discoveryPinnedBadge": "Modeller, du selv har aktiveret, mangler stadig på udbyderens liste. Kun til orientering, ikke noget der kræver handling - klik for at læse."
+			"discoveryPinnedBadge": "Modeller, du selv har aktiveret, mangler stadig på udbyderens liste. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} udbyder springes helt over: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} udbydere springes helt over: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (åben for: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Hvor længe der ventes på den første udbyders første token, før en backup-udbyder også startes",
 			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modeller før udbyder springes over",
+			"spanModels.description": "Hvor mange af en udbyders modeller der skal have en åben afbryder, før hele udbyderen springes over. Ved 1 sætter én fejlende model alle modeller bag den udbyder ud af drift."
 		},
 		"logging": {
 			"title": "Logning",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Fjern de utilgængelige medlemmer fra denne gruppe.",
 			"deleteNaConfirmTitle": "Slet denne gruppe?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgængelige medlemmer, vil der være færre end 2 medlemmer, der kan rutes, så hele gruppen slettes.",
-			"deleteNaConfirmLabel": "Slet gruppe"
+			"deleteNaConfirmLabel": "Slet gruppe",
+			"circuitBreakerProviderOpen": "Hele udbyderen springes over - afbryder åben for: {{models}}"
 		}
 	},
 	"virtualKeys": {

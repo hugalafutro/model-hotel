@@ -80,7 +80,7 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, nil)
 
-			charged := h.circuitBreaker.GetState(providerID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("circuit open = %v, want %v (state %q)", charged, tc.wantCharge, logData.state)
 			}
@@ -89,8 +89,13 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 }
 
 // The credit has to keep working, or every completion stops clearing the
-// provider's failure history and old failures accumulate until an unrelated one
-// opens the circuit.
+// model's failure history and old failures accumulate until an unrelated one
+// opens the circuit. And it has to land on the circuit the charges land on:
+// circuits are keyed (provider, resolved upstream model), and a credit under any
+// other key leaves the real charge on the clock while looking like bookkeeping.
+//
+// Threshold 2, because at 1 the first charge opens the circuit and an erased
+// credit cannot be seen.
 func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
@@ -98,14 +103,17 @@ func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 
 	providerID := uuid.New()
 	st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
-	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
-	h.circuitBreaker.RecordFailure(providerID, "p")
+	candidate := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "answering-model"},
+		provider: &provider.Provider{ID: providerID, Name: "p"},
+	}
+	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID)
 
 	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, nil)
 
-	h.circuitBreaker.RecordFailure(providerID, "p")
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
-		t.Error("an answered completion recorded no success, so an old failure was still on the clock")
+	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID)
+	if h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen {
+		t.Error("an answered completion recorded no success on the model it answered for, so an old failure was still on the clock")
 	}
 }
 
@@ -122,7 +130,7 @@ func TestRecordAnswerOutcome_AFailedAttemptIsCharged(t *testing.T) {
 
 	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, nil)
 
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a completion that failed after the headers must be charged")
 	}
 }
@@ -156,7 +164,7 @@ func TestChargeBreaker_UntranslatableBodyIsCharged(t *testing.T) {
 
 	h.chargeBreaker(st, candidate, "upstream body could not be translated")
 
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a body the gateway could not translate must be charged to the provider")
 	}
 }
@@ -199,7 +207,7 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 	if got := h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2); got != outcomeFailover {
 		t.Fatalf("outcome = %v, want a failover on an untranslatable 200", got)
 	}
-	if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 		t.Error("a 200 whose body could not be translated was not charged to the provider")
 	}
 }
@@ -293,7 +301,7 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
 			}
-			if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+			if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 				t.Error("an interrupted read was charged to the provider")
 			}
 		})
@@ -460,7 +468,7 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 	if !strings.Contains(logData.errorMessage, "body cap") {
 		t.Errorf("errorMessage = %q, want the cap named", logData.errorMessage)
 	}
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("a provider was charged for sending too much")
 	}
 }
@@ -503,7 +511,7 @@ func TestServeBufferedJSONPassthrough_EmptyEmbeddingsChargesTheBreaker(t *testin
 
 			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5)
 
-			charged := h.circuitBreaker.GetState(providerID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("circuit open = %v, want %v", charged, tc.wantCharge)
 			}
@@ -541,7 +549,7 @@ func TestServeBufferedJSONPassthrough_AClientHangingUpIsNotCharged(t *testing.T)
 
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
 
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through read was charged to the provider")
 	}
 }
@@ -599,7 +607,7 @@ func TestAttemptCandidate_EmptyAnswerChargesTheBreaker(t *testing.T) {
 
 			h.attemptCandidate(w, r, st, cand, 0, 1)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 				t.Errorf("a 200 carrying no answer was not charged (state %q, body %q)", st.logData.state, w.Body.String())
 			}
 		})
@@ -656,7 +664,7 @@ func TestAttemptCandidate_AGeminiSafetyBlockIsNotAProviderFault(t *testing.T) {
 
 			h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2)
 
-			charged := h.circuitBreaker.GetState(cand.provider.ID) == failover.StateOpen
+			charged := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) == failover.StateOpen
 			if charged != tc.wantCharge {
 				t.Errorf("charged = %v, want %v", charged, tc.wantCharge)
 			}
@@ -708,7 +716,7 @@ func TestHandleNonStreamingResponse_ABodyThatDiedOnTheWireIsCharged(t *testing.T
 	if logData.errorKind != KindProviderError {
 		t.Errorf("errorKind = %q, want provider_error: a dead read is not a parse failure", logData.errorKind)
 	}
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a provider that broke after committing its status was not charged")
 	}
 }
@@ -735,7 +743,7 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 	withBreakerThreshold(t, h, "2")
 
 	providerID := uuid.New()
-	h.circuitBreaker.RecordFailure(providerID, "p")
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
 	st := passthroughState(providerID)
 	candidate := modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
@@ -747,8 +755,8 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 
 	// The earlier failure must still be on the clock: at threshold 2 a second
 	// one opens the circuit, which it cannot do if the 204 credited a success.
-	h.circuitBreaker.RecordFailure(providerID, "p")
-	if h.circuitBreaker.GetState(providerID) != failover.StateOpen {
+	h.circuitBreaker.RecordFailure(providerID, "p", "")
+	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("an empty 204 credited a success and erased the failure before it")
 	}
 }
@@ -775,7 +783,7 @@ func TestServeBufferedJSONPassthrough_AnAbandonedRequestIsNotCharged(t *testing.
 
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
 
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through request was charged to the provider")
 	}
 }
@@ -839,7 +847,7 @@ func TestAttemptCandidate_AnEmptiedEgressAnswerIsCharged(t *testing.T) {
 
 			h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 1)
 
-			if h.circuitBreaker.GetState(cand.provider.ID) != failover.StateOpen {
+			if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
 				t.Errorf("an emptied %s answer was credited (state %q)", tc.name, st.logData.state)
 			}
 		})
@@ -902,7 +910,7 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	if !strings.Contains(w.Body.String(), "hello") {
 		t.Errorf("a complete answer was discarded: %q", w.Body.String())
 	}
-	if h.circuitBreaker.GetState(providerID) == failover.StateOpen {
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("a provider that delivered a complete answer was charged")
 	}
 }
@@ -975,5 +983,153 @@ func TestAnthropicWriter_AnUntypeableChunkIsNotDropped(t *testing.T) {
 	// a real answer.
 	if !strings.Contains(body, `"output_tokens":3`) {
 		t.Errorf("the spelled count was dropped: %q", body)
+	}
+}
+
+// The pass-through families' breaker credits have to land on the circuit their
+// charges land on. Circuits are keyed (provider, resolved upstream model), and
+// RecordSuccess creates whatever circuit it is handed, so a credit under the
+// wrong key silently leaves the real charge on the clock and opens the model on
+// a count it never reached.
+//
+// Threshold 2 throughout: at 1 the first charge opens the circuit on its own and
+// an erased credit is invisible. Charge, serve, charge — the circuit must still
+// be closed, which it can only be if the serve credited THIS model.
+//
+// Each case is a different credit site: the buffered read's answered branch, its
+// non-success-status branch, and the streamed commit point.
+func TestPassthrough_TheCreditLandsOnTheModelItServed(t *testing.T) {
+	const embeddingsAnswer = `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}]}`
+	for _, tc := range []struct {
+		name  string
+		serve func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response)
+		resp  func() *http.Response
+	}{
+		{
+			name: "a buffered JSON answer",
+			resp: func() *http.Response {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(embeddingsAnswer)), Header: make(http.Header)}
+			},
+			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
+				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5)
+			},
+		},
+		{
+			// Unreachable through servePassthroughResponse, which only dispatches a
+			// 2xx, and driven directly for exactly that reason: the arm exists so a
+			// status that stops being routed as a success is credited rather than
+			// dropped, and nothing else would exercise its key.
+			name: "a non-success status behind the buffered read",
+			resp: func() *http.Response {
+				return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(bytes.NewBufferString(`{"error":{"message":"bad input"}}`)), Header: make(http.Header)}
+			},
+			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
+				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5)
+			},
+		},
+		{
+			name: "the streamed commit point",
+			resp: func() *http.Response {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: {\"type\":\"x\"}\n\n")), Header: make(http.Header)}
+			},
+			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
+				h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, cand, resp, "text/event-stream", true, 1, 5)
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			withBreakerThreshold(t, h, "2")
+
+			providerID := uuid.New()
+			cand := modelCandidate{
+				model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+				provider: &provider.Provider{ID: providerID, Name: "p"},
+			}
+			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID)
+
+			st := passthroughState(providerID)
+			tc.serve(h, st, cand, tc.resp())
+
+			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID)
+			if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got == failover.StateOpen {
+				t.Error("the pass-through credit missed the model it served: an earlier failure was still on the clock")
+			}
+		})
+	}
+}
+
+// The streamed twin's CHARGE, keyed the same way. A 200 whose body dies before
+// the first byte is the provider breaking after committing the status, and the
+// charge belongs to the model that request asked for.
+//
+// Threshold 1: one charge is the whole claim, so it must open this model's
+// circuit and no other.
+func TestServeStreamedPassthrough_ADeadBodyChargesTheModelItAskedFor(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "tts-1"},
+		provider: &provider.Provider{ID: providerID, Name: "p"},
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(&errorReader{err: errors.New("upstream body died")}),
+		Header:     make(http.Header),
+	}
+
+	h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody),
+		passthroughState(providerID), cand, resp, "audio/mpeg", false, 1, 5)
+
+	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
+		t.Errorf("the model's circuit is %v, want open: a dead 200 was charged somewhere else", got)
+	}
+}
+
+// The credit the multimodal loop records for a definitive non-failover-eligible
+// error, before forwarding it. Same rule as its chat twin: the provider is
+// plainly alive, so the model it just answered about gets the credit.
+//
+// Threshold 2, so the erased charge is visible.
+func TestAttemptPassthroughCandidate_ADefiniteErrorCreditsTheModelItAsked(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThreshold(t, h, "2")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"bad input"}}`)
+	}))
+	t.Cleanup(srv.Close)
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"}
+	cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
+	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID)
+
+	st := &requestState{
+		startTime: time.Now(), reqModel: m.ModelID,
+		bodyBytes:             []byte(`{"model":"text-embedding-3-small","input":"hi"}`),
+		failoverTimeout:       30 * time.Second,
+		circuitBreakerEnabled: true,
+		vkHash:                "test-hash",
+		logData: &requestLogData{
+			id: uuid.New().String(), modelID: m.ModelID,
+			providerID: cand.provider.ID, providerName: "Relay",
+			endpointType: endpointTypeEmbeddings, state: "pending",
+			virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
+		},
+	}
+	h.insertRequestLogAsync(st.logData)
+	h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 1)
+
+	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID)
+	if got := h.circuitBreaker.GetState(cand.provider.ID, m.ModelID); got == failover.StateOpen {
+		t.Error("the 400 credited a circuit other than the model it asked for: an earlier failure was still on the clock")
 	}
 }

@@ -98,14 +98,17 @@
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
 			"security": "Beveiliging",
-			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
+			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} routeert nog / {{open}} overgeslagen",
 			"discoveryClaimsBadge_one": "{{count}} modelafwijking vraagt aandacht - klik om te bekijken",
 			"discoveryClaimsBadge_other": "{{count}} modelafwijkingen vragen aandacht - klik om te bekijken",
 			"users": "Gebruikers",
 			"audit": "Audit",
 			"discoveryNewsBadge_one": "{{count}} ongelezen wijziging uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
 			"discoveryNewsBadge_other": "{{count}} ongelezen wijzigingen uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
-			"discoveryPinnedBadge": "Modellen die je zelf hebt ingeschakeld ontbreken nog steeds in de lijst van de provider. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen."
+			"discoveryPinnedBadge": "Modellen die je zelf hebt ingeschakeld ontbreken nog steeds in de lijst van de provider. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} provider volledig overgeslagen: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} providers volledig overgeslagen: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (open voor: {{models}})"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -1654,7 +1657,9 @@
 			"hedgeDelay.description": "Hoe lang op het eerste token van de eerste provider wordt gewacht voordat ook een back-upprovider wordt gestart",
 			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modellen voordat provider wordt overgeslagen",
+			"spanModels.description": "Hoeveel modellen van een provider een open circuitonderbreker moeten hebben voordat de hele provider wordt overgeslagen. Bij 1 zet één falend model alle modellen achter die provider stil."
 		},
 		"logging": {
 			"title": "Logboekregistratie",
@@ -2924,7 +2929,8 @@
 			"deleteNaHelp": "Verwijdert de niet-beschikbare leden uit deze groep.",
 			"deleteNaConfirmTitle": "Deze groep verwijderen?",
 			"deleteNaConfirmMessage": "Als u de niet-beschikbare leden verwijdert, blijven er minder dan 2 routeerbare leden over, dus de hele groep wordt verwijderd.",
-			"deleteNaConfirmLabel": "Groep verwijderen"
+			"deleteNaConfirmLabel": "Groep verwijderen",
+			"circuitBreakerProviderOpen": "Hele provider overgeslagen - circuitonderbreker open voor: {{models}}"
 		}
 	},
 	"virtualKeys": {

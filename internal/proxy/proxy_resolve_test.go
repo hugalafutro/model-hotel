@@ -246,9 +246,11 @@ func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 		t.Fatalf("failed to create failover group: %v", err)
 	}
 
-	// Open the circuit breaker for the provider (threshold=5 by default)
+	// Open the circuit for the group's only model (threshold=5 by default).
+	// modelName is the resolved upstream model id, which is the key the skip in
+	// buildFailoverCandidates reads.
 	for range 5 {
-		handler.circuitBreaker.RecordFailure(providerID, "test-provider")
+		handler.circuitBreaker.RecordFailure(providerID, "test-provider", modelName)
 	}
 
 	body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`

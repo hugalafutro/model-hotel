@@ -555,6 +555,33 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			expect(ordinaryTitle).not.toEqual(pinnedTitle);
 		});
 
+		it("names the models a provider-wide skip rests on", () => {
+			// The entry is turned away because the provider verdict is open, not
+			// because of anything its own model did, so the tooltip has to name the
+			// models the verdict is counted from. Model ids are data, never
+			// translated, which keeps the assertion locale-independent.
+			const skipped = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				provider_open: true,
+				open_models: ["alpha-1", "alpha-2"],
+			});
+			const title = getWrapperDiv(skipped.container)?.getAttribute("title");
+			expect(title).toContain("alpha-1, alpha-2");
+
+			// One dark model leaves the provider serving, so that entry keeps the
+			// plain open-circuit copy and names nothing it cannot claim.
+			const own = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				provider_open: false,
+				open_models: ["alpha-1"],
+			});
+			expect(getWrapperDiv(own.container)?.getAttribute("title")).not.toContain(
+				"alpha-1",
+			);
+		});
+
 		it("prefers the cooldown-over tooltip over the quota one once the pin has expired", () => {
 			// quota_pinned describes the override governing the cooldown, not a
 			// claim that the provider is still blocked, so an elapsed pin reads as

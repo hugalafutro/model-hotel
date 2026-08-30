@@ -328,10 +328,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// line below records that the breaker was CHARGED for it, which those do not
 	// say and which is otherwise invisible above Debug.
 	if verdict := judgeStreamForBreaker(st, logData, errMsg, opts.circuitBreakerOn); verdict.failureReason != "" {
-		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "model", logData.modelID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration)
-		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
+		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration, "model", opts.model)
+		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName, opts.model)
 	} else if verdict.success {
-		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName)
+		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName, opts.model)
 	}
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")

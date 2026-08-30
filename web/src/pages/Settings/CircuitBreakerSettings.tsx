@@ -20,6 +20,14 @@ import { useSettingsMutations } from "./useSettingsMutations";
 const QUOTA_PIN_MAX_MIN_HOURS = 1;
 const QUOTA_PIN_MAX_MAX_HOURS = 168;
 
+// Bounds of the model-span slider: how many of a provider's models must hold an
+// open circuit before the provider itself is skipped. The floor of 1 is the
+// escape hatch the breaker enforces too (internal/failover/model_circuits.go:
+// effectiveSpan), and it reproduces the old provider-wide behaviour. The ceiling
+// is far above any provider's catalog, so it only ever bites on a typo.
+const SPAN_MODELS_MIN = 1;
+const SPAN_MODELS_MAX = 100;
+
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
@@ -40,6 +48,18 @@ export function CircuitBreakerSettings({
 	const circuitBreakerEnabled = settings?.circuit_breaker_enabled !== "false";
 	const circuitBreakerThreshold = settings?.circuit_breaker_threshold || "5";
 	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
+	// The fallback mirrors the Go default (defaultSpanModels in
+	// internal/failover/model_circuits.go), so an unset key shows the span
+	// actually in force rather than a number nothing obeys. Clamped for display
+	// only, because PUT /api/settings takes any int and the browser sanitizes the
+	// range track against min/max while leaving the number box alone.
+	const circuitBreakerSpanModels = Math.min(
+		SPAN_MODELS_MAX,
+		Math.max(
+			SPAN_MODELS_MIN,
+			Number(settings?.circuit_breaker_span_models) || 2,
+		),
+	);
 	// Both quota-pin fallbacks mirror the Go defaults the breaker applies when
 	// the key is absent (internal/failover/circuitbreaker.go: quotaPinEnabled
 	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours is
@@ -168,6 +188,28 @@ export function CircuitBreakerSettings({
 							)}
 							onReset={() =>
 								resetSettingMutation.mutate(["circuit_breaker_threshold"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+
+						<SettingsSlider
+							id="circuit-breaker-span-models"
+							disabled={!circuitBreakerEnabled}
+							label={t("settings.circuitBreaker.spanModels")}
+							value={circuitBreakerSpanModels}
+							min={SPAN_MODELS_MIN}
+							max={SPAN_MODELS_MAX}
+							step={1}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_span_models: String(v),
+								})
+							}
+							description={t("settings.circuitBreaker.spanModels.description")}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_span_models"])
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>

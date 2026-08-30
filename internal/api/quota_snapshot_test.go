@@ -656,7 +656,7 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 				}
 			}
 		}
-		cb.RecordFailure(ids[i], c.name)
+		cb.RecordFailure(ids[i], c.name, "")
 	}
 
 	pinned := pinnedByProvider(cb)
@@ -676,7 +676,7 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 	}
 
 	// Releasing a pin shortens a cooldown; it must never close a circuit.
-	if got := cb.GetState(ids[0]); got == failover.StateClosed {
+	if got := cb.GetState(ids[0], ""); got == failover.StateClosed {
 		t.Errorf("got state %v for the recovered provider, want it still open — quota must never close a circuit", got)
 	}
 }
@@ -751,7 +751,7 @@ func TestRefreshQuotaAdvice_FleetImportedFailureMarkerRetainsPin(t *testing.T) {
 			t.Fatalf("import %s: want 200, got %d: %s", c.name, rr.Code, rr.Body.String())
 		}
 
-		cb.RecordFailure(ids[i], c.name)
+		cb.RecordFailure(ids[i], c.name, "")
 	}
 
 	pinned := pinnedByProvider(cb)
@@ -798,7 +798,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed exhausted snapshot: %v", err)
 	}
-	cb.RecordFailure(spentID, "zai-still-spent")
+	cb.RecordFailure(spentID, "zai-still-spent", "")
 
 	// While polling runs, this provider's pin survives every refresh: it is
 	// still exhausted, which is affirmative evidence in the other direction.
@@ -820,7 +820,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	}
 	// Still only a cooldown change: the circuit stays open and HTTP decides
 	// recovery through the ordinary half-open probe.
-	if got := cb.GetState(spentID); got != failover.StateOpen {
+	if got := cb.GetState(spentID, ""); got != failover.StateOpen {
 		t.Errorf("got state %v, want open — disabling quota advice must not close a circuit", got)
 	}
 	if got := cb.Status()[0].CooldownMs; got != cb.Cooldown.Milliseconds() {
@@ -1160,7 +1160,7 @@ func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
 	// The advisor is empty until the nudge refreshes it, so this open is
 	// necessarily unpinned and lands on the 60s default cooldown.
 	for i := 0; i < 5; i++ {
-		cb.RecordFailure(id, "zai-repin")
+		cb.RecordFailure(id, "zai-repin", "")
 	}
 
 	deadline := time.Now().Add(5 * time.Second)

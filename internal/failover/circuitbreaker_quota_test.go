@@ -38,7 +38,7 @@ func TestQuotaPin_ExtendsCooldownToResetDeadline(t *testing.T) {
 		t.Errorf("got CooldownMs=%d, want within [%d,%d]", s.CooldownMs, minMs, maxMs)
 	}
 	// The circuit must still be closed to traffic until the pinned deadline.
-	if !cb.IsOpen(id, "test-provider") {
+	if !cb.IsOpen(id, "test-provider", "") {
 		t.Error("pinned circuit must remain open")
 	}
 }
@@ -229,14 +229,14 @@ func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T
 
 	// The number and the behaviour must agree: the configured cooldown elapses
 	// and the circuit admits a probe again.
-	if !cb.IsOpen(id, "test-provider") {
+	if !cb.IsOpen(id, "test-provider", "") {
 		t.Fatal("the configured cooldown has not elapsed yet; the circuit must still be open")
 	}
 	time.Sleep(600 * time.Millisecond)
-	if cb.IsOpen(id, "test-provider") {
+	if cb.IsOpen(id, "test-provider", "") {
 		t.Error("with the pin released, the configured cooldown must let a probe through")
 	}
-	if got := cb.GetState(id); got == StateOpen {
+	if got := cb.GetState(id, ""); got == StateOpen {
 		t.Errorf("got state %v, want the circuit off the open state once its configured cooldown elapsed", got)
 	}
 }
@@ -258,11 +258,11 @@ func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
 
 	// Wait out the pin, take the probe, and succeed: the circuit closes.
 	time.Sleep(80 * time.Millisecond)
-	if cb.IsOpen(id, "test-provider") {
+	if cb.IsOpen(id, "test-provider", "") {
 		t.Fatal("setup: pinned cooldown elapsed, probe should be allowed")
 	}
-	cb.RecordSuccess(id, "test-provider")
-	if got := cb.GetState(id); got != StateClosed {
+	cb.RecordSuccess(id, "test-provider", "")
+	if got := cb.GetState(id, ""); got != StateClosed {
 		t.Fatalf("setup: got state %v, want closed", got)
 	}
 
@@ -300,13 +300,13 @@ func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
 	openBreaker(t, cb, id)
 	cb.Cooldown = time.Millisecond
 	time.Sleep(5 * time.Millisecond)
-	if cb.IsOpen(id, "test-provider") {
+	if cb.IsOpen(id, "test-provider", "") {
 		t.Fatal("setup: cooldown elapsed, circuit should allow a probe")
 	}
 
 	// Probe fails and quota now reports a long window: half-open to open re-pins.
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(4 * time.Hour), ok: true})
-	cb.RecordFailure(id, "test-provider")
+	cb.RecordFailure(id, "test-provider", "")
 
 	if !cb.Status()[0].QuotaPinned {
 		t.Error("half-open to open must apply the pin")
@@ -348,7 +348,7 @@ func TestReleaseQuotaPins_LiftsThePinWhenTheProviderRecovers(t *testing.T) {
 	}
 
 	time.Sleep(400 * time.Millisecond)
-	if cb.IsOpen(id, "test-provider") {
+	if cb.IsOpen(id, "test-provider", "") {
 		t.Error("with the pin lifted, the configured cooldown must let a probe through")
 	}
 }
@@ -399,10 +399,10 @@ func TestReleaseQuotaPins_DoesNotCloseTheCircuit(t *testing.T) {
 
 	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
 
-	if got := cb.GetState(id); got != StateOpen {
+	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Errorf("got state %v after lifting the pin, want open — quota must never close a circuit", got)
 	}
-	if !cb.IsOpen(id, "test-provider") {
+	if !cb.IsOpen(id, "test-provider", "") {
 		t.Error("the configured cooldown has not elapsed; the circuit must still refuse traffic")
 	}
 	if s := cb.Status()[0]; s.ConsecutiveFails == 0 {
@@ -544,7 +544,7 @@ func TestReleaseAllQuotaPins_LiftsEveryPin(t *testing.T) {
 	}
 
 	time.Sleep(400 * time.Millisecond)
-	if cb.IsOpen(pinnedA, "test-provider") {
+	if cb.IsOpen(pinnedA, "test-provider", "") {
 		t.Error("with the pin lifted, the configured cooldown must let a probe through")
 	}
 }
@@ -560,10 +560,10 @@ func TestReleaseAllQuotaPins_DoesNotCloseCircuits(t *testing.T) {
 	openBreaker(t, cb, id)
 	cb.ReleaseAllQuotaPins()
 
-	if got := cb.GetState(id); got != StateOpen {
+	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Errorf("got state %v after releasing every pin, want open", got)
 	}
-	if !cb.IsOpen(id, "test-provider") {
+	if !cb.IsOpen(id, "test-provider", "") {
 		t.Error("the configured cooldown has not elapsed; the circuit must still refuse traffic")
 	}
 	if s := cb.Status()[0]; s.ConsecutiveFails == 0 {
@@ -669,7 +669,7 @@ func TestApplyQuotaPins_RetargetsOpenCircuit(t *testing.T) {
 	cb := newTestCB(1, 3*time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider") // opens unpinned: no advice existed yet
+	cb.RecordFailure(id, "test-provider", "") // opens unpinned: no advice existed yet
 	if got := overrideFor(t, cb, id); got != 0 {
 		t.Fatalf("setup: got override %v, want an unpinned circuit", got)
 	}
@@ -712,26 +712,26 @@ func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 		{
 			name: "closed",
 			setup: func(_ *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider") // one short of the threshold
+				cb.RecordFailure(id, "test-provider", "") // one short of the threshold
 			},
 			why: "a closed circuit is serving traffic and has no cooldown to retarget",
 		},
 		{
 			name: "half-open probe out",
 			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider")
-				cb.RecordFailure(id, "test-provider") // opens
+				cb.RecordFailure(id, "test-provider", "")
+				cb.RecordFailure(id, "test-provider", "") // opens
 				backdateOpen(t, cb, id, time.Second)
-				cb.IsOpen(id, "test-provider") // cooldown elapsed: hands out a probe
+				cb.IsOpen(id, "test-provider", "") // cooldown elapsed: hands out a probe
 			},
 			why: "a probe is in flight and HTTP is about to decide",
 		},
 		{
 			name: "cooldown elapsed",
 			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider")
-				cb.RecordFailure(id, "test-provider") // opens
-				backdateOpen(t, cb, id, time.Second)  // probe due, reads as half-open
+				cb.RecordFailure(id, "test-provider", "")
+				cb.RecordFailure(id, "test-provider", "") // opens
+				backdateOpen(t, cb, id, time.Second)      // probe due, reads as half-open
 			},
 			why: "the cooldown already elapsed, so the circuit is due a probe",
 		},
@@ -763,7 +763,7 @@ func TestApplyQuotaPins_NeverShortensExistingPin(t *testing.T) {
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
 
-	cb.RecordFailure(id, "test-provider") // opens pinned to ~6h
+	cb.RecordFailure(id, "test-provider", "") // opens pinned to ~6h
 	before := overrideFor(t, cb, id)
 	if before == 0 {
 		t.Fatal("setup: expected the open transition to pin the circuit")
@@ -786,7 +786,7 @@ func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinEnabled: &disabled})
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider")
+	cb.RecordFailure(id, "test-provider", "")
 
 	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}); got != 0 {
 		t.Errorf("got %d circuits retargeted, want 0 while quota pinning is disabled", got)
@@ -806,7 +806,7 @@ func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinMax: time.Hour})
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider")
+	cb.RecordFailure(id, "test-provider", "")
 
 	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(500 * 24 * time.Hour)}); got != 1 {
 		t.Fatalf("got %d circuits retargeted, want 1", got)

@@ -155,6 +155,7 @@ var allowedSettings = map[string]struct {
 	"failover_on_rate_limit":            {typeName: "string"},                      // bool as string
 	"circuit_breaker_enabled":           {typeName: "string"},                      // bool as string
 	"circuit_breaker_threshold":         {typeName: "int", min: 1, max: 100},
+	"circuit_breaker_span_models":       {typeName: "int", min: 1, max: 100},                        // open model circuits it takes to indict the provider itself; 1 restores the per-provider verdict
 	"circuit_breaker_cooldown":          {typeName: "string"},                                       // duration (e.g. "1m0s")
 	"circuit_breaker_quota_pin_enabled": {typeName: "string"},                                       // bool as string
 	"circuit_breaker_quota_pin_max":     {typeName: "string"},                                       // duration (e.g. "24h0m0s")

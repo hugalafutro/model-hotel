@@ -38,9 +38,9 @@ func newTestHandlerWithBreaker(t *testing.T) (*Handler, chi.Router, *failover.Ci
 func openCircuit(t *testing.T, cb *failover.CircuitBreaker, providerID uuid.UUID) {
 	t.Helper()
 	for i := 0; i < cb.Threshold; i++ {
-		cb.RecordFailure(providerID, "test-provider")
+		cb.RecordFailure(providerID, "test-provider", "")
 	}
-	if !cb.IsOpen(providerID, "test-provider") {
+	if !cb.IsOpen(providerID, "test-provider", "") {
 		t.Fatalf("setup: circuit for %s should be open after %d failures", providerID, cb.Threshold)
 	}
 }
@@ -110,10 +110,10 @@ func TestResetCircuitBreaker_OpenCircuitReturnsProviderToRotation(t *testing.T) 
 	}
 
 	// The breaker itself now routes to the provider again.
-	if cb.IsOpen(providerID, "test-provider") {
+	if cb.IsOpen(providerID, "test-provider", "") {
 		t.Error("after reset: breaker still blocks the provider")
 	}
-	if got := cb.GetState(providerID); got != failover.StateClosed {
+	if got := cb.GetState(providerID, ""); got != failover.StateClosed {
 		t.Errorf("after reset: breaker state = %v, want closed", got)
 	}
 	// And the dashboard's own feed agrees, rather than serving the cached
@@ -131,12 +131,12 @@ func TestResetCircuitBreaker_ClosedCircuitReportsNoChange(t *testing.T) {
 	_, r, cb := newTestHandlerWithBreaker(t)
 
 	tracked := uuid.New()
-	cb.RecordFailure(tracked, "test-provider") // one failure: circuit exists, still closed
-	untracked := uuid.New()                    // never routed, so no circuit at all
+	cb.RecordFailure(tracked, "test-provider", "") // one failure: circuit exists, still closed
+	untracked := uuid.New()                        // never routed, so no circuit at all
 
 	for name, providerID := range map[string]uuid.UUID{"tracked but closed": tracked, "never tracked": untracked} {
 		t.Run(name, func(t *testing.T) {
-			if cb.IsOpen(providerID, "test-provider") {
+			if cb.IsOpen(providerID, "test-provider", "") {
 				t.Fatalf("setup: %s circuit must not be blocking before the reset", name)
 			}
 
@@ -154,7 +154,7 @@ func TestResetCircuitBreaker_ClosedCircuitReportsNoChange(t *testing.T) {
 			if resp.Reset {
 				t.Error("reset: expected reset=false; nothing was sidelining this provider")
 			}
-			if cb.IsOpen(providerID, "test-provider") {
+			if cb.IsOpen(providerID, "test-provider", "") {
 				t.Error("reset: a no-op reset must not start blocking the provider")
 			}
 		})
@@ -174,7 +174,7 @@ func TestResetCircuitBreaker_InvalidProviderID(t *testing.T) {
 		t.Fatalf("expected 400 for a non-UUID provider id, got %d: %s", code, body)
 	}
 	// The real circuit is untouched: a rejected request resets nothing.
-	if !cb.IsOpen(providerID, "test-provider") {
+	if !cb.IsOpen(providerID, "test-provider", "") {
 		t.Error("a rejected reset must leave existing circuits open")
 	}
 }
@@ -215,7 +215,7 @@ func TestResetCircuitBreaker_ManagedMemberNotBlocked(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("managed member reset: expected 200, got %d: %s", code, body)
 	}
-	if cb.IsOpen(providerID, "test-provider") {
+	if cb.IsOpen(providerID, "test-provider", "") {
 		t.Error("managed member reset: breaker still blocks the provider")
 	}
 
@@ -225,7 +225,7 @@ func TestResetCircuitBreaker_ManagedMemberNotBlocked(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("managed member reset-all: expected 200, got %d: %s", code, body)
 	}
-	if cb.IsOpen(providerID, "test-provider") {
+	if cb.IsOpen(providerID, "test-provider", "") {
 		t.Error("managed member reset-all: breaker still blocks the provider")
 	}
 }
@@ -239,7 +239,7 @@ func TestResetAllCircuitBreakers_ClearsEveryCircuit(t *testing.T) {
 	openA, openB, healthy := uuid.New(), uuid.New(), uuid.New()
 	openCircuit(t, cb, openA)
 	openCircuit(t, cb, openB)
-	cb.RecordFailure(healthy, "test-provider") // tracked, below threshold, still closed
+	cb.RecordFailure(healthy, "test-provider", "") // tracked, below threshold, still closed
 
 	code, body := doAdminRequest(r, http.MethodPost, "/failover-groups/circuit-breaker/reset")
 	if code != http.StatusOK {
@@ -257,7 +257,7 @@ func TestResetAllCircuitBreakers_ClearsEveryCircuit(t *testing.T) {
 	}
 
 	for _, id := range []uuid.UUID{openA, openB, healthy} {
-		if cb.IsOpen(id, "test-provider") {
+		if cb.IsOpen(id, "test-provider", "") {
 			t.Errorf("reset-all: breaker still blocks %s", id)
 		}
 	}

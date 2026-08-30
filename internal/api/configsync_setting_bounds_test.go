@@ -28,6 +28,10 @@ func TestValidateSyncedSetting_NumericBounds(t *testing.T) {
 		{name: "negative float rps", key: "rate_limit_ip_rps", value: "-0.5", wantErr: true},
 		{name: "negative max wait", key: "rate_limit_max_wait_ms", value: "-1", wantErr: true},
 		{name: "breaker threshold below minimum", key: "circuit_breaker_threshold", value: "0", wantErr: true},
+		// A span below 1 is the one value that changes enforcement in the
+		// dangerous direction: it would indict a provider with nothing open.
+		{name: "breaker span below minimum", key: "circuit_breaker_span_models", value: "0", wantErr: true},
+		{name: "breaker span of one is the escape hatch, not an error", key: "circuit_breaker_span_models", value: "1"},
 
 		{name: "minimum itself is legal", key: "rate_limit_ip_burst", value: "1"},
 		{name: "ordinary value", key: "rate_limit_burst", value: "20"},
@@ -65,6 +69,7 @@ func TestConfigSync_ImportRejectsOutOfRangeSetting(t *testing.T) {
 		{"ip burst negative", "rate_limit_ip_burst", "-1"},
 		{"global burst zero", "rate_limit_burst", "0"},
 		{"breaker threshold zero", "circuit_breaker_threshold", "0"},
+		{"breaker span zero", "circuit_breaker_span_models", "0"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cleanConfigTables(t)

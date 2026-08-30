@@ -100,7 +100,7 @@
 			"appLogs": "Log",
 			"settings": "Impostazioni",
 			"security": "Sicurezza",
-			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
+			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} ancora in uso / {{open}} ignorati",
 			"discoveryClaimsBadge_one": "{{count}} discrepanza di modello richiede attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_many": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_other": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",
@@ -109,7 +109,11 @@
 			"discoveryNewsBadge_one": "{{count}} modifica non esaminata dal rilevamento in background. Solo informativa, non richiede attenzione - fai clic per esaminare.",
 			"discoveryNewsBadge_many": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare.",
 			"discoveryNewsBadge_other": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare.",
-			"discoveryPinnedBadge": "I modelli che hai attivato a mano restano assenti dall'elenco del provider. Solo informativo, non richiede attenzione - fai clic per esaminare."
+			"discoveryPinnedBadge": "I modelli che hai attivato a mano restano assenti dall'elenco del provider. Solo informativo, non richiede attenzione - fai clic per esaminare.",
+			"failoverBadgeSkippedTooltip_one": "{{count}} provider ignorato del tutto: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} provider ignorati del tutto: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} provider ignorati del tutto: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (aperto per: {{models}})"
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -1700,7 +1704,9 @@
 			"hedgeDelay.description": "Quanto attendere il primo token del primo provider prima di avviare anche un provider di riserva",
 			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "Modelli prima di ignorare il provider",
+			"spanModels.description": "Quanti modelli di un provider devono avere l'interruttore aperto prima che l'intero provider venga ignorato. Con 1, un solo modello in errore mette da parte tutti i modelli di quel provider."
 		},
 		"logging": {
 			"title": "Registrazione",
@@ -2987,7 +2993,8 @@
 			"deleteNaHelp": "Rimuove i membri non disponibili da questo gruppo.",
 			"deleteNaConfirmTitle": "Eliminare questo gruppo?",
 			"deleteNaConfirmMessage": "La rimozione dei membri non disponibili lascerebbe meno di 2 membri instradabili, quindi l'intero gruppo verrà eliminato.",
-			"deleteNaConfirmLabel": "Elimina gruppo"
+			"deleteNaConfirmLabel": "Elimina gruppo",
+			"circuitBreakerProviderOpen": "Intero provider ignorato - interruttore aperto per: {{models}}"
 		}
 	},
 	"virtualKeys": {

@@ -27,6 +27,9 @@ func newTestCB(threshold int, cooldown time.Duration) *CircuitBreaker {
 type stubSettings struct {
 	threshold int
 	cooldown  time.Duration
+	// span overrides circuit_breaker_span_models when non-zero. Negative values
+	// are passed through so the fallback to the default can be asserted.
+	span int
 	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
 	pinEnabled *bool
 	// pinMax overrides circuit_breaker_quota_pin_max when positive.
@@ -36,6 +39,9 @@ type stubSettings struct {
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
 	if key == "circuit_breaker_threshold" && s.threshold > 0 {
 		return s.threshold
+	}
+	if key == "circuit_breaker_span_models" && s.span != 0 {
+		return s.span
 	}
 	return def
 }
@@ -57,6 +63,43 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return def
 }
 
+// countingSettings answers every key with the caller's default, like a
+// deployment that has never overridden a breaker setting, and counts the reads.
+// That is the shape the read cost matters in: with no row to serve, each read is
+// an uncached DB round trip taken under the breaker's lock.
+type countingSettings struct {
+	mu        sync.Mutex
+	durations map[string]int
+}
+
+func newCountingSettings() *countingSettings {
+	return &countingSettings{durations: make(map[string]int)}
+}
+
+func (s *countingSettings) GetInt(_ context.Context, _ string, def int) int { return def }
+
+func (s *countingSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.durations[key]++
+	return def
+}
+
+func (s *countingSettings) GetBool(_ context.Context, _ string, def bool) bool { return def }
+
+// reset drops the reads taken during setup, so a count describes one call.
+func (s *countingSettings) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.durations = make(map[string]int)
+}
+
+func (s *countingSettings) reads(key string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.durations[key]
+}
+
 type stubAdvisor struct {
 	at time.Time
 	ok bool
@@ -68,9 +111,9 @@ func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
 func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
 	t.Helper()
 	for i := 0; i < cb.effectiveThreshold(); i++ {
-		cb.RecordFailure(id, "test-provider")
+		cb.RecordFailure(id, "test-provider", "")
 	}
-	if got := cb.GetState(id); got != StateOpen {
+	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Fatalf("setup: got state %v, want open", got)
 	}
 }
@@ -195,11 +238,28 @@ func backdateOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, by time.Durati
 	t.Helper()
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	c, ok := cb.circuits[id.String()]
+	c, ok := cb.circuits[id.String()][""]
 	if !ok {
 		t.Fatalf("setup: no circuit tracked for %s", id)
 	}
 	c.openedAt = c.openedAt.Add(-by)
+}
+
+// pinSibling backdates one model circuit's open instant and stamps a quota
+// override on it. It builds the shape a fleet reaches whenever a provider's
+// models go dark at different moments: a blocking, quota-pinned circuit that is
+// NOT the provider's most degraded one, because the sibling that opened later
+// has an ordinary cooldown running further out.
+func pinSibling(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string, openedAgo, override time.Duration) {
+	t.Helper()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	c, ok := cb.circuits[id.String()][model]
+	if !ok {
+		t.Fatalf("setup: no circuit tracked for %s/%s", id, model)
+	}
+	c.openedAt = c.openedAt.Add(-openedAgo)
+	c.cooldownOverride = override
 }
 
 // overrideFor reads a circuit's stored quota override. Status reports the
@@ -209,11 +269,30 @@ func overrideFor(t *testing.T, cb *CircuitBreaker, id uuid.UUID) time.Duration {
 	t.Helper()
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	c, ok := cb.circuits[id.String()]
+	c, ok := cb.circuits[id.String()][""]
 	if !ok {
 		t.Fatalf("no circuit tracked for %s", id)
 	}
 	return c.cooldownOverride
+}
+
+// countCircuits reports how many model circuits a provider is tracking. The
+// eviction cap has no observable effect on routing (that is the point of it),
+// so the only honest way to assert it is to read the map the cap bounds.
+func countCircuits(t *testing.T, cb *CircuitBreaker, id uuid.UUID) int {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return len(cb.circuits[id.String()])
+}
+
+// hasCircuit reports whether one model circuit survived eviction.
+func hasCircuit(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string) bool {
+	t.Helper()
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	_, ok := cb.circuits[id.String()][model]
+	return ok
 }
 
 func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {

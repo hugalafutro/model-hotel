@@ -94,7 +94,7 @@
 			"appLogs": "السجلات",
 			"settings": "الإعدادات",
 			"security": "الأمان",
-			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
+			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} ما زال يوجه / {{open}} تم تخطيه",
 			"users": "المستخدمون",
 			"audit": "التدقيق",
 			"discoveryClaimsBadge_zero": "{{count}} تباين في النماذج يحتاج إلى انتباه - انقر للمراجعة",
@@ -121,7 +121,14 @@
 			"discoveryNewsBadge_few": "{{count}} تغييرات لم تتم مراجعتها من الاكتشاف في الخلفية. للعلم فقط، وليست أمرًا يتطلب انتباهك - انقر للمراجعة.",
 			"discoveryNewsBadge_many": "{{count}} تغييرًا لم تتم مراجعتها من الاكتشاف في الخلفية. للعلم فقط، وليست أمرًا يتطلب انتباهك - انقر للمراجعة.",
 			"discoveryNewsBadge_other": "{{count}} تغيير لم تتم مراجعته من الاكتشاف في الخلفية. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة.",
-			"discoveryPinnedBadge": "النماذج التي فعّلتها بنفسك ما زالت غائبة عن قائمة المزوّد. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة."
+			"discoveryPinnedBadge": "النماذج التي فعّلتها بنفسك ما زالت غائبة عن قائمة المزوّد. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"failoverBadgeSkippedTooltip_zero": "{{count}} مزود تم تخطيه بالكامل: {{providers}}",
+			"failoverBadgeSkippedTooltip_one": "{{count}} مزود تم تخطيه بالكامل: {{providers}}",
+			"failoverBadgeSkippedTooltip_two": "{{count}} مزودان تم تخطيهما بالكامل: {{providers}}",
+			"failoverBadgeSkippedTooltip_few": "{{count}} مزودين تم تخطيهم بالكامل: {{providers}}",
+			"failoverBadgeSkippedTooltip_many": "{{count}} مزودًا تم تخطيه بالكامل: {{providers}}",
+			"failoverBadgeSkippedTooltip_other": "{{count}} مزود تم تخطيه بالكامل: {{providers}}",
+			"failoverBadgeOpenModels": "{{provider}} (مفتوح لـ: {{models}})"
 		},
 		"status": {
 			"apiStatus": "حالة API",
@@ -1838,7 +1845,9 @@
 			"hedgeDelay.description": "مدة انتظار أول رمز من المزوّد الأول قبل تشغيل مزوّد احتياطي أيضًا",
 			"hedgingNotice": "يشغّل التحوّط مزوّدًا ثانيًا بالتوازي عندما يتأخر الأول في البدء ويحتفظ بأيهما يردّ أولًا. عند البدء البطيء يضاعف هذا الطلب نحو المصدر، فتُستهلك حدود معدّل المزوّد وطاقته بشكل أسرع، وقد يستمر الاحتياطي الذي يتجاهل الإلغاء في التوليد في الخلفية. فعّله فقط إذا كان بطء أول الرموز يضرّ أكثر من الحمل الإضافي.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"spanModels": "عدد النماذج قبل تخطي المزود",
+			"spanModels.description": "كم عدد نماذج المزود التي يجب أن يكون قاطع الدائرة مفتوحًا لها قبل تخطي المزود بالكامل. عند 1، يؤدي نموذج واحد فاشل إلى تعطيل كل نموذج خلف ذلك المزود."
 		},
 		"logging": {
 			"title": "تسجيل",
@@ -3170,7 +3179,8 @@
 			"deleteNaHelp": "أزل الأعضاء غير المتاحين من هذه المجموعة.",
 			"deleteNaConfirmTitle": "حذف هذه المجموعة؟",
 			"deleteNaConfirmMessage": "إزالة الأعضاء غير المتاحين ستترك أقل من عضوين قابلين للتوجيه، لذلك سيتم حذف المجموعة بأكملها.",
-			"deleteNaConfirmLabel": "حذف المجموعة"
+			"deleteNaConfirmLabel": "حذف المجموعة",
+			"circuitBreakerProviderOpen": "تم تخطي المزود بالكامل - قاطع الدائرة مفتوح لـ: {{models}}"
 		},
 		"countLabel_zero": "مجموعات التحويل التلقائي",
 		"countLabel_one": "مجموعة تحويل تلقائي",
