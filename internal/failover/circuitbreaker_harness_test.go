@@ -34,6 +34,11 @@ type stubSettings struct {
 	pinEnabled *bool
 	// pinMax overrides circuit_breaker_quota_pin_max when positive.
 	pinMax time.Duration
+	// backoffEnabled overrides circuit_breaker_backoff_enabled when non-nil.
+	// A pointer, so a test can flip it after the breaker has stamped a backoff.
+	backoffEnabled *bool
+	// backoffMax overrides circuit_breaker_backoff_max when positive.
+	backoffMax time.Duration
 }
 
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
@@ -53,12 +58,18 @@ func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Durat
 	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
 		return s.pinMax
 	}
+	if key == "circuit_breaker_backoff_max" && s.backoffMax > 0 {
+		return s.backoffMax
+	}
 	return def
 }
 
 func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
 		return *s.pinEnabled
+	}
+	if key == "circuit_breaker_backoff_enabled" && s.backoffEnabled != nil {
+		return *s.backoffEnabled
 	}
 	return def
 }
@@ -70,10 +81,11 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 type countingSettings struct {
 	mu        sync.Mutex
 	durations map[string]int
+	booleans  map[string]int
 }
 
 func newCountingSettings() *countingSettings {
-	return &countingSettings{durations: make(map[string]int)}
+	return &countingSettings{durations: make(map[string]int), booleans: make(map[string]int)}
 }
 
 func (s *countingSettings) GetInt(_ context.Context, _ string, def int) int { return def }
@@ -85,19 +97,31 @@ func (s *countingSettings) GetDuration(_ context.Context, key string, def time.D
 	return def
 }
 
-func (s *countingSettings) GetBool(_ context.Context, _ string, def bool) bool { return def }
+func (s *countingSettings) GetBool(_ context.Context, key string, def bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.booleans[key]++
+	return def
+}
 
 // reset drops the reads taken during setup, so a count describes one call.
 func (s *countingSettings) reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.durations = make(map[string]int)
+	s.booleans = make(map[string]int)
 }
 
 func (s *countingSettings) reads(key string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.durations[key]
+}
+
+func (s *countingSettings) bools(key string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.booleans[key]
 }
 
 type stubAdvisor struct {

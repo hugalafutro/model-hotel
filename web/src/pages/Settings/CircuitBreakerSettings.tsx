@@ -7,8 +7,10 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import {
 	goDurationToHours,
+	goDurationToMinutes,
 	goDurationToSeconds,
 	hoursToGoDuration,
+	minutesToGoDuration,
 	secondsToGoDuration,
 } from "../../utils/duration";
 import { useSettingsMutations } from "./useSettingsMutations";
@@ -19,6 +21,19 @@ import { useSettingsMutations } from "./useSettingsMutations";
 // Shared by the clamp and the slider props so the two cannot drift apart.
 const QUOTA_PIN_MAX_MIN_HOURS = 1;
 const QUOTA_PIN_MAX_MAX_HOURS = 168;
+
+// Bounds of the probe-backoff ceiling slider, in minutes. Minutes rather than
+// hours because the backoff starts from a cooldown measured in seconds and
+// doubles: 1, 2, 4, 8 minutes at the default cooldown before the default
+// 15-minute limit holds it, and an operator choosing where that stops wants
+// finer steps than an hour. The floor keeps the operator off the zero that
+// restores the default rather than disabling anything; the ceiling is four
+// hours, which keeps the track draggable (a day at one-minute steps is not)
+// while leaving room well past anything a probe cadence should be. A limit at
+// or below the cooldown period leaves the backoff nothing to add, which the
+// description says.
+const BACKOFF_MAX_MIN_MINUTES = 1;
+const BACKOFF_MAX_MAX_MINUTES = 240;
 
 // Bounds of the model-span slider: how many of a provider's models must hold an
 // open circuit before the provider itself is skipped. The floor of 1 is the
@@ -85,6 +100,18 @@ export function CircuitBreakerSettings({
 		Math.max(
 			QUOTA_PIN_MAX_MIN_HOURS,
 			goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24,
+		),
+	);
+	// Same shape as the quota-pin pair, for the same reasons: the fallbacks
+	// mirror the Go defaults (backoffEnabled defaults true, backoffMax falls back
+	// to 15m, and a stored non-positive duration reads as unset), the fallback
+	// comes before the clamp, and the clamp is display only.
+	const backoffEnabled = settings?.circuit_breaker_backoff_enabled !== "false";
+	const backoffMaxMinutes = Math.min(
+		BACKOFF_MAX_MAX_MINUTES,
+		Math.max(
+			BACKOFF_MAX_MIN_MINUTES,
+			goDurationToMinutes(settings?.circuit_breaker_backoff_max || "15m") || 15,
 		),
 	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
@@ -292,6 +319,64 @@ export function CircuitBreakerSettings({
 							description={t("settings.circuitBreaker.quotaPinMax.description")}
 							onReset={() =>
 								resetSettingMutation.mutate(["circuit_breaker_quota_pin_max"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+
+						<div
+							className="flex items-center justify-between gap-3"
+							data-testid="backoff-row"
+						>
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.circuitBreaker.backoff")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate([
+												"circuit_breaker_backoff_enabled",
+											])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.backoffDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={backoffEnabled}
+								size="sm"
+								disabled={!circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_backoff_enabled: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.backoff")}
+							/>
+						</div>
+
+						<SettingsSlider
+							id="circuit-breaker-backoff-max"
+							disabled={!circuitBreakerEnabled || !backoffEnabled}
+							label={t("settings.circuitBreaker.backoffMax")}
+							value={backoffMaxMinutes}
+							min={BACKOFF_MAX_MIN_MINUTES}
+							max={BACKOFF_MAX_MAX_MINUTES}
+							step={1}
+							unit="m"
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_backoff_max: minutesToGoDuration(v),
+								})
+							}
+							description={t("settings.circuitBreaker.backoffMax.description")}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_backoff_max"])
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>

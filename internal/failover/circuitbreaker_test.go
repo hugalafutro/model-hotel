@@ -716,7 +716,8 @@ func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
 func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	capt := captureLogs(t)
 
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 50 * time.Millisecond})
+	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond}
+	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
 
@@ -745,7 +746,11 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	// A failed half-open probe re-opens the circuit and must log the same way:
 	// this is the transition an operator sees when a provider keeps failing.
 	time.Sleep(60 * time.Millisecond)
-	cb.Cooldown = 50 * time.Millisecond
+	// Seconds, not milliseconds: the re-open below stamps a doubled cooldown,
+	// and the assertion reads it back through Status, which reports a circuit
+	// past its cooldown as half-open with no cooldown at all. A 100ms window
+	// between the two calls is a flake under load; 20s is not.
+	settings.cooldown = 10 * time.Second
 	cb.SetQuotaAdvisor(stubAdvisor{ok: false}) // advice withdrawn; plain cooldown now
 	cb.circuits[id.String()][""].cooldownOverride = 0
 	cb.circuits[id.String()][""].state = StateHalfOpen
@@ -766,8 +771,11 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	if !ok {
 		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.attrs)
 	}
-	if want := cb.effectiveCooldown().Milliseconds(); reMs != want {
-		t.Errorf("logged cooldown_ms=%d, want the configured cooldown %d", reMs, want)
+	// After a failed probe the governing cooldown is the doubled one, and the
+	// line must say so: the configured 50ms is exactly the number an operator
+	// would be misled by.
+	if want := cb.Status()[0].CooldownMs; reMs != want || reMs != (20*time.Second).Milliseconds() {
+		t.Errorf("logged cooldown_ms=%d, want the cooldown actually governing the circuit (%d, the doubled 10s)", reMs, want)
 	}
 }
 
