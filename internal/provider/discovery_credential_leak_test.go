@@ -14,7 +14,12 @@ import (
 // upstream that quotes it back in an auth failure used to reach app_logs
 // verbatim through these error paths. The error a discovery function returns
 // is logged by its caller, so the credential must not be in it.
-const leakedKey = "sk-discovery-1234567890abcdefghij"
+// Deliberately shapeless: no known prefix, no digit, so MaskKeyShapedTokens
+// cannot see it and only the exact-match layer can remove it. A self-hosted
+// gateway's key looks like this, and it is the case the exact layer exists
+// for. With an sk- key these tests passed even with MaskCredential removed,
+// because the shape layer inside SanitizeLogBody caught it on its own.
+const leakedKey = "selfhosted-gateway-secret"
 
 func echoKeyHandler(status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {

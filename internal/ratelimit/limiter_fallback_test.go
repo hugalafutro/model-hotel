@@ -15,7 +15,9 @@ import (
 // keyed on the client ADDRESS, so one client is one bucket however many TCP
 // connections it opens. Keyed on r.RemoteAddr it was keyed on the connection,
 // and a client that does not reuse connections drew a fresh full-burst bucket
-// every request.
+// every request. The per-IP limiter still bounded that traffic at its own
+// looser budget, so what the bug cost was the tighter per-key stage, not the
+// surface.
 func TestExtractKey_FallbackIsAddressKeyedNotConnectionKeyed(t *testing.T) {
 	seen := map[string]bool{}
 	for i := range 10 {

@@ -23,7 +23,15 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	// The proxy uses /v1beta/openai/ but discovery uses /v1beta/models?key=KEY
 	nativeBaseURL := toNativeBaseURL(baseURL)
 
-	// Use ?key= auth for native API
+	// Use ?key= auth for native API.
+	//
+	// The credential is therefore IN THE URL, and a transport failure returns a
+	// *url.Error whose Error() quotes the whole URL back: Go redacts only
+	// userinfo passwords, not query parameters. Every rendering of that error
+	// below is scrubbed for exactly that reason. Moving this endpoint to the
+	// x-goog-api-key header (which vertex-express already uses) would remove
+	// the class rather than mask it, and is worth doing separately, where the
+	// change can be exercised against the live API.
 	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, apiKey)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
@@ -34,8 +42,11 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
-		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %w", provider.Name, err)
+		scrubbed := util.MaskCredential(apiKey, err.Error())
+		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", scrubbed)
+		// %s, not %w: the wrapped error's own text is the leak, and nothing
+		// unwraps a transport failure from here.
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, scrubbed)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -45,7 +56,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
 		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

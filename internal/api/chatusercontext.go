@@ -26,7 +26,7 @@ import (
 // effectiveAllowedProviders reads a nil key-side cap as "this side restricts
 // nothing" and returns the account cap unchanged, while the two rate limiters
 // handle it differently and neither is left guessing. ratelimit.Limiter keeps
-// its per-key stage on this surface: extractKey falls back to r.RemoteAddr and
+// its per-key stage on this surface: extractKey falls back to the resolved client address and
 // the bucket is sized from the global settings defaults, which is exactly what
 // an unkeyed request here already got before this middleware existed.
 // ratelimit.TPMLimiter has NO per-key stage here at all — RegisterAdminChat

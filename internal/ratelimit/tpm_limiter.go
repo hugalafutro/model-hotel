@@ -171,7 +171,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 // kill-switches as Middleware.
 //
 // The full Middleware is deliberately NOT reused there. Its per-key stage keys
-// on extractKey, which falls back to r.RemoteAddr when no virtual key is in
+// on extractKey, which falls back to the resolved client address when no virtual key is in
 // context, and that bucket has no debit path: the completion half (Debit) is
 // driven by the virtual-key hash, which a session-authenticated request does
 // not have. Mounting the full middleware would therefore create an address-keyed

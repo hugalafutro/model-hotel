@@ -156,11 +156,9 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	return outcomeFatal
 }
 
-// credentialMinLen is the shortest provider key the exact-value mask will
-// redact. Keyless local providers carry an empty key and a handful of test or
-// placeholder setups use tiny ones; rewriting every occurrence of a few
-// characters would shred the body without protecting anything.
-const credentialMinLen = 8
+// credentialMinLen is the shared threshold, not a second opinion on it: two
+// copies of one rule is how the scrub itself came to differ between packages.
+const credentialMinLen = util.CredentialMinLen
 
 // credentialMasker scrubs a provider's credential out of client-bound text.
 // The exact decrypted key is the primary control: it is an exact byte match,

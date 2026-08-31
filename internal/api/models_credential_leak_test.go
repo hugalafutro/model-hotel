@@ -20,7 +20,10 @@ import (
 // Self-hosted gateways and relays do echo the key; first-party providers
 // mostly redact it.
 func TestTestModel_DoesNotLeakTheProviderKey(t *testing.T) {
-	const key = "sk-leak-1234567890abcdefghij"
+	// Shapeless on purpose: no known prefix, no digit. The shape layer cannot
+	// see it, so this pins the exact-match layer at this call site rather than
+	// the shared widening of SanitizeLogBody.
+	const key = "selfhosted-gateway-secret"
 	h, r := newTestHandlerWithRouter(t)
 
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

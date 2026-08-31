@@ -14,11 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// SanitizeLogBody redacts potentially sensitive information from upstream
-// API error response bodies before they are written to logs or stored in the
-// database. It truncates the body to maxLen characters and replaces UUIDs
-// with [REDACTED], as upstream error messages often leak internal identifiers
-// (team IDs, project IDs) that have no diagnostic value.
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
@@ -34,6 +29,11 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // key should run MaskCredential over the result as well, which adds an exact
 // match for key shapes this list cannot anticipate.
 func SanitizeLogBody(body string, maxLen int) string {
+	// Scrub before truncating. A credential straddling the cut would otherwise
+	// leave a prefix behind that no later pass can match, and the input is
+	// already bounded by the caller, so the order costs nothing.
+	body = string(MaskKeyShapedTokens([]byte(body)))
+	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
 		for len(body) > maxLen {
@@ -42,7 +42,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 		}
 		body += "…"
 	}
-	return string(MaskKeyShapedTokens([]byte(uuidPattern.ReplaceAllString(body, "[REDACTED]"))))
+	return body
 }
 
 // ParseBearerToken extracts the token from an Authorization: Bearer <token> header.

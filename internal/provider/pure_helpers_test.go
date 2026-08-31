@@ -15,22 +15,22 @@ func TestErrorStatusCode(t *testing.T) {
 	}{
 		{
 			name: "httpError with status code",
-			err:  &httpError{StatusCode: http.StatusForbidden, Body: "forbidden"},
+			err:  &httpError{StatusCode: http.StatusForbidden},
 			want: http.StatusForbidden,
 		},
 		{
 			name: "httpError with 0 status",
-			err:  &httpError{StatusCode: 0, Body: "error"},
+			err:  &httpError{StatusCode: 0},
 			want: 0,
 		},
 		{
 			name: "httpError with 429 status",
-			err:  &httpError{StatusCode: http.StatusTooManyRequests, Body: "too many requests"},
+			err:  &httpError{StatusCode: http.StatusTooManyRequests},
 			want: http.StatusTooManyRequests,
 		},
 		{
 			name: "httpError with 500 status",
-			err:  &httpError{StatusCode: http.StatusInternalServerError, Body: "internal server error"},
+			err:  &httpError{StatusCode: http.StatusInternalServerError},
 			want: http.StatusInternalServerError,
 		},
 		{

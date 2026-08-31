@@ -601,7 +601,7 @@ func TestIsNoAccessError(t *testing.T) {
 
 // Test httpError Error method
 func TestHttpError_Error(t *testing.T) {
-	err := &httpError{StatusCode: http.StatusForbidden, Body: "forbidden"}
+	err := &httpError{StatusCode: http.StatusForbidden}
 	expected := "unexpected status 403"
 	if err.Error() != expected {
 		t.Errorf("httpError.Error() = %q, want %q", err.Error(), expected)

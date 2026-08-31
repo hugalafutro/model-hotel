@@ -115,7 +115,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
-		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
+		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 	if resp.StatusCode != http.StatusOK {
 		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
@@ -276,7 +276,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
-		return nil, &httpError{StatusCode: resp.StatusCode, Body: string(bodyBytes)}
+		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 	if resp.StatusCode != http.StatusOK {
 		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
@@ -325,9 +325,13 @@ func (d *DiscoveryService) discoverXAIFromCatalog(provider *Provider) []*model.M
 }
 
 // httpError wraps an HTTP status code error for no-access detection.
+//
+// The status is the whole signal: Error() renders only that, and the callers
+// read only StatusCode. It carried the response body too, unsanitized and
+// unread by anything, which is a credential one careless format verb away
+// from a log.
 type httpError struct {
 	StatusCode int
-	Body       string
 }
 
 func (e *httpError) Error() string {

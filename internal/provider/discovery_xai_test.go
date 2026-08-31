@@ -63,7 +63,7 @@ func TestIsNoAccessError_Pointer(t *testing.T) {
 }
 
 func TestHTTPError_Error(t *testing.T) {
-	err := &httpError{StatusCode: 418, Body: "I'm a teapot"}
+	err := &httpError{StatusCode: 418}
 	msg := err.Error()
 	if msg != "unexpected status 418" {
 		t.Errorf("Error() = %q, want %q", msg, "unexpected status 418")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"unicode/utf8"
 
@@ -639,16 +640,39 @@ func TestSanitizeLogBody_UUIDRedacted(t *testing.T) {
 	}
 }
 
-func TestSanitizeLogBody_UUIDRedactedAfterTruncation(t *testing.T) {
-	// Body with UUID, truncation first then redaction
+func TestSanitizeLogBody_RedactsBeforeTruncating(t *testing.T) {
+	// Redaction runs first, so an identifier straddling the truncation point is
+	// removed whole rather than left as a recognisable prefix. The old order
+	// truncated first, which cut this UUID in half and let the fragment
+	// "793ac38b-0211-43e6-" through: the regex no longer matched it, so it was
+	// stored verbatim. The same argument is why the credential scrub runs
+	// before the cut.
 	body := "error team 793ac38b-0211-43e6-baa7-aa7054c39931 not found in region us-east-1"
 	result := SanitizeLogBody(body, 30)
-	// After removing runes until len <= 30:
-	// "error team 793ac38b-0211-43e6-" (30 bytes) + "…" (3 bytes) = 33 bytes
-	// The UUID is partial, so regex does not match. Result is unchanged from truncation.
-	expected := "error team 793ac38b-0211-43e6-…"
-	if result != expected {
-		t.Errorf("expected %q, got %q", expected, result)
+
+	if strings.Contains(result, "793ac38b") {
+		t.Errorf("a UUID fragment survived the truncation point: %q", result)
+	}
+	if !strings.Contains(result, "[REDACTED]") {
+		t.Errorf("the identifier was not redacted: %q", result)
+	}
+	if !strings.HasSuffix(result, "…") {
+		t.Errorf("the body was not truncated: %q", result)
+	}
+	if n := len(result); n > 30+len("…") {
+		t.Errorf("result is %d bytes, want the truncation applied after redaction", n)
+	}
+}
+
+// A credential straddling the cut is removed whole for the same reason.
+func TestSanitizeLogBody_ScrubsCredentialAcrossTheTruncationPoint(t *testing.T) {
+	body := "auth failed for key sk-test-1234567890abcdefghij on this account"
+	result := SanitizeLogBody(body, 32)
+	if strings.Contains(result, "sk-test-1234") {
+		t.Errorf("a credential fragment survived the truncation point: %q", result)
+	}
+	if !strings.Contains(result, "[redacted]") {
+		t.Errorf("the credential was not scrubbed: %q", result)
 	}
 }
 

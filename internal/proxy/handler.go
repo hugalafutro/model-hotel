@@ -280,7 +280,7 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	// TPM admission after RPS, mirroring Register. Only the owner stage applies
 	// here: this surface authenticates a dashboard session, so there is no
 	// virtual key to carry a per-key budget, and the per-key stage's fallback
-	// bucket (r.RemoteAddr) has no debit path. The caller's own aggregate cap is
+	// bucket (the resolved client address) has no debit path. The caller's own aggregate cap is
 	// published by api.ChatUserContextMiddleware, which main.go mounts ahead of
 	// this group; without both middlewares a user with a TPM cap would meter
 	// nothing here while their /v1 traffic is capped.
