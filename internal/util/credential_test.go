@@ -30,9 +30,8 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 		// Prose and identifiers keep their text: a match with no digit is not a
 		// credential, and a short tail is not one either.
 		{"prose without digits", "sk_business_unit_identifier_for_billing", false},
-		// The same prose in a body that DOES carry digits elsewhere, so the
-		// whole-body fast path cannot short-circuit it and the per-match digit
-		// rule is what has to spare it.
+		// The same prose beside a number, so it is the per-match digit rule
+		// that has to spare it rather than anything about the body as a whole.
 		{"prose without digits beside a number", "sk_business_unit_identifier_for_billing was charged 42 times", false},
 		{"bearer prose", "Bearer authentication-required", false},
 		{"short tail", "the sk-abc prefix", false},
@@ -72,27 +71,6 @@ func TestMaskKeyShapedTokens_BearerWrappingAJWTIsMaskedWhole(t *testing.T) {
 		if got != "Authorization: [redacted]" {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want the whole token masked", in, got)
 		}
-	}
-}
-
-func TestMaskKeyShapedTokens_TableGuard(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		in     string
-		masked bool
-	}{
-		{"bare jwt still masked", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKK", true},
-		{"google key still masked", "AIzaSyA1234567890abcdefghijklmnopqrstuv", true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			got := string(MaskKeyShapedTokens([]byte(tc.in)))
-			if masked := strings.Contains(got, "[redacted]"); masked != tc.masked {
-				t.Errorf("MaskKeyShapedTokens(%q) = %q, masked=%v want %v", tc.in, got, masked, tc.masked)
-			}
-			if !tc.masked && got != tc.in {
-				t.Errorf("unmasked input was rewritten: %q -> %q", tc.in, got)
-			}
-		})
 	}
 }
 
@@ -141,7 +119,35 @@ func TestSanitizeLogBody_ScrubsCredentials(t *testing.T) {
 	}
 }
 
-// The UUID layer still runs, and truncation still happens before the scrub.
+// Every pattern has to match its own truncated prefix, because the scan window
+// and the caller's own truncation both cut mid-credential. A JWT is the one
+// that needed two dots to match at all, so a long one cut short matched
+// nothing and left its header and payload — the parts carrying the claims — in
+// the output.
+func TestMaskKeyShapedTokens_MasksTruncatedCredentials(t *testing.T) {
+	long := func(prefix string, n int) string { return prefix + strings.Repeat("a", n) }
+	for name, in := range map[string]string{
+		"jwt cut before the signature": "prefix eyJhbGciOiJIUzI1NiJ9." + strings.Repeat("p", 6000),
+		"jwt with no signature at all": "prefix eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+		"very long bearer":             "Authorization: Bearer 1" + strings.Repeat("t", 20000),
+		"very long sk key":             long("sk-1", 20000),
+		"very long google key":         long("AIza1", 20000),
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := string(MaskKeyShapedTokens([]byte(in)))
+			if !strings.Contains(got, "[redacted]") {
+				t.Fatalf("nothing was masked: %.80q", got)
+			}
+			for _, frag := range []string{"eyJhbGciOiJIUzI1NiJ9", "pppppppppp", "tttttttttt", "aaaaaaaaaa"} {
+				if strings.Contains(got, frag) {
+					t.Errorf("a credential fragment survived (%s): %.80q", frag, got)
+				}
+			}
+		})
+	}
+}
+
+// The UUID layer still runs, and truncation still happens, now after the scrub.
 func TestSanitizeLogBody_KeepsItsExistingJobs(t *testing.T) {
 	got := SanitizeLogBody("team 793ac38b-0211-43e6-baa7-aa7054c39931 denied", 10000)
 	if strings.Contains(got, "793ac38b") || !strings.Contains(got, "[REDACTED]") {

@@ -15,9 +15,13 @@ import (
 )
 
 // scrubMargin is how far past maxLen SanitizeLogBody still scans for secrets.
-// It only has to exceed the longest credential, so that one straddling the
-// truncation point is matched whole rather than leaving a head fragment; past
-// that the bytes are discarded and scanning them is pure cost.
+// Past it the bytes are discarded, so scanning them is pure cost.
+//
+// It is a backstop rather than the guarantee: two of the patterns are
+// unbounded at the top end, so no margin can promise to contain them. The
+// guarantee comes from the patterns themselves, each of which matches its own
+// truncated prefix — a credential cut by the window is still recognised as
+// one, and redacted, rather than leaving a head fragment behind.
 const scrubMargin = 4096
 
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)

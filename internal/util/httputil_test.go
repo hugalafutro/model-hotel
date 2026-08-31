@@ -673,7 +673,7 @@ func TestSanitizeLogBody_ScrubIsBoundedByTheOutputSize(t *testing.T) {
 	// A credential far past maxLen+scrubMargin cannot appear in the output, so
 	// it need not be scanned for; what matters is that the prefix is correct
 	// and the call stays cheap.
-	body := "short prefix " + strings.Repeat("x", 4<<20) + " sk-test-1234567890abcdefghij"
+	body := "short prefix " + strings.Repeat("x", 16<<20) + " sk-test-1234567890abcdefghij"
 
 	start := time.Now()
 	got := SanitizeLogBody(body, 200)
@@ -685,9 +685,11 @@ func TestSanitizeLogBody_ScrubIsBoundedByTheOutputSize(t *testing.T) {
 	if n := len(got); n > 200+len("…") {
 		t.Errorf("result is %d bytes, want at most maxLen plus the ellipsis", n)
 	}
-	// Generous: the point is that cost tracks maxLen, not the 4 MB input.
+	// Generous in the passing direction (real cost is microseconds) while
+	// leaving the failing direction a wide margin: an unbounded scan of 16 MB
+	// is seconds, not milliseconds.
 	if elapsed > 250*time.Millisecond {
-		t.Errorf("sanitizing a 4 MB body to 200 bytes took %v: the scrub is scanning past the output", elapsed)
+		t.Errorf("sanitizing a 16 MB body to 200 bytes took %v: the scrub is scanning past the output", elapsed)
 	}
 }
 

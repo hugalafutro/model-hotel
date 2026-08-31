@@ -35,7 +35,14 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 // masked whatever they contain, because the digit veto buys nothing here and
 // costs real coverage: an AWS access key id is AKIA plus sixteen base32
 // characters, and about one in thirty-six of them contains no digit at all.
-var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}`)
+//
+// The JWT signature is optional so that header.payload alone still matches.
+// Every other pattern here matches its own truncated prefix, but a JWT needed
+// BOTH dots, so one cut short — by a truncating caller, or by the scan window
+// in SanitizeLogBody — matched nothing and left its head in the output. The
+// header and payload are the parts that carry claims; requiring the signature
+// to redact them had it backwards.
+var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
 // redact. Keyless local providers carry an empty key and a handful of test or
