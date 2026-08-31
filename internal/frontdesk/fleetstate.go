@@ -85,6 +85,12 @@ type memberFleetFacts struct {
 	// verdict was reached against a build nothing is running any more, and no
 	// pass has re-checked it yet.
 	//
+	// The cost is latency: a hold is re-judged only by an auto-sync pass, so a
+	// primary that really is the odd one out is condemned up to one pass late
+	// (~15s), and longer while passes are not completing at all. The fleet
+	// still reports degraded throughout, never ok, so the delay costs an
+	// escalation's urgency rather than its correctness.
+	//
 	// It matters only for the escalation. A rolling rebuild always produces a
 	// window where the member rebuilt BEFORE the primary is still flagged from
 	// when it disagreed with the OLD primary, while the members rebuilt after
@@ -130,7 +136,7 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 			if m.Held {
 				held++
 			}
-			if m.HeldCurrent {
+			if m.Held && m.HeldCurrent {
 				heldCurrent++
 			}
 		}
@@ -272,15 +278,20 @@ func fleetStateSeverity(st FleetState) int {
 // those reads pass them in so the polled /api/fleet/autosync endpoint does not
 // re-query the store.
 func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, lastSync time.Time, haveSync bool) (FleetState, []string) {
-	statuses := s.poller.Snapshot()
+	// Holds first, then the poller. The two snapshots are taken at different
+	// instants, and this order keeps the only possible skew in the safe
+	// direction: the primary build can be newer than the holds (which reads
+	// them as stale, degrading), never older (which would read fresh holds as
+	// stale and could miss an escalation for a tick).
 	held := s.heldSnapshot()
+	statuses := s.poller.Snapshot()
 	incomplete := s.incompleteSnapshot()
 	facts := make([]memberFleetFacts, 0, len(members))
 	// The build the primary is running right now, as last read by the poller.
 	// A hold judged against a different one has not been re-checked since, so it
 	// cannot say anything about the current primary; see memberFleetFacts.
 	primarySt := statuses[cfg.PrimaryID]
-	primaryBuild := memberBuild{Version: primarySt.Version, Commit: primarySt.Commit}.key()
+	primaryBuild := buildOf(primarySt).key()
 	for _, m := range members {
 		st := statuses[m.ID]
 		heldAgainst, wasHeld := held[m.ID]
@@ -289,7 +300,7 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 			Healthy:     st.Health.Healthy,
 			Drained:     m.State == StateDrained,
 			Syncable:    m.HasToken && m.ID != cfg.PrimaryID,
-			Held:        heldAgainst != "" || wasHeld,
+			Held:        wasHeld,
 			HeldCurrent: wasHeld && heldAgainst == primaryBuild,
 			Incomplete:  incomplete[m.ID],
 		})

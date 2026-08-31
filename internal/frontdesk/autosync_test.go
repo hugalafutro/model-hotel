@@ -766,7 +766,7 @@ func TestDeleteMemberForgetsItsInMemoryState(t *testing.T) {
 		t.Fatalf("create gone: %v", err)
 	}
 
-	srv.syncHeld[gone.ID] = "dev@old"
+	srv.syncHeld[gone.ID] = memberBuild{Version: "dev", Commit: "old"}.key()
 	srv.syncIncomplete[gone.ID] = incompleteState{diverged: true, lastAttempt: time.Now()}
 	srv.backupStale[gone.ID] = true
 

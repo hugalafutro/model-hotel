@@ -26,9 +26,11 @@ func TestFleetState_RollingRebuildDoesNotEscalateOnAStaleHold(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := t.Context()
 
-	const (
-		oldBuild = "dev@b59259c5ceb1"
-		newBuild = "dev@02c834188570"
+	// Derived, never spelled: the key's format is memberBuild's business, and a
+	// test that hardcodes the separator silently stops matching when it changes.
+	var (
+		oldBuild = memberBuild{Version: "dev", Commit: "b59259c5ceb1"}.key()
+		newBuild = memberBuild{Version: "dev", Commit: "02c834188570"}.key()
 	)
 	mk := func(name, url string) *Member {
 		t.Helper()
@@ -47,8 +49,11 @@ func TestFleetState_RollingRebuildDoesNotEscalateOnAStaleHold(t *testing.T) {
 
 	// Everything starts on the old build, healthy, in sync.
 	for _, m := range append([]*Member{primary, first}, rest...) {
-		setMemberBuild(srv, m.ID, "dev", "b59259c5ceb1")
+		// Health first: setHealth assigns a whole MemberStatus and would wipe
+		// the build if it ran second, leaving the fleet on an unknown build and
+		// the first hold stale from birth rather than fresh.
 		setHealth(srv, m.ID, true)
+		setMemberBuild(srv, m.ID, "dev", "b59259c5ceb1")
 	}
 	if state, reasons := fleetStateFor(ctx, t, srv); state != FleetOK {
 		t.Fatalf("a fleet on one build should be ok, got %s %v", state, reasons)
