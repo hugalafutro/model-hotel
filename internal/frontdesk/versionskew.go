@@ -16,8 +16,12 @@ type memberBuild struct {
 
 // key identifies the build for comparing one recorded verdict against another.
 // Both halves, because a fleet whose images all report the "dev" placeholder
-// version is distinguished only by commit. The separator is a byte neither half
-// can contain, so no two different builds can produce the same key.
+// version is distinguished only by commit. The separator is a byte no real
+// version or commit contains, so no two builds a member can honestly report
+// collide. It is not an enforced invariant: both halves are strings a member
+// hands us, and JSON can carry a NUL, so a member that deliberately reported
+// one could collide with another build. That member is already a trusted
+// config target, and the cost is one hold read as fresh when it is stale.
 //
 // Every unknown build shares one key, deliberately. A hold taken while the
 // primary's build could not be read should keep counting for as long as it
