@@ -52,11 +52,18 @@ type ServerConfig struct {
 	MasterKey    string                        // encrypts the TOTP secret at rest
 	RelyingParty *gowa.WebAuthn                // WebAuthn RP (from PUBLIC_ORIGIN); nil disables passkeys
 	IPLimiter    adminauth.IPLimiterMiddleware // per-IP limit on login routes
-	UI           fs.FS                         // embedded SPA; nil disables the UI mount
-	MetricsToken string                        // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
-	TraefikToken string                        // FRONTDESK_TRAEFIK_TOKEN; bearer Traefik's HTTP provider sends when polling /traefik/config (endpoint stays open when empty)
-	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
-	Version      string                        // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
+	// HealthzLimiter bounds the unauthenticated liveness probe. It is separate
+	// from IPLimiter on purpose: sharing one budget would let an anonymous
+	// flood of /healthz exhaust the same IP's allowance for pairing and login,
+	// which turns a probe flood into a login outage. Nil leaves the probe
+	// unlimited, which is the old behaviour and what the tests without a
+	// limiter get.
+	HealthzLimiter adminauth.IPLimiterMiddleware
+	UI             fs.FS  // embedded SPA; nil disables the UI mount
+	MetricsToken   string // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
+	TraefikToken   string // FRONTDESK_TRAEFIK_TOKEN; bearer Traefik's HTTP provider sends when polling /traefik/config (endpoint stays open when empty)
+	LBPort         string // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
+	Version        string // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
 	// CookieSecure controls the Secure attribute on Front Desk auth cookies:
 	// "always" (default), "auto", or "never" for plain-http LAN.
 	CookieSecure string
@@ -87,6 +94,7 @@ type Server struct {
 	alertDisp      *alert.Dispatcher
 	pairing        *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
 	ipLimiter      adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
+	healthzLimiter adminauth.IPLimiterMiddleware // separate budget for the unauthenticated liveness probe
 	trustedProxies []*net.IPNet                  // gates XFF trust for logged/stored client addresses
 	settingsMu     sync.Mutex                    // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
@@ -257,6 +265,7 @@ func NewServer(cfg ServerConfig) *Server {
 		cookieSecure:    cookieSecure,
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
+		healthzLimiter:  cfg.HealthzLimiter,
 		trustedProxies:  cfg.TrustedProxies,
 		rearmCh:         make(chan struct{}),
 		syncHeld:        make(map[string]bool),
@@ -485,7 +494,26 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 	// purpose: it must keep answering when FRONTDESK_TRAEFIK_TOKEN gates the
 	// config endpoint, so it discloses nothing and only proves the server and
 	// its store answer.
-	r.Get("/healthz", s.handleHealthz)
+	//
+	// It is also not free: each hit runs the same two store reads a Traefik
+	// config poll does (see handleHealthz), deliberately, so the probe fails
+	// exactly when a poll would. That makes line-rate anonymous probing a way
+	// to spend the control plane's CPU, and the cost grows with the fleet's
+	// member count. Its own per-IP budget bounds that. The budget is separate
+	// from the login limiter's so a probe flood cannot spend the allowance
+	// pairing and login need from the same address, and it is far above the
+	// 30-second container HEALTHCHECK cadence.
+	//
+	// Throttling rather than caching: the gateway's /health caches for two
+	// seconds, but TestHealthzTracksTraefikConfigDependencies pins per-request
+	// freshness here, and a cached answer would delay a degraded-store report
+	// past the point a Traefik poll would have failed.
+	r.Group(func(r chi.Router) {
+		if s.healthzLimiter != nil {
+			r.Use(s.healthzLimiter.Middleware)
+		}
+		r.Get("/healthz", s.handleHealthz)
+	})
 
 	// Prometheus scrape endpoint. Outside /api (matching the main server's
 	// mount) and never rate-limited by IP so scrapers aren't throttled; auth
