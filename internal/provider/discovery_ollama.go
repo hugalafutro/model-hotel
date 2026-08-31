@@ -138,7 +138,10 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama show model failed with status", "model", modelName, "status", resp.StatusCode, "body", string(respBody))
+		// Sanitized like every sibling discovery path: an upstream that quotes
+		// the operator's key back in an auth failure would otherwise put it in
+		// app_logs verbatim, and from there into the OTLP export.
+		debuglog.Error("discovery: ollama show model failed with status", "model", modelName, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(respBody), 2000)))
 		return nil, fmt.Errorf("show failed for %s: status %d", modelName, resp.StatusCode)
 	}
 

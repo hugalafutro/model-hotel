@@ -23,7 +23,16 @@ import (
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
-// SanitizeLogBody truncates and redacts UUIDs from log body strings.
+// SanitizeLogBody truncates a log body, redacts UUIDs, and scrubs key-shaped
+// tokens.
+//
+// The credential layer is here rather than at each caller because this is the
+// function every path outside internal/proxy already reaches for before
+// writing an upstream body to a log or a column, and the one thing it did not
+// remove was the thing that matters most: an upstream that quotes the
+// operator's own key back in an auth failure. Callers that hold the decrypted
+// key should run MaskCredential over the result as well, which adds an exact
+// match for key shapes this list cannot anticipate.
 func SanitizeLogBody(body string, maxLen int) string {
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
@@ -33,7 +42,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 		}
 		body += "…"
 	}
-	return uuidPattern.ReplaceAllString(body, "[REDACTED]")
+	return string(MaskKeyShapedTokens([]byte(uuidPattern.ReplaceAllString(body, "[REDACTED]"))))
 }
 
 // ParseBearerToken extracts the token from an Authorization: Bearer <token> header.
