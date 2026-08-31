@@ -69,7 +69,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `circuit_breaker_quota_pin_enabled` | `true` | When a circuit opens because the provider's quota window is spent, pin its cooldown to the provider's real reset deadline instead of retrying every cooldown. Turning it off also releases a pin already in force. |
 | `circuit_breaker_quota_pin_max` | `24h0m0s` | Ceiling on how far out a quota pin may push the cooldown. A non-positive value restores the default rather than disabling pinning. |
 | `circuit_breaker_backoff_enabled` | `true` | Double an open circuit's cooldown for every half-open retry that fails, so a model that stays broken is retried less and less often. A retry that succeeds resets it. Turning it off also releases a backoff already in force. |
-| `circuit_breaker_backoff_max` | `1h0m0s` | Ceiling the backed-off cooldown may grow to. A non-positive value restores the default rather than disabling backoff. |
+| `circuit_breaker_backoff_max` | `15m0s` | Ceiling the backed-off cooldown may grow to. A non-positive value restores the default rather than disabling backoff; a value at or below the cooldown leaves backoff nothing to add. |
 | `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var. |
 | `pwned_password_check_enabled` | `true` | Runtime toggle for breached-password screening. Overridden by the `PWNED_PASSWORD_CHECK_ENABLED` env var: if the env var is `false`, this setting has no effect. Lets an operator turn the check off without a redeploy. |
 | `rate_limit_ip_rps` | `30` | Per-IP requests per second. |

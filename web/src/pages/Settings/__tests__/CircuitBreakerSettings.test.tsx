@@ -793,7 +793,7 @@ describe("CircuitBreakerSettings", () => {
 			});
 		});
 
-		it("renders the backoff ceiling as 60 minutes when circuit_breaker_backoff_max is absent or stored as a non-positive duration", async () => {
+		it("renders the backoff ceiling as 15 minutes when circuit_breaker_backoff_max is absent or stored as a non-positive duration", async () => {
 			server.use(
 				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
 			);
@@ -801,11 +801,11 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("60");
+				expect(backoffMaxSlider().value).toBe("15");
 			});
 			absent.unmount();
 
-			// The breaker reads a non-positive ceiling as unset and applies 1h, so
+			// The breaker reads a non-positive ceiling as unset and applies 15m, so
 			// the slider must show the ceiling actually in force.
 			server.use(
 				...mockSettings({
@@ -819,8 +819,21 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("60");
+				expect(backoffMaxSlider().value).toBe("15");
 			});
+		});
+
+		it("disables both backoff controls while the circuit breaker itself is off", async () => {
+			server.use(
+				...mockSettings({ body: { circuit_breaker_enabled: "false" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffToggle()).toBeDisabled();
+			});
+			expect(backoffMaxSlider()).toBeDisabled();
 		});
 
 		it("clamps a stored circuit_breaker_backoff_max above the slider maximum so both halves of the control agree", async () => {
@@ -841,9 +854,9 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("1440");
+				expect(backoffMaxSlider().value).toBe("240");
 			});
-			expect(backoffMaxNumberBox().value).toBe("1440");
+			expect(backoffMaxNumberBox().value).toBe("240");
 			// Clamping is display only: rendering must never write storage back.
 			expect(putCalled).toBe(false);
 		});
@@ -853,7 +866,7 @@ describe("CircuitBreakerSettings", () => {
 				...mockSettings({
 					body: {
 						circuit_breaker_enabled: "true",
-						circuit_breaker_backoff_max: "3h0m0s",
+						circuit_breaker_backoff_max: "2h0m0s",
 					},
 				}),
 			);
@@ -861,7 +874,7 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("180");
+				expect(backoffMaxSlider().value).toBe("120");
 			});
 		});
 
@@ -872,7 +885,7 @@ describe("CircuitBreakerSettings", () => {
 				...mockSettings({
 					body: {
 						circuit_breaker_enabled: "true",
-						circuit_breaker_backoff_max: "1h0m0s",
+						circuit_breaker_backoff_max: "15m0s",
 					},
 				}),
 				http.put("/api/settings", async ({ request }) => {
@@ -892,7 +905,7 @@ describe("CircuitBreakerSettings", () => {
 			);
 
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("60");
+				expect(backoffMaxSlider().value).toBe("15");
 			});
 
 			const slider = backoffMaxSlider();

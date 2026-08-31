@@ -578,6 +578,8 @@ A provider is skipped for **every** model when either of these holds:
 
 Nothing stores that verdict; it is recomputed from the circuits on every read, so it cannot go stale against a cooldown that elapsed a moment ago. A circuit owed a probe blocks nothing, so it counts towards neither the verdict nor the list of models beside it.
 
+That also means the verdict holds for exactly as long as its blocking circuits do. With [probe backoff](#probe-backoff) on, a circuit whose probes keep failing stays inside its cooldown for up to `circuit_breaker_backoff_max` at a stretch, and a provider indicted by two such circuits stays skipped for that long too, healthy siblings included, rather than clearing for a probe every `circuit_breaker_cooldown`. The 15-minute default ceiling is chosen with that in mind.
+
 The span default of `2` is the smallest number that requires corroboration: one model refusing is evidence about that model, two models refusing is evidence about the provider. Setting it to `1` restores the older behaviour, where the first open circuit sidelines the whole provider, and is the escape hatch if you want that back.
 
 The dashboard reads it the same way. The **red number** in the Failover nav badge counts providers the breaker is skipping - the derived verdict, read off the `provider_open` field of the detail rows - and the amber number beside it counts providers that hold an open or probing circuit but are still routing. The status endpoint's own `closed` / `half_open` / `open` counts are per-circuit-state tallies of the most degraded circuit per provider, which is a different question: a provider serving three models with one dark appears under `open` there and in the **amber** number here.
@@ -623,7 +625,7 @@ These are treated as user-side cancellations rather than provider health issues.
 | `circuit_breaker_quota_pin_enabled` | bool | `true` | When a provider's circuit opens because its quota window is spent, pin the cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`. |
 | `circuit_breaker_quota_pin_max` | duration | `24h` | Ceiling on how far out a quota pin may push the cooldown. |
 | `circuit_breaker_backoff_enabled` | bool | `true` | Double an open circuit's cooldown for every half-open probe that fails, so a model that stays broken is retried less and less often. Turning it off also releases a backoff already in force. |
-| `circuit_breaker_backoff_max` | duration | `1h` | Ceiling the backed-off cooldown may grow to. A non-positive value restores the default rather than disabling backoff. |
+| `circuit_breaker_backoff_max` | duration | `15m` | Ceiling the backed-off cooldown may grow to. A non-positive value restores the default rather than disabling backoff; a value at or below `circuit_breaker_cooldown` leaves backoff nothing to add. |
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 
@@ -642,21 +644,23 @@ Four behaviours are worth knowing before you reach for these controls:
 - **Turning pinning off releases a pin that is already in force.** The kill switch is re-read on every check rather than only when a circuit opens, so an operator whose provider has been sidelined for hours can recover it by flipping `circuit_breaker_quota_pin_enabled` to `false`. Allow up to about 30 seconds for the change to reach the proxy: settings are cached with a 30 second TTL, so the release is not instantaneous.
 - **Setting the maximum to zero does not disable pinning.** A non-positive `circuit_breaker_quota_pin_max` is treated as unset and falls back to the 24h default. `circuit_breaker_quota_pin_enabled` is the off switch; the ceiling only bounds how long a pin may last.
 
-Between them, these give you three ways out of a long cooldown, from least to most blunt: wait for the poller to notice (automatic, up to one poll interval), reset the one provider whose circuit you want back (immediate, see [Resetting a circuit](#resetting-a-circuit)), or turn pinning off fleet-wide (releases every pin at once). Disabling quota polling altogether releases every pin as well, but it also blinds the quota dashboard, so reach for `circuit_breaker_quota_pin_enabled` when pinning is the only thing you want stopped.
+Between them, these give you three ways out of a long pin, from least to most blunt: wait for the poller to notice (automatic, up to one poll interval), reset the one provider whose circuit you want back (immediate, see [Resetting a circuit](#resetting-a-circuit)), or turn pinning off fleet-wide (releases every pin at once). Only the reset also clears a [probe backoff](#probe-backoff); the other two release the pin into whatever backoff the circuit had earned. Disabling quota polling altogether releases every pin as well, but it also blinds the quota dashboard, so reach for `circuit_breaker_quota_pin_enabled` when pinning is the only thing you want stopped.
 
 #### Probe backoff
 
-The half-open probe is not a synthetic health check: `IsOpen` hands it to the next real request for that model, and if the model is still broken that request fails before failover moves on. At the default 60s cooldown a model that stays broken all day therefore costs about 1,440 failed real requests, one per cooldown, and `circuit_breaker.unstable` only reports that waste. Probe backoff removes most of it: every probe that fails doubles the cooldown before the next one, and a probe that succeeds closes the circuit and resets the count. At the defaults the waits run 1, 2, 4, 8, 16, 32 minutes and then hold at the `circuit_breaker_backoff_max` ceiling of an hour, so the same broken model costs a couple of dozen failed requests a day, and a model fixed upstream is back in rotation within the hour with nobody touching anything.
+The half-open probe is not a synthetic health check: `IsOpen` hands it to the next real request for that model, and if the model is still broken that request fails before failover moves on (or, when the model has no healthy sibling in its group, fails outright). At the default 60s cooldown a model that stays broken all day therefore wastes about 1,440 real requests, one per cooldown, and `circuit_breaker.unstable` only reports that waste. Probe backoff removes most of it: every probe that fails doubles the cooldown before the next one, and a probe that succeeds closes the circuit and resets the count. At the defaults the waits run 1, 2, 4, 8 minutes and then hold at the `circuit_breaker_backoff_max` ceiling of 15 minutes, so the same broken model wastes under a hundred requests a day, and a model fixed upstream is back in rotation within a quarter of an hour with nobody touching anything.
+
+The ceiling is deliberately not longer. A probe is the only way a model with no healthy sibling ever gets tried again, so the ceiling is also the longest such a model can stay unreachable after it has actually recovered; and the provider-wide verdict holds for as long as its blocking circuits do, so it bounds how long a partially broken provider's healthy models stay skipped as well. Raise it if you would rather retry less often and can wait longer for a recovery to be noticed.
 
 What counts is a **failed probe**, not an open: a circuit that closes on a successful probe and is later charged back to threshold by fresh failures is a new incident and starts again from the base cooldown. That is deliberate. Doubling on every open would slow the recovery of a model that had two real, separate outages in one day, which is exactly the model an operator wants back promptly.
 
 Three things are worth knowing:
 
-- **A quota pin outranks a backoff, and can never shorten one.** A pin is floored at the cooldown actually in force when it is stamped, so a quota reading that says the window resets in fifteen minutes does not pull a forty-minute backoff in; only a reading further out than the backoff pins. When a pin is lifted early, the circuit falls back to its backoff, not to the base cooldown: a provider that recovered its quota is still a provider whose probes failed.
-- **Turning backoff off releases a backoff already in force.** Like the quota-pin switch, `circuit_breaker_backoff_enabled` is re-read on every check, so flipping it off puts every backed-off circuit back on `circuit_breaker_cooldown` within the settings cache TTL (about 30 seconds). Flipping it back on restores the backoff those circuits had already earned. The failed-probe count is kept either way, and the status API reports it whether or not it governs anything.
-- **Setting the ceiling to zero does not disable backoff.** A non-positive `circuit_breaker_backoff_max` restores the default of one hour; a ceiling at or below `circuit_breaker_cooldown` leaves backoff with nothing to add and is the same as off. `circuit_breaker_backoff_enabled` is the switch.
+- **The longest cooldown in force governs, and a pin is floored at the backoff.** A circuit can carry a quota pin and a backoff at once; it serves whichever reaches further, and `quota_pinned` and `backed_off` each say whether their override is in force. A pin is floored at the cooldown in force when it is stamped, after the `circuit_breaker_quota_pin_max` ceiling has been applied, so a quota reading that says the window resets in three minutes does not pull a four-minute backoff in, and neither does a low pin ceiling; only a reading further out than the backoff pins, and then the pin is the longest. When a pin is lifted early, the circuit falls back to its backoff, not to the base cooldown: a provider that recovered its quota is still a provider whose probes failed. Raising `circuit_breaker_cooldown` past a backoff stamped earlier makes the new cooldown govern, and the row stops claiming a backoff.
+- **Turning backoff off releases a backoff already in force.** Like the quota-pin switch, `circuit_breaker_backoff_enabled` is re-read on every check, so flipping it off puts every backed-off circuit back on `circuit_breaker_cooldown` within the settings cache TTL (about 30 seconds). The failed-probe count keeps accruing while the switch is off, and flipping it back on applies the backoff those failures have earned by then; the status API reports the count whether or not it governs anything.
+- **Setting the ceiling to zero does not disable backoff.** A non-positive `circuit_breaker_backoff_max` restores the default of 15 minutes; a ceiling at or below `circuit_breaker_cooldown` leaves backoff with nothing to add and is the same as off. `circuit_breaker_backoff_enabled` is the switch.
 
-Every surface derives from the same predicate, so they cannot disagree. The status API's `cooldown_ms` and `next_retry_at` are the backed-off values, `backed_off` says that is why, and `failed_probes` says how many times. The `circuit_breaker.open` event and its log line carry the same three, and a `quota pin released` log line reports the cooldown the circuit actually falls back to. Resetting a circuit (below) clears the count with everything else.
+Every surface derives from the same predicate. The status API's `cooldown_ms` and `next_retry_at` are the backed-off values, `backed_off` says that is why, and `failed_probes` says how many times. The `circuit_breaker.open` event carries all four and says so in its message (`... (backing off after 3 failed retries, next retry in 8m)`), which is what an outbound alert renders; the log line carries the flag, the count and the cooldown; and a `quota pin released` log line reports the cooldown the circuit actually falls back to. Resetting a circuit (below) clears the count with everything else. The Prometheus gauge is unchanged: it buckets by state and cannot tell a 60-second circuit from a fifteen-minute one.
 
 ### SSE Events
 
@@ -696,16 +700,17 @@ These events appear in the real-time sidebar and dashboard.
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name |
 | `model` | string | always | The resolved upstream model id whose circuit changed state |
-| `model_id` | string | always | The same value as `model`, carried separately because it is the identity outbound alerts debounce on: without it two models opening on one provider inside the alert cooldown would collapse to one notification |
+| `model_id` | string | unless `provider_open` is `true` | The same value as `model`, carried separately because it is the identity outbound alerts debounce on: without it two models opening on one provider inside the alert cooldown would collapse to one notification. Omitted once the provider itself is skipped, because then the outage is one fact however many models it reaches, and alerts fall back to debouncing on `provider_id` |
 | `state` | string | always | `open` or `closed` |
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped, derived from how many of its model circuits are open (see `circuit_breaker_span_models`) |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
-| `quota_pinned` | bool | always | `true` when a quota reset deadline, not `circuit_breaker_cooldown`, is governing this circuit |
-| `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
-| `backed_off` | bool | always | `true` when the probe backoff, not `circuit_breaker_cooldown`, is governing this circuit (see [Probe backoff](#probe-backoff)); a quota pin outranks it |
+| `quota_pinned` | bool | always | `true` when a quota reset deadline is in force on this circuit |
+| `backed_off` | bool | always | `true` when the probe backoff is in force on this circuit (see [Probe backoff](#probe-backoff)); the longer of the two overrides governs |
 | `failed_probes` | int | always | Half-open probes that failed since the circuit last closed; `0` on a first open |
+| `cooldown_ms` | int | on `open` | The cooldown actually enforced, whichever override produced it |
+| `next_retry_at` | string (RFC3339) | on `open`, when `quota_pinned` or `backed_off` is `true` | When the circuit is next eligible to probe |
 
-`next_retry_at` is the clamped and jittered **retry deadline, not the provider's quota reset time** - a weekly quota that resets days out still yields a `next_retry_at` at the `circuit_breaker_quota_pin_max` ceiling. It is the same value the circuit-breaker status API publishes under that name.
+`next_retry_at` is the **retry deadline, not the provider's quota reset time**: under a pin it is the clamped and jittered pin, so a weekly quota that resets days out still yields a `next_retry_at` at the `circuit_breaker_quota_pin_max` ceiling, and under a backoff it is the doubled cooldown. It is the same value the circuit-breaker status API publishes under that name.
 
 ```go
 // internal/failover/circuitbreaker.go:publishEvent
@@ -713,22 +718,31 @@ meta := map[string]any{
     "provider_id":       providerID.String(),
     "provider":          providerName,
     "model":             model,
-    "model_id":          model,
     "state":             state,
     "provider_open":     providerOpen,
     "consecutive_fails": c.consecutiveFails,
     "quota_pinned":      pinned,
-    "backed_off":        cb.backedOffFor(c),
+    "backed_off":        backedOff,
     "failed_probes":     c.failedProbes,
 }
-if pinned {
-    meta["next_retry_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
+if !providerOpen {
+    meta["model_id"] = model
+}
+if state == "open" {
+    meta["cooldown_ms"] = cooldown.Milliseconds()
+    if pinned || backedOff {
+        meta["next_retry_at"] = c.openedAt.Add(cooldown).Format(time.RFC3339)
+    }
+}
+msg := breakerEventMessage(providerName, state, model, providerOpen)
+if state == "open" && backedOff {
+    msg += backoffSuffix(cooldown, c.failedProbes)
 }
 events.Publish(events.Event{
     Type:     "circuit_breaker." + state,
     Severity: cb.severityForState(state),
     Source:   "failover",
-    Message:  breakerEventMessage(providerName, state, model, providerOpen),
+    Message:  msg,
     Metadata: meta,
 })
 ```

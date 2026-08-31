@@ -15,7 +15,7 @@ import (
 // shortens back) the cooldown of a circuit that is already open. The open
 // transition stamps a pin (applyQuotaPin), the quota poller retargets and
 // releases them (ApplyQuotaPins, ReleaseQuotaPins, ReleaseAllQuotaPins), and
-// every read goes through quotaPinnedFor in model_circuits.go.
+// every read goes through quotaPinnedForWith in model_circuits.go.
 
 // applyQuotaPin sets c.cooldownOverride when the provider's quota window is
 // spent and resets further out than the cooldown already in force. Must be
@@ -24,14 +24,18 @@ import (
 // must never make the breaker more aggressive, and a backed-off circuit is one
 // the breaker has already decided to leave alone for longer.
 //
-// Clamp order is floor, then ceiling, then jitter. Jitter is positive only:
-// a negative offset would probe before the window actually resets, which is a
-// guaranteed 429 and precisely the waste this exists to avoid. The ceiling is
-// applied before jitter, so quotaPinMax() is a pre-jitter cap, not a hard one —
-// e.g. the default 24h ceiling can yield up to ~25.2h once jitter is added.
-// This order must not be reversed: jittering before capping would let two
-// providers pinned at the ceiling collide on the same retry instant, which is
-// exactly the fleet stampede jitter exists to prevent.
+// Clamp order is ceiling, then floor, then jitter, the same order ApplyQuotaPins
+// uses and for the same reason: a pin has to be compared against the floor
+// AFTER the ceiling has been applied, or a ceiling below the cooldown in force
+// (a quota_pin_max of ten minutes against a backed-off half hour) would stamp a
+// pin that shortens the wait the floor exists to protect. Jitter is positive
+// only: a negative offset would probe before the window actually resets, which
+// is a guaranteed 429 and precisely the waste this exists to avoid. The ceiling
+// is applied before jitter, so quotaPinMax() is a pre-jitter cap, not a hard
+// one — e.g. the default 24h ceiling can yield up to ~25.2h once jitter is
+// added. Jittering before capping would let two providers pinned at the
+// ceiling collide on the same retry instant, which is exactly the fleet
+// stampede jitter exists to prevent.
 func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 	c.cooldownOverride = 0
 	if cb.quota == nil || !cb.quotaPinEnabled() {
@@ -42,11 +46,11 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 		return
 	}
 	d := time.Until(resetsAt)
-	if d <= cb.unpinnedCooldownWith(c, cb.effectiveCooldown()) {
-		return // floor: pinning must never make the breaker more aggressive
-	}
 	if maxPin := cb.quotaPinMax(); d > maxPin {
 		d = maxPin
+	}
+	if d <= cb.unpinnedCooldownWith(c, cb.cooldowns()) {
+		return // floor: pinning must never make the breaker more aggressive
 	}
 	if spread := int64(d / 20); spread > 0 {
 		d += time.Duration(rand.Int64N(spread + 1))
@@ -79,9 +83,9 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	// Read once outside the loop: this runs on the quota poll goroutine every
-	// few minutes and the value is identical for every circuit.
-	base := cb.effectiveCooldown()
+	// One walk's reads for the loop: this runs on the quota poll goroutine every
+	// few minutes and the values are identical for every circuit.
+	r := cb.cooldowns()
 
 	// Walk the recovered set rather than every circuit: it is the smaller side
 	// (a fleet has few providers recovering per pass), and the circuits map is
@@ -94,7 +98,7 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin("circuit-breaker: quota pin released (provider no longer exhausted)", id, model, c, base)
+			cb.releasePin("circuit-breaker: quota pin released (provider no longer exhausted)", id, model, c, r)
 			released++
 		}
 	}
@@ -133,9 +137,9 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	if len(advice) == 0 || !cb.quotaPinEnabled() {
 		return 0
 	}
-	base := cb.effectiveCooldown()
-	// Hoisted with base: both read settings, and a cold settings cache turns that
-	// into a DB round trip under cb.mu held for write.
+	r := cb.cooldowns()
+	// Hoisted with the walk's reads: it is a settings read too, and a cold
+	// settings cache turns that into a DB round trip under cb.mu held for write.
 	maxPin := cb.quotaPinMax()
 
 	// Walk the advice rather than every circuit, for the same reason
@@ -144,7 +148,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	retargeted := 0
 	for providerID, resetsAt := range advice {
 		for model, c := range cb.circuits[providerID.String()] {
-			if cb.logicalStateWith(c, base) != StateOpen {
+			if cb.logicalStateWith(c, r) != StateOpen {
 				continue
 			}
 			// Measured from openedAt, because that is what the enforced cooldown is
@@ -154,15 +158,16 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 			// reset" would expire that much too early and probe before the window
 			// rolls over.
 			d := resetsAt.Sub(c.openedAt)
-			// Ceiling first, so a clamped value is compared against the floors
-			// rather than smuggled past them: capping after those checks could
-			// shorten a pin that is already longer.
+			// Ceiling first, so a clamped value is compared against the floor
+			// rather than smuggled past it: capping after the check could shorten
+			// a wait that is already longer.
 			if d > maxPin {
 				d = maxPin
 			}
-			// One comparison covers every floor: the cooldown in force is the
-			// pin when one governs, else the backoff, else base.
-			if d <= cb.effectiveCooldownForWith(c, base) {
+			// One comparison covers every floor: the cooldown in force is never
+			// less than the configured one, is the backoff when one governs, and is
+			// the pin already stamped when that reaches further still.
+			if d <= cb.effectiveCooldownForWith(c, r) {
 				continue
 			}
 			if spread := int64(d / 20); spread > 0 {
@@ -200,7 +205,7 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	base := cb.effectiveCooldown()
+	r := cb.cooldowns()
 
 	released := 0
 	for id, models := range cb.circuits {
@@ -208,7 +213,7 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin("circuit-breaker: quota pin released (quota polling disabled)", id, model, c, base)
+			cb.releasePin("circuit-breaker: quota pin released (quota polling disabled)", id, model, c, r)
 			released++
 		}
 	}
@@ -222,11 +227,11 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 //
 // The open transition logged a cooldown_ms that may have promised hours of
 // darkness, so the line that says it ended early is logged at the same Info
-// level the half-open→closed recovery uses. Routing metadata only — never
-// payload or credentials. Must be called with cb.mu held.
-func (cb *CircuitBreaker) releasePin(msg, providerID, model string, c *circuit, base time.Duration) {
+// level the half-open→closed recovery uses. cooldown_ms is the wait the circuit
+// falls back to, which is its backoff when one is in force: a recovered quota
+// does not undo the probes that failed. Routing metadata only — never payload
+// or credentials. Must be called with cb.mu held.
+func (cb *CircuitBreaker) releasePin(msg, providerID, model string, c *circuit, r *cooldownReads) {
 	c.cooldownOverride = 0
-	// cooldown_ms is the wait the circuit falls back to, which is its backoff
-	// when one is in force: a recovered quota does not undo the probes that failed.
-	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalStateWith(c, base).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, base).Milliseconds(), "model", model)
+	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalStateWith(c, r).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, r).Milliseconds(), "model", model)
 }

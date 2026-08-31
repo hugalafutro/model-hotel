@@ -212,7 +212,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 		cb.mu.RUnlock()
 		return open
 	}
-	if cb.stillDark(c, cb.effectiveCooldown()) {
+	if cb.stillDark(c, cb.cooldowns()) {
 		cb.mu.RUnlock()
 		return true
 	}
@@ -230,7 +230,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	if !ok {
 		return false
 	}
-	if c = models[model]; c != nil && c.state == StateOpen && !cb.stillDark(c, cb.effectiveCooldown()) {
+	if c = models[model]; c != nil && c.state == StateOpen && !cb.stillDark(c, cb.cooldowns()) {
 		c.state = StateHalfOpen
 		c.halfOpenProbes = 0
 		debuglog.Info("circuit-breaker: model state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID, "model", model)
@@ -297,8 +297,10 @@ func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, provider
 	// the backoff once one is stamped.
 	cb.applyBackoff(c)
 	cb.applyQuotaPin(providerID, c)
-	debuglog.Warn(msg, "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c), "backed_off", cb.backedOffFor(c), "failed_probes", c.failedProbes, "model", model)
-	cb.publishEvent(providerID, providerName, "open", model, c)
+	// One walk for the log line and the event, so the two cannot disagree.
+	r := cb.cooldowns()
+	debuglog.Warn(msg, "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownForWith(c, r).Milliseconds(), "quota_pinned", cb.quotaPinnedForWith(c, r), "backed_off", cb.backedOffForWith(c, r), "failed_probes", c.failedProbes, "model", model)
+	cb.publishEvent(providerID, providerName, "open", model, c, r)
 	if c.noteOpen(now) {
 		cb.reportUnstable(providerID, providerName, model, c.opens)
 	}
@@ -383,33 +385,30 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName, mode
 			c.failedProbes = 0
 			c.cooldownBackoff = 0
 			debuglog.Info("circuit-breaker: model state=half-open→closed (probe succeeded)", "provider", providerName, "provider_id", providerID, "model", model)
-			cb.publishEvent(providerID, providerName, "closed", model, c)
+			cb.publishEvent(providerID, providerName, "closed", model, c, cb.cooldowns())
 		}
 	}
 }
 
-// publishEvent fires an SSE event for circuit breaker state transitions.
-// Must be called with cb.mu held.
-func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state, model string, c *circuit) {
-	// quota_pinned reports the override currently governing this circuit, not a
-	// claim about whether the circuit is blocking traffic right now — the same
-	// predicate ProviderStatus.QuotaPinned uses. With the default
+// publishEvent fires an SSE event for circuit breaker state transitions. r is
+// the walk the caller already started, so the flags here are the ones its log
+// line reported. Must be called with cb.mu held.
+func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state, model string, c *circuit, r *cooldownReads) {
+	// quota_pinned and backed_off report the overrides currently governing this
+	// circuit, not a claim about whether the circuit is blocking traffic right
+	// now — the same predicates ProviderStatus uses. With the default
 	// HalfOpenMaxProbes of 1 the distinction never surfaces, but a half-open
 	// circuit that has banked a probe still carries its override until
 	// RecordSuccess closes it.
-	pinned := cb.quotaPinnedFor(c)
+	pinned := cb.quotaPinnedForWith(c, r)
+	backedOff := cb.backedOffForWith(c, r)
+	cooldown := cb.effectiveCooldownForWith(c, r)
 	providerOpen := cb.providerOpen(cb.circuits[providerID.String()])
 	meta := map[string]any{
 		"provider_id": providerID.String(),
 		"provider":    providerName,
 		"model":       model,
-		// model_id repeats model as the identity the alert dispatcher debounces
-		// on. The event is about one model circuit, and without this key the most
-		// specific identity present is provider_id, so two models opening on one
-		// provider inside the dispatcher's window collapse to one alert and the
-		// second is silently dropped.
-		"model_id": model,
-		"state":    state,
+		"state":       state,
 		// provider_open is the derived verdict as it stands after this
 		// transition. The event names one model, and at the default span of 2 the
 		// first model to open leaves the provider serving everything else, so
@@ -420,23 +419,71 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		"quota_pinned":      pinned,
 		// backed_off and failed_probes explain a cooldown longer than the
 		// setting: the flag is what governs, the count is what happened.
-		"backed_off":    cb.backedOffFor(c),
+		"backed_off":    backedOff,
 		"failed_probes": c.failedProbes,
 	}
-	if pinned {
-		// next_retry_at, not "resets_at": this is openedAt plus the ceiling-clamped
-		// and jittered pin, i.e. exactly the instant the status API publishes under
-		// that name — not the provider's quota reset, which on a weekly plan lies
+	// model_id is the identity the alert dispatcher debounces on, and it is
+	// carried only while the provider is still serving. Then the event is about
+	// one model, and keying it on the provider would let the first model to fail
+	// suppress every sibling that fails beside it. Once the verdict says the
+	// provider itself is skipped, the event is about the provider: the verdict
+	// lapses every time a blocking circuit's cooldown elapses, which lets one
+	// more sibling through to fail and open, and a fifty-model provider outage
+	// keyed per model would notify fifty times inside one alert window for what
+	// is one fact. Without the key the dispatcher falls back to provider_id.
+	if !providerOpen {
+		meta["model_id"] = model
+	}
+	if state == "open" {
+		// cooldown_ms is the wait actually enforced. next_retry_at accompanies
+		// it whenever something other than the configured cooldown governs, so
+		// a consumer never has to add the two itself, and it is deliberately not
+		// called "resets_at": under a pin it is openedAt plus the ceiling-clamped
+		// and jittered pin, exactly the instant the status API publishes under
+		// that name, not the provider's quota reset, which on a weekly plan lies
 		// days beyond a 24h-capped pin.
-		meta["next_retry_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
+		meta["cooldown_ms"] = cooldown.Milliseconds()
+		if pinned || backedOff {
+			meta["next_retry_at"] = c.openedAt.Add(cooldown).Format(time.RFC3339)
+		}
+	}
+	msg := breakerEventMessage(providerName, state, model, providerOpen)
+	if state == "open" && backedOff {
+		msg += backoffSuffix(cooldown, c.failedProbes)
 	}
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
 		Source:   "failover",
-		Message:  breakerEventMessage(providerName, state, model, providerOpen),
+		Message:  msg,
 		Metadata: meta,
 	})
+}
+
+// backoffSuffix extends the open message when the probe backoff governs. The
+// message is all an outbound alert renders, so without it the notification for
+// a circuit fifteen minutes from its next retry is byte-identical to one sixty
+// seconds from it, and the operator has no way to tell a blip from a model that
+// has been failing its retries all afternoon.
+func backoffSuffix(cooldown time.Duration, failedProbes int) string {
+	noun := "retries"
+	if failedProbes == 1 {
+		noun = "retry"
+	}
+	return fmt.Sprintf(" (backing off after %d failed %s, next retry in %s)", failedProbes, noun, shortDuration(cooldown))
+}
+
+// shortDuration renders a cooldown the way an operator reads it: "4m" rather
+// than Duration.String's "4m0s", and "1h" rather than "1h0m0s".
+func shortDuration(d time.Duration) string {
+	switch {
+	case d >= time.Hour && d%time.Hour == 0:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	case d >= time.Minute && d%time.Minute == 0:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	default:
+		return d.Round(time.Second).String()
+	}
 }
 
 // breakerEventMessage is the sentence an operator reads in a dashboard toast and
@@ -478,26 +525,26 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
-	// Read once for the whole scan, not once per circuit: this is the Prometheus
-	// scrape path, it holds the lock the request path takes, and a deployment that
-	// never overrode the cooldown has no settings row to cache, so every read is a
-	// DB round trip. Everything below takes the hoisted value.
-	base := cb.effectiveCooldown()
+	// One walk's reads for the whole scan, not per circuit: this is the
+	// Prometheus scrape path, it holds the lock the request path takes, and a
+	// deployment that never overrode a key has no settings row to cache, so every
+	// read is a DB round trip. Everything below takes the hoisted reads.
+	r := cb.cooldowns()
 
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, models := range cb.circuits {
-		c := cb.dominant(models, base)
+		c := cb.dominant(models, r)
 		if c == nil {
 			continue
 		}
-		cooldown := cb.effectiveCooldownForWith(c, base)
-		state := cb.logicalStateWith(c, base)
+		cooldown := cb.effectiveCooldownForWith(c, r)
+		state := cb.logicalStateWith(c, r)
 		// quotaPinned comes from this walk rather than from the dominant circuit:
 		// the verdict's pin arm is "any blocking circuit is pinned", and a row that
 		// answered the flag from the dominant circuit alone would tell an operator
 		// a provider is skipped outright when it is in fact waiting out a quota
 		// window on a sibling model.
-		providerOpen, openModels, quotaPinned := cb.providerReport(models, base)
+		providerOpen, openModels, quotaPinned := cb.providerReport(models, r)
 		s := ProviderStatus{
 			ProviderID:       id,
 			State:            state.String(),
@@ -505,7 +552,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			QuotaPinned:      quotaPinned,
 			// Both from the dominant circuit, like CooldownMs and NextRetryAt: they
 			// explain those two numbers, so they must come from the same circuit.
-			BackedOff:    cb.backedOffFor(c),
+			BackedOff:    cb.backedOffForWith(c, r),
 			FailedProbes: c.failedProbes,
 			ProviderOpen: providerOpen,
 			OpenModels:   openModels,
@@ -549,12 +596,12 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	base := cb.effectiveCooldown()
-	c := cb.dominant(cb.circuits[providerID.String()], base)
+	r := cb.cooldowns()
+	c := cb.dominant(cb.circuits[providerID.String()], r)
 	if c == nil {
 		return StateClosed
 	}
-	prev := cb.logicalStateWith(c, base)
+	prev := cb.logicalStateWith(c, r)
 	delete(cb.circuits, providerID.String())
 	return prev
 }
@@ -575,12 +622,12 @@ func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	// Hoisted for the same reason Status hoists it: this walks every circuit in
 	// the fleet under the write lock, and reading the cooldown per circuit would
 	// take a DB round trip per circuit on a deployment that never overrode it.
-	base := cb.effectiveCooldown()
+	r := cb.cooldowns()
 
 	for _, models := range cb.circuits {
 		cleared += len(models)
 		for _, c := range models {
-			if cb.logicalStateWith(c, base) != StateClosed {
+			if cb.logicalStateWith(c, r) != StateClosed {
 				recovered++
 			}
 		}

@@ -43,7 +43,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Matches backoffEnabled / defaultBackoffMax in
 	// internal/failover/model_circuits.go.
 	circuit_breaker_backoff_enabled: "true",
-	circuit_breaker_backoff_max: "1h",
+	circuit_breaker_backoff_max: "15m",
 	failover_on_rate_limit: "true",
 	hedging_enabled: "false",
 	hedge_delay: "4s",

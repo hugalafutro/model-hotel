@@ -24,12 +24,16 @@ const QUOTA_PIN_MAX_MAX_HOURS = 168;
 
 // Bounds of the probe-backoff ceiling slider, in minutes. Minutes rather than
 // hours because the backoff starts from a cooldown measured in seconds and
-// doubles: 1, 2, 4, 8, 16, 32 minutes at the default cooldown, and an operator
-// choosing where that stops wants finer steps than an hour. The floor keeps
-// the operator off the zero that restores the default rather than disabling
-// anything; the ceiling is a day, the quota pin's default.
+// doubles: 1, 2, 4, 8 minutes at the default cooldown before the default
+// 15-minute limit holds it, and an operator choosing where that stops wants
+// finer steps than an hour. The floor keeps the operator off the zero that
+// restores the default rather than disabling anything; the ceiling is four
+// hours, which keeps the track draggable (a day at one-minute steps is not)
+// while leaving room well past anything a probe cadence should be. A limit at
+// or below the cooldown period leaves the backoff nothing to add, which the
+// description says.
 const BACKOFF_MAX_MIN_MINUTES = 1;
-const BACKOFF_MAX_MAX_MINUTES = 1440;
+const BACKOFF_MAX_MAX_MINUTES = 240;
 
 // Bounds of the model-span slider: how many of a provider's models must hold an
 // open circuit before the provider itself is skipped. The floor of 1 is the
@@ -100,14 +104,14 @@ export function CircuitBreakerSettings({
 	);
 	// Same shape as the quota-pin pair, for the same reasons: the fallbacks
 	// mirror the Go defaults (backoffEnabled defaults true, backoffMax falls back
-	// to 1h, and a stored non-positive duration reads as unset), the fallback
+	// to 15m, and a stored non-positive duration reads as unset), the fallback
 	// comes before the clamp, and the clamp is display only.
 	const backoffEnabled = settings?.circuit_breaker_backoff_enabled !== "false";
 	const backoffMaxMinutes = Math.min(
 		BACKOFF_MAX_MAX_MINUTES,
 		Math.max(
 			BACKOFF_MAX_MIN_MINUTES,
-			goDurationToMinutes(settings?.circuit_breaker_backoff_max || "1h") || 60,
+			goDurationToMinutes(settings?.circuit_breaker_backoff_max || "15m") || 15,
 		),
 	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";

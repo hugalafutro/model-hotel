@@ -81,10 +81,11 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 type countingSettings struct {
 	mu        sync.Mutex
 	durations map[string]int
+	booleans  map[string]int
 }
 
 func newCountingSettings() *countingSettings {
-	return &countingSettings{durations: make(map[string]int)}
+	return &countingSettings{durations: make(map[string]int), booleans: make(map[string]int)}
 }
 
 func (s *countingSettings) GetInt(_ context.Context, _ string, def int) int { return def }
@@ -96,19 +97,31 @@ func (s *countingSettings) GetDuration(_ context.Context, key string, def time.D
 	return def
 }
 
-func (s *countingSettings) GetBool(_ context.Context, _ string, def bool) bool { return def }
+func (s *countingSettings) GetBool(_ context.Context, key string, def bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.booleans[key]++
+	return def
+}
 
 // reset drops the reads taken during setup, so a count describes one call.
 func (s *countingSettings) reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.durations = make(map[string]int)
+	s.booleans = make(map[string]int)
 }
 
 func (s *countingSettings) reads(key string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.durations[key]
+}
+
+func (s *countingSettings) bools(key string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.booleans[key]
 }
 
 type stubAdvisor struct {
