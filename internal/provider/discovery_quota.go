@@ -67,7 +67,7 @@ func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provide
 		if authErr := quotaAuthError(label, apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return authErr
 		}
-		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 		return fmt.Errorf("%s: unexpected status code %d for provider %s", label, resp.StatusCode, provider.Name)
 	}
 

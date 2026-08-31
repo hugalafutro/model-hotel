@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -661,6 +662,32 @@ func TestSanitizeLogBody_RedactsBeforeTruncating(t *testing.T) {
 	}
 	if n := len(result); n > 30+len("…") {
 		t.Errorf("result is %d bytes, want the truncation applied after redaction", n)
+	}
+}
+
+// The scrub is bounded to what can still reach the output. Callers do not all
+// arrive pre-bounded (the non-streaming error path reads up to 32 MB, the
+// discovery paths read without a limit), so scanning the whole body to keep
+// 200 bytes of it cost seconds of CPU per request.
+func TestSanitizeLogBody_ScrubIsBoundedByTheOutputSize(t *testing.T) {
+	// A credential far past maxLen+scrubMargin cannot appear in the output, so
+	// it need not be scanned for; what matters is that the prefix is correct
+	// and the call stays cheap.
+	body := "short prefix " + strings.Repeat("x", 4<<20) + " sk-test-1234567890abcdefghij"
+
+	start := time.Now()
+	got := SanitizeLogBody(body, 200)
+	elapsed := time.Since(start)
+
+	if !strings.HasPrefix(got, "short prefix ") {
+		t.Errorf("prefix lost: %.60q", got)
+	}
+	if n := len(got); n > 200+len("…") {
+		t.Errorf("result is %d bytes, want at most maxLen plus the ellipsis", n)
+	}
+	// Generous: the point is that cost tracks maxLen, not the 4 MB input.
+	if elapsed > 250*time.Millisecond {
+		t.Errorf("sanitizing a 4 MB body to 200 bytes took %v: the scrub is scanning past the output", elapsed)
 	}
 }
 

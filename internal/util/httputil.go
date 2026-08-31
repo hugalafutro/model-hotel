@@ -14,6 +14,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// scrubMargin is how far past maxLen SanitizeLogBody still scans for secrets.
+// It only has to exceed the longest credential, so that one straddling the
+// truncation point is matched whole rather than leaving a head fragment; past
+// that the bytes are discarded and scanning them is pure cost.
+const scrubMargin = 4096
+
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
@@ -29,9 +35,20 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // key should run MaskCredential over the result as well, which adds an exact
 // match for key shapes this list cannot anticipate.
 func SanitizeLogBody(body string, maxLen int) string {
-	// Scrub before truncating. A credential straddling the cut would otherwise
-	// leave a prefix behind that no later pass can match, and the input is
-	// already bounded by the caller, so the order costs nothing.
+	// Scrub before truncating, but only over what can still reach the output.
+	//
+	// The order matters: a credential straddling the cut would otherwise leave
+	// a prefix behind that no later pass can match. The bound matters just as
+	// much, because callers do NOT all arrive pre-bounded — the non-streaming
+	// error path reads up to 32 MB and the discovery paths read without a limit
+	// — and scrubbing all of it to keep 200 bytes cost seconds of CPU per
+	// request. Everything past maxLen+scrubMargin is discarded below anyway, so
+	// scanning it buys nothing.
+	if len(body) > maxLen+scrubMargin {
+		// A cut here can split a rune, but every byte past maxLen is dropped by
+		// the rune-safe truncation below, so the returned string is unaffected.
+		body = body[:maxLen+scrubMargin]
+	}
 	body = string(MaskKeyShapedTokens([]byte(body)))
 	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if len(body) > maxLen {

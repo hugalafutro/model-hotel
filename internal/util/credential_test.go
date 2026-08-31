@@ -39,6 +39,50 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 		{"plain sentence", "the provider rejected this request", false},
 		{"model id", "openai/gpt-4o-mini-2024-07-18", false},
 		{"hotel group", "hotel/glm53", false},
+
+		// AWS access key ids are base32, so roughly one in thirty-six carries
+		// no digit at all. The unambiguous half must not apply the digit rule.
+		{"digit-free aws key", "credential AKIAJBSWYDIQKJVEHZQF not authorized", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := string(MaskKeyShapedTokens([]byte(tc.in)))
+			if masked := strings.Contains(got, "[redacted]"); masked != tc.masked {
+				t.Errorf("MaskKeyShapedTokens(%q) = %q, masked=%v want %v", tc.in, got, masked, tc.masked)
+			}
+			if !tc.masked && got != tc.in {
+				t.Errorf("unmasked input was rewritten: %q -> %q", tc.in, got)
+			}
+		})
+	}
+}
+
+// A bearer token whose value happens to be (or contain) a JWT is matched by
+// both halves. The ambiguous half has to run first: if the JWT is consumed
+// first, the bearer alternative no longer has sixteen characters left to match
+// and the head of the token survives in the log.
+func TestMaskKeyShapedTokens_BearerWrappingAJWTIsMaskedWhole(t *testing.T) {
+	for _, in := range []string{
+		"Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N",
+		"Authorization: Bearer abcdefgh.eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N",
+	} {
+		got := string(MaskKeyShapedTokens([]byte(in)))
+		if strings.Contains(got, "eyJ") || strings.Contains(got, "abcdefgh.") {
+			t.Errorf("a token fragment survived: %q -> %q", in, got)
+		}
+		if got != "Authorization: [redacted]" {
+			t.Errorf("MaskKeyShapedTokens(%q) = %q, want the whole token masked", in, got)
+		}
+	}
+}
+
+func TestMaskKeyShapedTokens_TableGuard(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		in     string
+		masked bool
+	}{
+		{"bare jwt still masked", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKK", true},
+		{"google key still masked", "AIzaSyA1234567890abcdefghijklmnopqrstuv", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := string(MaskKeyShapedTokens([]byte(tc.in)))

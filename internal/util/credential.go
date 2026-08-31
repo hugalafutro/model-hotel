@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-// keyShapedToken matches credential-looking substrings a provider may quote
+// The key-shape patterns match credential-looking substrings a provider may quote
 // inside an error body: prefixed secret keys (sk- also covers sk-ant-, sk-or-
 // and sk-proj-; hf_, fw_, r8_, gsk_, xai- cover HuggingFace, Fireworks,
 // Replicate, Groq and xAI), Google API keys (AIza...), AWS access key ids
 // (AKIA...), bare JWTs (the MiniMax API key format), and bearer tokens. The
-// minimum tail lengths keep prose like "sk-abc" out of scope; matches without
-// a digit are prose too and are dropped by MaskKeyShapedTokens. A prefix list
+// minimum tail lengths keep prose like "sk-abc" out of scope, and the digit
+// rule below spares prose for the ambiguous half. A prefix list
 // necessarily trails the provider roster, so it is never the only layer:
 // MaskCredential runs an exact match of the gateway's own key in front of it,
 // and the proxy gates it behind a status class.
@@ -47,10 +47,11 @@ const CredentialMinLen = 8
 // MaskKeyShapedTokens scrubs credential-looking substrings from upstream text
 // bound for a log, a database column or a client.
 //
-// A match with no digit in it is an identifier or prose
-// ("sk_business_unit_identifier", "Bearer authentication-required") rather
-// than a credential, and stays: real keys carry digits. The replacement
-// carries no JSON metacharacters, so a valid body stays valid.
+// For the ambiguous half, a match with no digit in it is an identifier or
+// prose ("sk_business_unit_identifier", "Bearer authentication-required")
+// rather than a credential, and stays: real keys of those shapes carry digits.
+// The unambiguous half is masked whatever it contains. The replacement carries
+// no JSON metacharacters, so a valid body stays valid.
 //
 // Keeping this off model ids matters, because the proxy classifies a
 // retirement by finding the requested model's own id beside a phrase in a
@@ -59,13 +60,18 @@ const CredentialMinLen = 8
 // it), and a replacement cannot CREATE a verdict either, since the brackets in
 // "[redacted]" break the phrase-binding gap the classifier requires.
 func MaskKeyShapedTokens(body []byte) []byte {
-	body = unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
-	return ambiguousKeyShape.ReplaceAllFunc(body, func(m []byte) []byte {
+	// The ambiguous pass runs FIRST because its alternatives are the outer
+	// ones. "Bearer <jwt>" is matched whole by the bearer alternative, but if
+	// the JWT is consumed first the bearer alternative no longer has sixteen
+	// characters left to match and up to fifteen characters of the token's
+	// head survive.
+	body = ambiguousKeyShape.ReplaceAllFunc(body, func(m []byte) []byte {
 		if !bytes.ContainsAny(m, "0123456789") {
 			return m
 		}
 		return []byte("[redacted]")
 	})
+	return unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
 }
 
 // MaskCredential scrubs one provider's credential out of text bound for a log,

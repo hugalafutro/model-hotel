@@ -324,9 +324,11 @@ func extractKey(r *http.Request) string {
 	// carries the TCP port, so on a surface that reaches this stage without a
 	// virtual key — the admin chat routes, which mount the limiter without
 	// ProxyKeyMiddleware — every new connection drew a fresh full-burst bucket,
-	// and a client that does not reuse connections was never bound at all. That
-	// is the shape the surface's own review described as address-keyed; the
-	// port was the unreviewed part.
+	// so a client that does not reuse connections escaped this stage entirely.
+	// Not unbounded: the per-IP limiter still stood in front at its own looser
+	// budget, so what the bug cost was the tighter per-key stage, not the
+	// surface. That is the shape the surface's own review described as
+	// address-keyed; the port was the unreviewed part.
 	//
 	// clientip.From is the address the rest of the chain already reports:
 	// trusted-proxy aware, port stripped, and it honours a forwarded header
