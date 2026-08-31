@@ -702,11 +702,17 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 		content = chatResp.Choices[0].Message.Content
 	}
 
-	if chatResp.Usage.CompletionTokens > 0 && duration > 0 {
-		tps = float64(chatResp.Usage.CompletionTokens) / float64(duration) * 1000
+	// The same bound the proxy holds every provider figure to: these two land
+	// in the request log's int4 token columns, where a negative skews the
+	// stats and an overflow fails the INSERT and loses the row.
+	promptTokens = util.ClampTokenCount(chatResp.Usage.PromptTokens)
+	completionTokens = util.ClampTokenCount(chatResp.Usage.CompletionTokens)
+
+	if completionTokens > 0 && duration > 0 {
+		tps = float64(completionTokens) / float64(duration) * 1000
 	}
 
-	return content, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens
+	return content, tps, promptTokens, completionTokens
 }
 
 // logTestModelRequestError records a failed test request (the upstream call

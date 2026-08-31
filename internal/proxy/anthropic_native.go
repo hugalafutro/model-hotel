@@ -74,7 +74,11 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body = logData.masker.maskExact(body)
 
 	usage := anthropic.ParseResponseUsage(body)
-	inputTokens, outputTokens := usage.PromptTokens, usage.CompletionTokens
+	// The native prompt figure and its cache miss are sums of members the
+	// decoder bounded one at a time, so they arrive unbounded; every figure
+	// this function writes is clamped so the log row's five token columns,
+	// the estimate and the charge agree, and a rewrite is announced.
+	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
 	// The status the provider actually sent, not a flattened 200: a relay may
@@ -96,8 +100,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// The cache split, not just the total: metering the cache-inclusive prompt
 	// without it prices every cached token at full input rate. The translated
 	// path reaches the same two fields through extractCacheTokens.
-	logData.tokensPromptCacheHit = usage.CacheHitTokens
-	logData.tokensPromptCacheMiss = usage.CacheMissTokens
+	logData.tokensPromptCacheHit = clampTokenCount(usage.CacheHitTokens)
+	logData.tokensPromptCacheMiss = clampTokenCount(usage.CacheMissTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	// What clears the model's gone-strike streak (see attemptCandidate), so the
@@ -138,16 +142,24 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 // Returns stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
-	if info.HasInput {
+	// Judged like the translated path's observer, which REFUSES an
+	// out-of-range member rather than clamping it: on a stream there is an
+	// earlier reading to keep and an estimator to fall back on, so a chunk
+	// saying something absurd says nothing. Clamping here instead let the same
+	// figure that is discarded on an OpenAI-shaped stream charge the ceiling
+	// on this one, which is the attack surviving on one dialect.
+	if info.HasInput && isTokenReading(info.InputTokens) {
 		st.promptTokens = info.InputTokens
 		// Guarded like the translated path's observer: a later usage event
 		// without cache fields must not zero a split an earlier one reported.
+		// The split is clamped rather than refused, matching extractCacheTokens:
+		// these two are log columns, not a charge.
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
-			st.promptCacheHitTokens = info.CacheHitTokens
-			st.promptCacheMissTokens = info.CacheMissTokens
+			st.promptCacheHitTokens = clampTokenCount(info.CacheHitTokens)
+			st.promptCacheMissTokens = clampTokenCount(info.CacheMissTokens)
 		}
 	}
-	if info.HasOutput {
+	if info.HasOutput && isTokenReading(info.OutputTokens) {
 		st.completionTokens = info.OutputTokens
 	}
 	st.deliveredBytes += info.TextBytes

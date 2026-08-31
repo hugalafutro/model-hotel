@@ -179,17 +179,21 @@ type streamChunk struct {
 // Usage, and a bare assignment then wrote zeros over counts an earlier chunk had
 // already reported. A usage chunk saying zero says nothing; only a count carries
 // a reading.
+//
+// The guard is a range, not a sign: a count is a reading only inside
+// (0, maxSaneTokenCount]. A member outside it neither replaces an earlier good
+// count nor becomes one, and the estimate fallback treats it as unreported.
 func (st *streamState) observeUsage(usage *Usage) {
 	if usage == nil {
 		return
 	}
-	if usage.PromptTokens > 0 {
+	if isTokenReading(usage.PromptTokens) {
 		st.promptTokens = usage.PromptTokens
 	}
-	if usage.CompletionTokens > 0 {
+	if isTokenReading(usage.CompletionTokens) {
 		st.completionTokens = usage.CompletionTokens
 	}
-	if usage.CompletionTokensDetails != nil && usage.CompletionTokensDetails.ReasoningTokens > 0 {
+	if usage.CompletionTokensDetails != nil && isTokenReading(usage.CompletionTokensDetails.ReasoningTokens) {
 		st.reasoningTokens = usage.CompletionTokensDetails.ReasoningTokens
 	}
 	if hit, miss := extractCacheTokens(*usage); hit > 0 || miss > 0 {

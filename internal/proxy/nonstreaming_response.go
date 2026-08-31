@@ -134,7 +134,17 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
 		}
-		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
+		// Clamped into locals, leaving chatResp alone: the body is re-encoded
+		// to the caller further down, and rewriting a provider's usage block on
+		// the way through is not this gateway's job. The native Anthropic path
+		// forwards the provider's bytes untouched and is the right precedent;
+		// a partial rewrite is worse than none, because the block carries nine
+		// token members and clamping the three the meter reads hands the caller
+		// an arithmetic no provider produced. What the gateway owns is its OWN
+		// state, so the bound applies to the log row, the TPS math and the
+		// charge below, all of which read these locals.
+		promptTokens, completionTokens, reasoningTokens := h.clampReportedUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData)
+		totalOutputTokens := completionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
 		// Avoid absurd TPS when generation time is negligible
 		// (e.g. non-streaming where response_header_ms ≈ duration_ms).
@@ -157,8 +167,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
-		logData.tokensPrompt = chatResp.Usage.PromptTokens
-		logData.tokensCompletion = chatResp.Usage.CompletionTokens
+		logData.tokensPrompt = promptTokens
+		logData.tokensCompletion = completionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
@@ -177,7 +187,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// UPDATE simply affects 0 rows (harmless, logged as warning).
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-		promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
+		promptTokens, completionTokens, reasoningTokens = estimateMissingUsage(promptTokens, completionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
 		h.recordTokenUsage(vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 
 		// Normalize reasoning fields in the response message so that
@@ -225,7 +235,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
 			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerName, "error", err)
 		}
-		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
+		// reported_*, because these are the provider's own figures and the row
+		// carries what was recorded: the two differ whenever the bound bit, and
+		// an operator comparing them needs to know which is which.
+		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "reported_prompt_tokens", chatResp.Usage.PromptTokens, "reported_completion_tokens", chatResp.Usage.CompletionTokens)
 	case bodilessSuccessStatus(resp.StatusCode):
 		// A success whose status forbids a body. There is nothing to decode and
 		// nothing to meter, and an error envelope written here would be a body

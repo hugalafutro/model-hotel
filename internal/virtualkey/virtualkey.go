@@ -178,7 +178,15 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // AddTokens increments the token usage counters for a virtual key.
+//
+// A non-positive charge is refused here as well as at the proxy's metering
+// boundary, the same fence TPMLimiter.Debit has always had: tokens_used is a
+// running total that only ever grows, and a caller handing it a negative
+// figure would draw it down, which is a credit the caller has no way to grant.
 func (r *Repository) AddTokens(ctx context.Context, keyHash string, tokens int) error {
+	if tokens <= 0 {
+		return nil
+	}
 	_, err := r.pool.Exec(ctx,
 		`UPDATE virtual_keys SET tokens_used = tokens_used + $1, last_used_at = now() WHERE key_hash = $2`,
 		tokens, keyHash)

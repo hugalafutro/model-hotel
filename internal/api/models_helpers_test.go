@@ -403,6 +403,24 @@ func TestParseTestModelResponse_ValidJSON(t *testing.T) {
 	}
 }
 
+// The probe's figures land in the same int4 request-log columns the proxy
+// writes, so they are held to the same bound: a negative would skew the stats
+// aggregates and an overflow would fail the INSERT and lose the row.
+func TestParseTestModelResponse_ClampsProviderFigures(t *testing.T) {
+	body := []byte(`{"choices":[{"message":{"content":"Hi"}}],"usage":{"prompt_tokens":-500,"completion_tokens":9223372036854775807}}`)
+	_, tps, promptTokens, completionTokens := parseTestModelResponse(body, 1000)
+
+	if promptTokens != 0 {
+		t.Errorf("promptTokens: got %d, want 0 for a negative figure", promptTokens)
+	}
+	if completionTokens != util.MaxSaneTokenCount {
+		t.Errorf("completionTokens: got %d, want the ceiling %d", completionTokens, util.MaxSaneTokenCount)
+	}
+	if want := float64(util.MaxSaneTokenCount); tps != want {
+		t.Errorf("tps: got %f, want %f (derived from the clamped figure)", tps, want)
+	}
+}
+
 func TestParseTestModelResponse_InvalidJSON(t *testing.T) {
 	body := []byte(`not json at all`)
 	content, tps, promptTokens, completionTokens := parseTestModelResponse(body, 1000)
