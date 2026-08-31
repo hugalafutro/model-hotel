@@ -236,12 +236,14 @@
     <string name="notif_up_title">%1$s obnoven</string>
     <string name="notif_up_body">Člen zase odpovídá.</string>
     <string name="notif_channel_stale">Odchylka konfigurace</string>
+    <string name="notif_channel_events">Upozornění Front Desk</string>
+    <string name="notif_channel_errors">Chyby Front Desk</string>
     <string name="notif_stale_title">Flotila se možná odchyluje</string>
     <string name="notif_stale_body">Automatická synchronizace je vypnutá a flotila se nesynchronizovala už přes den. Klepnutím otevřete Bellhop.</string>
     <string name="notif_stale_resumed_title">Automatická synchronizace obnovena</string>
     <string name="notif_stale_resumed_body">Flotila je opět udržována synchronizovaná.</string>
     <string name="notif_push_test_title">Přijat testovací push z %1$s</string>
-    <string name="notif_push_test_body">Push v reálném čase funguje. Bellhop upozorňuje jen na změny členů a odchylky automatické synchronizace; testy žádná upozornění nevytvářejí.</string>
+    <string name="notif_push_test_body">Push v reálném čase funguje. Bellhop upozorňuje na změny členů, odchylky automatické synchronizace a na upozornění Front Desk zapnutá v sekci Upozornění; testy žádná upozornění nevytvářejí.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Zrušit propojení</string>

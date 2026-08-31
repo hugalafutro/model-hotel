@@ -131,6 +131,97 @@ fun diffFleet(
 }
 
 /**
+ * FrontDeskEvent is one Front Desk control-plane event the operator asked to be
+ * told about: its type is switched on in Front Desk's alert picker (the toggles
+ * Bellhop's Alerts screen edits). Unlike [MemberTransition], which Bellhop derives
+ * itself from a health diff, this is Front Desk's own sentence about something
+ * that happened, carried whole: a drain, a held sync, a stale backup, whatever
+ * the picker has on. [memberId] is empty for fleet-wide events.
+ */
+data class FrontDeskEvent(
+    val id: String,
+    val type: String,
+    val severity: String,
+    val message: String,
+    val memberId: String,
+    val createdAt: String,
+) : FleetAlert
+
+/**
+ * EventCursor marks the newest Front Desk event a poll has already seen, so the
+ * next poll notifies only on what arrived after it. It is the event's own
+ * created_at and id rather than a count or a clock: the event log is the truth
+ * being followed, and a phone clock can drift from Front Desk's.
+ */
+@Serializable
+data class EventCursor(
+    val createdAt: String,
+    val id: String,
+)
+
+/**
+ * MAX_EVENT_ALERTS_PER_POLL caps how many Front Desk events one poll may turn
+ * into notifications. A phone that was off for a day comes back to a page of
+ * history; paging the operator once per line would bury the newest, which is
+ * the one worth reading, so only the newest few are posted and the cursor still
+ * advances past the rest: what Front Desk had to say six alerts ago is history
+ * by then, and the event log in the app has all of it.
+ */
+const val MAX_EVENT_ALERTS_PER_POLL = 5
+
+/**
+ * EventDiff is what [diffEvents] hands back: the events to notify on, oldest
+ * first so the newest ends up as the most recent row on the shade, and the
+ * cursor the poll should persist afterwards.
+ */
+data class EventDiff(
+    val alerts: List<FrontDeskEvent>,
+    val cursor: EventCursor?,
+)
+
+/**
+ * diffEvents is the pure decision for Front Desk's own alerts, the counterpart
+ * of [diffFleet] for the event log: given the cursor the last poll persisted,
+ * one page of the log (newest first, as GET /api/events returns it) and the set
+ * of event types the operator switched on in the alert picker, return the
+ * events to notify on and the cursor to persist.
+ *
+ * On the first ever poll ([cursor] is null) it stays silent and only records
+ * the newest event, so a fresh opt-in does not replay history. A poll whose
+ * page is empty keeps the cursor it had. Ordering is by created_at as an
+ * instant, never as text (Front Desk writes RFC3339 with whatever fractional
+ * precision the row has, so text order lies at whole seconds); at the same
+ * instant the id decides, the way Front Desk's own `ORDER BY created_at, id`
+ * does, so a row ordered before the cursor is never re-read as new. The cursor
+ * only ever moves to a row whose time could be read, so one unreadable row
+ * cannot blind the next poll to everything after it.
+ */
+fun diffEvents(
+    cursor: EventCursor?,
+    page: List<FdEvent>,
+    enabled: Set<String>,
+): EventDiff {
+    val newest = page.firstOrNull { parseInstant(it.createdAt) != null } ?: return EventDiff(emptyList(), cursor)
+    val next = EventCursor(newest.createdAt, newest.id)
+    if (cursor == null) return EventDiff(emptyList(), next)
+    val since = parseInstant(cursor.createdAt) ?: return EventDiff(emptyList(), next)
+    val fresh =
+        page.filter { ev ->
+            val at = parseInstant(ev.createdAt) ?: return@filter false
+            at.isAfter(since) || (at == since && ev.id > cursor.id)
+        }
+    val alerts =
+        fresh
+            .filter { it.type in enabled }
+            .take(MAX_EVENT_ALERTS_PER_POLL)
+            .map { FrontDeskEvent(it.id, it.type, it.severity, it.message, it.memberId, it.createdAt) }
+            .asReversed()
+    return EventDiff(alerts, next)
+}
+
+private fun parseInstant(raw: String): java.time.Instant? = runCatching { java.time.Instant.parse(raw) }.getOrNull()
+
+/**
  * diffAutoSync is the fleet-wide counterpart to [diffFleet]: given the previously
  * persisted snapshot and the auto-sync-stale flag just read, return the drift edge
  * to notify on, or null if nothing crossed. Like diffFleet it stays silent on the

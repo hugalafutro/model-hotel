@@ -411,6 +411,11 @@ fun BellhopApp(
                         notificationsGranted = hasPostNotificationPermission(context)
                         pushDistributorAvailable = BellhopPush.hasDistributor(context)
                         batteryUnrestricted = isBatteryUnrestricted(context)
+                        // Record where the Front Desk event log stands while the
+                        // operator has the app open, so the first push after an
+                        // enable or an upgrade is diffed against it rather than
+                        // spent recording it (a no-op once the cursor exists).
+                        scope.launch { FleetPollWorker.seedEventBaseline(context) }
                         // Already locked when we return (e.g. the lock FAB minimised the
                         // app): re-fire the prompt so unlocking is one glance, not a tap
                         // on the lock screen. When the gate below is what flips locked on,

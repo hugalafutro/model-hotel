@@ -15,19 +15,23 @@ import org.unifiedpush.android.connector.data.PushMessage
  * Apprise pipeline pushes to Bellhop's topic. It is opt-in and Google-free — no
  * FCM, no google-services.json — the distributor holds the persistent socket.
  *
- * The push is a bare wake trigger, not a data source: on a message it re-runs the
- * same backstop poll Layer 2 uses ([FleetPollWorker.runNow]) so Bellhop's
- * notification always reflects current Front Desk truth rather than a payload that
- * may be stale, encrypted, or shaped by whatever Apprise sent. That also means
- * Bellhop never becomes a second, redundant alert source: it renders the same fleet
- * state, just woken sooner than the 15-minute periodic floor.
+ * The push is a wake trigger, not a data source: on a message it re-runs the
+ * same backstop poll Layer 2 uses ([FleetPollWorker.runNow]), which re-reads the
+ * fleet AND the Front Desk event log, so the alert the push announced is rendered
+ * from Front Desk's own record of it rather than from a payload that may be
+ * stale, encrypted, or shaped by whatever Apprise sent (the distributor hands
+ * over the message body alone, with no event type or severity). The Front Desk
+ * events that get rendered are the types switched on in Front Desk's alert
+ * picker, the toggles under Alerts, because those are the events Front Desk
+ * pushes for; Bellhop's own health and drift alerts stay on beside them, and
+ * the poll drops its own row when Front Desk's event for the same thing is
+ * being posted.
  *
  * The payload is inspected for exactly one thing: Front Desk's test marker
- * ([BellhopPush.isTestPush]). A test alone would otherwise be invisible on the
- * phone, since a healthy fleet gives the poll nothing to report, leaving the
- * operator unable to tell a working pipeline from a broken one; a matching payload
- * therefore posts a "push test received" notification. The wake poll runs either
- * way, so nothing about real alerts changes.
+ * ([BellhopPush.isTestPush]). A test is not in the event log, so it would
+ * otherwise be invisible on the phone, leaving the operator unable to tell a
+ * working pipeline from a broken one; a matching payload therefore posts a "push
+ * test received" notification. The wake poll runs either way.
  *
  * The registration is thin on purpose (the testable pieces are [MonitorStore],
  * [BellhopPush.isTestPush] and [FleetPollWorker.runNow], exercised on their own);
@@ -51,8 +55,8 @@ class BellhopPushService : PushService() {
         message: PushMessage,
         instance: String,
     ) {
-        // The payload is read only for Front Desk's test marker; the poll re-derives
-        // every real alert from Front Desk truth (see class doc).
+        // The payload is read only for Front Desk's test marker; the poll reads
+        // every real alert back from Front Desk's event log (see class doc).
         if (BellhopPush.isTestPush(message.content)) {
             FleetNotifier.notifyPushTest(applicationContext, BellhopPush.testPushSender(message.content))
         }

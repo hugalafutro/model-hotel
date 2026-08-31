@@ -89,6 +89,18 @@ class FleetPollTest {
         // Every successful poll now also fetches quota; empty by default so tests
         // that don't exercise badges keep their enqueue counts simple.
         server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
+        // ...and then Front Desk's alert picker and event log (FleetEventPollTest
+        // covers them); nothing switched on and an empty log keep these tests
+        // about the health diff.
+        enqueueFrontDeskAlerts()
+    }
+
+    // The alert picker and the event log, read after quota on every successful
+    // poll; nothing on and nothing logged. Without these a hand-built sequence
+    // leaves the poll waiting on an empty queue for the client's read timeout.
+    private fun enqueueFrontDeskAlerts() {
+        server.enqueue(MockResponse().setBody("""{"events":[]}"""))
+        server.enqueue(MockResponse().setBody("""{"events":[],"total":0}"""))
     }
 
     private fun newConfigStore(): QuotaBadgeConfigStore {
@@ -171,6 +183,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
             server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
+            enqueueFrontDeskAlerts()
 
             val result = poll(store)
 
@@ -286,8 +299,9 @@ class FleetPollTest {
                     ?.single()
                     ?.traffic,
             )
-            // members + autosync + quota + one traffic call for the one member.
-            assertEquals(4, server.requestCount)
+            // members + autosync + quota + alert picker + event log + one traffic
+            // call for the one member.
+            assertEquals(6, server.requestCount)
         }
 
     @Test
@@ -308,8 +322,10 @@ class FleetPollTest {
                     ?.single()
                     ?.traffic,
             )
-            // The exact request count the battery baseline was measured against.
-            assertEquals(3, server.requestCount)
+            // The battery baseline was measured at three requests per poll; the
+            // alert picker and the event log added two, both to the same host on
+            // the same already-warm connection.
+            assertEquals(5, server.requestCount)
         }
 
     @Test
@@ -369,6 +385,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setBody(autoSyncBody(false)))
             server.enqueue(MockResponse().setBody(quotaBody()))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, config)
 
@@ -391,6 +408,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setBody(autoSyncBody(false)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, newConfigStore())
 
@@ -417,6 +435,7 @@ class FleetPollTest {
             // than fail loudly. Separate from the 500 case above precisely because
             // the body is well-formed.
             server.enqueue(MockResponse().setResponseCode(502).setBody("""{"quota":[]}"""))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, newConfigStore())
 

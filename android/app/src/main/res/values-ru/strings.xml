@@ -236,12 +236,14 @@
     <string name="notif_up_title">%1$s восстановлен</string>
     <string name="notif_up_body">Узел снова отвечает.</string>
     <string name="notif_channel_stale">Расхождение конфигурации</string>
+    <string name="notif_channel_events">Оповещения Front Desk</string>
+    <string name="notif_channel_errors">Ошибки Front Desk</string>
     <string name="notif_stale_title">Флот может расходиться</string>
     <string name="notif_stale_body">Автосинхронизация отключена, и флот не синхронизировался больше суток. Нажмите, чтобы открыть Bellhop.</string>
     <string name="notif_stale_resumed_title">Автосинхронизация возобновлена</string>
     <string name="notif_stale_resumed_body">Флот снова поддерживается в синхронизации.</string>
     <string name="notif_push_test_title">Получен тестовый push из %1$s</string>
-    <string name="notif_push_test_body">Push в реальном времени работает. Bellhop уведомляет только об изменениях узлов и расхождении автосинхронизации; тесты уведомлений не создают.</string>
+    <string name="notif_push_test_body">Push в реальном времени работает. Bellhop уведомляет об изменениях узлов, о расхождении автосинхронизации и об оповещениях Front Desk, включённых в разделе Оповещения; тесты уведомлений не создают.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Отвязать</string>

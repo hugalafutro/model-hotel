@@ -175,6 +175,36 @@ class MonitorStore(
         }
     }
 
+    /**
+     * eventCursor reads the newest Front Desk event the last poll saw, or null
+     * if none was recorded (a fresh opt-in) or the stored form can't be parsed.
+     * Null means "no baseline", which [diffEvents] treats as a silent first poll
+     * rather than replaying the event log as notifications.
+     */
+    suspend fun eventCursor(): EventCursor? {
+        val stored = dataStore.data.first()[EVENT_CURSOR] ?: return null
+        return runCatching { json.decodeFromString<EventCursor>(stored) }.getOrNull()
+    }
+
+    /**
+     * saveEventCursor persists the event baseline under the same gate as
+     * [saveSnapshot]: only while the backstop is active and only for the session
+     * that started the poll, so a late write after an unlink or a re-enable can
+     * neither repopulate a cleared store nor skip the new session past events it
+     * should report.
+     */
+    suspend fun saveEventCursor(
+        cursor: EventCursor,
+        epoch: Long,
+    ) {
+        dataStore.edit { prefs ->
+            val active = prefs[ENABLED] == true || prefs[PUSH_ENABLED] == true
+            if (active && (prefs[EPOCH] ?: 0L) == epoch) {
+                prefs[EVENT_CURSOR] = json.encodeToString(cursor)
+            }
+        }
+    }
+
     suspend fun clear() {
         dataStore.edit { it.clear() }
     }
@@ -188,5 +218,6 @@ class MonitorStore(
         private val PUSH_INSTANCE = stringPreferencesKey("push_instance")
         private val EPOCH = longPreferencesKey("epoch")
         private val SNAPSHOT = stringPreferencesKey("fleet_snapshot")
+        private val EVENT_CURSOR = stringPreferencesKey("event_cursor")
     }
 }

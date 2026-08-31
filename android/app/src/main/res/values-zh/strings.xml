@@ -227,12 +227,14 @@
     <string name="notif_up_title">%1$s 已恢复</string>
     <string name="notif_up_body">某个成员已重新响应。</string>
     <string name="notif_channel_stale">配置漂移</string>
+    <string name="notif_channel_events">Front Desk 警报</string>
+    <string name="notif_channel_errors">Front Desk 错误</string>
     <string name="notif_stale_title">集群可能正在漂移</string>
     <string name="notif_stale_body">自动同步已关闭，且集群已超过一天未同步。点按以打开 Bellhop。</string>
     <string name="notif_stale_resumed_title">自动同步已恢复</string>
     <string name="notif_stale_resumed_body">集群正再次保持同步。</string>
     <string name="notif_push_test_title">已收到 %1$s 推送测试</string>
-    <string name="notif_push_test_body">实时推送正常。Bellhop 仅在成员变化和自动同步漂移时提醒；测试不会产生提醒。</string>
+    <string name="notif_push_test_body">实时推送正常。Bellhop 会在成员变化、自动同步漂移，以及在警报页面中启用的 Front Desk 警报时发出通知；测试不会产生提醒。</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">取消关联</string>
