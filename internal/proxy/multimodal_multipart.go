@@ -201,6 +201,14 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	}
 	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
 
+	// The `model` form field gets the same bound as the JSON ingest paths,
+	// checked before it is assigned to the log entry, published, or logged.
+	if modelTooLong(reqModel) {
+		logData.modelID = modelExcerpt(reqModel)
+		h.rejectOversizedModel(w, logData, startTime, parseMs)
+		return nil, nil, false
+	}
+
 	logData.modelID = reqModel
 	publishRequestStartedEvent(logData)
 

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -29,7 +30,7 @@ var newRequestWithContext = http.NewRequestWithContext
 func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind ErrorKind, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, cacheHits resolveCacheHits, proxyOverhead float64) {
 	logData.statusCode = statusCode
 	logData.errorKind = kind
-	logData.errorMessage = errMsg
+	logData.errorMessage = truncateLogMessage(errMsg)
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
@@ -44,6 +45,24 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind Erro
 	logData.state = "failed"
 	// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+}
+
+// maxLogMessageRunes bounds request_logs.error_message and the
+// request.completed event built from it. Every current caller of failRequest
+// already passes a bounded message (a constant, errString's cap, or a
+// SanitizeLogBody body), but failRequest is the one sink every failure path
+// funnels through, so the bound lives here where a future caller cannot miss
+// it. It matches the 10,000-character budget SanitizeLogBody gives upstream
+// bodies.
+const maxLogMessageRunes = 10000
+
+// truncateLogMessage caps s at maxLogMessageRunes runes, cutting on a rune
+// boundary so the stored text stays valid UTF-8, and marks the cut.
+func truncateLogMessage(s string) string {
+	if utf8.RuneCountInString(s) <= maxLogMessageRunes {
+		return s
+	}
+	return string([]rune(s)[:maxLogMessageRunes]) + "…"
 }
 
 // ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
