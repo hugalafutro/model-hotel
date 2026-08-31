@@ -255,6 +255,50 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	}
 }
 
+// TestHandleNativeNonStreaming_NegativeUsageNeverCredits is the other
+// direction at the same site: with no overflowing addend to swamp them, the
+// negative members must fold to zero rather than through it.
+func TestHandleNativeNonStreaming_NegativeUsageNeverCredits(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	body := `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":-500,"cache_read_input_tokens":10,"output_tokens":-100}}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	native := true
+	aw := newAnthropicResponseWriter(httptest.NewRecorder(), "msg_ignored", "m")
+	aw.bindNativeFlag(&native)
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", http.NoBody)
+	logData := &requestLogData{id: uuid.New().String(), modelID: "claude-x", virtualKeyName: "test-key", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "streaming"}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	if outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); outcome != outcomeServed {
+		t.Fatalf("outcome = %v, want outcomeServed", outcome)
+	}
+	aw.Finalize()
+
+	// prompt is -500 + 10 = -490, miss is -500, completion is -100: every one
+	// folds to zero, and none of the five columns goes negative.
+	for name, got := range map[string]int{
+		"tokensPrompt":          logData.tokensPrompt,
+		"tokensCompletion":      logData.tokensCompletion,
+		"tokensPromptCacheMiss": logData.tokensPromptCacheMiss,
+	} {
+		if got != 0 {
+			t.Errorf("%s = %d, want 0", name, got)
+		}
+	}
+	if logData.tokensPromptCacheHit != 10 {
+		t.Errorf("tokensPromptCacheHit = %d, want the real reading 10", logData.tokensPromptCacheHit)
+	}
+	if len(vkRepo.addTokensCalls) != 1 || vkRepo.addTokensCalls[0].tokens < 0 {
+		t.Errorf("charge = %+v, want one non-negative call", vkRepo.addTokensCalls)
+	}
+}
+
 // TestEmitRawData_ClampsNativeStreamFigures covers the native streaming
 // reader: message_start's prompt figure is a sum of three members the decoder
 // bounded one at a time, and message_delta's output figure used to be
