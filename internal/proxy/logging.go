@@ -240,6 +240,22 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	return tag.RowsAffected(), nil
 }
 
+// maxLogMessageRunes bounds request_logs.error_message and the
+// request.completed event built from it. Every current writer already passes
+// a bounded message (a constant, errString's cap, or a SanitizeLogBody body);
+// the bound lives at the sink so a future writer cannot miss it. It matches
+// the 10,000-character budget SanitizeLogBody gives upstream bodies.
+const maxLogMessageRunes = 10000
+
+// truncateLogMessage caps s at maxLogMessageRunes runes, cutting on a rune
+// boundary so the stored text stays valid UTF-8, and marks the cut.
+func truncateLogMessage(s string) string {
+	if utf8.RuneCountInString(s) <= maxLogMessageRunes {
+		return s
+	}
+	return string([]rune(s)[:maxLogMessageRunes]) + "…"
+}
+
 func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
 	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
 	// not called), there is no row to update. An empty string is not a valid
@@ -251,6 +267,14 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
 		return
 	}
+
+	// Bound the message here, at the one place every terminal write and the
+	// request.completed event pass through. failRequest is not that place:
+	// four paths assign errorMessage directly and call this function
+	// themselves (the native Anthropic and non-streaming readers, the stream
+	// finaliser, the multimodal passthrough), so a clamp in failRequest would
+	// be a guarantee only some callers get.
+	logEntry.errorMessage = truncateLogMessage(logEntry.errorMessage)
 
 	// Skip DB operations when no pool is available (unit tests without DB).
 	if h.dbPool == nil {

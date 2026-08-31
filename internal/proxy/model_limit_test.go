@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,22 @@ import (
 func oversizedModelWithPrefix() (model, prefix string) {
 	prefix = "toolong-" + uuid.NewString()[:8] + "-"
 	return prefix + strings.Repeat("a", maxModelNameRunes+1-utf8.RuneCountInString(prefix)), prefix
+}
+
+// incompressibleModelWithPrefix builds a model of the given length out of
+// random hex, so it stays large after TOAST compression. request_logs.model_id
+// is btree-indexed and Postgres refuses an index entry over roughly 2.7 KB of
+// compressed bytes; a run of one repeated byte compresses under that and is
+// accepted, random hex is not. That is what makes the fixture discriminate:
+// a guard that lets this model reach the pending INSERT loses the row.
+func incompressibleModelWithPrefix(runes int) (model, prefix string) {
+	prefix = "toolong-" + uuid.NewString()[:8] + "-"
+	var b strings.Builder
+	b.WriteString(prefix)
+	for b.Len() < runes {
+		b.WriteString(strings.ReplaceAll(uuid.NewString(), "-", ""))
+	}
+	return b.String()[:runes], prefix
 }
 
 // modelRow is what the request-log row looks like after ingest refused it.
@@ -110,9 +127,15 @@ func TestIngest_ModelTooLong_BodyParsed(t *testing.T) {
 // put the model in the context, so the pending INSERT would carry it. The row
 // must still exist (the refusal stays attributed to the key) and carry the
 // excerpt.
+//
+// The fixture is 8 KB of random hex on purpose. If the guard before the INSERT
+// regresses, the INSERT carries the field, the btree index refuses it, the
+// terminal UPDATE finds no row, and this test times out waiting for one; a
+// compressible fixture would be accepted by the index and let the terminal
+// UPDATE rewrite model_id to the excerpt, hiding the regression.
 func TestIngest_ModelTooLong_MiddlewarePreparsed(t *testing.T) {
 	h := newIntegrationHandler()
-	model, prefix := oversizedModelWithPrefix()
+	model, prefix := incompressibleModelWithPrefix(8192)
 	req := httptest.NewRequest(http.MethodPost, "/chat/completions", strings.NewReader(`{"model":"`+model+`","messages":[]}`))
 	req = withAuthContext(req)
 	ctx := context.WithValue(req.Context(), ctxkeys.RequestModelKey, model)
@@ -126,21 +149,83 @@ func TestIngest_ModelTooLong_MiddlewarePreparsed(t *testing.T) {
 	assertBoundedRow(t, findModelRow(t, h, prefix), model)
 }
 
+// TestIngest_ModelTooLong_Messages covers the native Anthropic ingress, which
+// sets the context model itself and answers in the Anthropic error envelope.
+func TestIngest_ModelTooLong_Messages(t *testing.T) {
+	h := newIntegrationHandler()
+	model, prefix := oversizedModelWithPrefix()
+	body := `{"model":"` + model + `","max_tokens":5,"messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(body))
+	req = withAuthContext(req)
+
+	rr := httptest.NewRecorder()
+	h.Messages(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %.200s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Type  string `json:"type"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil || resp.Type != "error" {
+		t.Fatalf("response is not the Anthropic error envelope (err %v); body: %.200s", err, rr.Body.String())
+	}
+	if resp.Error.Message != modelTooLongMessage {
+		t.Errorf("message = %q, want %q", resp.Error.Message, modelTooLongMessage)
+	}
+	if n := rr.Body.Len(); n > 256 {
+		t.Errorf("response body is %d bytes: the refusal must not echo the model", n)
+	}
+	assertBoundedRow(t, findModelRow(t, h, prefix), model)
+}
+
 // TestIngest_ModelTooLong_Multipart covers the form-field path of the audio
 // endpoints, where the model is parsed out of the multipart body.
 func TestIngest_ModelTooLong_Multipart(t *testing.T) {
 	h := newIntegrationHandler()
 	model, prefix := oversizedModelWithPrefix()
-	body := "--xyz\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n" + model + "\r\n--xyz--\r\n"
-	req := httptest.NewRequest(http.MethodPost, "/audio/transcriptions", strings.NewReader(body))
-	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
-	req = withAuthContext(req)
+	req := multipartModelRequest(model)
 
 	rr := httptest.NewRecorder()
 	h.AudioTranscriptions(rr, req)
 
 	assertRefusal(t, rr)
 	assertBoundedRow(t, findModelRow(t, h, prefix), model)
+}
+
+// TestIngest_MultipartModel_InvalidUTF8Normalized pins the form field's UTF-8
+// normalisation: the JSON paths get valid UTF-8 from encoding/json, the form
+// field is raw bytes, and Postgres refuses an invalid byte in model_id, which
+// would lose the row. The byte must be replaced, and the row must land.
+func TestIngest_MultipartModel_InvalidUTF8Normalized(t *testing.T) {
+	h := newIntegrationHandler()
+	prefix := "badutf8-" + uuid.NewString()[:8] + "-"
+	req := multipartModelRequest(prefix + "\x80\x80")
+
+	rr := httptest.NewRecorder()
+	h.AudioTranscriptions(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 from format validation; body: %.200s", rr.Code, rr.Body.String())
+	}
+	row := findModelRow(t, h, prefix)
+	// One replacement for the run of two invalid bytes: that is
+	// strings.ToValidUTF8's contract, a run, not a byte.
+	if want := prefix + "�"; row.modelID != want {
+		t.Errorf("model_id = %q, want the replacement character %q", row.modelID, want)
+	}
+}
+
+// multipartModelRequest builds an audio transcription request whose only form
+// field is the model.
+func multipartModelRequest(model string) *http.Request {
+	body := "--xyz\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n" + model + "\r\n--xyz--\r\n"
+	req := httptest.NewRequest(http.MethodPost, "/audio/transcriptions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
+	return withAuthContext(req)
 }
 
 // TestIngest_ModelAtLimit_ReachesFormatValidation pins that the bound does not
@@ -176,6 +261,14 @@ func TestModelTooLong_CountsRunesNotBytes(t *testing.T) {
 	}
 	if !modelTooLong(strings.Repeat("é", maxModelNameRunes+1)) {
 		t.Errorf("%d runes are over the bound", maxModelNameRunes+1)
+	}
+}
+
+// TestModelTooLongMessage_SpellsTheBound keeps the constant message honest
+// about the number it quotes.
+func TestModelTooLongMessage_SpellsTheBound(t *testing.T) {
+	if !strings.Contains(modelTooLongMessage, strconv.Itoa(maxModelNameRunes)) {
+		t.Errorf("message %q does not spell the bound %d", modelTooLongMessage, maxModelNameRunes)
 	}
 }
 
@@ -223,15 +316,19 @@ func TestTruncateLogMessage(t *testing.T) {
 	}
 }
 
-// TestFailRequest_BoundsErrorMessage pins the clamp at the sink: a caller
-// handing failRequest an oversized message gets a bounded row, whatever the
-// caller was.
-func TestFailRequest_BoundsErrorMessage(t *testing.T) {
+// TestUpdateRequestLog_BoundsErrorMessage pins the clamp at the sink. The
+// message is assigned directly, the way the stream finaliser and the native
+// readers do it, bypassing failRequest: the bound must still hold.
+func TestUpdateRequestLog_BoundsErrorMessage(t *testing.T) {
 	h := newIntegrationHandler()
 	prefix := "clamp-" + uuid.NewString()[:8]
 	req := withAuthContext(httptest.NewRequest(http.MethodPost, "/chat/completions", http.NoBody))
 	logData, _ := h.newPendingRequestLog(req, endpointTypeChat, prefix, false)
-	h.failRequest(logData, http.StatusBadGateway, KindProviderError, strings.Repeat("x", maxLogMessageRunes*2), 0, time.Now(), 0, resolveTimings{}, resolveCacheHits{}, 0)
+	logData.statusCode = http.StatusBadGateway
+	logData.errorKind = KindProviderError
+	logData.errorMessage = strings.Repeat("x", maxLogMessageRunes*2)
+	logData.state = "failed"
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	row := findModelRow(t, h, prefix)
 	if n := utf8.RuneCountInString(row.errorMessage); n != maxLogMessageRunes+1 {

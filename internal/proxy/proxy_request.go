@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -27,9 +26,9 @@ import (
 // above anything that can resolve.
 const maxModelNameRunes = 512
 
-// modelTooLongMessage is the constant refusal for an oversized model. It is
-// derived from the bound rather than spelled beside it so the two cannot drift.
-var modelTooLongMessage = fmt.Sprintf("model exceeds maximum length of %d characters", maxModelNameRunes)
+// modelTooLongMessage is the constant refusal for an oversized model. A test
+// pins the number it spells to maxModelNameRunes so the two cannot drift.
+const modelTooLongMessage = "model exceeds maximum length of 512 characters"
 
 // modelExcerptRunes is how much of an oversized model the request-log row
 // keeps. The row exists so the refusal stays attributed to its virtual key;
@@ -54,12 +53,14 @@ func modelExcerpt(model string) string {
 }
 
 // rejectOversizedModel is the one outcome every ingest path has for a model
-// past maxModelNameRunes: the pending row (already inserted by the caller,
-// carrying the excerpt rather than the field) is closed as a validation
-// failure with the constant message, subscribers see the started/completed
-// pair every other early guard emits, and the caller gets the same constant
-// message back. The response never quotes the field.
-func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, startTime time.Time, parseMs float64) {
+// past maxModelNameRunes: the pending row (already inserted by the caller) is
+// closed as a validation failure carrying the excerpt rather than the field,
+// subscribers see the started/completed pair every other early guard emits,
+// and the caller gets the constant message back. The response never quotes
+// the field. It takes the raw model and derives the excerpt itself so no
+// ingest path can put the field on the row by forgetting to.
+func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
+	logData.modelID = modelExcerpt(model)
 	publishRequestStartedEvent(logData)
 	h.failRequest(logData, http.StatusBadRequest, KindValidation, modelTooLongMessage, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 	writeOpenAIError(w, modelTooLongMessage, http.StatusBadRequest)
@@ -111,7 +112,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// (the event, the app-log lines, the response) is behind the return.
 	if modelTooLong(reqModel) {
 		logData, _ := h.newPendingRequestLog(r, endpointType, modelExcerpt(reqModel), isStreaming)
-		h.rejectOversizedModel(w, logData, startTime, parseMs)
+		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
 		return nil, false
 	}
 
@@ -157,9 +158,8 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// inserted with an empty model, and modelID, the event and the app-log
 	// lines all come after this point. Same refusal, same excerpt on the row.
 	if modelTooLong(reqModel) {
-		logData.modelID = modelExcerpt(reqModel)
 		logData.streaming = isStreaming
-		h.rejectOversizedModel(w, logData, startTime, parseMs)
+		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
 		return nil, false
 	}
 
