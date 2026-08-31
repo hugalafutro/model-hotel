@@ -121,7 +121,10 @@ type Server struct {
 	// previous process announced is still closed out, and a still-held member is
 	// not re-alerted.
 	syncHeldMu sync.Mutex
-	syncHeld   map[string]bool
+	// syncHeld maps a held member to the primary build its hold was judged
+	// against, so a later pass can tell a hold that still means something from
+	// one that has not been re-checked since the primary itself changed.
+	syncHeld map[string]string
 	// ungatedCommitWarned records that this process already warned that the
 	// primary reports no usable commit, so the warning fires once per transition
 	// rather than every pass. Guarded by syncHeldMu, alongside the hold state it
@@ -280,7 +283,7 @@ func NewServer(cfg ServerConfig) *Server {
 		traefikLimiter:  cfg.TraefikLimiter,
 		trustedProxies:  cfg.TrustedProxies,
 		rearmCh:         make(chan struct{}),
-		syncHeld:        make(map[string]bool),
+		syncHeld:        make(map[string]string),
 		holdLogChecked:  make(map[string]bool),
 		syncIncomplete:  make(map[string]incompleteState),
 		unconfirmedSync: make(map[string]string),

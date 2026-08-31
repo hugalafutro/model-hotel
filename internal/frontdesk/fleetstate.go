@@ -79,6 +79,21 @@ type memberFleetFacts struct {
 	Drained  bool
 	Syncable bool
 	Held     bool
+	// HeldCurrent is Held AND judged against the build the primary is running
+	// now. The distinction exists because a hold is a claim ("this member
+	// differs from the primary") that the primary changing invalidates: the
+	// verdict was reached against a build nothing is running any more, and no
+	// pass has re-checked it yet.
+	//
+	// It matters only for the escalation. A rolling rebuild always produces a
+	// window where the member rebuilt BEFORE the primary is still flagged from
+	// when it disagreed with the OLD primary, while the members rebuilt after
+	// it are freshly flagged against the new one. Counting the stale flag made
+	// that read as "every candidate disagrees", which is the one condition that
+	// escalates to faulty, so a routine rebuild reported the fleet broken for
+	// as long as the next auto-sync pass took to catch up. A stale hold still
+	// degrades the fleet; it just cannot condemn it.
+	HeldCurrent bool
 	// Incomplete marks a member that applied a config without materialising all
 	// of it.
 	Incomplete bool
@@ -99,7 +114,7 @@ type fleetStateInput struct {
 // live reads happen in the Server wrapper (fleetStateNow), keeping this
 // exhaustively table-testable.
 func computeFleetState(in fleetStateInput) (FleetState, []string) {
-	var down, held, syncable, drained, incomplete int
+	var down, held, heldCurrent, syncable, drained, incomplete int
 	for _, m := range in.Members {
 		if m.Known && !m.Healthy {
 			down++
@@ -114,6 +129,9 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 			syncable++
 			if m.Held {
 				held++
+			}
+			if m.HeldCurrent {
+				heldCurrent++
 			}
 		}
 	}
@@ -138,7 +156,12 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 	switch {
 	// With a single candidate there is no way to tell which side of the skew is
 	// the odd one out, so it stays a per-member degradation.
-	case syncable >= 2 && held == syncable:
+	//
+	// Escalating needs every candidate to be held ON CURRENT INFORMATION. A
+	// hold carried over from a previous primary build has not been re-judged,
+	// so it cannot be part of the evidence that the whole fleet disagrees; see
+	// memberFleetFacts.HeldCurrent.
+	case syncable >= 2 && heldCurrent == syncable:
 		reasons = append(reasons, reasonAllSyncHeld)
 	case held > 0:
 		reasons = append(reasons, reasonSyncHeld)
@@ -180,10 +203,10 @@ const fleetStateInterval = 5 * time.Second
 // sync_held / all_sync_held. That direction is deliberate: a stale hold degrades
 // the fleet state, it never reports a false ok, and it clears when auto-sync
 // resumes or the skew resolves.
-func (s *Server) heldSnapshot() map[string]bool {
+func (s *Server) heldSnapshot() map[string]string {
 	s.syncHeldMu.Lock()
 	defer s.syncHeldMu.Unlock()
-	out := make(map[string]bool, len(s.syncHeld))
+	out := make(map[string]string, len(s.syncHeld))
 	maps.Copy(out, s.syncHeld)
 	return out
 }
@@ -253,15 +276,22 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 	held := s.heldSnapshot()
 	incomplete := s.incompleteSnapshot()
 	facts := make([]memberFleetFacts, 0, len(members))
+	// The build the primary is running right now, as last read by the poller.
+	// A hold judged against a different one has not been re-checked since, so it
+	// cannot say anything about the current primary; see memberFleetFacts.
+	primarySt := statuses[cfg.PrimaryID]
+	primaryBuild := memberBuild{Version: primarySt.Version, Commit: primarySt.Commit}.key()
 	for _, m := range members {
 		st := statuses[m.ID]
+		heldAgainst, wasHeld := held[m.ID]
 		facts = append(facts, memberFleetFacts{
-			Known:      st.Health.Known,
-			Healthy:    st.Health.Healthy,
-			Drained:    m.State == StateDrained,
-			Syncable:   m.HasToken && m.ID != cfg.PrimaryID,
-			Held:       held[m.ID],
-			Incomplete: incomplete[m.ID],
+			Known:       st.Health.Known,
+			Healthy:     st.Health.Healthy,
+			Drained:     m.State == StateDrained,
+			Syncable:    m.HasToken && m.ID != cfg.PrimaryID,
+			Held:        heldAgainst != "" || wasHeld,
+			HeldCurrent: wasHeld && heldAgainst == primaryBuild,
+			Incomplete:  incomplete[m.ID],
 		})
 	}
 	return computeFleetState(fleetStateInput{

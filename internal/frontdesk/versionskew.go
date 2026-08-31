@@ -18,6 +18,12 @@ type memberBuild struct {
 // when that is all there is, "dev (d18a96d1f84d)" when a commit backs it. An
 // unknown build reads as "unknown" rather than an empty string, so a message
 // naming it does not trail off.
+// key identifies the build for comparing one recorded verdict against another.
+// Both halves, so a fleet whose images all report the "dev" placeholder version
+// is still distinguished by commit, and an unknown build gets its own value
+// rather than colliding with every other unknown.
+func (b memberBuild) key() string { return b.Version + "@" + b.Commit }
+
 func (b memberBuild) describe() string {
 	switch {
 	case b.Version == "":

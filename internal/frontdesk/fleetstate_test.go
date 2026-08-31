@@ -11,7 +11,18 @@ import (
 func TestComputeFleetState(t *testing.T) {
 	up := memberFleetFacts{Known: true, Healthy: true}
 	down := memberFleetFacts{Known: true, Healthy: false}
-	heldOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Held = true; return f }
+	// heldOf is a hold judged against the build the primary is running now, the
+	// ordinary case. staleHeldOf is one carried over from a previous primary
+	// build, which a rolling rebuild always produces and which must not be part
+	// of the evidence for an all_sync_held escalation.
+	heldOf := func(f memberFleetFacts) memberFleetFacts {
+		f.Syncable, f.Held, f.HeldCurrent = true, true, true
+		return f
+	}
+	staleHeldOf := func(f memberFleetFacts) memberFleetFacts {
+		f.Syncable, f.Held, f.HeldCurrent = true, true, false
+		return f
+	}
 	incompleteOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Incomplete = true; return f }
 	syncable := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; return f }
 	drainedOf := func(f memberFleetFacts) memberFleetFacts { f.Drained = true; return f }
@@ -41,6 +52,15 @@ func TestComputeFleetState(t *testing.T) {
 		{"all held (2+) is faulty: primary is the odd one out",
 			fleetStateInput{Members: []memberFleetFacts{up, heldOf(up), heldOf(up)}},
 			FleetFaulty, []string{"all_sync_held"}},
+		{"a stale hold degrades but cannot escalate: it was judged against a primary build nothing runs now",
+			fleetStateInput{Members: []memberFleetFacts{up, staleHeldOf(up), heldOf(up)}},
+			FleetDegraded, []string{"sync_held"}},
+		{"every candidate stale is still only a degradation",
+			fleetStateInput{Members: []memberFleetFacts{up, staleHeldOf(up), staleHeldOf(up)}},
+			FleetDegraded, []string{"sync_held"}},
+		{"the rolling-rebuild window: one member re-checked, the rest flagged against the old primary",
+			fleetStateInput{Members: []memberFleetFacts{up, staleHeldOf(up), heldOf(up), heldOf(up)}},
+			FleetDegraded, []string{"sync_held"}},
 		{"single held candidate cannot prove the primary is odd",
 			fleetStateInput{Members: []memberFleetFacts{up, heldOf(up)}},
 			FleetDegraded, []string{"sync_held"}},
@@ -340,7 +360,7 @@ func simulateFleetStateRestart(s *Server) {
 	s.poller.lastConfigPollAt = time.Time{}
 	s.poller.mu.Unlock()
 	s.syncHeldMu.Lock()
-	s.syncHeld = make(map[string]bool)
+	s.syncHeld = make(map[string]string)
 	s.syncHeldMu.Unlock()
 	s.syncIncompleteMu.Lock()
 	s.syncIncomplete = make(map[string]incompleteState)
