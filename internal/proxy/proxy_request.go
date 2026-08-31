@@ -58,7 +58,9 @@ func modelExcerpt(model string) string {
 // subscribers see the started/completed pair every other early guard emits,
 // and the caller gets the constant message back. The response never quotes
 // the field. It takes the raw model and derives the excerpt itself so no
-// ingest path can put the field on the row by forgetting to.
+// ingest path can put the field on the row at the refusal by forgetting to;
+// the middleware-preparsed path must still hand the excerpt to its own
+// pending INSERT, which runs before this can.
 func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
 	logData.modelID = modelExcerpt(model)
 	publishRequestStartedEvent(logData)

@@ -3,9 +3,9 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,14 +30,15 @@ func oversizedModelWithPrefix() (model, prefix string) {
 // compressed bytes; a run of one repeated byte compresses under that and is
 // accepted, random hex is not. That is what makes the fixture discriminate:
 // a guard that lets this model reach the pending INSERT loses the row.
-func incompressibleModelWithPrefix(runes int) (model, prefix string) {
+// length is in bytes, which equals runes here because the content is ASCII.
+func incompressibleModelWithPrefix(length int) (model, prefix string) {
 	prefix = "toolong-" + uuid.NewString()[:8] + "-"
 	var b strings.Builder
 	b.WriteString(prefix)
-	for b.Len() < runes {
+	for b.Len() < length {
 		b.WriteString(strings.ReplaceAll(uuid.NewString(), "-", ""))
 	}
-	return b.String()[:runes], prefix
+	return b.String()[:length], prefix
 }
 
 // modelRow is what the request-log row looks like after ingest refused it.
@@ -267,8 +268,8 @@ func TestModelTooLong_CountsRunesNotBytes(t *testing.T) {
 // TestModelTooLongMessage_SpellsTheBound keeps the constant message honest
 // about the number it quotes.
 func TestModelTooLongMessage_SpellsTheBound(t *testing.T) {
-	if !strings.Contains(modelTooLongMessage, strconv.Itoa(maxModelNameRunes)) {
-		t.Errorf("message %q does not spell the bound %d", modelTooLongMessage, maxModelNameRunes)
+	if want := fmt.Sprintf("model exceeds maximum length of %d characters", maxModelNameRunes); modelTooLongMessage != want {
+		t.Errorf("message = %q, want %q", modelTooLongMessage, want)
 	}
 }
 
