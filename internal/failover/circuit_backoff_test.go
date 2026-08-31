@@ -364,11 +364,83 @@ func TestCircuitBreaker_SwitchReadsDoNotScaleWithBackedOffCircuits(t *testing.T)
 
 	fewStatus, fewOpen := readsFor(2)
 	manyStatus, manyOpen := readsFor(16)
-	if fewStatus != manyStatus || fewStatus > 1 {
-		t.Errorf("Status() read the backoff switch %d times over 2 backed-off circuits and %d over 16, want once per call: a scrape must not cost one DB round trip per circuit under the breaker lock", fewStatus, manyStatus)
+	// Exactly one, not at most one: zero would mean the switch is not consulted
+	// at all, which is the other way this guard could be satisfied by accident.
+	if fewStatus != 1 || manyStatus != 1 {
+		t.Errorf("Status() read the backoff switch %d times over 2 backed-off circuits and %d over 16, want exactly once per call: a scrape must not cost one DB round trip per circuit under the breaker lock", fewStatus, manyStatus)
 	}
-	if fewOpen != manyOpen || fewOpen > 1 {
-		t.Errorf("IsOpen() on a sibling read the backoff switch %d times over 2 backed-off circuits and %d over 16, want at most once per request", fewOpen, manyOpen)
+	if fewOpen != 1 || manyOpen != 1 {
+		t.Errorf("IsOpen() on a sibling read the backoff switch %d times over 2 backed-off circuits and %d over 16, want exactly once per request", fewOpen, manyOpen)
+	}
+}
+
+// The stamped backoff can be stale against a raised base, and the retarget
+// floor has to compare against what the circuit actually serves. A base raised
+// to ten minutes over a four-minute backoff, and advice six minutes out: nothing
+// to retarget, because a pin never shortens the wait in force.
+func TestCircuitBreaker_RetargetedPinIsFlooredAtARaisedBase(t *testing.T) {
+	settings := &stubSettings{threshold: 1, cooldown: backoffTestBase}
+	cb := NewCircuitBreaker(settings)
+	id := uuid.New()
+	backOffOnce(t, cb, id)
+	settings.cooldown = 10 * time.Minute
+
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Minute)}); n != 0 {
+		t.Errorf("ApplyQuotaPins retargeted %d circuits with advice below the raised base, want 0", n)
+	}
+	if s := onlyStatus(t, cb); s.QuotaPinned || s.CooldownMs != (10*time.Minute).Milliseconds() {
+		t.Errorf("quota_pinned=%v cooldown %dms, want unpinned and the raised 10m base", s.QuotaPinned, s.CooldownMs)
+	}
+}
+
+// The suffix blames failed retries for the wait, so it must not appear when a
+// quota pin reaches further: then it is the provider's spent window that holds
+// the circuit, and "backing off, next retry in 10h" would accuse the model.
+func TestCircuitBreaker_BackoffSuffixOnlyWhenTheBackoffGoverns(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := newTestCB(1, backoffTestBase)
+	id := uuid.New()
+	cb.RecordFailure(id, "test-provider", modelA)
+	waitForOpenEvent(t, sub, id)
+	cb.mu.Lock()
+	cb.circuits[id.String()][modelA].openedAt = time.Now().Add(-24 * time.Hour)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "test-provider", modelA) {
+		t.Fatal("setup: no probe handed out past the cooldown")
+	}
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(10 * time.Hour), ok: true})
+	cb.RecordFailure(id, "test-provider", modelA)
+
+	ev := waitForOpenEvent(t, sub, id)
+	pinned, _ := ev.Metadata["quota_pinned"].(bool)
+	backedOff, _ := ev.Metadata["backed_off"].(bool)
+	if !pinned || !backedOff {
+		t.Fatalf("setup: quota_pinned=%v backed_off=%v, want both in force", pinned, backedOff)
+	}
+	if strings.Contains(ev.Message, "backing off") {
+		t.Errorf("a circuit held by a 10h pin over a 4m backoff blames the backoff: %q", ev.Message)
+	}
+}
+
+func TestShortDuration(t *testing.T) {
+	for _, tc := range []struct {
+		d    time.Duration
+		want string
+	}{
+		{100 * time.Millisecond, "100ms"},
+		{30 * time.Second, "30s"},
+		{90 * time.Second, "1m30s"},
+		{4 * time.Minute, "4m"},
+		{15 * time.Minute, "15m"},
+		{time.Hour, "1h"},
+		{90 * time.Minute, "1h30m"},
+		{25 * time.Hour, "25h"},
+	} {
+		if got := shortDuration(tc.d); got != tc.want {
+			t.Errorf("shortDuration(%v) = %q, want %q", tc.d, got, tc.want)
+		}
 	}
 }
 
@@ -481,16 +553,24 @@ func TestCircuitBreaker_OpenEventDropsModelIDOnceTheProviderIsSkipped(t *testing
 	}
 }
 
+// A close carries model_id whatever the verdict says: the provider here is
+// still skipped on a sibling when modelA recovers, and that recovery is about
+// modelA. Two models recovering inside one alert window are two recoveries.
 func TestCircuitBreaker_ClosedEventCarriesModelID(t *testing.T) {
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
 	cb := newTestCB(1, 0)
+	cb.SpanModels = 1
 	id := uuid.New()
+	cb.RecordFailure(id, "test-provider", modelB) // the sibling holds the verdict
+	cb.mu.Lock()
+	cb.circuits[id.String()][modelB].openedAt = time.Now().Add(time.Hour) // still dark for an hour
+	cb.mu.Unlock()
 	cb.RecordFailure(id, "test-provider", modelA)
-	if cb.IsOpen(id, "test-provider", modelA) {
-		t.Fatal("setup: no probe handed out with a zero cooldown")
-	}
+	cb.mu.Lock()
+	cb.circuits[id.String()][modelA].state = StateHalfOpen // owed its probe
+	cb.mu.Unlock()
 	cb.RecordSuccess(id, "test-provider", modelA)
 
 	deadline := time.After(2 * time.Second)

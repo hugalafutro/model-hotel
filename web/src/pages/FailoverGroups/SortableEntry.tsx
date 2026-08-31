@@ -22,13 +22,14 @@ export interface SortableEntryProps {
 		next_retry_at?: string;
 		opened_at?: string;
 		consecutive_fails: number;
-		// Set when the cooldown was pinned to the provider's quota reset
-		// deadline instead of the ordinary retry backoff; next_retry_at is then
-		// that deadline.
+		// Set when a quota pin is in force: the cooldown was pinned to the
+		// provider's quota reset deadline. next_retry_at is then that deadline
+		// unless a longer backoff is also in force, which is rare (a pin is
+		// floored at the backoff when it is stamped).
 		quota_pinned?: boolean;
-		// Set when the cooldown is the probe backoff: doubled once per failed
-		// half-open probe. Says why the wait is longer than the setting, the way
-		// quota_pinned does; next_retry_at is then the backed-off deadline.
+		// Set when a probe backoff is in force: the cooldown doubled once per
+		// failed half-open probe. Says why the wait is longer than the setting,
+		// the way quota_pinned does; next_retry_at is the longer of the two.
 		backed_off?: boolean;
 		// The derived verdict that the breaker is skipping this provider for
 		// every model, and the model ids it is blocking. Which entries get a
@@ -119,7 +120,9 @@ export function SortableEntry({
 	// The cooldown in force has been doubled by failed probes. Ranked below a
 	// provider-wide skip in the tooltip: that a whole provider is out matters
 	// more than why this one model's wait is long, and a backoff never implies
-	// the provider verdict the way a quota pin does.
+	// the provider verdict the way a quota pin does. Ranked below the quota pin
+	// too, because a pin names the cause and is nearly always the longer of
+	// the two when both are set; the status has no field for which one governs.
 	const backedOff = Boolean(showFuse && cbStatus.backed_off);
 
 	const nextRetryAt = cbStatus?.next_retry_at;

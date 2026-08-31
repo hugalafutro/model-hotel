@@ -23,11 +23,12 @@ const defaultSpanModels = 2
 
 // defaultBackoffMax is the ceiling a probe backoff may reach. Fifteen minutes:
 // at the default cooldown the waits run 1, 2, 4, 8 minutes and then hold, so a
-// model broken all day costs under a hundred wasted requests rather than 1440,
+// model broken all day costs a hundred or so wasted requests rather than 1440,
 // while a model fixed upstream is back within a quarter of an hour with nobody
 // resetting anything. It is deliberately not longer: a probe is the only way a
 // model with no healthy sibling ever gets tried again, and the verdict that
-// skips a whole provider holds for as long as its blocking circuits do.
+// skips a whole provider holds for as long as enough of its circuits keep
+// blocking, which a backoff stretches.
 const defaultBackoffMax = 15 * time.Minute
 
 // circuit is the health state of one (provider, resolved upstream model) pair.
@@ -509,8 +510,9 @@ func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 // force, not only the circuits that open afterwards. The "beyond the base" test
 // is what keeps the flag honest when the base is raised after the stamp: a row
 // must not claim a backoff for a cooldown identical to the setting. Every
-// surface that reports or enforces the backoff derives from this one predicate,
-// so the number and the explanation beside it can never disagree.
+// surface that reports or enforces the backoff derives from this one predicate.
+// The flag says the backoff is in force, not that it is the longest; a pin can
+// reach further, and effectiveCooldownForWith decides which one the number is.
 func (cb *CircuitBreaker) backedOffForWith(c *circuit, r *cooldownReads) bool {
 	return c != nil && c.cooldownBackoff > r.base && r.backoffEnabled()
 }
@@ -541,8 +543,9 @@ func (cb *CircuitBreaker) backoffMax() time.Duration {
 //
 // Every surface derives from this one predicate — the cooldown the breaker
 // enforces, the CooldownMs/NextRetryAt the status API publishes, the
-// quota_pinned flag beside them, and the pin arm of the provider-wide verdict —
-// so the number and the explanation can never disagree.
+// quota_pinned flag beside them, and the pin arm of the provider-wide verdict.
+// The flag says the pin is in force, not that it is the longest; a backoff can
+// reach further, and effectiveCooldownForWith decides which one the number is.
 func (cb *CircuitBreaker) quotaPinnedForWith(c *circuit, r *cooldownReads) bool {
 	return c != nil && c.cooldownOverride > 0 && r.pinEnabled()
 }

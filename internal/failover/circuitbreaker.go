@@ -422,16 +422,19 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		"backed_off":    backedOff,
 		"failed_probes": c.failedProbes,
 	}
-	// model_id is the identity the alert dispatcher debounces on, and it is
-	// carried only while the provider is still serving. Then the event is about
-	// one model, and keying it on the provider would let the first model to fail
-	// suppress every sibling that fails beside it. Once the verdict says the
-	// provider itself is skipped, the event is about the provider: the verdict
+	// model_id is the identity the alert dispatcher debounces on. An open
+	// carries it only while the provider is still serving: then the event is
+	// about one model, and keying it on the provider would let the first model
+	// to fail suppress every sibling that fails beside it. Once the verdict says
+	// the provider itself is skipped, an open is about the provider: the verdict
 	// lapses every time a blocking circuit's cooldown elapses, which lets one
 	// more sibling through to fail and open, and a fifty-model provider outage
 	// keyed per model would notify fifty times inside one alert window for what
-	// is one fact. Without the key the dispatcher falls back to provider_id.
-	if !providerOpen {
+	// is one fact. Without the key the dispatcher falls back to provider_id. A
+	// close always carries it: a recovery is about the model that recovered
+	// whatever the verdict still says about its siblings, and two models coming
+	// back inside one window are two recoveries, not one.
+	if state != "open" || !providerOpen {
 		meta["model_id"] = model
 	}
 	if state == "open" {
@@ -448,7 +451,12 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		}
 	}
 	msg := breakerEventMessage(providerName, state, model, providerOpen)
-	if state == "open" && backedOff {
+	// The suffix attributes the wait to the backoff, so it is added only when
+	// the backoff is the value in force. A circuit can be backed off and pinned
+	// at once, and when the pin reaches further it is quota, not failed retries,
+	// that holds the circuit; saying "backing off, next retry in 10h" there
+	// would blame the model for a provider's spent window.
+	if state == "open" && backedOff && cooldown == c.cooldownBackoff {
 		msg += backoffSuffix(cooldown, c.failedProbes)
 	}
 	events.Publish(events.Event{
@@ -474,15 +482,23 @@ func backoffSuffix(cooldown time.Duration, failedProbes int) string {
 }
 
 // shortDuration renders a cooldown the way an operator reads it: "4m" rather
-// than Duration.String's "4m0s", and "1h" rather than "1h0m0s".
+// than Duration.String's "4m0s", "1h30m" rather than "1h30m0s" or "90m", and
+// never "0s" for a cooldown that is merely short.
 func shortDuration(d time.Duration) string {
-	switch {
-	case d >= time.Hour && d%time.Hour == 0:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	case d >= time.Minute && d%time.Minute == 0:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	default:
+	if d < time.Second || d%time.Second != 0 {
+		return d.String()
+	}
+	if d%time.Minute != 0 {
 		return d.Round(time.Second).String()
+	}
+	h, m := d/time.Hour, (d%time.Hour)/time.Minute
+	switch {
+	case h == 0:
+		return fmt.Sprintf("%dm", m)
+	case m == 0:
+		return fmt.Sprintf("%dh", h)
+	default:
+		return fmt.Sprintf("%dh%dm", h, m)
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/netguard"
 )
 
-// defaultCooldown is the per-(event-type, provider) debounce window: repeat
+// defaultCooldown is the per-(event-type, entity) debounce window: repeat
 // alerts for the same key inside this window are suppressed so a flapping
 // circuit breaker cannot spam the operator.
 const defaultCooldown = 5 * time.Minute
