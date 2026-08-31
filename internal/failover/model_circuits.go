@@ -21,6 +21,16 @@ const maxModelCircuitsPerProvider = 256
 // refusing says something about the provider.
 const defaultSpanModels = 2
 
+// defaultBackoffMax is the ceiling a probe backoff may reach. Fifteen minutes:
+// at the default cooldown the waits run 1, 2, 4, 8 minutes and then hold, so a
+// model broken all day costs a hundred or so wasted requests rather than 1440,
+// while a model fixed upstream is back within a quarter of an hour with nobody
+// resetting anything. It is deliberately not longer: a probe is the only way a
+// model with no healthy sibling ever gets tried again, and the verdict that
+// skips a whole provider holds for as long as enough of its circuits keep
+// blocking, which a backoff stretches.
+const defaultBackoffMax = 15 * time.Minute
+
 // circuit is the health state of one (provider, resolved upstream model) pair.
 // It is the only thing the breaker charges directly; the provider-wide verdict
 // is derived from the set of them (see providerOpen).
@@ -33,6 +43,15 @@ type circuit struct {
 	// when the circuit opens against a provider whose quota window is spent;
 	// zero means "use the configured cooldown".
 	cooldownOverride time.Duration
+	// failedProbes counts the half-open probes that failed since the circuit
+	// last closed, and cooldownBackoff is the cooldown those failures have
+	// earned: the configured cooldown doubled once per failed probe, capped by
+	// circuit_breaker_backoff_max, stamped at the open transition the way the
+	// quota pin is. Zero means "no backoff in force". A probe is a live user
+	// request, so a model that is broken all day fails one real request per
+	// cooldown unless each failure buys a longer wait before the next.
+	failedProbes    int
+	cooldownBackoff time.Duration
 	// lastCharged is when a failure or success last landed on this circuit. It
 	// orders eviction, so the circuits that are dropped when a provider exceeds
 	// the cap are the ones nothing has routed to in the longest time.
@@ -130,14 +149,14 @@ func (cb *CircuitBreaker) evictIfFull(models modelCircuits) {
 	if len(models) < maxModelCircuitsPerProvider {
 		return
 	}
-	base := cb.effectiveCooldown()
+	r := cb.cooldowns()
 	victim := ""
 	var oldest time.Time
 	// found, rather than an empty victim, marks "nothing chosen yet": the empty
 	// string is a legitimate model key and must be as evictable as any other.
 	found := false
 	for model, c := range models {
-		if cb.logicalStateWith(c, base) != StateClosed {
+		if cb.logicalStateWith(c, r) != StateClosed {
 			continue
 		}
 		// The model id breaks ties so eviction is deterministic even when two
@@ -149,6 +168,51 @@ func (cb *CircuitBreaker) evictIfFull(models modelCircuits) {
 	if found {
 		delete(models, victim)
 	}
+}
+
+// cooldownReads is everything a walk over circuits needs from settings, read at
+// most once per walk. A deployment that never overrode a key has no settings row
+// to serve from cache, so each read is a DB round trip, and every walk here runs
+// under cb.mu: Status on every Prometheus scrape, the provider verdict on the
+// request path. The configured cooldown is read up front because every circuit
+// needs it. The two kill switches are read lazily, on the first circuit that
+// carries an override or a backoff, so the healthy case (nothing overridden,
+// nothing backed off) costs exactly the one read it always did, and a provider
+// with a hundred backed-off circuits costs one more, not a hundred.
+//
+// The switches are read per walk rather than only when a circuit opens because
+// an operator who flips one to get a provider back expects every override
+// already in force to be released at once, not only the circuits that open
+// afterwards. Per walk is also what keeps the surfaces consistent: one Status
+// row cannot report a pin its neighbour's read said was disabled.
+type cooldownReads struct {
+	cb        *CircuitBreaker
+	base      time.Duration
+	backoffOn *bool
+	pinOn     *bool
+}
+
+// cooldowns starts a walk: one read of the configured cooldown, the switches
+// deferred. Must be called with cb.mu held (read lock suffices), like every
+// helper that takes the result.
+func (cb *CircuitBreaker) cooldowns() *cooldownReads {
+	return &cooldownReads{cb: cb, base: cb.effectiveCooldown()}
+}
+
+func (r *cooldownReads) backoffEnabled() bool {
+	if r.backoffOn == nil {
+		v := r.cb.backoffEnabled()
+		r.backoffOn = &v
+	}
+	return *r.backoffOn
+}
+
+func (r *cooldownReads) pinEnabled() bool {
+	if r.pinOn == nil {
+		v := r.cb.quotaPinEnabled()
+		r.pinOn = &v
+	}
+	return *r.pinOn
 }
 
 // providerOpen is the derived provider-wide verdict: the breaker never charges
@@ -179,9 +243,9 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 		return false
 	}
 
-	// The cooldown is read only now, after the pre-pass has established there is
+	// Settings are read only now, after the pre-pass has established there is
 	// a verdict to derive, and once for the whole walk.
-	open, _, _ := cb.providerReport(models, cb.effectiveCooldown())
+	open, _, _ := cb.providerReport(models, cb.cooldowns())
 	return open
 }
 
@@ -201,17 +265,14 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 // pinned sibling while its most degraded circuit carries no pin would otherwise
 // be reported as skipped outright rather than as waiting for a quota window.
 //
-// base is the configured cooldown, hoisted by the caller so a walk over one
-// provider's circuits reads the setting once instead of once per circuit.
-//
 // Must be called with cb.mu held (read lock suffices).
-func (cb *CircuitBreaker) providerReport(models modelCircuits, base time.Duration) (open bool, blocked []string, pinned bool) {
+func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads) (open bool, blocked []string, pinned bool) {
 	for model, c := range models {
-		if !cb.blocking(c, base) {
+		if !cb.blocking(c, r) {
 			continue
 		}
 		blocked = append(blocked, model)
-		if cb.quotaPinnedFor(c) {
+		if cb.quotaPinnedForWith(c, r) {
 			pinned = true
 		}
 	}
@@ -222,28 +283,22 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits, base time.Duratio
 // blocking reports whether a circuit is turning requests away right now: open
 // and still inside the cooldown that governs it. A circuit owed a probe is not
 // blocking, which is why it counts for neither the verdict nor the list beside
-// it. base is the configured cooldown, hoisted by the caller.
+// it.
 //
 // Must be called with cb.mu held (read lock suffices).
-func (cb *CircuitBreaker) blocking(c *circuit, base time.Duration) bool {
-	return c.state == StateOpen && cb.stillDark(c, base)
+func (cb *CircuitBreaker) blocking(c *circuit, r *cooldownReads) bool {
+	return c.state == StateOpen && cb.stillDark(c, r)
 }
 
 // stillDark reports whether an open circuit is still inside the cooldown that
 // governs it, i.e. whether it is blocking traffic rather than owed a probe.
-// base is the configured cooldown, hoisted by the caller so a walk over one
-// provider's circuits reads the setting once instead of once per circuit.
 //
 // Must be called with cb.mu held (read lock suffices).
-func (cb *CircuitBreaker) stillDark(c *circuit, base time.Duration) bool {
+func (cb *CircuitBreaker) stillDark(c *circuit, r *cooldownReads) bool {
 	if c.openedAt.IsZero() {
 		return true
 	}
-	cooldown := base
-	if cb.quotaPinnedFor(c) {
-		cooldown = c.cooldownOverride
-	}
-	return time.Since(c.openedAt) < cooldown
+	return time.Since(c.openedAt) < cb.effectiveCooldownForWith(c, r)
 }
 
 // logicalState maps a circuit's stored state to the state every observer
@@ -256,13 +311,13 @@ func (cb *CircuitBreaker) stillDark(c *circuit, base time.Duration) bool {
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) logicalState(c *circuit) State {
-	return cb.logicalStateWith(c, cb.effectiveCooldown())
+	return cb.logicalStateWith(c, cb.cooldowns())
 }
 
-// logicalStateWith is logicalState with the configured cooldown supplied by the
-// caller, for walks that would otherwise re-read the setting per circuit.
-func (cb *CircuitBreaker) logicalStateWith(c *circuit, base time.Duration) State {
-	if c.state == StateOpen && !cb.stillDark(c, base) {
+// logicalStateWith is logicalState with the walk's settings supplied by the
+// caller, for walks that would otherwise re-read them per circuit.
+func (cb *CircuitBreaker) logicalStateWith(c *circuit, r *cooldownReads) State {
+	if c.state == StateOpen && !cb.stillDark(c, r) {
 		return StateHalfOpen
 	}
 	return c.state
@@ -311,25 +366,25 @@ func stateRank(s State) int {
 // dominant returns the circuit that represents a provider on the per-provider
 // surfaces, or nil when the provider tracks none.
 //
-// base is the configured cooldown, hoisted by the caller: every read in this
-// walk goes through the *With helpers, so ranking a provider's circuits reads
+// r carries the walk's settings, hoisted by the caller: every read in this walk
+// goes through the *With helpers, so ranking a provider's circuits reads
 // settings zero times however many circuits it holds. That matters because
 // Status runs this for every provider on every Prometheus scrape, under the
 // lock the request path takes, and an uncached settings read is a DB round trip.
 //
 // Must be called with cb.mu held (read lock suffices).
-func (cb *CircuitBreaker) dominant(models modelCircuits, base time.Duration) *circuit {
+func (cb *CircuitBreaker) dominant(models modelCircuits, r *cooldownReads) *circuit {
 	var best *circuit
 	var bestRank circuitRank
 	for model, c := range models {
-		r := circuitRank{
+		rank := circuitRank{
 			model: model,
-			state: stateRank(cb.logicalStateWith(c, base)),
-			retry: c.openedAt.Add(cb.effectiveCooldownForWith(c, base)),
+			state: stateRank(cb.logicalStateWith(c, r)),
+			retry: c.openedAt.Add(cb.effectiveCooldownForWith(c, r)),
 			fails: c.consecutiveFails,
 		}
-		if best == nil || r.beats(bestRank) {
-			best, bestRank = c, r
+		if best == nil || rank.beats(bestRank) {
+			best, bestRank = c, rank
 		}
 	}
 	return best
@@ -374,41 +429,125 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 	return cb.Cooldown
 }
 
-// effectiveCooldownFor returns the cooldown governing a specific circuit: its
-// quota pin when one is in force, otherwise the configured global value. The
-// settings read behind quotaPinnedFor is only reached for circuits that carry
-// an override, so the common path costs nothing extra.
-func (cb *CircuitBreaker) effectiveCooldownFor(c *circuit) time.Duration {
-	if cb.quotaPinnedFor(c) {
-		return c.cooldownOverride
+// effectiveCooldownForWith is the cooldown governing a circuit: the longest of
+// the configured cooldown, the circuit's probe backoff when backoff is switched
+// on, and its quota pin when pinning is switched on.
+//
+// The longest, not a precedence order, because each of the three is a reason
+// the circuit must not be probed yet, and none of them is a reason it may be.
+// Taking the longest is also what makes the stored values safe against
+// everything that can change under them: a base raised above a stamped backoff
+// (the setting governs, and the row stops claiming a backoff), a switch flipped
+// between the moment a pin was floored and now (the backoff the pin was meant
+// to clear still holds), and a ceiling lowered after a pin was stamped. In
+// the ordinary course a pin is at least the backoff, because applyQuotaPin
+// floors it there, so the longest is simply the pin whenever one is in force.
+func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads) time.Duration {
+	cooldown := cb.unpinnedCooldownWith(c, r)
+	if cb.quotaPinnedForWith(c, r) && c.cooldownOverride > cooldown {
+		cooldown = c.cooldownOverride
 	}
-	return cb.effectiveCooldown()
+	return cooldown
 }
 
-// effectiveCooldownForWith is effectiveCooldownFor with the configured cooldown
-// supplied by the caller, for walks that would otherwise re-read the setting per
-// circuit. It pairs with logicalStateWith: the same hoisted base serves both, so
-// a per-provider walk costs one settings read rather than one per circuit.
-func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, base time.Duration) time.Duration {
-	if cb.quotaPinnedFor(c) {
-		return c.cooldownOverride
+// unpinnedCooldownWith is the cooldown a circuit serves when no quota pin is
+// counted: its backoff when one is in force, otherwise the configured cooldown.
+// It is the floor a pin must clear when it is stamped, and the wait a released
+// pin falls back to.
+func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) time.Duration {
+	if cb.backedOffForWith(c, r) {
+		return c.cooldownBackoff
 	}
-	return base
+	return r.base
 }
 
-// quotaPinnedFor reports whether a quota pin is actually governing this circuit
-// right now. The kill switch is deliberately re-read here rather than only at
-// the moment a circuit opens: an operator who disables quota pinning to recover
-// a provider sidelined for hours expects every pin already in force to be
-// released at once, not only the circuits that open afterwards. It is the
-// fleet-wide lever; Reset is the per-provider one.
+// applyBackoff stamps the cooldown a circuit's failed probes have earned. Must
+// be called with cb.mu held, immediately after c transitions to Open and before
+// applyQuotaPin, which floors the pin at the value stamped here.
+//
+// The backoff is computed once, at the open transition, and stored, rather than
+// derived on every read from the count and the ceiling: every walk over circuits
+// reads the configured cooldown once and then takes the rest from the circuit,
+// and a ceiling read per circuit would put a DB round trip per circuit back
+// under the lock. What the stored value cannot know is a base raised after it
+// was stamped; effectiveCooldownForWith covers that by never serving less than
+// the base. Always stamped, gated only at read time by backedOffForWith, so the
+// kill switch acts at once in both directions.
+//
+// A ceiling at or below the base is not a shorter cooldown: the ceiling bounds
+// what the backoff may add, and a backoff that could add nothing is left off.
+func (cb *CircuitBreaker) applyBackoff(c *circuit) {
+	c.cooldownBackoff = 0
+	if c.failedProbes == 0 {
+		return
+	}
+	base := cb.effectiveCooldown()
+	ceiling := cb.backoffMax()
+	if base <= 0 || ceiling <= base {
+		return
+	}
+	d := base
+	// Doubled step by step and stopped at the ceiling, never shifted by the
+	// count: a model that has failed its probe for a week has a count that would
+	// overflow a shift long before it reached anything a ceiling could clamp.
+	// The halfway test keeps the doubling itself inside int64 whatever the
+	// ceiling is.
+	for range c.failedProbes {
+		if d > ceiling/2 {
+			d = ceiling
+			break
+		}
+		d *= 2
+	}
+	c.cooldownBackoff = d
+}
+
+// backedOffForWith reports whether a probe backoff is actually governing this
+// circuit right now: one is stamped, it reaches beyond the configured cooldown,
+// and backoff is switched on. Like quotaPinnedForWith, the kill switch is
+// re-read per walk rather than only when a circuit opens, so an operator who
+// disables backoff to get a provider back releases every backoff already in
+// force, not only the circuits that open afterwards. The "beyond the base" test
+// is what keeps the flag honest when the base is raised after the stamp: a row
+// must not claim a backoff for a cooldown identical to the setting. Every
+// surface that reports or enforces the backoff derives from this one predicate.
+// The flag says the backoff is in force, not that it is the longest; a pin can
+// reach further, and effectiveCooldownForWith decides which one the number is.
+func (cb *CircuitBreaker) backedOffForWith(c *circuit, r *cooldownReads) bool {
+	return c != nil && c.cooldownBackoff > r.base && r.backoffEnabled()
+}
+
+func (cb *CircuitBreaker) backoffEnabled() bool {
+	if cb.settings == nil {
+		return true
+	}
+	return cb.settings.GetBool(context.Background(), "circuit_breaker_backoff_enabled", true)
+}
+
+// backoffMax is the ceiling a probe backoff may reach; see defaultBackoffMax.
+func (cb *CircuitBreaker) backoffMax() time.Duration {
+	if cb.settings != nil {
+		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_backoff_max", 0); v > 0 {
+			return v
+		}
+	}
+	return defaultBackoffMax
+}
+
+// quotaPinnedForWith reports whether a quota pin is actually governing this
+// circuit right now. The kill switch is deliberately re-read per walk rather
+// than only at the moment a circuit opens: an operator who disables quota
+// pinning to recover a provider sidelined for hours expects every pin already
+// in force to be released at once, not only the circuits that open afterwards.
+// It is the fleet-wide lever; Reset is the per-provider one.
 //
 // Every surface derives from this one predicate — the cooldown the breaker
 // enforces, the CooldownMs/NextRetryAt the status API publishes, the
-// quota_pinned flag beside them, and the pin arm of the provider-wide verdict —
-// so the number and the explanation can never disagree.
-func (cb *CircuitBreaker) quotaPinnedFor(c *circuit) bool {
-	return c != nil && c.cooldownOverride > 0 && cb.quotaPinEnabled()
+// quota_pinned flag beside them, and the pin arm of the provider-wide verdict.
+// The flag says the pin is in force, not that it is the longest; a backoff can
+// reach further, and effectiveCooldownForWith decides which one the number is.
+func (cb *CircuitBreaker) quotaPinnedForWith(c *circuit, r *cooldownReads) bool {
+	return c != nil && c.cooldownOverride > 0 && r.pinEnabled()
 }
 
 func (cb *CircuitBreaker) quotaPinEnabled() bool {

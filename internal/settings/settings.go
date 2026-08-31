@@ -36,6 +36,8 @@ var AllowedSettings = map[string]bool{
 	"circuit_breaker_cooldown":          true,
 	"circuit_breaker_quota_pin_enabled": true,
 	"circuit_breaker_quota_pin_max":     true,
+	"circuit_breaker_backoff_enabled":   true,
+	"circuit_breaker_backoff_max":       true,
 	"rate_limit_enabled":                true,
 	"rate_limit_ip_enabled":             true,
 	"rate_limit_ip_rps":                 true,
