@@ -131,7 +131,19 @@ func main() {
 	// One TRUSTED_PROXIES parse feeds both consumers: the login rate limiter
 	// and the server's client-IP resolution for logs and session metadata.
 	trustedProxies := config.LoadTrustedProxies()
-	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, trustedProxies, nil)
+	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, trustedProxies, nil).Named("login")
+	// A separate budget for the liveness probe, so a flood of it cannot spend
+	// the allowance pairing and login need from the same address. Sized for a
+	// probe rather than for a person: the container HEALTHCHECK polls every
+	// 30 seconds, so two per second with a burst of five leaves room for a
+	// monitoring poller and a human curl beside it and still bounds the store
+	// reads each hit performs.
+	healthzLimiter := ratelimit.NewIPLimiter(defaultHealthzRPS, defaultHealthzBurst, trustedProxies, nil).Named("healthz")
+	// And one for the ungated Traefik poll, which is the costlier sibling.
+	// Traefik polls every 5 seconds (0.2 rps) from the compose network, so this
+	// is ten times its cadence and, being per-address, cannot be spent by
+	// anyone else's traffic.
+	traefikLimiter := ratelimit.NewIPLimiter(defaultTraefikRPS, defaultTraefikBurst, trustedProxies, nil).Named("traefik-config")
 
 	srv := frontdesk.NewServer(frontdesk.ServerConfig{
 		Store:          store,
@@ -141,6 +153,8 @@ func main() {
 		MasterKey:      masterKey,
 		RelyingParty:   rp,
 		IPLimiter:      ipLimiter,
+		HealthzLimiter: healthzLimiter,
+		TraefikLimiter: traefikLimiter,
 		TrustedProxies: trustedProxies,
 		UI:             frontdesk.EmbeddedUI(),
 		// Dedicated Prometheus scrape bearer; when unset, /metrics falls back to
@@ -230,6 +244,13 @@ func main() {
 const (
 	defaultIPRPS   = 5
 	defaultIPBurst = 10
+	// The liveness probe's own budget. Generous against a 30-second
+	// HEALTHCHECK, tight against line-rate anonymous probing.
+	defaultHealthzRPS   = 2
+	defaultHealthzBurst = 5
+	// The ungated Traefik poll's own budget: ten times its 5-second cadence.
+	defaultTraefikRPS   = 2
+	defaultTraefikBurst = 5
 )
 
 // announceGeneratedToken writes a freshly generated login token to w and logs

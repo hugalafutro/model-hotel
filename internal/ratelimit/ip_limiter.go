@@ -28,11 +28,12 @@ type ipEntry struct {
 	burst    int
 	lastUsed time.Time
 	throttle throttleState // edge-triggered throttle logging (see throttle.go)
+	budget   string        // copied from the owning limiter for the log line
 }
 
 // throttleCtx builds the per-IP logging context for the shared throttleState.
 func (e *ipEntry) throttleCtx(ip string) throttleLogCtx {
-	return throttleLogCtx{prefix: "ratelimit-ip", label: "ip", id: ip, rps: e.rps, burst: e.burst}
+	return throttleLogCtx{prefix: "ratelimit-ip", label: "ip", id: ip, budget: e.budget, rps: e.rps, burst: e.burst}
 }
 
 func (e *ipEntry) noteRejected(ip string) {
@@ -66,6 +67,18 @@ type IPLimiter struct {
 	stopCh         chan struct{}
 	trustedProxies []*net.IPNet
 	settings       SettingsReader
+	// budget names this limiter in its throttle log lines. Front Desk runs
+	// three (login, liveness probe, ungated Traefik poll), two of them with
+	// identical numbers, so the line has to say which one fired.
+	budget string
+}
+
+// Named labels this limiter's throttle log lines and returns it, so a
+// deployment running several can tell them apart. Set at construction, before
+// the limiter is shared.
+func (l *IPLimiter) Named(budget string) *IPLimiter {
+	l.budget = budget
+	return l
 }
 
 // NewIPLimiter creates an IP rate limiter. The rps and burst parameters
@@ -202,6 +215,7 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *ipEntry {
 			rps:      rps,
 			burst:    burst,
 			lastUsed: time.Now(),
+			budget:   l.budget,
 		}
 		l.limiters[ip] = entry
 	} else {

@@ -84,7 +84,43 @@ func newTestServerTraefikToken(t *testing.T, token string) (*Server, *Store) {
 	return newTestServerCfg(t, nil, ratelimit.NewIPLimiter(1000, 1000, nil, nil), token)
 }
 
+// newTestServerHealthzLimited builds a server whose liveness probe has its own
+// budget, for the tests that assert the probe is bounded and that its flood
+// does not spend the login limiter's allowance.
+func newTestServerHealthzLimited(t *testing.T, healthz adminauth.IPLimiterMiddleware) (*Server, *Store) {
+	t.Helper()
+	return newTestServerCfgFull(t, nil, unlimitedLimiter(t), healthz, "")
+}
+
+// newTestServerCfgTraefikLimited builds a server with chosen probe and Traefik
+// budgets, and an optional Traefik token, for the tests that assert the ungated
+// poll is bounded and the gated one is not.
+func newTestServerCfgTraefikLimited(t *testing.T, healthz, traefik adminauth.IPLimiterMiddleware, traefikToken string) (*Server, *Store) {
+	t.Helper()
+	return newTestServerCfgAll(t, nil, unlimitedLimiter(t), healthz, traefik, traefikToken)
+}
+
+// unlimitedLimiter is a budget no test can reach, so unrelated suites never see
+// a 429. Stopped with the test, like limiterFor.
+func unlimitedLimiter(t *testing.T) *ratelimit.IPLimiter {
+	t.Helper()
+	lim := ratelimit.NewIPLimiter(1000, 1000, nil, nil)
+	t.Cleanup(lim.Stop)
+	return lim
+}
+
 func newTestServerCfg(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMiddleware, traefikToken string) (*Server, *Store) {
+	t.Helper()
+	// Probe and Traefik limits no unrelated test can reach.
+	return newTestServerCfgFull(t, ui, limiter, unlimitedLimiter(t), traefikToken)
+}
+
+func newTestServerCfgFull(t *testing.T, ui fs.FS, limiter, healthz adminauth.IPLimiterMiddleware, traefikToken string) (*Server, *Store) {
+	t.Helper()
+	return newTestServerCfgAll(t, ui, limiter, healthz, unlimitedLimiter(t), traefikToken)
+}
+
+func newTestServerCfgAll(t *testing.T, ui fs.FS, limiter, healthz, traefik adminauth.IPLimiterMiddleware, traefikToken string) (*Server, *Store) {
 	t.Helper()
 	store := newTestStore(t)
 	bus := events.NewBus()
@@ -99,15 +135,17 @@ func newTestServerCfg(t *testing.T, ui fs.FS, limiter adminauth.IPLimiterMiddlew
 		t.Fatalf("NewRelyingParty: %v", err)
 	}
 	srv := NewServer(ServerConfig{
-		Store:        store,
-		Poller:       poller,
-		Bus:          bus,
-		AdminMgr:     adminMgr,
-		MasterKey:    testMasterKey,
-		RelyingParty: rp,
-		IPLimiter:    limiter,
-		UI:           ui,
-		TraefikToken: traefikToken,
+		Store:          store,
+		Poller:         poller,
+		Bus:            bus,
+		AdminMgr:       adminMgr,
+		MasterKey:      testMasterKey,
+		RelyingParty:   rp,
+		IPLimiter:      limiter,
+		HealthzLimiter: healthz,
+		TraefikLimiter: traefik,
+		UI:             ui,
+		TraefikToken:   traefikToken,
 	})
 	// Drain any detached background goroutine (e.g. an auto-sync kick) before
 	// the store and its temp dir are torn down. Registered here so it runs

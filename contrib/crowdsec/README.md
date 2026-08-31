@@ -391,7 +391,10 @@ docker restart <crowdsec-container>
   DO reach the container log. Successful requests to it are therefore visible, apart from the
   reads the dashboard repeats on a timer (the member and device lists, per-member traffic, quota,
   the event stream) and the machine probes (`/healthz`, `/traefik/config`, `/metrics`), which are
-  logged at debug on purpose so an idle browser tab does not fill the log.
+  logged at debug on purpose so an idle browser tab does not fill the log. A probe that is
+  REFUSED is a different matter: `/healthz` and the ungated `/traefik/config` carry their own
+  per-IP budgets, and a 429 is logged at warning like any other 4xx, so a flood of either is
+  visible in the log even though the served polls are not.
 
 - **Front Desk's access log is opt-in like the gateway's.** Front Desk writes the same
   `access: request` line the gateway does, but the parser that maps it onto `http_access-log` is

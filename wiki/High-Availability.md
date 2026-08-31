@@ -446,6 +446,26 @@ server {
     location = /traefik/config { return 404; }
     location /traefik/ { return 404; }
 
+    # `/healthz` stays reachable through the catch-all below, on purpose: it is
+    # the container liveness probe and discloses nothing. It is bounded at 2
+    # requests per second per resolved client address, as is `/traefik/config`
+    # while FRONTDESK_TRAEFIK_TOKEN is unset.
+    #
+    # Those budgets are a fallback, not the control. FRONTDESK_TRAEFIK_TOKEN is
+    # the control: with it set, an unauthenticated poll is refused before any
+    # work happens and the limiter is not mounted at all. Set it.
+    #
+    # If you set FRONTDESK_TRUSTED_PROXIES, set it to the address Front Desk
+    # actually sees as the TCP peer, which with a published port and Docker's
+    # userland proxy is the bridge gateway rather than this nginx. Be aware of
+    # what that buys and costs: trusting the bridge means anything reaching the
+    # published port chooses its own X-Forwarded-For, and therefore its own rate
+    # -limit bucket. It can then key a flood into the bucket Traefik polls on,
+    # or the one the container healthcheck uses. Leaving it unset is safe but
+    # coarse: every client behind this proxy shares one budget, so one noisy
+    # prober can exhaust it for the rest. Either way, gate the endpoint with the
+    # token and do not publish the port beyond where it is needed.
+
     location / {
         proxy_pass http://HA_HOST:8090;
         proxy_set_header Host $host;

@@ -31,8 +31,23 @@ type throttleLogCtx struct {
 	prefix string // "ratelimit" or "ratelimit-ip"
 	label  string // "key" or "ip"
 	id     string // the key hash or client IP
+	// budget names WHICH limiter throttled, for deployments running several of
+	// them. Two IP limiters with the same rps and burst otherwise produce
+	// byte-identical log lines, and "a prober was refused" and "Traefik may be
+	// losing its config source" are not the same event. Empty for a lone
+	// limiter, which is what the gateway has.
+	budget string
 	rps    float64
 	burst  int
+}
+
+// logAttrs renders the identity and limits of one throttle episode.
+func (c throttleLogCtx) logAttrs() []any {
+	attrs := []any{c.label, c.id}
+	if c.budget != "" {
+		attrs = append(attrs, "budget", c.budget)
+	}
+	return append(attrs, "rps", c.rps, "burst", c.burst)
 }
 
 // noteRejected records a 429 and logs "throttling started" on the first
@@ -45,8 +60,7 @@ func (s *throttleState) noteRejected(c throttleLogCtx) {
 		s.throttledAt = time.Now()
 		s.rejectedN = 1
 		s.mu.Unlock()
-		debuglog.Warn(c.prefix+": throttling started",
-			c.label, c.id, "rps", c.rps, "burst", c.burst)
+		debuglog.Warn(c.prefix+": throttling started", c.logAttrs()...)
 		return
 	}
 	s.rejectedN++
