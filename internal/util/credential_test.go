@@ -22,7 +22,12 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 		{"huggingface", "hf_abcdefghij1234567890abcd", true},
 		{"fireworks", "fw_abcdefghij1234567890abcd", true},
 		{"replicate", "r8_abcdefghij1234567890abcd", true},
-		{"google", "AIzaSyA1234567890abcdefghijklmnopqrstuv", true},
+		// 31 characters after the prefix, deliberately. Our rule needs 30 or
+		// more, so this exercises it; GitHub's own google_api_key scanner wants
+		// exactly 35, and a 35-character dummy here raised a secret-scanning
+		// alert against this very file. Do not "correct" the length to a
+		// realistic 35: it tests nothing extra and cries wolf on every clone.
+		{"google", "AIzaSyDUMMY0123456789abcdefghijklmn", true},
 		{"aws access key id", "AKIA1234567890ABCDEF", true},
 		{"bare jwt", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKK", true},
 		{"bearer token", "Authorization: Bearer abcdefghij1234567890", true},
