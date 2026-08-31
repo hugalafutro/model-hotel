@@ -6,11 +6,67 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// maxModelNameRunes bounds the client-supplied `model` routing field.
+//
+// The field is routing metadata, and the pipeline persists it before it
+// validates it: the pending request-log row carries it, the request.started
+// event carries it, the "request start" app-log line carries it, and the
+// resolve failures quote it back in the error response. None of those sinks
+// had a bound of its own, so a multi-megabyte model inside the (legal, capped)
+// request body was a multi-megabyte write to every one of them, from one
+// virtual key. Real routing targets are "provider/model" or "hotel/group";
+// the admin write paths cap display models at 128 characters, so 512 is far
+// above anything that can resolve.
+const maxModelNameRunes = 512
+
+// modelTooLongMessage is the constant refusal for an oversized model. A test
+// pins the number it spells to maxModelNameRunes so the two cannot drift.
+const modelTooLongMessage = "model exceeds maximum length of 512 characters"
+
+// modelExcerptRunes is how much of an oversized model the request-log row
+// keeps. The row exists so the refusal stays attributed to its virtual key;
+// a prefix is enough to recognise the request in the log and small enough that
+// the attacker's string cannot use the row as its sink.
+const modelExcerptRunes = 64
+
+// modelTooLong reports whether the model field is over the bound. An empty
+// model is not too long; "model is required" is a separate guard downstream.
+func modelTooLong(model string) bool {
+	return utf8.RuneCountInString(model) > maxModelNameRunes
+}
+
+// modelExcerpt returns the bounded form of an oversized model for the
+// request-log row: the first modelExcerptRunes runes and an ellipsis, cut on a
+// rune boundary so the stored text stays valid UTF-8.
+func modelExcerpt(model string) string {
+	if utf8.RuneCountInString(model) <= modelExcerptRunes {
+		return model
+	}
+	return string([]rune(model)[:modelExcerptRunes]) + "…"
+}
+
+// rejectOversizedModel is the one outcome every ingest path has for a model
+// past maxModelNameRunes: the pending row (already inserted by the caller) is
+// closed as a validation failure carrying the excerpt rather than the field,
+// subscribers see the started/completed pair every other early guard emits,
+// and the caller gets the constant message back. The response never quotes
+// the field. It takes the raw model and derives the excerpt itself so no
+// ingest path can put the field on the row at the refusal by forgetting to;
+// the middleware-preparsed path must still hand the excerpt to its own
+// pending INSERT, which runs before this can.
+func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
+	logData.modelID = modelExcerpt(model)
+	publishRequestStartedEvent(logData)
+	h.failRequest(logData, http.StatusBadRequest, KindValidation, modelTooLongMessage, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+	writeOpenAIError(w, modelTooLongMessage, http.StatusBadRequest)
+}
 
 // ingestRequest performs phase A of ChatCompletions and the JSON multimodal
 // endpoints: read the pre-parsed model/stream/parse-time and virtual-key
@@ -52,6 +108,16 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// not covered by streamingAwareTimeout), parse from body directly.
 	var bodyBytes []byte
 
+	// The middleware-provided model is what the pending INSERT below would
+	// carry, so the bound is checked before the row exists: the row is
+	// inserted with the excerpt and closed as the refusal. Every later sink
+	// (the event, the app-log lines, the response) is behind the return.
+	if modelTooLong(reqModel) {
+		logData, _ := h.newPendingRequestLog(r, endpointType, modelExcerpt(reqModel), isStreaming)
+		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
+		return nil, false
+	}
+
 	logData, vkHash := h.newPendingRequestLog(r, endpointType, reqModel, isStreaming)
 
 	if reqModel == "" {
@@ -88,6 +154,15 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
 			bodyBytes = cached
 		}
+	}
+
+	// The body-parsed model has not touched any sink yet: the pending row was
+	// inserted with an empty model, and modelID, the event and the app-log
+	// lines all come after this point. Same refusal, same excerpt on the row.
+	if modelTooLong(reqModel) {
+		logData.streaming = isStreaming
+		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
+		return nil, false
 	}
 
 	// Update log entry with model resolved from body parsing (if not set by middleware).
