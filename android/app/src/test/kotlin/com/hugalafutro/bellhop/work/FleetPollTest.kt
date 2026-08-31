@@ -92,6 +92,13 @@ class FleetPollTest {
         // ...and then Front Desk's alert picker and event log (FleetEventPollTest
         // covers them); nothing switched on and an empty log keep these tests
         // about the health diff.
+        enqueueFrontDeskAlerts()
+    }
+
+    // The alert picker and the event log, read after quota on every successful
+    // poll; nothing on and nothing logged. Without these a hand-built sequence
+    // leaves the poll waiting on an empty queue for the client's read timeout.
+    private fun enqueueFrontDeskAlerts() {
         server.enqueue(MockResponse().setBody("""{"events":[]}"""))
         server.enqueue(MockResponse().setBody("""{"events":[],"total":0}"""))
     }
@@ -176,6 +183,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
             server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
+            enqueueFrontDeskAlerts()
 
             val result = poll(store)
 
@@ -377,6 +385,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setBody(autoSyncBody(false)))
             server.enqueue(MockResponse().setBody(quotaBody()))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, config)
 
@@ -399,6 +408,7 @@ class FleetPollTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setBody(autoSyncBody(false)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, newConfigStore())
 
@@ -425,6 +435,7 @@ class FleetPollTest {
             // than fail loudly. Separate from the 500 case above precisely because
             // the body is well-formed.
             server.enqueue(MockResponse().setResponseCode(502).setBody("""{"quota":[]}"""))
+            enqueueFrontDeskAlerts()
 
             poll(store, widget, newConfigStore())
 
