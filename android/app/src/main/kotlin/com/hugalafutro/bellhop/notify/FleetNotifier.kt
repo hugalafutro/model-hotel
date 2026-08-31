@@ -172,7 +172,10 @@ object FleetNotifier {
         // Severity is in the tag because Android keeps a row's original channel
         // when it is updated: a drain (warning) replaced in place by the
         // re-activation (info) would stay on the warning channel and re-alert
-        // there, and the operator would never have seen the drain at all.
+        // there, and the operator would never have seen the drain at all. The
+        // same holds for fleet-wide types whose severity tracks state
+        // (fleet.state_changed degraded then ok, config.sync_failed then
+        // synced): the two ends of the episode are two rows.
         val tag =
             when (alert) {
                 is MemberTransition -> alert.id

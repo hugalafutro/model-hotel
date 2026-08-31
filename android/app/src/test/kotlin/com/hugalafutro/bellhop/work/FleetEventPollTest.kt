@@ -29,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * The Front Desk half of a poll: the alert picker and the event log are read
@@ -112,10 +113,14 @@ class FleetEventPollTest {
             now = { 42L },
         )
 
-    /** eventsRequestPath returns the path of the events read, the fifth request of a poll. */
+    /**
+     * eventsRequestPath returns the path of the events read, the fifth request of a
+     * poll. Bounded takes, so a poll that made fewer requests fails the test
+     * rather than hanging it.
+     */
     private fun eventsRequestPath(): String {
-        repeat(4) { server.takeRequest() }
-        return server.takeRequest().path.orEmpty()
+        repeat(4) { checkNotNull(server.takeRequest(2, TimeUnit.SECONDS)) { "poll made fewer than 5 requests" } }
+        return checkNotNull(server.takeRequest(2, TimeUnit.SECONDS)) { "no events request" }.path.orEmpty()
     }
 
     private val seen = EventCursor("2026-08-31T11:20:00Z", "e1")
@@ -176,7 +181,7 @@ class FleetEventPollTest {
             assertEquals(EventCursor("2026-08-31T11:28:54Z", "e2"), store.eventCursor())
             // With a cursor the log is read from its instant, not from the top.
             val path = eventsRequestPath()
-            assertTrue(path, path.contains("since="))
+            assertTrue(path, path.contains("since=2026-08-31T11%3A20%3A00Z"))
         }
 
     @Test
@@ -373,9 +378,10 @@ class FleetEventPollTest {
         }
 
     @Test
-    fun aBaselineIsNeededOnlyWhileALayerIsOnAndNoCursorExists() {
-        assertTrue(needsEventBaseline(active = true, cursor = null))
-        assertFalse(needsEventBaseline(active = false, cursor = null))
-        assertFalse(needsEventBaseline(active = true, cursor = seen))
+    fun aBaselineIsNeededOnlyWhileALayerIsOnNotificationsCanPostAndNoCursorExists() {
+        assertTrue(needsEventBaseline(active = true, canNotify = true, cursor = null))
+        assertFalse(needsEventBaseline(active = false, canNotify = true, cursor = null))
+        assertFalse(needsEventBaseline(active = true, canNotify = false, cursor = null))
+        assertFalse(needsEventBaseline(active = true, canNotify = true, cursor = seen))
     }
 }

@@ -183,15 +183,19 @@ private suspend fun watchedEvents(
 
 /**
  * needsEventBaseline is the decision behind [FleetPollWorker.seedEventBaseline]:
- * a layer is on but no event cursor exists yet, so the next wake would spend
- * itself recording a baseline and post nothing. That is the state after
- * enabling a layer and after upgrading from a build with no cursor, and in both
- * the very next push would otherwise be the one that is swallowed.
+ * a layer is on, notifications can be posted, and no event cursor exists yet,
+ * so the next wake would spend itself recording a baseline and post nothing.
+ * That is the state after enabling a layer and after upgrading from a build
+ * with no cursor, and in both the very next push would otherwise be the one
+ * that is swallowed. With notifications denied the poll would bail before
+ * recording anything ([runBackstop] freezes the baseline until the grant), so
+ * enqueueing it on every foreground would be pointless churn.
  */
 fun needsEventBaseline(
     active: Boolean,
+    canNotify: Boolean,
     cursor: EventCursor?,
-): Boolean = active && cursor == null
+): Boolean = active && canNotify && cursor == null
 
 /**
  * pollFleet is the testable core of the background backstop: fetch the fleet,
@@ -523,10 +527,17 @@ class FleetPollWorker(
          * now, while the operator has the app open, rather than by the first push,
          * which would then be the one alert that goes unposted. Called on every
          * app start; a no-op once the cursor exists.
+         *
+         * It rides the same KEEP one-shot slot as a push wake, so a push landing
+         * while the seed poll runs is coalesced onto it; both would find no cursor
+         * and record the baseline, so nothing is lost that the other would have
+         * posted, and the baseline is in place for the push after that.
          */
         suspend fun seedEventBaseline(context: Context) {
             val store = MonitorStore.create(context)
-            if (needsEventBaseline(store.active.first(), store.eventCursor())) runNow(context)
+            if (needsEventBaseline(store.active.first(), FleetNotifier.canPost(context), store.eventCursor())) {
+                runNow(context)
+            }
         }
 
         /**

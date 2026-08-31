@@ -168,6 +168,10 @@ class FleetEventDiffTest {
 
         assertTrue(diff.alerts.isEmpty())
         assertEquals(EventCursor("2026-08-31T11:30:10Z", "e3"), diff.cursor)
+    }
+
+    @Test
+    fun aFirstPollOverAnEmptyLogRecordsNoCursor() {
         assertNull(diffEvents(null, emptyList(), drainOn).cursor)
     }
 }
