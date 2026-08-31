@@ -446,6 +446,13 @@ server {
     location = /traefik/config { return 404; }
     location /traefik/ { return 404; }
 
+    # `/healthz` stays reachable through the catch-all below, on purpose: it is
+    # the container liveness probe and discloses nothing. It is bounded at
+    # 2 requests per second per resolved client address, as is `/traefik/config`
+    # while FRONTDESK_TRAEFIK_TOKEN is unset. Set FRONTDESK_TRUSTED_PROXIES to
+    # this proxy's address, or every client behind it shares one budget and one
+    # noisy prober can exhaust it for the rest.
+
     location / {
         proxy_pass http://HA_HOST:8090;
         proxy_set_header Host $host;

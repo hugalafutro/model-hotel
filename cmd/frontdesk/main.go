@@ -139,6 +139,11 @@ func main() {
 	// monitoring poller and a human curl beside it and still bounds the store
 	// reads each hit performs.
 	healthzLimiter := ratelimit.NewIPLimiter(defaultHealthzRPS, defaultHealthzBurst, trustedProxies, nil)
+	// And one for the ungated Traefik poll, which is the costlier sibling.
+	// Traefik polls every 5 seconds (0.2 rps) from the compose network, so this
+	// is ten times its cadence and, being per-address, cannot be spent by
+	// anyone else's traffic.
+	traefikLimiter := ratelimit.NewIPLimiter(defaultTraefikRPS, defaultTraefikBurst, trustedProxies, nil)
 
 	srv := frontdesk.NewServer(frontdesk.ServerConfig{
 		Store:          store,
@@ -149,6 +154,7 @@ func main() {
 		RelyingParty:   rp,
 		IPLimiter:      ipLimiter,
 		HealthzLimiter: healthzLimiter,
+		TraefikLimiter: traefikLimiter,
 		TrustedProxies: trustedProxies,
 		UI:             frontdesk.EmbeddedUI(),
 		// Dedicated Prometheus scrape bearer; when unset, /metrics falls back to
@@ -242,6 +248,9 @@ const (
 	// HEALTHCHECK, tight against line-rate anonymous probing.
 	defaultHealthzRPS   = 2
 	defaultHealthzBurst = 5
+	// The ungated Traefik poll's own budget: ten times its 5-second cadence.
+	defaultTraefikRPS   = 2
+	defaultTraefikBurst = 5
 )
 
 // announceGeneratedToken writes a freshly generated login token to w and logs

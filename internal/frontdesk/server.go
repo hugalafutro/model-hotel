@@ -59,6 +59,16 @@ type ServerConfig struct {
 	// unlimited, which is the old behaviour and what the tests without a
 	// limiter get.
 	HealthzLimiter adminauth.IPLimiterMiddleware
+	// TraefikLimiter bounds /traefik/config while it is UNGATED. That endpoint
+	// is the more expensive sibling of the liveness probe: the same two store
+	// reads, plus building and marshalling a member-sized config, and its body
+	// discloses member URLs and settings. It gets its own budget rather than
+	// the probe's, because Traefik's poll is the data plane's lifeline and a
+	// flood of one endpoint must not starve the other. Per-address, so an
+	// attacker's traffic cannot spend the budget Traefik itself polls on.
+	// Ignored once FRONTDESK_TRAEFIK_TOKEN is set: a caller without the token
+	// is then refused before any of the work happens.
+	TraefikLimiter adminauth.IPLimiterMiddleware
 	UI             fs.FS  // embedded SPA; nil disables the UI mount
 	MetricsToken   string // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
 	TraefikToken   string // FRONTDESK_TRAEFIK_TOKEN; bearer Traefik's HTTP provider sends when polling /traefik/config (endpoint stays open when empty)
@@ -95,6 +105,7 @@ type Server struct {
 	pairing        *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
 	ipLimiter      adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
 	healthzLimiter adminauth.IPLimiterMiddleware // separate budget for the unauthenticated liveness probe
+	traefikLimiter adminauth.IPLimiterMiddleware // separate budget for /traefik/config while it is ungated
 	trustedProxies []*net.IPNet                  // gates XFF trust for logged/stored client addresses
 	settingsMu     sync.Mutex                    // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
@@ -266,6 +277,7 @@ func NewServer(cfg ServerConfig) *Server {
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
 		healthzLimiter:  cfg.HealthzLimiter,
+		traefikLimiter:  cfg.TraefikLimiter,
 		trustedProxies:  cfg.TrustedProxies,
 		rearmCh:         make(chan struct{}),
 		syncHeld:        make(map[string]bool),
@@ -488,26 +500,33 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 	// value into Traefik's provider headers); without one the endpoint stays
 	// open for compose-internal use, relying on the deployment boundary and
 	// the reverse-proxy 404 block the HA wiki prescribes.
-	r.Get("/traefik/config", s.traefikAuth(s.handleTraefikConfig))
+	//
+	// Ungated it also rides a per-IP budget of its own: it is the costlier
+	// sibling of the probe below (the same two store reads plus a member-sized
+	// config build) and its body discloses member URLs. Not the probe's budget,
+	// because Traefik's poll is what keeps the data plane routable and a flood
+	// of one must not starve the other. Once the token is set an unauthenticated
+	// caller is refused before any of that work, so the limiter is skipped.
+	r.Group(func(r chi.Router) {
+		if s.traefikLimiter != nil && s.traefikToken == "" {
+			r.Use(s.traefikLimiter.Middleware)
+		}
+		r.Get("/traefik/config", s.traefikAuth(s.handleTraefikConfig))
+	})
 
 	// Container liveness probe (the image's HEALTHCHECK). Unauthenticated on
 	// purpose: it must keep answering when FRONTDESK_TRAEFIK_TOKEN gates the
 	// config endpoint, so it discloses nothing and only proves the server and
 	// its store answer.
 	//
-	// It is also not free: each hit runs the same two store reads a Traefik
-	// config poll does (see handleHealthz), deliberately, so the probe fails
-	// exactly when a poll would. That makes line-rate anonymous probing a way
-	// to spend the control plane's CPU, and the cost grows with the fleet's
-	// member count. Its own per-IP budget bounds that. The budget is separate
-	// from the login limiter's so a probe flood cannot spend the allowance
-	// pairing and login need from the same address, and it is far above the
-	// 30-second container HEALTHCHECK cadence.
-	//
-	// Throttling rather than caching: the gateway's /health caches for two
-	// seconds, but TestHealthzTracksTraefikConfigDependencies pins per-request
-	// freshness here, and a cached answer would delay a degraded-store report
-	// past the point a Traefik poll would have failed.
+	// Not free, though: each hit runs the same two store reads a Traefik poll
+	// does (see handleHealthz), so line-rate anonymous probing spends the
+	// control plane's CPU, and the cost grows with the fleet. Its own per-IP
+	// budget bounds that, separate from the login limiter's so a probe flood
+	// cannot spend what pairing and login need from the same address, and far
+	// above the 30-second container HEALTHCHECK cadence. Throttled rather than
+	// cached because TestHealthzTracksTraefikConfigDependencies pins per-request
+	// freshness: a cached answer would delay a degraded-store report.
 	r.Group(func(r chi.Router) {
 		if s.healthzLimiter != nil {
 			r.Use(s.healthzLimiter.Middleware)
