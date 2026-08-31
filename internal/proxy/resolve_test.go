@@ -169,7 +169,7 @@ func TestShouldFailover_Integration_TableDriven(t *testing.T) {
 func TestResolveHotelModel_GroupNotFound(t *testing.T) {
 	h := newIntegrationHandler()
 
-	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "nonexistent-model-xyz")
+	candidates, timings, _, _, err := h.resolveHotelModel(context.Background(), "nonexistent-model-xyz")
 
 	if err == nil {
 		t.Error("expected error for nonexistent failover group")
@@ -195,7 +195,7 @@ func TestResolveHotelModel_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, _, _, err := h.resolveHotelModel(ctx, "some-model")
+	_, _, _, _, err := h.resolveHotelModel(ctx, "some-model")
 
 	if err == nil {
 		t.Error("expected error with canceled context")
@@ -321,7 +321,7 @@ func TestResolveHotelModel_Success(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "hotel-model") }()
 
-	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "hotel-model")
+	candidates, timings, cacheHits, _, err := h.resolveHotelModel(context.Background(), "hotel-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -524,7 +524,7 @@ func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "multi-entry-model") }()
 
-	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
+	candidates, timings, cacheHits, _, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -608,7 +608,7 @@ func TestResolveHotelModel_ModelDisabled(t *testing.T) {
 	// Invalidate the model cache so the handler reads fresh data from DB
 	model.InvalidateModelCache()
 
-	candidates, _, _, err := h.resolveHotelModel(context.Background(), "disabled-model-fg")
+	candidates, _, _, _, err := h.resolveHotelModel(context.Background(), "disabled-model-fg")
 
 	// When all candidates are disabled, returns empty candidates with no error
 	// (the error is returned later when trying to route the request)
@@ -674,7 +674,7 @@ func TestResolveHotelModel_ProviderDisabled(t *testing.T) {
 		t.Fatalf("failed to disable provider: %v", err)
 	}
 
-	candidates, _, _, err := h.resolveHotelModel(context.Background(), "provider-disabled-fg")
+	candidates, _, _, _, err := h.resolveHotelModel(context.Background(), "provider-disabled-fg")
 
 	// When all candidates are filtered out, returns empty candidates with no error
 	if err != nil {
@@ -740,7 +740,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name, testModel.ModelID)
 	}
 
-	candidates, _, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
+	candidates, _, _, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
 
 	// When circuit breaker is open, returns empty candidates with no error
 	if err != nil {
@@ -794,7 +794,7 @@ func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "empty-key-fg") }()
 
-	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
+	candidates, timings, cacheHits, _, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -889,7 +889,7 @@ func TestBuildFailoverCandidates_EmptyPriorityOrder(t *testing.T) {
 		EntryEnabled:  map[string]bool{},
 	}
 
-	candidates, decryptTotal, decryptFails, keyHit := h.buildFailoverCandidates(fg, nil, nil, false)
+	candidates, decryptTotal, decryptFails, keyHit := h.buildFailoverCandidates(fg, nil, nil, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates, got %d", len(candidates))
@@ -917,7 +917,7 @@ func TestBuildFailoverCandidates_ModelNotFound(t *testing.T) {
 	}
 	models := map[uuid.UUID]*model.Model{} // model not in map
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, nil, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, nil, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when model not found, got %d", len(candidates))
@@ -948,7 +948,7 @@ func TestBuildFailoverCandidates_DisabledModel(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when model disabled, got %d", len(candidates))
@@ -979,7 +979,7 @@ func TestBuildFailoverCandidates_ProviderDisabled(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: false}, // provider disabled
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when provider disabled, got %d", len(candidates))
@@ -1010,7 +1010,7 @@ func TestBuildFailoverCandidates_ProviderDisabledViaModelField(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when ProviderEnabled=false on model, got %d", len(candidates))
@@ -1039,7 +1039,7 @@ func TestBuildFailoverCandidates_ProviderNotFound(t *testing.T) {
 	}
 	providers := map[uuid.UUID]*provider.Provider{} // provider not in map
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when provider not found, got %d", len(candidates))
@@ -1070,7 +1070,7 @@ func TestBuildFailoverCandidates_EntryDisabled(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when entry disabled, got %d", len(candidates))
@@ -1102,7 +1102,7 @@ func TestBuildFailoverCandidates_EntryNotInEnabledMap(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: true, EncryptedKey: nil},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 1 {
 		t.Fatalf("expected 1 candidate (entry defaults to enabled), got %d", len(candidates))
@@ -1136,7 +1136,7 @@ func TestBuildFailoverCandidates_KeylessProvider(t *testing.T) {
 		providerID: {ID: providerID, Name: "test-prov", Enabled: true, EncryptedKey: nil}, // keyless
 	}
 
-	candidates, decryptTotal, _, keyHit := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, decryptTotal, _, keyHit := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 1 {
 		t.Fatalf("expected 1 candidate, got %d", len(candidates))
@@ -1185,7 +1185,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpen(t *testing.T) {
 	// Open the circuit breaker
 	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID)
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, true)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, true, &breakerSkipSummary{})
 
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates when circuit breaker open, got %d", len(candidates))
@@ -1226,7 +1226,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpenButDisabled(t *testing.T) {
 	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID)
 
 	// cbEnabled=false → circuit breaker should be skipped
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 1 {
 		t.Errorf("expected 1 candidate when cbEnabled=false bypasses circuit breaker, got %d", len(candidates))
@@ -1264,7 +1264,7 @@ func TestBuildFailoverCandidates_MultipleCandidates(t *testing.T) {
 		provider2: {ID: provider2, Name: "prov2", Enabled: true, EncryptedKey: nil},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 2 {
 		t.Fatalf("expected 2 candidates, got %d", len(candidates))
@@ -1317,7 +1317,7 @@ func TestBuildFailoverCandidates_MixedEnabledDisabled(t *testing.T) {
 		provider3: {ID: provider3, Name: "prov3", Enabled: true, EncryptedKey: nil},
 	}
 
-	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})
 
 	if len(candidates) != 2 {
 		t.Fatalf("expected 2 candidates (model2 disabled), got %d", len(candidates))

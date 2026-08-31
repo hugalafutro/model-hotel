@@ -488,6 +488,31 @@ func TestCircuitBreakerSpanModelsIsRegisteredInBothAllowlists(t *testing.T) {
 	}
 }
 
+// The five 429-classification keys are runtime keys the proxy reads per
+// request; like the span test above, name them explicitly on both sides so a
+// key in NEITHER allowlist (which the sync test cannot see) fails here.
+func TestRateLimitClassificationKeysAreRegisteredInBothAllowlists(t *testing.T) {
+	for _, key := range []string{
+		"rate_limit_classify_enabled",
+		"rate_limit_saturation_max_wait",
+		"rate_limit_recent_success_window",
+		"failover_exhaustion_status_429",
+		"circuit_breaker_open_on_exhaustion",
+	} {
+		if !settings.AllowedSettings[key] {
+			t.Errorf("%s missing from settings.AllowedSettings: the DB layer refuses to write it", key)
+		}
+		rule, ok := allowedSettings[key]
+		if !ok {
+			t.Errorf("%s missing from api.allowedSettings: PUT /api/settings rejects it as an unknown setting", key)
+			continue
+		}
+		if rule.typeName != "string" {
+			t.Errorf("%s type %q, want string (bools and durations ride as strings)", key, rule.typeName)
+		}
+	}
+}
+
 // TestUpdateSettings_EmptySettings tests that UpdateSettings returns 400
 // when the request body is an empty object.
 func TestUpdateSettings_EmptySettings(t *testing.T) {

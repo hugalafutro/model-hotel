@@ -56,6 +56,25 @@ type circuit struct {
 	// orders eviction, so the circuits that are dropped when a provider exceeds
 	// the cap are the ones nothing has routed to in the longest time.
 	lastCharged time.Time
+	// lastSuccess is when a success last landed on this circuit. It backs the
+	// 429 behavioural fallback (LastSuccessWithin): a rate limit from a model
+	// that served moments ago is load, not a spent window.
+	lastSuccess time.Time
+	// pinSource says where the quota pin in force came from: "advisor" (a
+	// measured quota reading) or "response" (inferred from the exhausted 429
+	// itself). Empty when no pin is stamped. Observability only; the pin's
+	// mechanics do not read it.
+	pinSource string
+	// opens429Streak counts consecutive rate-limit-caused opens inside the
+	// window that began at open429WindowStart. Any open with another cause, or
+	// the window running out, resets it. From the third such open the circuit
+	// is treated as exhausted-without-a-phrase: its probe backoff may climb
+	// past circuit_breaker_backoff_max up to circuit_breaker_quota_pin_max,
+	// because a circuit that only ever reopens on 429 probes is burning a
+	// request per cooldown against a window that resets in hours. A successful
+	// probe, a manual reset, or an affirmative quota recovery clears it.
+	opens429Streak     int
+	open429WindowStart time.Time
 	// opens counts the transitions into Open inside the window that began at
 	// openWindowStart, and unstableReported records whether that window has
 	// already been reported. A model whose circuit keeps reopening is failing in
@@ -111,6 +130,42 @@ func (c *circuit) noteOpen(now time.Time) bool {
 	}
 	c.unstableReported = true
 	return true
+}
+
+// note429Open updates the rate-limit-open streak for one transition into Open.
+// Same window semantics as noteOpen, tracked separately because the two answer
+// different questions: noteOpen reports chronic instability whatever the
+// cause, this one escalates only when EVERY open in the run was a rate limit —
+// a 5xx-caused open in between is evidence of a different failure and resets
+// the streak, exactly as the design requires.
+func (c *circuit) note429Open(now time.Time, by429 bool) {
+	if !by429 {
+		c.opens429Streak = 0
+		c.open429WindowStart = time.Time{}
+		return
+	}
+	if c.open429WindowStart.IsZero() || now.Sub(c.open429WindowStart) > reopenWindow {
+		c.open429WindowStart = now
+		c.opens429Streak = 1
+		return
+	}
+	c.opens429Streak++
+}
+
+// exhaustedEscalated reports whether the streak has reached the point where
+// the circuit is treated as exhausted without any provider phrase saying so.
+// Three, matching opensBeforeEscalation: the provider's own text can shorten
+// this to one open; its absence only makes it slower, never wrong.
+func (c *circuit) exhaustedEscalated() bool {
+	return c.opens429Streak >= opensBeforeEscalation
+}
+
+// clear429Escalation drops the streak: called when HTTP proves recovery (a
+// successful probe closes the circuit) and when a quota refresh affirms the
+// provider is not exhausted.
+func (c *circuit) clear429Escalation() {
+	c.opens429Streak = 0
+	c.open429WindowStart = time.Time{}
 }
 
 // modelCircuits holds one provider's circuits, keyed by the resolved upstream
@@ -218,11 +273,13 @@ func (r *cooldownReads) pinEnabled() bool {
 // providerOpen is the derived provider-wide verdict: the breaker never charges
 // a provider directly, it reads one off the circuits it does charge.
 //
-// A provider is down when a quota pin says its window is spent, or when the
-// failures span at least `span` distinct models. One model refusing is evidence
-// about that model (a plan that excludes it, a retirement, a bad routing id) and
-// must not darken its healthy siblings; corroboration across models is what
-// makes "the provider is broken" the better explanation.
+// A provider is down when the quota ADVISOR's pin says its window is spent, or
+// when the failures span at least `span` distinct models. One model refusing
+// is evidence about that model (a plan that excludes it, a retirement, a bad
+// routing id) and must not darken its healthy siblings; corroboration across
+// models is what makes "the provider is broken" the better explanation. A pin
+// inferred from a single response (pinSource "response") is one model's
+// evidence and deliberately does not count here — see providerReport.
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
@@ -267,6 +324,7 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads) (open bool, blocked []string, pinned bool) {
+	advisorPinned := false
 	for model, c := range models {
 		if !cb.blocking(c, r) {
 			continue
@@ -274,10 +332,20 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads)
 		blocked = append(blocked, model)
 		if cb.quotaPinnedForWith(c, r) {
 			pinned = true
+			if c.pinSource == pinSourceAdvisor {
+				advisorPinned = true
+			}
 		}
 	}
 	slices.Sort(blocked)
-	return pinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
+	// Only an ADVISOR pin indicts the provider on its own: the advisor
+	// measured the provider's account, so its verdict is provider-scoped by
+	// construction. A response-derived pin is inferred from one model's 429,
+	// and the refusal that made per-model keying necessary — a plan excluding
+	// ONE model, answered with a balance error — is exactly that shape: pinning
+	// it must darken that model for as long as the pin says, and nothing else.
+	// Corroboration across models (the span) still reaches the provider.
+	return advisorPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
 }
 
 // blocking reports whether a circuit is turning requests away right now: open
@@ -476,6 +544,11 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 //
 // A ceiling at or below the base is not a shorter cooldown: the ceiling bounds
 // what the backoff may add, and a backoff that could add nothing is left off.
+//
+// A circuit escalated to exhausted-without-a-phrase (see exhaustedEscalated)
+// gets the quota-pin ceiling instead when that reaches further: its probes are
+// live requests spent against a window that resets in hours, so the ordinary
+// 15-minute cap is exactly the re-probe churn the escalation exists to stop.
 func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	c.cooldownBackoff = 0
 	if c.failedProbes == 0 {
@@ -483,6 +556,9 @@ func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	}
 	base := cb.effectiveCooldown()
 	ceiling := cb.backoffMax()
+	if c.exhaustedEscalated() {
+		ceiling = max(ceiling, cb.quotaPinMax())
+	}
 	if base <= 0 || ceiling <= base {
 		return
 	}
@@ -548,6 +624,17 @@ func (cb *CircuitBreaker) backoffMax() time.Duration {
 // reach further, and effectiveCooldownForWith decides which one the number is.
 func (cb *CircuitBreaker) quotaPinnedForWith(c *circuit, r *cooldownReads) bool {
 	return c != nil && c.cooldownOverride > 0 && r.pinEnabled()
+}
+
+// pinSourceForWith is the pin's provenance ("advisor" or "response"), reported
+// only while the pin is actually in force — the same predicate the
+// quota_pinned flag derives from, so a row can never name a source for a pin
+// it does not claim.
+func (cb *CircuitBreaker) pinSourceForWith(c *circuit, r *cooldownReads) string {
+	if !cb.quotaPinnedForWith(c, r) {
+		return ""
+	}
+	return c.pinSource
 }
 
 func (cb *CircuitBreaker) quotaPinEnabled() bool {

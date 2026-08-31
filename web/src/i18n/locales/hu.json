@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modellek száma a szolgáltató kihagyása előtt",
-			"spanModels.description": "Hány modellnek kell nyitott megszakítóval rendelkeznie, mielőtt a megszakító a teljes szolgáltatót kihagyja. 1 esetén egyetlen hibázó modell félreállítja a szolgáltató összes modelljét."
+			"spanModels.description": "Hány modellnek kell nyitott megszakítóval rendelkeznie, mielőtt a megszakító a teljes szolgáltatót kihagyja. 1 esetén egyetlen hibázó modell félreállítja a szolgáltató összes modelljét.",
+			"rateLimitGroup": "Sebességkorlátok (429) kezelése",
+			"classify429": "Foglalt és kimerült megkülönböztetése",
+			"classify429Description": "Minden 429-es választ elolvas, hogy megkülönböztesse a rövid ideig kapacitáshatáron lévő szolgáltatót (néhány másodperc múlva újrapróbálkozás, a megszakítót nem terheli) attól, amelynek kvótája vagy egyenlege kimerült (a kör azonnal nyílik, és kivárja az ablakot). Kikapcsolva a régi viselkedés él: minden 429 közönséges hibának számít.",
+			"saturationMaxWait": "Várakozási korlát telítettségnél",
+			"saturationMaxWait.description": "Az ennél nem nagyobb Retry-After foglaltságot jelent; a hosszabb kimerült ablaknak számít. Azt is korlátozza, meddig vár a proxy, mielőtt az utolsó foglalt szolgáltatót egyszer újrapróbálná.",
+			"recentSuccessWindow": "Friss siker ablaka",
+			"recentSuccessWindow.description": "Az ilyen frissen még sikeresen válaszoló modelltől érkező felismerhetetlen 429 foglaltságnak számít, nem kimerülésnek: a kimerült ablak nem tér vissza egy perc alatt.",
+			"openOnExhaustion": "Kör nyitása kimerült kvótánál",
+			"openOnExhaustionDescription": "Ha egy 429 kimerült kvótát vagy egyenleget jelez, a modell köre ez után az egyetlen válasz után nyílik, nem várva a hibaküszöbre.",
+			"exhaustion429": "Foglalt csoportoknak 429-es válasz",
+			"exhaustion429Description": "Ha a csoport minden szolgáltatója foglalt vagy a kvótájára vár, a kliens 502 helyett Retry-After fejlécű 429-et kap, így magától vár és újrapróbálkozik."
 		},
 		"logging": {
 			"title": "Naplózás",

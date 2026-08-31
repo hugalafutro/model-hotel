@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modeller innan leverantören hoppas över",
-			"spanModels.description": "Hur många av en leverantörs modeller som måste ha en öppen brytare innan hela leverantören hoppas över. Vid 1 sätter en enda felande modell alla modeller bakom den leverantören ur spel."
+			"spanModels.description": "Hur många av en leverantörs modeller som måste ha en öppen brytare innan hela leverantören hoppas över. Vid 1 sätter en enda felande modell alla modeller bakom den leverantören ur spel.",
+			"rateLimitGroup": "Hantering av hastighetsgränser (429)",
+			"classify429": "Skilj upptagen från förbrukad",
+			"classify429Description": "Läser varje 429-svar för att skilja en leverantör som tillfälligt nått kapacitetstaket (försök igen om några sekunder, ingen belastning på brytaren) från en vars kvot eller saldo är förbrukat (öppna kretsen direkt och vänta ut fönstret). Avstängt gäller det gamla beteendet: varje 429 räknas som ett vanligt fel.",
+			"saturationMaxWait": "Väntegräns vid mättnad",
+			"saturationMaxWait.description": "Ett Retry-After på eller under detta värde betyder upptagen; längre behandlas som ett förbrukat fönster. Begränsar också hur länge proxyn väntar innan den provar den senast upptagna leverantören en gång till.",
+			"recentSuccessWindow": "Fönster för nyligen lyckade svar",
+			"recentSuccessWindow.description": "Ett okänt 429 från en modell som svarade korrekt så nyligen behandlas som upptagen snarare än förbrukad: ett förbrukat fönster kommer inte tillbaka på en minut.",
+			"openOnExhaustion": "Öppna krets vid förbrukad kvot",
+			"openOnExhaustionDescription": "När ett 429 anger att kvoten eller saldot är förbrukat öppnas modellens krets efter det enda svaret i stället för att vänta på feltröskeln.",
+			"exhaustion429": "Svara upptagna grupper med 429",
+			"exhaustion429Description": "När alla leverantörer i en grupp är upptagna eller väntar på sin kvot får klienten 429 med Retry-After i stället för 502, så att den själv väntar och försöker igen."
 		},
 		"logging": {
 			"title": "Loggar",

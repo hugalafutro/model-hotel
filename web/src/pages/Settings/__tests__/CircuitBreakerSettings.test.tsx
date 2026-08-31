@@ -1247,12 +1247,13 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
 			);
 			const column = await screen.findByTestId("hedging-column");
-			// Two reset buttons live in the column, one per control, in DOM
-			// order: the Hedge Slow Streams toggle, then the Hedge Delay slider.
+			// Seven reset buttons live in the column, one per control, in DOM
+			// order: the Hedge Slow Streams toggle and the Hedge Delay slider,
+			// then the five 429-handling controls below them.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
-			expect(resets).toHaveLength(2);
+			expect(resets).toHaveLength(7);
 			await user.click(resets[0]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
@@ -1260,6 +1261,227 @@ describe("CircuitBreakerSettings", () => {
 			await user.click(resets[1]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedge_delay"]),
+			);
+			resetSpy.mockRestore();
+		});
+	});
+
+	// Locale-independent by construction, like the quota-pin and backoff blocks:
+	// every control is addressed by data-testid or element id, never by its
+	// translated label.
+	describe("429 handling", () => {
+		const classifyToggle = () =>
+			screen
+				.getByTestId("classify-429-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const openOnExhaustionToggle = () =>
+			screen
+				.getByTestId("open-on-exhaustion-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const exhaustion429Toggle = () =>
+			screen
+				.getByTestId("exhaustion-429-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const saturationWaitSlider = () =>
+			document.getElementById(
+				"rate-limit-saturation-max-wait",
+			) as HTMLInputElement;
+		const successWindowSlider = () =>
+			document.getElementById(
+				"rate-limit-recent-success-window",
+			) as HTMLInputElement;
+
+		const capturePut = () => {
+			const captured: { payload?: Record<string, string> } = {};
+			server.use(
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					captured.payload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			return captured;
+		};
+
+		it("renders all three toggles on and both sliders at 60s when the keys are absent, matching the backend defaults", async () => {
+			server.use(...mockSettings({ body: {} }));
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(classifyToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			expect(openOnExhaustionToggle()).toHaveAttribute("aria-checked", "true");
+			expect(exhaustion429Toggle()).toHaveAttribute("aria-checked", "true");
+			expect(saturationWaitSlider().value).toBe("60");
+			expect(successWindowSlider().value).toBe("60");
+		});
+
+		it("sends rate_limit_classify_enabled=false when the classify toggle is switched off", async () => {
+			const user = userEvent.setup();
+			server.use(
+				...mockSettings({ body: { rate_limit_classify_enabled: "true" } }),
+			);
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(classifyToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			await user.click(classifyToggle());
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					rate_limit_classify_enabled: "false",
+				});
+			});
+		});
+
+		it("disables the sliders and the exhaustion-open toggle while classification is off, but not the 429-status toggle", async () => {
+			server.use(
+				...mockSettings({ body: { rate_limit_classify_enabled: "false" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(saturationWaitSlider()).toBeDisabled();
+			});
+			expect(successWindowSlider()).toBeDisabled();
+			expect(openOnExhaustionToggle()).toBeDisabled();
+			// The all-skipped 429 response works from breaker state alone, so its
+			// toggle stays live with classification off.
+			expect(exhaustion429Toggle()).not.toBeDisabled();
+			expect(classifyToggle()).not.toBeDisabled();
+		});
+
+		it("converts stored Go durations into slider seconds and clamps out-of-range values for display only", async () => {
+			let putCalled = false;
+			server.use(
+				...mockSettings({
+					body: {
+						rate_limit_saturation_max_wait: "1m30s",
+						rate_limit_recent_success_window: "10m0s",
+					},
+				}),
+				http.put("/api/settings", () => {
+					putCalled = true;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(saturationWaitSlider().value).toBe("90");
+			});
+			// 10m is past the window slider's 300s ceiling: clamped for display.
+			expect(successWindowSlider().value).toBe("300");
+			expect(putCalled).toBe(false);
+		});
+
+		it("sends rate_limit_saturation_max_wait as a Go duration when the slider changes", async () => {
+			server.use(
+				...mockSettings({ body: { rate_limit_saturation_max_wait: "60s" } }),
+			);
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(saturationWaitSlider().value).toBe("60");
+			});
+			const slider = saturationWaitSlider();
+			fireEvent.change(slider, { target: { value: "45" } });
+			fireEvent.pointerUp(slider);
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					rate_limit_saturation_max_wait: "45s",
+				});
+			});
+		});
+
+		it("sends rate_limit_recent_success_window as a Go duration when the slider changes", async () => {
+			server.use(
+				...mockSettings({ body: { rate_limit_recent_success_window: "60s" } }),
+			);
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(successWindowSlider().value).toBe("60");
+			});
+			const slider = successWindowSlider();
+			fireEvent.change(slider, { target: { value: "90" } });
+			fireEvent.pointerUp(slider);
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					rate_limit_recent_success_window: "1m30s",
+				});
+			});
+		});
+
+		it("sends circuit_breaker_open_on_exhaustion=false when its toggle is switched off", async () => {
+			const user = userEvent.setup();
+			server.use(...mockSettings({ body: {} }));
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(openOnExhaustionToggle()).toHaveAttribute(
+					"aria-checked",
+					"true",
+				);
+			});
+			await user.click(openOnExhaustionToggle());
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					circuit_breaker_open_on_exhaustion: "false",
+				});
+			});
+		});
+
+		it("sends failover_exhaustion_status_429=false when its toggle is switched off", async () => {
+			const user = userEvent.setup();
+			server.use(...mockSettings({ body: {} }));
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(exhaustion429Toggle()).toHaveAttribute("aria-checked", "true");
+			});
+			await user.click(exhaustion429Toggle());
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					failover_exhaustion_status_429: "false",
+				});
+			});
+		});
+
+		it("resets each 429-handling setting through its own reset button", async () => {
+			const resetSpy = vi.spyOn(api.settings, "reset");
+			server.use(...mockSettings({ body: {} }));
+			const user = userEvent.setup();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+			);
+			const row = await screen.findByTestId("classify-429-row");
+			const reset = within(row).getByRole("button", {
+				name: /reset this setting to default/i,
+			});
+			await user.click(reset);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith([
+					"rate_limit_classify_enabled",
+				]),
 			);
 			resetSpy.mockRestore();
 		});

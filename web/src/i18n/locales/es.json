@@ -1710,7 +1710,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modelos antes de omitir el proveedor",
-			"spanModels.description": "Cuántos modelos de un proveedor deben tener el circuito abierto antes de que el disyuntor omita al proveedor completo. Con 1, un solo modelo que falla aparta todos los modelos de ese proveedor."
+			"spanModels.description": "Cuántos modelos de un proveedor deben tener el circuito abierto antes de que el disyuntor omita al proveedor completo. Con 1, un solo modelo que falla aparta todos los modelos de ese proveedor.",
+			"rateLimitGroup": "Gestión de límites de tasa (429)",
+			"classify429": "Distinguir ocupado de agotado",
+			"classify429Description": "Lee cada respuesta 429 para distinguir un proveedor brevemente al límite de capacidad (reintentar en segundos, sin cargar el cortacircuitos) de uno cuya cuota o saldo está agotado (abrir el circuito de inmediato y esperar la ventana). Desactivado, se aplica el comportamiento anterior: cada 429 cuenta como un fallo ordinario.",
+			"saturationMaxWait": "Límite de espera por saturación",
+			"saturationMaxWait.description": "Un Retry-After igual o inferior a este valor significa saturación; uno mayor se trata como ventana agotada. También limita cuánto espera el proxy antes de reintentar una vez el último proveedor saturado.",
+			"recentSuccessWindow": "Ventana de éxito reciente",
+			"recentSuccessWindow.description": "Una 429 no reconocida de un modelo que respondió con éxito hace tan poco se trata como saturación y no como agotamiento: una ventana agotada no vuelve en un minuto.",
+			"openOnExhaustion": "Abrir circuito con cuota agotada",
+			"openOnExhaustionDescription": "Cuando una 429 indica que la cuota o el saldo está agotado, el circuito del modelo se abre con esa única respuesta en lugar de esperar al umbral de fallos.",
+			"exhaustion429": "Responder 429 a grupos saturados",
+			"exhaustion429Description": "Cuando todos los proveedores de un grupo están saturados o esperando su cuota, el cliente recibe 429 con Retry-After en lugar de 502, para que espere y reintente por su cuenta."
 		},
 		"logging": {
 			"title": "Registro",

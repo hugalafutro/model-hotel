@@ -43,11 +43,212 @@ const BACKOFF_MAX_MAX_MINUTES = 240;
 const SPAN_MODELS_MIN = 1;
 const SPAN_MODELS_MAX = 100;
 
+// Bounds of the two 429-classification sliders, in seconds. The saturation
+// wait limit separates "busy, a slot frees in seconds" from "the window is
+// spent": the floor keeps it a wait rather than a disable, the ceiling of two
+// minutes is already past any slot wait worth blocking a request for. The
+// recent-success window bounds the fallback that reads an unrecognised 429
+// from a just-working model as busy; five minutes is the most a "moment ago"
+// can honestly stretch to.
+const SATURATION_WAIT_MIN_SECONDS = 5;
+const SATURATION_WAIT_MAX_SECONDS = 120;
+const SUCCESS_WINDOW_MIN_SECONDS = 10;
+const SUCCESS_WINDOW_MAX_SECONDS = 300;
+
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
 	onResetSection?: () => void;
 	managed?: boolean;
+}
+
+// The 429 handling group: how a rate-limited response is classified (busy vs
+// spent) and what the breaker and the client get told about it. A sibling of
+// the main component rather than inline in it, so each stays well under the
+// function-size ceiling.
+function RateLimit429Group() {
+	const { t } = useTranslation();
+	const { settings, updateMutation, resetSettingMutation, isResetting } =
+		useSettingsMutations();
+
+	// Fallbacks mirror the Go defaults (internal/proxy/rate_limit_classify.go:
+	// classification on, 60s for both durations, exhaustion opens at once, the
+	// 429 exhaustion status on), fallback before clamp, clamp for display only,
+	// exactly as the quota-pin and backoff pairs above.
+	const classifyEnabled = settings?.rate_limit_classify_enabled !== "false";
+	const saturationWaitSeconds = Math.min(
+		SATURATION_WAIT_MAX_SECONDS,
+		Math.max(
+			SATURATION_WAIT_MIN_SECONDS,
+			goDurationToSeconds(settings?.rate_limit_saturation_max_wait || "60s") ||
+				60,
+		),
+	);
+	const successWindowSeconds = Math.min(
+		SUCCESS_WINDOW_MAX_SECONDS,
+		Math.max(
+			SUCCESS_WINDOW_MIN_SECONDS,
+			goDurationToSeconds(
+				settings?.rate_limit_recent_success_window || "60s",
+			) || 60,
+		),
+	);
+	const openOnExhaustion =
+		settings?.circuit_breaker_open_on_exhaustion !== "false";
+	const exhaustion429 = settings?.failover_exhaustion_status_429 !== "false";
+
+	return (
+		<SettingsGroup title={t("settings.circuitBreaker.rateLimitGroup")}>
+			<div
+				className="flex items-center justify-between gap-3"
+				data-testid="classify-429-row"
+			>
+				<div className="min-w-0">
+					<div className="flex items-center gap-1">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.circuitBreaker.classify429")}
+						</p>
+						<ResetButton
+							tooltip={t("settings.common.resetSetting")}
+							onClick={() =>
+								resetSettingMutation.mutate(["rate_limit_classify_enabled"])
+							}
+							size={12}
+							disabled={isResetting}
+						/>
+					</div>
+					<p className="text-gray-500 text-xs mt-0.5">
+						{t("settings.circuitBreaker.classify429Description")}
+					</p>
+				</div>
+				<Toggle
+					checked={classifyEnabled}
+					size="sm"
+					onChange={(v) =>
+						updateMutation.mutate({
+							rate_limit_classify_enabled: v ? "true" : "false",
+						})
+					}
+					ariaLabel={t("settings.circuitBreaker.classify429")}
+				/>
+			</div>
+
+			<SettingsSlider
+				id="rate-limit-saturation-max-wait"
+				disabled={!classifyEnabled}
+				label={t("settings.circuitBreaker.saturationMaxWait")}
+				value={saturationWaitSeconds}
+				min={SATURATION_WAIT_MIN_SECONDS}
+				max={SATURATION_WAIT_MAX_SECONDS}
+				step={5}
+				unit="s"
+				onChange={(v) =>
+					updateMutation.mutate({
+						rate_limit_saturation_max_wait: secondsToGoDuration(v),
+					})
+				}
+				description={t("settings.circuitBreaker.saturationMaxWait.description")}
+				onReset={() =>
+					resetSettingMutation.mutate(["rate_limit_saturation_max_wait"])
+				}
+				resetTooltip={t("settings.common.resetSetting")}
+			/>
+
+			<SettingsSlider
+				id="rate-limit-recent-success-window"
+				disabled={!classifyEnabled}
+				label={t("settings.circuitBreaker.recentSuccessWindow")}
+				value={successWindowSeconds}
+				min={SUCCESS_WINDOW_MIN_SECONDS}
+				max={SUCCESS_WINDOW_MAX_SECONDS}
+				step={10}
+				unit="s"
+				onChange={(v) =>
+					updateMutation.mutate({
+						rate_limit_recent_success_window: secondsToGoDuration(v),
+					})
+				}
+				description={t(
+					"settings.circuitBreaker.recentSuccessWindow.description",
+				)}
+				onReset={() =>
+					resetSettingMutation.mutate(["rate_limit_recent_success_window"])
+				}
+				resetTooltip={t("settings.common.resetSetting")}
+			/>
+
+			<div
+				className="flex items-center justify-between gap-3"
+				data-testid="open-on-exhaustion-row"
+			>
+				<div className="min-w-0">
+					<div className="flex items-center gap-1">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.circuitBreaker.openOnExhaustion")}
+						</p>
+						<ResetButton
+							tooltip={t("settings.common.resetSetting")}
+							onClick={() =>
+								resetSettingMutation.mutate([
+									"circuit_breaker_open_on_exhaustion",
+								])
+							}
+							size={12}
+							disabled={isResetting}
+						/>
+					</div>
+					<p className="text-gray-500 text-xs mt-0.5">
+						{t("settings.circuitBreaker.openOnExhaustionDescription")}
+					</p>
+				</div>
+				<Toggle
+					checked={openOnExhaustion}
+					size="sm"
+					disabled={!classifyEnabled}
+					onChange={(v) =>
+						updateMutation.mutate({
+							circuit_breaker_open_on_exhaustion: v ? "true" : "false",
+						})
+					}
+					ariaLabel={t("settings.circuitBreaker.openOnExhaustion")}
+				/>
+			</div>
+
+			<div
+				className="flex items-center justify-between gap-3"
+				data-testid="exhaustion-429-row"
+			>
+				<div className="min-w-0">
+					<div className="flex items-center gap-1">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.circuitBreaker.exhaustion429")}
+						</p>
+						<ResetButton
+							tooltip={t("settings.common.resetSetting")}
+							onClick={() =>
+								resetSettingMutation.mutate(["failover_exhaustion_status_429"])
+							}
+							size={12}
+							disabled={isResetting}
+						/>
+					</div>
+					<p className="text-gray-500 text-xs mt-0.5">
+						{t("settings.circuitBreaker.exhaustion429Description")}
+					</p>
+				</div>
+				<Toggle
+					checked={exhaustion429}
+					size="sm"
+					onChange={(v) =>
+						updateMutation.mutate({
+							failover_exhaustion_status_429: v ? "true" : "false",
+						})
+					}
+					ariaLabel={t("settings.circuitBreaker.exhaustion429")}
+				/>
+			</div>
+		</SettingsGroup>
+	);
 }
 
 export function CircuitBreakerSettings({
@@ -447,6 +648,8 @@ export function CircuitBreakerSettings({
 								<p>{t("settings.circuitBreaker.hedgingNotice")}</p>
 							</div>
 						)}
+
+						<RateLimit429Group />
 					</div>
 				</div>
 			</div>

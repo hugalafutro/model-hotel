@@ -198,8 +198,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	hasMoreCandidates := attempt < totalCandidates-1
 	isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
+	rl := h.judge429AndRecordBreaker(r.Context(), st, candidate, resp, isFailoverEligible)
+
 	if isFailoverEligible {
-		h.recordBreakerOutcome(st, candidate, resp.StatusCode, true)
 		if hasMoreCandidates {
 			// The body is discarded anyway, so classify it on the way out — what
 			// attemptCandidate does for chat, and for the same reason: a retired
@@ -220,19 +221,26 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			if kind == KindProviderModelGone {
 				h.noteModelGone(candidate, logData.endpointType)
 			}
-			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
-			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+			st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
+			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
 			logData.failoverAttempt = attempt
 			return outcomeFailover
+		}
+		// A saturated 429 on the LAST candidate: wait the seconds the provider
+		// asked for and retry it once, exactly as the chat loop does.
+		if rl.class == rateLimitSaturated && !st.saturationRetried {
+			return h.deferSaturatedRetry(st, candidate, resp, attempt)
 		}
 	}
 
 	if !servedSuccessStatus(resp.StatusCode) {
 		// A definitive non-failover-eligible error (e.g. 400) means the
-		// provider is alive: record the success before forwarding, matching
-		// chat's recordBreakerOutcome for non-eligible statuses.
+		// provider is alive: credit the circuit before forwarding, matching
+		// chat's recordBreakerOutcome for non-eligible statuses. RecordAlive,
+		// not RecordSuccess: nothing was served, so the 429 behavioural
+		// fallback must not count it as a recent serve.
 		if !isFailoverEligible && st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}

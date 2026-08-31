@@ -1710,7 +1710,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modele înainte de ocolirea furnizorului",
-			"spanModels.description": "Câte modele ale unui furnizor trebuie să aibă întrerupătorul deschis înainte ca întregul furnizor să fie ocolit. La 1, un singur model care eșuează scoate din rotație toate modelele acelui furnizor."
+			"spanModels.description": "Câte modele ale unui furnizor trebuie să aibă întrerupătorul deschis înainte ca întregul furnizor să fie ocolit. La 1, un singur model care eșuează scoate din rotație toate modelele acelui furnizor.",
+			"rateLimitGroup": "Gestionarea limitelor de rată (429)",
+			"classify429": "Deosebește ocupat de epuizat",
+			"classify429Description": "Citește fiecare răspuns 429 pentru a deosebi un furnizor aflat scurt la limita capacității (reîncearcă în câteva secunde, fără a încărca întrerupătorul) de unul cu cota sau soldul epuizat (deschide circuitul imediat și așteaptă fereastra). Dezactivat, se aplică vechiul comportament: fiecare 429 contează ca un eșec obișnuit.",
+			"saturationMaxWait": "Limita de așteptare la saturație",
+			"saturationMaxWait.description": "Un Retry-After cel mult egal cu această valoare înseamnă ocupat; unul mai lung este tratat ca fereastră epuizată. Limitează și cât așteaptă proxy-ul înainte de a reîncerca o dată ultimul furnizor ocupat.",
+			"recentSuccessWindow": "Fereastra succesului recent",
+			"recentSuccessWindow.description": "Un 429 nerecunoscut de la un model care a răspuns cu succes atât de recent este tratat ca ocupat, nu ca epuizat: o fereastră epuizată nu revine într-un minut.",
+			"openOnExhaustion": "Deschide circuitul la cotă epuizată",
+			"openOnExhaustionDescription": "Când un 429 anunță cotă sau sold epuizat, circuitul modelului se deschide după acel singur răspuns, fără a aștepta pragul de eșecuri.",
+			"exhaustion429": "Răspunde grupurilor ocupate cu 429",
+			"exhaustion429Description": "Când toți furnizorii unui grup sunt ocupați sau își așteaptă cota, clientul primește 429 cu Retry-After în loc de 502, ca să aștepte și să reîncerce singur."
 		},
 		"logging": {
 			"title": "Logare",

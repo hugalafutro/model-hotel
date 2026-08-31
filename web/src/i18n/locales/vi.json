@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Số mô hình trước khi bỏ qua nhà cung cấp",
-			"spanModels.description": "Bao nhiêu mô hình của một nhà cung cấp phải có mạch ngắt đang mở trước khi bỏ qua toàn bộ nhà cung cấp. Ở mức 1, một mô hình lỗi sẽ loại bỏ mọi mô hình phía sau nhà cung cấp đó."
+			"spanModels.description": "Bao nhiêu mô hình của một nhà cung cấp phải có mạch ngắt đang mở trước khi bỏ qua toàn bộ nhà cung cấp. Ở mức 1, một mô hình lỗi sẽ loại bỏ mọi mô hình phía sau nhà cung cấp đó.",
+			"rateLimitGroup": "Xử lý giới hạn tốc độ (429)",
+			"classify429": "Phân biệt bận với cạn kiệt",
+			"classify429Description": "Đọc từng phản hồi 429 để phân biệt nhà cung cấp tạm thời chạm trần công suất (thử lại sau vài giây, không tính vào bộ ngắt mạch) với nhà cung cấp đã cạn hạn mức hoặc số dư (mở mạch ngay và chờ hết cửa sổ). Khi tắt, hành vi cũ được áp dụng: mọi 429 đều tính là lỗi thông thường.",
+			"saturationMaxWait": "Giới hạn chờ khi bão hòa",
+			"saturationMaxWait.description": "Retry-After bằng hoặc dưới giá trị này nghĩa là bận; dài hơn được coi là cửa sổ đã cạn. Cũng giới hạn thời gian proxy chờ trước khi thử lại một lần nhà cung cấp bận cuối cùng.",
+			"recentSuccessWindow": "Cửa sổ thành công gần đây",
+			"recentSuccessWindow.description": "Một 429 không nhận diện được từ mô hình vừa phản hồi thành công gần đây như vậy được coi là bận thay vì cạn kiệt: cửa sổ đã cạn không quay lại trong một phút.",
+			"openOnExhaustion": "Mở mạch khi hạn mức cạn",
+			"openOnExhaustionDescription": "Khi 429 báo hạn mức hoặc số dư đã cạn, mạch của mô hình được mở ngay sau phản hồi duy nhất đó thay vì chờ ngưỡng lỗi.",
+			"exhaustion429": "Trả lời 429 cho nhóm bận",
+			"exhaustion429Description": "Khi mọi nhà cung cấp trong nhóm đều bận hoặc đang chờ hạn mức, máy khách nhận 429 kèm Retry-After thay vì 502, để tự chờ và thử lại."
 		},
 		"logging": {
 			"title": "Ghi nhật ký",

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -26,8 +27,22 @@ import (
 // reads and the failing model stays in rotation.
 //
 // For a failover-eligible status it applies the breakerRecordAction mapping
-// (failure / no-op / success). For a non-eligible status it records a success,
-// except for a SUCCESS status (any 2xx) — on either path.
+// (failure / no-op / success), refined for a CLASSIFIED 429 by rl:
+//
+//   - saturated: a breaker NO-OP, like 404/499 — neither charge nor credit. A
+//     provider at its concurrency ceiling is alive, and charging it benches
+//     the very slots that are all busy serving. Not a success either:
+//     RecordSuccess resets consecutiveFails, and a provider alternating 500 /
+//     429-busy / 500 must still open. On a half-open probe this leaves the
+//     circuit half-open with failedProbes untouched — a busy signal is not a
+//     failed probe, and doubling the backoff for it is how a healthy provider
+//     stayed benched for 10 minutes on 2026-08-31.
+//   - exhausted: charged to the threshold at once (RecordExhausted), so one
+//     spent-window 429 opens the circuit instead of wasting a second request
+//     confirming it — unless circuit_breaker_open_on_exhaustion is OFF, which
+//     demotes it to an unclassified charge.
+//   - unknown: today's behaviour, via RecordRateLimited so the breaker can
+//     still escalate a circuit that only ever opens on 429s.
 //
 // A 2xx is a status, not an answer, and these headers arrive before a byte of
 // the body has been read. The verdict is deferred to whoever reads it:
@@ -36,11 +51,15 @@ import (
 // {"choices":[]} to every request recorded a success every time — and
 // RecordSuccess resets consecutiveFails, so its circuit could never open. #805
 // made that argument for streams and this is the same argument for completions.
-func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool) {
+func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool, rl rateLimitVerdict) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
 	if isFailoverEligible {
+		if statusCode == http.StatusTooManyRequests && rl.class != rateLimitUnknown {
+			h.recordRateLimitOutcome(ctx, st, candidate, rl)
+			return
+		}
 		// Determine breaker action from status code.
 		// See breakerRecordAction for the full status→action mapping.
 		switch breakerRecordAction(statusCode) {
@@ -49,6 +68,15 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// upstream status, so without this line a breaker opening on
 			// repeated 5xx has no recorded cause anywhere.
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+			if statusCode == http.StatusTooManyRequests && rl.classified {
+				// Unclassifiable rate limit: charged exactly as before, and
+				// the breaker additionally counts the open (if one results)
+				// toward the 429-only escalation. Only while classification
+				// is on — its master switch must restore today's behaviour
+				// bit for bit, escalation included.
+				h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				return
+			}
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		case breakerActionNoOp:
 			// Model-specific client error (404/499): provider is alive
@@ -72,8 +100,34 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 	// comment above gives: RecordSuccess resets consecutiveFails, so crediting
 	// here at header time erases the charge the answer verdict is about to make
 	// and the circuit can never open above a threshold of one.
+	//
+	// RecordAlive, not RecordSuccess: a plain 400 proves the provider alive
+	// (same credit) but served nothing, and the 429 behavioural fallback must
+	// not read it as a recent serve.
 	if !servedSuccessStatus(statusCode) {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+		h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+	}
+}
+
+// recordRateLimitOutcome is the classified-429 arm of recordBreakerOutcome:
+// saturated is a logged no-op, exhausted opens at once (behind its setting).
+func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, candidate modelCandidate, rl rateLimitVerdict) {
+	switch rl.class {
+	case rateLimitSaturated:
+		// Info, not warn: the provider is healthy and at capacity, which is a
+		// routing fact, not an incident.
+		debuglog.Info("proxy: 429 classified saturated, circuit breaker untouched", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
+	case rateLimitExhausted:
+		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
+			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusTooManyRequests, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			return
+		}
+		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+		h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), rl.pinHint)
+	case rateLimitUnknown:
+		// Not reached: the caller only routes classified verdicts here. Listed
+		// so the switch stays exhaustive over rateLimitClass.
 	}
 }
 

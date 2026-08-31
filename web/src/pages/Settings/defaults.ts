@@ -45,6 +45,13 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	circuit_breaker_backoff_enabled: "true",
 	circuit_breaker_backoff_max: "15m",
 	failover_on_rate_limit: "true",
+	// The 429 saturation-vs-exhaustion classification; matches the Go defaults
+	// in internal/proxy/rate_limit_classify.go and recordBreakerOutcome.
+	rate_limit_classify_enabled: "true",
+	rate_limit_saturation_max_wait: "60s",
+	rate_limit_recent_success_window: "60s",
+	circuit_breaker_open_on_exhaustion: "true",
+	failover_exhaustion_status_429: "true",
 	hedging_enabled: "false",
 	hedge_delay: "4s",
 
@@ -121,6 +128,11 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"circuit_breaker_backoff_enabled",
 		"circuit_breaker_backoff_max",
 		"failover_on_rate_limit",
+		"rate_limit_classify_enabled",
+		"rate_limit_saturation_max_wait",
+		"rate_limit_recent_success_window",
+		"circuit_breaker_open_on_exhaustion",
+		"failover_exhaustion_status_429",
 		"hedging_enabled",
 		"hedge_delay",
 	],
@@ -159,6 +171,11 @@ export type SettingKey =
 	| "circuit_breaker_backoff_enabled"
 	| "circuit_breaker_backoff_max"
 	| "failover_on_rate_limit"
+	| "rate_limit_classify_enabled"
+	| "rate_limit_saturation_max_wait"
+	| "rate_limit_recent_success_window"
+	| "circuit_breaker_open_on_exhaustion"
+	| "failover_exhaustion_status_429"
 	| "hedging_enabled"
 	| "hedge_delay"
 	| "log_retention"
@@ -200,6 +217,13 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_backoff_enabled: "settings.circuitBreaker.backoff",
 	circuit_breaker_backoff_max: "settings.circuitBreaker.backoffMax",
 	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
+	rate_limit_classify_enabled: "settings.circuitBreaker.classify429",
+	rate_limit_saturation_max_wait: "settings.circuitBreaker.saturationMaxWait",
+	rate_limit_recent_success_window:
+		"settings.circuitBreaker.recentSuccessWindow",
+	circuit_breaker_open_on_exhaustion:
+		"settings.circuitBreaker.openOnExhaustion",
+	failover_exhaustion_status_429: "settings.circuitBreaker.exhaustion429",
 	hedging_enabled: "settings.circuitBreaker.hedging",
 	hedge_delay: "settings.circuitBreaker.hedgeDelay",
 	log_retention: "settings.logging.logRetention",

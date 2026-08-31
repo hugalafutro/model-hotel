@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -94,6 +95,12 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	// Classify for the request log and metrics only — routing is unaffected,
 	// the caller already decided it from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
+	kind, reason = rateLimitTerminalKind(kind, reason, resp.StatusCode, st.rateLimit)
+	// A saturated terminal 429 tells the client when to come back; SDKs
+	// honour Retry-After on 429 natively.
+	if resp.StatusCode == http.StatusTooManyRequests && st.rateLimit.class == rateLimitSaturated {
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
+	}
 	if kind == KindProviderModelGone {
 		// Same as the drain path above: the candidate carries what the
 		// pre-retirement probe needs, and logData.endpointType is the family

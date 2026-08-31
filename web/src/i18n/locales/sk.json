@@ -1757,7 +1757,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Počet modelov pred preskočením poskytovateľa",
-			"spanModels.description": "Koľko modelov poskytovateľa musí mať otvorený istič, kým sa preskočí celý poskytovateľ. Pri hodnote 1 jediný zlyhávajúci model odstaví všetky modely daného poskytovateľa."
+			"spanModels.description": "Koľko modelov poskytovateľa musí mať otvorený istič, kým sa preskočí celý poskytovateľ. Pri hodnote 1 jediný zlyhávajúci model odstaví všetky modely daného poskytovateľa.",
+			"rateLimitGroup": "Spracovanie limitov (429)",
+			"classify429": "Rozlíšiť vyťažené od vyčerpaného",
+			"classify429Description": "Číta každú odpoveď 429 a rozlišuje poskytovateľa, ktorý je krátkodobo na hranici kapacity (opakovať o pár sekúnd, bez zaťaženia ističa), od poskytovateľa s vyčerpaným limitom či kreditom (okamžite rozpojiť obvod a počkať na obnovenie). Po vypnutí platí staré správanie: každá 429 sa počíta ako bežná chyba.",
+			"saturationMaxWait": "Limit čakania pri vyťažení",
+			"saturationMaxWait.description": "Retry-After do tejto hodnoty znamená vyťaženie; dlhšia hodnota sa berie ako vyčerpané okno. Zároveň obmedzuje, ako dlho proxy čaká, kým naposledy vyťaženého poskytovateľa raz skúsi znova.",
+			"recentSuccessWindow": "Okno nedávneho úspechu",
+			"recentSuccessWindow.description": "Nerozpoznaná 429 od modelu, ktorý takto nedávno úspešne odpovedal, sa berie ako vyťaženie, nie vyčerpanie: vyčerpané okno sa za minútu nevráti.",
+			"openOnExhaustion": "Rozpojiť obvod pri vyčerpanej kvóte",
+			"openOnExhaustionDescription": "Keď 429 hlási vyčerpaný limit alebo kredit, obvod modelu sa rozpojí po tejto jedinej odpovedi namiesto čakania na prah zlyhania.",
+			"exhaustion429": "Odpovedať vyťaženým skupinám stavom 429",
+			"exhaustion429Description": "Keď sú všetci poskytovatelia v skupine vyťažení alebo čakajú na obnovenie kvóty, klient dostane 429 s Retry-After namiesto 502, takže sám počká a skúsi to znova."
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",

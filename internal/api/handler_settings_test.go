@@ -318,6 +318,43 @@ func TestUpdateSettings_Hedging(t *testing.T) {
 	}
 }
 
+// Test that the 429 saturation-vs-exhaustion keys round-trip through the
+// settings API (AGENTS.md: one save/retrieve test per allowedSettings key).
+func TestUpdateSettings_RateLimitClassification(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"rate_limit_classify_enabled": "false",
+		"rate_limit_saturation_max_wait": "45s",
+		"rate_limit_recent_success_window": "90s",
+		"failover_exhaustion_status_429": "false",
+		"circuit_breaker_open_on_exhaustion": "false"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	for key, want := range map[string]string{
+		"rate_limit_classify_enabled":        "false",
+		"rate_limit_saturation_max_wait":     "45s",
+		"rate_limit_recent_success_window":   "90s",
+		"failover_exhaustion_status_429":     "false",
+		"circuit_breaker_open_on_exhaustion": "false",
+	} {
+		if response[key] != want {
+			t.Errorf("Expected %s=%q, got %q", key, want, response[key])
+		}
+	}
+}
+
 // Test that session_idle_timeout_minutes round-trips through the settings API
 // and that out-of-range values are rejected (AGENTS.md: one save/retrieve test
 // per allowedSettings key).

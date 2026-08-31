@@ -1710,7 +1710,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modèles avant d'ignorer le fournisseur",
-			"spanModels.description": "Combien de modèles d'un fournisseur doivent avoir un disjoncteur ouvert avant que le fournisseur entier soit ignoré. À 1, un seul modèle en échec écarte tous les modèles de ce fournisseur."
+			"spanModels.description": "Combien de modèles d'un fournisseur doivent avoir un disjoncteur ouvert avant que le fournisseur entier soit ignoré. À 1, un seul modèle en échec écarte tous les modèles de ce fournisseur.",
+			"rateLimitGroup": "Gestion des limites de débit (429)",
+			"classify429": "Distinguer saturé et épuisé",
+			"classify429Description": "Lit chaque réponse 429 pour distinguer un fournisseur brièvement à pleine capacité (réessayer en quelques secondes, sans imputer le disjoncteur) d'un fournisseur dont le quota ou le solde est épuisé (ouvrir le circuit immédiatement et attendre la fenêtre). Désactivé, l'ancien comportement s'applique : chaque 429 compte comme un échec ordinaire.",
+			"saturationMaxWait": "Limite d'attente de saturation",
+			"saturationMaxWait.description": "Un Retry-After inférieur ou égal à cette valeur signifie saturation ; au-delà, il est traité comme une fenêtre épuisée. Limite aussi le temps d'attente du proxy avant de réessayer une fois le dernier fournisseur saturé.",
+			"recentSuccessWindow": "Fenêtre de succès récent",
+			"recentSuccessWindow.description": "Une 429 non reconnue venant d'un modèle qui a répondu avec succès aussi récemment est traitée comme saturation plutôt qu'épuisement : une fenêtre épuisée ne revient pas en une minute.",
+			"openOnExhaustion": "Ouvrir le circuit sur quota épuisé",
+			"openOnExhaustionDescription": "Quand une 429 indique un quota ou un solde épuisé, le circuit du modèle s'ouvre dès cette unique réponse au lieu d'attendre le seuil d'échecs.",
+			"exhaustion429": "Répondre 429 aux groupes saturés",
+			"exhaustion429Description": "Quand tous les fournisseurs d'un groupe sont saturés ou attendent leur quota, le client reçoit 429 avec Retry-After au lieu de 502, afin qu'il patiente et réessaie de lui-même."
 		},
 		"logging": {
 			"title": "Journalisation",

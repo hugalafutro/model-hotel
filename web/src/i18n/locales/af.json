@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modelle voor verskaffer oorgeslaan word",
-			"spanModels.description": "Hoeveel van 'n verskaffer se modelle 'n oop kring moet hê voordat die kringbreker die hele verskaffer oorslaan. By 1 skakel een falende model elke model agter daardie verskaffer uit."
+			"spanModels.description": "Hoeveel van 'n verskaffer se modelle 'n oop kring moet hê voordat die kringbreker die hele verskaffer oorslaan. By 1 skakel een falende model elke model agter daardie verskaffer uit.",
+			"rateLimitGroup": "Hantering van tempolimiete (429)",
+			"classify429": "Onderskei besig van uitgeput",
+			"classify429Description": "Lees elke 429-antwoord om 'n verskaffer wat kortstondig op kapasiteit is (probeer binne sekondes weer, geen las op die stroombreker nie) te onderskei van een wie se kwota of saldo uitgeput is (maak die stroombaan dadelik oop en wag die venster uit). Afgeskakel geld die ou gedrag: elke 429 tel as 'n gewone fout.",
+			"saturationMaxWait": "Waglimiet by versadiging",
+			"saturationMaxWait.description": "'n Retry-After op of onder hierdie waarde beteken besig; langer word as 'n uitgeputte venster hanteer. Beperk ook hoe lank die instaanbediener wag voordat hy die laaste besige verskaffer een keer weer probeer.",
+			"recentSuccessWindow": "Venster vir onlangse sukses",
+			"recentSuccessWindow.description": "'n Onherkende 429 van 'n model wat so onlangs suksesvol geantwoord het, word as besig eerder as uitgeput hanteer: 'n uitgeputte venster kom nie binne 'n minuut terug nie.",
+			"openOnExhaustion": "Maak stroombaan oop by uitgeputte kwota",
+			"openOnExhaustionDescription": "Wanneer 'n 429 sê die kwota of saldo is uitgeput, word die model se stroombaan ná daardie enkele antwoord oopgemaak in plaas daarvan om vir die foutdrempel te wag.",
+			"exhaustion429": "Antwoord besige groepe met 429",
+			"exhaustion429Description": "Wanneer elke verskaffer in 'n groep besig is of vir sy kwota wag, kry die kliënt 429 met Retry-After in plaas van 502, sodat hy self wag en weer probeer."
 		},
 		"logging": {
 			"title": "Logboekregistrasie",

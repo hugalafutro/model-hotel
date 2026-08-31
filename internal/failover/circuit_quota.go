@@ -36,16 +36,31 @@ import (
 // added. Jittering before capping would let two providers pinned at the
 // ceiling collide on the same retry instant, which is exactly the fleet
 // stampede jitter exists to prevent.
-func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
+// exhaustHint is a second pin source: the exhausted 429's own claim (a dated
+// Retry-After, or the matched phrase's per-marker default), used only when the
+// advisor has nothing — the advisor measured the actual window, so when it has
+// a reading it wins. The hint goes through the SAME ceiling/floor/jitter, so
+// it can never make the breaker more aggressive and never outlast the
+// configured ceiling; it adds a pin source, not a new kind of pin, and
+// ReleaseQuotaPins and the manual reset lift it exactly as they lift an
+// advisor pin. pinSource records which source stamped the pin in force.
+func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaustHint time.Duration) {
 	c.cooldownOverride = 0
-	if cb.quota == nil || !cb.quotaPinEnabled() {
+	c.pinSource = ""
+	if !cb.quotaPinEnabled() {
 		return
 	}
-	resetsAt, ok := cb.quota.ResetsAt(providerID)
-	if !ok {
+	d := exhaustHint
+	source := pinSourceResponse
+	if cb.quota != nil {
+		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok {
+			d = time.Until(resetsAt)
+			source = pinSourceAdvisor
+		}
+	}
+	if d <= 0 {
 		return
 	}
-	d := time.Until(resetsAt)
 	if maxPin := cb.quotaPinMax(); d > maxPin {
 		d = maxPin
 	}
@@ -56,7 +71,14 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 		d += time.Duration(rand.Int64N(spread + 1))
 	}
 	c.cooldownOverride = d
+	c.pinSource = source
 }
+
+// The two pin sources ProviderStatus and the breaker events publish.
+const (
+	pinSourceAdvisor  = "advisor"
+	pinSourceResponse = "response"
+)
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
 // provider appears in recovered, and reports how many pins it lifted. It is how
@@ -95,6 +117,12 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 	for providerID := range recovered {
 		id := providerID.String()
 		for model, c := range cb.circuits[id] {
+			// An affirmative "not exhausted" reading also clears the
+			// 429-open escalation: the escalation infers exhaustion from
+			// behaviour, and the advisor just measured the opposite. Cleared
+			// on every circuit, pinned or not, because the escalated ones
+			// usually carry a backoff rather than a pin.
+			c.clear429Escalation()
 			if c.cooldownOverride == 0 {
 				continue
 			}
@@ -174,6 +202,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 				d += time.Duration(rand.Int64N(spread + 1))
 			}
 			c.cooldownOverride = d
+			c.pinSource = pinSourceAdvisor
 			retargeted++
 			// The open transition already logged a cooldown_ms that is now wrong,
 			// and the corrected one can mean hours of darkness, so an operator gets
@@ -233,5 +262,6 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 // or credentials. Must be called with cb.mu held.
 func (cb *CircuitBreaker) releasePin(msg, providerID, model string, c *circuit, r *cooldownReads) {
 	c.cooldownOverride = 0
+	c.pinSource = ""
 	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalStateWith(c, r).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, r).Milliseconds(), "model", model)
 }

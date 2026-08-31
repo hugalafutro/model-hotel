@@ -1663,7 +1663,18 @@
 			"failoverGroup": "페일오버",
 			"hedgingGroup": "Hedging",
 			"spanModels": "프로바이더를 건너뛰기까지의 모델 수",
-			"spanModels.description": "프로바이더 전체를 건너뛰기 전에 서킷 브레이커가 개방되어 있어야 하는 모델 수입니다. 1이면 모델 하나만 실패해도 해당 프로바이더의 모든 모델이 제외됩니다."
+			"spanModels.description": "프로바이더 전체를 건너뛰기 전에 서킷 브레이커가 개방되어 있어야 하는 모델 수입니다. 1이면 모델 하나만 실패해도 해당 프로바이더의 모든 모델이 제외됩니다.",
+			"rateLimitGroup": "속도 제한(429) 처리",
+			"classify429": "혼잡과 소진 구분",
+			"classify429Description": "각 429 응답을 읽어 일시적으로 용량 한계에 도달한 제공자(몇 초 후 재시도, 차단기에 기록하지 않음)와 할당량이나 잔액이 소진된 제공자(즉시 회로를 열고 기간이 지나기를 기다림)를 구분합니다. 끄면 이전 동작이 적용되어 모든 429가 일반 실패로 계산됩니다.",
+			"saturationMaxWait": "포화 대기 상한",
+			"saturationMaxWait.description": "이 값 이하의 Retry-After는 혼잡으로 간주하고, 더 길면 소진된 기간으로 처리합니다. 마지막 혼잡 제공자를 한 번 재시도하기 전까지 프록시가 기다리는 시간도 이 값으로 제한됩니다.",
+			"recentSuccessWindow": "최근 성공 기간",
+			"recentSuccessWindow.description": "이 기간 안에 정상 응답했던 모델의 식별 불가한 429는 소진이 아닌 혼잡으로 처리합니다. 소진된 기간은 1분 만에 돌아오지 않기 때문입니다.",
+			"openOnExhaustion": "할당량 소진 시 회로 열기",
+			"openOnExhaustionDescription": "429가 할당량이나 잔액 소진을 알리면 실패 임계값을 기다리지 않고 그 한 번의 응답으로 모델의 회로를 엽니다.",
+			"exhaustion429": "혼잡한 그룹에 429로 응답",
+			"exhaustion429Description": "그룹의 모든 제공자가 혼잡하거나 할당량을 기다리는 중이면 클라이언트에 502 대신 Retry-After가 포함된 429를 반환하여 스스로 대기 후 재시도하게 합니다."
 		},
 		"logging": {
 			"title": "로그 기록",

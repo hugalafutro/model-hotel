@@ -307,18 +307,21 @@ func modelGoneAbout(body, modelID string) bool {
 // request_logs.error_message. Classifying it here makes it a queryable
 // error_kind and a Prometheus label instead.
 //
-// IMPORTANT: this was observability only, and for ROUTING it still is —
-// failover eligibility and quota handling stay purely status-code driven (see
-// isFailoverEligible and the MiniMax 1008 -> 429 remap, which deliberately
-// funnels balance errors into the rate-limit path so failover moves on), and
-// returning a new kind here must never change where a request is routed.
+// IMPORTANT: for ROUTING this is observability only — failover eligibility
+// stays purely status-code driven (see isFailoverEligible and the MiniMax
+// 1008 -> 429 remap, which deliberately funnels balance errors into the
+// rate-limit path so failover moves on), and returning a new kind here must
+// never change where a request is routed.
 //
-// The CIRCUIT BREAKER is in that list too: it decides from the status alone
-// (see breakerRecordAction), and the phrases below label the row without
-// changing what it charges. Circuits are keyed per resolved upstream model, so
-// the refusal that made the phrase lists load-bearing — a plan excluding one
-// model, answered 429 — now darkens that model and leaves its siblings alone
-// without anything having to read the sentence.
+// The CIRCUIT BREAKER is deliberately no longer on that list. For every
+// status but 429 it still decides from the status alone (breakerRecordAction),
+// but a 429's charge now follows the classified claim — saturated is a no-op,
+// exhausted opens at once — through classifyRateLimit and
+// recordBreakerOutcome, which share the phrase table with this function (one
+// table, two consumers: rateLimitPhrases). Per-model circuit keying (#827)
+// still covers the per-model entitlement refusal without reading a sentence;
+// the classes cover the claim keying cannot separate, a provider that is
+// merely busy.
 //
 // The returned reason is always gateway-authored static text. The upstream body
 // is never echoed to the caller: it can quote the request back at us, and the
@@ -372,16 +375,20 @@ func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string)
 	if status == http.StatusPaymentRequired {
 		return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
 	}
-	for _, p := range []string{
-		"insufficient balance",
-		"no resource package",
-		"please recharge",
-		"exceeded your current quota",
-	} {
+	// The entitlement phrases come from the shared rate-limit table
+	// (rateLimitPhrases), so the breaker's exhaustion verdict and this label
+	// can never disagree about what a balance error looks like.
+	for _, p := range entitledRateLimitPhrases() {
 		if strings.Contains(b, p) {
 			return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
 		}
 	}
+
+	// A 429's remaining claims (saturated vs quota-exhausted) are deliberately
+	// NOT classified here: this function cannot read settings, and the
+	// rate_limit_classify_enabled master switch has to restore today's labels
+	// bit for bit when it is off. The terminal forward refines the kind from
+	// the attempt's verdict instead — see rateLimitTerminalKind.
 
 	// The provider understood us and refused the payload. Seen when a request
 	// is sent in the wrong dialect: OpenCode Zen routes its Gemini models to

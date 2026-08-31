@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modelle bis zum Überspringen des Anbieters",
-			"spanModels.description": "Wie viele Modelle eines Anbieters einen offenen Schutzschalter haben müssen, bevor der gesamte Anbieter übersprungen wird. Bei 1 legt ein einzelnes fehlerhaftes Modell alle Modelle dieses Anbieters still."
+			"spanModels.description": "Wie viele Modelle eines Anbieters einen offenen Schutzschalter haben müssen, bevor der gesamte Anbieter übersprungen wird. Bei 1 legt ein einzelnes fehlerhaftes Modell alle Modelle dieses Anbieters still.",
+			"rateLimitGroup": "Umgang mit Rate-Limits (429)",
+			"classify429": "Ausgelastet von aufgebraucht unterscheiden",
+			"classify429Description": "Liest jede 429-Antwort, um einen kurzzeitig ausgelasteten Anbieter (in Sekunden erneut versuchen, keine Belastung des Schutzschalters) von einem zu unterscheiden, dessen Kontingent oder Guthaben aufgebraucht ist (Schaltkreis sofort öffnen und das Zeitfenster abwarten). Ausgeschaltet gilt das alte Verhalten: jede 429 zählt als gewöhnlicher Fehler.",
+			"saturationMaxWait": "Wartelimit bei Auslastung",
+			"saturationMaxWait.description": "Ein Retry-After bis zu diesem Wert gilt als ausgelastet; alles darüber wird als aufgebrauchtes Zeitfenster behandelt. Begrenzt außerdem, wie lange der Proxy wartet, bevor er den letzten ausgelasteten Anbieter einmal erneut versucht.",
+			"recentSuccessWindow": "Fenster für jüngste Erfolge",
+			"recentSuccessWindow.description": "Eine unbekannte 429 von einem Modell, das so kürzlich erfolgreich geantwortet hat, gilt als ausgelastet statt aufgebraucht: ein aufgebrauchtes Zeitfenster kommt nicht binnen einer Minute zurück.",
+			"openOnExhaustion": "Schaltkreis bei aufgebrauchtem Kontingent öffnen",
+			"openOnExhaustionDescription": "Meldet eine 429, dass Kontingent oder Guthaben aufgebraucht ist, wird der Schaltkreis des Modells nach dieser einen Antwort geöffnet, statt auf die Fehlerschwelle zu warten.",
+			"exhaustion429": "Ausgelastete Gruppen mit 429 beantworten",
+			"exhaustion429Description": "Sind alle Anbieter einer Gruppe ausgelastet oder warten auf ihr Kontingent, erhält der Client 429 mit Retry-After statt 502, damit er selbstständig wartet und erneut anfragt."
 		},
 		"logging": {
 			"title": "Protokollierung",

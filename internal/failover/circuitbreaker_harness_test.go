@@ -284,6 +284,9 @@ func pinSibling(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string, op
 	}
 	c.openedAt = c.openedAt.Add(-openedAgo)
 	c.cooldownOverride = override
+	// An advisor pin: the provider-wide verdict's pin arm only counts pins the
+	// quota advisor measured, which is what this helper simulates.
+	c.pinSource = pinSourceAdvisor
 }
 
 // overrideFor reads a circuit's stored quota override. Status reports the

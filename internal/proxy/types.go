@@ -287,6 +287,16 @@ type requestState struct {
 	// lastReqErr.
 	lastErr    string
 	lastReqErr reqError
+
+	// rateLimit is the current attempt's 429 verdict (see classify429Attempt),
+	// reset at attempt start by beginAttempt. The terminal paths read it for
+	// the Retry-After they hand the client; only a terminal whose own status is
+	// a classified 429 does, so a stale verdict from an earlier attempt can
+	// never label a later failure. saturationRetried marks that this request
+	// has already spent its one wait-and-retry on a saturated last candidate —
+	// one retry, not a loop.
+	rateLimit         rateLimitVerdict
+	saturationRetried bool
 }
 
 // setReqErr records the structured cause of the most recent failed attempt and
@@ -330,6 +340,11 @@ const (
 	outcomeServed
 	// outcomeFatal: a terminal error response was written; return.
 	outcomeFatal
+	// outcomeRetrySaturated: the LAST candidate answered a saturated 429 —
+	// alive, at capacity, a slot frees in seconds — and nothing was written.
+	// The loop waits the provider's Retry-After (bounded) and retries the same
+	// candidate once; st.saturationRetried guards the "once".
+	outcomeRetrySaturated
 )
 
 // streamOptions consolidates the parameters for handleStreamingResponse into

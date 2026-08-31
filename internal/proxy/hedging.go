@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -40,6 +39,11 @@ type hedgeResult struct {
 	timings       resolveTimings
 	proxyOverhead float64
 	reqErr        reqError
+	// rateLimit is the attempt's 429 verdict. The probe classifies on its
+	// PRIVATE requestState snapshot, so without this the verdict would die
+	// with the snapshot and a terminal all-busy response would fall back to
+	// the class-default Retry-After instead of the provider's own ask.
+	rateLimit rateLimitVerdict
 }
 
 // minHedgeDelay floors the configured hedge delay. The dashboard already clamps to
@@ -180,6 +184,10 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				return
 			}
 			st.setReqErr(res.reqErr)
+			// Carry the loser's 429 verdict onto the shared state beside its
+			// reqError, so a terminal all-busy exhaustion answers with the
+			// provider's own Retry-After rather than the class default.
+			st.rateLimit = res.rateLimit
 			if res.reqErr.Kind == KindProviderTimeout {
 				providerStall = res.reqErr
 			}
@@ -266,7 +274,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
-	h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
+	rl := h.judge429AndRecordBreaker(ctx, st, candidate, resp, isFailoverEligible)
 
 	if !servedSuccessStatus(resp.StatusCode) {
 		// Any non-2xx drops this candidate. The orchestrator owns the terminal
@@ -321,7 +329,8 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
 		}
-		res.reqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+		res.reqErr = failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode)
+		res.rateLimit = rl
 		return res
 	}
 

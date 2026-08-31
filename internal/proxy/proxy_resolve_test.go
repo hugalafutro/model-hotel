@@ -263,8 +263,13 @@ func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502, got %d", w.Code)
+	// Every candidate was skipped by the breaker, so the honest answer is a
+	// dated 429, not a 502: nothing upstream faulted on this request.
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 for a breaker-skipped group, got %d", w.Code)
+	}
+	if w.Header().Get("Retry-After") == "" {
+		t.Error("expected a Retry-After header naming the earliest retry")
 	}
 }
 

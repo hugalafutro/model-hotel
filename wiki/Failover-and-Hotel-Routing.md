@@ -379,7 +379,7 @@ Failover is **sequential** - providers are tried one at a time, in order:
 3. The first candidate is tried
 4. If the upstream returns a retriable error, the proxy moves to the next candidate
 5. This continues until the request succeeds or all candidates are exhausted
-6. If all candidates fail, a generic 502 error is returned to the client
+6. If all candidates fail, a 502 error is returned to the client; when the last failure was a "provider busy" 429, the client instead gets a 429 with a `Retry-After` header (see "429s: saturated vs exhausted" below)
 
 ### Failover Decisions
 
@@ -429,6 +429,18 @@ func failoverBackoff(base, capacity time.Duration, attempt int) time.Duration {
 #### The `failover_on_rate_limit` Setting
 
 By default, a 429 rate-limit response from one provider triggers failover to the next. This is controlled by the `failover_on_rate_limit` setting (default: `true`). If you prefer to return 429 errors directly to the client rather than retrying on another provider, set this to `false`.
+
+#### 429s: Saturated vs Exhausted
+
+A 429 makes one of two very different claims, and the proxy reads the response (body phrases, `Retry-After`, `X-RateLimit-Reset*` headers) to tell them apart (`rate_limit_classify_enabled`, default `true`):
+
+- **Saturated** ("busy"): a concurrency slot or a per-minute budget is full and a retry succeeds in seconds. The request still fails over, but the circuit breaker is **not** charged: a provider at capacity is healthy, and benching it wastes the very slots that are busy serving. When the **last** candidate is merely saturated, the proxy waits out the provider's `Retry-After` (capped by `rate_limit_saturation_max_wait`, default 60s) and retries that candidate once before giving up.
+- **Exhausted** ("spent"): a usage window or balance is gone and retrying cannot succeed until it resets. One such response opens the model's circuit outright (`circuit_breaker_open_on_exhaustion`, default `true`) and pins its cooldown from the response's own claim; a quota-advisor reading always overrides that inferred pin (the status API reports which via `pin_source`).
+- **Unknown**: anything unrecognisable keeps the old behaviour and charges the breaker as an ordinary failure. As a fallback, an unknown 429 from a model that served a success inside `rate_limit_recent_success_window` (default 60s) is treated as saturated, so the mechanism works even for providers whose wording the phrase table has never seen.
+
+Terminal responses are honest about the difference (`failover_exhaustion_status_429`, default `true`): when every candidate is busy, the client gets a 429 with a `Retry-After` instead of a 502, and when the breaker skipped every candidate up front, the 429 names the earliest instant a circuit comes back (`error_kind` is `provider_saturated`, or `provider_quota_exhausted` when every skip is waiting out a quota pin).
+
+All of this only applies when the 429 was failover-eligible: with `failover_on_rate_limit` off, a 429 is forwarded to the client exactly as before.
 
 #### The `shouldFailover` Logic
 
@@ -519,7 +531,7 @@ The proxy includes a circuit breaker that prevents sending requests to models th
 
 **What a circuit is keyed on:** one circuit per **(provider, resolved upstream model)** pair - the model id actually sent upstream, never the `hotel/` group alias. A model that fails for its own reasons (a plan that excludes it, a retired id, a per-model refusal) darkens only itself; its healthy siblings behind the same provider keep serving. The provider as a whole is a **derived** verdict, never a circuit that anything charges directly: see [Provider-wide verdict](#provider-wide-verdict).
 
-**Success Recording:** The circuit breaker records success for **any response that does NOT trigger failover**. This includes 400 errors (parameter rejections), since these indicate the provider successfully processed the request but rejected it due to invalid parameters - not a provider health issue. Only 5xx, 429 (when enabled), 401/403, and timeouts are recorded as failures. A success resets **that model's** circuit only: a working model says nothing about a failing sibling, and crediting the sibling is how a broken model stays in rotation forever.
+**Success Recording:** The circuit breaker records success for **any response that does NOT trigger failover**. This includes 400 errors (parameter rejections), since these indicate the provider successfully processed the request but rejected it due to invalid parameters - not a provider health issue. Only 5xx, 429 (when enabled), 401/403, and timeouts are recorded as failures. A 429 classified as *saturated* is the exception: it is a breaker no-op (neither failure nor success), and one classified as *exhausted* opens the circuit outright; see "429s: Saturated vs Exhausted" above. A success resets **that model's** circuit only: a working model says nothing about a failing sibling, and crediting the sibling is how a broken model stays in rotation forever.
 
 ### State Machine
 
@@ -626,10 +638,15 @@ These are treated as user-side cancellations rather than provider health issues.
 | `circuit_breaker_quota_pin_max` | duration | `24h` | Ceiling on how far out a quota pin may push the cooldown. |
 | `circuit_breaker_backoff_enabled` | bool | `true` | Double an open circuit's cooldown for every half-open probe that fails, so a model that stays broken is retried less and less often. Turning it off also releases a backoff already in force. |
 | `circuit_breaker_backoff_max` | duration | `15m` | Ceiling the backed-off cooldown may grow to. A non-positive value restores the default rather than disabling backoff; a value at or below `circuit_breaker_cooldown` leaves backoff nothing to add. |
+| `rate_limit_classify_enabled` | bool | `true` | Read each 429 to tell a saturated ("busy") provider from an exhausted ("spent") one. Off restores the old behaviour: every 429 charges the breaker as an ordinary failure. |
+| `rate_limit_saturation_max_wait` | duration | `60s` | A `Retry-After` at or below this counts as saturation; anything longer is treated as a spent window. Also caps the wait before the last busy candidate is retried once. |
+| `rate_limit_recent_success_window` | duration | `60s` | An unrecognisable 429 from a model that served a success this recently is treated as saturated rather than charged. |
+| `circuit_breaker_open_on_exhaustion` | bool | `true` | One 429 that says the quota window or balance is spent opens the model's circuit outright instead of waiting for the failure threshold. |
+| `failover_exhaustion_status_429` | bool | `true` | When every candidate is busy or breaker-skipped, answer the client 429 with a `Retry-After` instead of 502. |
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 
-All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, model span, cooldown, failover-on-429, quota pinning and its ceiling, probe backoff and its ceiling) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
+All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, model span, cooldown, failover-on-429, quota pinning and its ceiling, probe backoff and its ceiling, and the 429 handling group) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
 
 #### Quota-pinned cooldowns
 

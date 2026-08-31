@@ -1833,7 +1833,18 @@
 			"hedgeDelay.description": "How long to wait for the first provider's first token before also firing a backup provider",
 			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load.",
 			"failoverGroup": "Failover",
-			"hedgingGroup": "Hedging"
+			"hedgingGroup": "Hedging",
+			"rateLimitGroup": "Rate Limit (429) Handling",
+			"classify429": "Tell Busy From Spent",
+			"classify429Description": "Read each 429 to tell a provider that is briefly at capacity (retry in seconds, no circuit charge) from one whose quota window or balance is spent (open the circuit at once and wait out the window). Switching this off restores the old behaviour: every 429 counts as an ordinary failure.",
+			"saturationMaxWait": "Saturation Wait Limit",
+			"saturationMaxWait.description": "A Retry-After at or below this counts as busy; anything longer is treated as a spent window. Also caps how long the proxy waits before retrying the last busy provider once.",
+			"recentSuccessWindow": "Recent Success Window",
+			"recentSuccessWindow.description": "An unrecognised 429 from a model that served successfully this recently is treated as busy rather than spent: a spent window does not come back in a minute.",
+			"openOnExhaustion": "Open Circuit on Spent Quota",
+			"openOnExhaustionDescription": "When a 429 says the quota window or balance is spent, open the model's circuit on that single response instead of waiting for the failure threshold.",
+			"exhaustion429": "Answer Busy Groups With 429",
+			"exhaustion429Description": "When every provider in a group is busy or waiting out a spent quota, answer the client with 429 and a Retry-After instead of 502, so clients back off and retry on their own."
 		},
 		"logging": {
 			"title": "Logging",

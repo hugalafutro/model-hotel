@@ -1663,7 +1663,18 @@
 			"failoverGroup": "故障转移",
 			"hedgingGroup": "Hedging",
 			"spanModels": "跳过提供商所需的模型数",
-			"spanModels.description": "在断路器跳过整个提供商之前，该提供商需要有多少个模型的电路处于断开状态。设为 1 时，单个失败的模型就会使该提供商的所有模型停止路由。"
+			"spanModels.description": "在断路器跳过整个提供商之前，该提供商需要有多少个模型的电路处于断开状态。设为 1 时，单个失败的模型就会使该提供商的所有模型停止路由。",
+			"rateLimitGroup": "速率限制 (429) 处理",
+			"classify429": "区分繁忙与耗尽",
+			"classify429Description": "读取每个 429 响应,区分短暂达到容量上限的提供商(数秒后重试,不计入熔断器)与配额或余额已耗尽的提供商(立即断开电路并等待窗口重置)。关闭后恢复旧行为:每个 429 都按普通失败计算。",
+			"saturationMaxWait": "饱和等待上限",
+			"saturationMaxWait.description": "Retry-After 不超过此值视为繁忙;更长则视为窗口耗尽。同时限制代理在对最后一个繁忙提供商重试一次之前的等待时长。",
+			"recentSuccessWindow": "近期成功窗口",
+			"recentSuccessWindow.description": "来自近期内成功响应过的模型的无法识别的 429 视为繁忙而非耗尽:耗尽的窗口不会在一分钟内恢复。",
+			"openOnExhaustion": "配额耗尽时断开电路",
+			"openOnExhaustionDescription": "当 429 表明配额或余额已耗尽时,凭这一次响应即断开该模型的电路,而不等待失败阈值。",
+			"exhaustion429": "以 429 回应繁忙的组",
+			"exhaustion429Description": "当组内所有提供商都繁忙或在等待配额时,向客户端返回带 Retry-After 的 429 而非 502,让客户端自行退避并重试。"
 		},
 		"logging": {
 			"title": "日志记录",
