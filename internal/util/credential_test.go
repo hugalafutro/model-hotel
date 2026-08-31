@@ -30,6 +30,10 @@ func TestMaskKeyShapedTokens(t *testing.T) {
 		// Prose and identifiers keep their text: a match with no digit is not a
 		// credential, and a short tail is not one either.
 		{"prose without digits", "sk_business_unit_identifier_for_billing", false},
+		// The same prose in a body that DOES carry digits elsewhere, so the
+		// whole-body fast path cannot short-circuit it and the per-match digit
+		// rule is what has to spare it.
+		{"prose without digits beside a number", "sk_business_unit_identifier_for_billing was charged 42 times", false},
 		{"bearer prose", "Bearer authentication-required", false},
 		{"short tail", "the sk-abc prefix", false},
 		{"plain sentence", "the provider rejected this request", false},
