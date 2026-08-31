@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"regexp"
 	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -157,23 +156,9 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	return outcomeFatal
 }
 
-// keyShapedToken matches credential-looking substrings a provider may quote
-// inside an error body: prefixed secret keys (sk- also covers sk-ant-, sk-or-
-// and sk-proj-; hf_, fw_, r8_, gsk_, xai- cover HuggingFace, Fireworks,
-// Replicate, Groq and xAI), Google API keys (AIza...), AWS access key ids
-// (AKIA...), bare JWTs (the MiniMax API key format), and bearer tokens. The
-// minimum tail lengths keep prose like "sk-abc" out of scope; matches without
-// a digit are prose too and are dropped by maskKeyShapedTokens. A prefix list
-// necessarily trails the provider roster - it is the third layer, behind the
-// status-class gate above and credentialMasker's exact match of this
-// gateway's own key.
-var keyShapedToken = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z0-9_-]{16,}|\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|(?i:\bbearer\s+)[A-Za-z0-9._~+/=-]{16,}`)
-
-// credentialMinLen is the shortest provider key the exact-value mask will
-// redact. Keyless local providers carry an empty key and a handful of test or
-// placeholder setups use tiny ones; rewriting every occurrence of a few
-// characters would shred the body without protecting anything.
-const credentialMinLen = 8
+// credentialMinLen is the shared threshold, not a second opinion on it: two
+// copies of one rule is how the scrub itself came to differ between packages.
+const credentialMinLen = util.CredentialMinLen
 
 // credentialMasker scrubs a provider's credential out of client-bound text.
 // The exact decrypted key is the primary control: it is an exact byte match,
@@ -269,18 +254,14 @@ func (e *exactMaskWriter) Flush() error {
 // text before it reaches a client or the request log. Auth-class errors never
 // forward at all, and credentialMasker has already removed this gateway's own
 // key by exact value; this is the third layer, for a provider quoting some
-// other credential inside an otherwise forwardable payload error. A match with no
-// digit in it is an identifier or prose ("sk_business_unit_identifier",
-// "Bearer authentication-required") rather than a credential, and stays -
-// real keys carry digits. The replacement carries no JSON metacharacters, so
-// a valid body stays valid.
+// other credential inside an otherwise forwardable payload error.
+//
+// The rule itself lives in internal/util, shared with the dashboard's model
+// test and provider discovery, which decrypt the same credential and write the
+// same bodies to the same tables. Two copies is how one of them came to have
+// only a UUID scrub.
 func maskKeyShapedTokens(body []byte) []byte {
-	return keyShapedToken.ReplaceAllFunc(body, func(m []byte) []byte {
-		if !bytes.ContainsAny(m, "0123456789") {
-			return m
-		}
-		return []byte("[redacted]")
-	})
+	return util.MaskKeyShapedTokens(body)
 }
 
 // carriesErrorObject reports whether an upstream body is a JSON object with an

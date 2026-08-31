@@ -14,17 +14,47 @@ import (
 	"github.com/google/uuid"
 )
 
-// SanitizeLogBody redacts potentially sensitive information from upstream
-// API error response bodies before they are written to logs or stored in the
-// database. It truncates the body to maxLen characters and replaces UUIDs
-// with [REDACTED], as upstream error messages often leak internal identifiers
-// (team IDs, project IDs) that have no diagnostic value.
+// scrubMargin is how far past maxLen SanitizeLogBody still scans for secrets.
+// Past it the bytes are discarded, so scanning them is pure cost.
+//
+// It is a backstop rather than the guarantee: two of the patterns are
+// unbounded at the top end, so no margin can promise to contain them. The
+// guarantee comes from the patterns themselves, each of which matches its own
+// truncated prefix — a credential cut by the window is still recognised as
+// one, and redacted, rather than leaving a head fragment behind.
+const scrubMargin = 4096
+
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
-// SanitizeLogBody truncates and redacts UUIDs from log body strings.
+// SanitizeLogBody truncates a log body, redacts UUIDs, and scrubs key-shaped
+// tokens.
+//
+// The credential layer is here rather than at each caller because this is the
+// function every path outside internal/proxy already reaches for before
+// writing an upstream body to a log or a column, and the one thing it did not
+// remove was the thing that matters most: an upstream that quotes the
+// operator's own key back in an auth failure. Callers that hold the decrypted
+// key should run MaskCredential over the result as well, which adds an exact
+// match for key shapes this list cannot anticipate.
 func SanitizeLogBody(body string, maxLen int) string {
+	// Scrub before truncating, but only over what can still reach the output.
+	//
+	// The order matters: a credential straddling the cut would otherwise leave
+	// a prefix behind that no later pass can match. The bound matters just as
+	// much, because callers do NOT all arrive pre-bounded — the non-streaming
+	// error path reads up to 32 MB and the discovery paths read without a limit
+	// — and scrubbing all of it to keep 200 bytes cost seconds of CPU per
+	// request. Everything past maxLen+scrubMargin is discarded below anyway, so
+	// scanning it buys nothing.
+	if len(body) > maxLen+scrubMargin {
+		// A cut here can split a rune, but every byte past maxLen is dropped by
+		// the rune-safe truncation below, so the returned string is unaffected.
+		body = body[:maxLen+scrubMargin]
+	}
+	body = string(MaskKeyShapedTokens([]byte(body)))
+	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
 		for len(body) > maxLen {
@@ -33,7 +63,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 		}
 		body += "…"
 	}
-	return uuidPattern.ReplaceAllString(body, "[REDACTED]")
+	return body
 }
 
 // ParseBearerToken extracts the token from an Authorization: Bearer <token> header.

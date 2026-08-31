@@ -170,7 +170,7 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("status %d: %s", resp.StatusCode, util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 	}
 
 	var modelsResp KoboldCPPModelsResponse

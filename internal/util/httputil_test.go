@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -639,16 +641,67 @@ func TestSanitizeLogBody_UUIDRedacted(t *testing.T) {
 	}
 }
 
-func TestSanitizeLogBody_UUIDRedactedAfterTruncation(t *testing.T) {
-	// Body with UUID, truncation first then redaction
+func TestSanitizeLogBody_RedactsBeforeTruncating(t *testing.T) {
+	// Redaction runs first, so an identifier straddling the truncation point is
+	// removed whole rather than left as a recognisable prefix. The old order
+	// truncated first, which cut this UUID in half and let the fragment
+	// "793ac38b-0211-43e6-" through: the regex no longer matched it, so it was
+	// stored verbatim. The same argument is why the credential scrub runs
+	// before the cut.
 	body := "error team 793ac38b-0211-43e6-baa7-aa7054c39931 not found in region us-east-1"
 	result := SanitizeLogBody(body, 30)
-	// After removing runes until len <= 30:
-	// "error team 793ac38b-0211-43e6-" (30 bytes) + "…" (3 bytes) = 33 bytes
-	// The UUID is partial, so regex does not match. Result is unchanged from truncation.
-	expected := "error team 793ac38b-0211-43e6-…"
-	if result != expected {
-		t.Errorf("expected %q, got %q", expected, result)
+
+	if strings.Contains(result, "793ac38b") {
+		t.Errorf("a UUID fragment survived the truncation point: %q", result)
+	}
+	if !strings.Contains(result, "[REDACTED]") {
+		t.Errorf("the identifier was not redacted: %q", result)
+	}
+	if !strings.HasSuffix(result, "…") {
+		t.Errorf("the body was not truncated: %q", result)
+	}
+	if n := len(result); n > 30+len("…") {
+		t.Errorf("result is %d bytes, want the truncation applied after redaction", n)
+	}
+}
+
+// The scrub is bounded to what can still reach the output. Callers do not all
+// arrive pre-bounded (the non-streaming error path reads up to 32 MB, the
+// discovery paths read without a limit), so scanning the whole body to keep
+// 200 bytes of it cost seconds of CPU per request.
+func TestSanitizeLogBody_ScrubIsBoundedByTheOutputSize(t *testing.T) {
+	// A credential far past maxLen+scrubMargin cannot appear in the output, so
+	// it need not be scanned for; what matters is that the prefix is correct
+	// and the call stays cheap.
+	body := "short prefix " + strings.Repeat("x", 16<<20) + " sk-test-1234567890abcdefghij"
+
+	start := time.Now()
+	got := SanitizeLogBody(body, 200)
+	elapsed := time.Since(start)
+
+	if !strings.HasPrefix(got, "short prefix ") {
+		t.Errorf("prefix lost: %.60q", got)
+	}
+	if n := len(got); n > 200+len("…") {
+		t.Errorf("result is %d bytes, want at most maxLen plus the ellipsis", n)
+	}
+	// Generous in the passing direction (real cost is microseconds) while
+	// leaving the failing direction a wide margin: an unbounded scan of 16 MB
+	// is seconds, not milliseconds.
+	if elapsed > 250*time.Millisecond {
+		t.Errorf("sanitizing a 16 MB body to 200 bytes took %v: the scrub is scanning past the output", elapsed)
+	}
+}
+
+// A credential straddling the cut is removed whole for the same reason.
+func TestSanitizeLogBody_ScrubsCredentialAcrossTheTruncationPoint(t *testing.T) {
+	body := "auth failed for key sk-test-1234567890abcdefghij on this account"
+	result := SanitizeLogBody(body, 32)
+	if strings.Contains(result, "sk-test-1234") {
+		t.Errorf("a credential fragment survived the truncation point: %q", result)
+	}
+	if !strings.Contains(result, "[redacted]") {
+		t.Errorf("the credential was not scrubbed: %q", result)
 	}
 }
 

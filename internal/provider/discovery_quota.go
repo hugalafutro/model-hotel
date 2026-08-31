@@ -25,13 +25,13 @@ var ErrProviderKeyInvalid = errors.New("provider key invalid or inactive")
 // ErrProviderKeyInvalid-wrapped error; for any other status it returns nil so
 // the caller falls through to its existing ERROR-logged handling of a genuinely
 // unexpected status. label is the provider-family tag (e.g. "neuralwatt").
-func quotaAuthError(label string, p *Provider, status int, body []byte) error {
+func quotaAuthError(label, apiKey string, p *Provider, status int, body []byte) error {
 	if status != http.StatusUnauthorized && status != http.StatusForbidden {
 		return nil
 	}
 	debuglog.Warn("discovery: "+label+" quota rejected: provider key invalid or inactive",
 		"status", status, "provider", p.Name, "provider_id", p.ID,
-		"body", util.SanitizeLogBody(string(body), 2000))
+		"body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 	return fmt.Errorf("%s: %w for provider %s (status %d)", label, ErrProviderKeyInvalid, p.Name, status)
 }
 
@@ -64,10 +64,10 @@ func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provide
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		if authErr := quotaAuthError(label, provider, resp.StatusCode, body); authErr != nil {
+		if authErr := quotaAuthError(label, apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return authErr
 		}
-		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 		return fmt.Errorf("%s: unexpected status code %d for provider %s", label, resp.StatusCode, provider.Name)
 	}
 

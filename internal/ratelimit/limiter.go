@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -319,7 +320,22 @@ func extractKey(r *http.Request) string {
 			return s
 		}
 	}
-	return r.RemoteAddr
+	// The fallback is address-keyed, never connection-keyed. r.RemoteAddr
+	// carries the TCP port, so on a surface that reaches this stage without a
+	// virtual key — the admin chat routes, which mount the limiter without
+	// ProxyKeyMiddleware — every new connection drew a fresh full-burst bucket,
+	// so a client that does not reuse connections escaped this stage entirely.
+	// Not unbounded: the per-IP limiter still stood in front at its own looser
+	// budget, so what the bug cost was the tighter per-key stage, not the
+	// surface. That is the shape the surface's own review described as
+	// address-keyed; the port was the unreviewed part.
+	//
+	// clientip.From is the address the rest of the chain already reports:
+	// trusted-proxy aware, port stripped, and it honours a forwarded header
+	// only when the peer is a configured proxy, so a direct client cannot pick
+	// its own bucket. /v1 is unaffected either way, since the hash is always
+	// present there and this line never runs.
+	return clientip.From(r)
 }
 
 // writeRateLimitHeaders adds standard rate-limit response headers.

@@ -82,7 +82,7 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("lmstudio: native endpoint status %d for provider %s: %s", resp.StatusCode, provider.Name, string(body))
+		return nil, fmt.Errorf("lmstudio: native endpoint status %d for provider %s: %s", resp.StatusCode, provider.Name, util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 	}
 
 	var modelsResp LMStudioV0ModelsResponse
@@ -184,7 +184,7 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("lmstudio: unexpected status %d for provider %s: %s", resp.StatusCode, provider.Name, string(body))
+		return nil, fmt.Errorf("lmstudio: unexpected status %d for provider %s: %s", resp.StatusCode, provider.Name, util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 	}
 
 	var modelsResp LMStudioModelsResponse

@@ -37,7 +37,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: ollama unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 		return nil, fmt.Errorf("ollama: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
@@ -138,7 +138,10 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama show model failed with status", "model", modelName, "status", resp.StatusCode, "body", string(respBody))
+		// Sanitized like every sibling discovery path: an upstream that quotes
+		// the operator's key back in an auth failure would otherwise put it in
+		// app_logs verbatim, and from there into the OTLP export.
+		debuglog.Error("discovery: ollama show model failed with status", "model", modelName, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(respBody), 2000)))
 		return nil, fmt.Errorf("show failed for %s: status %d", modelName, resp.StatusCode)
 	}
 
@@ -252,10 +255,10 @@ func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		if authErr := quotaAuthError("ollama-cloud", provider, resp.StatusCode, body); authErr != nil {
+		if authErr := quotaAuthError("ollama-cloud", apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
 		return nil, fmt.Errorf("ollama-cloud: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

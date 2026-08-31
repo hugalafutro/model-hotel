@@ -100,8 +100,12 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		if err != nil {
 			if isTransientNetworkError(err) {
 				lastErr = err
+				// A transport error quotes the request URL, and one provider
+				// family authenticates by query parameter, so this is scrubbed
+				// like any other upstream text. No decrypted key in scope here:
+				// the shape layer is the whole control at this site.
 				debuglog.Info("discovery: transient fetch error, will retry",
-					"host", req.URL.Host, "attempt", attempt+1, "error", err)
+					"host", req.URL.Host, "attempt", attempt+1, "error", util.SanitizeLogBody(err.Error(), 500))
 				continue
 			}
 			return nil, err
