@@ -9,7 +9,10 @@ import org.junit.Test
  * diffEvents is pure, so the "which Front Desk events get a notification" rule
  * is pinned here without a worker or a server: a silent first poll, the cursor
  * as the only memory, the picker as the only filter, instants (not text) as the
- * order, and a cap so a phone that missed a day is not paged once per line.
+ * order with the id deciding ties the way Front Desk orders them, oldest-first
+ * output so the newest lands on top of the shade, a cap so a phone that missed
+ * a day is not paged once per line, and a cursor that never rests on a row
+ * whose time cannot be read.
  */
 class FleetEventDiffTest {
     private fun event(
@@ -42,7 +45,7 @@ class FleetEventDiffTest {
     }
 
     @Test
-    fun eventsAfterTheCursorAreReturnedNewestFirstAndTheCursorAdvances() {
+    fun eventsAfterTheCursorAreReturnedOldestFirstAndTheCursorAdvances() {
         val cursor = EventCursor("2026-08-31T11:28:54Z", "e2")
         val page =
             listOf(
@@ -54,8 +57,10 @@ class FleetEventDiffTest {
 
         val diff = diffEvents(cursor, page, drainOn)
 
-        assertEquals(listOf("e4", "e3"), diff.alerts.map { it.id })
-        assertEquals("m3", diff.alerts.first().memberId)
+        // Oldest first: posted in this order, the newest is the top row on the
+        // shade and, for rows that share a tag, the one that survives.
+        assertEquals(listOf("e3", "e4"), diff.alerts.map { it.id })
+        assertEquals("m2", diff.alerts.first().memberId)
         assertEquals(EventCursor("2026-08-31T11:31:13Z", "e4"), diff.cursor)
     }
 
@@ -96,9 +101,17 @@ class FleetEventDiffTest {
     }
 
     @Test
-    fun anEventSharingTheCursorInstantCountsAsNewUnlessItIsTheCursorItself() {
+    fun atTheCursorsInstantTheIdDecidesTheWayFrontDeskOrders() {
+        // Front Desk orders ties by id, so a row with a lower id at the cursor's
+        // instant was ordered before the cursor and has been seen; only a higher
+        // id is new. Anything else would re-report the lower row on every poll.
         val cursor = EventCursor("2026-08-31T11:28:54Z", "e2")
-        val page = listOf(event("e2b", "2026-08-31T11:28:54Z"), event("e2", "2026-08-31T11:28:54Z"))
+        val page =
+            listOf(
+                event("e2b", "2026-08-31T11:28:54Z"),
+                event("e2", "2026-08-31T11:28:54Z"),
+                event("e1z", "2026-08-31T11:28:54Z"),
+            )
 
         val diff = diffEvents(cursor, page, drainOn)
 
@@ -113,7 +126,9 @@ class FleetEventDiffTest {
         val diff = diffEvents(cursor, page, drainOn)
 
         assertEquals(MAX_EVENT_ALERTS_PER_POLL, diff.alerts.size)
-        assertEquals("e20", diff.alerts.first().id)
+        // The newest five, oldest of them first, newest last.
+        assertEquals("e16", diff.alerts.first().id)
+        assertEquals("e20", diff.alerts.last().id)
         assertEquals(EventCursor("2026-08-31T11:20:00Z", "e20"), diff.cursor)
     }
 
@@ -128,16 +143,21 @@ class FleetEventDiffTest {
     }
 
     @Test
-    fun anUnreadableCreatedAtIsSkippedRatherThanAlertedOn() {
+    fun anUnreadableRowIsNeitherAlertedOnNorMadeTheCursor() {
         val cursor = EventCursor("2026-08-31T11:28:54Z", "e2")
-        val page = listOf(event("e3", "not a time"), event("e2", "2026-08-31T11:28:54Z"))
+        val page =
+            listOf(
+                event("e4", "not a time"),
+                event("e3", "2026-08-31T11:30:10Z"),
+                event("e2", "2026-08-31T11:28:54Z"),
+            )
 
         val diff = diffEvents(cursor, page, drainOn)
 
-        assertTrue(diff.alerts.isEmpty())
-        // The cursor still moves to the newest row: it is Front Desk's ordering
-        // that is followed, and the next page will not start before this row.
-        assertEquals(EventCursor("not a time", "e3"), diff.cursor)
+        assertEquals(listOf("e3"), diff.alerts.map { it.id })
+        // Resting the cursor on the unreadable row would blind the next poll to
+        // everything after it, so it rests on the newest row that can be read.
+        assertEquals(EventCursor("2026-08-31T11:30:10Z", "e3"), diff.cursor)
     }
 
     @Test

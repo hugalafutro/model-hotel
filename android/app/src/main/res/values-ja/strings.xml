@@ -228,12 +228,13 @@
     <string name="notif_up_body">メンバーが再び応答しています。</string>
     <string name="notif_channel_stale">設定のずれ</string>
     <string name="notif_channel_events">Front Desk のアラート</string>
+    <string name="notif_channel_errors">Front Desk のエラー</string>
     <string name="notif_stale_title">フリートがずれている可能性があります</string>
     <string name="notif_stale_body">自動同期がオフで、フリートは 1 日以上同期されていません。タップして Bellhop を開きます。</string>
     <string name="notif_stale_resumed_title">自動同期を再開</string>
     <string name="notif_stale_resumed_body">フリートは再び同期が保たれています。</string>
     <string name="notif_push_test_title">%1$s のプッシュテストを受信しました</string>
-    <string name="notif_push_test_body">リアルタイム プッシュは動作しています。Bellhop はメンバーの変化、自動同期のずれ、そしてアラート画面でオンにしたすべての Front Desk アラートを通知します。テストで通知は作成されません。</string>
+    <string name="notif_push_test_body">リアルタイム プッシュは動作しています。Bellhop はメンバーの変化、自動同期のずれ、そしてアラート画面でオンにした Front Desk アラートを通知します。テストで通知は作成されません。</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">リンク解除</string>

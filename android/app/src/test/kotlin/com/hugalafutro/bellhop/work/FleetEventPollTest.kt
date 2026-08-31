@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.work
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.hugalafutro.bellhop.data.AutoSyncAlert
 import com.hugalafutro.bellhop.data.EventCursor
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
@@ -20,6 +21,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -31,10 +33,11 @@ import java.io.File
 /**
  * The Front Desk half of a poll: the alert picker and the event log are read
  * after the fleet, the events the picker has on come back as alerts, Front
- * Desk's health events replace Bellhop's own edge for the same outage, and a
- * failed read of either half costs the operator nothing (the local edge stands
- * and the cursor stays put). Fetch order is what the enqueue order pins:
- * members, auto-sync, quota, alert selection, events.
+ * Desk's own event for the same outage or drift replaces Bellhop's own alert
+ * only when it is actually being posted this poll, and a failed read of either
+ * half costs the operator nothing (the local alert stands and the cursor stays
+ * put). Fetch order is what the enqueue order pins: members, auto-sync, quota,
+ * alert selection, events.
  */
 class FleetEventPollTest {
     @get:Rule
@@ -70,7 +73,7 @@ class FleetEventPollTest {
 
     private fun selection(vararg on: String): String =
         """{"events":[""" +
-            (listOf("member.state_changed", "health.down", "health.up", "config.sync_held"))
+            listOf("member.state_changed", "health.down", "health.up", "config.sync_held", "config.autosync_stale")
                 .joinToString(
                     ",",
                 ) { """{"type":"$it","category":"Fleet","severity":"warning","enabled":${it in on}}""" } +
@@ -81,16 +84,20 @@ class FleetEventPollTest {
         type: String,
         at: String,
         message: String = "$id $type",
+        member: String = "m1",
     ): String =
         """{"id":"$id","type":"$type","severity":"warning","source":"frontdesk",""" +
-            """"message":"$message","member_id":"m1","created_at":"$at"}"""
+            """"message":"$message","member_id":"$member","created_at":"$at"}"""
 
     private fun eventsPage(vararg events: String): String =
         """{"events":[${events.joinToString(",")}],"total":${events.size}}"""
 
-    private fun enqueueFleet(healthy: Boolean) {
+    private fun enqueueFleet(
+        healthy: Boolean,
+        stale: Boolean = false,
+    ) {
         server.enqueue(MockResponse().setBody(memberBody(healthy)))
-        server.enqueue(MockResponse().setBody("""{"enabled":false,"primary_id":"m1","stale":false}"""))
+        server.enqueue(MockResponse().setBody("""{"enabled":false,"primary_id":"m1","stale":$stale}"""))
         server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
     }
 
@@ -104,6 +111,12 @@ class FleetEventPollTest {
             preferences("quota-config") { QuotaBadgeConfigStore(it) },
             now = { 42L },
         )
+
+    /** eventsRequestPath returns the path of the events read, the fifth request of a poll. */
+    private fun eventsRequestPath(): String {
+        repeat(4) { server.takeRequest() }
+        return server.takeRequest().path.orEmpty()
+    }
 
     private val seen = EventCursor("2026-08-31T11:20:00Z", "e1")
 
@@ -123,6 +136,9 @@ class FleetEventPollTest {
             assertTrue((result as PollResult.Changed).alerts.isEmpty())
             assertEquals(EventCursor("2026-08-31T11:28:54Z", "e2"), store.eventCursor())
             assertEquals(5, server.requestCount)
+            // A baseline needs only the newest row, so that is all that is asked for.
+            val path = eventsRequestPath()
+            assertTrue(path, path.contains("limit=1") && !path.contains("since="))
         }
 
     @Test
@@ -158,6 +174,9 @@ class FleetEventPollTest {
                 (result as PollResult.Changed).alerts,
             )
             assertEquals(EventCursor("2026-08-31T11:28:54Z", "e2"), store.eventCursor())
+            // With a cursor the log is read from its instant, not from the top.
+            val path = eventsRequestPath()
+            assertTrue(path, path.contains("since="))
         }
 
     @Test
@@ -203,6 +222,27 @@ class FleetEventPollTest {
         }
 
     @Test
+    fun frontDesksHealthEventForAnotherMemberDoesNotSilenceThisOne() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            store.saveEventCursor(seen, store.epoch())
+            enqueueFleet(healthy = false)
+            server.enqueue(MockResponse().setBody(selection("health.down")))
+            server.enqueue(
+                MockResponse().setBody(
+                    eventsPage(event("e2", "health.down", "2026-08-31T11:29:45Z", member = "m2")),
+                ),
+            )
+
+            val alerts = (poll(store) as PollResult.Changed).alerts
+
+            assertTrue(alerts.contains(MemberTransition.WentDown("m1", "hotel-1")))
+            assertEquals(listOf("e2"), alerts.filterIsInstance<FrontDeskEvent>().map { it.id })
+        }
+
+    @Test
     fun bellhopsOwnDownEdgeStandsWhenFrontDeskDoesNotAlertOnHealth() =
         runBlocking {
             val store = newStore()
@@ -216,6 +256,73 @@ class FleetEventPollTest {
             val alerts = (poll(store) as PollResult.Changed).alerts
 
             assertEquals(listOf(MemberTransition.WentDown("m1", "hotel-1")), alerts)
+        }
+
+    @Test
+    fun anUpgradeWithASnapshotButNoCursorKeepsBellhopsOwnDownEdge() =
+        runBlocking {
+            // The health snapshot survives an upgrade; the cursor is new. The first
+            // poll records the baseline and posts no Front Desk event, so it must
+            // not surrender the local edge to a Front Desk event it is not posting.
+            val store = newStore()
+            store.setEnabled(true)
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            enqueueFleet(healthy = false)
+            server.enqueue(MockResponse().setBody(selection("health.down")))
+            server.enqueue(MockResponse().setBody(eventsPage(event("e2", "health.down", "2026-08-31T11:29:45Z"))))
+
+            val alerts = (poll(store) as PollResult.Changed).alerts
+
+            assertEquals(listOf(MemberTransition.WentDown("m1", "hotel-1")), alerts)
+            assertEquals(EventCursor("2026-08-31T11:29:45Z", "e2"), store.eventCursor())
+        }
+
+    @Test
+    fun frontDesksDriftEventReplacesBellhopsOwnDriftEdge() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            store.saveSnapshot(
+                FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name), autosyncStale = false),
+                store.epoch(),
+            )
+            store.saveEventCursor(seen, store.epoch())
+            enqueueFleet(healthy = true, stale = true)
+            server.enqueue(MockResponse().setBody(selection("config.autosync_stale")))
+            server.enqueue(
+                MockResponse().setBody(
+                    eventsPage(event("e2", "config.autosync_stale", "2026-08-31T11:29:45Z", member = "")),
+                ),
+            )
+
+            val alerts = (poll(store) as PollResult.Changed).alerts
+
+            assertEquals(listOf("e2"), alerts.filterIsInstance<FrontDeskEvent>().map { it.id })
+            assertFalse(alerts.contains(AutoSyncAlert.WentStale))
+        }
+
+    @Test
+    fun aHealthEventPushedPastTheCapLeavesBellhopsOwnEdgeStanding() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            store.saveEventCursor(seen, store.epoch())
+            enqueueFleet(healthy = false)
+            server.enqueue(MockResponse().setBody(selection("health.down", "config.sync_held")))
+            // Six held-sync events newer than the outage push health.down past the
+            // five-per-poll cap: it is not posted, so the local edge must be.
+            val held = (6 downTo 1).map { event("h$it", "config.sync_held", "2026-08-31T11:4$it:00Z") }
+            server.enqueue(
+                MockResponse().setBody(
+                    eventsPage(*held.toTypedArray(), event("e2", "health.down", "2026-08-31T11:29:45Z")),
+                ),
+            )
+
+            val alerts = (poll(store) as PollResult.Changed).alerts
+
+            assertTrue(alerts.contains(MemberTransition.WentDown("m1", "hotel-1")))
+            assertEquals(5, alerts.filterIsInstance<FrontDeskEvent>().size)
         }
 
     @Test
@@ -249,8 +356,6 @@ class FleetEventPollTest {
 
             val alerts = (poll(store) as PollResult.Changed).alerts
 
-            // The picker says Front Desk pages on health.down, but its log could
-            // not be read this poll, so Bellhop's own edge is not surrendered.
             assertEquals(listOf(MemberTransition.WentDown("m1", "hotel-1")), alerts)
             assertEquals(seen, store.eventCursor())
         }
@@ -266,4 +371,11 @@ class FleetEventPollTest {
             assertNull(store.eventCursor())
             assertEquals(1, server.requestCount)
         }
+
+    @Test
+    fun aBaselineIsNeededOnlyWhileALayerIsOnAndNoCursorExists() {
+        assertTrue(needsEventBaseline(active = true, cursor = null))
+        assertFalse(needsEventBaseline(active = false, cursor = null))
+        assertFalse(needsEventBaseline(active = true, cursor = seen))
+    }
 }

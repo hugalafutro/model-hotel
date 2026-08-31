@@ -20,10 +20,12 @@ import org.unifiedpush.android.connector.data.PushMessage
  * fleet AND the Front Desk event log, so the alert the push announced is rendered
  * from Front Desk's own record of it rather than from a payload that may be
  * stale, encrypted, or shaped by whatever Apprise sent (the distributor hands
- * over the message body alone, with no event type or severity). What gets
- * rendered is exactly the set of event types switched on in Front Desk's alert
+ * over the message body alone, with no event type or severity). The Front Desk
+ * events that get rendered are the types switched on in Front Desk's alert
  * picker, the toggles under Alerts, because those are the events Front Desk
- * pushes for; see the poll for how Bellhop's own health edges yield to them.
+ * pushes for; Bellhop's own health and drift alerts stay on beside them, and
+ * the poll drops its own row when Front Desk's event for the same thing is
+ * being posted.
  *
  * The payload is inspected for exactly one thing: Front Desk's test marker
  * ([BellhopPush.isTestPush]). A test is not in the event log, so it would

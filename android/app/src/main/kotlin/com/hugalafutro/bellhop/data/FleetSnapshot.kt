@@ -164,13 +164,15 @@ data class EventCursor(
  * into notifications. A phone that was off for a day comes back to a page of
  * history; paging the operator once per line would bury the newest, which is
  * the one worth reading, so only the newest few are posted and the cursor still
- * advances past the rest.
+ * advances past the rest: what Front Desk had to say six alerts ago is history
+ * by then, and the event log in the app has all of it.
  */
 const val MAX_EVENT_ALERTS_PER_POLL = 5
 
 /**
- * EventDiff is what [diffEvents] hands back: the events to notify on, newest
- * first, and the cursor the poll should persist afterwards.
+ * EventDiff is what [diffEvents] hands back: the events to notify on, oldest
+ * first so the newest ends up as the most recent row on the shade, and the
+ * cursor the poll should persist afterwards.
  */
 data class EventDiff(
     val alerts: List<FrontDeskEvent>,
@@ -188,28 +190,32 @@ data class EventDiff(
  * the newest event, so a fresh opt-in does not replay history. A poll whose
  * page is empty keeps the cursor it had. Ordering is by created_at as an
  * instant, never as text (Front Desk writes RFC3339 with whatever fractional
- * precision the row has, so text order lies at whole seconds), with the id as
- * the tie-break only for "is this the cursor event itself".
+ * precision the row has, so text order lies at whole seconds); at the same
+ * instant the id decides, the way Front Desk's own `ORDER BY created_at, id`
+ * does, so a row ordered before the cursor is never re-read as new. The cursor
+ * only ever moves to a row whose time could be read, so one unreadable row
+ * cannot blind the next poll to everything after it.
  */
 fun diffEvents(
     cursor: EventCursor?,
     page: List<FdEvent>,
     enabled: Set<String>,
 ): EventDiff {
-    val newest = page.firstOrNull() ?: return EventDiff(emptyList(), cursor)
+    val newest = page.firstOrNull { parseInstant(it.createdAt) != null } ?: return EventDiff(emptyList(), cursor)
     val next = EventCursor(newest.createdAt, newest.id)
     if (cursor == null) return EventDiff(emptyList(), next)
     val since = parseInstant(cursor.createdAt) ?: return EventDiff(emptyList(), next)
     val fresh =
         page.filter { ev ->
             val at = parseInstant(ev.createdAt) ?: return@filter false
-            at.isAfter(since) || (at == since && ev.id != cursor.id)
+            at.isAfter(since) || (at == since && ev.id > cursor.id)
         }
     val alerts =
         fresh
             .filter { it.type in enabled }
             .take(MAX_EVENT_ALERTS_PER_POLL)
             .map { FrontDeskEvent(it.id, it.type, it.severity, it.message, it.memberId, it.createdAt) }
+            .asReversed()
     return EventDiff(alerts, next)
 }
 

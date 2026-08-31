@@ -16,9 +16,10 @@ import org.robolectric.annotation.Config
 
 /**
  * A Front Desk event renders under the event's catalogue name with Front Desk's
- * own sentence as the body, on a channel chosen by severity, and tagged by type
- * and member so a repeat about the same member updates in place while distinct
- * members keep their own rows.
+ * own sentence as the body, on one of two channels by severity, and tagged by
+ * type, member and severity so a repeat about the same member at the same
+ * severity updates in place while distinct members, kinds and severities keep
+ * their own rows.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -56,25 +57,45 @@ class FleetNotifierEventTest {
     }
 
     @Test
-    fun severityPicksTheChannel() {
+    fun onlyAnErrorRidesTheErrorsChannel() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         FleetNotifier.notify(app, drained("a").copy(type = "health.down", severity = "error"))
         FleetNotifier.notify(app, drained("b").copy(type = "health.up", severity = "success"))
+        FleetNotifier.notify(app, drained("c").copy(type = "member.added", severity = "info"))
 
-        val byChannel = notifications.activeNotifications.associate { it.notification.channelId to it.tag }
-        assertEquals(setOf(FleetNotifier.CHANNEL_DOWN, FleetNotifier.CHANNEL_UP), byChannel.keys)
+        val channels = notifications.activeNotifications.map { it.tag to it.notification.channelId }.toMap()
+        assertEquals(FleetNotifier.CHANNEL_ERRORS, channels["event:health.down:a:error"])
+        assertEquals(FleetNotifier.CHANNEL_EVENTS, channels["event:health.up:b:success"])
+        assertEquals(FleetNotifier.CHANNEL_EVENTS, channels["event:member.added:c:info"])
     }
 
     @Test
-    fun sameTypeAboutTheSameMemberUpdatesInPlaceWhileOtherMembersKeepTheirRows() {
+    fun aDrainAndItsReactivationAreTwoRowsWhileARepeatedDrainIsOne() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         FleetNotifier.notify(app, drained("docker-pc", id = "e1"))
-        FleetNotifier.notify(app, drained("docker-pc", id = "e2").copy(message = "MH docker-pc set to active"))
+        FleetNotifier.notify(app, drained("docker-pc", id = "e2"))
+        FleetNotifier.notify(
+            app,
+            drained("docker-pc", id = "e3").copy(severity = "info", message = "MH docker-pc set to active"),
+        )
         FleetNotifier.notify(app, drained("truenas"))
 
+        // docker-pc drained (updated in place), docker-pc active, truenas drained.
+        assertEquals(3, shadowOf(notifications).size())
+        val texts = notifications.activeNotifications.map { it.notification.extras.getString(Notification.EXTRA_TEXT) }
+        assertEquals(
+            setOf("MH docker-pc set to drained", "MH docker-pc set to active", "MH truenas set to drained"),
+            texts.toSet(),
+        )
+    }
+
+    @Test
+    fun fleetWideEventsOfDifferentKindsKeepTheirOwnRows() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notify(app, drained("").copy(type = "config.autosync_stale"))
+        FleetNotifier.notify(app, drained("").copy(type = "backup.stale"))
+
         assertEquals(2, shadowOf(notifications).size())
-        val dockerPc = notifications.activeNotifications.single { it.tag == "event:member.state_changed:docker-pc" }
-        assertEquals("MH docker-pc set to active", dockerPc.notification.extras.getString(Notification.EXTRA_TEXT))
     }
 
     @Test
