@@ -74,7 +74,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body = logData.masker.maskExact(body)
 
 	usage := anthropic.ParseResponseUsage(body)
-	inputTokens, outputTokens := usage.PromptTokens, usage.CompletionTokens
+	// The native prompt figure is a sum of three members, so the per-member
+	// decode bound leaves it unbounded; clamped on entry like every other
+	// provider figure so the log row, the estimate and the charge agree.
+	inputTokens, outputTokens, _ := sanitizeUsageCounts(usage.PromptTokens, usage.CompletionTokens, 0)
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
 	// The status the provider actually sent, not a flattened 200: a relay may
@@ -138,17 +141,19 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 // Returns stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
+	// Clamped like the translated path's observer: the native figures are
+	// sums and differences of members the decoder bounded one at a time.
 	if info.HasInput {
-		st.promptTokens = info.InputTokens
+		st.promptTokens = clampTokenCount(info.InputTokens)
 		// Guarded like the translated path's observer: a later usage event
 		// without cache fields must not zero a split an earlier one reported.
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
-			st.promptCacheHitTokens = info.CacheHitTokens
-			st.promptCacheMissTokens = info.CacheMissTokens
+			st.promptCacheHitTokens = clampTokenCount(info.CacheHitTokens)
+			st.promptCacheMissTokens = clampTokenCount(info.CacheMissTokens)
 		}
 	}
 	if info.HasOutput {
-		st.completionTokens = info.OutputTokens
+		st.completionTokens = clampTokenCount(info.OutputTokens)
 	}
 	st.deliveredBytes += info.TextBytes
 	switch info.Type {

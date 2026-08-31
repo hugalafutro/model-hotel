@@ -739,7 +739,10 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	completionTokens = firstSentCount(envelope.Usage,
 		count{"completion_tokens", usage.CompletionTokens},
 		count{"output_tokens", usage.OutputTokens})
-	return promptTokens, completionTokens
+	// A first-sent count is still a provider figure, read off a body this
+	// gateway does not otherwise inspect, bound for the meter and two int4
+	// log columns. Same clamp as every other reader.
+	return clampTokenCount(promptTokens), clampTokenCount(completionTokens)
 }
 
 // extractPassthroughSSEUsage scrapes token counts from the trailing bytes of

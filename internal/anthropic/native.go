@@ -229,7 +229,13 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		}
 	case "message_delta":
 		if usage, ok := readEventUsage(ev.Usage); ok {
-			info.OutputTokens, info.HasOutput = usage.OutputTokens, true
+			// The guard message_start has always had: an output figure that is
+			// not positive is not a reading. Assigned verbatim, a negative
+			// output_tokens here reached the completion metering after the
+			// whole answer had been forwarded and drew the key's usage down.
+			if usage.OutputTokens > 0 {
+				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
+			}
 		}
 	case "error":
 		if util.ErrorMemberCarries(ev.Error) {

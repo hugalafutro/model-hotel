@@ -134,16 +134,19 @@ func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastRe
 // guard the assignment (hit > 0 || miss > 0) to avoid zeroing out cache counts
 // from an earlier usage chunk; non-streaming callers can assign unconditionally
 func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
-	if u.PromptCacheHitTokens > 0 {
-		return u.PromptCacheHitTokens, max(0, u.PromptTokens-u.PromptCacheHitTokens)
+	// Clamped like every other member: these two land in int4 request-log
+	// columns, and an out-of-range figure aborted the whole terminal UPDATE.
+	switch {
+	case u.PromptCacheHitTokens > 0:
+		hitTokens, missTokens = u.PromptCacheHitTokens, u.PromptTokens-u.PromptCacheHitTokens
+	case u.CacheReadInputTokens > 0:
+		hitTokens, missTokens = u.CacheReadInputTokens, u.PromptTokens-u.CacheReadInputTokens
+	case u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0:
+		hitTokens, missTokens = u.PromptTokensDetails.CachedTokens, u.PromptTokens-u.PromptTokensDetails.CachedTokens
+	default:
+		return 0, 0
 	}
-	if u.CacheReadInputTokens > 0 {
-		return u.CacheReadInputTokens, max(0, u.PromptTokens-u.CacheReadInputTokens)
-	}
-	if u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0 {
-		return u.PromptTokensDetails.CachedTokens, max(0, u.PromptTokens-u.PromptTokensDetails.CachedTokens)
-	}
-	return 0, 0
+	return clampTokenCount(hitTokens), clampTokenCount(missTokens)
 }
 
 // parsedChunk holds the decomposed fields from an SSE data line payload.
@@ -282,7 +285,14 @@ func generateRequestHash() string {
 //
 // The two are exclusive on purpose: running both would charge an owner twice.
 func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promptTokens, completionTokens, reasoningTokens int) {
-	totalTokens := promptTokens + completionTokens + reasoningTokens
+	// The charge is where provider figures become gateway state, so it is
+	// where they are policed, whatever path decoded them. The readers clamp
+	// too, so the log row and the charge agree; this is the fence a future
+	// reader cannot skip. The total is capped as well: three clamped members
+	// cannot wrap, but the cap keeps one response's charge inside the bound
+	// the members were held to.
+	promptTokens, completionTokens, reasoningTokens = sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens)
+	totalTokens := min(promptTokens+completionTokens+reasoningTokens, maxSaneTokenCount)
 	if h.tpmLimiter != nil {
 		switch {
 		case vkHash != "":
@@ -425,6 +435,45 @@ func estimateTokens(textBytes int) int {
 
 // bytesPerToken is the conventional text-to-token ratio the estimates above use.
 const bytesPerToken = 4
+
+// maxSaneTokenCount is the largest token figure one provider response may
+// contribute to metering or the request log. A count is bounded by a context
+// window, and no window ever shipped is within 50x of this number, so no
+// figure a real provider reports is touched. Past it a value is not a count in
+// another spelling; it is a different kind of wrong, and the decode layer,
+// which tolerates spellings, never judged plausibility. The upstream is
+// configured by the operator but its response body is the one input on the
+// metering path the gateway does not author, and before this bound a negative
+// member drew a key's tokens_used DOWN, a member at 2^31 put the owner's TPM
+// bucket weeks in debt, and a plain JSON integer near 2^63 wrapped the charge
+// sum into a credit while failing the int4 request-log UPDATE outright. The
+// ceiling sits far enough below both column widths that no member, and no
+// per-request sum of members, can reach one.
+const maxSaneTokenCount = 100_000_000
+
+// clampTokenCount folds one provider figure into the range a real count can
+// occupy: at least zero, at most maxSaneTokenCount.
+//
+// A negative folds to zero rather than rejecting the block: zero is what a
+// provider that omitted the member reports, and the estimate fallback then
+// fills it from the sizes the gateway measured itself, which is the honest
+// charge for a figure that was never a reading.
+func clampTokenCount(n int) int {
+	return min(max(n, 0), maxSaneTokenCount)
+}
+
+// isTokenReading reports whether a streamed usage member carries a count worth
+// recording: positive and inside the bound. The streaming observers keep an
+// earlier reading rather than clamping, because a chunk saying zero, or saying
+// something absurd, says nothing about the count a previous chunk reported.
+func isTokenReading(n int) bool {
+	return n > 0 && n <= maxSaneTokenCount
+}
+
+// sanitizeUsageCounts clamps the three members of one usage block.
+func sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens int) (prompt, completion, reasoning int) {
+	return clampTokenCount(promptTokens), clampTokenCount(completionTokens), clampTokenCount(reasoningTokens)
+}
 
 // minPassthroughTokens is the floor chargePassthroughUsage applies to a
 // pass-through request that was delivered but whose prompt sizes to nothing. It exists because the multipart
