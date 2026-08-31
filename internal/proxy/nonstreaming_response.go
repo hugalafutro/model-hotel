@@ -134,18 +134,17 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
 		}
-		// Clamped once, here, so every later reader of this response (the TPS
-		// math, the log row's token columns, the estimate fallback, the charge)
-		// sees the same in-range figures. See maxSaneTokenCount. chatResp is
-		// re-encoded to the caller further down, so the whole block is held
-		// to the bound, not only the members the meter reads: a body whose
-		// prompt was clamped but whose total was not is one no provider sent.
-		chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens = sanitizeUsageCounts(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens)
-		chatResp.Usage.TotalTokens = clampTokenCount(chatResp.Usage.TotalTokens)
-		if chatResp.Usage.CompletionTokensDetails != nil {
-			chatResp.Usage.CompletionTokensDetails.ReasoningTokens = reasoningTokens
-		}
-		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
+		// Clamped into locals, leaving chatResp alone: the body is re-encoded
+		// to the caller further down, and rewriting a provider's usage block on
+		// the way through is not this gateway's job. The native Anthropic path
+		// forwards the provider's bytes untouched and is the right precedent;
+		// a partial rewrite is worse than none, because the block carries nine
+		// token members and clamping the three the meter reads hands the caller
+		// an arithmetic no provider produced. What the gateway owns is its OWN
+		// state, so the bound applies to the log row, the TPS math and the
+		// charge below, all of which read these locals.
+		promptTokens, completionTokens, reasoningTokens := h.clampReportedUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData)
+		totalOutputTokens := completionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
 		// Avoid absurd TPS when generation time is negligible
 		// (e.g. non-streaming where response_header_ms ≈ duration_ms).
@@ -168,8 +167,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
-		logData.tokensPrompt = chatResp.Usage.PromptTokens
-		logData.tokensCompletion = chatResp.Usage.CompletionTokens
+		logData.tokensPrompt = promptTokens
+		logData.tokensCompletion = completionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
@@ -188,7 +187,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// UPDATE simply affects 0 rows (harmless, logged as warning).
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-		promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
+		promptTokens, completionTokens, reasoningTokens = estimateMissingUsage(promptTokens, completionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
 		h.recordTokenUsage(vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 
 		// Normalize reasoning fields in the response message so that

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Provider-reported usage is the one input on the metering path the gateway
@@ -19,21 +21,16 @@ import (
 // integer near 2^63 wrapped the charge sum and failed the int4 request-log
 // UPDATE. These tests pin the bound at every reader and at the charge.
 
-func TestClampTokenCount(t *testing.T) {
-	for _, tc := range []struct{ in, want int }{
-		{0, 0},
-		{1, 1},
-		{75_000_000, 75_000_000},
-		{maxSaneTokenCount, maxSaneTokenCount},
-		{maxSaneTokenCount + 1, maxSaneTokenCount},
-		{-1, 0},
-		{-500, 0},
-		{math.MaxInt32, maxSaneTokenCount},
-		{math.MaxInt64, maxSaneTokenCount},
-		{math.MinInt64, 0},
-	} {
-		if got := clampTokenCount(tc.in); got != tc.want {
-			t.Errorf("clampTokenCount(%d) = %d, want %d", tc.in, got, tc.want)
+// The clamp's own table lives in internal/util, where the shared definition
+// is. This pins only that the proxy's alias is that definition, so a
+// re-definition here could not drift from it unnoticed.
+func TestClampTokenCount_IsTheSharedDefinition(t *testing.T) {
+	if maxSaneTokenCount != util.MaxSaneTokenCount {
+		t.Errorf("ceiling = %d, want the shared %d", maxSaneTokenCount, util.MaxSaneTokenCount)
+	}
+	for _, n := range []int{0, 1, maxSaneTokenCount, maxSaneTokenCount + 1, -500, math.MaxInt64, math.MinInt64} {
+		if got, want := clampTokenCount(n), util.ClampTokenCount(n); got != want {
+			t.Errorf("clampTokenCount(%d) = %d, want util's %d", n, got, want)
 		}
 	}
 }
@@ -191,28 +188,29 @@ func TestHandleNonStreamingResponse_OverflowUsageCappedEverywhere(t *testing.T) 
 	if len(charged) != 1 || charged[0].tokens != maxSaneTokenCount {
 		t.Errorf("charge = %+v, want one call at the ceiling %d", charged, maxSaneTokenCount)
 	}
-	// The body is re-encoded to the caller, so the whole usage block must be
-	// in range: a prompt that was clamped beside a total that was not is a
-	// body no provider ever sent.
+	// The caller's body is NOT rewritten. The bound is on what becomes this
+	// gateway's state; the provider's own block goes through as it was sent,
+	// because a partial rewrite of a nine-member block hands the caller an
+	// arithmetic no provider produced, and the gateway has no standing to
+	// restate someone else's usage report.
 	var served struct {
 		Usage struct {
-			PromptTokens            int `json:"prompt_tokens"`
-			CompletionTokens        int `json:"completion_tokens"`
-			TotalTokens             int `json:"total_tokens"`
+			PromptTokens            int64 `json:"prompt_tokens"`
+			TotalTokens             int64 `json:"total_tokens"`
 			CompletionTokensDetails *struct {
-				ReasoningTokens int `json:"reasoning_tokens"`
+				ReasoningTokens int64 `json:"reasoning_tokens"`
 			} `json:"completion_tokens_details"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(clientBody, &served); err != nil {
 		t.Fatalf("client body did not decode: %v; body: %.200s", err, clientBody)
 	}
-	if served.Usage.PromptTokens != maxSaneTokenCount || served.Usage.CompletionTokens != maxSaneTokenCount || served.Usage.TotalTokens != maxSaneTokenCount {
-		t.Errorf("client usage = (%d, %d, total %d), want all at the ceiling %d",
-			served.Usage.PromptTokens, served.Usage.CompletionTokens, served.Usage.TotalTokens, maxSaneTokenCount)
+	if served.Usage.PromptTokens != math.MaxInt64 || served.Usage.TotalTokens != math.MaxInt64 {
+		t.Errorf("client usage = (prompt %d, total %d), want the provider's own figures untouched",
+			served.Usage.PromptTokens, served.Usage.TotalTokens)
 	}
-	if served.Usage.CompletionTokensDetails == nil || served.Usage.CompletionTokensDetails.ReasoningTokens != maxSaneTokenCount {
-		t.Errorf("client reasoning detail = %+v, want the ceiling %d", served.Usage.CompletionTokensDetails, maxSaneTokenCount)
+	if served.Usage.CompletionTokensDetails == nil || served.Usage.CompletionTokensDetails.ReasoningTokens != math.MaxInt64 {
+		t.Errorf("client reasoning detail = %+v, want the provider's own figure untouched", served.Usage.CompletionTokensDetails)
 	}
 }
 
@@ -299,11 +297,16 @@ func TestHandleNativeNonStreaming_NegativeUsageNeverCredits(t *testing.T) {
 	}
 }
 
-// TestEmitRawData_ClampsNativeStreamFigures covers the native streaming
-// reader: message_start's prompt figure is a sum of three members the decoder
-// bounded one at a time, and message_delta's output figure used to be
-// assigned verbatim.
-func TestEmitRawData_ClampsNativeStreamFigures(t *testing.T) {
+// TestEmitRawData_RefusesOutOfRangeNativeStreamFigures pins that the native
+// stream judges a usage member exactly as the translated stream's observer
+// does: an out-of-range figure is REFUSED, not clamped.
+//
+// The distinction is the whole point. Clamping here let a message_delta
+// carrying MaxInt64 charge the ceiling on /v1/messages while the byte-identical
+// figure on an OpenAI-shaped stream was discarded and the estimator charged
+// the delivered bytes: the same attack, two answers, depending only on which
+// dialect the caller used.
+func TestEmitRawData_RefusesOutOfRangeNativeStreamFigures(t *testing.T) {
 	h := &Handler{}
 	sink := newStreamSink(httptest.NewRecorder())
 	st := &streamState{}
@@ -315,21 +318,44 @@ func TestEmitRawData_ClampsNativeStreamFigures(t *testing.T) {
 		}
 	}
 
-	emit(`{"type":"message_start","message":{"usage":{"input_tokens":2147483647,"cache_read_input_tokens":2147483647,"cache_creation_input_tokens":2147483647,"output_tokens":5}}}`)
-	if st.promptTokens != maxSaneTokenCount || st.promptCacheHitTokens != maxSaneTokenCount || st.promptCacheMissTokens != maxSaneTokenCount {
-		t.Errorf("summed prompt figures not clamped: prompt=%d hit=%d miss=%d", st.promptTokens, st.promptCacheHitTokens, st.promptCacheMissTokens)
+	// A real reading lands.
+	emit(`{"type":"message_start","message":{"usage":{"input_tokens":100,"cache_read_input_tokens":40,"output_tokens":5}}}`)
+	if st.promptTokens != 140 || st.completionTokens != 5 {
+		t.Fatalf("a real reading did not land: prompt=%d completion=%d", st.promptTokens, st.completionTokens)
 	}
-	if st.completionTokens != 5 {
-		t.Fatalf("message_start output = %d, want 5", st.completionTokens)
-	}
-
-	emit(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":-700}}`)
-	if st.completionTokens != 5 {
-		t.Errorf("a negative message_delta output replaced the reading: %d", st.completionTokens)
+	if st.promptCacheHitTokens != 40 || st.promptCacheMissTokens != 100 {
+		t.Fatalf("cache split = (%d, %d), want (40, 100)", st.promptCacheHitTokens, st.promptCacheMissTokens)
 	}
 
-	emit(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9223372036854775807}}`)
-	if st.completionTokens != maxSaneTokenCount {
-		t.Errorf("an absurd message_delta output was not clamped: %d", st.completionTokens)
+	// A prompt summed past the bound from members the decoder each accepted is
+	// not a reading, so the earlier one stands. Each member is judged on its
+	// own, exactly as the translated observer judges them, so this event's
+	// in-range output IS a reading and replaces the earlier 5.
+	emit(`{"type":"message_start","message":{"usage":{"input_tokens":2147483647,"cache_read_input_tokens":2147483647,"cache_creation_input_tokens":2147483647,"output_tokens":7}}}`)
+	if st.promptTokens != 140 {
+		t.Errorf("an out-of-range summed prompt replaced the reading: %d", st.promptTokens)
+	}
+	if st.completionTokens != 7 {
+		t.Errorf("an in-range output beside a refused prompt was dropped: %d", st.completionTokens)
+	}
+
+	// Neither a negative nor an absurd output figure is a reading.
+	for _, payload := range []string{
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":-700}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9223372036854775807}}`,
+	} {
+		emit(payload)
+		if st.completionTokens != 7 {
+			t.Errorf("%s replaced the reading: %d", payload, st.completionTokens)
+		}
+	}
+
+	// The same figures through the translated observer reach the same verdict.
+	other := &streamState{}
+	other.observeUsage(&Usage{PromptTokens: 140, CompletionTokens: 7})
+	other.observeUsage(&Usage{PromptTokens: math.MaxInt64, CompletionTokens: math.MaxInt64})
+	if other.promptTokens != st.promptTokens || other.completionTokens != st.completionTokens {
+		t.Errorf("dialects disagree: native (%d, %d) vs translated (%d, %d)",
+			st.promptTokens, st.completionTokens, other.promptTokens, other.completionTokens)
 	}
 }

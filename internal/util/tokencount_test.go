@@ -16,7 +16,7 @@ func TestClampTokenCount(t *testing.T) {
 		{"zero", 0, 0},
 		{"one", 1, 1},
 		{"an ordinary count", 12_345, 12_345},
-		{"a large but real count", 2_000_000, 2_000_000},
+		{"the largest catalogued context window", 1_050_000, 1_050_000},
 		{"the ceiling itself", MaxSaneTokenCount, MaxSaneTokenCount},
 		{"one past the ceiling", MaxSaneTokenCount + 1, MaxSaneTokenCount},
 		{"minus one", -1, 0},
@@ -33,13 +33,24 @@ func TestClampTokenCount(t *testing.T) {
 	}
 }
 
-// The ceiling has to stay clear of both column widths a clamped figure can
-// land in, with room for a per-request sum of several members.
-func TestMaxSaneTokenCount_FitsTheColumns(t *testing.T) {
+// largestCatalogueContextWindow is the biggest context length in the provider
+// catalogs, which bounds any figure a provider can honestly report for a
+// request it actually served.
+const largestCatalogueContextWindow = 1_050_000
+
+// The ceiling has to stay clear of the int4 columns a clamped figure lands in,
+// with room for a per-request sum of members, while staying comfortably above
+// anything an honest response can report.
+func TestMaxSaneTokenCount_FitsTheColumnsAndRealTraffic(t *testing.T) {
 	if MaxSaneTokenCount*4 > math.MaxInt32 {
 		t.Errorf("four clamped members sum to %d, past the int4 column limit %d", MaxSaneTokenCount*4, math.MaxInt32)
 	}
-	if MaxSaneTokenCount < 2_000_000 {
-		t.Errorf("ceiling %d is below the largest context windows in the catalog", MaxSaneTokenCount)
+	if MaxSaneTokenCount < 4*largestCatalogueContextWindow {
+		t.Errorf("ceiling %d leaves less than 4x headroom over the largest context window %d", MaxSaneTokenCount, largestCatalogueContextWindow)
+	}
+	// The cost of the ceiling is how long one clamped charge holds a default
+	// 60k-TPM bucket at 429. Keep it inside a working day.
+	if hours := float64(MaxSaneTokenCount) / (60_000.0 / 60.0) / 3600.0; hours > 8 {
+		t.Errorf("one clamped charge holds a 60k TPM bucket for %.1fh, want <= 8h", hours)
 	}
 }

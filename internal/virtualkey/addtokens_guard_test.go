@@ -18,6 +18,7 @@ func TestRepository_AddTokens_RefusesNonPositive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
+	defer func() { _ = repo.Delete(ctx, created.ID) }()
 	if err := repo.AddTokens(ctx, created.KeyHash, 100); err != nil {
 		t.Fatalf("AddTokens(100) failed: %v", err)
 	}
