@@ -51,7 +51,11 @@ func parseMultipartParts(body []byte, boundary string) ([]multipartPart, string,
 			data:        data,
 		}
 		if part.fieldName == "model" && part.fileName == "" {
-			model = strings.TrimSpace(string(data))
+			// The form field is raw bytes. The JSON paths get valid UTF-8 for
+			// free from encoding/json; here an invalid byte would reach the
+			// request-log INSERT verbatim and Postgres refuses it, losing the
+			// row. Replace it the way the JSON decoder would.
+			model = strings.ToValidUTF8(strings.TrimSpace(string(data)), "�")
 		}
 		parts = append(parts, part)
 	}
@@ -200,6 +204,13 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 		return nil, nil, false
 	}
 	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
+
+	// The `model` form field gets the same bound as the JSON ingest paths,
+	// checked before it is assigned to the log entry, published, or logged.
+	if modelTooLong(reqModel) {
+		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
+		return nil, nil, false
+	}
 
 	logData.modelID = reqModel
 	publishRequestStartedEvent(logData)
