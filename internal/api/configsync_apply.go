@@ -375,6 +375,21 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// providers/keys and discovery must re-read providers.
 	provider.InvalidateProviderCache()
 	model.InvalidateModelCache()
+	// Settings too, and here rather than after the discovery pass below: that
+	// pass can run for minutes, and the settings cache holds absences as well as
+	// values, so a key the primary set for the first time would otherwise stay
+	// "unset" on this member until the pass ended or the cache TTL ran out,
+	// whichever came first. A removed key gets NotifyDeleted alone: it evicts
+	// and notifies subscribers with the empty value, where InvalidateCache would
+	// first re-read a row that no longer exists.
+	for k := range env.Config.Settings {
+		if isSyncableSetting(k) {
+			h.settings.InvalidateCache(k)
+		}
+	}
+	for _, k := range removedSettings {
+		h.settings.NotifyDeleted(k)
+	}
 
 	// Populate this member's models so custom failover groups can resolve. The
 	// "discover on provider creation" default is a dashboard action this raw
@@ -426,15 +441,6 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	}
 
 	failover.InvalidateFailoverCache()
-	for k := range env.Config.Settings {
-		if isSyncableSetting(k) {
-			h.settings.InvalidateCache(k)
-		}
-	}
-	for _, k := range removedSettings {
-		h.settings.InvalidateCache(k)
-		h.settings.NotifyDeleted(k)
-	}
 	return out
 }
 
@@ -486,7 +492,11 @@ func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (gen int64, present bo
 // writeAppliedSourceGen records gen as the highest applied source generation,
 // upserting the _fleet_last_source_gen row directly (the key is outside the
 // SetTx allowlist). Called inside the import transaction so the marker advances
-// atomically with the config it certifies.
+// atomically with the config it certifies. Because it bypasses the settings
+// repository, nothing evicts the repository's cache for this key: that is fine
+// only while the key is read the way readAppliedSourceGen reads it, with raw SQL
+// inside the transaction. A repository read of it would serve a cached value,
+// or a cached absence, for up to the cache TTL against this write.
 func writeAppliedSourceGen(ctx context.Context, tx pgx.Tx, gen int64) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())

@@ -232,6 +232,9 @@ func (h *ConfigSyncHandler) applyEnabledModels(ctx context.Context, refs []Expor
 // section, replacing whatever that marker held before. Always written, including
 // as an empty list: a member that has just discovered the missing models must stop
 // claiming them, or it would keep exporting intent it now genuinely applies.
+// Raw SQL, so the settings repository's cache is not evicted for the key; it is
+// read raw as well, and a repository read would be stale (value or absence) for
+// up to the cache TTL.
 func writeUnappliedModelRefs(ctx context.Context, tx pgx.Tx, key string, refs []ExportModelRef) error {
 	if refs == nil {
 		refs = []ExportModelRef{}

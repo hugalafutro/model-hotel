@@ -76,8 +76,21 @@ var AllowedSettings = map[string]bool{
 	"quota_refresh_interval_min":        true,
 }
 
+// cacheEntry is one cached read. A key with no row is cached too, as missing:
+// nearly every runtime setting is read on the proxy's per-request path with a
+// default the operator never overrode, and without a negative entry each of
+// those reads is an uncached SELECT for the whole life of the process. A
+// missing entry is evicted exactly as a value is: by Set, SetMany and DeleteKey
+// on both sides of their write, and by the InvalidateCache / NotifyDeleted call
+// every SetTx and DeleteKeysTx caller makes after its transaction commits. So
+// the first write after a miss is seen at once, and the generation guard
+// applies to it the same way (see GetWithDefault). What no eviction covers is a
+// row written behind the repository's back with raw SQL, which was already the
+// stale-value window for an existing key and is now the same window for a new
+// one: at most one cacheTTL.
 type cacheEntry struct {
 	value     string
+	missing   bool
 	expiresAt time.Time
 }
 
@@ -277,8 +290,9 @@ func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
-// IsCached reports whether a setting for the given key is present in the
-// cache and not expired. It does not modify the cache or access the database.
+// IsCached reports whether a read of the given key is present in the cache and
+// not expired, a cached absence included. It does not modify the cache or
+// access the database.
 func (r *Repository) IsCached(key string) bool {
 	r.mu.RLock()
 	entry, ok := r.cache[key]
@@ -286,11 +300,17 @@ func (r *Repository) IsCached(key string) bool {
 	return ok && time.Now().Before(entry.expiresAt)
 }
 
-// GetWithDefault retrieves a setting from cache or database, returning defaultValue if not found.
+// GetWithDefault retrieves a setting from cache or database, returning
+// defaultValue if not found. A key with no row is cached as missing for the
+// same TTL, so a setting nobody has overridden costs one SELECT per TTL rather
+// than one per read.
 func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	r.mu.RLock()
 	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
 		r.mu.RUnlock()
+		if entry.missing {
+			return defaultValue
+		}
 		return entry.value
 	}
 	gen := r.cacheGen[key]
@@ -300,28 +320,37 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 	err := r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
 	if err != nil {
 		// An unset key (no row) is the normal "use the default" path and must
-		// stay silent. A real DB error, though, silently reverts behaviour to
-		// defaults (e.g. rate limits) — worth a Warn so it's not invisible.
-		if !errors.Is(err, pgx.ErrNoRows) {
+		// stay silent; it is cached as such. A real DB error, though, silently
+		// reverts behaviour to defaults (e.g. rate limits) — worth a Warn so
+		// it's not invisible, and never cached: the next read must try again.
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.install(key, gen, cacheEntry{missing: true})
+		} else {
 			debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
 		}
 		return defaultValue
 	}
 
-	// Only install the result if no write landed while the query was in
-	// flight. If one did, the value we read may already be stale, so we return
-	// it to this caller but leave the cache empty for the next reader to
-	// refill. This cannot wedge the hot path: the guard never retries and
-	// never blocks, so the very next read after the writes stop caches
-	// normally — reads only stay uncached for as long as writes to this key
-	// are actually in flight, which is exactly when caching would be wrong.
+	r.install(key, gen, cacheEntry{value: value})
+	return value
+}
+
+// install caches one read, value or absence, if no write landed while the
+// query was in flight. If one did, what was read may already be stale (a row
+// written after an absence was observed is the case that matters most: caching
+// the absence would hide the write for a full TTL), so it is returned to this
+// caller but left out of the cache for the next reader to refill. This cannot
+// wedge the hot path: the guard never retries and never blocks, so the very
+// next read after the writes stop caches normally — reads only stay uncached
+// for as long as writes to this key are actually in flight, which is exactly
+// when caching would be wrong.
+func (r *Repository) install(key string, gen uint64, entry cacheEntry) {
 	r.mu.Lock()
 	if r.cacheGen[key] == gen {
-		r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+		entry.expiresAt = time.Now().Add(r.cacheTTL)
+		r.cache[key] = entry
 	}
 	r.mu.Unlock()
-
-	return value
 }
 
 // GetChecked retrieves a setting from cache or database. Unlike GetWithDefault
@@ -334,6 +363,9 @@ func (r *Repository) GetChecked(ctx context.Context, key string) (value string, 
 	r.mu.RLock()
 	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
 		r.mu.RUnlock()
+		if entry.missing {
+			return "", false, nil
+		}
 		return entry.value, true, nil
 	}
 	gen := r.cacheGen[key]
@@ -343,19 +375,15 @@ func (r *Repository) GetChecked(ctx context.Context, key string) (value string, 
 	err = r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&v)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", false, nil // key not set: the normal "unset" path
+			// Key not set: the normal "unset" path, cached as such under the
+			// same generation guard as a value.
+			r.install(key, gen, cacheEntry{missing: true})
+			return "", false, nil
 		}
 		return "", false, err // real read failure: let the caller decide
 	}
 
-	// Same generation guard as GetWithDefault: skip the install if a write
-	// landed while the query was in flight.
-	r.mu.Lock()
-	if r.cacheGen[key] == gen {
-		r.cache[key] = cacheEntry{value: v, expiresAt: time.Now().Add(r.cacheTTL)}
-	}
-	r.mu.Unlock()
-
+	r.install(key, gen, cacheEntry{value: v})
 	return v, true, nil
 }
 
@@ -448,7 +476,13 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	return nil
 }
 
-// SetTx updates a setting within an existing transaction.
+// SetTx updates a setting within an existing transaction. It evicts nothing:
+// the caller must call InvalidateCache for the key AFTER the transaction
+// commits, and never before. Evicting before the commit would let a concurrent
+// reader repopulate the cache from the pre-commit row, and for a key that has
+// no row yet that reader would cache its absence, hiding the very setting the
+// transaction is about to create for a full cacheTTL. DeleteKeysTx carries the
+// same contract for the same reason.
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
 	if !AllowedSettings[key] {
 		debuglog.Warn("settings: rejected setting not in allowlist", "key", key)
