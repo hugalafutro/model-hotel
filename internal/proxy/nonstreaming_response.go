@@ -235,7 +235,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
 			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerName, "error", err)
 		}
-		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
+		// reported_*, because these are the provider's own figures and the row
+		// carries what was recorded: the two differ whenever the bound bit, and
+		// an operator comparing them needs to know which is which.
+		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "reported_prompt_tokens", chatResp.Usage.PromptTokens, "reported_completion_tokens", chatResp.Usage.CompletionTokens)
 	case bodilessSuccessStatus(resp.StatusCode):
 		// A success whose status forbids a body. There is nothing to decode and
 		// nothing to meter, and an error envelope written here would be a body

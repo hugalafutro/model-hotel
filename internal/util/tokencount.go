@@ -15,10 +15,18 @@ package util
 // second, so the ceiling is how long one bogus response can hold an owner's
 // keys at 429: ten million against the default 60k TPM is under three hours,
 // where a hundred million was more than a day. It still sits ~9x above the
-// largest context window in the catalogs (1,050,000), which bounds any figure
-// a provider can honestly report for a request it actually served, and far
-// enough below int4 that no member, and no per-request sum of members, can
-// reach the column limit.
+// largest context window in the catalogs (1,050,000), and far enough below
+// int4 that no member, and no per-request sum of members, can reach the
+// column limit.
+//
+// A context window bounds what a CHAT response can honestly report, because
+// the estimate only runs on a response the provider actually served. It does
+// not bound the batch families: an embeddings request is capped by
+// MAX_REQUEST_SIZE (50 MB by default), whose estimate is ~12.5M tokens, and a
+// self-hosted embeddings server can honestly report more than the ceiling. So
+// this bound is a deliberate trade rather than a free one: a very large batch
+// meters at the ceiling instead of its true size, and three hours of blast
+// radius is worth more than exact metering of a 40 MB batch.
 //
 // It bounds the blast radius rather than removing it: debt still accumulates
 // across responses, which is the limiter's own contract and a separate fix.

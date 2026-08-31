@@ -188,11 +188,11 @@ func TestHandleNonStreamingResponse_OverflowUsageCappedEverywhere(t *testing.T) 
 	if len(charged) != 1 || charged[0].tokens != maxSaneTokenCount {
 		t.Errorf("charge = %+v, want one call at the ceiling %d", charged, maxSaneTokenCount)
 	}
-	// The caller's body is NOT rewritten. The bound is on what becomes this
-	// gateway's state; the provider's own block goes through as it was sent,
-	// because a partial rewrite of a nine-member block hands the caller an
-	// arithmetic no provider produced, and the gateway has no standing to
-	// restate someone else's usage report.
+	// The caller's body is NOT rewritten by the bound. (It still goes through
+	// a decode and re-encode, so a quoted count comes back unquoted; what the
+	// bound must not do is restate the figures.) A partial rewrite of a
+	// nine-member block hands the caller an arithmetic no provider produced,
+	// and the gateway has no standing to restate someone else's usage report.
 	var served struct {
 		Usage struct {
 			PromptTokens            int64 `json:"prompt_tokens"`
