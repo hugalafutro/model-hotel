@@ -26,6 +26,10 @@ export interface SortableEntryProps {
 		// deadline instead of the ordinary retry backoff; next_retry_at is then
 		// that deadline.
 		quota_pinned?: boolean;
+		// Set when the cooldown is the probe backoff: doubled once per failed
+		// half-open probe. Says why the wait is longer than the setting, the way
+		// quota_pinned does; next_retry_at is then the backed-off deadline.
+		backed_off?: boolean;
 		// The derived verdict that the breaker is skipping this provider for
 		// every model, and the model ids it is blocking. Which entries get a
 		// status at all is entryCircuitStatus's decision; these two are here so
@@ -111,6 +115,12 @@ export function SortableEntry({
 	// The cooldown in force was pinned to the provider's quota reset deadline.
 	// This says why the wait is long, not that the provider is unreachable now.
 	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
+
+	// The cooldown in force has been doubled by failed probes. Ranked below a
+	// provider-wide skip in the tooltip: that a whole provider is out matters
+	// more than why this one model's wait is long, and a backoff never implies
+	// the provider verdict the way a quota pin does.
+	const backedOff = Boolean(showFuse && cbStatus.backed_off);
 
 	const nextRetryAt = cbStatus?.next_retry_at;
 
@@ -209,7 +219,11 @@ export function SortableEntry({
 					? t("failoverGroups.entry.circuitBreakerProviderOpen", {
 							models: openModels?.join(", "),
 						})
-					: t("failoverGroups.entry.circuitBreakerOpen");
+					: backedOff && cbStatus.next_retry_at
+						? t("failoverGroups.entry.circuitBreakerBackedOff", {
+								resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
+							})
+						: t("failoverGroups.entry.circuitBreakerOpen");
 
 	return (
 		<div

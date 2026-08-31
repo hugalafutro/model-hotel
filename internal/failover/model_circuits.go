@@ -33,6 +33,15 @@ type circuit struct {
 	// when the circuit opens against a provider whose quota window is spent;
 	// zero means "use the configured cooldown".
 	cooldownOverride time.Duration
+	// failedProbes counts the half-open probes that failed since the circuit
+	// last closed, and cooldownBackoff is the cooldown those failures have
+	// earned: the configured cooldown doubled once per failed probe, capped by
+	// circuit_breaker_backoff_max, stamped at the open transition the way the
+	// quota pin is. Zero means "no backoff in force". A probe is a live user
+	// request, so a model that is broken all day fails one real request per
+	// cooldown unless each failure buys a longer wait before the next.
+	failedProbes    int
+	cooldownBackoff time.Duration
 	// lastCharged is when a failure or success last landed on this circuit. It
 	// orders eviction, so the circuits that are dropped when a provider exceeds
 	// the cap are the ones nothing has routed to in the longest time.
@@ -239,11 +248,7 @@ func (cb *CircuitBreaker) stillDark(c *circuit, base time.Duration) bool {
 	if c.openedAt.IsZero() {
 		return true
 	}
-	cooldown := base
-	if cb.quotaPinnedFor(c) {
-		cooldown = c.cooldownOverride
-	}
-	return time.Since(c.openedAt) < cooldown
+	return time.Since(c.openedAt) < cb.effectiveCooldownForWith(c, base)
 }
 
 // logicalState maps a circuit's stored state to the state every observer
@@ -375,26 +380,111 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 }
 
 // effectiveCooldownFor returns the cooldown governing a specific circuit: its
-// quota pin when one is in force, otherwise the configured global value. The
-// settings read behind quotaPinnedFor is only reached for circuits that carry
-// an override, so the common path costs nothing extra.
+// quota pin when one is in force, else its probe backoff when one is in force,
+// otherwise the configured global value. The settings reads behind the two
+// predicates are only reached for circuits that carry an override or a backoff,
+// so the common path costs nothing extra.
 func (cb *CircuitBreaker) effectiveCooldownFor(c *circuit) time.Duration {
-	if cb.quotaPinnedFor(c) {
-		return c.cooldownOverride
-	}
-	return cb.effectiveCooldown()
+	return cb.effectiveCooldownForWith(c, cb.effectiveCooldown())
 }
 
 // effectiveCooldownForWith is effectiveCooldownFor with the configured cooldown
 // supplied by the caller, for walks that would otherwise re-read the setting per
 // circuit. It pairs with logicalStateWith: the same hoisted base serves both, so
 // a per-provider walk costs one settings read rather than one per circuit.
+//
+// A pin outranks a backoff, and the order is safe because it is never a choice
+// between them: a pin is floored at the backoff when it is stamped (see
+// applyQuotaPin), so the pin in force is always the longer of the two.
 func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, base time.Duration) time.Duration {
 	if cb.quotaPinnedFor(c) {
 		return c.cooldownOverride
 	}
+	return cb.unpinnedCooldownWith(c, base)
+}
+
+// unpinnedCooldownWith is the cooldown a circuit serves when no quota pin
+// governs it: its backoff when one is in force, otherwise base. It is the floor
+// a pin must clear, and the wait a released pin falls back to.
+func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, base time.Duration) time.Duration {
+	if cb.backedOffFor(c) {
+		return c.cooldownBackoff
+	}
 	return base
 }
+
+// applyBackoff stamps the cooldown a circuit's failed probes have earned. Must
+// be called with cb.mu held, immediately after c transitions to Open and before
+// applyQuotaPin, which floors the pin at the value stamped here.
+//
+// The backoff is computed once, at the open transition, and stored, rather than
+// derived on every read from the count and the settings: every per-provider
+// walk (Status, Reset, the provider verdict) reads the cooldown once and then
+// takes it from the circuit, and a ceiling read per circuit would put a DB
+// round trip per circuit back under the lock. Always stamped, gated only at
+// read time by backedOffFor, so the kill switch acts at once in both
+// directions.
+//
+// A ceiling at or below the base is not a shorter cooldown: the ceiling bounds
+// what the backoff may add, and a backoff that could add nothing is left off.
+func (cb *CircuitBreaker) applyBackoff(c *circuit) {
+	c.cooldownBackoff = 0
+	if c.failedProbes == 0 {
+		return
+	}
+	base := cb.effectiveCooldown()
+	ceiling := cb.backoffMax()
+	if base <= 0 || ceiling <= base {
+		return
+	}
+	d := base
+	// Doubled step by step and stopped at the ceiling, never shifted by the
+	// count: a model that has failed its probe for a week has a count that would
+	// overflow a shift long before it reached anything a ceiling could clamp.
+	for range c.failedProbes {
+		if d >= ceiling {
+			break
+		}
+		d *= 2
+	}
+	if d > ceiling {
+		d = ceiling
+	}
+	c.cooldownBackoff = d
+}
+
+// backedOffFor reports whether a probe backoff is actually governing this
+// circuit right now. Like quotaPinnedFor, the kill switch is re-read here rather
+// than only when a circuit opens, so an operator who disables backoff to get a
+// provider back releases every backoff already in force, not only the circuits
+// that open afterwards. Every surface that reports or enforces the backoff
+// derives from this one predicate, so the number and the explanation beside it
+// can never disagree.
+func (cb *CircuitBreaker) backedOffFor(c *circuit) bool {
+	return c != nil && c.cooldownBackoff > 0 && cb.backoffEnabled()
+}
+
+func (cb *CircuitBreaker) backoffEnabled() bool {
+	if cb.settings == nil {
+		return true
+	}
+	return cb.settings.GetBool(context.Background(), "circuit_breaker_backoff_enabled", true)
+}
+
+// backoffMax is the ceiling a probe backoff may reach. An hour by default:
+// long enough that a model broken all day costs a couple of dozen failed real
+// requests rather than 1440, short enough that a model fixed upstream is back
+// within the hour without anyone resetting anything.
+func (cb *CircuitBreaker) backoffMax() time.Duration {
+	if cb.settings != nil {
+		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_backoff_max", 0); v > 0 {
+			return v
+		}
+	}
+	return defaultBackoffMax
+}
+
+const defaultBackoffMax = time.Hour
 
 // quotaPinnedFor reports whether a quota pin is actually governing this circuit
 // right now. The kill switch is deliberately re-read here rather than only at

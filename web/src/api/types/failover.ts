@@ -62,6 +62,16 @@ export interface CircuitBreakerProviderStatus {
 	// describes the override in force, not a claim that traffic is blocked right
 	// now; when set, next_retry_at is that reset deadline.
 	quota_pinned?: boolean;
+	// True when the cooldown governing this circuit is the probe backoff: the
+	// ordinary cooldown doubled once per half-open probe that failed since the
+	// circuit last closed, up to circuit_breaker_backoff_max. Like quota_pinned it
+	// describes what governs, not whether traffic is blocked right now; a quota
+	// pin outranks it. Omitted when false.
+	backed_off?: boolean;
+	// How many half-open probes have failed since the circuit last closed. Sent
+	// whenever it is non-zero, even with backoff switched off: it is what
+	// happened, where backed_off is what governs.
+	failed_probes?: number;
 	// The derived provider-wide verdict: whether the breaker is skipping this
 	// provider for every model. Circuits are keyed (provider, resolved upstream
 	// model), so `state` above describes the provider's most degraded circuit and

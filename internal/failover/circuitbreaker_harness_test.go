@@ -34,6 +34,11 @@ type stubSettings struct {
 	pinEnabled *bool
 	// pinMax overrides circuit_breaker_quota_pin_max when positive.
 	pinMax time.Duration
+	// backoffEnabled overrides circuit_breaker_backoff_enabled when non-nil.
+	// A pointer, so a test can flip it after the breaker has stamped a backoff.
+	backoffEnabled *bool
+	// backoffMax overrides circuit_breaker_backoff_max when positive.
+	backoffMax time.Duration
 }
 
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
@@ -53,12 +58,18 @@ func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Durat
 	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
 		return s.pinMax
 	}
+	if key == "circuit_breaker_backoff_max" && s.backoffMax > 0 {
+		return s.backoffMax
+	}
 	return def
 }
 
 func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
 		return *s.pinEnabled
+	}
+	if key == "circuit_breaker_backoff_enabled" && s.backoffEnabled != nil {
+		return *s.backoffEnabled
 	}
 	return def
 }

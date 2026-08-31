@@ -766,8 +766,11 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	if !ok {
 		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.attrs)
 	}
-	if want := cb.effectiveCooldown().Milliseconds(); reMs != want {
-		t.Errorf("logged cooldown_ms=%d, want the configured cooldown %d", reMs, want)
+	// After a failed probe the governing cooldown is the doubled one, and the
+	// line must say so: the configured 50ms is exactly the number an operator
+	// would be misled by.
+	if want := cb.Status()[0].CooldownMs; reMs != want || reMs != (2*cb.Cooldown).Milliseconds() {
+		t.Errorf("logged cooldown_ms=%d, want the cooldown actually governing the circuit (%d, the doubled %v)", reMs, want, cb.Cooldown)
 	}
 }
 

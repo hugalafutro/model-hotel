@@ -236,7 +236,8 @@ func (d *Dispatcher) suppressed(ev events.Event) bool {
 // debounceID picks the most specific entity identifier present in an event's
 // metadata, so failures for distinct providers/models debounce independently.
 // Different event types label the entity differently: circuit_breaker.* carry
-// "provider_id", discovery.provider_failed carries "provider" (a name), and
+// "model_id" beside "provider_id" (the breaker charges one model circuit at a
+// time), discovery.provider_failed carries "provider" (a name), and
 // failover.sync_error carries "model_id". Without this, two different providers
 // failing inside the cooldown window would collapse to a single alert and the
 // second failure would be silently dropped. keys is the most-specific-first list

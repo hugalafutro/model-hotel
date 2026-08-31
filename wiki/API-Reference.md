@@ -1232,6 +1232,8 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `circuit_breaker_cooldown` | string | Duration |
 | `circuit_breaker_quota_pin_enabled` | string | `"true"` or `"false"` (default `"true"`); pin an open circuit's cooldown to the provider's quota reset |
 | `circuit_breaker_quota_pin_max` | string | Duration ceiling for a quota pin (default `"24h0m0s"`); a non-positive value falls back to 24h |
+| `circuit_breaker_backoff_enabled` | string | `"true"` or `"false"` (default `"true"`); double an open circuit's cooldown per failed half-open probe |
+| `circuit_breaker_backoff_max` | string | Duration ceiling for that backoff (default `"1h0m0s"`); a non-positive value falls back to 1h |
 | `discovery_interval` | string | Duration (e.g. `"6h"`, `"0"` = disabled) |
 | `discovery_on_startup` | string | `"true"` or `"false"` |
 | `discovery_on_provider_create` | string | `"true"` or `"false"` |
@@ -1470,11 +1472,14 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name, so the event reads without a lookup |
 | `model` | string | always | The resolved upstream model id whose circuit changed state (the id sent upstream, never a `hotel/` alias) |
+| `model_id` | string | always | The same value as `model`, carried separately because it is the identity outbound alerts debounce on, so two models opening on one provider inside the alert cooldown notify separately |
 | `state` | string | always | `open` or `closed` |
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped. One model's circuit opening does not skip the provider until `circuit_breaker_span_models` of them are open, so this is `false` on most `circuit_breaker.open` events |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is currently governing this circuit's cooldown rather than `circuit_breaker_cooldown` |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
+| `backed_off` | bool | always | Whether the probe backoff (the cooldown doubled per failed half-open probe, capped at `circuit_breaker_backoff_max`) is governing this circuit's cooldown; a quota pin outranks it |
+| `failed_probes` | int | always | Half-open probes that failed since the circuit last closed; `0` on a first open |
 
 `circuit_breaker.unstable` is not a state transition and carries its own smaller
 block: `provider_id`, `provider`, `model`, `model_id` (the same value as `model`,
@@ -1490,7 +1495,7 @@ wrong about.
 
 `next_retry_at` is the **retry deadline, not the quota reset time**. It is the moment the circuit opened plus the pin after it has been clamped to `circuit_breaker_quota_pin_max` and jittered, so on a weekly plan whose quota resets days out it lands at the 24h ceiling instead. It is the same value the circuit-breaker status API publishes under that name, and both derive from one predicate, so the number and the explanation beside it can never disagree.
 
-A `quota_pinned: true` circuit is **not** committed to waiting that long. Every successful quota refresh (each `quota_refresh_interval_min`, 5 minutes by default) lifts the pin from any provider whose fresh snapshot says it is no longer out of quota, dropping the circuit back to `circuit_breaker_cooldown`. A snapshot too stale to trust, one that could not be interpreted, or one whose own most recent refresh attempt failed (the dashboard keeps the last good payload on file, so a failed row can still look fresh) is not such a statement and leaves the pin alone; setting the interval to `0` turns polling off and releases every pin at once. No event is published when that happens, because nothing transitions: the circuit is still open, only its cooldown changed. Poll `/api/failover-groups/circuit-breaker-status?detail=1` to see it, where `quota_pinned` flips to `false` and `next_retry_at` moves in. See [Failover & Hotel Routing](Failover-and-Hotel-Routing#quota-pinned-cooldowns) for the full behaviour.
+A `quota_pinned: true` circuit is **not** committed to waiting that long. Every successful quota refresh (each `quota_refresh_interval_min`, 5 minutes by default) lifts the pin from any provider whose fresh snapshot says it is no longer out of quota, dropping the circuit back to `circuit_breaker_cooldown` (or to its probe backoff, if one is in force). A snapshot too stale to trust, one that could not be interpreted, or one whose own most recent refresh attempt failed (the dashboard keeps the last good payload on file, so a failed row can still look fresh) is not such a statement and leaves the pin alone; setting the interval to `0` turns polling off and releases every pin at once. No event is published when that happens, because nothing transitions: the circuit is still open, only its cooldown changed. Poll `/api/failover-groups/circuit-breaker-status?detail=1` to see it, where `quota_pinned` flips to `false` and `next_retry_at` moves in. See [Failover & Hotel Routing](Failover-and-Hotel-Routing#quota-pinned-cooldowns) for the full behaviour.
 
 **Quota schema drift metadata:**
 

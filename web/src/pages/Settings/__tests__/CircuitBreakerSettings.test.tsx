@@ -726,6 +726,206 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
+	// Addressed by data-testid and element id like the quota-pin controls, so
+	// the tests are locale-independent.
+	describe("probe backoff", () => {
+		const backoffToggle = () =>
+			screen
+				.getByTestId("backoff-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const backoffMaxSlider = () =>
+			document.getElementById(
+				"circuit-breaker-backoff-max",
+			) as HTMLInputElement;
+		const backoffMaxNumberBox = () =>
+			backoffMaxSlider().parentElement?.querySelector(
+				"input[type='number']",
+			) as HTMLInputElement;
+
+		it("renders the backoff toggle on when circuit_breaker_backoff_enabled is absent, matching the backend default of true", async () => {
+			server.use(
+				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffToggle()).toHaveAttribute("aria-checked", "true");
+			});
+		});
+
+		it("sends circuit_breaker_backoff_enabled=false when the backoff toggle is switched off", async () => {
+			const user = userEvent.setup();
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_enabled: "true",
+					},
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				expect(backoffToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			await user.click(backoffToggle());
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({
+					circuit_breaker_backoff_enabled: "false",
+				});
+			});
+		});
+
+		it("renders the backoff ceiling as 60 minutes when circuit_breaker_backoff_max is absent or stored as a non-positive duration", async () => {
+			server.use(
+				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			);
+			const absent = renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffMaxSlider().value).toBe("60");
+			});
+			absent.unmount();
+
+			// The breaker reads a non-positive ceiling as unset and applies 1h, so
+			// the slider must show the ceiling actually in force.
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_max: "0s",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffMaxSlider().value).toBe("60");
+			});
+		});
+
+		it("clamps a stored circuit_breaker_backoff_max above the slider maximum so both halves of the control agree", async () => {
+			let putCalled = false;
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_max: "48h0m0s",
+					},
+				}),
+				http.put("/api/settings", () => {
+					putCalled = true;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffMaxSlider().value).toBe("1440");
+			});
+			expect(backoffMaxNumberBox().value).toBe("1440");
+			// Clamping is display only: rendering must never write storage back.
+			expect(putCalled).toBe(false);
+		});
+
+		it("converts a stored circuit_breaker_backoff_max Go duration into slider minutes", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_max: "3h0m0s",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffMaxSlider().value).toBe("180");
+			});
+		});
+
+		it("sends circuit_breaker_backoff_max as a Go duration string when the ceiling slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_max: "1h0m0s",
+					},
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				expect(backoffMaxSlider().value).toBe("60");
+			});
+
+			const slider = backoffMaxSlider();
+			fireEvent.change(slider, { target: { value: "90" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({
+					circuit_breaker_backoff_max: "1h30m",
+				});
+			});
+		});
+
+		it("disables the backoff ceiling slider while circuit_breaker_backoff_enabled is false", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_backoff_enabled: "false",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(backoffMaxSlider()).toBeDisabled();
+			});
+			expect(backoffToggle()).toHaveAttribute("aria-checked", "false");
+			expect(backoffToggle()).not.toBeDisabled();
+		});
+	});
+
 	// Locale-independent by construction: the quota-pin controls are addressed
 	// by data-testid and element id, never by their translated label, so these
 	// tests keep passing under every locale the suite may be run in.

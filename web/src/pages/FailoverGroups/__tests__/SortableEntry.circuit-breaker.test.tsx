@@ -555,6 +555,53 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			expect(ordinaryTitle).not.toEqual(pinnedTitle);
 		});
 
+		it("names the backed-off retry deadline in the tooltip, below a provider-wide skip", () => {
+			const retryAt = new Date(Date.now() + 40 * 60 * 1000);
+			const titleOf = (r: ReturnType<typeof renderEntry>) =>
+				getWrapperDiv(r.container)?.getAttribute("title");
+
+			const backedOff = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				backed_off: true,
+				next_retry_at: retryAt.toISOString(),
+			});
+			expect(titleOf(backedOff)).toContain(retryAt.toLocaleString());
+
+			// The same deadline without the flag keeps the generic copy: an
+			// ordinary cooldown has nothing to explain.
+			const ordinary = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				next_retry_at: retryAt.toISOString(),
+			});
+			expect(titleOf(ordinary)).not.toContain(retryAt.toLocaleString());
+
+			// A quota pin outranks a backoff: it names the cause, and a circuit can
+			// carry both.
+			const pinned = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				quota_pinned: true,
+				backed_off: true,
+				next_retry_at: retryAt.toISOString(),
+			});
+			expect(titleOf(pinned)).not.toEqual(titleOf(backedOff));
+
+			// So does a provider-wide skip: that the whole provider is out matters
+			// more than why this one model's wait is long.
+			const skipped = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				backed_off: true,
+				provider_open: true,
+				open_models: ["alpha-1", "alpha-2"],
+				next_retry_at: retryAt.toISOString(),
+			});
+			expect(titleOf(skipped)).toContain("alpha-1, alpha-2");
+			expect(titleOf(skipped)).not.toContain(retryAt.toLocaleString());
+		});
+
 		it("names the models a provider-wide skip rests on", () => {
 			// The entry is turned away because the provider verdict is open, not
 			// because of anything its own model did, so the tooltip has to name the

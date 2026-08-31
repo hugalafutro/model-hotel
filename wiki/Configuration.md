@@ -126,6 +126,8 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `circuit_breaker_cooldown` | duration string | `60s` | Duration an open circuit stays open before transitioning to half-open. | `30s`, `60s`, `120s`, etc. |
 | `circuit_breaker_quota_pin_enabled` | bool string | `true` | When a circuit opens because the provider's quota window is spent, pin its cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`, so an exhausted provider is not re-probed every minute for the rest of the window. Turning this off also releases a pin already in force, though the change takes up to ~30s to reach the proxy (settings cache TTL). | `true`, `false` |
 | `circuit_breaker_quota_pin_max` | duration string | `24h` | Ceiling on how far out a quota pin may push an open circuit's cooldown. A non-positive value does **not** disable pinning - it falls back to 24h. Use `circuit_breaker_quota_pin_enabled` to turn the feature off. | `1h`, `6h`, `24h`, etc. |
+| `circuit_breaker_backoff_enabled` | bool string | `true` | Double an open circuit's cooldown for every half-open probe that fails, so a model that stays broken is retried less and less often (the probe is a real user request, so each one it skips is a failed request avoided). A probe that succeeds closes the circuit and resets the doubling. Turning this off also releases a backoff already in force, subject to the same ~30s settings cache TTL. | `true`, `false` |
+| `circuit_breaker_backoff_max` | duration string | `1h` | Ceiling the backed-off cooldown may grow to. A non-positive value does **not** disable backoff - it falls back to 1h. Use `circuit_breaker_backoff_enabled` to turn the feature off. | `10m`, `30m`, `1h`, `6h`, etc. |
 | `rate_limit_enabled` | bool string | `true` | Runtime toggle for rate limiting. **Overridden by `RATE_LIMIT_ENABLED` env var** - if env var is `false`, this setting has no effect. | `true`, `false` |
 | `rate_limit_ip_enabled` | bool string | `true` | Runtime toggle for per-IP rate limiting. Only effective when `RATE_LIMIT_ENABLED=true`. | `true`, `false` |
 | `rate_limit_ip_rps` | float | `30` | Per-IP requests per second. Set to `0` for unlimited per-IP rate. | 0–10000 |
@@ -234,6 +236,8 @@ Reset works by deleting the row from the `settings` table. The Go code then fall
 | `circuit_breaker_cooldown` | `1m0s` |
 | `circuit_breaker_quota_pin_enabled` | `true` |
 | `circuit_breaker_quota_pin_max` | `24h0m0s` |
+| `circuit_breaker_backoff_enabled` | `true` |
+| `circuit_breaker_backoff_max` | `1h0m0s` |
 | `failover_on_rate_limit` | `true` |
 | `log_retention` | `0` |
 | `stale_request_timeout` | `30m0s` |
@@ -369,10 +373,11 @@ A background scheduler (started about a minute after the server boots) drives pe
 Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_tpm`, `rate_limit_ip_enabled`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`
 
 #### Circuit Breaker & Failover
-Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_enabled`, `circuit_breaker_quota_pin_max`, `failover_on_rate_limit`
+Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_enabled`, `circuit_breaker_quota_pin_max`, `circuit_breaker_backoff_enabled`, `circuit_breaker_backoff_max`, `failover_on_rate_limit`
 - **Failure Threshold:** Number of consecutive failures before a model's circuit opens (default 5).
 - **Models Before Provider Skip:** How many of a provider's models must have an open circuit before the provider itself is skipped for every model (default 2, range 1-100). At 1 the first open circuit sidelines the whole provider.
 - **Cooldown Duration:** Duration an open circuit stays open before transitioning to half-open (default `60s`).
+- **Back Off After Failed Probes** and **Backoff Limit:** Double the cooldown for every half-open probe that fails, up to the limit (default on, limit 60 minutes, range 1-1440). See [Probe backoff](Failover-and-Hotel-Routing#probe-backoff).
 - **Quota Pinning:** When a circuit opens on a spent quota window, hold it open until the provider's quota actually resets rather than re-probing every cooldown (default on). The toggle is the off switch, and switching it off releases a pin already in force within about 30 seconds.
 - **Quota Pin Maximum:** Ceiling on a pinned cooldown (default `24h`). Setting it to zero falls back to 24h rather than disabling pinning.
 - The number of half-open probe successes needed to close the circuit is fixed in code (`HalfOpenMaxProbes`, default 1) and is **not** a runtime setting.
