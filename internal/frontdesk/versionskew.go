@@ -14,6 +14,22 @@ type memberBuild struct {
 	Commit  string
 }
 
+// key identifies the build for comparing one recorded verdict against another.
+// Both halves, because a fleet whose images all report the "dev" placeholder
+// version is distinguished only by commit. The separator is a byte no real
+// version or commit contains, so no two builds a member can honestly report
+// collide. It is not an enforced invariant: both halves are strings a member
+// hands us, and JSON can carry a NUL, so a member that deliberately reported
+// one could collide with another build. That member is already a trusted
+// config target, and the cost is one hold read as fresh when it is stale.
+//
+// Every unknown build shares one key, deliberately. A hold taken while the
+// primary's build could not be read should keep counting for as long as it
+// still cannot be read; it is the CHANGE from one known build to another that
+// makes a hold stale. Reading the two sides through the same fields is what
+// makes that symmetric.
+func (b memberBuild) key() string { return b.Version + "\x00" + b.Commit }
+
 // describe renders the build for an operator-facing event: the version alone
 // when that is all there is, "dev (d18a96d1f84d)" when a commit backs it. An
 // unknown build reads as "unknown" rather than an empty string, so a message

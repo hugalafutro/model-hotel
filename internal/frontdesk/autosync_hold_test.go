@@ -166,7 +166,7 @@ func TestAutoSync_ClosesHoldAcrossRestart(t *testing.T) {
 
 	// Simulate a restart: the in-memory hold state is gone, the event log is not.
 	srv.syncHeldMu.Lock()
-	srv.syncHeld = make(map[string]bool)
+	srv.syncHeld = make(map[string]string)
 	srv.holdLogChecked = make(map[string]bool)
 	srv.syncHeldMu.Unlock()
 
@@ -227,7 +227,7 @@ func TestAutoSync_StillHeldAfterRestartDoesNotRealert(t *testing.T) {
 
 	// Simulate a restart with the member still skewed.
 	srv.syncHeldMu.Lock()
-	srv.syncHeld = make(map[string]bool)
+	srv.syncHeld = make(map[string]string)
 	srv.holdLogChecked = make(map[string]bool)
 	srv.syncHeldMu.Unlock()
 

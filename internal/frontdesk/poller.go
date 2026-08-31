@@ -155,7 +155,13 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 func (p *Poller) memberBuildOf(id string) memberBuild {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	st := p.statuses[id]
+	return buildOf(p.statuses[id])
+}
+
+// buildOf reads a member's build out of a polled status. One extraction, so a
+// caller working from an already-taken snapshot cannot drift from
+// memberBuildOf if a third build field is ever added.
+func buildOf(st MemberStatus) memberBuild {
 	return memberBuild{Version: st.Version, Commit: st.Commit}
 }
 

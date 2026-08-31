@@ -44,8 +44,11 @@ func (s *Server) warnIfBuildGateDegraded(primary memberBuild) {
 // push; this only tracks and reports it.
 func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primary, member memberBuild) {
 	s.syncHeldMu.Lock()
-	already := s.syncHeld[m.ID]
-	s.syncHeld[m.ID] = true
+	_, already := s.syncHeld[m.ID]
+	// Record the primary build this verdict was reached against. A hold means
+	// "this member differs from the primary", which stops being a claim about
+	// anything the moment the primary is a different build; see heldSnapshot.
+	s.syncHeld[m.ID] = primary.key()
 	s.syncHeldMu.Unlock()
 	if already {
 		return
@@ -90,7 +93,7 @@ func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primary, memb
 // leading the sentence, or a " to <name>" target).
 func (s *Server) closeSyncHold(ctx context.Context, m *Member, message string) {
 	s.syncHeldMu.Lock()
-	was := s.syncHeld[m.ID]
+	_, was := s.syncHeld[m.ID]
 	delete(s.syncHeld, m.ID)
 	s.syncHeldMu.Unlock()
 	if !was && !s.heldPerLog(ctx, m) {

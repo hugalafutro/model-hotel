@@ -275,7 +275,7 @@ func TestAutoSync_FailedRecoveredEmitIsNotMemoisedAsClosed(t *testing.T) {
 	srv, store := newTestServer(t)
 	m := &Member{ID: "m1", Name: "m1"}
 	srv.syncHeldMu.Lock()
-	srv.syncHeld[m.ID] = true
+	srv.syncHeld[m.ID] = memberBuild{Version: "dev", Commit: "old"}.key()
 	srv.holdLogChecked[m.ID] = true
 	srv.syncHeldMu.Unlock()
 
@@ -286,7 +286,7 @@ func TestAutoSync_FailedRecoveredEmitIsNotMemoisedAsClosed(t *testing.T) {
 
 	srv.syncHeldMu.Lock()
 	checked := srv.holdLogChecked[m.ID]
-	held := srv.syncHeld[m.ID]
+	_, held := srv.syncHeld[m.ID]
 	srv.syncHeldMu.Unlock()
 	if checked {
 		t.Error("a failed config.sync_recovered persist stayed memoised as closed; the next pass must re-read the log and retry")
