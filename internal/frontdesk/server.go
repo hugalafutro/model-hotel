@@ -333,7 +333,7 @@ func NewServer(cfg ServerConfig) *Server {
 	// reaches the endpoint keeps that watchdog quiet, and a real Traefik that
 	// died is never reported. Said once, at construction, because a default
 	// whose consequence is a monitor that stops monitoring should not be silent.
-	if s.traefikToken == "" {
+	if !s.traefikGated() {
 		debuglog.Warn("frontdesk: /traefik/config is unauthenticated, set FRONTDESK_TRAEFIK_TOKEN to gate it",
 			"consequence", "any caller that reaches it resets the Traefik staleness watchdog")
 	}
@@ -508,7 +508,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 	// of one must not starve the other. Once the token is set an unauthenticated
 	// caller is refused before any of that work, so the limiter is skipped.
 	r.Group(func(r chi.Router) {
-		if s.traefikLimiter != nil && s.traefikToken == "" {
+		if s.traefikLimiter != nil && !s.traefikGated() {
 			r.Use(s.traefikLimiter.Middleware)
 		}
 		r.Get("/traefik/config", s.traefikAuth(s.handleTraefikConfig))
@@ -730,9 +730,16 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // open: Traefik polls credential-less, so unlike /metrics there is no
 // admin-auth fallback — gating an unconfigured fleet would 401 its own data
 // plane and take the front door down on the next Traefik restart.
+// traefikGated reports whether /traefik/config requires the bearer. One
+// predicate for all three readers (the startup warning, the router's decision
+// to mount a limiter, and this gate), because the router decides once at build
+// time and the gate decides per request: two spellings of the same condition
+// is how a future reloadable token would leave the router silently stale.
+func (s *Server) traefikGated() bool { return s.traefikToken != "" }
+
 func (s *Server) traefikAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.traefikToken == "" {
+		if !s.traefikGated() {
 			next(w, r)
 			return
 		}

@@ -74,19 +74,26 @@ func TestHealthz_LimitIsPerAddress(t *testing.T) {
 	}
 }
 
-// The container HEALTHCHECK polls every 30 seconds against a budget of two per
-// second, so the real cadence has to sit far inside it. Pinned at both ends:
-// the burst is served AND the request past it is refused, so this fails both
-// on a revert and on a budget tightened below the cadence.
-func TestHealthz_ContainerCadenceIsInsideTheBudget(t *testing.T) {
-	srv, _ := newTestServerHealthzLimited(t, probeLimiterFor(t))
-	for i := range probeBurst {
-		if rec := get(t, srv, http.MethodGet, "/healthz", "203.0.113.11:5000", ""); rec.Code != http.StatusOK {
-			t.Fatalf("probe %d of %d got %d, want 200", i+1, probeBurst, rec.Code)
-		}
+// The groups carry their limiter and nothing else does. Without this, an
+// over-scoping regression would be invisible: every other route in the test
+// server has a budget no test can reach, so they would keep answering 200
+// whether or not a limiter had been wrapped around them.
+func TestProbeLimiters_DoNotCoverTheOtherRoutes(t *testing.T) {
+	srv, _ := newTestServerCfgTraefikLimited(t, probeLimiterFor(t), probeLimiterFor(t), "")
+
+	const addr = "203.0.113.30:5000"
+	for range probeBurst + 3 {
+		get(t, srv, http.MethodGet, "/healthz", addr, "")
+		get(t, srv, http.MethodGet, "/traefik/config", addr, "")
 	}
-	if rec := get(t, srv, http.MethodGet, "/healthz", "203.0.113.11:5000", ""); rec.Code != http.StatusTooManyRequests {
-		t.Errorf("past the burst returned %d, want %d", rec.Code, http.StatusTooManyRequests)
+	// Both budgets for this address are now spent.
+	if rec := get(t, srv, http.MethodGet, "/healthz", addr, ""); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("the probe budget was not spent (%d): this test proves nothing", rec.Code)
+	}
+	for _, path := range []string{"/api/totp/status", "/api/auth/oidc/status"} {
+		if rec := get(t, srv, http.MethodGet, path, addr, ""); rec.Code == http.StatusTooManyRequests {
+			t.Errorf("%s was refused: a probe limiter is covering more than its own route", path)
+		}
 	}
 }
 
