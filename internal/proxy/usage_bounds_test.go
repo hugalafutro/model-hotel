@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"io"
 	"math"
 	"net/http"
@@ -143,11 +144,12 @@ func TestExtractPassthroughUsage_Clamps(t *testing.T) {
 }
 
 // nonStreamingUsageFixture drives handleNonStreamingResponse with a 200 whose
-// usage block is under test and returns the row figures and the charge.
-func nonStreamingUsageFixture(t *testing.T, usage string) (logData *requestLogData, charged []addTokensCall) {
+// usage block is under test and returns the row figures, the charge, and the
+// body the caller was served.
+func nonStreamingUsageFixture(t *testing.T, usage string) (logData *requestLogData, charged []addTokensCall, clientBody []byte) {
 	t.Helper()
 	h := newIntegrationHandler()
-	t.Cleanup(func() { stopUnitHandlerIntegration(h) })
+	t.Cleanup(func() { stopUnitHandler(h) })
 	vkRepo := &mockVirtualKeyRepo{}
 	h.virtualKeyRepo = vkRepo
 
@@ -158,12 +160,13 @@ func nonStreamingUsageFixture(t *testing.T, usage string) (logData *requestLogDa
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-	return logData, vkRepo.addTokensCalls
+	rec := httptest.NewRecorder()
+	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	return logData, vkRepo.addTokensCalls, rec.Body.Bytes()
 }
 
 func TestHandleNonStreamingResponse_NegativeUsageNeverCredits(t *testing.T) {
-	logData, charged := nonStreamingUsageFixture(t, `{"prompt_tokens":-500,"completion_tokens":-100,"total_tokens":-600}`)
+	logData, charged, _ := nonStreamingUsageFixture(t, `{"prompt_tokens":-500,"completion_tokens":-100,"total_tokens":-600}`)
 	if logData.tokensPrompt != 0 || logData.tokensCompletion != 0 {
 		t.Errorf("row recorded negative figures: prompt=%d completion=%d", logData.tokensPrompt, logData.tokensCompletion)
 	}
@@ -178,12 +181,38 @@ func TestHandleNonStreamingResponse_NegativeUsageNeverCredits(t *testing.T) {
 }
 
 func TestHandleNonStreamingResponse_OverflowUsageCappedEverywhere(t *testing.T) {
-	logData, charged := nonStreamingUsageFixture(t, `{"prompt_tokens":9223372036854775807,"completion_tokens":"2147483647","total_tokens":1}`)
+	logData, charged, clientBody := nonStreamingUsageFixture(t, `{"prompt_tokens":9223372036854775807,"completion_tokens":"2147483647","total_tokens":9223372036854775807,"completion_tokens_details":{"reasoning_tokens":9223372036854775807}}`)
 	if logData.tokensPrompt != maxSaneTokenCount || logData.tokensCompletion != maxSaneTokenCount {
 		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, maxSaneTokenCount)
 	}
+	if logData.tokensCompletionReasoning != maxSaneTokenCount {
+		t.Errorf("row reasoning = %d, want the ceiling %d", logData.tokensCompletionReasoning, maxSaneTokenCount)
+	}
 	if len(charged) != 1 || charged[0].tokens != maxSaneTokenCount {
 		t.Errorf("charge = %+v, want one call at the ceiling %d", charged, maxSaneTokenCount)
+	}
+	// The body is re-encoded to the caller, so the whole usage block must be
+	// in range: a prompt that was clamped beside a total that was not is a
+	// body no provider ever sent.
+	var served struct {
+		Usage struct {
+			PromptTokens            int `json:"prompt_tokens"`
+			CompletionTokens        int `json:"completion_tokens"`
+			TotalTokens             int `json:"total_tokens"`
+			CompletionTokensDetails *struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(clientBody, &served); err != nil {
+		t.Fatalf("client body did not decode: %v; body: %.200s", err, clientBody)
+	}
+	if served.Usage.PromptTokens != maxSaneTokenCount || served.Usage.CompletionTokens != maxSaneTokenCount || served.Usage.TotalTokens != maxSaneTokenCount {
+		t.Errorf("client usage = (%d, %d, total %d), want all at the ceiling %d",
+			served.Usage.PromptTokens, served.Usage.CompletionTokens, served.Usage.TotalTokens, maxSaneTokenCount)
+	}
+	if served.Usage.CompletionTokensDetails == nil || served.Usage.CompletionTokensDetails.ReasoningTokens != maxSaneTokenCount {
+		t.Errorf("client reasoning detail = %+v, want the ceiling %d", served.Usage.CompletionTokensDetails, maxSaneTokenCount)
 	}
 }
 
@@ -193,7 +222,10 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	vkRepo := &mockVirtualKeyRepo{}
 	h.virtualKeyRepo = vkRepo
 
-	body := `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":-9,"output_tokens":9223372036854775807}}`
+	// input_tokens, cache_read_input_tokens and cache_creation_input_tokens are
+	// summed into the prompt figure and differenced into the cache split, so
+	// all five columns this path writes are under test at once.
+	body := `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":-9,"cache_read_input_tokens":2147483647,"cache_creation_input_tokens":2147483647,"output_tokens":9223372036854775807}}`
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
 	native := true
 	aw := newAnthropicResponseWriter(httptest.NewRecorder(), "msg_ignored", "m")
@@ -209,8 +241,14 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	}
 	aw.Finalize()
 
-	if logData.tokensPrompt != 0 || logData.tokensCompletion != maxSaneTokenCount {
-		t.Errorf("row = (%d, %d), want (0, %d)", logData.tokensPrompt, logData.tokensCompletion, maxSaneTokenCount)
+	if logData.tokensPrompt != maxSaneTokenCount || logData.tokensCompletion != maxSaneTokenCount {
+		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, maxSaneTokenCount)
+	}
+	// The cache split is written from the same parse and lands in two more
+	// int4 columns: an unclamped miss (input + cache_creation) failed the
+	// whole terminal UPDATE and stranded the row.
+	if logData.tokensPromptCacheHit != maxSaneTokenCount || logData.tokensPromptCacheMiss != maxSaneTokenCount {
+		t.Errorf("cache split = (%d, %d), want both at the ceiling %d", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss, maxSaneTokenCount)
 	}
 	if len(vkRepo.addTokensCalls) != 1 || vkRepo.addTokensCalls[0].tokens != maxSaneTokenCount {
 		t.Errorf("charge = %+v, want one call at the ceiling", vkRepo.addTokensCalls)

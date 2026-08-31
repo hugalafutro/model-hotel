@@ -74,10 +74,11 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body = logData.masker.maskExact(body)
 
 	usage := anthropic.ParseResponseUsage(body)
-	// The native prompt figure is a sum of three members, so the per-member
-	// decode bound leaves it unbounded; clamped on entry like every other
-	// provider figure so the log row, the estimate and the charge agree.
-	inputTokens, outputTokens, _ := sanitizeUsageCounts(usage.PromptTokens, usage.CompletionTokens, 0)
+	// The native prompt figure and its cache miss are sums of members the
+	// decoder bounded one at a time, so they arrive unbounded; every figure
+	// this function writes is clamped so the log row's five token columns,
+	// the estimate and the charge agree.
+	inputTokens, outputTokens := clampTokenCount(usage.PromptTokens), clampTokenCount(usage.CompletionTokens)
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
 	// The status the provider actually sent, not a flattened 200: a relay may
@@ -99,8 +100,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// The cache split, not just the total: metering the cache-inclusive prompt
 	// without it prices every cached token at full input rate. The translated
 	// path reaches the same two fields through extractCacheTokens.
-	logData.tokensPromptCacheHit = usage.CacheHitTokens
-	logData.tokensPromptCacheMiss = usage.CacheMissTokens
+	logData.tokensPromptCacheHit = clampTokenCount(usage.CacheHitTokens)
+	logData.tokensPromptCacheMiss = clampTokenCount(usage.CacheMissTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	// What clears the model's gone-strike streak (see attemptCandidate), so the

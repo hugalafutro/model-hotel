@@ -136,8 +136,15 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		// Clamped once, here, so every later reader of this response (the TPS
 		// math, the log row's token columns, the estimate fallback, the charge)
-		// sees the same in-range figures. See maxSaneTokenCount.
+		// sees the same in-range figures. See maxSaneTokenCount. chatResp is
+		// re-encoded to the caller further down, so the whole block is held
+		// to the bound, not only the members the meter reads: a body whose
+		// prompt was clamped but whose total was not is one no provider sent.
 		chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens = sanitizeUsageCounts(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens)
+		chatResp.Usage.TotalTokens = clampTokenCount(chatResp.Usage.TotalTokens)
+		if chatResp.Usage.CompletionTokensDetails != nil {
+			chatResp.Usage.CompletionTokensDetails.ReasoningTokens = reasoningTokens
+		}
 		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
 		// Avoid absurd TPS when generation time is negligible
