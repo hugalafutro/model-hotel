@@ -81,9 +81,12 @@ func TestGetCheckedCachesAnAbsentKey(t *testing.T) {
 	}
 }
 
-// Every write path evicts, so the first write after a miss is seen at once.
-// This is the invariant that makes negative caching safe to add: an operator
-// saving a setting for the first time must not wait out a TTL of "unset".
+// Every write path evicts, either itself (Set, SetMany, DeleteKey) or through
+// the InvalidateCache / NotifyDeleted its caller makes after commit (SetTx,
+// DeleteKeysTx, covered below), so the first write after a miss is seen at
+// once. This is the invariant that makes negative caching safe to add: an
+// operator saving a setting for the first time must not wait out a TTL of
+// "unset".
 func TestWritesSeeThroughACachedAbsence(t *testing.T) {
 	r := NewRepository(testPool)
 	ctx := context.Background()
@@ -130,9 +133,63 @@ func TestWritesSeeThroughACachedAbsence(t *testing.T) {
 	}
 }
 
+// SetTx is how every operator save and every config-sync import lands, and it
+// evicts nothing itself: the caller invalidates after commit. That is the one
+// write path whose eviction is a contract rather than code, so it gets its own
+// test over a cached absence, in the order the callers use.
+func TestSetTxThenInvalidateSeesThroughACachedAbsence(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+	key := "circuit_breaker_threshold" // SetTx is allowlisted
+
+	if got := r.GetWithDefault(ctx, key, "d"); got != "d" {
+		t.Fatalf("setup: got %q", got)
+	}
+	if !r.IsCached(key) {
+		t.Fatal("setup: the absence was not cached")
+	}
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetTx(ctx, tx, key, "7"); err != nil {
+		t.Fatal(err)
+	}
+	// Inside the transaction the row is invisible to other connections and the
+	// absence still serves; that is the contract, not a bug: the caller must
+	// not invalidate before the commit.
+	if got := r.GetWithDefault(ctx, key, "d"); got != "d" {
+		t.Errorf("before commit got %q, want the cached absence", got)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	r.InvalidateCache(key)
+	if got := r.GetWithDefault(ctx, key, "d"); got != "7" {
+		t.Errorf("after SetTx + InvalidateCache got %q, want the write", got)
+	}
+
+	tx, err = testPool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.DeleteKeysTx(ctx, tx, []string{key}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	r.NotifyDeleted(key)
+	if got := r.GetWithDefault(ctx, key, "d"); got != "d" {
+		t.Errorf("after DeleteKeysTx + NotifyDeleted got %q, want the default", got)
+	}
+}
+
 func TestACachedAbsenceExpiresWithTheTTL(t *testing.T) {
 	r := NewRepository(testPool)
-	r.cacheTTL = 100 * time.Millisecond
+	r.cacheTTL = 250 * time.Millisecond
 	ctx := context.Background()
 	clearSettings(t)
 	key := "absent_ttl_key"

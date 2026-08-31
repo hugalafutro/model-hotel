@@ -79,10 +79,15 @@ var AllowedSettings = map[string]bool{
 // cacheEntry is one cached read. A key with no row is cached too, as missing:
 // nearly every runtime setting is read on the proxy's per-request path with a
 // default the operator never overrode, and without a negative entry each of
-// those reads is an uncached SELECT for the whole life of the process. Set,
-// SetMany and DeleteKey evict a missing entry exactly as they evict a value, so
+// those reads is an uncached SELECT for the whole life of the process. A
+// missing entry is evicted exactly as a value is: by Set, SetMany and DeleteKey
+// on both sides of their write, and by the InvalidateCache / NotifyDeleted call
+// every SetTx and DeleteKeysTx caller makes after its transaction commits. So
 // the first write after a miss is seen at once, and the generation guard
-// applies to it the same way (see GetWithDefault).
+// applies to it the same way (see GetWithDefault). What no eviction covers is a
+// row written behind the repository's back with raw SQL, which was already the
+// stale-value window for an existing key and is now the same window for a new
+// one: at most one cacheTTL.
 type cacheEntry struct {
 	value     string
 	missing   bool
@@ -471,7 +476,13 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	return nil
 }
 
-// SetTx updates a setting within an existing transaction.
+// SetTx updates a setting within an existing transaction. It evicts nothing:
+// the caller must call InvalidateCache for the key AFTER the transaction
+// commits, and never before. Evicting before the commit would let a concurrent
+// reader repopulate the cache from the pre-commit row, and for a key that has
+// no row yet that reader would cache its absence, hiding the very setting the
+// transaction is about to create for a full cacheTTL. DeleteKeysTx carries the
+// same contract for the same reason.
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
 	if !AllowedSettings[key] {
 		debuglog.Warn("settings: rejected setting not in allowlist", "key", key)
