@@ -230,12 +230,13 @@
     <string name="notif_up_title">%1$s rétabli</string>
     <string name="notif_up_body">Un membre répond à nouveau.</string>
     <string name="notif_channel_stale">Dérive de configuration</string>
+    <string name="notif_channel_events">Alertes Front Desk</string>
     <string name="notif_stale_title">La flotte dérive peut-être</string>
     <string name="notif_stale_body">La synchro auto est désactivée et la flotte ne s\'est pas synchronisée depuis plus d\'un jour. Touchez pour ouvrir Bellhop.</string>
     <string name="notif_stale_resumed_title">Synchro auto reprise</string>
     <string name="notif_stale_resumed_body">La flotte est de nouveau maintenue synchronisée.</string>
     <string name="notif_push_test_title">Test de push de %1$s reçu</string>
-    <string name="notif_push_test_body">Le push en temps réel fonctionne. Bellhop n\'alerte que sur les changements des membres et la dérive de la synchronisation automatique ; les tests ne créent pas d\'alertes.</string>
+    <string name="notif_push_test_body">Le push en temps réel fonctionne. Bellhop signale les changements des membres, la dérive de la synchronisation automatique et chaque alerte Front Desk activée dans Alertes ; les tests ne créent pas d\'alertes.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Dissocier</string>

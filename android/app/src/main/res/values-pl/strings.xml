@@ -236,12 +236,13 @@
     <string name="notif_up_title">%1$s przywrócony</string>
     <string name="notif_up_body">Węzeł znów odpowiada.</string>
     <string name="notif_channel_stale">Rozjazd konfiguracji</string>
+    <string name="notif_channel_events">Alerty Front Desk</string>
     <string name="notif_stale_title">Flota może się rozjeżdżać</string>
     <string name="notif_stale_body">Autosynchronizacja jest wyłączona, a flota nie synchronizowała się od ponad doby. Dotknij, aby otworzyć Bellhop.</string>
     <string name="notif_stale_resumed_title">Autosynchronizacja wznowiona</string>
     <string name="notif_stale_resumed_body">Flota jest znów utrzymywana w synchronizacji.</string>
     <string name="notif_push_test_title">Otrzymano testowy push z %1$s</string>
-    <string name="notif_push_test_body">Push w czasie rzeczywistym działa. Bellhop powiadamia tylko o zmianach węzłów i rozjeżdżaniu się autosynchronizacji; testy nie tworzą powiadomień.</string>
+    <string name="notif_push_test_body">Push w czasie rzeczywistym działa. Bellhop powiadamia o zmianach węzłów, o rozjeżdżaniu się autosynchronizacji i o każdym alercie Front Desk włączonym w sekcji Alerty; testy nie tworzą powiadomień.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Rozłącz</string>

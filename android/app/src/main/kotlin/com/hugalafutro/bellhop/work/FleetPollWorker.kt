@@ -13,6 +13,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.hugalafutro.bellhop.data.EventCursor
+import com.hugalafutro.bellhop.data.EventDiff
+import com.hugalafutro.bellhop.data.EventQuery
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetAlert
 import com.hugalafutro.bellhop.data.FleetMember
@@ -20,6 +23,7 @@ import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
+import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
@@ -28,6 +32,7 @@ import com.hugalafutro.bellhop.data.QuotaSurface
 import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.diffAutoSync
+import com.hugalafutro.bellhop.data.diffEvents
 import com.hugalafutro.bellhop.data.diffFleet
 import com.hugalafutro.bellhop.data.widgetQuotaOf
 import com.hugalafutro.bellhop.data.widgetStateOf
@@ -111,13 +116,84 @@ private suspend fun widgetQuotaBadges(
 }
 
 /**
+ * EVENT_PAGE is how far back one poll reads the Front Desk event log. Fifty
+ * covers a busy rebuild several times over; a phone that missed more than that
+ * has the newest fifty, which contain everything [MAX_EVENT_ALERTS_PER_POLL]
+ * would post anyway.
+ */
+private const val EVENT_PAGE = 50
+
+/**
+ * WatchedEvents is what one poll learned about Front Desk's own alerts. [enabled]
+ * is the set of event types switched on in Front Desk's alert picker, or null
+ * when the picker could not be read; [diff] is the event-log diff, or null when
+ * the log could not be read. Both null together mean "Front Desk said nothing
+ * this poll", and the caller then keeps its own health edges and its cursor.
+ */
+private class WatchedEvents(
+    val enabled: Set<String>?,
+    val diff: EventDiff?,
+) {
+    /**
+     * coversLocally reports whether Front Desk itself notifies for the health
+     * edge Bellhop just derived, in which case Bellhop's own row would be a
+     * duplicate: the picker has the matching health type on AND the event log
+     * was read this poll, so the Front Desk event for the same edge is either in
+     * this diff or in the next one. Either half missing keeps Bellhop's own edge,
+     * so a Front Desk read that failed never costs the operator the page.
+     */
+    fun coversLocally(transition: MemberTransition): Boolean {
+        val type =
+            when (transition) {
+                is MemberTransition.WentDown -> "health.down"
+                is MemberTransition.Recovered -> "health.up"
+            }
+        return diff != null && enabled?.contains(type) == true
+    }
+}
+
+/**
+ * watchedEvents reads the alert picker and then the event log. The picker first,
+ * because without it there is nothing to filter the log by, so a failed picker
+ * read skips the log read rather than spend a request on a page it cannot use.
+ */
+private suspend fun watchedEvents(
+    client: FrontDeskClient,
+    fdUrl: String,
+    token: String,
+    cursor: EventCursor?,
+): WatchedEvents {
+    val selection = client.alertSelection(fdUrl, token) as? FetchResult.Success ?: return WatchedEvents(null, null)
+    val enabled =
+        selection.data
+            .filter { it.enabled }
+            .map { it.type }
+            .toSet()
+    val page =
+        client.events(fdUrl, token, EventQuery(limit = EVENT_PAGE)) as? FetchResult.Success
+            ?: return WatchedEvents(enabled, null)
+    return WatchedEvents(enabled, diffEvents(cursor, page.data.events.orEmpty(), enabled))
+}
+
+/**
  * pollFleet is the testable core of the background backstop: fetch the fleet,
  * diff it against the last-seen snapshot, persist the new snapshot, and return the
- * health edges. It performs no notification or Android I/O itself, so it can run
+ * alerts. It performs no notification or Android I/O itself, so it can run
  * against a MockWebServer-backed [FrontDeskClient] and a temp [MonitorStore]. The
  * snapshot is saved on every successful fetch (even with no transitions) so the
  * baseline keeps advancing; it is left untouched on failure so a transient error
  * doesn't erase the baseline and re-alert the whole fleet next run.
+ *
+ * Alerts come from two places. Bellhop's own health diff ([diffFleet]) and the
+ * auto-sync drift edge work with no Front Desk alert configuration at all. On top
+ * of those, every event type the operator switched on in Front Desk's alert
+ * picker (the toggles under Alerts) is read back from the event log and notified
+ * as Front Desk's own sentence ([diffEvents]): that is what a push wake is FOR,
+ * since a push carries no payload Bellhop trusts and Front Desk only pushes for
+ * types the picker has on. Where the two overlap, on health.down / health.up,
+ * Front Desk's event wins and Bellhop's own edge is not posted, so one outage is
+ * one notification; when Front Desk cannot be read for either half, Bellhop's
+ * own edge stands.
  */
 suspend fun pollFleet(
     client: FrontDeskClient,
@@ -154,8 +230,17 @@ suspend fun pollFleet(
                 }
             val quotaBadges =
                 widgetQuotaBadges(client, fdUrl, token, widgetStore, configStore, barMode, includeQuota)
-            val alerts = diffFleet(previous, result.data) + listOfNotNull(diffAutoSync(previous, stale))
+            // Front Desk's own alerts, read after the fleet so a dead token still
+            // reports Unauthorized off the first call, and read against the cursor
+            // captured under the same session epoch as the snapshot.
+            val watched = watchedEvents(client, fdUrl, token, monitorStore.eventCursor())
+            val edges = diffFleet(previous, result.data).filterNot(watched::coversLocally)
+            val alerts = edges + listOfNotNull(diffAutoSync(previous, stale)) + watched.diff?.alerts.orEmpty()
             monitorStore.saveSnapshot(FleetSnapshot.of(result.data, stale), epoch)
+            // The cursor advances only when the log was actually read: a failed
+            // read leaves it where it was, so nothing that happened in between is
+            // skipped when the next read succeeds.
+            watched.diff?.cursor?.let { monitorStore.saveEventCursor(it, epoch) }
             // This poll already holds everything the home-screen widget renders;
             // persist its render model here so the widget rides the existing
             // fetch (the no-new-polling rule) instead of ever fetching itself.
@@ -386,7 +471,8 @@ class FleetPollWorker(
          * runNow fires a single immediate poll off the same worker, used as the
          * Layer-3 wake when a UnifiedPush message arrives (plan section 5.2): the
          * push is only a trigger, so it runs [runBackstop] to re-fetch fleet truth
-         * from Front Desk rather than trusting the push payload. Expedited so it
+         * and the event log from Front Desk rather than trusting the push payload;
+         * the alert the push announced is read back from the log. Expedited so it
          * runs promptly, but falling back to a normal request when the app is out of
          * expedited quota (no foreground-service notification needed for a poll).
          * KEEP coalesces a burst of pushes onto one in-flight poll rather than

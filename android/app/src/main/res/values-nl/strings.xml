@@ -230,12 +230,13 @@
     <string name="notif_up_title">%1$s hersteld</string>
     <string name="notif_up_body">Een lid reageert weer.</string>
     <string name="notif_channel_stale">Configuratieafwijking</string>
+    <string name="notif_channel_events">Front Desk-waarschuwingen</string>
     <string name="notif_stale_title">Vloot wijkt mogelijk af</string>
     <string name="notif_stale_body">Auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd. Tik om Bellhop te openen.</string>
     <string name="notif_stale_resumed_title">Auto-sync hervat</string>
     <string name="notif_stale_resumed_body">De vloot wordt weer synchroon gehouden.</string>
     <string name="notif_push_test_title">Pushtest van %1$s ontvangen</string>
-    <string name="notif_push_test_body">Realtime push werkt. Bellhop waarschuwt alleen bij wijzigingen van leden en afwijkende auto-sync; tests maken geen meldingen.</string>
+    <string name="notif_push_test_body">Realtime push werkt. Bellhop waarschuwt bij wijzigingen van leden, bij afwijkende auto-sync en bij elke Front Desk-waarschuwing die is ingeschakeld onder Waarschuwingen; tests maken geen meldingen.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Ontkoppelen</string>

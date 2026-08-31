@@ -230,12 +230,13 @@
     <string name="notif_up_title">%1$s wiederhergestellt</string>
     <string name="notif_up_body">Ein Mitglied antwortet wieder.</string>
     <string name="notif_channel_stale">Konfigurationsabweichung</string>
+    <string name="notif_channel_events">Front Desk-Warnungen</string>
     <string name="notif_stale_title">Flotte weicht möglicherweise ab</string>
     <string name="notif_stale_body">Auto-Sync ist aus und die Flotte hat sich seit über einem Tag nicht synchronisiert. Tippe, um Bellhop zu öffnen.</string>
     <string name="notif_stale_resumed_title">Auto-Sync fortgesetzt</string>
     <string name="notif_stale_resumed_body">Die Flotte wird wieder synchron gehalten.</string>
     <string name="notif_push_test_title">Push-Test von %1$s empfangen</string>
-    <string name="notif_push_test_body">Echtzeit-Push funktioniert. Bellhop meldet nur Änderungen an Mitgliedern und Auto-Sync-Abweichungen; Tests erzeugen keine Meldungen.</string>
+    <string name="notif_push_test_body">Echtzeit-Push funktioniert. Bellhop meldet Änderungen an Mitgliedern, Auto-Sync-Abweichungen und jede unter Warnungen aktivierte Front Desk-Warnung; Tests erzeugen keine Meldungen.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Verknüpfung aufheben</string>

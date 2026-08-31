@@ -247,12 +247,13 @@
     <string name="notif_up_title">%1$s recovered</string>
     <string name="notif_up_body">A member is responding again.</string>
     <string name="notif_channel_stale">Config drift</string>
+    <string name="notif_channel_events">Front Desk alerts</string>
     <string name="notif_stale_title">Fleet may be drifting</string>
     <string name="notif_stale_body">Auto-sync is off and the fleet hasn\'t synced in over a day. Tap to open Bellhop.</string>
     <string name="notif_stale_resumed_title">Auto-sync resumed</string>
     <string name="notif_stale_resumed_body">The fleet is being kept in sync again.</string>
     <string name="notif_push_test_title">%1$s push test received</string>
-    <string name="notif_push_test_body">Real-time push works. Bellhop only alerts on member changes and auto-sync drift; tests do not create alerts.</string>
+    <string name="notif_push_test_body">Real-time push works. Bellhop notifies on member changes, auto-sync drift, and every Front Desk alert switched on under Alerts; tests do not create alerts.</string>
 
     <string name="dashboard_footer">Bellhop %1$s</string>
     <string name="dashboard_unlink">Unlink</string>

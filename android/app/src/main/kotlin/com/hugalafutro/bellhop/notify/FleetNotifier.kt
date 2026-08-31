@@ -14,18 +14,24 @@ import com.hugalafutro.bellhop.MainActivity
 import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.AutoSyncAlert
 import com.hugalafutro.bellhop.data.FleetAlert
+import com.hugalafutro.bellhop.data.FrontDeskEvent
 import com.hugalafutro.bellhop.data.MemberTransition
+import com.hugalafutro.bellhop.ui.common.eventTypeLabelRes
 
 /**
- * FleetNotifier renders the background backstop's fleet-health edges as local
- * notifications (plan section 5.2). It is deliberately not an alert *source*:
- * Front Desk's own Apprise pipeline already pages on the same events; this exists
- * so a tap lands the operator back in Bellhop, and so a phone with no real-time
- * layer still learns "a member went down" within a poll or two.
+ * FleetNotifier renders the background backstop's alerts as local notifications
+ * (plan section 5.2): Bellhop's own fleet-health edges, the auto-sync drift edge,
+ * and the Front Desk events the operator switched on in the alert picker. The
+ * last are Front Desk's own sentence about what happened, titled with the same
+ * event name the Alerts screen shows; this exists so a tap lands the operator
+ * back in Bellhop, and so a phone with no real-time layer still learns "a member
+ * went down" within a poll or two.
  *
- * Two channels split by severity so Android's per-channel muting works: "member
- * down" is high importance (it may page), "member recovered" is low (a quiet
- * status update). Posting is a no-op when the POST_NOTIFICATIONS permission is
+ * Channels split by severity so Android's per-channel muting works: "member
+ * down" is high importance (it may page) and also carries error-severity Front
+ * Desk events, "member recovered" is low (a quiet status update) and carries
+ * info and success events, and "Front Desk alerts" is default importance for
+ * warnings. Posting is a no-op when the POST_NOTIFICATIONS permission is
  * absent, so the worker never has to guard the call itself.
  *
  * [notifyPushTest] is the one row that does not come from fleet state: it answers
@@ -35,6 +41,7 @@ object FleetNotifier {
     const val CHANNEL_DOWN = "member_down"
     const val CHANNEL_UP = "member_up"
     const val CHANNEL_STALE = "config_stale"
+    const val CHANNEL_EVENTS = "frontdesk_events"
 
     // A constant numeric id: the member id is carried as the notification tag
     // instead, so two members whose ids collide under String.hashCode() (an int id
@@ -85,6 +92,16 @@ object FleetNotifier {
                 NotificationManager.IMPORTANCE_DEFAULT,
             ),
         )
+        // Front Desk's warning-severity events (a drain, a held sync, a stale
+        // backup): the operator asked for each of these by name, so they show and
+        // can chime, but a warning is not an outage and never heads-up.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_EVENTS,
+                context.getString(R.string.notif_channel_events),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
     }
 
     /** notify posts one fleet-alert notification, or does nothing if it can't. */
@@ -125,11 +142,26 @@ object FleetNotifier {
                         context.getString(R.string.notif_stale_resumed_title),
                         context.getString(R.string.notif_stale_resumed_body),
                     )
+                // Front Desk's own sentence, under the event's catalogue name. The
+                // message is composed server-side and shown whole: it is what the
+                // operator would read in the Front Desk event log, and the one thing
+                // a push could not carry.
+                is FrontDeskEvent ->
+                    Triple(
+                        channelForSeverity(alert.severity),
+                        eventTypeLabelRes(alert.type)?.let(context::getString) ?: alert.type,
+                        alert.message,
+                    )
             }
+        // A Front Desk event tags by type and member, so the same kind of event
+        // about the same member updates its row in place (a drain followed by the
+        // re-activation reads as one row saying the latest) while distinct members
+        // and distinct kinds keep their own rows.
         val tag =
             when (alert) {
                 is MemberTransition -> alert.id
                 is AutoSyncAlert -> AUTOSYNC_TAG
+                is FrontDeskEvent -> "event:${alert.type}:${alert.memberId}"
             }
 
         val notification =
@@ -138,6 +170,7 @@ object FleetNotifier {
                 .setSmallIcon(R.drawable.ic_stat_bellhop)
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setContentIntent(openAppIntent(context))
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
@@ -151,6 +184,18 @@ object FleetNotifier {
         } catch (_: SecurityException) {
         }
     }
+
+    /**
+     * channelForSeverity maps a Front Desk event's severity onto the channels
+     * above, so an error pages like a member going down, a warning shows without
+     * heads-up, and an info or success line stays quiet.
+     */
+    private fun channelForSeverity(severity: String): String =
+        when (severity) {
+            "error" -> CHANNEL_DOWN
+            "warning" -> CHANNEL_EVENTS
+            else -> CHANNEL_UP
+        }
 
     /**
      * notifyPushTest acknowledges Front Desk's "Send test" push. It rides the quiet
