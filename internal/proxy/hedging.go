@@ -203,6 +203,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				// The winner's trail record opens here and is closed by the
 				// stream's terminal write, like a sequential attempt's.
 				st.logData.openAttemptRecord(res.idx, candidates[res.idx], true, launchedAt[res.idx], st.circuitBreakerEnabled)
+				st.logData.noteAttemptStatus(res.status)
 				h.serveHedgeWinner(w, r, st, candidates[res.idx], res, stallTimeout)
 				return
 			}

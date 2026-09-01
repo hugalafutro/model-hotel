@@ -189,6 +189,14 @@ type requestLogData struct {
 	openAttempt    *attemptRecord
 	attemptStarted time.Time
 	attemptBreaker string
+	// attemptStatus is the UPSTREAM status the attempt in flight reached
+	// (after the MiniMax remap), stamped as soon as it is known. The terminal
+	// close reads it in preference to statusCode, which by then is the
+	// client-facing status: 0 for a stream that died after its headers, the
+	// gateway's own 502 for a native-Anthropic body that failed to read.
+	// attemptPhrase is the rate-limit phrase a 429 on this attempt matched.
+	attemptStatus int
+	attemptPhrase string
 	// judgeAnswer is the deferred breaker verdict for a non-streaming attempt
 	// (recordAnswerOutcome bound to its candidate). The handler that decodes
 	// the answer also writes the terminal row, and the verdict must land before

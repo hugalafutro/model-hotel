@@ -24,6 +24,11 @@ const BREAKER_VERDICT_KEYS: Record<string, string> = {
 // RequestLogDetail whenever the row carries a trail.
 export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 	const { t } = useTranslation();
+	// Skips first, then by attempt index: a hedged race reports its losers in
+	// arrival order, so the winner (attempt 0) can arrive after a loser
+	// (attempt 1) and would otherwise read backwards. Stable, so equal indices
+	// keep their arrival order.
+	const ordered = [...attempts].sort((x, y) => x.attempt - y.attempt);
 	return (
 		<div className="mb-6" data-testid="attempt-trail">
 			<DetailSectionHeader icon={Layers}>
@@ -31,9 +36,9 @@ export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 				<InfoHint tooltip={t("components.requestLogDetail.attemptTrailHint")} />
 			</DetailSectionHeader>
 			<ol className="space-y-1">
-				{attempts.map((a) => (
+				{ordered.map((a) => (
 					<li
-						key={`${a.attempt}-${a.provider_id}-${a.model}`}
+						key={`${a.attempt}-${a.provider_id}-${a.model}-${a.status ?? 0}-${a.duration_ms}`}
 						className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm p-2 ui-stat-tile"
 						data-testid="attempt-trail-row"
 					>
@@ -50,12 +55,12 @@ export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 							<span className="ui-badge ui-badge-amber text-xs">
 								{t("components.requestLogDetail.attemptSkipped")}
 							</span>
+						) : a.status ? (
+							<StatusBadge code={a.status} state="completed" errorMessage="" />
 						) : (
-							<StatusBadge
-								code={a.status ?? 0}
-								state={a.status ? "completed" : "failed"}
-								errorMessage={a.error_kind ?? ""}
-							/>
+							<span className="ui-badge ui-badge-red text-xs">
+								{t("components.requestLogDetail.attemptNoStatus")}
+							</span>
 						)}
 						{a.hedged && (
 							<span className="ui-badge ui-badge-purple text-xs">

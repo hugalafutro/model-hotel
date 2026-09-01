@@ -124,6 +124,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// here, with the remapped status deciding the clean flag.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 	h.finishAttemptAdmission(st, candidate, resp)
+	logData.noteAttemptStatus(resp.StatusCode)
 
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
@@ -241,7 +242,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// The breaker verdict is deferred to the handler's terminal write, so the
 	// attempt trail's record carries it (see requestLogData.judgeAnswer);
 	// judgeAnswerNow is the fallback for a handler exit that wrote nothing.
-	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode, r)
+	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r.WithContext(failoverCtx), st, resp, attempt, responseHeaderMs)
 		judgeAnswerNow(logData)

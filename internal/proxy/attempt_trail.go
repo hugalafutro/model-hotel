@@ -106,9 +106,45 @@ func (l *requestLogData) openAttemptRecord(attempt int, candidate modelCandidate
 	}
 	l.attemptStarted = startedAt
 	l.attemptBreaker = ""
+	l.attemptStatus = 0
+	l.attemptPhrase = ""
 	if !cbEnabled {
 		l.attemptBreaker = breakerDisabled
 	}
+}
+
+// noteAttemptStatus records the upstream status the attempt in flight
+// reached, once the MiniMax envelope remap has had its say. The terminal
+// close prefers it to the client-facing statusCode.
+func (l *requestLogData) noteAttemptStatus(status int) {
+	if l == nil {
+		return
+	}
+	l.attemptStatus = status
+}
+
+// noteAttemptPhrase records the rate-limit phrase a 429 on the attempt in
+// flight matched, for the terminal close; non-terminal closes take it from
+// the verdict directly.
+func (l *requestLogData) noteAttemptPhrase(phrase string) {
+	if l == nil {
+		return
+	}
+	l.attemptPhrase = phrase
+}
+
+// closeTerminalAttempt closes the attempt in flight from the flat columns at
+// the terminal write, preferring the upstream status and the phrase stamped
+// on the attempt over what the client was answered.
+func (l *requestLogData) closeTerminalAttempt() {
+	if l == nil || l.openAttempt == nil {
+		return
+	}
+	status := l.attemptStatus
+	if status == 0 {
+		status = l.statusCode
+	}
+	l.closeAttemptRecord(status, l.errorKind, l.errorMessage, l.attemptPhrase, l.ttftMs)
 }
 
 // noteBreaker records what the breaker was just told about the attempt in

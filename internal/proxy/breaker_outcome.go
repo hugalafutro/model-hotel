@@ -160,7 +160,7 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // logData.statusCode with the 502 this gateway answers the client, and a
 // translation failure never wrote it at all, and neither is what the
 // provider said.
-func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, status int, r *http.Request) {
+func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, status int) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
@@ -200,8 +200,8 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 // deferAnswerJudgement binds recordAnswerOutcome to the attempt so the
 // terminal write can run it first (see requestLogData.judgeAnswer), and
 // judgeAnswerNow runs it afterwards only if no terminal write did.
-func (h *Handler) deferAnswerJudgement(st *requestState, candidate modelCandidate, logData *requestLogData, status int, r *http.Request) {
-	logData.judgeAnswer = func() { h.recordAnswerOutcome(st, candidate, logData, status, r) }
+func (h *Handler) deferAnswerJudgement(st *requestState, candidate modelCandidate, logData *requestLogData, status int) {
+	logData.judgeAnswer = func() { h.recordAnswerOutcome(st, candidate, logData, status) }
 }
 
 func judgeAnswerNow(logData *requestLogData) {

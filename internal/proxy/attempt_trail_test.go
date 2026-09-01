@@ -405,17 +405,19 @@ func TestStalePhrases(t *testing.T) {
 	saved := rateLimitPhrases
 	rateLimitPhrases = []rateLimitPhrase{
 		{phrase: "seen-recently", class: rateLimitSaturated, provider: "P1", observed: "2026-01-01"},
-		{phrase: "added-recently", class: rateLimitSaturated, provider: "P2", observed: "2026-08-31"},
+		{phrase: "added-recently", class: rateLimitSaturated, provider: "P2", observed: time.Now().Format("2006-01-02")},
 		{phrase: "never-seen", class: rateLimitSaturated, provider: "P3", observed: "2026-01-01"},
 	}
 	t.Cleanup(func() { rateLimitPhrases = saved })
 
-	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	now := time.Now()
 	pool := testDB.Pool()
+	seeded := uuid.New().String()
 	if _, err := pool.Exec(context.Background(), `INSERT INTO request_logs (id, model_id, status_code, created_at, attempts) VALUES ($1, 'stale-test', 200, $2, $3::jsonb)`,
-		uuid.New().String(), now.Add(-24*time.Hour), `[{"attempt":0,"provider_id":"x","provider":"P1","model":"m","status":429,"phrase":"seen-recently","duration_ms":1}]`); err != nil {
+		seeded, now.Add(-24*time.Hour), `[{"attempt":0,"provider_id":"x","provider":"P1","model":"m","status":429,"phrase":"seen-recently","duration_ms":1}]`); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, seeded) })
 
 	stale, err := StalePhrases(context.Background(), pool, now)
 	if err != nil {
@@ -434,12 +436,12 @@ func TestStalePhrases(t *testing.T) {
 func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 	saved := rateLimitPhrases
 	rateLimitPhrases = []rateLimitPhrase{
-		{phrase: "fresh-entry", class: rateLimitSaturated, provider: "P", observed: "2026-08-31"},
+		{phrase: "fresh-entry", class: rateLimitSaturated, provider: "P", observed: time.Now().Format("2006-01-02")},
 	}
 	t.Cleanup(func() { rateLimitPhrases = saved })
 	capt := captureProxyLogs(t)
 	pool := testDB.Pool()
-	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	now := time.Now()
 
 	// Every entry inside the horizon by its own date: nothing to query, nothing
 	// stale, a Debug line only.
@@ -494,4 +496,56 @@ func TestJudgeAnswerNow_ExactlyOnce(t *testing.T) {
 		t.Errorf("runs = %d, judgeAnswer nil = %v; want one run and the hook cleared", runs, l.judgeAnswer == nil)
 	}
 	judgeAnswerNow(&requestLogData{}) // nothing deferred: a no-op
+}
+
+// The terminal attempt keeps what the UPSTREAM said: a 429 that ends the
+// request records the phrase it matched (the staleness report counts it), and
+// a stream that died after its 200 headers records 200, not the 0 the client
+// was answered.
+func TestAttemptTrail_TerminalAttemptKeepsUpstreamFacts(t *testing.T) {
+	t.Run("terminal exhausted 429 carries its phrase", func(t *testing.T) {
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(ollamaExhaustedBody))
+		}))
+		defer upstream.Close()
+		env := newTestProxyEnvWithUpstream(t, upstream)
+		if w := chatRequest(t, env); w.Code != http.StatusTooManyRequests {
+			t.Fatalf("status = %d; body: %s", w.Code, w.Body.String())
+		}
+		got := waitForTrailByProvider(t, env.ProviderID, 1)
+		if len(got) != 1 || got[0].Status != 429 || got[0].Phrase != "session usage limit" || got[0].ErrorKind != string(KindProviderQuotaExhausted) || got[0].Breaker != breakerCharge {
+			t.Errorf("terminal 429 record = %+v, want status 429 with its phrase and a charge", got)
+		}
+	})
+
+	t.Run("a stream that dies after 200 headers records 200", func(t *testing.T) {
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: {\"error\":{\"message\":\"backend exploded mid-stream\"}}\n\n")
+		}))
+		defer upstream.Close()
+		env := newTestProxyEnvWithUpstream(t, upstream)
+		body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true}`
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+		ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+		w := httptest.NewRecorder()
+		env.Handler.ChatCompletions(w, req.WithContext(ctx))
+
+		got := waitForTrailByProvider(t, env.ProviderID, 1)
+		if len(got) != 1 {
+			t.Fatalf("attempts = %+v, want one", got)
+		}
+		var state string
+		if err := testDB.Pool().QueryRow(context.Background(), `SELECT state FROM request_logs WHERE provider_id = $1 ORDER BY created_at DESC LIMIT 1`, env.ProviderID).Scan(&state); err != nil {
+			t.Fatalf("state: %v", err)
+		}
+		if state != "failed" {
+			t.Fatalf("row state = %q, want the in-stream error to fail the request", state)
+		}
+		if got[0].Status != 200 {
+			t.Errorf("terminal record = %+v, want the upstream's 200 kept although the row's status is 0", got[0])
+		}
+	})
 }

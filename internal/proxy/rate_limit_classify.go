@@ -411,6 +411,7 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 	v.classified = true
 	v.detail = body
 	st.rateLimit = v
+	st.logData.noteAttemptPhrase(v.phrase)
 	return v
 }
 

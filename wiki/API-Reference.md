@@ -877,7 +877,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `from` | RFC3339 | - | Start timestamp |
 | `to` | RFC3339 | - | End timestamp |
 | `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |
-| `attempt_status` | integer | - | Select requests with an attempt that reached this upstream status. Combined with `attempt_provider_id`, both must hold on the same attempt ("every request in which Neuralwatt returned 429") |
+| `attempt_status` | positive integer | - | Select requests with an attempt that reached this upstream status (`0`, "no response seen", cannot be selected: such attempts carry no status). Combined with `attempt_provider_id`, both must hold on the same attempt ("every request in which Neuralwatt returned 429") |
 | `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `ttft`, `duration`, `overhead`, `key` |
 | `sort_dir` | string | `desc` | Sort direction: `asc` or `desc` |
 

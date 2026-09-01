@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -58,13 +59,18 @@ func StalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) ([]Sta
 // instant names the phrase. The containment predicate is what the GIN index on
 // attempts serves; created_at bounds the scan the way the logs page does.
 func phraseMatchedSince(ctx context.Context, pool *pgxpool.Pool, phrase string, since time.Time) (bool, error) {
-	needle := fmt.Sprintf(`[{"phrase":%q}]`, phrase)
+	// json.Marshal, not %q: Go's quoting is not JSON quoting, and a phrase
+	// with a byte outside JSON's escapes would abort the whole daily report.
+	needle, err := json.Marshal([]map[string]string{{"phrase": phrase}})
+	if err != nil {
+		return false, err
+	}
 	var matched bool
-	err := pool.QueryRow(ctx, `
+	err = pool.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM request_logs
 			WHERE created_at >= $1 AND attempts @> $2::jsonb
-		)`, since, needle).Scan(&matched)
+		)`, since, string(needle)).Scan(&matched)
 	return matched, err
 }
 

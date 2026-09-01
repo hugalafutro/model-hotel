@@ -78,7 +78,7 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
 			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-			h.recordAnswerOutcome(st, candidate, logData, 200, nil)
+			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
 			if charged != tc.wantCharge {
@@ -109,7 +109,7 @@ func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 	}
 	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID, failover.Cause{})
 
-	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, 200, nil)
+	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, 200)
 
 	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID, failover.Cause{})
 	if h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen {
@@ -128,7 +128,7 @@ func TestRecordAnswerOutcome_AFailedAttemptIsCharged(t *testing.T) {
 	st := &requestState{circuitBreakerEnabled: true, startTime: time.Now()}
 	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
 
-	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, 200, nil)
+	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, 200)
 
 	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a completion that failed after the headers must be charged")
@@ -183,7 +183,7 @@ func TestRecordAnswerOutcome_NoOpWhenTheBreakerIsDisabled(t *testing.T) {
 	providerID := uuid.New()
 
 	h.recordAnswerOutcome(&requestState{circuitBreakerEnabled: false}, modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}},
-		&requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, 200, nil)
+		&requestLogData{state: "failed", errorKind: KindProviderError, providerID: providerID, providerName: "p"}, 200)
 
 	if _, seen := cbConsecutiveFails(cb, providerID); seen {
 		t.Error("the disabled breaker was touched")
@@ -337,7 +337,7 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)).WithContext(ctx)
 
 			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-			h.recordAnswerOutcome(st, candidate, logData, 200, req)
+			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
@@ -378,7 +378,7 @@ func TestRecordAnswerOutcome_OnlyAProviderFaultIsCharged(t *testing.T) {
 			st := &requestState{circuitBreakerEnabled: true}
 			candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
 
-			h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: tc.kind, providerID: providerID, providerName: "p"}, 200, nil)
+			h.recordAnswerOutcome(st, candidate, &requestLogData{state: "failed", errorKind: tc.kind, providerID: providerID, providerName: "p"}, 200)
 
 			_, seen := cbConsecutiveFails(cb, providerID)
 			if seen != tc.wantCharge {
@@ -501,7 +501,7 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(huge)), Header: make(http.Header)}
 
 	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-	h.recordAnswerOutcome(st, candidate, logData, 200, nil)
+	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderBadRequest {
 		t.Errorf("errorKind = %q, want provider_bad_request: refusing a body is this gateway's policy", logData.errorKind)
@@ -752,7 +752,7 @@ func TestHandleNonStreamingResponse_ABodyThatDiedOnTheWireIsCharged(t *testing.T
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
 	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-	h.recordAnswerOutcome(st, candidate, logData, 200, nil)
+	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderError {
 		t.Errorf("errorKind = %q, want provider_error: a dead read is not a parse failure", logData.errorKind)
@@ -946,7 +946,7 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	w := httptest.NewRecorder()
 
 	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
-	h.recordAnswerOutcome(st, candidate, logData, 200, nil)
+	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if !strings.Contains(w.Body.String(), "hello") {
 		t.Errorf("a complete answer was discarded: %q", w.Body.String())

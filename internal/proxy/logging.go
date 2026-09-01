@@ -284,7 +284,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			logEntry.judgeAnswer = nil
 			judge()
 		}
-		logEntry.closeAttemptRecord(logEntry.statusCode, logEntry.errorKind, logEntry.errorMessage, "", logEntry.ttftMs)
+		logEntry.closeTerminalAttempt()
 	}
 
 	if logEntry.id == "" {
