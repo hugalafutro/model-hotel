@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Venster voor recent succes",
 			"recentSuccessWindow.description": "Een niet-herkende 429 van een model dat zo recent nog succesvol antwoordde, geldt als bezet in plaats van opgebruikt: een opgebruikt venster komt niet binnen een minuut terug.",
 			"openOnExhaustion": "Circuit openen bij opgebruikt quotum",
-			"openOnExhaustionDescription": "Wanneer een 429 meldt dat het quotum of saldo op is, wordt het circuit van het model na die ene reactie geopend in plaats van te wachten op de foutdrempel.",
+			"openOnExhaustionDescription": "Wanneer een provider meldt dat het quotum of saldo op is (een 429 over een verbruikt venster, of een 402 die betaling vereist), wordt het circuit van het model na die ene reactie geopend in plaats van te wachten op de foutdrempel.",
 			"exhaustion429": "Bezette groepen met 429 beantwoorden",
 			"exhaustion429Description": "Wanneer alle providers in een groep bezet zijn of op hun quotum wachten, krijgt de client 429 met Retry-After in plaats van 502, zodat hij zelf wacht en opnieuw probeert.",
 			"inflightGroup": "Adaptieve gelijktijdigheid",

@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Vindue for nylig succes",
 			"recentSuccessWindow.description": "Et ukendt 429 fra en model, der har svaret korrekt for så nylig, behandles som optaget frem for opbrugt: et opbrugt vindue kommer ikke tilbage på et minut.",
 			"openOnExhaustion": "Åbn kredsløb ved opbrugt kvote",
-			"openOnExhaustionDescription": "Når et 429 melder, at kvoten eller saldoen er opbrugt, åbnes modellens kredsløb efter det ene svar i stedet for at vente på fejltærsklen.",
+			"openOnExhaustionDescription": "Når en udbyder melder, at dens kvote eller saldo er opbrugt (et 429 om et opbrugt vindue, eller et 402 der kræver betaling), åbnes modellens kredsløb efter det ene svar i stedet for at vente på fejltærsklen.",
 			"exhaustion429": "Svar optagede grupper med 429",
 			"exhaustion429Description": "Når alle udbydere i en gruppe er optagede eller venter på deres kvote, får klienten 429 med Retry-After i stedet for 502, så den selv venter og prøver igen.",
 			"inflightGroup": "Adaptiv samtidighed",

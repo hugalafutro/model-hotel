@@ -344,23 +344,38 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 // or the matched phrase's per-marker default); zero means none. It reaches the
 // cooldown through the same clamps an advisor pin gets, and a real advisor
 // reading always beats it — see applyQuotaPin.
-func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, model string, pinHint time.Duration) {
+// status is the status the upstream actually answered. It is a parameter
+// rather than a constant 429 because exhaustion is a claim, not a number: a 429
+// whose body says the window is spent and a 402 payment_required make the same
+// claim and take the same pin, and stamping every one of them as 429 would put
+// a status the provider never sent into the circuit's cause, the breaker-open
+// log line, the Front Desk circuits ledger and the opens_total metric.
+func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration) {
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
 
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
-	c.note(c.lastCharged, UpstreamStatus(429, causeExhausted))
+	c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
+
+	// by429 feeds the rate-limit-only open streak, so it follows the status the
+	// provider actually sent rather than the fact that this is the exhaustion
+	// path. A 402 is an exhaustion but not a rate limit: counting it would let
+	// repeated payment refusals escalate a streak documented as 429-only, and
+	// that escalation raises the probe-backoff ceiling into a backoff which no
+	// quota lever clears — not ReleaseQuotaPins, not quota_pin_enabled=false —
+	// because those only ever clear a pin.
+	by429 := status == 429
 
 	switch c.state {
 	case StateClosed:
 		c.consecutiveFails = cb.effectiveThreshold()
-		cb.openCircuit(&after, "circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, true, pinHint)
+		cb.openCircuit(&after, "circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, by429, pinHint)
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
 		c.failedProbes++
-		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, true, pinHint)
+		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint)
 	case StateOpen:
 		// Already open — no-op. The quota poller's ApplyQuotaPins retargets an
 		// open circuit when a fresh reading lands; a second exhausted body is

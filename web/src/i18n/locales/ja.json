@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "直近成功ウィンドウ",
 			"recentSuccessWindow.description": "この期間内に正常応答していたモデルからの判別不能な 429 は、枯渇ではなく混雑として扱います。枯渇したウィンドウが 1 分で戻ることはないためです。",
 			"openOnExhaustion": "クォータ枯渇で回路を開く",
-			"openOnExhaustionDescription": "429 がクォータや残高の枯渇を示す場合、失敗しきい値を待たずにその 1 応答でモデルの回路を開きます。",
+			"openOnExhaustionDescription": "プロバイダがクォータや残高の枯渇を示す場合（枯渇したウィンドウを示す 429、または支払いが必要な 402）、失敗しきい値を待たずにその 1 応答でモデルの回路を開きます。",
 			"exhaustion429": "混雑グループには 429 で応答",
 			"exhaustion429Description": "グループ内の全プロバイダーが混雑またはクォータ待ちのとき、クライアントには 502 ではなく Retry-After 付きの 429 を返し、クライアント側で待機と再試行を行わせます。",
 			"inflightGroup": "適応的な同時実行数",

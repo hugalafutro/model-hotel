@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Finestra di successo recente",
 			"recentSuccessWindow.description": "Una 429 non riconosciuta da un modello che ha risposto con successo così di recente viene trattata come saturazione, non esaurimento: una finestra esaurita non torna in un minuto.",
 			"openOnExhaustion": "Apri il circuito a quota esaurita",
-			"openOnExhaustionDescription": "Quando una 429 indica quota o credito esaurito, il circuito del modello si apre con quella singola risposta invece di attendere la soglia di errori.",
+			"openOnExhaustionDescription": "Quando un provider indica quota o credito esaurito (una 429 su una finestra esaurita, o una 402 che richiede il pagamento), il circuito del modello si apre con quella singola risposta invece di attendere la soglia di errori.",
 			"exhaustion429": "Rispondere 429 ai gruppi saturi",
 			"exhaustion429Description": "Quando tutti i provider di un gruppo sono saturi o in attesa della quota, il client riceve 429 con Retry-After invece di 502, così attende e riprova da solo.",
 			"inflightGroup": "Concorrenza adattiva",

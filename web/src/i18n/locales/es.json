@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Ventana de éxito reciente",
 			"recentSuccessWindow.description": "Una 429 no reconocida de un modelo que respondió con éxito hace tan poco se trata como saturación y no como agotamiento: una ventana agotada no vuelve en un minuto.",
 			"openOnExhaustion": "Abrir circuito con cuota agotada",
-			"openOnExhaustionDescription": "Cuando una 429 indica que la cuota o el saldo está agotado, el circuito del modelo se abre con esa única respuesta en lugar de esperar al umbral de fallos.",
+			"openOnExhaustionDescription": "Cuando un proveedor indica que su cuota o saldo está agotado (una 429 sobre una ventana agotada, o una 402 que requiere pago), el circuito del modelo se abre con esa única respuesta en lugar de esperar al umbral de fallos.",
 			"exhaustion429": "Responder 429 a grupos saturados",
 			"exhaustion429Description": "Cuando todos los proveedores de un grupo están saturados o esperando su cuota, el cliente recibe 429 con Retry-After en lugar de 502, para que espere y reintente por su cuenta.",
 			"inflightGroup": "Concurrencia adaptativa",

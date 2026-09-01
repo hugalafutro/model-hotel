@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Venster vir onlangse sukses",
 			"recentSuccessWindow.description": "'n Onherkende 429 van 'n model wat so onlangs suksesvol geantwoord het, word as besig eerder as uitgeput hanteer: 'n uitgeputte venster kom nie binne 'n minuut terug nie.",
 			"openOnExhaustion": "Maak stroombaan oop by uitgeputte kwota",
-			"openOnExhaustionDescription": "Wanneer 'n 429 sê die kwota of saldo is uitgeput, word die model se stroombaan ná daardie enkele antwoord oopgemaak in plaas daarvan om vir die foutdrempel te wag.",
+			"openOnExhaustionDescription": "Wanneer 'n verskaffer sê sy kwota of saldo is uitgeput ('n 429 oor 'n uitgeputte venster, of 'n 402 wat betaling vereis), word die model se stroombaan ná daardie enkele antwoord oopgemaak in plaas daarvan om vir die foutdrempel te wag.",
 			"exhaustion429": "Antwoord besige groepe met 429",
 			"exhaustion429Description": "Wanneer elke verskaffer in 'n groep besig is of vir sy kwota wag, kry die kliënt 429 met Retry-After in plaas van 502, sodat hy self wag en weer probeer.",
 			"inflightGroup": "Aanpasbare gelyktydigheid",

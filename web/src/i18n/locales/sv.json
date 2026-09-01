@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Fönster för nyligen lyckade svar",
 			"recentSuccessWindow.description": "Ett okänt 429 från en modell som svarade korrekt så nyligen behandlas som upptagen snarare än förbrukad: ett förbrukat fönster kommer inte tillbaka på en minut.",
 			"openOnExhaustion": "Öppna krets vid förbrukad kvot",
-			"openOnExhaustionDescription": "När ett 429 anger att kvoten eller saldot är förbrukat öppnas modellens krets efter det enda svaret i stället för att vänta på feltröskeln.",
+			"openOnExhaustionDescription": "När en leverantör anger att kvoten eller saldot är förbrukat (ett 429 om ett förbrukat fönster, eller ett 402 som kräver betalning) öppnas modellens krets efter det enda svaret i stället för att vänta på feltröskeln.",
 			"exhaustion429": "Svara upptagna grupper med 429",
 			"exhaustion429Description": "När alla leverantörer i en grupp är upptagna eller väntar på sin kvot får klienten 429 med Retry-After i stället för 502, så att den själv väntar och försöker igen.",
 			"inflightGroup": "Adaptiv samtidighet",

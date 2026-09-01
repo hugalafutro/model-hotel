@@ -430,6 +430,78 @@ func TestRecordBreakerOutcome_ClassifiedRateLimits(t *testing.T) {
 	})
 }
 
+// A 402 is the provider stating the account cannot pay, which is the same
+// claim an entitled 429 ("insufficient balance") makes — but it arrived as an
+// ordinary charge, so a payment-blocked provider served its threshold of
+// failures, opened on the plain cooldown, and half-opened back to live every
+// cooldown against an account that could not answer. Observed on prod
+// 2026-09-01: NeuralWatt answered 402 for an hour while its circuit flapped.
+func TestRecordBreakerOutcome_PaymentRequired(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	h := env.Handler
+	ctx := context.Background()
+
+	t.Run("opens at once and pins", func(t *testing.T) {
+		cb := failover.NewCircuitBreaker(nil)
+		h.circuitBreaker = cb
+		st := &requestState{circuitBreakerEnabled: true}
+		provID := uuid.New()
+		cand := modelCandidateForBreaker(provID)
+
+		h.recordBreakerOutcome(ctx, st, cand, 402, true, rateLimitVerdict{})
+
+		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateOpen {
+			t.Errorf("state = %v, want open on one payment-required charge", got)
+		}
+		statuses := cb.StatusDetail()
+		if len(statuses) != 1 || len(statuses[0].Circuits) != 1 {
+			t.Fatalf("status = %+v, want one tracked circuit", statuses)
+		}
+		c := statuses[0].Circuits[0]
+		if !c.QuotaPinned {
+			t.Error("a payment-required refusal must pin: retrying cannot succeed until someone pays")
+		}
+		// The recorded cause must name the status the provider actually sent.
+		// Asserting only the state and the pin let a hardcoded 429 through: on
+		// the dev stack a real 402 read back as "upstream status 429
+		// (exhausted)" in the circuit ledger and the opens_total metric.
+		if c.LastCause != "upstream status 402 (exhausted)" || c.LastStatus != 402 {
+			t.Errorf("cause=%q status=%d, want the 402 the provider sent", c.LastCause, c.LastStatus)
+		}
+		// pinHintUntilPaid means "as long as allowed", so the stamped pin must
+		// land at the ceiling, not merely above the ordinary cooldown — a
+		// 61-second pin would clear that weaker bar and still half-open in a
+		// minute. The ceiling is quotaPinMax's 24h default (settings is nil
+		// here); jitter adds up to 5% on top.
+		const pinCeilingMs = int64(24 * 60 * 60 * 1000)
+		if c.CooldownMs < pinCeilingMs || c.CooldownMs > pinCeilingMs*11/10 {
+			t.Errorf("cooldown_ms = %d, want the until-paid pin at the 24h ceiling (+jitter)", c.CooldownMs)
+		}
+	})
+
+	t.Run("open_on_exhaustion off demotes to an ordinary charge", func(t *testing.T) {
+		if err := h.settingsRepo.Set(ctx, "circuit_breaker_open_on_exhaustion", "false"); err != nil {
+			t.Fatalf("failed to disable: %v", err)
+		}
+		defer func() { _ = h.settingsRepo.Set(ctx, "circuit_breaker_open_on_exhaustion", "true") }()
+		cb := failover.NewCircuitBreaker(nil)
+		h.circuitBreaker = cb
+		st := &requestState{circuitBreakerEnabled: true}
+		provID := uuid.New()
+		cand := modelCandidateForBreaker(provID)
+
+		h.recordBreakerOutcome(ctx, st, cand, 402, true, rateLimitVerdict{})
+
+		if fails, seen := cbConsecutiveFails(cb, provID); !seen || fails != 1 {
+			t.Errorf("fails = %d (seen=%v), want the single ordinary charge", fails, seen)
+		}
+		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateClosed {
+			t.Errorf("state = %v, want closed at the default threshold", got)
+		}
+	})
+}
+
 func modelCandidateForBreaker(provID uuid.UUID) modelCandidate {
 	return modelCandidate{
 		model:    &model.Model{ModelID: "rl-model"},

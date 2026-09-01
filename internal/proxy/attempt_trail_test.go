@@ -255,7 +255,7 @@ func TestAttemptTrail_BreakerSkipLeadsTheTrail(t *testing.T) {
 	}))
 	defer upstream.Close()
 	env := buildReplayEnv(t, upstream)
-	env.h.circuitBreaker.RecordExhausted(env.p1ID, "one-slot", "shared-model", 0)
+	env.h.circuitBreaker.RecordExhausted(env.p1ID, "one-slot", "shared-model", 429, 0)
 
 	w := replayRequest(t, env)
 	if w.Code != http.StatusOK {

@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Yakın başarı penceresi",
 			"recentSuccessWindow.description": "Bu kadar yakın zamanda başarıyla yanıt vermiş bir modelden gelen tanınmayan 429, tükenme değil meşguliyet sayılır: tükenmiş bir pencere bir dakikada geri gelmez.",
 			"openOnExhaustion": "Kota tükenince devreyi aç",
-			"openOnExhaustionDescription": "Bir 429 kota veya bakiyenin tükendiğini bildirdiğinde, hata eşiğini beklemeden o tek yanıtla modelin devresi açılır.",
+			"openOnExhaustionDescription": "Bir sağlayıcı kotasının veya bakiyesinin tükendiğini bildirdiğinde (tükenmiş bir pencereyi belirten 429 ya da ödeme gerektiren 402), hata eşiğini beklemeden o tek yanıtla modelin devresi açılır.",
 			"exhaustion429": "Meşgul gruplara 429 ile yanıt ver",
 			"exhaustion429Description": "Bir gruptaki tüm sağlayıcılar meşgulken veya kotalarını beklerken istemciye 502 yerine Retry-After içeren 429 döner; böylece istemci kendi kendine bekleyip yeniden dener.",
 			"inflightGroup": "Uyarlanabilir eşzamanlılık",

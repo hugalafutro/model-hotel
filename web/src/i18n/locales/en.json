@@ -1845,7 +1845,7 @@
 			"recentSuccessWindow": "Recent Success Window",
 			"recentSuccessWindow.description": "An unrecognised 429 from a model that served successfully this recently is treated as busy rather than spent: a spent window does not come back in a minute.",
 			"openOnExhaustion": "Open Circuit on Spent Quota",
-			"openOnExhaustionDescription": "When a 429 says the quota window or balance is spent, open the model's circuit on that single response instead of waiting for the failure threshold.",
+			"openOnExhaustionDescription": "When a provider says its quota or balance is spent (a spent-window 429, or a 402 payment required), open the model's circuit on that single response instead of waiting for the failure threshold.",
 			"exhaustion429": "Answer Busy Groups With 429",
 			"exhaustion429Description": "When every provider in a group is busy or waiting out a spent quota, answer the client with 429 and a Retry-After instead of 502, so clients back off and retry on their own.",
 			"inflightGroup": "Adaptive Concurrency",
