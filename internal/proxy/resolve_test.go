@@ -737,7 +737,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 	// Charged under the model's resolved upstream id, which is the key the skip
 	// in buildFailoverCandidates reads.
 	for range 5 {
-		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name, testModel.ModelID)
+		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name, testModel.ModelID, failover.Cause{})
 	}
 
 	candidates, _, _, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
@@ -1183,7 +1183,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpen(t *testing.T) {
 	}
 
 	// Open the circuit breaker
-	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID)
+	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID, failover.Cause{})
 
 	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, true, &breakerSkipSummary{})
 
@@ -1223,7 +1223,7 @@ func TestBuildFailoverCandidates_CircuitBreakerOpenButDisabled(t *testing.T) {
 	}
 
 	// Open the circuit breaker
-	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID)
+	cb.RecordFailure(providerID, providerName, models[modelUUID].ModelID, failover.Cause{})
 
 	// cbEnabled=false → circuit breaker should be skipped
 	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false, &breakerSkipSummary{})

@@ -26,14 +26,14 @@ func TestCircuitBreaker_OpensAfterThreshold(t *testing.T) {
 	cb := newTestCB(3, 30*time.Second)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "")
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should not be open after 2 failures (threshold=3)")
 	}
 
-	cb.RecordFailure(pid, "test-provider", "") // 3rd failure → opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // 3rd failure → opens
 
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be open after 3 consecutive failures")
@@ -48,19 +48,19 @@ func TestCircuitBreaker_SuccessResetsFailures(t *testing.T) {
 	pid := uuid.New()
 
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 	cb.RecordSuccess(pid, "test-provider", "") // resets counter
 
 	// Need 5 more failures to open
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should still be closed — only 4 failures after reset")
 	}
 
-	cb.RecordFailure(pid, "test-provider", "") // 5th → opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // 5th → opens
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be open after 5 consecutive failures post-reset")
 	}
@@ -70,7 +70,7 @@ func TestCircuitBreaker_TransitionsToHalfOpen(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // threshold=1 → opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // threshold=1 → opens
 
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("should be open")
@@ -88,7 +88,7 @@ func TestCircuitBreaker_HalfOpenProbeSuccess(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	time.Sleep(60 * time.Millisecond)
 	cb.IsOpen(pid, "test-provider", "") // triggers Open→HalfOpen
 
@@ -106,11 +106,11 @@ func TestCircuitBreaker_HalfOpenProbeFailure(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	time.Sleep(60 * time.Millisecond)
 	cb.IsOpen(pid, "test-provider", "") // triggers Open→HalfOpen
 
-	cb.RecordFailure(pid, "test-provider", "") // probe fails → re-opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // probe fails → re-opens
 
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be re-opened after failed probe")
@@ -126,7 +126,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("should be open")
 	}
@@ -152,7 +152,7 @@ func TestCircuitBreaker_ResetReportsPreResetState(t *testing.T) {
 	}
 
 	belowThreshold := uuid.New()
-	cb.RecordFailure(belowThreshold, "test-provider", "") // 1 of 2: still closed
+	cb.RecordFailure(belowThreshold, "test-provider", "", Cause{}) // 1 of 2: still closed
 	if prev := cb.Reset(belowThreshold); prev != StateClosed {
 		t.Errorf("below-threshold circuit: Reset = %v, want closed", prev)
 	}
@@ -161,7 +161,7 @@ func TestCircuitBreaker_ResetReportsPreResetState(t *testing.T) {
 	// (Status, GetState); Reset must not disagree with them.
 	readyToProbe := uuid.New()
 	cbShort := newTestCB(1, time.Millisecond)
-	cbShort.RecordFailure(readyToProbe, "test-provider", "")
+	cbShort.RecordFailure(readyToProbe, "test-provider", "", Cause{})
 	time.Sleep(5 * time.Millisecond)
 	if prev := cbShort.Reset(readyToProbe); prev != StateHalfOpen {
 		t.Errorf("cooldown-elapsed circuit: Reset = %v, want half-open", prev)
@@ -172,8 +172,8 @@ func TestCircuitBreaker_ResetAll(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	p1, p2 := uuid.New(), uuid.New()
 
-	cb.RecordFailure(p1, "test-provider", "")
-	cb.RecordFailure(p2, "test-provider", "")
+	cb.RecordFailure(p1, "test-provider", "", Cause{})
+	cb.RecordFailure(p2, "test-provider", "", Cause{})
 
 	cleared, recovered := cb.ResetAll()
 	if cleared != 2 || recovered != 2 {
@@ -192,9 +192,9 @@ func TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered(t *testing
 	cb := newTestCB(2, 30*time.Second)
 	open, healthy := uuid.New(), uuid.New()
 
-	cb.RecordFailure(open, "test-provider", "")
-	cb.RecordFailure(open, "test-provider", "") // reaches threshold: opens
-	cb.RecordFailure(healthy, "test-provider", "")
+	cb.RecordFailure(open, "test-provider", "", Cause{})
+	cb.RecordFailure(open, "test-provider", "", Cause{}) // reaches threshold: opens
+	cb.RecordFailure(healthy, "test-provider", "", Cause{})
 
 	if !cb.IsOpen(open, "test-provider", "") {
 		t.Fatal("setup: circuit should be open")
@@ -217,7 +217,7 @@ func TestCircuitBreaker_Status(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 
 	statuses := cb.Status()
 	if len(statuses) != 1 {
@@ -241,7 +241,7 @@ func TestCircuitBreaker_Status_ReportsLogicalHalfOpen(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 
 	// Before cooldown elapses, it reports as open.
 	if statuses := cb.Status(); statuses[0].State != "open" {
@@ -282,7 +282,7 @@ func TestCircuitBreaker_FailureCountAccuracy(t *testing.T) {
 	pid := uuid.New()
 
 	for range 4 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 	statuses := cb.Status()
 	if len(statuses) != 1 {
@@ -303,11 +303,11 @@ func TestCircuitBreaker_SettingsOverrideThreshold(t *testing.T) {
 
 	// Default struct threshold is 5, but settings override to 2.
 	// After 2 failures, the circuit should open.
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should still be closed after 1 failure (threshold=2)")
 	}
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be open after 2 failures (settings threshold=2)")
 	}
@@ -319,7 +319,7 @@ func TestCircuitBreaker_SettingsOverrideCooldown(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit.
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("should be open after 1 failure")
 	}
@@ -347,14 +347,14 @@ func TestCircuitBreaker_ContextCancellationSkipContract(t *testing.T) {
 	cb := newTestCB(3, 30*time.Second)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "")
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should not be open after 2 failures (threshold=3)")
 	}
 
-	cb.RecordFailure(pid, "test-provider", "") // 3rd failure → opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // 3rd failure → opens
 
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be open after 3 consecutive failures")
@@ -364,8 +364,8 @@ func TestCircuitBreaker_ContextCancellationSkipContract(t *testing.T) {
 	// does for context errors) means the circuit stays closed.
 	cb.Reset(pid)
 
-	cb.RecordFailure(pid, "test-provider", "")
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	// 3rd "failure" was a context cancellation → RecordFailure NOT called
 	// So we're at 2 failures, not 3. Circuit should remain closed.
 
@@ -383,12 +383,12 @@ func TestCircuitBreaker_NilSettingsUsesDefaults(t *testing.T) {
 
 	// With nil settings, effective methods should return struct defaults.
 	for range 2 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 	if cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be closed after 2/3 failures")
 	}
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Error("should be open after 3/3 failures (struct default)")
 	}
@@ -473,7 +473,7 @@ func TestCircuitBreaker_IsOpen_OpenStillWithinCooldown(t *testing.T) {
 	cb := newTestCB(1, 10*time.Second) // long cooldown
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens the circuit
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens the circuit
 
 	// Immediately after opening, cooldown has not elapsed.
 	if !cb.IsOpen(pid, "test-provider", "") {
@@ -495,7 +495,7 @@ func TestCircuitBreaker_IsOpen_HalfOpenState(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	if !cb.IsOpen(pid, "test-provider", "") {
 		t.Fatal("should be open after 1 failure")
 	}
@@ -527,9 +527,9 @@ func TestCircuitBreaker_IsOpen_MultipleProviders(t *testing.T) {
 	pid3 := uuid.New()
 
 	// Open only pid1
-	cb.RecordFailure(pid1, "test-provider", "")
-	cb.RecordFailure(pid1, "test-provider", "")
-	cb.RecordFailure(pid1, "test-provider", "")
+	cb.RecordFailure(pid1, "test-provider", "", Cause{})
+	cb.RecordFailure(pid1, "test-provider", "", Cause{})
+	cb.RecordFailure(pid1, "test-provider", "", Cause{})
 
 	// pid2 and pid3 should remain closed
 	if !cb.IsOpen(pid1, "test-provider", "") {
@@ -557,7 +557,7 @@ func TestCircuitBreaker_IsOpen_OpenToHalfOpenTransition(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	// Verify it's open
 	if !cb.IsOpen(pid, "test-provider", "") {
@@ -604,7 +604,7 @@ func TestGetState_OpenCircuitBeforeCooldown(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // threshold=1 → opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // threshold=1 → opens
 
 	// Immediately after opening (no cooldown elapsed), GetState should return StateOpen
 	if s := cb.GetState(pid, ""); s != StateOpen {
@@ -617,8 +617,8 @@ func TestGetState_OpenCircuitAfterCooldown(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
-	time.Sleep(60 * time.Millisecond)          // wait for cooldown
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
+	time.Sleep(60 * time.Millisecond)                   // wait for cooldown
 
 	// After cooldown, GetState should return StateHalfOpen (logical transition)
 	if s := cb.GetState(pid, ""); s != StateHalfOpen {
@@ -631,7 +631,7 @@ func TestGetState_DoesNotMutateInternalState(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 
 	// Wait for cooldown
 	time.Sleep(60 * time.Millisecond)
@@ -656,8 +656,8 @@ func TestGetState_ClosedCircuitAfterSuccess(t *testing.T) {
 	pid := uuid.New()
 
 	// Record some failures but not enough to open
-	cb.RecordFailure(pid, "test-provider", "")
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	if s := cb.GetState(pid, ""); s != StateClosed {
 		t.Errorf("expected StateClosed after 2/3 failures, got %v", s)
@@ -669,7 +669,7 @@ func TestGetState_HalfOpenTransitionsToClosedOnSuccess(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	time.Sleep(60 * time.Millisecond)
 
 	// Transition to half-open via IsOpen (which mutates internal state)
@@ -688,14 +688,14 @@ func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	time.Sleep(60 * time.Millisecond)
 
 	// Transition to half-open via IsOpen (which mutates internal state)
 	cb.IsOpen(pid, "test-provider", "")
 
 	// Record failure in half-open state → should re-open
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	if s := cb.GetState(pid, ""); s != StateOpen {
 		t.Errorf("expected StateOpen after failed probe in half-open, got %v", s)
@@ -754,7 +754,7 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	cb.SetQuotaAdvisor(stubAdvisor{ok: false}) // advice withdrawn; plain cooldown now
 	cb.circuits[id.String()][""].cooldownOverride = 0
 	cb.circuits[id.String()][""].state = StateHalfOpen
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 
 	recs = capt.forProvider(id)
 	if len(recs) != 2 {
@@ -821,8 +821,8 @@ func TestOnOpen_FiresOnClosedToOpen(t *testing.T) {
 	got := make(chan uuid.UUID, 1)
 	cb.SetOnOpen(func(providerID uuid.UUID) { got <- providerID })
 
-	cb.RecordFailure(id, "test-provider", "")
-	cb.RecordFailure(id, "test-provider", "") // threshold reached → opens
+	cb.RecordFailure(id, "test-provider", "", Cause{})
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // threshold reached → opens
 
 	if reported := waitForOnOpen(t, got); reported != id {
 		t.Errorf("callback got provider %s, want %s", reported, id)
@@ -837,7 +837,7 @@ func TestOnOpen_FiresOnHalfOpenToOpen(t *testing.T) {
 	cb := newTestCB(1, 0) // zero cooldown: the first IsOpen call hands out a probe
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "") // closed→open, no callback installed yet
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // closed→open, no callback installed yet
 
 	got := make(chan uuid.UUID, 1)
 	cb.SetOnOpen(func(providerID uuid.UUID) { got <- providerID })
@@ -849,7 +849,7 @@ func TestOnOpen_FiresOnHalfOpenToOpen(t *testing.T) {
 		t.Fatalf("setup: got state %v, want half-open", s)
 	}
 
-	cb.RecordFailure(id, "test-provider", "") // probe fails → half-open→open
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // probe fails → half-open→open
 
 	if reported := waitForOnOpen(t, got); reported != id {
 		t.Errorf("callback got provider %s, want %s", reported, id)
@@ -863,7 +863,7 @@ func TestOnOpen_NoCallbackIsSafe(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 
 	if s := cb.GetState(id, ""); s != StateOpen {
 		t.Errorf("got state %v, want open", s)

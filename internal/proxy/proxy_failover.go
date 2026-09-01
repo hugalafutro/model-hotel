@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -234,7 +235,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		} else if err := translateResponsesResponseBody(resp, st.reqModel); err != nil {
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
-			return h.rejectUntranslatableBody(st, candidate, logData, "responses api", err, attempt, r)
+			return h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
 		}
 	}
 	if st.geminiAttempt {
@@ -242,7 +243,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "gemini", err, attempt, r)
+			return h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -250,7 +251,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", err, attempt, r)
+			return h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
 		}
 	}
 	if st.isStreaming {
@@ -277,7 +278,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// producedOutput is where that line is drawn.
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r.WithContext(failoverCtx), st, resp, attempt, responseHeaderMs)
-		h.recordAnswerOutcome(st, candidate, logData, r)
+		h.recordAnswerOutcome(st, candidate, logData, resp.StatusCode, r)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
 		}
@@ -289,7 +290,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// bare client request made this gateway's own request_timeout look like the
 	// provider dying.
 	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
-	h.recordAnswerOutcome(st, candidate, logData, r)
+	h.recordAnswerOutcome(st, candidate, logData, resp.StatusCode, r)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
@@ -416,7 +417,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "TTFT probe failed"})
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
@@ -783,7 +784,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// retry never counts against the provider.
 		if !isContextErr {
 			if st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				// No status: the request never completed, so there is none.
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Reason: "upstream request failed"})
 			}
 		}
 		return nil, false

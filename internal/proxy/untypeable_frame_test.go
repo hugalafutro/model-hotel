@@ -603,7 +603,7 @@ func TestHandleStreamingResponse_UnreadableFramesTellTheBreakerNothing(t *testin
 			h.insertRequestLogAsync(logData)
 			// One failure on the clock. Only a recorded SUCCESS clears it, so
 			// whether the second failure opens the circuit reports the verdict.
-			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider", "")
+			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider", "", failover.Cause{})
 
 			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.body))}
 			h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), logData, resp, time.Now(), streamOptions{
@@ -618,7 +618,7 @@ func TestHandleStreamingResponse_UnreadableFramesTellTheBreakerNothing(t *testin
 			if got := h.circuitBreaker.GetState(providerID, ""); got == failover.StateOpen {
 				t.Fatal("a frame the gateway forwarded must never be charged to the provider")
 			}
-			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider", "")
+			h.circuitBreaker.RecordFailure(providerID, "wide-shape-provider", "", failover.Cause{})
 			cleared := h.circuitBreaker.GetState(providerID, "") != failover.StateOpen
 			if cleared != tc.wantCleared {
 				t.Errorf("failure streak cleared = %v, want %v", cleared, tc.wantCleared)

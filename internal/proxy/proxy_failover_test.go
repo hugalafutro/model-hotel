@@ -176,9 +176,9 @@ func TestRecordBreakerOutcome_TheCreditLandsOnTheChargedModel(t *testing.T) {
 				provider: &provider.Provider{ID: provID, Name: "p"},
 			}
 
-			cb.RecordFailure(provID, "p", cand.model.ModelID)
+			cb.RecordFailure(provID, "p", cand.model.ModelID, failover.Cause{})
 			h.recordBreakerOutcome(context.Background(), st, cand, tc.status, tc.eligible, rateLimitVerdict{})
-			cb.RecordFailure(provID, "p", cand.model.ModelID)
+			cb.RecordFailure(provID, "p", cand.model.ModelID, failover.Cause{})
 
 			if got := cb.GetState(provID, cand.model.ModelID); got == failover.StateOpen {
 				t.Error("the credit missed the charged model's circuit: an erased failure was still on the clock")

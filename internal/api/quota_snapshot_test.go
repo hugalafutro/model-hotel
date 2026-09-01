@@ -473,7 +473,8 @@ type pinReleaseRecorder struct {
 	allCalls int
 }
 
-func (p *pinReleaseRecorder) Status() []failover.ProviderStatus { return nil }
+func (p *pinReleaseRecorder) Status() []failover.ProviderStatus       { return nil }
+func (p *pinReleaseRecorder) StatusDetail() []failover.ProviderStatus { return nil }
 
 func (p *pinReleaseRecorder) Reset(uuid.UUID) failover.State {
 	panic("the quota refresh must never reset a circuit")
@@ -656,7 +657,7 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 				}
 			}
 		}
-		cb.RecordFailure(ids[i], c.name, "")
+		cb.RecordFailure(ids[i], c.name, "", failover.Cause{})
 	}
 
 	pinned := pinnedByProvider(cb)
@@ -751,7 +752,7 @@ func TestRefreshQuotaAdvice_FleetImportedFailureMarkerRetainsPin(t *testing.T) {
 			t.Fatalf("import %s: want 200, got %d: %s", c.name, rr.Code, rr.Body.String())
 		}
 
-		cb.RecordFailure(ids[i], c.name, "")
+		cb.RecordFailure(ids[i], c.name, "", failover.Cause{})
 	}
 
 	pinned := pinnedByProvider(cb)
@@ -798,7 +799,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed exhausted snapshot: %v", err)
 	}
-	cb.RecordFailure(spentID, "zai-still-spent", "")
+	cb.RecordFailure(spentID, "zai-still-spent", "", failover.Cause{})
 
 	// While polling runs, this provider's pin survives every refresh: it is
 	// still exhausted, which is affirmative evidence in the other direction.
@@ -1160,7 +1161,7 @@ func TestNudgeQuotaPoll_RetargetsAnAlreadyOpenCircuit(t *testing.T) {
 	// The advisor is empty until the nudge refreshes it, so this open is
 	// necessarily unpinned and lands on the 60s default cooldown.
 	for i := 0; i < 5; i++ {
-		cb.RecordFailure(id, "zai-repin", "")
+		cb.RecordFailure(id, "zai-repin", "", failover.Cause{})
 	}
 
 	deadline := time.Now().Add(5 * time.Second)

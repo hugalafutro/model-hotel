@@ -126,7 +126,7 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin("circuit-breaker: quota pin released (provider no longer exhausted)", id, model, c, r)
+			cb.releasePin(causePinReleasedQuota, id, model, c, r)
 			released++
 		}
 	}
@@ -203,6 +203,10 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 			}
 			c.cooldownOverride = d
 			c.pinSource = pinSourceAdvisor
+			// A transition with no request behind it: the wait changed, and the
+			// status the open recorded stays, so the row still says what opened
+			// the circuit as well as what is now holding it.
+			c.note(time.Now(), Cause{Status: c.lastStatus, Reason: causePinRetargeted})
 			retargeted++
 			// The open transition already logged a cooldown_ms that is now wrong,
 			// and the corrected one can mean hours of darkness, so an operator gets
@@ -242,17 +246,18 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin("circuit-breaker: quota pin released (quota polling disabled)", id, model, c, r)
+			cb.releasePin(causePinReleasedOff, id, model, c, r)
 			released++
 		}
 	}
 	return released
 }
 
-// releasePin drops one circuit's quota override and logs it. The message names
-// the reason rather than being assembled from parts: an operator reading "pin
-// released" needs to know whether the provider recovered or whether the poller
-// was switched off, because only one of those means the window is actually back.
+// releasePin drops one circuit's quota override, logs it and records it as the
+// circuit's last verdict. The reason is a named phrase rather than being
+// assembled from parts: an operator reading "pin released" needs to know
+// whether the provider recovered or whether the poller was switched off,
+// because only one of those means the window is actually back.
 //
 // The open transition logged a cooldown_ms that may have promised hours of
 // darkness, so the line that says it ended early is logged at the same Info
@@ -260,8 +265,9 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 // falls back to, which is its backoff when one is in force: a recovered quota
 // does not undo the probes that failed. Routing metadata only — never payload
 // or credentials. Must be called with cb.mu held.
-func (cb *CircuitBreaker) releasePin(msg, providerID, model string, c *circuit, r *cooldownReads) {
+func (cb *CircuitBreaker) releasePin(reason, providerID, model string, c *circuit, r *cooldownReads) {
 	c.cooldownOverride = 0
 	c.pinSource = ""
-	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalStateWith(c, r).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, r).Milliseconds(), "model", model)
+	c.note(time.Now(), Cause{Status: c.lastStatus, Reason: reason})
+	debuglog.Info("circuit-breaker: "+reason, "provider_id", providerID, "state", cb.logicalStateWith(c, r).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, r).Milliseconds(), "model", model)
 }

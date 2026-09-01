@@ -135,7 +135,7 @@ func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
 func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
 	t.Helper()
 	for i := 0; i < cb.effectiveThreshold(); i++ {
-		cb.RecordFailure(id, "test-provider", "")
+		cb.RecordFailure(id, "test-provider", "", Cause{})
 	}
 	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Fatalf("setup: got state %v, want open", got)

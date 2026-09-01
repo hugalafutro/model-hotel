@@ -13,6 +13,9 @@ import (
 // CircuitBreakerReader provides read-only access to circuit breaker status.
 type CircuitBreakerReader interface {
 	Status() []failover.ProviderStatus
+	// StatusDetail is Status with every row's circuits[] filled in; only the
+	// detail response pays for it.
+	StatusDetail() []failover.ProviderStatus
 }
 
 // CircuitBreakerResetter clears breaker state so an operator can force a
@@ -102,7 +105,11 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	resp := CircuitBreakerStatusResponse{}
 	trackedProviders := make([]failover.ProviderStatus, 0)
 	if h.cb != nil {
-		trackedProviders = h.cb.Status()
+		if wantDetail {
+			trackedProviders = h.cb.StatusDetail()
+		} else {
+			trackedProviders = h.cb.Status()
+		}
 		for _, s := range trackedProviders {
 			switch s.State {
 			case failover.StateClosed.String():

@@ -87,6 +87,36 @@ export interface CircuitBreakerProviderStatus {
 	// counted from; circuits owed a probe are not in it, because they block
 	// nothing.
 	open_models?: string[];
+	// Every circuit the row above is built from, sorted by model, each with its
+	// own state, wait and last verdict. Additive: open_models stays what
+	// entryCircuitStatus keys on, and a member from before this field simply
+	// omits it, so a consumer must fall back to open_models when it is absent.
+	circuits?: CircuitStatus[];
+}
+// One (provider, resolved upstream model) circuit as the detail endpoint
+// reports it. The row-level fields above describe the provider's most
+// degraded circuit; these are the same fields at the level the breaker keeps
+// them, plus the verdict that last landed on the circuit.
+export interface CircuitStatus {
+	model: string;
+	state: "closed" | "open" | "half-open";
+	consecutive_fails: number;
+	opened_at?: string;
+	cooldown_ms?: number;
+	next_retry_at?: string;
+	// The overrides governing THIS circuit's cooldown, unlike the row's
+	// quota_pinned, which is the verdict's "any blocking circuit is pinned" arm.
+	quota_pinned?: boolean;
+	pin_source?: "advisor" | "response";
+	backed_off?: boolean;
+	failed_probes?: number;
+	// Why the circuit was last charged, credited, pinned or released ("upstream
+	// status 429 (saturated)", "success", "quota pin retargeted (advisor)"),
+	// the upstream status behind it (omitted when none was seen) and when. For
+	// an open circuit this is why it opened.
+	last_cause?: string;
+	last_status?: number;
+	last_at?: string;
 }
 // Outcome of an operator forcing one provider's circuit back closed.
 // previous_state is what the breaker reported a moment before the reset, and

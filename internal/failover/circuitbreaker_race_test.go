@@ -20,7 +20,7 @@ func TestCircuitBreaker_Concurrent(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			cb.RecordFailure(pid, "test-provider", "")
+			cb.RecordFailure(pid, "test-provider", "", Cause{})
 		}()
 		go func() {
 			defer wg.Done()
@@ -48,7 +48,7 @@ func TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently(t *testing.T) {
 	cb := newTestCB(1, 50*time.Millisecond)
 	pid := uuid.New()
 
-	cb.RecordFailure(pid, "test-provider", "") // opens
+	cb.RecordFailure(pid, "test-provider", "", Cause{}) // opens
 	time.Sleep(60 * time.Millisecond)
 	cb.IsOpen(pid, "test-provider", "") // triggers transition to half-open
 
@@ -76,7 +76,7 @@ func TestCircuitBreaker_IsOpen_Concurrent(t *testing.T) {
 
 	// Pre-populate with some failures but not enough to open
 	for range 50 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 
 	var wg sync.WaitGroup
@@ -103,7 +103,7 @@ func TestCircuitBreaker_IsOpen_RaceWithRecordSuccess(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	time.Sleep(60 * time.Millisecond)
 
 	// Trigger transition to half-open
@@ -152,7 +152,7 @@ func TestGetState_ConcurrentReads(t *testing.T) {
 
 	// Pre-populate with some failures
 	for range 50 {
-		cb.RecordFailure(pid, "test-provider", "")
+		cb.RecordFailure(pid, "test-provider", "", Cause{})
 	}
 
 	var wg sync.WaitGroup

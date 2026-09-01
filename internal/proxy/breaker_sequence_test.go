@@ -152,8 +152,8 @@ func TestChatCompletions_CircuitBreakerSequence_FailoverThen200(t *testing.T) {
 	// Seeded on model2's resolved upstream id: circuits are keyed per model, so a
 	// seed under any other key is a different circuit and the success under test
 	// would have nothing to reset.
-	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID)
-	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID)
+	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID, failover.Cause{})
+	cb.RecordFailure(provider2.ID, provider2Name, model2.ModelID, failover.Cause{})
 	if f, _ := cbConsecutiveFails(cb, provider2.ID); f != 2 {
 		t.Fatalf("pre-seed sanity: expected provider2 consecutiveFails=2, got %d", f)
 	}
@@ -226,8 +226,8 @@ func TestChatCompletions_CircuitBreakerSequence_400RetryThen200(t *testing.T) {
 	// Pre-seed 2 failures (< threshold 5 → still Closed) so the expected
 	// RecordSuccess on the 200 retry is observable as a reset to 0. env.ModelName
 	// is the resolved upstream model id, which is the circuit the retry credits.
-	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName)
-	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName)
+	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName, failover.Cause{})
+	cb.RecordFailure(env.ProviderID, env.ProviderName, env.ModelName, failover.Cause{})
 
 	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "stream": false, "messages": [{"role": "user", "content": "hi"}], "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))

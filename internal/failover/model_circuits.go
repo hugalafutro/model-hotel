@@ -54,7 +54,8 @@ type circuit struct {
 	cooldownBackoff time.Duration
 	// lastCharged is when a failure or success last landed on this circuit. It
 	// orders eviction, so the circuits that are dropped when a provider exceeds
-	// the cap are the ones nothing has routed to in the longest time.
+	// the cap are the ones nothing has routed to in the longest time. A
+	// saturated 429 is neither and leaves it alone (see RecordSaturated).
 	lastCharged time.Time
 	// lastSuccess is when a success last landed on this circuit. It backs the
 	// 429 behavioural fallback (LastSuccessWithin): a rate limit from a model
@@ -65,6 +66,15 @@ type circuit struct {
 	// itself). Empty when no pin is stamped. Observability only; the pin's
 	// mechanics do not read it.
 	pinSource string
+	// lastCause, lastStatus and lastAt are the circuit's most recent verdict:
+	// why it was last charged, credited, pinned or released, the upstream
+	// status behind that (0 when none was seen) and when it landed. Like
+	// pinSource they are observability only; nothing in the breaker's mechanics
+	// reads them. They are what lets a status row, an event and an alert say
+	// WHY a circuit is open rather than only that it is (see Cause).
+	lastCause  string
+	lastStatus int
+	lastAt     time.Time
 	// opens429Streak counts consecutive rate-limit-caused opens inside the
 	// window that began at open429WindowStart. Any open with another cause, or
 	// the window running out, resets it. From the third such open the circuit

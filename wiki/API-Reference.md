@@ -1474,6 +1474,8 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `model` | string | always | The resolved upstream model id whose circuit changed state (the id sent upstream, never a `hotel/` alias) |
 | `model_id` | string | on `closed` always; on `open` unless `provider_open` is `true` | The same value as `model`, carried separately because it is the identity outbound alerts debounce on, so two models opening on one provider inside the alert cooldown notify separately. Omitted from an `open` once the provider itself is skipped, so a provider outage debounces as one fact on `provider_id` rather than once per model; a `closed` always carries it, so two recoveries are two notifications |
 | `state` | string | always | `open` or `closed` |
+| `cause` | string | always | The verdict that produced the transition: why the circuit opened (`upstream status 503`, `upstream status 429 (saturated)`, `response failed after headers`, ...) or what closed it (`success`). A fixed phrase chosen by the gateway, never provider text; see [Why a circuit is open](Failover-and-Hotel-Routing#why-a-circuit-is-open) |
+| `status` | int | always | The upstream HTTP status behind `cause`; `0` when no response was seen |
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped. One model's circuit opening does not skip the provider until `circuit_breaker_span_models` of them are open, so this is `false` on most `circuit_breaker.open` events |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is in force on this circuit |

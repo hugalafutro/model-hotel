@@ -606,6 +606,26 @@ The span default of `2` is the smallest number that requires corroboration: one 
 
 The dashboard reads it the same way. The **red number** in the Failover nav badge counts providers the breaker is skipping - the derived verdict, read off the `provider_open` field of the detail rows - and the amber number beside it counts providers that hold an open or probing circuit but are still routing. The status endpoint's own `closed` / `half_open` / `open` counts are per-circuit-state tallies of the most degraded circuit per provider, which is a different question: a provider serving three models with one dark appears under `open` there and in the **amber** number here.
 
+### Why a circuit is open
+
+Every circuit remembers its last verdict: the reason it was last charged, credited, pinned or released, the upstream HTTP status behind that (0 when no response was seen) and when it landed. The reason is always a fixed phrase chosen by the gateway, never text copied from a provider response, so it can carry neither a prompt echo nor a credential into a status page or an alert.
+
+| Cause | Recorded when |
+|-------|---------------|
+| `upstream status 503` (any status) | A failover-eligible status was charged to the circuit |
+| `upstream status 429 (saturated)` | A 429 the classifier read as load. The circuit is neither charged nor credited, only the verdict is remembered, so a closed circuit whose last answers were all 429s can be told apart from a healthy one |
+| `upstream status 429 (exhausted)` | A 429 the classifier read as a spent window; the circuit opened outright |
+| `upstream status 429 (unrecognised)` | A 429 the classifier could not read, charged like any failure |
+| `upstream status 429 (exhausted, not opened by setting)` | An exhausted 429 charged as an ordinary failure because `circuit_breaker_open_on_exhaustion` is off |
+| `response failed after headers`, `response completed without delivering content`, `upstream body could not be translated`, `upstream body read failed` | A 2xx whose body then failed the gateway's own checks; `status` is the 2xx |
+| `TTFT probe failed`, `hedged TTFT probe failed`, and the stream verdict's own reasons | A stream that stalled before its first token or died on the wire |
+| `upstream request failed` | The request never completed; `status` is 0 |
+| `success` | A completion the breaker credited |
+| `upstream status 400 (alive)` (any non-eligible status) | A response that proved the provider alive without serving anything |
+| `quota pin retargeted (advisor)`, `quota pin released (...)` | The quota poller changed the wait of an already-open circuit; `status` keeps the value of the response that opened it |
+
+`GET /api/failover-groups/circuit-breaker-status?detail=1` lists every circuit behind a provider row under `circuits[]`, sorted by model, each with its own `state`, `consecutive_fails`, `opened_at` / `cooldown_ms` / `next_retry_at` (while the wait is enforced), `quota_pinned` / `pin_source` / `backed_off` / `failed_probes` (the overrides governing that circuit), and `last_cause` / `last_status` / `last_at`. The open entries in `circuits[]` are exactly `open_models`, which stays what the dashboard keys on; a member from before this field simply omits it. The `circuit_breaker.open` event and the `model state=...→open` log line carry the same `cause` and `status`, and the event's message names the cause, so an outbound alert reads `Provider Neuralwatt circuit breaker: open for model glm-5.3: upstream status 429 (saturated)` rather than only `open`.
+
 ### Failover Integration
 
 Blocked candidates are filtered out during provider resolution:
@@ -698,7 +718,7 @@ The circuit breaker publishes real-time events via the SSE event bus:
 
 | Event | When |
 |-------|------|
-| `circuit_breaker.open` | One model circuit transitions from Closed to Open. `provider_open` says whether that also takes the whole provider out |
+| `circuit_breaker.open` | One model circuit transitions from Closed to Open. `provider_open` says whether that also takes the whole provider out, and the message names the cause after a colon (`... open for model glm-5.3: upstream status 429 (saturated)`), which is what an outbound alert renders |
 | `circuit_breaker.closed` | One model circuit recovers (Half-Open → Closed) |
 | `circuit_breaker.unstable` | One model circuit has opened 3 times inside 24 hours, so every cooldown it serves out returns it to service still broken |
 
@@ -732,6 +752,8 @@ These events appear in the real-time sidebar and dashboard.
 | `model` | string | always | The resolved upstream model id whose circuit changed state |
 | `model_id` | string | on `closed` always; on `open` unless `provider_open` is `true` | The same value as `model`, carried separately because it is the identity outbound alerts debounce on: without it two models opening on one provider inside the alert cooldown would collapse to one notification. Omitted from an `open` once the provider itself is skipped, because then the outage is one fact however many models it reaches, and alerts fall back to debouncing on `provider_id`. A `closed` always carries it: a recovery is about the model that recovered |
 | `state` | string | always | `open` or `closed` |
+| `cause` | string | always | The verdict that produced the transition: why the circuit opened (`upstream status 503`, `upstream status 429 (saturated)`, `response failed after headers`, `hedged TTFT probe failed`, ...) or what closed it (`success`). A fixed phrase chosen by the gateway, never text copied from the provider (see [Why a circuit is open](#why-a-circuit-is-open)) |
+| `status` | int | always | The upstream HTTP status behind `cause`; `0` when no response was seen (a connection that never completed) |
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped, derived from how many of its model circuits are open (see `circuit_breaker_span_models`) |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | `true` when a quota reset deadline is in force on this circuit |
@@ -743,12 +765,14 @@ These events appear in the real-time sidebar and dashboard.
 `next_retry_at` is the **retry deadline, not the provider's quota reset time**: under a pin it is the clamped and jittered pin, so a weekly quota that resets days out still yields a `next_retry_at` at the `circuit_breaker_quota_pin_max` ceiling, and under a backoff it is the doubled cooldown. It is the same value the circuit-breaker status API publishes under that name.
 
 ```go
-// internal/failover/circuitbreaker.go:publishEvent
+// internal/failover/circuit_events.go:publishEvent
 meta := map[string]any{
     "provider_id":       providerID.String(),
     "provider":          providerName,
     "model":             model,
     "state":             state,
+    "cause":             c.lastCause,
+    "status":            c.lastStatus,
     "provider_open":     providerOpen,
     "consecutive_fails": c.consecutiveFails,
     "quota_pinned":      pinned,
@@ -764,8 +788,8 @@ if state == "open" {
         meta["next_retry_at"] = c.openedAt.Add(cooldown).Format(time.RFC3339)
     }
 }
-msg := breakerEventMessage(providerName, state, model, providerOpen)
-if state == "open" && backedOff {
+msg := breakerEventMessage(providerName, state, model, providerOpen, c.lastCause)
+if state == "open" && backedOff && cooldown == c.cooldownBackoff {
     msg += backoffSuffix(cooldown, c.failedProbes)
 }
 events.Publish(events.Event{
@@ -777,7 +801,7 @@ events.Publish(events.Event{
 })
 ```
 
-The message names the model, because the event is about one model circuit: `Provider zai circuit breaker: open for model glm-4.6`. When that transition also flips the provider-wide verdict, the message says so as well - `... for model glm-4.6 (provider skipped)` - since that is the moment the remaining models leave rotation. Without the model in the sentence, a toast or an Apprise alert about one sidelined model reads as a whole provider going down.
+The message names the model, because the event is about one model circuit, and the cause after it: `Provider zai circuit breaker: open for model glm-4.6: upstream status 503`. When that transition also flips the provider-wide verdict, the message says so as well - `... for model glm-4.6 (provider skipped): upstream status 503` - since that is the moment the remaining models leave rotation. Without the model in the sentence, a toast or an Apprise alert about one sidelined model reads as a whole provider going down.
 
 A separate `quota.schema_drift` event fires when a provider changes the *shape* of its quota response (the set of key paths, not the values). It carries the added and removed paths and is alert-only: it never opens a circuit, never pins a cooldown, and never affects routing. See [Alerting](Alerting) and the [API Reference](API-Reference) for its metadata.
 

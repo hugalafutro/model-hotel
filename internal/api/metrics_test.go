@@ -20,7 +20,8 @@ import (
 // instead of silently passing.
 type fakeBreakerReader struct{ statuses []failover.ProviderStatus }
 
-func (f fakeBreakerReader) Status() []failover.ProviderStatus { return f.statuses }
+func (f fakeBreakerReader) Status() []failover.ProviderStatus       { return f.statuses }
+func (f fakeBreakerReader) StatusDetail() []failover.ProviderStatus { return f.statuses }
 
 func (f fakeBreakerReader) Reset(uuid.UUID) failover.State {
 	panic("metrics must never reset the circuit breaker")

@@ -105,14 +105,14 @@ func TestCircuitBreaker_ReportsAModelThatKeepsReopening(t *testing.T) {
 	// unconditional report passing this test: without it, publishing on every
 	// open looks identical to publishing on the third.
 	for range opensBeforeEscalation - 1 {
-		cb.RecordFailure(id, "test-provider", modelA)
+		cb.RecordFailure(id, "test-provider", modelA, Cause{})
 		cb.IsOpen(id, "test-provider", modelA)
 		if ev, ok := drainUnstable(sub, id); ok {
 			t.Fatalf("reported after fewer than %d opens: %s", opensBeforeEscalation, ev.Message)
 		}
 	}
 
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	ev := waitForUnstableEvent(t, sub, id)
 	if got, _ := ev.Metadata["model"].(string); got != modelA {

@@ -360,8 +360,18 @@ func TestRecordBreakerOutcome_ClassifiedRateLimits(t *testing.T) {
 
 		h.recordBreakerOutcome(ctx, st, cand, 429, true, rateLimitVerdict{class: rateLimitSaturated, retryAfter: time.Second})
 
-		if _, seen := cbConsecutiveFails(cb, provID); seen {
-			t.Error("a saturated 429 touched the breaker; it must be a no-op")
+		// Neither charged nor credited: the counter is untouched and the
+		// circuit closed. What IS left behind is the verdict, so the status
+		// page can say "busy" about a closed circuit whose last answer was a 429.
+		if fails, seen := cbConsecutiveFails(cb, provID); !seen || fails != 0 {
+			t.Errorf("consecutiveFails = %d (tracked=%v), want a tracked circuit with no charge", fails, seen)
+		}
+		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateClosed {
+			t.Errorf("state = %v, want closed", got)
+		}
+		statuses := cb.StatusDetail()
+		if len(statuses) != 1 || len(statuses[0].Circuits) != 1 || statuses[0].Circuits[0].LastCause != "upstream status 429 (saturated)" {
+			t.Errorf("status = %+v, want the saturated verdict remembered on the circuit", statuses)
 		}
 	})
 
@@ -373,7 +383,7 @@ func TestRecordBreakerOutcome_ClassifiedRateLimits(t *testing.T) {
 		st := &requestState{circuitBreakerEnabled: true}
 		provID := uuid.New()
 		cand := modelCandidateForBreaker(provID)
-		cb.RecordFailure(provID, "p", cand.model.ModelID)
+		cb.RecordFailure(provID, "p", cand.model.ModelID, failover.Cause{})
 		time.Sleep(time.Millisecond)
 		cb.IsOpen(provID, "p", cand.model.ModelID) // cooldown elapsed: half-open
 
