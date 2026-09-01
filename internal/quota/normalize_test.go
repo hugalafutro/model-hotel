@@ -228,10 +228,11 @@ func TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining(t *testing.T) {
 
 // NeuralWatt is a balance model, not a window model: exhausting the included
 // monthly energy does not make it refuse requests — it keeps serving in
-// overage, debiting the credit balance. Only when BOTH the included energy and
-// the credits are affirmatively spent do requests actually start failing, and
-// the only scheduled recovery is the billing period end. The tests below pin
-// that two-sided rule.
+// overage, debiting the credit balance. Only when BOTH the included energy is
+// gone and the credit balance has fallen below creditsSpentFloorUSD do requests
+// actually start failing, and the only scheduled recovery is the billing period
+// end. The tests below pin that two-sided rule and the floor on its credit
+// side.
 func TestAssess_Neuralwatt_EnergyAndCreditsSpentPinsToPeriodEnd(t *testing.T) {
 	periodEnd := time.Now().Add(20 * 24 * time.Hour).Truncate(time.Second)
 	payload, err := json.Marshal(map[string]any{
@@ -249,6 +250,64 @@ func TestAssess_Neuralwatt_EnergyAndCreditsSpentPinsToPeriodEnd(t *testing.T) {
 	}
 	if !got.ResetsAt.Equal(periodEnd.UTC()) {
 		t.Errorf("got ResetsAt=%v, want period end %v", got.ResetsAt, periodEnd.UTC())
+	}
+}
+
+// TestAssess_Neuralwatt_SubCentResidueIsSpent pins the real reading taken from
+// prod on 2026-09-01 at the moment NeuralWatt began answering 402
+// payment_required: kwh_remaining 0 and credits_remaining_usd 0.0035. The
+// account was affirmatively blocked ("a usage or billing limit was previously
+// reached") while a third of a cent still sat in the balance, so an exact
+// <= 0 test never fires in practice and the provider stayed unpinned and
+// live in its failover group.
+func TestAssess_Neuralwatt_SubCentResidueIsSpent(t *testing.T) {
+	periodEnd := time.Now().Add(26 * 24 * time.Hour).Truncate(time.Second)
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0.0035},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "in_overage": true, "current_period_end": periodEnd.Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if !got.ResetsAt.Equal(periodEnd.UTC()) {
+		t.Errorf("got ResetsAt=%v, want period end %v", got.ResetsAt, periodEnd.UTC())
+	}
+}
+
+// TestAssess_Neuralwatt_OneCentIsNotSpent holds the other side of the floor, so
+// the residue rule cannot grow into "any small balance is spent". It pins the
+// comparison as strict (<), not <=.
+//
+// It deliberately asserts the exact literal rather than a "safely above"
+// value, and that literal is the only balance whose verdict is decided by
+// float representation: 0.01 parses to the same float64 as the constant, but a
+// balance NeuralWatt derived by subtraction may not — 10-9.99 lands just under
+// the floor and reads as spent, 25-24.99 just over it and does not. That is a
+// cent's worth of arbitrariness at one exact point, which is why the floor is
+// documented as approximate rather than as a guarantee about any single
+// balance.
+func TestAssess_Neuralwatt_OneCentIsNotSpent(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0.01},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "current_period_end": time.Now().Add(time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("a full cent of credit must not read as spent")
 	}
 }
 

@@ -169,12 +169,32 @@ type neuralwattQuotaPayload struct {
 	} `json:"subscription"`
 }
 
+// creditsSpentFloorUSD is the balance below which NeuralWatt credits count as
+// spent. It is not zero because NeuralWatt does not wait for zero:
+// observed on prod 2026-09-01, the account began answering 402
+// payment_required ("Subscription access is currently blocked because a usage
+// or billing limit was previously reached") with credits_remaining_usd still
+// at 0.0035, and it stayed there — the residue never drains, so an exact
+// <= 0 test never becomes true and the provider is never pinned.
+//
+// What a cent is worth depends entirely on the request: the run that triggered
+// this burned $9.1061 over 1007 large-context requests (~$0.009 each, so a cent
+// is about one), while a 2026-08-24 probe of 49 tiny requests drew ~$0.006
+// (~$0.0001 each, so a cent is nearer eighty). The floor therefore forfeits
+// somewhere between one and a few dozen requests of genuine headroom, and only
+// for an account already in overage with its included energy gone. Being wrong
+// in the other direction leaves a provider that answers nothing but 402 sitting
+// live in its failover group, which is the state this rule exists to end.
+const creditsSpentFloorUSD = 0.01
+
 // assessNeuralwatt handles NeuralWatt's balance model, which differs from the
 // window models above: spending the included monthly energy does not make the
 // provider refuse requests — it keeps serving in overage, debiting the credit
-// balance. Requests only start failing once BOTH the included energy and the
-// credits are affirmatively spent, and the only scheduled recovery from that
-// state is the billing period end, so that is the reset the pin targets (the
+// balance. Requests only start failing once BOTH the included energy is gone
+// and the credit balance has fallen below creditsSpentFloorUSD — not to zero,
+// which NeuralWatt never reports; see that constant. The only scheduled
+// recovery from that state is the billing period end, so that is the reset the
+// pin targets (the
 // breaker's 24h pin ceiling re-pins toward it on each open, and an
 // off-schedule recovery — a top-up, a plan change — lifts the pin on the next
 // poll via the recovered path in buildQuotaAdvice).
@@ -185,7 +205,7 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 	}
 	var e earliestReset
 	if res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0 &&
-		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD <= 0 {
+		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD < creditsSpentFloorUSD {
 		if t, ok := parseResetString(res.Subscription.CurrentPeriodEnd); ok {
 			e.add(t)
 		}
