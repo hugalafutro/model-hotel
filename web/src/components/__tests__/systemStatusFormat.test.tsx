@@ -9,8 +9,7 @@ import {
 } from "../systemStatusFormat";
 
 /** Rendered text of a figure, units included, as the sidebar shows it. */
-const text = (node: React.ReactNode) =>
-	render(<>{node}</>).container.textContent;
+const text = (node: React.ReactNode) => render(node).container.textContent;
 
 describe("formatUptime", () => {
 	it("shows days and hours past a day", () => {
@@ -75,7 +74,7 @@ describe("formatThroughput", () => {
 
 describe("unit styling", () => {
 	it("dims the unit that trails the figure", () => {
-		const { container } = render(<>{formatMemoryMB(512)}</>);
+		const { container } = render(formatMemoryMB(512));
 		const unit = container.querySelector("span");
 		expect(unit).toHaveClass(unitClass);
 		expect(unit).toHaveTextContent("MB");

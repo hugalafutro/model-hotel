@@ -15,7 +15,9 @@ import (
 
 // TestNewRelyingPartyEnforcesHTTPS pins the HTTPS-only ingress guarantee: a
 // plain-http PUBLIC_ORIGIN is refused so a misconfigured deploy fails loudly,
-// while loopback http (a secure context for WebAuthn) stays allowed for local use.
+// while http://localhost (a secure context for WebAuthn) stays allowed for
+// local use. An IP literal is refused on any scheme: a WebAuthn relying party
+// ID must be a domain, so no passkey could ever be minted for it.
 func TestNewRelyingPartyEnforcesHTTPS(t *testing.T) {
 	cases := []struct {
 		origin string
@@ -24,9 +26,10 @@ func TestNewRelyingPartyEnforcesHTTPS(t *testing.T) {
 		{"https://frontdesk.example.com", true},
 		{"https://frontdesk.example.com:8443", true},
 		{"http://frontdesk.example.com", false}, // plain http is rejected
-		{"http://localhost:8090", true},         // loopback http allowed
-		{"http://127.0.0.1:8090", true},
-		{"http://[::1]:8090", true},
+		{"http://localhost:8090", true},         // localhost http allowed
+		{"http://127.0.0.1:8090", false},        // an IP literal is never a valid RP ID
+		{"http://[::1]:8090", false},
+		{"https://127.0.0.1:8443", false}, // not even over https
 		{"ftp://frontdesk.example.com", false},
 		{"", false},
 		{"https://", false}, // no host

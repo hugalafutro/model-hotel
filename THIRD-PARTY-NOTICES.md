@@ -27,12 +27,12 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
-| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.17.4 | Go | BSD-3-Clause |
-| [github.com/go-webauthn/x](https://github.com/go-webauthn/x) | v0.2.6 | Go | BSD-3-Clause |
+| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.18.0 | Go | BSD-3-Clause |
+| [github.com/go-webauthn/x](https://github.com/go-webauthn/x) | v0.3.0 | Go | BSD-3-Clause |
 | [github.com/golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt/v5) | v5.3.1 | Go | MIT |
 | [github.com/google/go-tpm](https://github.com/google/go-tpm) | v0.9.8 | Go | Apache-2.0 |
 | [github.com/google/uuid](https://github.com/google/uuid) | v1.6.0 | Go | BSD-3-Clause |
-| [github.com/grpc-ecosystem/grpc-gateway/v2](https://github.com/grpc-ecosystem/grpc-gateway/v2) | v2.29.0 | Go | BSD-3-Clause |
+| [github.com/grpc-ecosystem/grpc-gateway/v2](https://github.com/grpc-ecosystem/grpc-gateway/v2) | v2.30.0 | Go | BSD-3-Clause |
 | [github.com/jackc/pgpassfile](https://github.com/jackc/pgpassfile) | v1.0.0 | Go | MIT |
 | [github.com/jackc/pgservicefile](https://github.com/jackc/pgservicefile) | v0.0.0-20240606120523-5a60cdf6a761 | Go | MIT |
 | [github.com/jackc/pgx/v5](https://github.com/jackc/pgx/v5) | v5.10.0 | Go | MIT |
@@ -48,27 +48,27 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/tinylib/msgp](https://github.com/tinylib/msgp) | v1.6.4 | Go | MIT |
 | [github.com/x448/float16](https://github.com/x448/float16) | v0.8.4 | Go | MIT |
 | [go.opentelemetry.io/auto/sdk](https://go.opentelemetry.io/auto/sdk) | v1.2.1 | Go | Apache-2.0 |
-| [go.opentelemetry.io/contrib/bridges/otelslog](https://go.opentelemetry.io/contrib/bridges/otelslog) | v0.20.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel](https://go.opentelemetry.io/otel) | v1.45.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc) | v0.21.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp) | v0.21.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/log](https://go.opentelemetry.io/otel/log) | v0.21.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/metric](https://go.opentelemetry.io/otel/metric) | v1.45.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/sdk](https://go.opentelemetry.io/otel/sdk) | v1.45.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.21.0 | Go | Apache-2.0 |
-| [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.45.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/contrib/bridges/otelslog](https://go.opentelemetry.io/contrib/bridges/otelslog) | v0.20.1 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel](https://go.opentelemetry.io/otel) | v1.46.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc) | v0.22.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp](https://go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp) | v0.22.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/log](https://go.opentelemetry.io/otel/log) | v0.22.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/metric](https://go.opentelemetry.io/otel/metric) | v1.46.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/sdk](https://go.opentelemetry.io/otel/sdk) | v1.46.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.22.0 | Go | Apache-2.0 |
+| [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.46.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
 | [golang.org/x/crypto](https://golang.org/x/crypto) | v0.55.0 | Go | BSD-3-Clause |
-| [golang.org/x/net](https://golang.org/x/net) | v0.57.0 | Go | BSD-3-Clause |
+| [golang.org/x/net](https://golang.org/x/net) | v0.58.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
 | [golang.org/x/sync](https://golang.org/x/sync) | v0.22.0 | Go | BSD-3-Clause |
 | [golang.org/x/sys](https://golang.org/x/sys) | v0.47.0 | Go | BSD-3-Clause |
 | [golang.org/x/text](https://golang.org/x/text) | v0.41.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
-| [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
-| [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260803160001-6ac0973c030d | Go | Apache-2.0 |
-| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.0 | Go | Apache-2.0 |
-| [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.11 | Go | BSD-3-Clause |
+| [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260819154853-08b0e4226688 | Go | Apache-2.0 |
+| [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260819154853-08b0e4226688 | Go | Apache-2.0 |
+| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.1 | Go | Apache-2.0 |
+| [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.12 | Go | BSD-3-Clause |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
@@ -90,8 +90,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.101.4 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.101.4 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.102.8 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.102.8 | npm | MIT |
 | [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.10 | npm | MIT |
 | [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.8 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
@@ -256,7 +256,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
-| [react-router](https://github.com/remix-run/react-router#readme) | 8.3.0 | npm | MIT |
+| [react-router](https://github.com/remix-run/react-router#readme) | 8.3.1 | npm | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | npm | MIT |
 | [redux](http://redux.js.org) | 5.0.1 | npm | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | npm | MIT |
@@ -487,7 +487,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `go.opentelemetry.io/contrib/bridges/otelslog@v0.20.0`, `go.opentelemetry.io/otel@v1.45.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.21.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.21.0`, `go.opentelemetry.io/otel/log@v0.21.0`, `go.opentelemetry.io/otel/metric@v1.45.0`, `go.opentelemetry.io/otel/sdk@v1.45.0`, `go.opentelemetry.io/otel/sdk/log@v0.21.0`, `go.opentelemetry.io/otel/trace@v1.45.0`
+Applies to: `go.opentelemetry.io/contrib/bridges/otelslog@v0.20.1`, `go.opentelemetry.io/otel@v1.46.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.22.0`, `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.22.0`, `go.opentelemetry.io/otel/log@v0.22.0`, `go.opentelemetry.io/otel/metric@v1.46.0`, `go.opentelemetry.io/otel/sdk@v1.46.0`, `go.opentelemetry.io/otel/sdk/log@v0.22.0`, `go.opentelemetry.io/otel/trace@v1.46.0`
 
 ```
 Apache License
@@ -758,7 +758,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260803160001-6ac0973c030d`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260803160001-6ac0973c030d`
+Applies to: `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260819154853-08b0e4226688`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260819154853-08b0e4226688`
 
 ```
 Apache License
@@ -968,7 +968,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.55.0`, `golang.org/x/net@v0.57.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
+Applies to: `golang.org/x/crypto@v0.55.0`, `golang.org/x/net@v0.58.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1064,7 +1064,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.101.4`, `@tanstack/react-query@5.101.4`, `@tanstack/react-virtual@3.14.10`, `@tanstack/virtual-core@3.17.8`
+Applies to: `@tanstack/query-core@5.102.8`, `@tanstack/react-query@5.102.8`, `@tanstack/react-virtual@3.14.10`, `@tanstack/virtual-core@3.17.8`
 
 ```
 MIT License
@@ -2089,7 +2089,7 @@ THE SOFTWARE.
 
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
 
-Applies to: `github.com/go-webauthn/webauthn@v0.17.4`
+Applies to: `github.com/go-webauthn/webauthn@v0.18.0`
 
 ```
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
@@ -2124,7 +2124,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021-2023 github.com/go-webauthn authors.
 
-Applies to: `github.com/go-webauthn/x@v0.2.6`
+Applies to: `github.com/go-webauthn/x@v0.3.0`
 
 ```
 Copyright (c) 2021-2023 github.com/go-webauthn authors.
@@ -2207,7 +2207,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2015, Gengo, Inc.
 
-Applies to: `github.com/grpc-ecosystem/grpc-gateway/v2@v2.29.0`
+Applies to: `github.com/grpc-ecosystem/grpc-gateway/v2@v2.30.0`
 
 ```
 Copyright (c) 2015, Gengo, Inc.
@@ -3606,7 +3606,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `google.golang.org/grpc@v1.83.0`
+Applies to: `google.golang.org/grpc@v1.83.1`
 
 ```
 Apache License
@@ -3832,7 +3832,7 @@ limitations under the License.
 
 Copyright (c) 2018 The Go Authors. All rights reserved.
 
-Applies to: `google.golang.org/protobuf@v1.36.11`
+Applies to: `google.golang.org/protobuf@v1.36.12`
 
 ```
 Copyright (c) 2018 The Go Authors. All rights reserved.
@@ -5649,7 +5649,7 @@ SOFTWARE.
 
 Copyright (c) React Training LLC 2015-2019
 
-Applies to: `react-router@8.3.0`
+Applies to: `react-router@8.3.1`
 
 ```
 MIT License
