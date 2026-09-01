@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -242,13 +241,12 @@ func TestSafeDialer_NoPortInAddr(t *testing.T) {
 
 func TestSafeDialer_DialTimingContext(t *testing.T) {
 	sd := NewSafeDialer(nil, nil)
-	var dialMs float64
-	ctx := context.WithValue(context.Background(), ctxkeys.DialMsKey, &dialMs)
+	ctx, slot := withDialTiming(context.Background())
 
 	// This will fail to connect but should set the timing value
 	_, _ = sd.DialContext(ctx, "tcp", "127.0.0.1:80")
 	// dialMs should be >= 0 (DNS resolution was attempted, even for IP)
-	if dialMs < 0 {
+	if dialMs := slot.take(); dialMs < 0 {
 		t.Errorf("expected dialMs >= 0, got %f", dialMs)
 	}
 }
@@ -403,15 +401,14 @@ func TestSafeDialer_DialByIP(t *testing.T) {
 func TestSafeDialer_DialTimingSetOnRealDNS(t *testing.T) {
 	t.Parallel()
 	sd := NewSafeDialer(nil, nil)
-	var dialMs float64
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = context.WithValue(ctx, ctxkeys.DialMsKey, &dialMs)
+	ctx, slot := withDialTiming(ctx)
 
 	// Dial a real public host - connection may fail but DNS should resolve
 	_, _ = sd.DialContext(ctx, "tcp", "example.com:80")
 
-	if dialMs <= 0 {
+	if dialMs := slot.take(); dialMs <= 0 {
 		t.Errorf("expected dialMs > 0 after DNS resolution, got %f", dialMs)
 	}
 }

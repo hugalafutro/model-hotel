@@ -40,12 +40,12 @@ const RequestBodyKey contextKey = "request_body"
 // Use AddSettingsReadMs to safely add to the accumulated total.
 const SettingsReadMsKey contextKey = "settings_read_ms"
 
-// DialMsKey is the context key under which the proxy handler stores a
-// *float64 pointer for capturing per-request upstream dial timing
-// (DNS resolution + TCP connect). The SafeDialer's DialContext writes
-// the total dial duration into this pointer so the handler can read it
-// after the upstream request completes, avoiding cross-request race
-// conditions from a shared atomic.
+// DialMsKey is the context key under which the proxy handler stores its
+// per-request dial-timing slot (an atomic; the proxy package owns the type)
+// for capturing upstream dial time (DNS resolution + TCP connect). The
+// SafeDialer's DialContext stores the total dial duration into it and the
+// handler swaps it out after the upstream request completes. Atomic because
+// the transport's dial goroutine can outlive the request that started it.
 const DialMsKey contextKey = "dial_ms"
 
 // VirtualKeyRateLimitRPSKey is the context key under which the proxy's

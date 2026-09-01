@@ -81,7 +81,7 @@ func (h *Handler) retryLearnableMessages400(
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
+	retryCtx, retryDial := withDialTiming(retryCtx)
 	res.streamCancelOrigin = "retry_timeout"
 
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
@@ -100,6 +100,7 @@ func (h *Handler) retryLearnableMessages400(
 	}
 	//nolint:bodyclose // retry resp.Body is consumed by the caller's dispatch
 	retryResp, doErr := (&http.Client{Transport: h.upstreamTransport, CheckRedirect: checkRedirect}).Do(retryReq)
+	*dialMs += retryDial.take()
 	if doErr != nil {
 		rc()
 		debuglog.Warn("proxy: anthropic thinking dialect retry failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", doErr)
