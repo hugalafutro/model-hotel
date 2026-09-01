@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -390,29 +391,40 @@ type breakerReadingHandler struct {
 }
 
 func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error {
-	if r.Message == "circuit-breaker: manual reset" {
-		// Takes cb.mu: deadlocks if the reset that logged still holds it.
+	if strings.HasPrefix(r.Message, "circuit-breaker:") {
+		// Takes cb.mu: deadlocks if the section that logged still holds it.
 		h.cb.GetState(h.id, "unrelated")
 	}
 	return h.logCaptureHandler.Handle(ctx, r)
 }
 
-// Every manual reset logs with the breaker's lock released. cb.mu is the lock
-// each request's IsOpen takes, and the app-log sink can stall for seconds per
-// line when its store is backed up: a fleet-wide reset that logged N circuits
-// under the lock would stall the request path for N of those stalls.
-func TestManualResetsLogWithTheLockReleased(t *testing.T) {
+// Every line the breaker writes, on the request path and the poller's as well
+// as the resets, is written with cb.mu released. cb.mu is the lock each
+// request's IsOpen takes, and the app-log sink can stall for seconds per line
+// when its store is backed up: one transition logged under the lock stalls
+// every request for that long, and a fleet-wide reset for N of those stalls.
+func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 	capt := captureLogs(t)
-	cb := newTestCB(2, time.Minute)
+	cb := newTestCB(2, 5*time.Millisecond)
 	id := uuid.New()
 	debuglog.SetHandler(&breakerReadingHandler{logCaptureHandler: capt, cb: cb, id: id})
-	for _, m := range []string{"a", "b", "c"} {
-		cb.RecordFailure(id, "p", m, UpstreamStatus(503, ""))
-	}
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		// closed→open, open→half-open, half-open→closed on the request path.
+		cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
+		cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
+		time.Sleep(20 * time.Millisecond)
+		cb.IsOpen(id, "p", "a")
+		cb.RecordSuccess(id, "p", "a")
+		// An exhausted open with a response pin, released by the poller's paths.
+		cb.RecordExhausted(id, "p", "b", time.Hour)
+		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
+		cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
+		cb.RecordExhausted(id, "p", "c", time.Hour)
+		cb.ReleaseAllQuotaPins()
+		// The manual resets: one circuit, the provider, everything.
 		cb.ResetModel(id, "a")
 		cb.Reset(id)
 		cb.RecordFailure(id, "p", "d", UpstreamStatus(503, ""))
@@ -421,7 +433,21 @@ func TestManualResetsLogWithTheLockReleased(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
-		t.Fatal("a manual reset logged while holding the breaker's lock")
+		t.Fatal("the breaker logged while holding its lock")
+	}
+
+	want := []string{
+		"circuit-breaker: model state=closed→open",
+		"circuit-breaker: model state=open→half-open (cooldown elapsed)",
+		"circuit-breaker: model state=half-open→closed (probe succeeded)",
+		"circuit-breaker: model state=closed→open (exhausted)",
+		"circuit-breaker: " + causePinReleasedQuota,
+		"circuit-breaker: " + causePinReleasedOff,
+	}
+	for _, msg := range want {
+		if !capt.has(msg) {
+			t.Errorf("no %q line: the sequence did not drive that transition", msg)
+		}
 	}
 	if n := len(manualResetLines(capt, id.String())); n != 4 {
 		t.Errorf("manual reset lines = %d, want 4 (1 scoped + 2 provider + 1 all)", n)

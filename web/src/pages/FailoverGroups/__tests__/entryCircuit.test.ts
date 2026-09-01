@@ -73,12 +73,34 @@ describe("entryCircuitStatus", () => {
 		expect(entryCircuitStatus(status, "gpt-4o-mini")).toBe(status);
 	});
 
-	it("reports a half-open row on every entry of the provider", () => {
-		// A circuit owed a probe names no model: open_models carries only circuits
-		// still blocking. There is nothing to attribute it to, and "recovering"
-		// never reads as "down", so it stays on every entry.
-		const status = row({ state: "half-open", provider_open: false });
+	it("reports a half-open row on every entry of an older member", () => {
+		// Without circuits[] a circuit owed a probe names no model: open_models
+		// carries only circuits still blocking. There is nothing to attribute it
+		// to, and "recovering" never reads as "down", so it stays on every entry.
+		const status = {
+			...row({ state: "half-open", provider_open: false }),
+			circuits: undefined,
+		};
 		expect(entryCircuitStatus(status, "gpt-4o-mini")).toBe(status);
+	});
+
+	it("follows the entry's own circuit when the member reports circuits[]", () => {
+		// The row is the dominant circuit's: half-open here because "gpt-4" is
+		// owed a probe. The sibling has no circuit and so no fuse, the probing
+		// one keeps its fuse, and an open sibling circuit fuses on its own.
+		const status = row({
+			state: "half-open",
+			provider_open: false,
+			circuits: [
+				{ model: "gpt-4", state: "half-open", consecutive_fails: 5 },
+				{ model: "gpt-4o", state: "open", consecutive_fails: 5 },
+				{ model: "fine", state: "closed", consecutive_fails: 0 },
+			],
+		});
+		expect(entryCircuitStatus(status, "gpt-4o-mini")).toBeUndefined();
+		expect(entryCircuitStatus(status, "fine")).toBeUndefined();
+		expect(entryCircuitStatus(status, "gpt-4")).toBe(status);
+		expect(entryCircuitStatus(status, "gpt-4o")).toBe(status);
 	});
 });
 

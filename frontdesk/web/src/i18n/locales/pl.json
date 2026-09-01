@@ -164,10 +164,10 @@
 		"resetCircuits": "Zresetuj bezpieczniki",
 		"resetCircuitsTip": "Wyczyść bezpieczniki jednej grupy failover na wszystkich członkach, przywracając jej odstawionych dostawców do rotacji w całej flocie",
 		"resetCircuitsTitle": "Zresetować bezpieczniki grupy na wszystkich członkach?",
-		"resetCircuitsBody": "Każdy członek z zapisanym tokenem wyczyści bezpieczniki pozycji wybranej grupy. Odstawieni dostawcy natychmiast wracają do rotacji; dostawca nadal zepsuty sam ponownie się wyłączy.",
+		"resetCircuitsBody": "Każdy członek wyczyści bezpieczniki za pozycjami wybranej grupy; członek bez zapisanego tokenu jest pomijany i tak oznaczany. Dostawcy odstawieni przez bezpieczniki natychmiast wracają do rotacji; dostawca nadal zepsuty sam ponownie się wyłączy.",
 		"resetCircuitsConfirm": "Zresetuj na wszystkich członkach",
 		"resetCircuitsDone": "Bezpieczniki zresetowane na {{members}} członkach: {{cleared}} obwodów wyczyszczono, {{recovered}} przywrócono",
-		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale {{failed}} z {{members}} członków było nieosiągalnych",
+		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale u {{failed}} z {{members}} członków reset się nie odbył",
 		"resetCircuitsGroupLabel": "Grupa failover",
 		"resetCircuitsGroupPlaceholder": "Wybierz grupę",
 		"resetCircuitsNoGroups": "Główny członek nie zgłasza żadnych grup failover"

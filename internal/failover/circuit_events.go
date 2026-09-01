@@ -12,10 +12,12 @@ import (
 // The breaker's SSE event and the sentence an alert renders from it. Split out
 // of circuitbreaker.go when that file reached the size ceiling.
 
-// publishEvent fires an SSE event for circuit breaker state transitions. r is
-// the walk the caller already started, so the flags here are the ones its log
-// line reported. Must be called with cb.mu held.
-func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state, model string, c *circuit, r *cooldownReads) {
+// publishEvent builds the SSE event for a circuit breaker state transition and
+// hands it to after, for the caller to publish once cb.mu is released. r is the
+// walk the caller already started, so the flags here are the ones its log line
+// reported. Must be called with cb.mu held: everything the event says is read
+// from the breaker here, and nothing is read once it leaves.
+func (cb *CircuitBreaker) publishEvent(after *afterUnlock, providerID uuid.UUID, providerName, state, model string, c *circuit, r *cooldownReads) {
 	// quota_pinned and backed_off report the overrides currently governing this
 	// circuit, not a claim about whether the circuit is blocking traffic right
 	// now — the same predicates ProviderStatus uses. With the default
@@ -91,13 +93,14 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 	if state == "open" && backedOff && cooldown == c.cooldownBackoff {
 		msg += backoffSuffix(cooldown, c.failedProbes)
 	}
-	events.Publish(events.Event{
+	ev := events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
 		Source:   "failover",
 		Message:  msg,
 		Metadata: meta,
-	})
+	}
+	after.add(func() { events.Publish(ev) })
 }
 
 // backoffSuffix extends the open message when the probe backoff governs. The

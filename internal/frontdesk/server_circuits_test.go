@@ -80,8 +80,8 @@ func TestFleetCircuitReset(t *testing.T) {
 	if len(resp.Members) != 6 {
 		t.Fatalf("members = %+v, want all six, the tokenless one included", resp.Members)
 	}
-	if resp.Cleared != 4 || resp.Recovered != 2 || resp.Failed != 4 {
-		t.Errorf("totals = cleared %d recovered %d failed %d, want 4/2/4", resp.Cleared, resp.Recovered, resp.Failed)
+	if resp.Cleared != 4 || resp.Recovered != 2 || resp.Failed != 3 || resp.Skipped != 1 {
+		t.Errorf("totals = cleared %d recovered %d failed %d skipped %d, want 4/2/3/1", resp.Cleared, resp.Recovered, resp.Failed, resp.Skipped)
 	}
 	wantErr := map[string]string{
 		cm.ID: "member answered 500", um.ID: "could not reach this member",
@@ -91,6 +91,9 @@ func TestFleetCircuitReset(t *testing.T) {
 		if want, failing := wantErr[m.MemberID]; failing {
 			if m.OK || m.Error != want {
 				t.Errorf("failing member %s = %+v, want error %q", m.Name, m, want)
+			}
+			if m.Skipped != (m.MemberID == tl.ID) {
+				t.Errorf("member %s skipped = %v; only the tokenless one is skipped rather than failed", m.Name, m.Skipped)
 			}
 		} else if !m.OK || m.Error != "" {
 			t.Errorf("member %s = %+v, want ok", m.Name, m)
@@ -113,9 +116,9 @@ func TestFleetCircuitReset(t *testing.T) {
 	if rec := do(t, srv, http.MethodPost, "/api/fleet/circuit-breaker/reset", `{bad`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("malformed body = %d, want 400", rec.Code)
 	}
-	// A member whose row claims a token the store cannot produce is reported
-	// the same way as one that never had it.
-	if res := srv.resetMemberCircuits(t.Context(), &Member{ID: "no-such-member", Name: "ghost", HasToken: true}, ""); res.OK || res.Error != "no stored admin token" {
+	// A member whose row claims a token the store cannot produce is a failure
+	// with the same reason, not a skip: something is wrong, not configured.
+	if res := srv.resetMemberCircuits(t.Context(), &Member{ID: "no-such-member", Name: "ghost", HasToken: true}, ""); res.OK || res.Skipped || res.Error != "no stored admin token" {
 		t.Errorf("tokenless member = %+v", res)
 	}
 

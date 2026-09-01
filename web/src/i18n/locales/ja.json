@@ -2982,7 +2982,7 @@
 			},
 			"chipBusyTip": "このプロバイダーは直近1分以内に混雑を示す429を返しました。ブレーカーは閉じたままで、リクエストは引き続きここへルーティングされ、満杯のときは次のエントリへ流れます。",
 			"circuitCause": "最新の判定: {{cause}}（上流ステータス {{status}}）{{when}}",
-			"circuitCauseNoStatus": "最新の判定: {{cause}}、{{when}}"
+			"circuitCauseNoStatus": "最新の判定: {{cause}}（{{when}}）"
 		}
 	},
 	"virtualKeys": {

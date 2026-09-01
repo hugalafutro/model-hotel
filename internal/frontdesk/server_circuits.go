@@ -23,11 +23,14 @@ type fleetCircuitResetRequest struct {
 
 // fleetCircuitResetMember is one member's outcome. Cleared and Recovered are
 // the member's own counts (circuits, not providers); Error is set when the
-// member could not be reached or answered anything but 200.
+// member could not be reached or answered anything but 200. Skipped marks a
+// member that was never asked because no admin token is stored for it: a
+// stable, supported configuration, so it is neither OK nor a failure.
 type fleetCircuitResetMember struct {
 	MemberID  string `json:"member_id"`
 	Name      string `json:"name"`
 	OK        bool   `json:"ok"`
+	Skipped   bool   `json:"skipped,omitempty"`
 	Cleared   int    `json:"cleared"`
 	Recovered int    `json:"recovered"`
 	Error     string `json:"error,omitempty"`
@@ -39,6 +42,7 @@ type fleetCircuitResetResponse struct {
 	Cleared   int                       `json:"cleared"`
 	Recovered int                       `json:"recovered"`
 	Failed    int                       `json:"failed"`
+	Skipped   int                       `json:"skipped"`
 }
 
 // memberCircuitResetResult is the shape both member endpoints answer with;
@@ -52,8 +56,9 @@ type memberCircuitResetResult struct {
 // sequence (a handful of members, one small POST each), and reports per member.
 // A member that fails does not stop the others: the operator wants the fleet
 // cleared, and the response says who was not. A member without a stored token
-// is one of those: it is exactly the member that stays dark after the round,
-// so it is listed as failed with the reason rather than left out of the count.
+// is listed too, as skipped: it is exactly the member that stays dark after the
+// round, so it cannot be left out, but a fleet that keeps one is a supported
+// configuration, and a warning event on every reset for it would be noise.
 func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 	var req fleetCircuitResetRequest
 	if !decodeJSON(w, r, &req) {
@@ -76,6 +81,10 @@ func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 	for _, m := range members {
 		res := s.resetMemberCircuits(ctx, m, req.GroupID)
 		resp.Members = append(resp.Members, res)
+		if res.Skipped {
+			resp.Skipped++
+			continue
+		}
 		if !res.OK {
 			resp.Failed++
 			continue
@@ -94,10 +103,10 @@ func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 	}
 	s.emit(ctx, Event{
 		Type: "fleet.circuit_breaker_reset", Severity: severity, Source: "frontdesk",
-		Message: fmt.Sprintf("circuit breakers reset on %d of %d members (%s): %d circuits cleared, %d recovered",
-			len(resp.Members)-resp.Failed, len(resp.Members), scope, resp.Cleared, resp.Recovered),
+		Message: fmt.Sprintf("circuit breakers reset on %d of %d members (%s): %d circuits cleared, %d recovered, %d failed, %d skipped without a stored token",
+			len(resp.Members)-resp.Failed-resp.Skipped, len(resp.Members), scope, resp.Cleared, resp.Recovered, resp.Failed, resp.Skipped),
 		Metadata: map[string]any{
-			"group_id": req.GroupID, "members": len(resp.Members), "failed": resp.Failed,
+			"group_id": req.GroupID, "members": len(resp.Members), "failed": resp.Failed, "skipped": resp.Skipped,
 			"cleared": resp.Cleared, "recovered": resp.Recovered, "initiated_by": actorFromContext(ctx),
 		},
 	})
@@ -110,6 +119,7 @@ func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resetMemberCircuits(ctx context.Context, m *Member, groupID string) fleetCircuitResetMember {
 	res := fleetCircuitResetMember{MemberID: m.ID, Name: m.Name}
 	if !m.HasToken {
+		res.Skipped = true
 		res.Error = "no stored admin token"
 		return res
 	}

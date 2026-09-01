@@ -297,7 +297,14 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 		previous = h.cb.Reset(providerID)
 	}
 	h.invalidateCBStatusCache()
-	debuglog.Info("circuit-breaker: manual reset of a provider's circuits", "provider_id", providerID, "model", model, "cause", "manual reset", "previous_state", previous.String(), "reset", previous != failover.StateClosed)
+	// The action, not the circuits: those have their own lines. "reset" says
+	// whether anything was sidelined; the previous state per circuit is on
+	// the per-circuit line, and on the unscoped path there is no single one.
+	attrs := []any{"provider_id", providerID, "cause", "manual reset", "reset", previous != failover.StateClosed}
+	if model != "" {
+		attrs = append(attrs, "model", model)
+	}
+	debuglog.Info("circuit-breaker: manual reset of a provider's circuits", attrs...)
 
 	writeJSON(w, CircuitBreakerResetResponse{
 		ProviderID:    providerID.String(),
@@ -351,7 +358,7 @@ func (h *FailoverHandler) ResetGroupCircuitBreakers(w http.ResponseWriter, r *ht
 	}
 	h.invalidateCBStatusCache()
 
-	debuglog.Info("circuit-breaker: manual reset of a group's circuits", "group_id", g.ID, "display_model", g.DisplayModel, "entries", resp.Entries, "cleared", resp.Cleared, "recovered", resp.Recovered)
+	debuglog.Info("circuit-breaker: manual reset of a group's circuits", "group_id", g.ID, "display_model", g.DisplayModel, "cause", "manual reset", "entries", resp.Entries, "cleared", resp.Cleared, "recovered", resp.Recovered)
 	writeJSON(w, resp)
 }
 

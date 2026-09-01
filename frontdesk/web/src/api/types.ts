@@ -291,6 +291,7 @@ export interface FleetCircuitResetMember {
 	member_id: string;
 	name: string;
 	ok: boolean;
+	skipped?: boolean;
 	cleared: number;
 	recovered: number;
 	error?: string;
@@ -310,6 +311,8 @@ export interface FleetCircuitReset {
 	cleared: number;
 	recovered: number;
 	failed: number;
+	// Members never asked because no admin token is stored for them.
+	skipped: number;
 }
 
 export interface FleetVersionCheck {

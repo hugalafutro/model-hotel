@@ -94,7 +94,10 @@ describe("FailoverGroupCard circuit summary", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("shows neither chips nor a summary on a disabled group", () => {
+	it("keeps the chips but drops the routing summary on a disabled group", () => {
+		// The chips, like the fuses, say what the breaker knows about each
+		// circuit, which an operator wants before re-enabling the group; the
+		// footer's live count is about routing, which a disabled group does not do.
 		const cb = new Map<string, CircuitBreakerProviderStatus>([
 			["zai", openRow("zai", "glm-5.3")],
 		]);
@@ -105,7 +108,7 @@ describe("FailoverGroupCard circuit summary", () => {
 				cbProviderMap={cb}
 			/>,
 		);
-		expect(screen.queryByTestId("failover-entry-chip")).not.toBeInTheDocument();
+		expect(screen.getAllByTestId("failover-entry-chip")).toHaveLength(3);
 		expect(
 			screen.queryByTestId("failover-card-live-count"),
 		).not.toBeInTheDocument();

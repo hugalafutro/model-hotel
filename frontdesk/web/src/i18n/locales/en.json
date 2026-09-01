@@ -164,10 +164,10 @@
 		"resetCircuits": "Reset circuit breakers",
 		"resetCircuitsTip": "Clear one failover group's circuit breakers on every member, returning its sidelined providers to rotation fleet-wide",
 		"resetCircuitsTitle": "Reset a group's circuit breakers on all members?",
-		"resetCircuitsBody": "Every member with a stored token will clear the circuit breakers behind the chosen group's entries. Providers the breakers were sidelining return to rotation immediately; a provider that is still broken will trip again on its own.",
+		"resetCircuitsBody": "Every member will clear the circuit breakers behind the chosen group's entries; a member without a stored token is skipped and listed as such. Providers the breakers were sidelining return to rotation immediately; a provider that is still broken will trip again on its own.",
 		"resetCircuitsConfirm": "Reset on all members",
 		"resetCircuitsDone": "Circuit breakers reset on {{members}} members: {{cleared}} circuits cleared, {{recovered}} recovered",
-		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} members could not be reached",
+		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} members were not reset",
 		"resetCircuitsGroupLabel": "Failover group",
 		"resetCircuitsGroupPlaceholder": "Choose a group",
 		"resetCircuitsNoGroups": "The primary reports no failover groups"

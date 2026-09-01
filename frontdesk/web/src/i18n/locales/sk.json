@@ -164,10 +164,10 @@
 		"resetCircuits": "Resetovať ističe",
 		"resetCircuitsTip": "Vymazať ističe jednej failover skupiny na všetkých členoch a vrátiť jej odstavených poskytovateľov do rotácie v celej flotile",
 		"resetCircuitsTitle": "Resetovať ističe skupiny na všetkých členoch?",
-		"resetCircuitsBody": "Každý člen s uloženým tokenom vymaže ističe za položkami zvolenej skupiny. Odstavení poskytovatelia sa okamžite vrátia do rotácie; poskytovateľ, ktorý je stále pokazený, sa znova vypne sám.",
+		"resetCircuitsBody": "Každý člen vymaže ističe za položkami zvolenej skupiny; člen bez uloženého tokenu je preskočený a takto uvedený. Poskytovatelia, ktorých ističe odstavili, sa okamžite vrátia do rotácie; poskytovateľ, ktorý je stále pokazený, sa znova vypne sám.",
 		"resetCircuitsConfirm": "Resetovať na všetkých členoch",
 		"resetCircuitsDone": "Ističe resetované na {{members}} členoch: {{cleared}} obvodov vymazaných, {{recovered}} obnovených",
-		"resetCircuitsPartial": "Ističe resetované, ale {{failed}} z {{members}} členov sa nepodarilo zastihnúť",
+		"resetCircuitsPartial": "Ističe resetované, ale u {{failed}} z {{members}} členov reset neprebehol",
 		"resetCircuitsGroupLabel": "Failover skupina",
 		"resetCircuitsGroupPlaceholder": "Zvoľte skupinu",
 		"resetCircuitsNoGroups": "Primárny člen nehlási žiadne failover skupiny"

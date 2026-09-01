@@ -15,8 +15,11 @@ import type {
  *
  * An entry is turned away when the derived provider verdict is open (the breaker
  * skips the provider for every model, whether from a quota pin or from enough
- * models corroborating) or when its own model id is one the breaker is blocking.
- * A row owed a probe ("half-open") names no model at all, since open_models
+ * models corroborating) or when its own circuit is open or owed a probe. On a
+ * member that reports circuits[] the entry's own circuit is the whole answer:
+ * an entry with none has never been routed, and a sibling model's probe says
+ * nothing about it. On an older member only the row and open_models are known:
+ * a row owed a probe ("half-open") names no model at all, since open_models
  * carries only circuits that are still blocking, so it stays on every entry of
  * the provider, where it reads as recovering rather than as down.
  */
@@ -25,7 +28,12 @@ export function entryCircuitStatus(
 	modelId: string,
 ): CircuitBreakerProviderStatus | undefined {
 	if (!row || row.state === "closed") return undefined;
-	if (row.state === "half-open" || row.provider_open) return row;
+	if (row.provider_open) return row;
+	if (row.circuits) {
+		const own = row.circuits.find((c) => c.model === modelId);
+		return own && own.state !== "closed" ? row : undefined;
+	}
+	if (row.state === "half-open") return row;
 	return row.open_models?.includes(modelId) ? row : undefined;
 }
 

@@ -127,7 +127,8 @@ export interface CircuitBreakerResetResult {
 	provider_id: string;
 	previous_state: "closed" | "open" | "half-open";
 	reset: boolean;
-	// The upstream model id when the reset was scoped with ?model=.
+	// The upstream model id when the reset was scoped with ?model=. API-only
+	// today: the dashboard's per-entry reset button clears the whole provider.
 	model?: string;
 }
 export interface DeletedGroupInfo {

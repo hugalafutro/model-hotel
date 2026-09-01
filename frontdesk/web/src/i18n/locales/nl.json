@@ -164,10 +164,10 @@
 		"resetCircuits": "Stroomonderbrekers resetten",
 		"resetCircuitsTip": "De stroomonderbrekers van één failovergroep op alle leden wissen en haar opzijgezette providers vlootbreed weer in rotatie nemen",
 		"resetCircuitsTitle": "Stroomonderbrekers van een groep op alle leden resetten?",
-		"resetCircuitsBody": "Elk lid met een opgeslagen token wist de stroomonderbrekers achter de items van de gekozen groep. Opzijgezette providers keren direct terug in de rotatie; een provider die nog kapot is, slaat vanzelf weer af.",
+		"resetCircuitsBody": "Elk lid wist de stroomonderbrekers achter de items van de gekozen groep; een lid zonder opgeslagen token wordt overgeslagen en als zodanig vermeld. Providers die de onderbrekers buitenspel zetten keren direct terug in de rotatie; een provider die nog kapot is slaat vanzelf weer af.",
 		"resetCircuitsConfirm": "Resetten op alle leden",
 		"resetCircuitsDone": "Stroomonderbrekers gereset op {{members}} leden: {{cleared}} circuits gewist, {{recovered}} hersteld",
-		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar {{failed}} van {{members}} leden waren niet bereikbaar",
+		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar bij {{failed}} van {{members}} leden niet",
 		"resetCircuitsGroupLabel": "Failovergroep",
 		"resetCircuitsGroupPlaceholder": "Kies een groep",
 		"resetCircuitsNoGroups": "De primary meldt geen failovergroepen"

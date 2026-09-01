@@ -45,9 +45,11 @@ export function FleetCircuitReset({ primaryId }: { primaryId: string }) {
 					"error",
 				);
 			} else {
+				// Members without a stored token were never asked; the body said
+				// so, and the count is the members that were reset.
 				toast(
 					t("members.resetCircuitsDone", {
-						members: res.members.length,
+						members: res.members.length - res.skipped,
 						cleared: res.cleared,
 						recovered: res.recovered,
 					}),

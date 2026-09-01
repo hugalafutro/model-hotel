@@ -94,7 +94,9 @@ export function FailoverGroupCard({
 	// toggle on AND the underlying model and provider enabled (matches
 	// SortableEntry's effective-state display). One map feeds the count, each
 	// entry's chip and the header ("2 of 3 entries live", or "all entries dark"
-	// with the earliest retry), so the three cannot drift apart.
+	// with the earliest retry), so the three cannot drift apart. The parent
+	// rebuilds cbProviderMap on every poll, which is also what keeps the busy
+	// window current: memoise that map upstream and this needs its own tick.
 	const circuitViews = useMemo(() => {
 		const views = new Map<string, EntryCircuitView>();
 		for (const e of localEntries) {
@@ -254,11 +256,7 @@ export function FailoverGroupCard({
 									cbProviderMap.get(entry.provider_id),
 									entry.model_id,
 								)}
-								circuitView={
-									group.group_enabled
-										? circuitViews.get(entry.model_uuid)
-										: undefined
-								}
+								circuitView={circuitViews.get(entry.model_uuid)}
 								onResetCircuit={onResetCircuit}
 								resetPending={resetPendingProviderId === entry.provider_id}
 							/>

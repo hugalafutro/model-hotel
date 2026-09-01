@@ -164,10 +164,10 @@
 		"resetCircuits": "Réinitialiser les disjoncteurs",
 		"resetCircuitsTip": "Effacer les disjoncteurs d'un groupe de bascule sur tous les membres et remettre ses fournisseurs écartés en rotation dans toute la flotte",
 		"resetCircuitsTitle": "Réinitialiser les disjoncteurs d'un groupe sur tous les membres ?",
-		"resetCircuitsBody": "Chaque membre disposant d'un jeton enregistré effacera les disjoncteurs des entrées du groupe choisi. Les fournisseurs écartés reviennent immédiatement en rotation ; un fournisseur toujours en panne se déclenchera à nouveau de lui-même.",
+		"resetCircuitsBody": "Chaque membre effacera les disjoncteurs des entrées du groupe choisi ; un membre sans jeton enregistré est ignoré et signalé comme tel. Les fournisseurs écartés reviennent immédiatement en rotation ; un fournisseur toujours en panne se déclenchera à nouveau de lui-même.",
 		"resetCircuitsConfirm": "Réinitialiser sur tous les membres",
 		"resetCircuitsDone": "Disjoncteurs réinitialisés sur {{members}} membres : {{cleared}} circuits effacés, {{recovered}} rétablis",
-		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} membres sur {{members}} étaient injoignables",
+		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} membres sur {{members}} ne l'ont pas été",
 		"resetCircuitsGroupLabel": "Groupe de bascule",
 		"resetCircuitsGroupPlaceholder": "Choisir un groupe",
 		"resetCircuitsNoGroups": "Le membre principal ne signale aucun groupe de bascule"

@@ -164,10 +164,10 @@
 		"resetCircuits": "ブレーカーをリセット",
 		"resetCircuitsTip": "1つのフェイルオーバーグループのサーキットブレーカーを全メンバーでクリアし、退避中のプロバイダーをフリート全体でローテーションに戻します",
 		"resetCircuitsTitle": "グループのブレーカーを全メンバーでリセットしますか？",
-		"resetCircuitsBody": "トークンを保存している各メンバーが、選択したグループのエントリに対応するサーキットブレーカーをクリアします。退避させられていたプロバイダーは直ちにローテーションに戻り、依然として壊れているプロバイダーは自動的に再び遮断されます。",
+		"resetCircuitsBody": "各メンバーが選択したグループのエントリに関するブレーカーをクリアします。保存済みトークンのないメンバーはスキップされ、その旨が表示されます。ブレーカーが除外していたプロバイダーは直ちにローテーションに戻ります。まだ故障しているプロバイダーは自動的に再度遮断されます。",
 		"resetCircuitsConfirm": "全メンバーでリセット",
 		"resetCircuitsDone": "{{members}}メンバーでブレーカーをリセット: {{cleared}}回路をクリア、{{recovered}}回路を復旧",
-		"resetCircuitsPartial": "ブレーカーをリセットしましたが、{{members}}メンバー中{{failed}}に到達できませんでした",
+		"resetCircuitsPartial": "ブレーカーをリセットしましたが、{{members}}件中{{failed}}件のメンバーはリセットされませんでした",
 		"resetCircuitsGroupLabel": "フェイルオーバーグループ",
 		"resetCircuitsGroupPlaceholder": "グループを選択",
 		"resetCircuitsNoGroups": "プライマリはフェイルオーバーグループを報告していません"

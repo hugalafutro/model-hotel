@@ -164,10 +164,10 @@
 		"resetCircuits": "Restablecer disyuntores",
 		"resetCircuitsTip": "Limpiar los disyuntores de un grupo de conmutación en todos los miembros, devolviendo a rotación sus proveedores apartados en toda la flota",
 		"resetCircuitsTitle": "¿Restablecer los disyuntores de un grupo en todos los miembros?",
-		"resetCircuitsBody": "Cada miembro con un token guardado limpiará los disyuntores de las entradas del grupo elegido. Los proveedores que estaban apartados vuelven a la rotación de inmediato; un proveedor que siga roto volverá a saltar por sí solo.",
+		"resetCircuitsBody": "Cada miembro borrará los disyuntores de las entradas del grupo elegido; un miembro sin token guardado se omite y se indica como tal. Los proveedores que los disyuntores apartaban vuelven a la rotación de inmediato; un proveedor que siga roto volverá a dispararse por sí solo.",
 		"resetCircuitsConfirm": "Restablecer en todos los miembros",
 		"resetCircuitsDone": "Disyuntores restablecidos en {{members}} miembros: {{cleared}} circuitos limpiados, {{recovered}} recuperados",
-		"resetCircuitsPartial": "Disyuntores restablecidos, pero no se pudo contactar con {{failed}} de {{members}} miembros",
+		"resetCircuitsPartial": "Disyuntores restablecidos, pero {{failed}} de {{members}} miembros no se restablecieron",
 		"resetCircuitsGroupLabel": "Grupo de conmutación",
 		"resetCircuitsGroupPlaceholder": "Elige un grupo",
 		"resetCircuitsNoGroups": "El primario no informa de ningún grupo de conmutación"
