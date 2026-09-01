@@ -3010,7 +3010,10 @@
 		"card": {
 			"copy": "העתק",
 			"active": "פעיל",
-			"tokens": "אסימונים"
+			"tokens": "אסימונים",
+			"entriesLive": "{{live}} מתוך {{total}} רשומות פעילות",
+			"allEntriesDark": "כל הרשומות כבויות",
+			"allEntriesDarkRetry": "כל הרשומות כבויות, ניסיון מוקדם ביותר {{when}}"
 		},
 		"entry": {
 			"disableProvider": "השבת ספק",
@@ -3033,7 +3036,17 @@
 			"deleteNaConfirmTitle": "למחוק את הקבוצה הזו?",
 			"deleteNaConfirmMessage": "הסרת החברים הלא זמינים תשאיר פחות מ-2 חברים הניתנים לניתוב, ולכן הקבוצה כולה תימחק.",
 			"deleteNaConfirmLabel": "מחק קבוצה",
-			"circuitBreakerProviderOpen": "הספק כולו מדולג - מפסק פתוח עבור: {{models}}"
+			"circuitBreakerProviderOpen": "הספק כולו מדולג - מפסק פתוח עבור: {{models}}",
+			"chip": {
+				"live": "פעיל",
+				"busy": "עמוס",
+				"open": "פתוח",
+				"probe": "בדיקה ממתינה",
+				"pinned": "מוצמד"
+			},
+			"chipBusyTip": "ספק זה השיב 429 עמוס בדקה האחרונה; מפסק הזרם שלו סגור והבקשות עדיין מנותבות לכאן, וגולשות לרשומה הבאה כשהוא מלא.",
+			"circuitCause": "פסק דין אחרון: {{cause}} (מצב upstream {{status}}) ב-{{when}}",
+			"circuitCauseNoStatus": "פסק דין אחרון: {{cause}} ב-{{when}}"
 		}
 	},
 	"virtualKeys": {

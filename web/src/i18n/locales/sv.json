@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopiera",
 			"active": "aktiv",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} av {{total}} poster aktiva",
+			"allEntriesDark": "alla poster mörka",
+			"allEntriesDarkRetry": "alla poster mörka, tidigaste nytt försök {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Inaktivera leverantör",
@@ -2969,7 +2972,17 @@
 			"deleteNaConfirmTitle": "Ta bort den här gruppen?",
 			"deleteNaConfirmMessage": "Om du tar bort de otillgängliga medlemmarna blir det färre än 2 dirigerbara medlemmar kvar, så hela gruppen tas bort.",
 			"deleteNaConfirmLabel": "Ta bort grupp",
-			"circuitBreakerProviderOpen": "Hela leverantören hoppas över - brytare öppen för: {{models}}"
+			"circuitBreakerProviderOpen": "Hela leverantören hoppas över - brytare öppen för: {{models}}",
+			"chip": {
+				"live": "aktiv",
+				"busy": "upptagen",
+				"open": "öppen",
+				"probe": "sond väntar",
+				"pinned": "fäst"
+			},
+			"chipBusyTip": "Den här leverantören svarade med en upptagen-429 under den senaste minuten; dess kretsbrytare är stängd och begäranden dirigeras fortfarande hit, och rinner över till nästa post när den är full.",
+			"circuitCause": "Senaste utslag: {{cause}} (uppströmsstatus {{status}}) kl. {{when}}",
+			"circuitCauseNoStatus": "Senaste utslag: {{cause}} kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

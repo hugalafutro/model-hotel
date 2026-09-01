@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik ha dejado de obtener la configuración de enrutamiento"
 		},
 		"colVerifiedTip": "La sincronización automática compara el hash de configuración de este miembro con el del principal cada pocos segundos. Un tiempo reciente aquí significa que el miembro tiene ahora mismo la configuración exacta del principal.",
-		"colLastSyncTip": "Cuándo Front Desk escribió configuración por última vez en este miembro (un cambio o una reparación). No es la frescura de la configuración: un miembro solo se marca cuando necesitó una escritura, así que miembros sincronizados pueden mostrar aquí tiempos distintos."
+		"colLastSyncTip": "Cuándo Front Desk escribió configuración por última vez en este miembro (un cambio o una reparación). No es la frescura de la configuración: un miembro solo se marca cuando necesitó una escritura, así que miembros sincronizados pueden mostrar aquí tiempos distintos.",
+		"resetCircuits": "Restablecer disyuntores",
+		"resetCircuitsTip": "Limpiar los disyuntores de un grupo de conmutación en todos los miembros, devolviendo a rotación sus proveedores apartados en toda la flota",
+		"resetCircuitsTitle": "¿Restablecer los disyuntores de un grupo en todos los miembros?",
+		"resetCircuitsBody": "Cada miembro borrará los disyuntores de las entradas del grupo elegido; un miembro sin token guardado se omite y se indica como tal. Los proveedores que los disyuntores apartaban vuelven a la rotación de inmediato; un proveedor que siga roto volverá a dispararse por sí solo.",
+		"resetCircuitsConfirm": "Restablecer en todos los miembros",
+		"resetCircuitsDone": "Disyuntores restablecidos en {{members}} miembros: {{cleared}} circuitos limpiados, {{recovered}} recuperados",
+		"resetCircuitsPartial": "Disyuntores restablecidos, pero {{failed}} de {{members}} miembros no se restablecieron",
+		"resetCircuitsGroupLabel": "Grupo de conmutación",
+		"resetCircuitsGroupPlaceholder": "Elige un grupo",
+		"resetCircuitsNoGroups": "El primario no informa de ningún grupo de conmutación"
 	},
 	"traffic": {
 		"title": "Tráfico",

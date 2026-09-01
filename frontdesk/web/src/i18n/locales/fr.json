@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik ne récupère plus la configuration de routage"
 		},
 		"colVerifiedTip": "La synchronisation automatique compare le hachage de configuration de ce membre avec celui du primaire toutes les quelques secondes. Une heure récente ici signifie que le membre détient en ce moment la configuration exacte du primaire.",
-		"colLastSyncTip": "Quand Front Desk a écrit pour la dernière fois la configuration sur ce membre (un changement ou une réparation). Ce n'est pas la fraîcheur de la configuration : un membre n'est estampillé que lorsqu'il avait besoin d'une écriture, donc des membres synchronisés peuvent afficher ici des heures différentes."
+		"colLastSyncTip": "Quand Front Desk a écrit pour la dernière fois la configuration sur ce membre (un changement ou une réparation). Ce n'est pas la fraîcheur de la configuration : un membre n'est estampillé que lorsqu'il avait besoin d'une écriture, donc des membres synchronisés peuvent afficher ici des heures différentes.",
+		"resetCircuits": "Réinitialiser les disjoncteurs",
+		"resetCircuitsTip": "Effacer les disjoncteurs d'un groupe de bascule sur tous les membres et remettre ses fournisseurs écartés en rotation dans toute la flotte",
+		"resetCircuitsTitle": "Réinitialiser les disjoncteurs d'un groupe sur tous les membres ?",
+		"resetCircuitsBody": "Chaque membre effacera les disjoncteurs des entrées du groupe choisi ; un membre sans jeton enregistré est ignoré et signalé comme tel. Les fournisseurs écartés reviennent immédiatement en rotation ; un fournisseur toujours en panne se déclenchera à nouveau de lui-même.",
+		"resetCircuitsConfirm": "Réinitialiser sur tous les membres",
+		"resetCircuitsDone": "Disjoncteurs réinitialisés sur {{members}} membres : {{cleared}} circuits effacés, {{recovered}} rétablis",
+		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} membres sur {{members}} ne l'ont pas été",
+		"resetCircuitsGroupLabel": "Groupe de bascule",
+		"resetCircuitsGroupPlaceholder": "Choisir un groupe",
+		"resetCircuitsNoGroups": "Le membre principal ne signale aucun groupe de bascule"
 	},
 	"traffic": {
 		"title": "Trafic",

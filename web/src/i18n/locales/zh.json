@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "复制",
 			"active": "已激活",
-			"tokens": "令牌"
+			"tokens": "令牌",
+			"entriesLive": "{{total}} 个条目中 {{live}} 个正常",
+			"allEntriesDark": "所有条目均不可用",
+			"allEntriesDarkRetry": "所有条目均不可用，最早重试 {{when}}"
 		},
 		"entry": {
 			"disableProvider": "禁用提供商",
@@ -2969,7 +2972,17 @@
 			"deleteNaConfirmTitle": "删除该组？",
 			"deleteNaConfirmMessage": "移除不可用的成员后可路由成员将少于 2 个，因此整个组将被删除。",
 			"deleteNaConfirmLabel": "删除组",
-			"circuitBreakerProviderOpen": "已跳过整个提供商 - 断路器对以下模型断开：{{models}}"
+			"circuitBreakerProviderOpen": "已跳过整个提供商 - 断路器对以下模型断开：{{models}}",
+			"chip": {
+				"live": "正常",
+				"busy": "繁忙",
+				"open": "断开",
+				"probe": "待探测",
+				"pinned": "已固定"
+			},
+			"chipBusyTip": "该提供商在最近一分钟内返回了繁忙 429；其断路器处于闭合状态，请求仍会路由到这里，满载时溢出到下一个条目。",
+			"circuitCause": "最近判定：{{cause}}（上游状态 {{status}}）于 {{when}}",
+			"circuitCauseNoStatus": "最近判定：{{cause}}，于 {{when}}"
 		}
 	},
 	"virtualKeys": {

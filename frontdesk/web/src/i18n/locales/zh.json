@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik 已停止获取路由配置"
 		},
 		"colVerifiedTip": "自动同步每隔几秒将此成员的配置哈希与主节点比对。此处时间越近，说明该成员此刻持有与主节点完全相同的配置。",
-		"colLastSyncTip": "Front Desk 上次向此成员写入配置的时间（配置变更或修复）。这不代表配置的新旧：只有需要写入的成员才会被记录时间，因此已同步的成员在此处的时间可能各不相同。"
+		"colLastSyncTip": "Front Desk 上次向此成员写入配置的时间（配置变更或修复）。这不代表配置的新旧：只有需要写入的成员才会被记录时间，因此已同步的成员在此处的时间可能各不相同。",
+		"resetCircuits": "重置断路器",
+		"resetCircuitsTip": "清除一个故障转移组在所有成员上的断路器，让其被隔离的提供商在整个集群中重新进入轮转",
+		"resetCircuitsTitle": "在所有成员上重置该组的断路器？",
+		"resetCircuitsBody": "每个成员都会清除所选组条目背后的断路器；没有已保存令牌的成员将被跳过并如此列出。被断路器搁置的提供商会立即恢复轮换；仍然故障的提供商会自行再次触发。",
+		"resetCircuitsConfirm": "在所有成员上重置",
+		"resetCircuitsDone": "已在 {{members}} 个成员上重置断路器：清除 {{cleared}} 个回路，恢复 {{recovered}} 个",
+		"resetCircuitsPartial": "断路器已重置，但 {{members}} 个成员中有 {{failed}} 个未重置",
+		"resetCircuitsGroupLabel": "故障转移组",
+		"resetCircuitsGroupPlaceholder": "选择一个组",
+		"resetCircuitsNoGroups": "主成员未报告任何故障转移组"
 	},
 	"traffic": {
 		"title": "流量",

@@ -330,3 +330,15 @@ func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {
 	}
 	return statuses[0]
 }
+
+// has reports whether a record with exactly this message was captured.
+func (h *logCaptureHandler) has(msg string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, r := range h.records {
+		if r.msg == msg {
+			return true
+		}
+	}
+	return false
+}

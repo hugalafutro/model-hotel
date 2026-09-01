@@ -103,7 +103,8 @@ const (
 // is left untouched.
 func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var after afterUnlock
+	defer func() { cb.mu.Unlock(); after.run() }()
 
 	// One walk's reads for the loop: this runs on the quota poll goroutine every
 	// few minutes and the values are identical for every circuit.
@@ -126,7 +127,7 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin(causePinReleasedQuota, id, model, c, r)
+			cb.releasePin(&after, causePinReleasedQuota, id, model, c, r)
 			released++
 		}
 	}
@@ -160,7 +161,8 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 // advisor afterwards.
 func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var after afterUnlock
+	defer func() { cb.mu.Unlock(); after.run() }()
 
 	if len(advice) == 0 || !cb.quotaPinEnabled() {
 		return 0
@@ -212,7 +214,10 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 			// and the corrected one can mean hours of darkness, so an operator gets
 			// the same Info-level line a release gets. Routing metadata only, never
 			// payload or credentials.
-			debuglog.Info("circuit-breaker: quota pin retargeted (fresh exhaustion reading)", "provider_id", providerID, "cooldown_ms", d.Milliseconds(), "model", model)
+			ms := d.Milliseconds()
+			after.add(func() {
+				debuglog.Info("circuit-breaker: quota pin retargeted (fresh exhaustion reading)", "provider_id", providerID, "cooldown_ms", ms, "model", model)
+			})
 		}
 	}
 	return retargeted
@@ -236,7 +241,8 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 // span without bookkeeping.
 func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var after afterUnlock
+	defer func() { cb.mu.Unlock(); after.run() }()
 
 	r := cb.cooldowns()
 
@@ -246,7 +252,7 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 			if c.cooldownOverride == 0 {
 				continue
 			}
-			cb.releasePin(causePinReleasedOff, id, model, c, r)
+			cb.releasePin(&after, causePinReleasedOff, id, model, c, r)
 			released++
 		}
 	}
@@ -264,10 +270,15 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 // level the half-open→closed recovery uses. cooldown_ms is the wait the circuit
 // falls back to, which is its backoff when one is in force: a recovered quota
 // does not undo the probes that failed. Routing metadata only — never payload
-// or credentials. Must be called with cb.mu held.
-func (cb *CircuitBreaker) releasePin(reason, providerID, model string, c *circuit, r *cooldownReads) {
+// or credentials. Must be called with cb.mu held; the line goes to after, for
+// the caller to write once the lock is released.
+func (cb *CircuitBreaker) releasePin(after *afterUnlock, reason, providerID, model string, c *circuit, r *cooldownReads) {
 	c.cooldownOverride = 0
 	c.pinSource = ""
 	c.note(time.Now(), Cause{Status: c.lastStatus, Reason: reason})
-	debuglog.Info("circuit-breaker: "+reason, "provider_id", providerID, "state", cb.logicalStateWith(c, r).String(), "cooldown_ms", cb.unpinnedCooldownWith(c, r).Milliseconds(), "model", model)
+	state := cb.logicalStateWith(c, r).String()
+	ms := cb.unpinnedCooldownWith(c, r).Milliseconds()
+	after.add(func() {
+		debuglog.Info("circuit-breaker: "+reason, "provider_id", providerID, "state", state, "cooldown_ms", ms, "model", model)
+	})
 }

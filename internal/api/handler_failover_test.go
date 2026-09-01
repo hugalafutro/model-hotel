@@ -728,6 +728,8 @@ type mockCircuitBreaker struct {
 	// detailCalls counts StatusDetail reads, so a test can pin that the
 	// aggregate poll never pays for the per-circuit list.
 	detailCalls int
+	// modelResets records every ResetModel call as "provider/model".
+	modelResets []string
 }
 
 func (m *mockCircuitBreaker) Status() []failover.ProviderStatus {
@@ -758,6 +760,25 @@ func (m *mockCircuitBreaker) Reset(providerID uuid.UUID) failover.State {
 	// Untracked provider: the real breaker treats this as an implicitly healthy
 	// closed circuit, not an error.
 	return failover.StateClosed
+}
+
+// ResetModel records the scoped reset it was asked for and drops the model from
+// the provider's open_models, so a test can pin that the handler passed the
+// model through rather than clearing the whole provider.
+func (m *mockCircuitBreaker) ResetModel(providerID uuid.UUID, model string) (failover.State, bool) {
+	m.modelResets = append(m.modelResets, providerID.String()+"/"+model)
+	id := providerID.String()
+	for i, s := range m.statuses {
+		if s.ProviderID != id {
+			continue
+		}
+		if j := slices.Index(s.OpenModels, model); j >= 0 {
+			m.statuses[i].OpenModels = slices.Delete(slices.Clone(s.OpenModels), j, j+1)
+			return failover.StateOpen, true
+		}
+		return failover.StateClosed, true
+	}
+	return failover.StateClosed, false
 }
 
 // ReleaseQuotaPins is a no-op here: the failover HTTP handlers never lift quota

@@ -1,12 +1,16 @@
 package failover
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
@@ -301,5 +305,175 @@ func TestStatus_OmitsCircuitsWithoutDetail(t *testing.T) {
 	}
 	if s := onlyDetail(t, cb); len(s.Circuits) != 1 {
 		t.Errorf("StatusDetail() circuits = %+v, want one", s.Circuits)
+	}
+}
+
+// ResetModel clears exactly one circuit: the sibling keeps its charges, an
+// untracked pair is a no-op that says so, the provider entry disappears with
+// its last circuit, and every manual reset logs one line per circuit with the
+// cause vocabulary the rest of the breaker uses.
+func TestResetModel_ClearsOneCircuitAndLogsEach(t *testing.T) {
+	capt := captureLogs(t)
+	cb := newTestCB(2, time.Minute)
+	id := uuid.New()
+	cb.RecordFailure(id, "p", "dark", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "dark", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "charged", UpstreamStatus(502, "")) // one charge, still closed
+
+	if prev, existed := cb.ResetModel(id, "missing"); prev != StateClosed || existed {
+		t.Errorf("untracked pair = (%v, %v), want (closed, false)", prev, existed)
+	}
+	prev, existed := cb.ResetModel(id, "dark")
+	if prev != StateOpen || !existed {
+		t.Fatalf("reset of the open circuit = (%v, %v), want (open, true)", prev, existed)
+	}
+	if cb.GetState(id, "dark") != StateClosed {
+		t.Error("the reset circuit still reports open")
+	}
+	if !hasCircuit(t, cb, id, "charged") {
+		t.Error("the sibling circuit was cleared by a scoped reset")
+	}
+	if prev, existed := cb.ResetModel(id, "charged"); prev != StateClosed || !existed {
+		t.Errorf("reset of a closed tracked circuit = (%v, %v), want (closed, true)", prev, existed)
+	}
+	if countCircuits(t, cb, id) != 0 {
+		t.Error("provider entry survived its last circuit")
+	}
+
+	lines := manualResetLines(capt, id.String())
+	if len(lines) != 2 {
+		t.Fatalf("manual reset lines = %d, want one per circuit that existed", len(lines))
+	}
+	for _, l := range lines {
+		if l["cause"] != "manual reset" {
+			t.Errorf("reset line cause = %v", l["cause"])
+		}
+	}
+
+	// Reset (whole provider) and ResetAll log per circuit too.
+	cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "b", UpstreamStatus(503, ""))
+	cb.Reset(id)
+	other := uuid.New()
+	cb.RecordFailure(other, "q", "c", UpstreamStatus(503, ""))
+	cb.ResetAll()
+	total := len(manualResetLines(capt, ""))
+	if total != 5 {
+		t.Errorf("manual reset lines overall = %d, want 5 (2 + 2 + 1)", total)
+	}
+}
+
+// manualResetLines returns the attrs of every "manual reset" line captured,
+// optionally only those for one provider id. The reset lines carry the id as
+// the map's string key, which forProvider's uuid.UUID match cannot see.
+func manualResetLines(capt *logCaptureHandler, providerID string) []map[string]any {
+	capt.mu.Lock()
+	defer capt.mu.Unlock()
+	var out []map[string]any
+	for _, r := range capt.records {
+		if r.msg != "circuit-breaker: manual reset" {
+			continue
+		}
+		if providerID != "" && r.attrs["provider_id"] != providerID {
+			continue
+		}
+		out = append(out, r.attrs)
+	}
+	return out
+}
+
+// breakerReadingHandler reads the breaker while handling a record, standing in
+// for the app-log handler that can block on its store for seconds per line.
+type breakerReadingHandler struct {
+	*logCaptureHandler
+	cb *CircuitBreaker
+	id uuid.UUID
+}
+
+func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error {
+	if strings.HasPrefix(r.Message, "circuit-breaker:") {
+		// Takes cb.mu: deadlocks if the section that logged still holds it.
+		// Only log lines are guarded: the bus publish is non-blocking and never
+		// calls back into the breaker, so publishing under the lock would cost
+		// time, not liveness, and this guard would not see it.
+		h.cb.GetState(h.id, "unrelated")
+	}
+	return h.logCaptureHandler.Handle(ctx, r)
+}
+
+// Every line the breaker writes, on the request path and the poller's as well
+// as the resets, is written with cb.mu released. cb.mu is the lock each
+// request's IsOpen takes, and the app-log sink can stall for seconds per line
+// when its store is backed up: one transition logged under the lock stalls
+// every request for that long, and a fleet-wide reset for N of those stalls.
+func TestBreakerLogsWithTheLockReleased(t *testing.T) {
+	capt := captureLogs(t)
+	cb := newTestCB(2, 5*time.Millisecond)
+	id := uuid.New()
+	debuglog.SetHandler(&breakerReadingHandler{logCaptureHandler: capt, cb: cb, id: id})
+
+	fail := func(model string) { cb.RecordFailure(id, "p", model, UpstreamStatus(503, "")) }
+	probeDue := func(model string) {
+		time.Sleep(50 * time.Millisecond) // well past the 5ms cooldown
+		cb.IsOpen(id, "p", model)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// The request path: closed→open, open→half-open, half-open→closed,
+		// then a probe that fails, which is also the third open inside the
+		// window and so the "keeps reopening" report.
+		fail("a")
+		fail("a")
+		probeDue("a")
+		cb.RecordSuccess(id, "p", "a")
+		fail("a")
+		fail("a")
+		probeDue("a")
+		fail("a")
+		// A probe that draws an exhausted body.
+		fail("e")
+		fail("e")
+		probeDue("e")
+		cb.RecordExhausted(id, "p", "e", time.Hour)
+		// An exhausted open with a response pin, retargeted and released by the
+		// poller's paths, then one released by switching the poller off.
+		cb.RecordExhausted(id, "p", "b", time.Hour)
+		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
+		cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
+		cb.RecordExhausted(id, "p", "c", time.Hour)
+		cb.ReleaseAllQuotaPins()
+		// The manual resets: one circuit, the provider, everything.
+		cb.ResetModel(id, "a")
+		cb.Reset(id)
+		fail("d")
+		cb.ResetAll()
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the breaker logged while holding its lock")
+	}
+
+	want := []string{
+		"circuit-breaker: model state=closed→open",
+		"circuit-breaker: model state=open→half-open (cooldown elapsed)",
+		"circuit-breaker: model state=half-open→closed (probe succeeded)",
+		"circuit-breaker: model state=half-open→open (probe failed)",
+		"circuit-breaker: model keeps reopening its circuit",
+		"circuit-breaker: model state=half-open→open (probe drew exhaustion)",
+		"circuit-breaker: model state=closed→open (exhausted)",
+		"circuit-breaker: quota pin retargeted (fresh exhaustion reading)",
+		"circuit-breaker: " + causePinReleasedQuota,
+		"circuit-breaker: " + causePinReleasedOff,
+	}
+	for _, msg := range want {
+		if !capt.has(msg) {
+			t.Errorf("no %q line: the sequence did not drive that emission site", msg)
+		}
+	}
+	// 1 scoped (a) + 3 provider (b, c, e) + 1 all (d).
+	if n := len(manualResetLines(capt, id.String())); n != 5 {
+		t.Errorf("manual reset lines = %d, want 5 (1 scoped + 3 provider + 1 all)", n)
 	}
 }

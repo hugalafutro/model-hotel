@@ -3010,7 +3010,10 @@
 		"card": {
 			"copy": "Copia",
 			"active": "actiu",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} de {{total}} entrades actives",
+			"allEntriesDark": "totes les entrades fosques",
+			"allEntriesDarkRetry": "totes les entrades fosques, primer reintent {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Desactivar proveïdor",
@@ -3033,7 +3036,17 @@
 			"deleteNaConfirmTitle": "Voleu eliminar aquest grup?",
 			"deleteNaConfirmMessage": "Si traieu els membres no disponibles, quedaran menys de 2 membres encaminables, de manera que s'eliminarà tot el grup.",
 			"deleteNaConfirmLabel": "Elimina el grup",
-			"circuitBreakerProviderOpen": "Proveïdor omès completament - interruptor obert per a: {{models}}"
+			"circuitBreakerProviderOpen": "Proveïdor omès completament - interruptor obert per a: {{models}}",
+			"chip": {
+				"live": "actiu",
+				"busy": "ocupat",
+				"open": "obert",
+				"probe": "sonda pendent",
+				"pinned": "fixat"
+			},
+			"chipBusyTip": "Aquest proveïdor ha respost un 429 d'ocupat en l'últim minut; el seu disjuntor està tancat i les sol·licituds encara s'hi encaminen, passant a l'entrada següent quan és ple.",
+			"circuitCause": "Últim veredicte: {{cause}} (estat amunt {{status}}) a les {{when}}",
+			"circuitCauseNoStatus": "Últim veredicte: {{cause}} a les {{when}}"
 		}
 	},
 	"virtualKeys": {

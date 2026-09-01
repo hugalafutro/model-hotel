@@ -111,6 +111,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 		// for up to 24h with no other operator lever.
 		r.Post("/circuit-breaker/reset", h.ResetAllCircuitBreakers)
 		r.Post("/circuit-breaker/{provider_id}/reset", h.ResetCircuitBreaker)
+		r.Post("/{id}/circuit-breaker/reset", h.ResetGroupCircuitBreakers)
 		r.Get("/{id}", h.Get)
 		// Custom failover groups are synced config: a managed fleet member must not
 		// create/edit/delete them locally (the primary owns them and replaces them

@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik přestal načítat konfiguraci směrování"
 		},
 		"colVerifiedTip": "Automatická synchronizace každých pár sekund porovnává hash konfigurace tohoto člena s primární instancí. Nedávný čas zde znamená, že člen právě teď drží přesnou konfiguraci primární instance.",
-		"colLastSyncTip": "Kdy Front Desk naposledy zapsal konfiguraci do tohoto člena (změna konfigurace nebo oprava). Nejde o čerstvost konfigurace: člen dostane razítko jen tehdy, když zápis potřeboval, takže synchronizovaní členové zde mohou mít různé časy."
+		"colLastSyncTip": "Kdy Front Desk naposledy zapsal konfiguraci do tohoto člena (změna konfigurace nebo oprava). Nejde o čerstvost konfigurace: člen dostane razítko jen tehdy, když zápis potřeboval, takže synchronizovaní členové zde mohou mít různé časy.",
+		"resetCircuits": "Resetovat jističe",
+		"resetCircuitsTip": "Vymazat jističe jedné failover skupiny na všech členech a vrátit její odstavené poskytovatele do rotace v celé flotile",
+		"resetCircuitsTitle": "Resetovat jističe skupiny na všech členech?",
+		"resetCircuitsBody": "Každý člen vymaže jističe za položkami zvolené skupiny; člen bez uloženého tokenu je přeskočen a takto uveden. Poskytovatelé, které jističe odstavily, se okamžitě vrátí do rotace; poskytovatel, který je stále rozbitý, se znovu vypne sám.",
+		"resetCircuitsConfirm": "Resetovat na všech členech",
+		"resetCircuitsDone": "Jističe resetovány na {{members}} členech: {{cleared}} obvodů vymazáno, {{recovered}} obnoveno",
+		"resetCircuitsPartial": "Jističe resetovány, ale u {{failed}} z {{members}} členů reset neproběhl",
+		"resetCircuitsGroupLabel": "Failover skupina",
+		"resetCircuitsGroupPlaceholder": "Zvolte skupinu",
+		"resetCircuitsNoGroups": "Primární člen nehlásí žádné failover skupiny"
 	},
 	"traffic": {
 		"title": "Provoz",

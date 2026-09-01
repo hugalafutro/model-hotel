@@ -21,6 +21,7 @@ import {
 	stampedCommit,
 } from "../utils/build";
 import { formatRelative, formatTimeOfDay } from "../utils/time";
+import { FleetCircuitReset } from "./members/FleetCircuitReset";
 
 // memberBuild reads a member's build identity off its polled status. Front Desk
 // clears both halves together when a read fails, so an empty version means "not
@@ -224,6 +225,9 @@ export function MembersPage() {
 					>
 						{t(`members.fleetState.${autoSync.fleet_state}`)}
 					</span>
+				)}
+				{primaryId && members.find((m) => m.id === primaryId)?.has_token && (
+					<FleetCircuitReset primaryId={primaryId} />
 				)}
 			</div>
 

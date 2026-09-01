@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"
 		},
 		"colVerifiedTip": "Der Auto-Sync vergleicht alle paar Sekunden den Konfigurations-Hash dieses Mitglieds mit dem des Primärs. Eine aktuelle Zeit hier bedeutet, dass das Mitglied gerade exakt die Konfiguration des Primärs hält.",
-		"colLastSyncTip": "Wann Front Desk zuletzt Konfiguration auf dieses Mitglied geschrieben hat (eine Änderung oder eine Reparatur). Das ist keine Konfigurations-Frische: Ein Mitglied wird nur gestempelt, wenn es einen Schreibvorgang brauchte, daher können synchrone Mitglieder hier unterschiedliche Zeiten zeigen."
+		"colLastSyncTip": "Wann Front Desk zuletzt Konfiguration auf dieses Mitglied geschrieben hat (eine Änderung oder eine Reparatur). Das ist keine Konfigurations-Frische: Ein Mitglied wird nur gestempelt, wenn es einen Schreibvorgang brauchte, daher können synchrone Mitglieder hier unterschiedliche Zeiten zeigen.",
+		"resetCircuits": "Schutzschalter zurücksetzen",
+		"resetCircuitsTip": "Die Schutzschalter einer Failover-Gruppe auf allen Mitgliedern löschen und ihre ausgesetzten Anbieter flottenweit wieder in die Rotation nehmen",
+		"resetCircuitsTitle": "Schutzschalter einer Gruppe auf allen Mitgliedern zurücksetzen?",
+		"resetCircuitsBody": "Jedes Mitglied löscht die Schutzschalter hinter den Einträgen der gewählten Gruppe; ein Mitglied ohne gespeichertes Token wird übersprungen und als solches aufgeführt. Anbieter, die die Schalter ausgesetzt hatten, kehren sofort in die Rotation zurück; ein weiterhin defekter Anbieter löst von selbst wieder aus.",
+		"resetCircuitsConfirm": "Auf allen Mitgliedern zurücksetzen",
+		"resetCircuitsDone": "Schutzschalter auf {{members}} Mitgliedern zurückgesetzt: {{cleared}} Stromkreise gelöscht, {{recovered}} wiederhergestellt",
+		"resetCircuitsPartial": "Schutzschalter zurückgesetzt, aber bei {{failed}} von {{members}} Mitgliedern nicht",
+		"resetCircuitsGroupLabel": "Failover-Gruppe",
+		"resetCircuitsGroupPlaceholder": "Gruppe wählen",
+		"resetCircuitsNoGroups": "Das primäre Mitglied meldet keine Failover-Gruppen"
 	},
 	"traffic": {
 		"title": "Traffic",

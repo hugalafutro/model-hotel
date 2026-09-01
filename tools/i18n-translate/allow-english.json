@@ -2459,6 +2459,9 @@
 	"failoverGroups.create.selectedCount_other": [
 		"no"
 	],
+	"failoverGroups.entry.chip.open": [
+		"nl"
+	],
 	"failoverGroups.entry.naBadge": [
 		"af",
 		"ar",

@@ -27,6 +27,9 @@ func (f fakeBreakerReader) Reset(uuid.UUID) failover.State {
 	panic("metrics must never reset the circuit breaker")
 }
 
+func (f fakeBreakerReader) ResetModel(uuid.UUID, string) (failover.State, bool) {
+	return failover.StateClosed, false
+}
 func (f fakeBreakerReader) ResetAll() (int, int) {
 	panic("metrics must never reset the circuit breaker")
 }

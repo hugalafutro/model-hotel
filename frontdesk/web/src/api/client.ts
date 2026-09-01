@@ -12,6 +12,8 @@ import type {
 	DeviceRole,
 	EventsPage,
 	FdEvent,
+	FleetCircuitReset,
+	FleetFailoverGroup,
 	FleetStatus,
 	FleetSyncState,
 	FleetVersionCheck,
@@ -284,6 +286,22 @@ export const api = {
 		request<SyncResult>(
 			"/api/config/sync",
 			jsonInit("POST", { primary_id: primaryId }),
+		),
+
+	// Reset circuit breakers on every member that has a stored token: the
+	// whole ledger, or one failover group's entries when a group id is given.
+	// Each member's breaker is local runtime state nothing syncs, so this is
+	// the only fleet-wide lever.
+	// The primary's failover groups, reduced to what the reset picker needs.
+	fleetFailoverGroups: (primaryId: string) =>
+		request<FleetFailoverGroup[]>(
+			`/api/fleet/failover-groups?primary_id=${encodeURIComponent(primaryId)}`,
+		),
+
+	fleetCircuitReset: (groupId?: string) =>
+		request<FleetCircuitReset>(
+			"/api/fleet/circuit-breaker/reset",
+			jsonInit("POST", groupId ? { group_id: groupId } : {}),
 		),
 
 	// Re-poll member versions and report the ones that differ from the

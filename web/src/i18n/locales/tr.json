@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopyala",
 			"active": "aktif",
-			"tokens": "jetonlar"
+			"tokens": "jetonlar",
+			"entriesLive": "{{total}} girdiden {{live}} tanesi etkin",
+			"allEntriesDark": "tüm girdiler karanlık",
+			"allEntriesDarkRetry": "tüm girdiler karanlık, en erken yeniden deneme {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Sağlayıcıyı devre dışı bırak",
@@ -2969,7 +2972,17 @@
 			"deleteNaConfirmTitle": "Bu grup silinsin mi?",
 			"deleteNaConfirmMessage": "Kullanılamayan üyeleri kaldırmak, 2'den az yönlendirilebilir üye bırakacağından grubun tamamı silinecek.",
 			"deleteNaConfirmLabel": "Grubu sil",
-			"circuitBreakerProviderOpen": "Sağlayıcının tamamı atlanıyor - devre kesici şunlar için açık: {{models}}"
+			"circuitBreakerProviderOpen": "Sağlayıcının tamamı atlanıyor - devre kesici şunlar için açık: {{models}}",
+			"chip": {
+				"live": "etkin",
+				"busy": "meşgul",
+				"open": "açık",
+				"probe": "sonda bekliyor",
+				"pinned": "sabitlenmiş"
+			},
+			"chipBusyTip": "Bu sağlayıcı son bir dakikada meşgul 429 yanıtı verdi; devre kesicisi kapalı ve istekler hâlâ buraya yönlendiriliyor, dolduğunda bir sonraki girdiye taşıyor.",
+			"circuitCause": "Son karar: {{cause}} (yukarı akış durumu {{status}}) {{when}}",
+			"circuitCauseNoStatus": "Son karar: {{cause}} {{when}}"
 		}
 	},
 	"virtualKeys": {

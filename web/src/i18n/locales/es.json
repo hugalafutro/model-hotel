@@ -3010,7 +3010,10 @@
 		"card": {
 			"copy": "Copiar",
 			"active": "activo",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} de {{total}} entradas activas",
+			"allEntriesDark": "todas las entradas oscuras",
+			"allEntriesDarkRetry": "todas las entradas oscuras, primer reintento {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Desactivar proveedor",
@@ -3033,7 +3036,17 @@
 			"deleteNaConfirmTitle": "¿Eliminar este grupo?",
 			"deleteNaConfirmMessage": "Quitar los miembros no disponibles dejaría menos de 2 miembros enrutables, por lo que se eliminará todo el grupo.",
 			"deleteNaConfirmLabel": "Eliminar grupo",
-			"circuitBreakerProviderOpen": "Proveedor omitido por completo - disyuntor abierto para: {{models}}"
+			"circuitBreakerProviderOpen": "Proveedor omitido por completo - disyuntor abierto para: {{models}}",
+			"chip": {
+				"live": "activo",
+				"busy": "ocupado",
+				"open": "abierto",
+				"probe": "sonda pendiente",
+				"pinned": "fijado"
+			},
+			"chipBusyTip": "Este proveedor respondió un 429 de ocupado en el último minuto; su disyuntor está cerrado y las solicitudes se siguen enrutando aquí, pasando a la siguiente entrada cuando está lleno.",
+			"circuitCause": "Último veredicto: {{cause}} (estado upstream {{status}}) a las {{when}}",
+			"circuitCauseNoStatus": "Último veredicto: {{cause}} a las {{when}}"
 		}
 	},
 	"virtualKeys": {

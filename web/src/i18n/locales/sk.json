@@ -3074,7 +3074,10 @@
 		"card": {
 			"copy": "Kopírovať",
 			"active": "aktívny",
-			"tokens": "tokeny"
+			"tokens": "tokeny",
+			"entriesLive": "{{live}} z {{total}} položiek živých",
+			"allEntriesDark": "všetky položky temné",
+			"allEntriesDarkRetry": "všetky položky temné, najbližší pokus {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Zakázať poskytovateľa",
@@ -3097,7 +3100,17 @@
 			"deleteNaConfirmTitle": "Odstrániť túto skupinu?",
 			"deleteNaConfirmMessage": "Odstránením nedostupných členov by zostali menej ako 2 smerovateľní členovia, takže sa odstráni celá skupina.",
 			"deleteNaConfirmLabel": "Odstrániť skupinu",
-			"circuitBreakerProviderOpen": "Celý poskytovateľ preskočený - istič otvorený pre: {{models}}"
+			"circuitBreakerProviderOpen": "Celý poskytovateľ preskočený - istič otvorený pre: {{models}}",
+			"chip": {
+				"live": "živý",
+				"busy": "zaneprázdnený",
+				"open": "otvorený",
+				"probe": "čaká na sondu",
+				"pinned": "pripnutý"
+			},
+			"chipBusyTip": "Tento poskytovateľ odpovedal v poslednej minúte zaneprázdneným 429; jeho istič je zopnutý a požiadavky sem stále smerujú, pri zaplnení pretečú na ďalšiu položku.",
+			"circuitCause": "Posledný verdikt: {{cause}} (stav upstreamu {{status}}) o {{when}}",
+			"circuitCauseNoStatus": "Posledný verdikt: {{cause}} o {{when}}"
 		}
 	},
 	"virtualKeys": {

@@ -3010,7 +3010,10 @@
 		"card": {
 			"copy": "Copia",
 			"active": "attivo",
-			"tokens": "token"
+			"tokens": "token",
+			"entriesLive": "{{live}} di {{total}} voci attive",
+			"allEntriesDark": "tutte le voci spente",
+			"allEntriesDarkRetry": "tutte le voci spente, primo nuovo tentativo {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Disabilita provider",
@@ -3033,7 +3036,17 @@
 			"deleteNaConfirmTitle": "Eliminare questo gruppo?",
 			"deleteNaConfirmMessage": "La rimozione dei membri non disponibili lascerebbe meno di 2 membri instradabili, quindi l'intero gruppo verrà eliminato.",
 			"deleteNaConfirmLabel": "Elimina gruppo",
-			"circuitBreakerProviderOpen": "Intero provider ignorato - interruttore aperto per: {{models}}"
+			"circuitBreakerProviderOpen": "Intero provider ignorato - interruttore aperto per: {{models}}",
+			"chip": {
+				"live": "attivo",
+				"busy": "occupato",
+				"open": "aperto",
+				"probe": "sonda in scadenza",
+				"pinned": "bloccato"
+			},
+			"chipBusyTip": "Questo provider ha risposto con un 429 di occupato nell'ultimo minuto; il suo interruttore è chiuso e le richieste continuano a essere instradate qui, passando alla voce successiva quando è pieno.",
+			"circuitCause": "Ultimo verdetto: {{cause}} (stato upstream {{status}}) alle {{when}}",
+			"circuitCauseNoStatus": "Ultimo verdetto: {{cause}} alle {{when}}"
 		}
 	},
 	"virtualKeys": {
