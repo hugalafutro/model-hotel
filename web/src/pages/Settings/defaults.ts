@@ -52,6 +52,10 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	rate_limit_recent_success_window: "60s",
 	circuit_breaker_open_on_exhaustion: "true",
 	failover_exhaustion_status_429: "true",
+	// The adaptive in-flight learner; matches internal/proxy/inflight.go.
+	inflight_limiter_enabled: "true",
+	inflight_grow_after: "20",
+	inflight_forget_after: "10m",
 	hedging_enabled: "false",
 	hedge_delay: "4s",
 
@@ -133,6 +137,9 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"rate_limit_recent_success_window",
 		"circuit_breaker_open_on_exhaustion",
 		"failover_exhaustion_status_429",
+		"inflight_limiter_enabled",
+		"inflight_grow_after",
+		"inflight_forget_after",
 		"hedging_enabled",
 		"hedge_delay",
 	],
@@ -176,6 +183,9 @@ export type SettingKey =
 	| "rate_limit_recent_success_window"
 	| "circuit_breaker_open_on_exhaustion"
 	| "failover_exhaustion_status_429"
+	| "inflight_limiter_enabled"
+	| "inflight_grow_after"
+	| "inflight_forget_after"
 	| "hedging_enabled"
 	| "hedge_delay"
 	| "log_retention"
@@ -224,6 +234,9 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_open_on_exhaustion:
 		"settings.circuitBreaker.openOnExhaustion",
 	failover_exhaustion_status_429: "settings.circuitBreaker.exhaustion429",
+	inflight_limiter_enabled: "settings.circuitBreaker.inflightLimiter",
+	inflight_grow_after: "settings.circuitBreaker.inflightGrowAfter",
+	inflight_forget_after: "settings.circuitBreaker.inflightForgetAfter",
 	hedging_enabled: "settings.circuitBreaker.hedging",
 	hedge_delay: "settings.circuitBreaker.hedgeDelay",
 	log_retention: "settings.logging.logRetention",

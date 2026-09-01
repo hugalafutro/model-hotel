@@ -13,7 +13,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
-	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -44,6 +43,10 @@ type hedgeResult struct {
 	// with the snapshot and a terminal all-busy response would fall back to
 	// the class-default Retry-After instead of the provider's own ask.
 	rateLimit rateLimitVerdict
+	// busy marks a candidate skipped at its provider's in-flight window: no
+	// request was made, so an all-busy race is worth waiting out (see the
+	// orchestrator's exhaustion branch) instead of failing in milliseconds.
+	busy bool
 }
 
 // minHedgeDelay floors the configured hedge delay. The dashboard already clamps to
@@ -164,6 +167,12 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	// still the honest cause (an intermediary, not the client, cut it), so a stall
 	// seen at any point classifies a later disconnect as 502 rather than 499.
 	var providerStall reqError
+	// Candidates whose probes lost the race without a request because their
+	// provider sat at its in-flight window: worth one bounded wait for a slot
+	// before answering anyone with an all-busy error, exactly as the
+	// sequential loop does. Turning hedging on must never make a merely-busy
+	// group FAIL faster than leaving it off.
+	var busyCandidates []modelCandidate
 
 	for {
 		select {
@@ -188,6 +197,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			// reqError, so a terminal all-busy exhaustion answers with the
 			// provider's own Retry-After rather than the class default.
 			st.rateLimit = res.rateLimit
+			if res.busy {
+				busyCandidates = append(busyCandidates, candidates[res.idx])
+			}
 			if res.reqErr.Kind == KindProviderTimeout {
 				providerStall = res.reqErr
 			}
@@ -198,6 +210,13 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				nextIdx++
 			}
 			if inFlight == 0 && nextIdx >= len(candidates) {
+				// Every probe has resolved. If some candidates were skipped at
+				// their in-flight window, wait for the first slot to free and
+				// serve there through the ordinary sequential attempt (the
+				// race is over, so the shared state is single-threaded again).
+				if len(busyCandidates) > 0 && h.retryAfterSlotFrees(w, r, st, busyCandidates, launched, h.attemptCandidate) {
+					return
+				}
 				h.failAllExhausted(w, st, launched)
 				return
 			}
@@ -243,14 +262,24 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) hedgeResult {
 	res := hedgeResult{idx: attempt}
 
+	// The same admission gate beginAttempt passes: a provider at its learned
+	// in-flight window loses this race slot without a request being made.
+	if !h.admitCandidate(st, candidate) {
+		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"}
+		res.rateLimit = st.rateLimit
+		res.busy = true
+		return res
+	}
+
 	// Same stamp beginAttempt makes at attempt start, before the request is
 	// built: launching an attempt against this provider counts as use, whether
 	// or not the probe wins the race or even reaches the wire.
 	h.touchProviderLastUsed(candidate.provider.ID)
 
 	var dialMs float64
-	proxyReq, _, _, err := h.buildCandidateRequest(ctx, st, candidate)
+	proxyReq, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
+		st.attemptSlot.settle(false)
 		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 		return res
 	}
@@ -261,17 +290,21 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if !ok {
 		// doUpstream set st.lastReqErr (on the private snapshot) and recorded any
 		// breaker failure.
+		st.attemptSlot.settle(false)
 		res.reqErr = st.lastReqErr
 		return res
 	}
 	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
-	providerType := provider.TypeOf(candidate.provider)
 
 	// MiniMax reports business errors (rate limit, exhausted plan balance,
 	// auth failures) inside an HTTP 200 envelope; remap them to an effective
 	// status so the breaker/failover paths below — all keyed on status codes —
-	// see the failure.
+	// see the failure. The slot rides the body only from here, with the
+	// remapped status deciding the clean flag: losers are drained and closed
+	// by the orchestrator, the winner's stream closes at its end, and either
+	// settles it.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	h.finishAttemptAdmission(st, candidate, resp)
 
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
 	rl := h.judge429AndRecordBreaker(ctx, st, candidate, resp, isFailoverEligible)

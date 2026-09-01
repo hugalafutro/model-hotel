@@ -199,3 +199,32 @@ func TestLabelOrUnknown(t *testing.T) {
 func TestRegisterBreakerCollector_NilIsNoop(t *testing.T) {
 	RegisterBreakerCollector(nil)
 }
+
+// TestInflightCollector pins the scrape-time gauges for the adaptive in-flight
+// limiter: the learned allowance (0 = uncapped) and the live count, one series
+// per provider.
+func TestInflightCollector(t *testing.T) {
+	RegisterInflightCollector(func() []InflightState {
+		return []InflightState{
+			{ProviderID: "prov-capped", Limit: 3, Inflight: 2},
+			{ProviderID: "prov-uncapped", Limit: 0, Inflight: 1},
+		}
+	})
+	out := scrape(t)
+	for _, want := range []string{
+		`modelhotel_provider_inflight_limit{provider_id="prov-capped"} 3`,
+		`modelhotel_provider_inflight{provider_id="prov-capped"} 2`,
+		`modelhotel_provider_inflight_limit{provider_id="prov-uncapped"} 0`,
+		`modelhotel_provider_inflight{provider_id="prov-uncapped"} 1`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scrape output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestRegisterInflightCollector_NilIsNoop guards the same nil contract the
+// breaker collector has: nil registers nothing and does not panic.
+func TestRegisterInflightCollector_NilIsNoop(t *testing.T) {
+	RegisterInflightCollector(nil)
+}

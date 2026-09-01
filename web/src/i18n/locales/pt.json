@@ -824,7 +824,10 @@
 			"enabledToggle": "Provedor habilitado",
 			"enabledHelper": "Controla o roteamento de proxy e o acesso à API. Provedores desabilitados rejeitam todas as solicitações.",
 			"autodiscoveryToggle": "Descoberta automática do provedor",
-			"autodiscoveryHelper": "Controla a descoberta automática do modelo. Desative para curadoria manual do catálogo de modelo do provedor."
+			"autodiscoveryHelper": "Controla a descoberta automática do modelo. Desative para curadoria manual do catálogo de modelo do provedor.",
+			"maxInFlightLabel": "Máx. de pedidos simultâneos",
+			"maxInFlightPlaceholder": "Sem teto",
+			"maxInFlightHelper": "Teto rígido de pedidos simultâneos a este fornecedor. Deixe vazio para nenhum teto; a aprendizagem adaptativa continua a ajustar-se por baixo."
 		},
 		"quotas": {
 			"expand": "Expandir quotas"
@@ -1721,7 +1724,14 @@
 			"openOnExhaustion": "Abrir circuito com quota esgotada",
 			"openOnExhaustionDescription": "Quando uma 429 indica quota ou saldo esgotado, o circuito do modelo abre com essa única resposta em vez de esperar pelo limiar de falhas.",
 			"exhaustion429": "Responder 429 a grupos saturados",
-			"exhaustion429Description": "Quando todos os fornecedores de um grupo estão saturados ou à espera da quota, o cliente recebe 429 com Retry-After em vez de 502, para aguardar e repetir por conta própria."
+			"exhaustion429Description": "Quando todos os fornecedores de um grupo estão saturados ou à espera da quota, o cliente recebe 429 com Retry-After em vez de 502, para aguardar e repetir por conta própria.",
+			"inflightGroup": "Concorrência adaptativa",
+			"inflightLimiter": "Aprender a concorrência do fornecedor",
+			"inflightLimiterDescription": "Aprende a concorrência real de cada fornecedor a partir dos seus 429: reduz a margem quando um chega e recupera-a com conclusões limpas, de modo que os pedidos transbordam para o fornecedor seguinte antes de provocar outro 429.",
+			"inflightGrowAfter": "Intervalo de crescimento",
+			"inflightGrowAfter.description": "Conclusões bem-sucedidas consecutivas que um fornecedor limitado deve servir antes de a sua margem crescer uma unidade.",
+			"inflightForgetAfter": "Esquecer após",
+			"inflightForgetAfter.description": "Quanto tempo um fornecedor limitado deve passar sem novo sinal de saturação antes de a sua margem voltar a ser ilimitada."
 		},
 		"logging": {
 			"title": "Registro",

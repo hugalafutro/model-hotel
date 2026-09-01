@@ -17,6 +17,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -37,6 +38,12 @@ type Handler struct {
 	tpmLimiter     *ratelimit.TPMLimiter
 	ipLimiter      *ratelimit.IPLimiter
 	circuitBreaker *failover.CircuitBreaker
+	// inflight is the adaptive per-provider concurrency learner (see
+	// inflight.go). Nil (tests building Handler{} directly) admits everything
+	// and learns nothing. NewHandler registers its scrape-time gauges; the
+	// registration is once-guarded, so like the breaker collector it reports
+	// the first handler's state — one handler exists outside tests.
+	inflight *inflightLimiter
 	// upstreamTransport is a shared Transport for all outbound proxy
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
@@ -189,6 +196,8 @@ func NewHandler(
 	ipLimiter *ratelimit.IPLimiter,
 	sd *SafeDialer,
 ) *Handler {
+	inflight := newInflightLimiter()
+	metrics.RegisterInflightCollector(inflight.snapshot)
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
@@ -201,6 +210,7 @@ func NewHandler(
 		tpmLimiter:     tpmLimiter,
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		inflight:       inflight,
 		shutdown:       make(chan struct{}),
 		upstreamTransport: &http.Transport{
 			DialContext:           safeDialFunc(sd),

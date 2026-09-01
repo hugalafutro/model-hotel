@@ -836,7 +836,10 @@
 			"enabledToggle": "Poskytovateľ je povolený",
 			"enabledHelper": "Riadi smerovanie cez proxy a prístup k API. Vypnuté poskytovateľské služby odmietajú všetky požiadavky.",
 			"autodiscoveryToggle": "Automatické vyhľadávanie modelov poskytovateľa",
-			"autodiscoveryHelper": "Ovláda automatické vyhľadávanie modelov. Vypnutím tejto funkcie môžete ručne spravovať katalóg modelov tohto poskytovateľa."
+			"autodiscoveryHelper": "Ovláda automatické vyhľadávanie modelov. Vypnutím tejto funkcie môžete ručne spravovať katalóg modelov tohto poskytovateľa.",
+			"maxInFlightLabel": "Max. súbežných požiadaviek",
+			"maxInFlightPlaceholder": "Bez stropu",
+			"maxInFlightHelper": "Pevný strop súbežných požiadaviek na tohto poskytovateľa. Prázdne pole znamená žiadny strop; adaptívne učenie beží ďalej pod ním."
 		},
 		"quotas": {
 			"expand": "Rozbaliť kvóty"
@@ -1768,7 +1771,14 @@
 			"openOnExhaustion": "Rozpojiť obvod pri vyčerpanej kvóte",
 			"openOnExhaustionDescription": "Keď 429 hlási vyčerpaný limit alebo kredit, obvod modelu sa rozpojí po tejto jedinej odpovedi namiesto čakania na prah zlyhania.",
 			"exhaustion429": "Odpovedať vyťaženým skupinám stavom 429",
-			"exhaustion429Description": "Keď sú všetci poskytovatelia v skupine vyťažení alebo čakajú na obnovenie kvóty, klient dostane 429 s Retry-After namiesto 502, takže sám počká a skúsi to znova."
+			"exhaustion429Description": "Keď sú všetci poskytovatelia v skupine vyťažení alebo čakajú na obnovenie kvóty, klient dostane 429 s Retry-After namiesto 502, takže sám počká a skúsi to znova.",
+			"inflightGroup": "Adaptívna súbežnosť",
+			"inflightLimiter": "Učiť sa súbežnosť poskytovateľa",
+			"inflightLimiterDescription": "Učí sa skutočnú súbežnosť každého poskytovateľa z jeho odpovedí 429: pri takej odpovedi prídel zmenší a pri čistých dokončeniach ho zase zväčší, takže požiadavky pretečú k ďalšiemu poskytovateľovi skôr, než padne ďalšia 429.",
+			"inflightGrowAfter": "Interval rastu",
+			"inflightGrowAfter.description": "Koľko po sebe idúcich úspešných dokončení musí obmedzený poskytovateľ obslúžiť, kým jeho prídel vzrastie o jedna.",
+			"inflightForgetAfter": "Zabudnúť po",
+			"inflightForgetAfter.description": "Ako dlho musí byť obmedzený poskytovateľ bez nového signálu vyťaženia, kým sa jeho prídel vráti na neobmedzený."
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",

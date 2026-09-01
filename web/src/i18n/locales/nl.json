@@ -812,7 +812,10 @@
 			"enabledToggle": "Provider ingeschakeld",
 			"enabledHelper": "Bepaalt proxyroutering en API-toegang. Uitgeschakelde providers wijzen alle verzoeken af.",
 			"autodiscoveryToggle": "Autodiscovery aanbieder",
-			"autodiscoveryHelper": "Bepaalt automatische modelontdekking. Uitschakelen om de modelcatalogus van deze provider handmatig aan te passen."
+			"autodiscoveryHelper": "Bepaalt automatische modelontdekking. Uitschakelen om de modelcatalogus van deze provider handmatig aan te passen.",
+			"maxInFlightLabel": "Max. gelijktijdige verzoeken",
+			"maxInFlightPlaceholder": "Geen plafond",
+			"maxInFlightHelper": "Hard plafond voor gelijktijdige verzoeken aan deze provider. Leeg laten voor geen plafond; de adaptieve leerling blijft zich eronder aanpassen."
 		},
 		"quotas": {
 			"expand": "Quota tonen"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Circuit openen bij opgebruikt quotum",
 			"openOnExhaustionDescription": "Wanneer een 429 meldt dat het quotum of saldo op is, wordt het circuit van het model na die ene reactie geopend in plaats van te wachten op de foutdrempel.",
 			"exhaustion429": "Bezette groepen met 429 beantwoorden",
-			"exhaustion429Description": "Wanneer alle providers in een groep bezet zijn of op hun quotum wachten, krijgt de client 429 met Retry-After in plaats van 502, zodat hij zelf wacht en opnieuw probeert."
+			"exhaustion429Description": "Wanneer alle providers in een groep bezet zijn of op hun quotum wachten, krijgt de client 429 met Retry-After in plaats van 502, zodat hij zelf wacht en opnieuw probeert.",
+			"inflightGroup": "Adaptieve gelijktijdigheid",
+			"inflightLimiter": "Gelijktijdigheid van provider leren",
+			"inflightLimiterDescription": "Leert de werkelijke gelijktijdigheid van elke provider uit zijn 429-reacties: het tegoed krimpt wanneer er een binnenkomt en groeit weer bij nette voltooiingen, zodat verzoeken naar de volgende provider overlopen voordat er nog een 429 valt.",
+			"inflightGrowAfter": "Groei-interval",
+			"inflightGrowAfter.description": "Aantal opeenvolgende geslaagde voltooiingen dat een begrensde provider moet leveren voordat zijn tegoed met één groeit.",
+			"inflightForgetAfter": "Vergeten na",
+			"inflightForgetAfter.description": "Hoe lang een begrensde provider zonder nieuw druktesignaal moet blijven voordat zijn tegoed weer onbeperkt wordt."
 		},
 		"logging": {
 			"title": "Logboekregistratie",

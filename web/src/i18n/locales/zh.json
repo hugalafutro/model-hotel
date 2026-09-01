@@ -812,7 +812,10 @@
 			"enabledToggle": "提供商已启用",
 			"enabledHelper": "控制代理路由和API访问。禁用提供商拒绝所有请求。",
 			"autodiscoveryToggle": "提供者自动发现",
-			"autodiscoveryHelper": "控制模型的自动发现。禁用后可手动管理该提供商的模型目录。"
+			"autodiscoveryHelper": "控制模型的自动发现。禁用后可手动管理该提供商的模型目录。",
+			"maxInFlightLabel": "最大并发请求数",
+			"maxInFlightPlaceholder": "无上限",
+			"maxInFlightHelper": "对该提供商同时请求数的硬性上限。留空表示无上限;自适应学习仍在其下继续调整。"
 		},
 		"quotas": {
 			"expand": "展开配额"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "配额耗尽时断开电路",
 			"openOnExhaustionDescription": "当 429 表明配额或余额已耗尽时,凭这一次响应即断开该模型的电路,而不等待失败阈值。",
 			"exhaustion429": "以 429 回应繁忙的组",
-			"exhaustion429Description": "当组内所有提供商都繁忙或在等待配额时,向客户端返回带 Retry-After 的 429 而非 502,让客户端自行退避并重试。"
+			"exhaustion429Description": "当组内所有提供商都繁忙或在等待配额时,向客户端返回带 Retry-After 的 429 而非 502,让客户端自行退避并重试。",
+			"inflightGroup": "自适应并发",
+			"inflightLimiter": "学习提供商并发数",
+			"inflightLimiterDescription": "从每个提供商的 429 响应学习其真实并发能力:收到 429 时缩小额度,顺利完成时再恢复,使请求在引发下一个 429 之前就溢出到下一个提供商。",
+			"inflightGrowAfter": "增长间隔",
+			"inflightGrowAfter.description": "受限提供商的额度增加一之前,必须连续成功完成的请求数。",
+			"inflightForgetAfter": "遗忘时间",
+			"inflightForgetAfter.description": "受限提供商在没有新的繁忙信号的情况下经过多久,其额度恢复为无限制。"
 		},
 		"logging": {
 			"title": "日志记录",

@@ -812,7 +812,10 @@
 			"enabledToggle": "プロバイダーは有効です",
 			"enabledHelper": "プロキシルーティングとAPIアクセスを制御します。無効化されたプロバイダはすべてのリクエストを拒否します。",
 			"autodiscoveryToggle": "プロバイダーの自動検出",
-			"autodiscoveryHelper": "モデルの自動検出を制御します。このプロバイダーのモデルカタログを手動でキュレートするには無効にします。"
+			"autodiscoveryHelper": "モデルの自動検出を制御します。このプロバイダーのモデルカタログを手動でキュレートするには無効にします。",
+			"maxInFlightLabel": "最大同時リクエスト数",
+			"maxInFlightPlaceholder": "上限なし",
+			"maxInFlightHelper": "このプロバイダーへの同時リクエストの厳格な上限です。空欄で上限なし。適応学習はその下で引き続き調整します。"
 		},
 		"quotas": {
 			"expand": "クォータを展開"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "クォータ枯渇で回路を開く",
 			"openOnExhaustionDescription": "429 がクォータや残高の枯渇を示す場合、失敗しきい値を待たずにその 1 応答でモデルの回路を開きます。",
 			"exhaustion429": "混雑グループには 429 で応答",
-			"exhaustion429Description": "グループ内の全プロバイダーが混雑またはクォータ待ちのとき、クライアントには 502 ではなく Retry-After 付きの 429 を返し、クライアント側で待機と再試行を行わせます。"
+			"exhaustion429Description": "グループ内の全プロバイダーが混雑またはクォータ待ちのとき、クライアントには 502 ではなく Retry-After 付きの 429 を返し、クライアント側で待機と再試行を行わせます。",
+			"inflightGroup": "適応的な同時実行数",
+			"inflightLimiter": "プロバイダーの同時実行数を学習",
+			"inflightLimiterDescription": "各プロバイダーの実際の同時実行数を 429 応答から学習します。429 が届くと許容量を縮め、正常な完了で回復させるため、次の 429 を招く前にリクエストは次のプロバイダーへあふれます。",
+			"inflightGrowAfter": "増加間隔",
+			"inflightGrowAfter.description": "上限付きプロバイダーの許容量が 1 増えるまでに、連続して成功しなければならない完了数。",
+			"inflightForgetAfter": "忘却までの時間",
+			"inflightForgetAfter.description": "上限付きプロバイダーが新たな混雑シグナルなしにこの時間を過ごすと、許容量は無制限に戻ります。"
 		},
 		"logging": {
 			"title": "ログ",

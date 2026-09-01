@@ -812,7 +812,10 @@
 			"enabledToggle": "Sağlayıcı etkinleştirildi",
 			"enabledHelper": "Proxy yönlendirmesini ve API erişimini kontrol eder. Devre dışı bırakılmış sağlayıcılar tüm istekleri reddeder.",
 			"autodiscoveryToggle": "Sağlayıcı otomatik algılama",
-			"autodiscoveryHelper": "Otomatik model keşfini kontrol eder. Bu sağlayıcının model kataloğunu manuel olarak düzenlemek için devre dışı bırakın."
+			"autodiscoveryHelper": "Otomatik model keşfini kontrol eder. Bu sağlayıcının model kataloğunu manuel olarak düzenlemek için devre dışı bırakın.",
+			"maxInFlightLabel": "Maks. eşzamanlı istek",
+			"maxInFlightPlaceholder": "Tavan yok",
+			"maxInFlightHelper": "Bu sağlayıcıya eşzamanlı istekler için katı tavan. Tavan istemiyorsanız boş bırakın; uyarlanabilir öğrenme altında ayarlanmaya devam eder."
 		},
 		"quotas": {
 			"expand": "Kotaları genişlet"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Kota tükenince devreyi aç",
 			"openOnExhaustionDescription": "Bir 429 kota veya bakiyenin tükendiğini bildirdiğinde, hata eşiğini beklemeden o tek yanıtla modelin devresi açılır.",
 			"exhaustion429": "Meşgul gruplara 429 ile yanıt ver",
-			"exhaustion429Description": "Bir gruptaki tüm sağlayıcılar meşgulken veya kotalarını beklerken istemciye 502 yerine Retry-After içeren 429 döner; böylece istemci kendi kendine bekleyip yeniden dener."
+			"exhaustion429Description": "Bir gruptaki tüm sağlayıcılar meşgulken veya kotalarını beklerken istemciye 502 yerine Retry-After içeren 429 döner; böylece istemci kendi kendine bekleyip yeniden dener.",
+			"inflightGroup": "Uyarlanabilir eşzamanlılık",
+			"inflightLimiter": "Sağlayıcının eşzamanlılığını öğren",
+			"inflightLimiterDescription": "Her sağlayıcının gerçek eşzamanlılığını 429 yanıtlarından öğrenir: biri geldiğinde pay daraltılır, temiz tamamlanmalarla yeniden büyür; böylece istekler bir 429 daha doğmadan sonraki sağlayıcıya taşar.",
+			"inflightGrowAfter": "Büyüme aralığı",
+			"inflightGrowAfter.description": "Sınırlı bir sağlayıcının payı bir artmadan önce art arda sunması gereken başarılı tamamlanma sayısı.",
+			"inflightForgetAfter": "Şu süre sonra unut",
+			"inflightForgetAfter.description": "Sınırlı bir sağlayıcının payının yeniden sınırsız olması için yeni bir yoğunluk sinyali olmadan geçmesi gereken süre."
 		},
 		"logging": {
 			"title": "Günlük kaydı",

@@ -33,6 +33,7 @@ type fakeProbeSpec struct {
 	won       bool             // true = streamable first token
 	reqErr    reqError         // failover cause when !won
 	rateLimit rateLimitVerdict // the loser's 429 verdict, when it drew one
+	busy      bool             // skipped at the provider's in-flight window, no request made
 	ignoreCtx bool             // when true, the probe does not return early on ctx cancel
 	body      string           // SSE body the winner streams; empty = newStreamableResp
 }
@@ -79,7 +80,7 @@ func (hh *hedgeHarness) probe(ctx context.Context, _ *requestState, candidate mo
 			trueTtftMs: 1,
 		}
 	}
-	return hedgeResult{idx: attempt, reqErr: spec.reqErr, rateLimit: spec.rateLimit}
+	return hedgeResult{idx: attempt, reqErr: spec.reqErr, rateLimit: spec.rateLimit, busy: spec.busy}
 }
 
 func (hh *hedgeHarness) probedOrder() []int {

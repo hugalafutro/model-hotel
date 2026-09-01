@@ -395,6 +395,15 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.MaxInFlight.Set && req.MaxInFlight.Value != nil {
+		// A ceiling of zero would admit nothing forever, which is what the
+		// enabled toggle is for; the upper bound only catches typos.
+		if v := *req.MaxInFlight.Value; v < 1 || v > 10000 {
+			http.Error(w, "max_in_flight must be between 1 and 10000, or null for no ceiling", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Application-level duplicate name check when renaming
 	if req.Name != nil {
 		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)

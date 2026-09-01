@@ -812,7 +812,10 @@
 			"enabledToggle": "Anbieter aktiviert",
 			"enabledHelper": "Steuert Proxy-Routing und API-Zugriff. Deaktivierte Anbieter lehnen alle Anfragen ab.",
 			"autodiscoveryToggle": "Provider-Autoentdeckung",
-			"autodiscoveryHelper": "Steuert die automatische Modellerkennung. Deaktivieren, um den Modellkatalog dieses Anbieters manuell zu pflegen."
+			"autodiscoveryHelper": "Steuert die automatische Modellerkennung. Deaktivieren, um den Modellkatalog dieses Anbieters manuell zu pflegen.",
+			"maxInFlightLabel": "Maximale gleichzeitige Anfragen",
+			"maxInFlightPlaceholder": "Keine Obergrenze",
+			"maxInFlightHelper": "Harte Obergrenze für gleichzeitige Anfragen an diesen Anbieter. Leer lassen für keine Obergrenze; der adaptive Lerner passt sich darunter weiter an."
 		},
 		"quotas": {
 			"expand": "Quoten erweitern"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Schaltkreis bei aufgebrauchtem Kontingent öffnen",
 			"openOnExhaustionDescription": "Meldet eine 429, dass Kontingent oder Guthaben aufgebraucht ist, wird der Schaltkreis des Modells nach dieser einen Antwort geöffnet, statt auf die Fehlerschwelle zu warten.",
 			"exhaustion429": "Ausgelastete Gruppen mit 429 beantworten",
-			"exhaustion429Description": "Sind alle Anbieter einer Gruppe ausgelastet oder warten auf ihr Kontingent, erhält der Client 429 mit Retry-After statt 502, damit er selbstständig wartet und erneut anfragt."
+			"exhaustion429Description": "Sind alle Anbieter einer Gruppe ausgelastet oder warten auf ihr Kontingent, erhält der Client 429 mit Retry-After statt 502, damit er selbstständig wartet und erneut anfragt.",
+			"inflightGroup": "Adaptive Parallelität",
+			"inflightLimiter": "Parallelität des Anbieters lernen",
+			"inflightLimiterDescription": "Lernt die tatsächliche Parallelität jedes Anbieters aus seinen 429-Antworten: das Kontingent wird bei einer solchen Antwort verkleinert und bei sauberen Abschlüssen wieder vergrößert, sodass Anfragen zum nächsten Anbieter ausweichen, bevor eine weitere 429 fällt.",
+			"inflightGrowAfter": "Wachstumsintervall",
+			"inflightGrowAfter.description": "So viele aufeinanderfolgende erfolgreiche Abschlüsse muss ein begrenzter Anbieter liefern, bevor sein Kontingent um eins wächst.",
+			"inflightForgetAfter": "Vergessen nach",
+			"inflightForgetAfter.description": "So lange muss ein begrenzter Anbieter ohne neues Auslastungssignal bleiben, bevor sein Kontingent wieder unbegrenzt ist."
 		},
 		"logging": {
 			"title": "Protokollierung",

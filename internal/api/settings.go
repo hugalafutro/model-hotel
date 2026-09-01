@@ -157,6 +157,9 @@ var allowedSettings = map[string]struct {
 	"rate_limit_classify_enabled":        {typeName: "string"},                      // bool as string; master switch for 429 saturation-vs-exhaustion classification
 	"rate_limit_saturation_max_wait":     {typeName: "string"},                      // duration; Retry-After at or below this is saturation, and it caps the saturation wait
 	"rate_limit_recent_success_window":   {typeName: "string"},                      // duration; an unknown 429 after a 2xx this recent classifies saturated
+	"inflight_limiter_enabled":           {typeName: "string"},                      // bool as string; adaptive per-provider concurrency learner
+	"inflight_grow_after":                {typeName: "int", min: 1, max: 1000},      // clean completions per +1 of a capped in-flight window
+	"inflight_forget_after":              {typeName: "string"},                      // duration; a capped window returns to uncapped after this long without a cut
 	"circuit_breaker_enabled":            {typeName: "string"},                      // bool as string
 	"circuit_breaker_open_on_exhaustion": {typeName: "string"},                      // bool as string; one exhausted 429 opens the model circuit outright
 	"circuit_breaker_threshold":          {typeName: "int", min: 1, max: 100},

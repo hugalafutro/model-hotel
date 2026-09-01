@@ -16,6 +16,13 @@ import { isKnownProviderUrl, providerTypeTranslationKeys } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
+// parsedMaxInFlight turns the ceiling input's text into the API's three-state
+// value: a number sets it, an empty box means "no ceiling" (null).
+function parsedMaxInFlight(text: string): number | null {
+	const n = Number.parseInt(text, 10);
+	return Number.isNaN(n) ? null : n;
+}
+
 // Earliest schedulable day. Today is excluded because a same-day schedule is
 // indistinguishable from disabling the provider outright.
 function tomorrowISO(): string {
@@ -50,6 +57,9 @@ export function EditProviderModal({
 		enabled: provider.enabled,
 		autodiscovery_enabled: provider.autodiscovery_enabled,
 		scheduled_disable_on: provider.scheduled_disable_on,
+		// Held as the input's text; "" means no ceiling.
+		max_in_flight:
+			provider.max_in_flight == null ? "" : String(provider.max_in_flight),
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
@@ -69,6 +79,7 @@ export function EditProviderModal({
 			enabled?: boolean;
 			autodiscovery_enabled?: boolean;
 			scheduled_disable_on?: string | null;
+			max_in_flight?: number | null;
 		}) => api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
 			onToast(
@@ -116,6 +127,8 @@ export function EditProviderModal({
 			(provider.scheduled_disable_on ?? null)
 		)
 			fields.push("scheduled_disable_on");
+		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
+			fields.push("max_in_flight");
 		return fields;
 	};
 
@@ -139,6 +152,7 @@ export function EditProviderModal({
 			enabled?: boolean;
 			autodiscovery_enabled?: boolean;
 			scheduled_disable_on?: string | null;
+			max_in_flight?: number | null;
 		} = {};
 		if (formData.name !== provider.name) payload.name = formData.name.trim();
 		if (formData.provider_type !== provider.provider_type)
@@ -155,6 +169,8 @@ export function EditProviderModal({
 			(provider.scheduled_disable_on ?? null)
 		)
 			payload.scheduled_disable_on = formData.scheduled_disable_on ?? null;
+		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
+			payload.max_in_flight = parsedMaxInFlight(formData.max_in_flight);
 		updateMutation.mutate(payload);
 	};
 
@@ -418,6 +434,30 @@ export function EditProviderModal({
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
 							{t("providers.edit.autodiscoveryHelper")}
+						</p>
+					</div>
+
+					<div>
+						<label
+							htmlFor="edit-provider-max-in-flight"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							{t("providers.edit.maxInFlightLabel")}
+						</label>
+						<input
+							id="edit-provider-max-in-flight"
+							type="number"
+							min={1}
+							max={10000}
+							value={formData.max_in_flight}
+							onChange={(e) =>
+								setFormData({ ...formData, max_in_flight: e.target.value })
+							}
+							className="ui-input"
+							placeholder={t("providers.edit.maxInFlightPlaceholder")}
+						/>
+						<p className="text-gray-500 text-xs mt-1">
+							{t("providers.edit.maxInFlightHelper")}
 						</p>
 					</div>
 

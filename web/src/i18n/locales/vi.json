@@ -812,7 +812,10 @@
 			"enabledToggle": "Đã kích hoạt nhà cung cấp",
 			"enabledHelper": "Quản lý định tuyến proxy và quyền truy cập API. Các nhà cung cấp bị vô hiệu hóa sẽ từ chối tất cả các yêu cầu.",
 			"autodiscoveryToggle": "Tự động phát hiện nhà cung cấp",
-			"autodiscoveryHelper": "Kiểm soát tính năng tự động phát hiện mô hình. Tắt tính năng này để quản lý danh mục mô hình của nhà cung cấp này theo cách thủ công."
+			"autodiscoveryHelper": "Kiểm soát tính năng tự động phát hiện mô hình. Tắt tính năng này để quản lý danh mục mô hình của nhà cung cấp này theo cách thủ công.",
+			"maxInFlightLabel": "Số yêu cầu đồng thời tối đa",
+			"maxInFlightPlaceholder": "Không trần",
+			"maxInFlightHelper": "Trần cứng cho các yêu cầu đồng thời tới nhà cung cấp này. Để trống nếu không muốn trần; bộ học thích ứng vẫn tự điều chỉnh bên dưới."
 		},
 		"quotas": {
 			"expand": "Mở rộng hạn ngạch"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Mở mạch khi hạn mức cạn",
 			"openOnExhaustionDescription": "Khi 429 báo hạn mức hoặc số dư đã cạn, mạch của mô hình được mở ngay sau phản hồi duy nhất đó thay vì chờ ngưỡng lỗi.",
 			"exhaustion429": "Trả lời 429 cho nhóm bận",
-			"exhaustion429Description": "Khi mọi nhà cung cấp trong nhóm đều bận hoặc đang chờ hạn mức, máy khách nhận 429 kèm Retry-After thay vì 502, để tự chờ và thử lại."
+			"exhaustion429Description": "Khi mọi nhà cung cấp trong nhóm đều bận hoặc đang chờ hạn mức, máy khách nhận 429 kèm Retry-After thay vì 502, để tự chờ và thử lại.",
+			"inflightGroup": "Đồng thời thích ứng",
+			"inflightLimiter": "Học mức đồng thời của nhà cung cấp",
+			"inflightLimiterDescription": "Học mức đồng thời thực của từng nhà cung cấp từ các phản hồi 429: hạn mức thu hẹp khi một 429 đến và nở lại theo các lần hoàn thành sạch, để yêu cầu tràn sang nhà cung cấp kế tiếp trước khi gây thêm một 429 nữa.",
+			"inflightGrowAfter": "Khoảng tăng trưởng",
+			"inflightGrowAfter.description": "Số lần hoàn thành thành công liên tiếp mà nhà cung cấp bị giới hạn phải phục vụ trước khi hạn mức tăng thêm một.",
+			"inflightForgetAfter": "Quên sau",
+			"inflightForgetAfter.description": "Nhà cung cấp bị giới hạn phải trải qua bao lâu không có tín hiệu bận mới thì hạn mức trở lại không giới hạn."
 		},
 		"logging": {
 			"title": "Ghi nhật ký",

@@ -13,6 +13,7 @@ import {
 	minutesToGoDuration,
 	secondsToGoDuration,
 } from "../../utils/duration";
+import { InflightLimiterGroup } from "./InflightLimiterGroup";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 // Bounds of the quota-pin ceiling slider, in hours. The floor keeps the
@@ -650,6 +651,8 @@ export function CircuitBreakerSettings({
 						)}
 
 						<RateLimit429Group />
+
+						<InflightLimiterGroup />
 					</div>
 				</div>
 			</div>

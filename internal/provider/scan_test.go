@@ -38,6 +38,8 @@ func (m *mockScanner) Scan(dest ...any) error {
 			*dst = m.values[i].(time.Time)
 		case **time.Time:
 			*dst = m.values[i].(*time.Time)
+		case **int:
+			*dst = m.values[i].(*int)
 		}
 	}
 	return nil
@@ -61,6 +63,7 @@ func TestScanProvider_Success(t *testing.T) {
 			true,                      // Enabled
 			true,                      // AutodiscoveryEnabled
 			(*time.Time)(nil),         // ScheduledDisableOn
+			(*int)(nil),               // MaxInFlight
 			(*time.Time)(nil),         // LastDiscoveredAt
 			(*time.Time)(nil),         // LastUsedAt
 			now,                       // CreatedAt
@@ -99,6 +102,9 @@ func TestScanProvider_Success(t *testing.T) {
 	}
 	if p.ScheduledDisableOn != nil {
 		t.Error("ScheduledDisableOn should be nil")
+	}
+	if p.MaxInFlight != nil {
+		t.Error("MaxInFlight should be nil")
 	}
 	if p.LastDiscoveredAt != nil {
 		t.Error("LastDiscoveredAt should be nil")

@@ -812,7 +812,10 @@
 			"enabledToggle": "Leverandør aktivert",
 			"enabledHelper": "Kontrollerer proxy-ruting og API-tilgang. Deaktiverte leverandører avviser alle forespørsler.",
 			"autodiscoveryToggle": "Autooppdagelse for leverandør",
-			"autodiscoveryHelper": "Kontrollerer automatisk modelloppdagelse. Deaktiver for manuelt å kurere denne leverandørens modellkatalog."
+			"autodiscoveryHelper": "Kontrollerer automatisk modelloppdagelse. Deaktiver for manuelt å kurere denne leverandørens modellkatalog.",
+			"maxInFlightLabel": "Maks samtidige forespørsler",
+			"maxInFlightPlaceholder": "Ingen grense",
+			"maxInFlightHelper": "Hard grense for samtidige forespørsler til denne leverandøren. La stå tomt for ingen grense; den adaptive læringen justerer fortsatt under den."
 		},
 		"quotas": {
 			"expand": "Utvid kvoter"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Åpne krets ved oppbrukt kvote",
 			"openOnExhaustionDescription": "Når et 429 melder at kvoten eller saldoen er oppbrukt, åpnes modellens krets etter det ene svaret i stedet for å vente på feilterskelen.",
 			"exhaustion429": "Svar opptatte grupper med 429",
-			"exhaustion429Description": "Når alle leverandører i en gruppe er opptatt eller venter på kvoten sin, får klienten 429 med Retry-After i stedet for 502, slik at den venter og prøver igjen selv."
+			"exhaustion429Description": "Når alle leverandører i en gruppe er opptatt eller venter på kvoten sin, får klienten 429 med Retry-After i stedet for 502, slik at den venter og prøver igjen selv.",
+			"inflightGroup": "Adaptiv samtidighet",
+			"inflightLimiter": "Lær leverandørens samtidighet",
+			"inflightLimiterDescription": "Lærer hver leverandørs reelle samtidighet av dens 429-svar: kvoten krymper når ett kommer, og vokser igjen ved rene fullføringer, slik at forespørsler flyter videre til neste leverandør før enda et 429 utløses.",
+			"inflightGrowAfter": "Vekstintervall",
+			"inflightGrowAfter.description": "Antall sammenhengende vellykkede fullføringer en begrenset leverandør må levere før kvoten vokser med én.",
+			"inflightForgetAfter": "Glem etter",
+			"inflightForgetAfter.description": "Hvor lenge en begrenset leverandør må være uten nytt travelhetssignal før kvoten igjen blir ubegrenset."
 		},
 		"logging": {
 			"title": "Logger",

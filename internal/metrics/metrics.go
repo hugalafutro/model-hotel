@@ -243,3 +243,58 @@ func (c *breakerCollector) Collect(ch chan<- prometheus.Metric) {
 
 // compile-time guard: the collector implements prometheus.Collector.
 var _ prometheus.Collector = (*breakerCollector)(nil)
+
+// InflightState is one provider's adaptive in-flight window for the gauges:
+// the learned allowance (0 = uncapped) and the requests currently in flight.
+type InflightState struct {
+	ProviderID string
+	Limit      int
+	Inflight   int
+}
+
+// RegisterInflightCollector registers a scrape-time collector for the adaptive
+// in-flight limiter, mirroring the breaker collector: collect runs on every
+// scrape and must be cheap and non-blocking. Scrape-time rather than
+// event-updated because the forget-to-uncapped transition is time-based and an
+// event gauge would report a stale cap until the next request touched it.
+func RegisterInflightCollector(collect func() []InflightState) {
+	if collect == nil {
+		return
+	}
+	registerInflightOnce.Do(func() {
+		registry.MustRegister(&inflightCollector{collect: collect})
+	})
+}
+
+var registerInflightOnce sync.Once
+
+type inflightCollector struct {
+	collect func() []InflightState
+}
+
+var (
+	inflightLimitDesc = prometheus.NewDesc(
+		"modelhotel_provider_inflight_limit",
+		"Learned in-flight allowance per provider on this member (0 = uncapped).",
+		[]string{"provider_id"}, nil,
+	)
+	inflightDesc = prometheus.NewDesc(
+		"modelhotel_provider_inflight",
+		"Requests currently in flight to each provider on this member.",
+		[]string{"provider_id"}, nil,
+	)
+)
+
+func (c *inflightCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- inflightLimitDesc
+	ch <- inflightDesc
+}
+
+func (c *inflightCollector) Collect(ch chan<- prometheus.Metric) {
+	for _, s := range c.collect() {
+		ch <- prometheus.MustNewConstMetric(inflightLimitDesc, prometheus.GaugeValue, float64(s.Limit), s.ProviderID)
+		ch <- prometheus.MustNewConstMetric(inflightDesc, prometheus.GaugeValue, float64(s.Inflight), s.ProviderID)
+	}
+}
+
+var _ prometheus.Collector = (*inflightCollector)(nil)

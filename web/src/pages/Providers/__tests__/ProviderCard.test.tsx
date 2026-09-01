@@ -37,6 +37,7 @@ const mockProvider: Provider = {
 	enabled: true,
 	autodiscovery_enabled: true,
 	scheduled_disable_on: null,
+	max_in_flight: null,
 	last_discovered_at: "2026-05-10T12:00:00Z",
 	last_used_at: "2026-05-11T08:30:00Z",
 	created_at: "2026-01-15T10:00:00Z",

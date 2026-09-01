@@ -812,7 +812,10 @@
 			"enabledToggle": "서비스 제공자 활성화됨",
 			"enabledHelper": "프록시 라우팅 및 API 액세스를 제어합니다. 비활성화된 제공자는 모든 요청을 거부합니다.",
 			"autodiscoveryToggle": "서비스 제공자 자동 검색",
-			"autodiscoveryHelper": "자동 모델 검색 기능을 제어합니다. 이 제공자의 모델 카탈로그를 수동으로 관리하려면 이 기능을 비활성화하십시오."
+			"autodiscoveryHelper": "자동 모델 검색 기능을 제어합니다. 이 제공자의 모델 카탈로그를 수동으로 관리하려면 이 기능을 비활성화하십시오.",
+			"maxInFlightLabel": "최대 동시 요청 수",
+			"maxInFlightPlaceholder": "상한 없음",
+			"maxInFlightHelper": "이 제공자에 대한 동시 요청의 엄격한 상한입니다. 비워 두면 상한이 없으며, 적응 학습은 그 아래에서 계속 조정됩니다."
 		},
 		"quotas": {
 			"expand": "할당량 펼치기"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "할당량 소진 시 회로 열기",
 			"openOnExhaustionDescription": "429가 할당량이나 잔액 소진을 알리면 실패 임계값을 기다리지 않고 그 한 번의 응답으로 모델의 회로를 엽니다.",
 			"exhaustion429": "혼잡한 그룹에 429로 응답",
-			"exhaustion429Description": "그룹의 모든 제공자가 혼잡하거나 할당량을 기다리는 중이면 클라이언트에 502 대신 Retry-After가 포함된 429를 반환하여 스스로 대기 후 재시도하게 합니다."
+			"exhaustion429Description": "그룹의 모든 제공자가 혼잡하거나 할당량을 기다리는 중이면 클라이언트에 502 대신 Retry-After가 포함된 429를 반환하여 스스로 대기 후 재시도하게 합니다.",
+			"inflightGroup": "적응형 동시성",
+			"inflightLimiter": "제공자 동시성 학습",
+			"inflightLimiterDescription": "각 제공자의 실제 동시성 한도를 429 응답에서 학습합니다. 429가 오면 허용량을 줄이고 정상 완료 시 다시 늘려서, 다음 429가 나오기 전에 요청이 다음 제공자로 넘칩니다.",
+			"inflightGrowAfter": "증가 간격",
+			"inflightGrowAfter.description": "한도가 걸린 제공자의 허용량이 1 늘어나기 전에 연속으로 성공해야 하는 완료 수입니다.",
+			"inflightForgetAfter": "망각 시간",
+			"inflightForgetAfter.description": "한도가 걸린 제공자가 새 혼잡 신호 없이 이 시간을 보내면 허용량이 무제한으로 돌아갑니다."
 		},
 		"logging": {
 			"title": "로그 기록",

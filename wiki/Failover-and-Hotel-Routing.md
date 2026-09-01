@@ -442,6 +442,16 @@ Terminal responses are honest about the difference (`failover_exhaustion_status_
 
 All of this only applies when the 429 was failover-eligible: with `failover_on_rate_limit` off, a 429 is forwarded to the client exactly as before.
 
+#### Adaptive In-Flight Limiter
+
+Saturation happens because the gateway sends a fourth request to a provider that can take three, and almost no provider states its concurrency limit in a machine-readable way. So the gateway learns it the way TCP does (`inflight_limiter_enabled`, default `true`): every saturated 429 **cuts** the provider's allowance to one below what was in flight when it arrived, `inflight_grow_after` consecutive clean completions grow it back by one, and after `inflight_forget_after` without a cut the allowance returns to uncapped, so a provider that never saturates costs nothing. A `remaining: 0` in the provider's own rate-limit headers caps the allowance immediately, without waiting for the 429.
+
+The router respects the learned allowance the way it respects an open circuit: a candidate whose provider is at its window is **skipped without a request** and the next entry in priority takes it. When every live entry is at its window, the request waits for the first slot to free on any of them (bounded by `rate_limit_saturation_max_wait` and the overall deadline) and is sent there; that is the only place strict priority is not honoured, and only because the preferred entry had no slot to honour it with. If nothing frees in time the client gets the honest 429 with a `Retry-After`.
+
+The state is per member and in memory (runtime health, never synced): four members each learn their own allowance against a shared pool, and the sum converges because each member's cuts are driven by the 429s it draws itself. Per provider, not per model - slots are an account property, while the circuit breaker stays per model (full vs broken are different questions). Two gauges expose it: `modelhotel_provider_inflight_limit` (0 = uncapped) and `modelhotel_provider_inflight`.
+
+An operator who knows the real number can set a hard ceiling per provider (`max_in_flight` in the provider's edit dialog, empty = none, synced with the fleet config); the learner still runs underneath it.
+
 #### The `shouldFailover` Logic
 
 The proxy evaluates whether an upstream response should trigger failover based on the HTTP status code:
@@ -643,6 +653,9 @@ These are treated as user-side cancellations rather than provider health issues.
 | `rate_limit_recent_success_window` | duration | `60s` | An unrecognisable 429 from a model that served a success this recently is treated as saturated rather than charged. |
 | `circuit_breaker_open_on_exhaustion` | bool | `true` | One 429 that says the quota window or balance is spent opens the model's circuit outright instead of waiting for the failure threshold. |
 | `failover_exhaustion_status_429` | bool | `true` | When every candidate is busy or breaker-skipped, answer the client 429 with a `Retry-After` instead of 502. |
+| `inflight_limiter_enabled` | bool | `true` | Learn each provider's real concurrency from its saturated 429s and stop sending more than it can take (see "Adaptive in-flight limiter" below). |
+| `inflight_grow_after` | int | `20` | Consecutive clean completions a capped provider must serve before its learned allowance grows by one. |
+| `inflight_forget_after` | duration | `10m` | A capped allowance returns to uncapped after this long without a new cut. |
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 

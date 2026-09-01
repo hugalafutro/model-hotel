@@ -814,7 +814,10 @@
 			"enabledToggle": "Provider enabled",
 			"enabledHelper": "Controls proxy routing and API access. Disabled providers reject all requests.",
 			"autodiscoveryToggle": "Provider autodiscovery",
-			"autodiscoveryHelper": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue."
+			"autodiscoveryHelper": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue.",
+			"maxInFlightLabel": "Max Concurrent Requests",
+			"maxInFlightPlaceholder": "No ceiling",
+			"maxInFlightHelper": "Hard ceiling on simultaneous requests to this provider. Leave empty for no ceiling; the adaptive learner still adjusts underneath it."
 		},
 		"quotas": {
 			"expand": "Expand quotas"
@@ -1844,7 +1847,14 @@
 			"openOnExhaustion": "Open Circuit on Spent Quota",
 			"openOnExhaustionDescription": "When a 429 says the quota window or balance is spent, open the model's circuit on that single response instead of waiting for the failure threshold.",
 			"exhaustion429": "Answer Busy Groups With 429",
-			"exhaustion429Description": "When every provider in a group is busy or waiting out a spent quota, answer the client with 429 and a Retry-After instead of 502, so clients back off and retry on their own."
+			"exhaustion429Description": "When every provider in a group is busy or waiting out a spent quota, answer the client with 429 and a Retry-After instead of 502, so clients back off and retry on their own.",
+			"inflightGroup": "Adaptive Concurrency",
+			"inflightLimiter": "Learn Provider Concurrency",
+			"inflightLimiterDescription": "Learn each provider's real concurrency from its busy 429s: shrink the allowance when one arrives and grow it back on clean completions, so requests spill to the next provider before drawing another 429.",
+			"inflightGrowAfter": "Growth Interval",
+			"inflightGrowAfter.description": "Consecutive successful completions a capped provider must serve before its allowance grows by one.",
+			"inflightForgetAfter": "Forget After",
+			"inflightForgetAfter.description": "How long a capped provider must go without a new busy signal before its allowance returns to unlimited."
 		},
 		"logging": {
 			"title": "Logging",

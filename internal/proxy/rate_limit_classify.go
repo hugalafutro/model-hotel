@@ -478,6 +478,19 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	if isFailoverEligible {
 		rl = h.classify429Attempt(ctx, st, candidate, resp)
 	}
+	// The saturated 429 teaches the in-flight learner: the pool is provably
+	// smaller than the load that included this request, so the allowance is
+	// cut and the NEXT requests spill to the other entries before anyone has
+	// to say 429 again. Here rather than inside the breaker outcome, because
+	// the limiter is its own feature: circuit_breaker_enabled off must not
+	// stop it learning. The drawing request's own slot settles FIRST
+	// (idempotently), so cut's arithmetic sees exactly the load that fit,
+	// never a count that depends on whether the body reader beat it to the
+	// release.
+	if rl.class == rateLimitSaturated && st.inflightEnabled {
+		st.attemptSlot.settle(false)
+		h.inflight.cut(candidate.provider.ID, rl.retryAfter)
+	}
 	h.recordBreakerOutcome(ctx, st, candidate, resp.StatusCode, isFailoverEligible, rl)
 	return rl
 }

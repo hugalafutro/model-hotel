@@ -327,7 +327,10 @@ func TestUpdateSettings_RateLimitClassification(t *testing.T) {
 		"rate_limit_saturation_max_wait": "45s",
 		"rate_limit_recent_success_window": "90s",
 		"failover_exhaustion_status_429": "false",
-		"circuit_breaker_open_on_exhaustion": "false"}`
+		"circuit_breaker_open_on_exhaustion": "false",
+		"inflight_limiter_enabled": "false",
+		"inflight_grow_after": "25",
+		"inflight_forget_after": "5m0s"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -348,6 +351,9 @@ func TestUpdateSettings_RateLimitClassification(t *testing.T) {
 		"rate_limit_recent_success_window":   "90s",
 		"failover_exhaustion_status_429":     "false",
 		"circuit_breaker_open_on_exhaustion": "false",
+		"inflight_limiter_enabled":           "false",
+		"inflight_grow_after":                "25",
+		"inflight_forget_after":              "5m0s",
 	} {
 		if response[key] != want {
 			t.Errorf("Expected %s=%q, got %q", key, want, response[key])
