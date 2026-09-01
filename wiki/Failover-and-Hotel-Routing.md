@@ -1171,6 +1171,21 @@ This means hotel routing provides **ordered preference** (which provider to try 
 - Add another provider with the same base model name
 - Or use direct provider routing (e.g. `OpenRouter/z-ai/glm-4.6`) instead
 
+### Metrics
+
+The `/metrics` endpoint carries the failover story as counters, so a rerun of a bad afternoon shows up as rates rather than as a reset loop reconstructed from log lines:
+
+| Series | Labels | What it counts |
+|---|---|---|
+| `modelhotel_upstream_rate_limit_total` | `provider`, `model`, `class` | Every upstream 429, by the class the classifier gave it: `saturated` (slots or a per-minute budget busy; the circuit is not charged), `exhausted` (window or balance spent; the circuit opens and pins), `unknown` (unclassified, or rate-limit failover off). A provider at its slot ceiling is a flat line of `saturated`. |
+| `modelhotel_circuit_breaker_opens_total` | `provider`, `model`, `cause` | Open transitions by the breaker's verdict phrase (`upstream status 429 (saturated)`, `upstream status 503`, `upstream request failed`). Pairs with the `modelhotel_circuit_breaker_state` gauge, which cannot show an open and a close inside one scrape interval. |
+| `modelhotel_failover_exhausted_total` | `group`, `reason` | Requests a failover group could not serve: `no_available_provider` (the group resolved to zero candidates: every entry disabled, missing or skipped by the breaker), `all_busy` (every candidate answered a saturated 429 or sat at its in-flight limit), `all_failed` (the last candidate failed some other way, or the failover deadline passed). `group` is the display model without the `hotel/` prefix. |
+| `modelhotel_failover_attempts_total` | `model`, `provider` | Attempts after the first, one per attempt, labelled with the provider it went to (hedged launches included). The fan-out to fallback entries per provider, not only per group. |
+| `modelhotel_circuit_breaker_state` | `provider_id` | The state gauge: 0 closed, 1 half-open, 2 open, read at scrape time. |
+| `modelhotel_provider_inflight_limit`, `modelhotel_provider_inflight` | `provider_id` | The adaptive in-flight limiter's learned allowance (0 = uncapped) and current load. |
+
+`model` on the 429 and opens counters is the provider-side model id; `modelhotel_requests_total` carries the name the client asked for (`hotel/<group>` for group traffic), the same divergence the retirement-probe counter documents. No series carries a virtual key, a request id or any content.
+
 ### Debug Logging
 
 Enable debug logging via `DEBUG_LOG=true` environment variable:

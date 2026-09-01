@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
 // The exhaustion terminal of the failover loop: every candidate failed, or the
@@ -26,6 +28,14 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
+		// all_busy is the exhaustion the 2026-08-31 incident was made of: every
+		// entry alive and at capacity. Anything else the last candidate said,
+		// and the failover deadline, is all_failed.
+		reason := "all_failed"
+		if last.Kind == KindProviderSaturated {
+			reason = "all_busy"
+		}
+		metrics.RecordFailoverExhausted(strings.TrimPrefix(st.reqModel, "hotel/"), reason)
 	} else {
 		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}

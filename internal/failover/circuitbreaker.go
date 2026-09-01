@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
 // State represents the health state of a single provider endpoint.
@@ -477,7 +478,11 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 	// changing once it is released.
 	r := cb.cooldowns()
 	attrs := []any{"provider", providerName, "provider_id", providerID, "cause", c.lastCause, "status", c.lastStatus, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownForWith(c, r).Milliseconds(), "quota_pinned", cb.quotaPinnedForWith(c, r), "backed_off", cb.backedOffForWith(c, r), "failed_probes", c.failedProbes, "model", model}
-	after.add(func() { debuglog.Warn(msg, attrs...) })
+	cause := c.lastCause
+	after.add(func() {
+		debuglog.Warn(msg, attrs...)
+		metrics.RecordBreakerOpen(providerName, model, cause)
+	})
 	cb.publishEvent(after, providerID, providerName, "open", model, c, r)
 	if c.noteOpen(now) {
 		opens := c.opens

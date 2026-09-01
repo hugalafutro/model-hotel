@@ -374,17 +374,17 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			metricModel = "unresolved"
 		}
 		metrics.Record(metrics.Observation{
-			Provider:         logEntry.providerName,
-			Model:            metricModel,
-			StatusCode:       logEntry.statusCode,
-			ErrorKind:        string(logEntry.errorKind),
-			DurationSeconds:  logEntry.durationMs / 1000.0,
-			TTFTSeconds:      logEntry.ttftMs / 1000.0,
-			Streaming:        logEntry.streaming,
-			PromptTokens:     logEntry.tokensPrompt,
-			CompletionTokens: logEntry.tokensCompletion,
-			ReasoningTokens:  logEntry.tokensCompletionReasoning,
-			FailoverAttempt:  logEntry.failoverAttempt,
+			Provider:          logEntry.providerName,
+			Model:             metricModel,
+			StatusCode:        logEntry.statusCode,
+			ErrorKind:         string(logEntry.errorKind),
+			DurationSeconds:   logEntry.durationMs / 1000.0,
+			TTFTSeconds:       logEntry.ttftMs / 1000.0,
+			Streaming:         logEntry.streaming,
+			PromptTokens:      logEntry.tokensPrompt,
+			CompletionTokens:  logEntry.tokensCompletion,
+			ReasoningTokens:   logEntry.tokensCompletionReasoning,
+			FailoverProviders: logEntry.failoverProviders(),
 		})
 
 		severity := "success"

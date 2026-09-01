@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -427,6 +428,7 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 // does switching failover_exhaustion_status_429 off.
 func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request, st *requestState, displayModel string, timings resolveTimings, cacheHits resolveCacheHits, skips breakerSkipSummary) {
 	msg := "no available provider for hotel/" + displayModel
+	metrics.RecordFailoverExhausted(displayModel, "no_available_provider")
 	if skips.skips == 0 || !h.settingsRepo.GetBool(r.Context(), "failover_exhaustion_status_429", true) {
 		h.failRequest(st.logData, http.StatusBadGateway, KindProviderError, msg, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 		writeOpenAIError(w, msg, http.StatusBadGateway)
@@ -501,6 +503,12 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	var rl rateLimitVerdict
 	if isFailoverEligible {
 		rl = h.classify429Attempt(ctx, st, candidate, resp)
+	}
+	// Every 429 lands here, on all three serve paths, so this is the one place
+	// to count them by class. An ineligible one (failover on 429 off) has the
+	// zero verdict, which reads as unknown: nothing classified it.
+	if resp.StatusCode == http.StatusTooManyRequests {
+		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidate.model.ModelID, rl.class.String())
 	}
 	// The saturated 429 teaches the in-flight learner: the pool is provably
 	// smaller than the load that included this request, so the allowance is

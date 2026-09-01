@@ -250,3 +250,17 @@ func (l *requestLogData) attemptsJSON() []byte {
 	}
 	return b
 }
+
+// failoverProviders names the provider of every attempt after the first, in
+// trail order, for the per-provider failover counter. Hedged launches count:
+// they are the fan-out to a fallback entry the counter exists to show. Breaker
+// skips (attempt -1) were never attempts and do not.
+func (l *requestLogData) failoverProviders() []string {
+	var out []string
+	for _, a := range l.attempts {
+		if a.Attempt >= 1 {
+			out = append(out, a.Provider)
+		}
+	}
+	return out
+}

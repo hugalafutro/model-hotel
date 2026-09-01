@@ -485,8 +485,9 @@ the gateway always sends `store: false` so OpenAI keeps no conversation state.
 ### Metrics & log shipping
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,
-latency and TTFT histograms, token counters, failover attempts, and per-provider circuit-breaker
-state, plus Go runtime metrics). It is authenticated - set a dedicated `METRICS_TOKEN` so your
+latency and TTFT histograms, token counters, failover attempts per provider, upstream 429s by
+class, circuit-breaker opens by cause and state, failover exhaustion by reason, plus Go runtime
+metrics; see the wiki's Failover page for the failover series). It is authenticated - set a dedicated `METRICS_TOKEN` so your
 scrape config need not carry the admin token (the admin token also works). No prompt content is
 ever exposed.
 

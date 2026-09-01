@@ -3,7 +3,10 @@ package failover
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
 // lastVerdict reads a circuit's remembered verdict straight off the ledger.
@@ -475,5 +479,33 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 	// 1 scoped (a) + 3 provider (b, c, e) + 1 all (d).
 	if n := len(manualResetLines(capt, id.String())); n != 5 {
 		t.Errorf("manual reset lines = %d, want 5 (1 scoped + 3 provider + 1 all)", n)
+	}
+}
+
+// Every open increments the opens counter once, labelled with the cause the
+// breaker stamped: the churn the state gauge cannot show (an open and a close
+// inside one scrape look like nothing happened) becomes a rate.
+func TestOpenCountsByCause(t *testing.T) {
+	cb := newTestCB(1, 5*time.Millisecond)
+	id := uuid.New()
+	name := "prov-" + id.String()[:8]
+
+	cb.RecordFailure(id, name, "m", UpstreamStatus(503, ""))
+	time.Sleep(20 * time.Millisecond)
+	cb.IsOpen(id, name, "m") // half-open
+	cb.RecordRateLimited(id, name, "m", UpstreamStatus(429, "saturated"))
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+	rec := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(rec, req)
+	body, _ := io.ReadAll(rec.Body)
+	out := string(body)
+	for _, want := range []string{
+		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="upstream status 503",model="m",provider=%q} 1`, name),
+		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="upstream status 429 (saturated)",model="m",provider=%q} 1`, name),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scrape missing %q", want)
+		}
 	}
 }
