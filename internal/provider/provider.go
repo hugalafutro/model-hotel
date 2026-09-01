@@ -26,10 +26,14 @@ type Provider struct {
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
 	ScheduledDisableOn   *time.Time `json:"scheduled_disable_on"`
-	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
-	LastUsedAt           *time.Time `json:"last_used_at"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	// MaxInFlight is the operator's hard ceiling on concurrent in-flight
+	// requests to this provider; nil means no ceiling. The adaptive in-flight
+	// limiter learns its own allowance underneath it either way.
+	MaxInFlight      *int       `json:"max_in_flight"`
+	LastDiscoveredAt *time.Time `json:"last_discovered_at"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 // CreateProviderRequest is the request body for creating a provider.
@@ -57,6 +61,30 @@ type UpdateProviderRequest struct {
 	Enabled              *bool        `json:"enabled"`
 	AutodiscoveryEnabled *bool        `json:"autodiscovery_enabled"`
 	ScheduledDisableOn   OptionalDate `json:"scheduled_disable_on"`
+	MaxInFlight          OptionalInt  `json:"max_in_flight"`
+}
+
+// OptionalInt is OptionalDate's shape for an integer field: absent (keep the
+// stored value), null (clear it), and a value.
+type OptionalInt struct {
+	Set   bool
+	Value *int // nil with Set means an explicit null
+}
+
+// UnmarshalJSON is only invoked when the field is present, which is what makes
+// Set a presence flag.
+func (o *OptionalInt) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var n int
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	o.Value = &n
+	return nil
 }
 
 // OptionalDate is a JSON field with three states an ordinary pointer cannot
@@ -94,6 +122,7 @@ type ProviderResponse struct {
 	Enabled              bool       `json:"enabled"`
 	AutodiscoveryEnabled bool       `json:"autodiscovery_enabled"`
 	ScheduledDisableOn   *string    `json:"scheduled_disable_on"`
+	MaxInFlight          *int       `json:"max_in_flight"`
 	LastDiscoveredAt     *time.Time `json:"last_discovered_at"`
 	LastUsedAt           *time.Time `json:"last_used_at"`
 	CreatedAt            time.Time  `json:"created_at"`
@@ -132,7 +161,7 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 	return p, nil
 }
 
-const providerColumns = `id, name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, last_discovered_at, last_used_at, created_at, updated_at`
+const providerColumns = `id, name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, last_discovered_at, last_used_at, created_at, updated_at`
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
@@ -142,7 +171,7 @@ func scanProvider(row scanner) (*Provider, error) {
 	var p Provider
 	err := row.Scan(
 		&p.ID, &p.Name, &p.BaseURL, &p.ProviderType, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.ScheduledDisableOn, &p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
+		&p.ScheduledDisableOn, &p.MaxInFlight, &p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -283,6 +312,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		        WHEN $9 THEN $10::date
 		        ELSE scheduled_disable_on
 		    END,
+		    max_in_flight = CASE WHEN $13 THEN $14::integer ELSE max_in_flight END,
 		    updated_at = now()
 		WHERE id = $11
 		RETURNING ` + providerColumns
@@ -290,7 +320,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 	p, err := scanProvider(r.pool.QueryRow(ctx, query,
 		req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey,
 		req.Enabled, req.AutodiscoveryEnabled,
-		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id, req.ProviderType))
+		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id, req.ProviderType,
+		req.MaxInFlight.Set, req.MaxInFlight.Value))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
@@ -511,6 +542,7 @@ func ToResponse(p *Provider) ProviderResponse {
 		Enabled:              p.Enabled,
 		AutodiscoveryEnabled: p.AutodiscoveryEnabled,
 		ScheduledDisableOn:   sched,
+		MaxInFlight:          p.MaxInFlight,
 		LastDiscoveredAt:     p.LastDiscoveredAt,
 		LastUsedAt:           p.LastUsedAt,
 		CreatedAt:            p.CreatedAt,

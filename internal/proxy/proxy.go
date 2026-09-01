@@ -81,6 +81,10 @@ type attemptFn func(w http.ResponseWriter, r *http.Request, st *requestState, ca
 // deadline check, exponential backoff between attempts, one attempt call per
 // candidate, and the all-exhausted failure path.
 func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *requestState, candidates []modelCandidate, attemptOne attemptFn) {
+	// Candidates skipped at their provider's learned in-flight window: no
+	// request was made, so when everything else is spent too they are worth
+	// waiting for — a slot freeing on any of them is the request's way through.
+	var busyCandidates []modelCandidate
 	for attempt, candidate := range candidates {
 		// Overall deadline check: stop failover if the total time budget
 		// across all candidates has been exceeded. This prevents N candidates
@@ -139,6 +143,9 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		switch attemptOne(w, r, st, candidate, attempt, len(candidates)) {
 		case outcomeFailover:
 			continue
+		case outcomeBusy:
+			busyCandidates = append(busyCandidates, candidate)
+			continue
 		case outcomeRetrySaturated:
 			if h.retrySaturatedCandidate(w, r, st, candidate, len(candidates), attemptOne) {
 				return
@@ -149,7 +156,72 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		break
 	}
 
+	if len(busyCandidates) > 0 && h.retryAfterSlotFrees(w, r, st, busyCandidates, len(candidates), attemptOne) {
+		return
+	}
 	h.failAllExhausted(w, st, len(candidates))
+}
+
+// retryAfterSlotFrees is the all-busy arm of the loop: every remaining live
+// candidate sat at its provider's learned in-flight window, so instead of
+// failing a request nothing upstream refused, wait for the first slot to free
+// on ANY of them (bounded by rate_limit_saturation_max_wait and the overall
+// deadline) and send there. This is the only place strict priority order is
+// not honoured, and only because the preferred entry had no slot to honour it
+// with: the walk below still prefers earlier entries whenever both have room.
+// Reports true when the request was answered.
+func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st *requestState, busy []modelCandidate, numCandidates int, attemptOne attemptFn) bool {
+	deadline := time.Now().Add(h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait))
+	if st.overallDeadline.Before(deadline) {
+		deadline = st.overallDeadline
+	}
+	attempt := numCandidates
+	for time.Now().Before(deadline) {
+		idx := -1
+		ok := h.inflight.waitForSlot(r.Context(), deadline, func() bool {
+			for i, cand := range busy {
+				if h.inflight.canAdmit(cand.provider.ID, providerCeiling(cand)) {
+					idx = i
+					return true
+				}
+			}
+			return false
+		})
+		if r.Context().Err() != nil {
+			// The client left while every provider was full: a 499, never an
+			// "all providers busy" it was not around to receive.
+			return h.failWaitDisconnect(w, st, attempt-1, st.logData.providerName)
+		}
+		if !ok || idx < 0 {
+			return false
+		}
+		debuglog.Info("proxy: slot freed, retrying a busy candidate", "provider", busy[idx].provider.Name, "model", st.logData.modelID, "attempt", attempt+1)
+		switch attemptOne(w, r, st, busy[idx], attempt, attempt+1) {
+		case outcomeBusy:
+			// Lost the acquisition race to a concurrent request; keep waiting
+			// inside the same bounded window.
+			attempt++
+		case outcomeFailover, outcomeRetrySaturated:
+			// The freed slot answered with a real failure; that verdict stands
+			// and the exhaustion path renders it.
+			return false
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// failWaitDisconnect ends a request whose client hung up while the loop was
+// waiting (for a saturated provider's Retry-After, or for an in-flight slot):
+// 499 and client_disconnect, the same rule the ordinary failover backoff
+// applies. Always returns true — the response is written.
+func (h *Handler) failWaitDisconnect(w http.ResponseWriter, st *requestState, attempt int, providerName string) bool {
+	debuglog.Info("proxy: client disconnected while waiting out saturation", "model", st.logData.modelID, "provider", providerName)
+	st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt, Provider: providerName, Underlying: st.lastReqErr.Underlying})
+	h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+	return true
 }
 
 // retrySaturatedCandidate is the one extra attempt a saturated last candidate
@@ -179,16 +251,10 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 	select {
 	case <-time.After(wait):
 	case <-r.Context().Done():
-		// The client left during the wait. This is the terminal outcome, and
-		// it is a client disconnect, not a provider fault: falling through to
-		// the exhaustion path would log a 429 "all providers busy" for a
-		// request the caller abandoned — the same 499 rule the ordinary
-		// failover backoff applies on a disconnect.
-		debuglog.Info("proxy: client disconnected during saturation wait", "model", st.logData.modelID, "provider", candidate.provider.Name)
-		st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: numCandidates - 1, Provider: candidate.provider.Name, Underlying: st.lastReqErr.Underlying})
-		h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-		writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
-		return true
+		// The client left during the wait: a 499 client disconnect, never the
+		// "all providers busy" the exhaustion path would render for a caller
+		// that is not around to receive it.
+		return h.failWaitDisconnect(w, st, numCandidates-1, candidate.provider.Name)
 	}
 	switch attemptOne(w, r, st, candidate, numCandidates, numCandidates+1) {
 	case outcomeFailover, outcomeRetrySaturated:

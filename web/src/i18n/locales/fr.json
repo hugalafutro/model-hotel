@@ -824,7 +824,10 @@
 			"enabledToggle": "Fournisseur activé",
 			"enabledHelper": "Contrôle le routage du proxy et l'accès à l'API. Les fournisseurs désactivés rejettent toutes les requêtes.",
 			"autodiscoveryToggle": "Découverte automatique du fournisseur",
-			"autodiscoveryHelper": "Contrôle la découverte automatique du modèle. Désactivez pour organiser manuellement le catalogue de modèles de ce fournisseur."
+			"autodiscoveryHelper": "Contrôle la découverte automatique du modèle. Désactivez pour organiser manuellement le catalogue de modèles de ce fournisseur.",
+			"maxInFlightLabel": "Requêtes simultanées max",
+			"maxInFlightPlaceholder": "Aucun plafond",
+			"maxInFlightHelper": "Plafond strict de requêtes simultanées vers ce fournisseur. Laisser vide pour aucun plafond ; l'apprentissage adaptatif continue de s'ajuster en dessous."
 		},
 		"quotas": {
 			"expand": "Développer les quotas"
@@ -1721,7 +1724,14 @@
 			"openOnExhaustion": "Ouvrir le circuit sur quota épuisé",
 			"openOnExhaustionDescription": "Quand une 429 indique un quota ou un solde épuisé, le circuit du modèle s'ouvre dès cette unique réponse au lieu d'attendre le seuil d'échecs.",
 			"exhaustion429": "Répondre 429 aux groupes saturés",
-			"exhaustion429Description": "Quand tous les fournisseurs d'un groupe sont saturés ou attendent leur quota, le client reçoit 429 avec Retry-After au lieu de 502, afin qu'il patiente et réessaie de lui-même."
+			"exhaustion429Description": "Quand tous les fournisseurs d'un groupe sont saturés ou attendent leur quota, le client reçoit 429 avec Retry-After au lieu de 502, afin qu'il patiente et réessaie de lui-même.",
+			"inflightGroup": "Concurrence adaptative",
+			"inflightLimiter": "Apprendre la concurrence du fournisseur",
+			"inflightLimiterDescription": "Apprend la concurrence réelle de chaque fournisseur à partir de ses 429 : l'allocation est réduite quand l'un arrive et regagnée sur les réponses réussies, de sorte que les requêtes débordent vers le fournisseur suivant avant de provoquer un nouveau 429.",
+			"inflightGrowAfter": "Intervalle de croissance",
+			"inflightGrowAfter.description": "Nombre de réponses réussies consécutives qu'un fournisseur plafonné doit servir avant que son allocation n'augmente d'une unité.",
+			"inflightForgetAfter": "Oublier après",
+			"inflightForgetAfter.description": "Durée sans nouveau signal de saturation au bout de laquelle l'allocation d'un fournisseur plafonné redevient illimitée."
 		},
 		"logging": {
 			"title": "Journalisation",

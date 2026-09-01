@@ -1247,13 +1247,14 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
 			);
 			const column = await screen.findByTestId("hedging-column");
-			// Seven reset buttons live in the column, one per control, in DOM
+			// Ten reset buttons live in the column, one per control, in DOM
 			// order: the Hedge Slow Streams toggle and the Hedge Delay slider,
-			// then the five 429-handling controls below them.
+			// then the five 429-handling controls, then the three adaptive
+			// concurrency controls below them.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
-			expect(resets).toHaveLength(7);
+			expect(resets).toHaveLength(10);
 			await user.click(resets[0]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
@@ -1484,6 +1485,111 @@ describe("CircuitBreakerSettings", () => {
 				]),
 			);
 			resetSpy.mockRestore();
+		});
+	});
+
+	// Locale-independent like the blocks above: testids and element ids only.
+	describe("adaptive concurrency", () => {
+		const limiterToggle = () =>
+			screen
+				.getByTestId("inflight-limiter-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const growSlider = () =>
+			document.getElementById("inflight-grow-after") as HTMLInputElement;
+		const forgetSlider = () =>
+			document.getElementById("inflight-forget-after") as HTMLInputElement;
+
+		const capturePut = () => {
+			const captured: { payload?: Record<string, string> } = {};
+			server.use(
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					captured.payload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			return captured;
+		};
+
+		it("renders the learner on with the Go defaults when the keys are absent", async () => {
+			server.use(...mockSettings({ body: {} }));
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(limiterToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			expect(growSlider().value).toBe("20");
+			expect(forgetSlider().value).toBe("10");
+		});
+
+		it("sends inflight_limiter_enabled=false when the toggle is switched off", async () => {
+			const user = userEvent.setup();
+			server.use(...mockSettings({ body: {} }));
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(limiterToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			await user.click(limiterToggle());
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ inflight_limiter_enabled: "false" });
+			});
+		});
+
+		it("disables both sliders while the learner is off", async () => {
+			server.use(
+				...mockSettings({ body: { inflight_limiter_enabled: "false" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(growSlider()).toBeDisabled();
+			});
+			expect(forgetSlider()).toBeDisabled();
+			expect(limiterToggle()).not.toBeDisabled();
+		});
+
+		it("sends the grow counter as a plain integer when its slider changes", async () => {
+			server.use(...mockSettings({ body: { inflight_grow_after: "20" } }));
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(growSlider().value).toBe("20");
+			});
+			const slider = growSlider();
+			fireEvent.change(slider, { target: { value: "25" } });
+			fireEvent.pointerUp(slider);
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ inflight_grow_after: "25" });
+			});
+		});
+
+		it("converts the forget horizon between Go durations and slider minutes", async () => {
+			server.use(...mockSettings({ body: { inflight_forget_after: "30m0s" } }));
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(forgetSlider().value).toBe("30");
+			});
+			const slider = forgetSlider();
+			fireEvent.change(slider, { target: { value: "5" } });
+			fireEvent.pointerUp(slider);
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ inflight_forget_after: "5m" });
+			});
 		});
 	});
 });

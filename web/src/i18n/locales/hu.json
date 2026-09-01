@@ -812,7 +812,10 @@
 			"enabledToggle": "Szolgáltató engedélyezve",
 			"enabledHelper": "Irányítja a proxy-átirányítást és az API-hozzáférést. A letiltott szolgáltatók minden kérést elutasítanak.",
 			"autodiscoveryToggle": "Szolgáltatók automatikus felismerése",
-			"autodiscoveryHelper": "Ezzel az automatikus modellfelismerés működését szabályozhatja. Ha letiltja, akkor a szolgáltató modellkatalógusát manuálisan állíthatja össze."
+			"autodiscoveryHelper": "Ezzel az automatikus modellfelismerés működését szabályozhatja. Ha letiltja, akkor a szolgáltató modellkatalógusát manuálisan állíthatja össze.",
+			"maxInFlightLabel": "Egyidejű kérések maximuma",
+			"maxInFlightPlaceholder": "Nincs plafon",
+			"maxInFlightHelper": "Szigorú plafon az ehhez a szolgáltatóhoz menő egyidejű kérésekre. Hagyd üresen, ha nincs plafon; az adaptív tanulás alatta továbbra is igazodik."
 		},
 		"quotas": {
 			"expand": "Kvóták kibontása"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Kör nyitása kimerült kvótánál",
 			"openOnExhaustionDescription": "Ha egy 429 kimerült kvótát vagy egyenleget jelez, a modell köre ez után az egyetlen válasz után nyílik, nem várva a hibaküszöbre.",
 			"exhaustion429": "Foglalt csoportoknak 429-es válasz",
-			"exhaustion429Description": "Ha a csoport minden szolgáltatója foglalt vagy a kvótájára vár, a kliens 502 helyett Retry-After fejlécű 429-et kap, így magától vár és újrapróbálkozik."
+			"exhaustion429Description": "Ha a csoport minden szolgáltatója foglalt vagy a kvótájára vár, a kliens 502 helyett Retry-After fejlécű 429-et kap, így magától vár és újrapróbálkozik.",
+			"inflightGroup": "Adaptív párhuzamosság",
+			"inflightLimiter": "Szolgáltató párhuzamosságának tanulása",
+			"inflightLimiterDescription": "Minden szolgáltató valós párhuzamosságát a 429-es válaszaiból tanulja meg: ilyenkor a keret zsugorodik, tiszta befejezéseknél pedig visszanő, így a kérések a következő szolgáltatóhoz csordulnak át, mielőtt újabb 429 születne.",
+			"inflightGrowAfter": "Növekedési intervallum",
+			"inflightGrowAfter.description": "Hány egymást követő sikeres befejezést kell egy korlátozott szolgáltatónak kiszolgálnia, mielőtt kerete eggyel nő.",
+			"inflightForgetAfter": "Felejtés ennyi után",
+			"inflightForgetAfter.description": "Mennyi ideig kell egy korlátozott szolgáltatónak új terheltségi jel nélkül maradnia, mielőtt kerete újra korlátlan lesz."
 		},
 		"logging": {
 			"title": "Naplózás",

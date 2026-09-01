@@ -17,6 +17,7 @@ describe("EditProviderModal", () => {
 		enabled: true,
 		autodiscovery_enabled: true,
 		scheduled_disable_on: null,
+		max_in_flight: null,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -850,6 +851,81 @@ describe("EditProviderModal", () => {
 				"false",
 			);
 			expect(screen.queryByTestId("date-picker-apply")).toBeNull();
+		});
+	});
+
+	describe("max in-flight ceiling", () => {
+		const capturePut = () => {
+			const captured: { payload?: unknown } = {};
+			server.use(
+				http.put("/api/providers/:id", async ({ request }) => {
+					captured.payload = await request.json();
+					return HttpResponse.json({
+						...mockProvider,
+						updated_at: new Date().toISOString(),
+					});
+				}),
+			);
+			return captured;
+		};
+		const ceilingInput = () =>
+			document.getElementById(
+				"edit-provider-max-in-flight",
+			) as HTMLInputElement;
+
+		it("renders empty for a provider with no ceiling and shows the stored one", () => {
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			expect(ceilingInput()).toHaveValue(null);
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, id: "p-2", max_in_flight: 3 }}
+				/>,
+			);
+			const inputs = document.querySelectorAll("#edit-provider-max-in-flight");
+			expect((inputs[inputs.length - 1] as HTMLInputElement).value).toBe("3");
+		});
+
+		it("sends the entered ceiling as a number", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.type(ceilingInput(), "4");
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ max_in_flight: 4 });
+			});
+		});
+
+		it("sends null when a stored ceiling is cleared", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, max_in_flight: 3 }}
+				/>,
+			);
+			await user.clear(ceilingInput());
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ max_in_flight: null });
+			});
+		});
+
+		it("omits the field when it is untouched", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, max_in_flight: 3 }}
+				/>,
+			);
+			await user.click(screen.getByLabelText("Provider autodiscovery"));
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ autodiscovery_enabled: false });
+			});
 		});
 	});
 });

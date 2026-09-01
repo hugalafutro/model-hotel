@@ -812,7 +812,10 @@
 			"enabledToggle": "Verskaffer geaktiveer",
 			"enabledHelper": "Beheer proxy-roetering en API-toegang. Geblokkeerde verskaffers verwerp alle versoeke.",
 			"autodiscoveryToggle": "Verskaffer-outodeteksie",
-			"autodiscoveryHelper": "Beheer outomatiese modelontdekking. Skakel uit om die verskaffer se modelkatalogus handmatig te versorg."
+			"autodiscoveryHelper": "Beheer outomatiese modelontdekking. Skakel uit om die verskaffer se modelkatalogus handmatig te versorg.",
+			"maxInFlightLabel": "Maks gelyktydige versoeke",
+			"maxInFlightPlaceholder": "Geen plafon",
+			"maxInFlightHelper": "Harde plafon vir gelyktydige versoeke aan hierdie verskaffer. Laat leeg vir geen plafon; die aanpasbare leerder stel steeds daaronder aan."
 		},
 		"quotas": {
 			"expand": "Brei kwotas uit"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Maak stroombaan oop by uitgeputte kwota",
 			"openOnExhaustionDescription": "Wanneer 'n 429 sê die kwota of saldo is uitgeput, word die model se stroombaan ná daardie enkele antwoord oopgemaak in plaas daarvan om vir die foutdrempel te wag.",
 			"exhaustion429": "Antwoord besige groepe met 429",
-			"exhaustion429Description": "Wanneer elke verskaffer in 'n groep besig is of vir sy kwota wag, kry die kliënt 429 met Retry-After in plaas van 502, sodat hy self wag en weer probeer."
+			"exhaustion429Description": "Wanneer elke verskaffer in 'n groep besig is of vir sy kwota wag, kry die kliënt 429 met Retry-After in plaas van 502, sodat hy self wag en weer probeer.",
+			"inflightGroup": "Aanpasbare gelyktydigheid",
+			"inflightLimiter": "Leer verskaffer se gelyktydigheid",
+			"inflightLimiterDescription": "Leer elke verskaffer se werklike gelyktydigheid uit sy 429-antwoorde: die toelae krimp wanneer een aankom en groei weer met skoon voltooiings, sodat versoeke na die volgende verskaffer oorloop voordat nog 'n 429 uitgelok word.",
+			"inflightGrowAfter": "Groei-interval",
+			"inflightGrowAfter.description": "Aantal opeenvolgende suksesvolle voltooiings wat 'n beperkte verskaffer moet lewer voordat sy toelae met een groei.",
+			"inflightForgetAfter": "Vergeet na",
+			"inflightForgetAfter.description": "Hoe lank 'n beperkte verskaffer sonder 'n nuwe besig-sein moet bly voordat sy toelae weer onbeperk word."
 		},
 		"logging": {
 			"title": "Logboekregistrasie",

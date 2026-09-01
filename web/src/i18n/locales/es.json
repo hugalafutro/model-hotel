@@ -824,7 +824,10 @@
 			"enabledToggle": "Proveedor habilitado",
 			"enabledHelper": "Controla la ruta proxy y el acceso de la API. Los proveedores desactivados rechazan todas las solicitudes.",
 			"autodiscoveryToggle": "Auto-descubrimiento del proveedor",
-			"autodiscoveryHelper": "Controla la detección automática del modelo. Deshabilita para curar manualmente el catálogo de modelos de este proveedor."
+			"autodiscoveryHelper": "Controla la detección automática del modelo. Deshabilita para curar manualmente el catálogo de modelos de este proveedor.",
+			"maxInFlightLabel": "Máx. de peticiones simultáneas",
+			"maxInFlightPlaceholder": "Sin tope",
+			"maxInFlightHelper": "Tope estricto de peticiones simultáneas a este proveedor. Déjalo vacío para no aplicar tope; el aprendizaje adaptativo sigue ajustándose por debajo."
 		},
 		"quotas": {
 			"expand": "Expandir cuotas"
@@ -1721,7 +1724,14 @@
 			"openOnExhaustion": "Abrir circuito con cuota agotada",
 			"openOnExhaustionDescription": "Cuando una 429 indica que la cuota o el saldo está agotado, el circuito del modelo se abre con esa única respuesta en lugar de esperar al umbral de fallos.",
 			"exhaustion429": "Responder 429 a grupos saturados",
-			"exhaustion429Description": "Cuando todos los proveedores de un grupo están saturados o esperando su cuota, el cliente recibe 429 con Retry-After en lugar de 502, para que espere y reintente por su cuenta."
+			"exhaustion429Description": "Cuando todos los proveedores de un grupo están saturados o esperando su cuota, el cliente recibe 429 con Retry-After en lugar de 502, para que espere y reintente por su cuenta.",
+			"inflightGroup": "Concurrencia adaptativa",
+			"inflightLimiter": "Aprender la concurrencia del proveedor",
+			"inflightLimiterDescription": "Aprende la concurrencia real de cada proveedor a partir de sus 429: reduce el margen cuando llega uno y lo recupera con respuestas correctas, de modo que las peticiones se desvían al siguiente proveedor antes de provocar otro 429.",
+			"inflightGrowAfter": "Intervalo de crecimiento",
+			"inflightGrowAfter.description": "Respuestas correctas consecutivas que debe servir un proveedor limitado antes de que su margen crezca en uno.",
+			"inflightForgetAfter": "Olvidar tras",
+			"inflightForgetAfter.description": "Cuánto tiempo debe pasar un proveedor limitado sin una nueva señal de saturación antes de que su margen vuelva a ser ilimitado."
 		},
 		"logging": {
 			"title": "Registro",

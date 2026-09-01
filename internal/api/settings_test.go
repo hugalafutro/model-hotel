@@ -498,6 +498,8 @@ func TestRateLimitClassificationKeysAreRegisteredInBothAllowlists(t *testing.T) 
 		"rate_limit_recent_success_window",
 		"failover_exhaustion_status_429",
 		"circuit_breaker_open_on_exhaustion",
+		"inflight_limiter_enabled",
+		"inflight_forget_after",
 	} {
 		if !settings.AllowedSettings[key] {
 			t.Errorf("%s missing from settings.AllowedSettings: the DB layer refuses to write it", key)
@@ -510,6 +512,13 @@ func TestRateLimitClassificationKeysAreRegisteredInBothAllowlists(t *testing.T) 
 		if rule.typeName != "string" {
 			t.Errorf("%s type %q, want string (bools and durations ride as strings)", key, rule.typeName)
 		}
+	}
+	// The grow counter is the one integer of the family.
+	if !settings.AllowedSettings["inflight_grow_after"] {
+		t.Error("inflight_grow_after missing from settings.AllowedSettings")
+	}
+	if rule, ok := allowedSettings["inflight_grow_after"]; !ok || rule.typeName != "int" || rule.min != 1 {
+		t.Errorf("inflight_grow_after rule = %+v (ok=%v), want an int with a floor of 1", rule, ok)
 	}
 }
 

@@ -824,7 +824,10 @@
 			"enabledToggle": "Furnizor activat",
 			"enabledHelper": "Controlează rutarea proxy și accesul API. Furnizorii dezactivați resping toate cererile.",
 			"autodiscoveryToggle": "Furnizor autodescoperire",
-			"autodiscoveryHelper": "Controlează descoperirea automată a modelelor. Dezactivează pentru a gestiona manual catalogul de modele al acestui furnizor."
+			"autodiscoveryHelper": "Controlează descoperirea automată a modelelor. Dezactivează pentru a gestiona manual catalogul de modele al acestui furnizor.",
+			"maxInFlightLabel": "Cereri simultane maxime",
+			"maxInFlightPlaceholder": "Fără plafon",
+			"maxInFlightHelper": "Plafon strict pentru cererile simultane către acest furnizor. Lasă gol pentru niciun plafon; învățarea adaptivă continuă să se ajusteze dedesubt."
 		},
 		"quotas": {
 			"expand": "Extinderea cotelor"
@@ -1721,7 +1724,14 @@
 			"openOnExhaustion": "Deschide circuitul la cotă epuizată",
 			"openOnExhaustionDescription": "Când un 429 anunță cotă sau sold epuizat, circuitul modelului se deschide după acel singur răspuns, fără a aștepta pragul de eșecuri.",
 			"exhaustion429": "Răspunde grupurilor ocupate cu 429",
-			"exhaustion429Description": "Când toți furnizorii unui grup sunt ocupați sau își așteaptă cota, clientul primește 429 cu Retry-After în loc de 502, ca să aștepte și să reîncerce singur."
+			"exhaustion429Description": "Când toți furnizorii unui grup sunt ocupați sau își așteaptă cota, clientul primește 429 cu Retry-After în loc de 502, ca să aștepte și să reîncerce singur.",
+			"inflightGroup": "Concurență adaptivă",
+			"inflightLimiter": "Învață concurența furnizorului",
+			"inflightLimiterDescription": "Învață concurența reală a fiecărui furnizor din răspunsurile sale 429: alocarea scade când sosește unul și crește la loc la finalizări curate, astfel încât cererile se revarsă către următorul furnizor înainte de a provoca alt 429.",
+			"inflightGrowAfter": "Interval de creștere",
+			"inflightGrowAfter.description": "Câte finalizări reușite consecutive trebuie să servească un furnizor plafonat înainte ca alocarea sa să crească cu unu.",
+			"inflightForgetAfter": "Uită după",
+			"inflightForgetAfter.description": "Cât timp trebuie să stea un furnizor plafonat fără un nou semnal de aglomerare înainte ca alocarea sa să redevină nelimitată."
 		},
 		"logging": {
 			"title": "Logare",

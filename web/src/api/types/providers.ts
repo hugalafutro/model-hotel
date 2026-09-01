@@ -8,6 +8,8 @@ export interface Provider {
 	enabled: boolean;
 	autodiscovery_enabled: boolean;
 	scheduled_disable_on: string | null;
+	/** Operator's hard ceiling on concurrent requests; null = no ceiling. */
+	max_in_flight: number | null;
 	last_discovered_at: string | null;
 	last_used_at: string | null;
 	created_at: string;
@@ -30,4 +32,6 @@ export interface UpdateProviderRequest {
 	enabled?: boolean;
 	autodiscovery_enabled?: boolean;
 	scheduled_disable_on?: string | null;
+	/** A number sets the ceiling, null clears it, absent keeps it. */
+	max_in_flight?: number | null;
 }

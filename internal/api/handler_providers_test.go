@@ -1760,4 +1760,32 @@ func TestUpdateProvider_ScheduledDisable(t *testing.T) {
 			t.Fatal("schedule must not stick to a disabled provider")
 		}
 	})
+
+	// max_in_flight rides the same three-state OptionalInt: a value sets the
+	// ceiling, null clears it, an absent field keeps it, and out-of-range
+	// values are rejected.
+	t.Run("max_in_flight sets, keeps, clears and validates", func(t *testing.T) {
+		id := createProvider(t, "mif-provider")
+		rec := putProvider(t, id, `{"max_in_flight": 3}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set: expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if resp := decodeProviderResponse(t, rec); resp.MaxInFlight == nil || *resp.MaxInFlight != 3 {
+			t.Fatalf("max_in_flight = %v, want 3", resp.MaxInFlight)
+		}
+		// Absent keeps.
+		if resp := decodeProviderResponse(t, putProvider(t, id, `{"name": "mif-provider-2"}`)); resp.MaxInFlight == nil || *resp.MaxInFlight != 3 {
+			t.Fatalf("ceiling lost on an unrelated update: %v", resp.MaxInFlight)
+		}
+		// Null clears.
+		if resp := decodeProviderResponse(t, putProvider(t, id, `{"max_in_flight": null}`)); resp.MaxInFlight != nil {
+			t.Fatalf("ceiling not cleared: %v", *resp.MaxInFlight)
+		}
+		// Zero and absurd values are typos, not ceilings.
+		for _, bad := range []string{"0", "-1", "10001"} {
+			if rec := putProvider(t, id, `{"max_in_flight": `+bad+`}`); rec.Code != http.StatusBadRequest {
+				t.Errorf("max_in_flight %s: expected 400, got %d: %s", bad, rec.Code, rec.Body.String())
+			}
+		}
+	})
 }

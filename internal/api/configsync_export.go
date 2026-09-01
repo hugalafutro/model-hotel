@@ -467,7 +467,7 @@ func (h *ConfigSyncHandler) providerIDToName(ctx context.Context, q querier) (ma
 func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	rows, err := q.Query(ctx, `
 		SELECT name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled,
-		       to_char(scheduled_disable_on, 'YYYY-MM-DD')
+		       to_char(scheduled_disable_on, 'YYYY-MM-DD'), max_in_flight
 		FROM providers ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -477,7 +477,7 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	for rows.Next() {
 		var p ExportProvider
 		if err := rows.Scan(&p.Name, &p.BaseURL, &p.ProviderType, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt,
-			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn); err != nil {
+			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn, &p.MaxInFlight); err != nil {
 			return nil, err
 		}
 		// A row the startup backfill has not reached yet exports the type it

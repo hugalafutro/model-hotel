@@ -294,6 +294,7 @@ type ExportProvider struct {
 	KeySalt              []byte  `json:"key_salt,omitempty"`
 	MaskedKey            *string `json:"masked_key,omitempty"`
 	ScheduledDisableOn   *string `json:"scheduled_disable_on,omitempty"`
+	MaxInFlight          *int    `json:"max_in_flight,omitempty"`
 }
 
 // ExportVK is a virtual key carried by its hash (the plaintext never existed

@@ -121,7 +121,10 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// returns this one untouched. bodyclose cannot follow a handover through a
 	// function boundary, so without this it reads the original as leaked.
 	//nolint:bodyclose // closed by the dispatch below, or by retryLearnable400's handover
-	resp, providerType, targetURL, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
+	resp, providerType, targetURL, busyAttempt, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
+	if busyAttempt {
+		return outcomeBusy
+	}
 	if !ok {
 		return outcomeFailover
 	}
@@ -450,12 +453,15 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 
 // beginAttempt performs the per-attempt prologue shared by the chat and
 // pass-through attempt fns: stamp the candidate's provider identity onto the
-// log entry, emit the routing logs, touch the provider's last-used timestamp,
-// build the upstream request on failoverCtx, and execute it. providerType and
-// targetURL are returned for chat's 400 auto-retry path. Returns ok=false
-// when the caller should fail over to the next candidate (st.lastErr is
-// already set by this helper or doUpstream).
-func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, candidate modelCandidate, attempt, totalCandidates int, dialMs *float64) (resp *http.Response, providerType, targetURL string, ok bool) {
+// log entry, pass the in-flight admission gate, emit the routing logs, touch
+// the provider's last-used timestamp, build the upstream request on
+// failoverCtx, and execute it. providerType and targetURL are returned for
+// chat's 400 auto-retry path. busy=true means the provider's learned
+// in-flight window is full and no request was made (the caller should treat
+// the candidate as skipped); otherwise ok=false means the caller should fail
+// over to the next candidate (st.lastErr is already set by this helper or
+// doUpstream).
+func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, candidate modelCandidate, attempt, totalCandidates int, dialMs *float64) (resp *http.Response, providerType, targetURL string, busy, ok bool) {
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
@@ -465,6 +471,14 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	st.rateLimit = rateLimitVerdict{}
 	if st.isFailover {
 		logData.resolvedModelID = candidate.model.ModelID
+	}
+	// Admission before anything is built or sent: a provider at its learned
+	// window is skipped exactly as a breaker-open one is, without a round
+	// trip. On admission a slot is held; every exit below settles it.
+	if !h.admitCandidate(st, candidate) {
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"})
+		logData.failoverAttempt = attempt
+		return nil, "", "", true, false
 	}
 	if attempt == 0 {
 		debuglog.Info("proxy: routing to provider", "endpoint", logData.endpointType, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", totalCandidates)
@@ -476,15 +490,20 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
+		h.finishAttemptAdmission(failoverCtx, st, candidate, nil)
 		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-		return nil, providerType, targetURL, false
+		return nil, providerType, targetURL, false, false
 	}
 
 	resp, upstreamOK := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, dialMs)
 	if !upstreamOK {
-		return nil, providerType, targetURL, false
+		h.finishAttemptAdmission(failoverCtx, st, candidate, nil)
+		return nil, providerType, targetURL, false, false
 	}
-	return resp, providerType, targetURL, true
+	// Hand the held slot to the body, so it frees on the response's last byte
+	// (or its close) on every downstream path.
+	h.finishAttemptAdmission(failoverCtx, st, candidate, resp)
+	return resp, providerType, targetURL, false, true
 }
 
 // touchProviderLastUsed updates the provider's last-used timestamp in a

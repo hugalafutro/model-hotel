@@ -117,6 +117,13 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 		// Info, not warn: the provider is healthy and at capacity, which is a
 		// routing fact, not an incident.
 		debuglog.Info("proxy: 429 classified saturated, circuit breaker untouched", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
+		// The saturated 429 is also the in-flight learner's teacher: the pool
+		// is provably smaller than what was just in flight, so the allowance
+		// is cut and the NEXT requests spill to the other entries before
+		// anyone has to say 429 again.
+		if st.inflightEnabled {
+			h.inflight.cut(candidate.provider.ID, rl.retryAfter)
+		}
 	case rateLimitExhausted:
 		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusTooManyRequests, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))

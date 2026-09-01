@@ -297,6 +297,10 @@ type requestState struct {
 	// one retry, not a loop.
 	rateLimit         rateLimitVerdict
 	saturationRetried bool
+
+	// inflightEnabled mirrors inflight_limiter_enabled for the request, read
+	// once by loadFailoverConfig like the breaker flag beside it.
+	inflightEnabled bool
 }
 
 // setReqErr records the structured cause of the most recent failed attempt and
@@ -345,6 +349,11 @@ const (
 	// The loop waits the provider's Retry-After (bounded) and retries the same
 	// candidate once; st.saturationRetried guards the "once".
 	outcomeRetrySaturated
+	// outcomeBusy: the candidate's provider is at its learned in-flight limit,
+	// so the attempt was skipped WITHOUT a request — the way a breaker-open
+	// candidate is. The loop moves on, remembers the candidate, and when every
+	// live entry ends busy it waits for the first slot to free on any of them.
+	outcomeBusy
 )
 
 // streamOptions consolidates the parameters for handleStreamingResponse into

@@ -425,6 +425,9 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Read circuit_breaker_enabled once before the loop to avoid repeated settings reads.
 	cbStart2 := time.Now()
 	st.circuitBreakerEnabled = h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
+	// Same once-per-request read for the adaptive in-flight limiter; a nil
+	// limiter (handler-literal tests) admits everything whatever this says.
+	st.inflightEnabled = h.inflight != nil && h.settingsRepo.GetBool(r.Context(), "inflight_limiter_enabled", true)
 	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
 
 	// Request hedging config (streaming only; applied at the failover gate).

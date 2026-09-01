@@ -812,7 +812,10 @@
 			"enabledToggle": "Leverantör aktiverad",
 			"enabledHelper": "Kontrollerar proxyrouting och API-åtkomst. Inaktiverade leverantörer avvisar alla förfrågningar.",
 			"autodiscoveryToggle": "Autodiscovery för leverantör",
-			"autodiscoveryHelper": "Kontrollerar automatisk upptäckt av modellen. Inaktivera för att manuellt kurera leverantörens modellkatalog."
+			"autodiscoveryHelper": "Kontrollerar automatisk upptäckt av modellen. Inaktivera för att manuellt kurera leverantörens modellkatalog.",
+			"maxInFlightLabel": "Max samtidiga förfrågningar",
+			"maxInFlightPlaceholder": "Inget tak",
+			"maxInFlightHelper": "Hårt tak för samtidiga förfrågningar till denna leverantör. Lämna tomt för inget tak; den adaptiva inlärningen justerar fortfarande under det."
 		},
 		"quotas": {
 			"expand": "Expandera kvoter"
@@ -1674,7 +1677,14 @@
 			"openOnExhaustion": "Öppna krets vid förbrukad kvot",
 			"openOnExhaustionDescription": "När ett 429 anger att kvoten eller saldot är förbrukat öppnas modellens krets efter det enda svaret i stället för att vänta på feltröskeln.",
 			"exhaustion429": "Svara upptagna grupper med 429",
-			"exhaustion429Description": "När alla leverantörer i en grupp är upptagna eller väntar på sin kvot får klienten 429 med Retry-After i stället för 502, så att den själv väntar och försöker igen."
+			"exhaustion429Description": "När alla leverantörer i en grupp är upptagna eller väntar på sin kvot får klienten 429 med Retry-After i stället för 502, så att den själv väntar och försöker igen.",
+			"inflightGroup": "Adaptiv samtidighet",
+			"inflightLimiter": "Lär leverantörens samtidighet",
+			"inflightLimiterDescription": "Lär sig varje leverantörs verkliga samtidighet av dess 429-svar: utrymmet krymper när ett kommer och växer igen vid rena slutföranden, så att förfrågningar spiller över till nästa leverantör innan ännu ett 429 utlöses.",
+			"inflightGrowAfter": "Tillväxtintervall",
+			"inflightGrowAfter.description": "Antal på varandra följande lyckade slutföranden en begränsad leverantör måste leverera innan dess utrymme växer med ett.",
+			"inflightForgetAfter": "Glöm efter",
+			"inflightForgetAfter.description": "Hur länge en begränsad leverantör måste vara utan ny upptagetsignal innan dess utrymme åter blir obegränsat."
 		},
 		"logging": {
 			"title": "Loggar",

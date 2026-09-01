@@ -824,7 +824,10 @@
 			"enabledToggle": "Provider abilitato",
 			"enabledHelper": "Controlla l'instradamento del proxy e l'accesso alle API. I provider disabilitati rifiutano tutte le richieste.",
 			"autodiscoveryToggle": "Scoperta automatica del provider",
-			"autodiscoveryHelper": "Controlla la scoperta automatica del modello. Disabilita per curare manualmente il catalogo dei modelli di questo provider."
+			"autodiscoveryHelper": "Controlla la scoperta automatica del modello. Disabilita per curare manualmente il catalogo dei modelli di questo provider.",
+			"maxInFlightLabel": "Max richieste simultanee",
+			"maxInFlightPlaceholder": "Nessun tetto",
+			"maxInFlightHelper": "Tetto rigido di richieste simultanee verso questo provider. Lascia vuoto per nessun tetto; l'apprendimento adattivo continua a regolarsi al di sotto."
 		},
 		"quotas": {
 			"expand": "Espandi le quote"
@@ -1721,7 +1724,14 @@
 			"openOnExhaustion": "Apri il circuito a quota esaurita",
 			"openOnExhaustionDescription": "Quando una 429 indica quota o credito esaurito, il circuito del modello si apre con quella singola risposta invece di attendere la soglia di errori.",
 			"exhaustion429": "Rispondere 429 ai gruppi saturi",
-			"exhaustion429Description": "Quando tutti i provider di un gruppo sono saturi o in attesa della quota, il client riceve 429 con Retry-After invece di 502, così attende e riprova da solo."
+			"exhaustion429Description": "Quando tutti i provider di un gruppo sono saturi o in attesa della quota, il client riceve 429 con Retry-After invece di 502, così attende e riprova da solo.",
+			"inflightGroup": "Concorrenza adattiva",
+			"inflightLimiter": "Apprendi la concorrenza del provider",
+			"inflightLimiterDescription": "Apprende la concorrenza reale di ogni provider dai suoi 429: riduce il margine quando ne arriva uno e lo riguadagna con completamenti puliti, così le richieste tracimano verso il provider successivo prima di provocare un altro 429.",
+			"inflightGrowAfter": "Intervallo di crescita",
+			"inflightGrowAfter.description": "Completamenti riusciti consecutivi che un provider limitato deve servire prima che il suo margine cresca di uno.",
+			"inflightForgetAfter": "Dimentica dopo",
+			"inflightForgetAfter.description": "Quanto a lungo un provider limitato deve restare senza un nuovo segnale di saturazione prima che il suo margine torni illimitato."
 		},
 		"logging": {
 			"title": "Registrazione",

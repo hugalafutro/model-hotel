@@ -836,7 +836,10 @@
 			"enabledToggle": "Dostawca włączony",
 			"enabledHelper": "Kontroluje routing proxy i dostęp do API. Wyłączone dostawcy odrzucają wszystkie żądania.",
 			"autodiscoveryToggle": "Automatyczne wykrywanie dostawców",
-			"autodiscoveryHelper": "Kontroluje wykrywanie modelu automatycznego. Wyłącz, aby ręcznie ograniczyć katalog modeli tego dostawcy."
+			"autodiscoveryHelper": "Kontroluje wykrywanie modelu automatycznego. Wyłącz, aby ręcznie ograniczyć katalog modeli tego dostawcy.",
+			"maxInFlightLabel": "Maks. równoczesnych żądań",
+			"maxInFlightPlaceholder": "Bez limitu",
+			"maxInFlightHelper": "Twardy limit równoczesnych żądań do tego dostawcy. Pozostaw puste, aby nie stosować limitu; adaptacyjne uczenie nadal działa poniżej niego."
 		},
 		"quotas": {
 			"expand": "Rozwiń kontyngenty"
@@ -1768,7 +1771,14 @@
 			"openOnExhaustion": "Otwórz obwód przy wyczerpanym limicie",
 			"openOnExhaustionDescription": "Gdy 429 informuje o wyczerpanym limicie lub saldzie, obwód modelu otwiera się po tej jednej odpowiedzi, zamiast czekać na próg błędów.",
 			"exhaustion429": "Odpowiadaj 429 nasyconym grupom",
-			"exhaustion429Description": "Gdy wszyscy dostawcy w grupie są nasyceni lub czekają na limit, klient otrzymuje 429 z Retry-After zamiast 502, dzięki czemu sam odczeka i ponowi próbę."
+			"exhaustion429Description": "Gdy wszyscy dostawcy w grupie są nasyceni lub czekają na limit, klient otrzymuje 429 z Retry-After zamiast 502, dzięki czemu sam odczeka i ponowi próbę.",
+			"inflightGroup": "Adaptacyjna równoległość",
+			"inflightLimiter": "Ucz się równoległości dostawcy",
+			"inflightLimiterDescription": "Uczy się rzeczywistej równoległości każdego dostawcy z jego odpowiedzi 429: przydział maleje, gdy taka nadejdzie, i odrasta przy czystych ukończeniach, więc żądania przelewają się do następnego dostawcy, zanim padnie kolejne 429.",
+			"inflightGrowAfter": "Interwał wzrostu",
+			"inflightGrowAfter.description": "Ile kolejnych udanych ukończeń musi obsłużyć ograniczony dostawca, zanim jego przydział wzrośnie o jeden.",
+			"inflightForgetAfter": "Zapomnij po",
+			"inflightForgetAfter.description": "Jak długo ograniczony dostawca musi pozostać bez nowego sygnału obciążenia, zanim jego przydział wróci do nieograniczonego."
 		},
 		"logging": {
 			"title": "Rejestrowanie",

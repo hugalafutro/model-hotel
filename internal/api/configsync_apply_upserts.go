@@ -82,8 +82,8 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 			}
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, now())
+			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, now())
 			ON CONFLICT (name) DO UPDATE SET
 				base_url = EXCLUDED.base_url,
 				provider_type = EXCLUDED.provider_type,
@@ -94,8 +94,9 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				enabled = EXCLUDED.enabled,
 				autodiscovery_enabled = EXCLUDED.autodiscovery_enabled,
 				scheduled_disable_on = EXCLUDED.scheduled_disable_on,
+				max_in_flight = EXCLUDED.max_in_flight,
 				updated_at = now()`,
-			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn)
+			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight)
 		if err != nil {
 			return err
 		}

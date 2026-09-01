@@ -243,6 +243,14 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) hedgeResult {
 	res := hedgeResult{idx: attempt}
 
+	// The same admission gate beginAttempt passes: a provider at its learned
+	// in-flight window loses this race slot without a request being made.
+	if !h.admitCandidate(st, candidate) {
+		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"}
+		res.rateLimit = st.rateLimit
+		return res
+	}
+
 	// Same stamp beginAttempt makes at attempt start, before the request is
 	// built: launching an attempt against this provider counts as use, whether
 	// or not the probe wins the race or even reaches the wire.
@@ -251,6 +259,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	var dialMs float64
 	proxyReq, _, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
+		h.finishAttemptAdmission(ctx, st, candidate, nil)
 		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 		return res
 	}
@@ -261,9 +270,14 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if !ok {
 		// doUpstream set st.lastReqErr (on the private snapshot) and recorded any
 		// breaker failure.
+		h.finishAttemptAdmission(ctx, st, candidate, nil)
 		res.reqErr = st.lastReqErr
 		return res
 	}
+	// The held slot rides the body from here: losers are drained and closed by
+	// the orchestrator, the winner's stream closes at its end, and either
+	// releases it.
+	h.finishAttemptAdmission(ctx, st, candidate, resp)
 	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
 	providerType := provider.TypeOf(candidate.provider)
 
