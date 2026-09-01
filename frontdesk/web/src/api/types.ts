@@ -68,6 +68,31 @@ export interface MemberStatus {
 	// and frozen while the member is unreachable. Distinct from
 	// last_config_sync_at, which moves only on a real config write.
 	auto_sync_verified_at?: string;
+	// The member's own circuit-breaker ledger, reduced to the circuits it
+	// holds open or owes a probe, as last read from its status API. Absent
+	// until the first successful read, and again after a failed one.
+	circuits?: MemberCircuits;
+}
+
+export interface MemberCircuits {
+	checked_at: string;
+	// The first few dozen of the non-closed circuits; total counts them all.
+	open: OpenCircuit[];
+	total: number;
+}
+
+export interface OpenCircuit {
+	provider_id: string;
+	provider?: string;
+	model: string;
+	// "open" or "half-open" from a current member; any other non-closed state
+	// a future breaker reports is shown as it comes.
+	state: string;
+	cause?: string;
+	status?: number;
+	next_retry_at?: string;
+	quota_pinned?: boolean;
+	pin_source?: string;
 }
 
 // Bellhop device pairing. A PairedDevice is one linked phone; its bearer token

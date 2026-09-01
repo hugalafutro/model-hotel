@@ -170,7 +170,18 @@
 		"resetCircuitsPartial": "Schutzschalter zurückgesetzt, aber bei {{failed}} von {{members}} Mitgliedern nicht",
 		"resetCircuitsGroupLabel": "Failover-Gruppe",
 		"resetCircuitsGroupPlaceholder": "Gruppe wählen",
-		"resetCircuitsNoGroups": "Das primäre Mitglied meldet keine Failover-Gruppen"
+		"resetCircuitsNoGroups": "Das primäre Mitglied meldet keine Failover-Gruppen",
+		"colCircuits": "Schutzschalter",
+		"colCircuitsTip": "Schutzschalter, die dieses Mitglied offen hält oder denen es eine Probe schuldet, bei jeder Abfrage aus seiner Status-API gelesen; Hover zeigt Anbieter, Modell, Ursache und nächsten Versuch",
+		"circuitsNone": "keiner offen",
+		"circuitsUnknown": "nicht gelesen",
+		"circuitStateOpen": "offen",
+		"circuitStateHalfOpen": "Probe fällig",
+		"circuitStatePinned": "gepinnt",
+		"circuitRetry": "nächster Versuch {{when}}",
+		"circuitsOpen_one": "{{count}} offen",
+		"circuitsOpen_other": "{{count}} offen",
+		"circuitsShowing": "{{shown}} von {{total}} angezeigt"
 	},
 	"traffic": {
 		"title": "Traffic",

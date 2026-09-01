@@ -170,7 +170,18 @@
 		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} members were not reset",
 		"resetCircuitsGroupLabel": "Failover group",
 		"resetCircuitsGroupPlaceholder": "Choose a group",
-		"resetCircuitsNoGroups": "The primary reports no failover groups"
+		"resetCircuitsNoGroups": "The primary reports no failover groups",
+		"colCircuits": "Circuits",
+		"colCircuitsTip": "Circuits this member's breaker holds open or owes a probe, read from its status API every poll; hover for provider, model, cause and next retry",
+		"circuitsNone": "none open",
+		"circuitsUnknown": "not read",
+		"circuitStateOpen": "open",
+		"circuitStateHalfOpen": "probe due",
+		"circuitStatePinned": "pinned",
+		"circuitRetry": "retry {{when}}",
+		"circuitsOpen_one": "{{count}} open",
+		"circuitsOpen_other": "{{count}} open",
+		"circuitsShowing": "showing {{shown}} of {{total}}"
 	},
 	"traffic": {
 		"title": "Traffic",

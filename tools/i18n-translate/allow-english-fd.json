@@ -285,5 +285,14 @@
 	],
 	"settings.alerts.wizard.step5Title": [
 		"fr"
+	],
+	"members.circuitStateOpen": [
+		"nl"
+	],
+	"members.circuitsOpen_one": [
+		"nl"
+	],
+	"members.circuitsOpen_other": [
+		"nl"
 	]
 }

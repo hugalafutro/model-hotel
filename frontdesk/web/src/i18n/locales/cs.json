@@ -170,7 +170,20 @@
 		"resetCircuitsPartial": "Jističe resetovány, ale u {{failed}} z {{members}} členů reset neproběhl",
 		"resetCircuitsGroupLabel": "Failover skupina",
 		"resetCircuitsGroupPlaceholder": "Zvolte skupinu",
-		"resetCircuitsNoGroups": "Primární člen nehlásí žádné failover skupiny"
+		"resetCircuitsNoGroups": "Primární člen nehlásí žádné failover skupiny",
+		"colCircuits": "Jističe",
+		"colCircuitsTip": "Jističe, které tento člen drží rozepnuté nebo jim dluží sondu, čtené z jeho stavového API při každém dotazu; najetím zobrazíte poskytovatele, model, příčinu a další pokus",
+		"circuitsNone": "žádný rozepnutý",
+		"circuitsUnknown": "nepřečteno",
+		"circuitStateOpen": "rozepnutý",
+		"circuitStateHalfOpen": "čeká na sondu",
+		"circuitStatePinned": "připnutý",
+		"circuitRetry": "další pokus {{when}}",
+		"circuitsOpen_one": "{{count}} rozepnutý",
+		"circuitsOpen_few": "{{count}} rozepnuté",
+		"circuitsOpen_many": "{{count}} rozepnutých",
+		"circuitsOpen_other": "{{count}} rozepnutých",
+		"circuitsShowing": "zobrazeno {{shown}} z {{total}}"
 	},
 	"traffic": {
 		"title": "Provoz",

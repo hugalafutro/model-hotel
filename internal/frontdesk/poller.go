@@ -70,6 +70,12 @@ type MemberStatus struct {
 	// distinct from last_config_sync_at, which moves only on a real config write.
 	// A pointer so a never-verified member serializes as absent, not a zero time.
 	AutoSyncVerifiedAt *time.Time `json:"auto_sync_verified_at,omitempty"`
+	// Circuits is the member's own circuit-breaker ledger as last read from its
+	// status API (poller_circuits.go): the circuits it holds open or owes a
+	// probe, each with its cause. nil until the first successful read, and
+	// cleared on a failed one, so the Members tab never shows a stale ledger
+	// as current. Not persisted.
+	Circuits *MemberCircuits `json:"circuits,omitempty"`
 }
 
 // Poller probes members and Traefik on intervals taken from settings.
@@ -190,6 +196,9 @@ func (p *Poller) Run(ctx context.Context) {
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollHealthOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.PollTraefikOnce},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollVersionsOnce},
+		// Three health polls apart: the member caches this status for 5s, so
+		// the health cadence would recompute it on every read (poller_circuits.go).
+		{func(s Settings) time.Duration { return 3 * secs(s.HealthPollSecs, 5) }, p.PollCircuitsOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkAutoSyncStale},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollAnnounceOnce},

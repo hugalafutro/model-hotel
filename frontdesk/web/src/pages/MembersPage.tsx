@@ -22,6 +22,7 @@ import {
 } from "../utils/build";
 import { formatRelative, formatTimeOfDay } from "../utils/time";
 import { FleetCircuitReset } from "./members/FleetCircuitReset";
+import { MemberCircuitsCell } from "./members/MemberCircuitsCell";
 
 // memberBuild reads a member's build identity off its polled status. Front Desk
 // clears both halves together when a read fails, so an empty version means "not
@@ -246,6 +247,9 @@ export function MembersPage() {
 								<th>{t("members.colFrontdesk")}</th>
 								<th>{t("members.colTraefik")}</th>
 								<th>{t("members.colVersion")}</th>
+								<th title={t("members.colCircuitsTip")}>
+									{t("members.colCircuits")}
+								</th>
 								{/* Header tooltips carry the semantic the two columns are
 								    routinely misread over: Verified is the live hash check
 								    (the actual "in sync" claim), Last Config Sync is the last
@@ -467,6 +471,9 @@ function MemberRow({
 						</span>
 					)}
 				</span>
+			</td>
+			<td>
+				<MemberCircuitsCell status={m.status} hasToken={m.has_token} />
 			</td>
 			<td data-testid="member-verified">
 				{isPrimary ? (

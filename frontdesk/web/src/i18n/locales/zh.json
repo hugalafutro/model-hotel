@@ -170,7 +170,18 @@
 		"resetCircuitsPartial": "断路器已重置，但 {{members}} 个成员中有 {{failed}} 个未重置",
 		"resetCircuitsGroupLabel": "故障转移组",
 		"resetCircuitsGroupPlaceholder": "选择一个组",
-		"resetCircuitsNoGroups": "主成员未报告任何故障转移组"
+		"resetCircuitsNoGroups": "主成员未报告任何故障转移组",
+		"colCircuits": "断路器",
+		"colCircuitsTip": "此成员断路器保持断开或等待探测的电路，每次轮询从其状态 API 读取；悬停查看提供商、模型、原因和下次重试",
+		"circuitsNone": "无断开",
+		"circuitsUnknown": "未读取",
+		"circuitStateOpen": "断开",
+		"circuitStateHalfOpen": "等待探测",
+		"circuitStatePinned": "已固定",
+		"circuitRetry": "重试 {{when}}",
+		"circuitsOpen_one": "{{count}} 个断开",
+		"circuitsOpen_other": "{{count}} 个断开",
+		"circuitsShowing": "显示 {{total}} 个中的 {{shown}} 个"
 	},
 	"traffic": {
 		"title": "流量",
