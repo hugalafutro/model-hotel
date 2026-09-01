@@ -75,6 +75,16 @@ func TestClassifyRateLimit(t *testing.T) {
 			wantPin:   pinHintWeekly,
 		},
 		{
+			// Holds the line the entry above could have crossed: "exhausted"
+			// beside a concurrency limit is a busy provider, and it must reach
+			// the saturated entries rather than open a circuit with a 2h pin.
+			name:      "concurrency limit exhausted stays saturated (no reset named)",
+			status:    429,
+			body:      `{"error":{"message":"Concurrency limit exhausted, retry shortly"}}`,
+			wantClass: rateLimitSaturated,
+			wantRetry: defaultSaturatedRetryAfter,
+		},
+		{
 			name:       "OpenAI insufficient_quota",
 			status:     429,
 			body:       `{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota"}}`,

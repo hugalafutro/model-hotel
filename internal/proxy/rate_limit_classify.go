@@ -177,7 +177,13 @@ var rateLimitPhrases = []rateLimitPhrase{
 	// prod while the quota advisor was already pinning the same circuit; the
 	// cost of missing it was an "unrecognised" cause on every surface, a
 	// class="unknown" metric and a dependence on that advisor.
-	{phrase: "limit exhausted", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Z.ai Coding Plan (code 1310, \"Weekly/Monthly Limit Exhausted. Your limit will reset at ...\")", observed: "2026-09-01"},
+	//
+	// "limit exhausted" alone would be the broadest phrase here, and it runs
+	// ahead of every saturated entry, so it also requires the body to name a
+	// reset: a spent window says when it comes back, a busy provider says
+	// "retry shortly", and "concurrency limit exhausted" must keep reaching
+	// the saturated entries below (a table case holds that line).
+	{phrase: "limit exhausted", also: "reset", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Z.ai Coding Plan (code 1310, \"Weekly/Monthly Limit Exhausted. Your limit will reset at ...\")", observed: "2026-09-01"},
 	{phrase: "weekly usage limit", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "session usage limit", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "usage limit", also: "upgrade", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud (\"you have reached your session usage limit, upgrade for higher limits\")", observed: "2026-08-31"},
