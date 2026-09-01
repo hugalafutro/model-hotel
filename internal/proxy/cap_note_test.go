@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -55,17 +54,15 @@ func TestExhausted429_NotedWhenFailoverOn429IsOff(t *testing.T) {
 	}))
 	defer upstream.Close()
 	env := newTestProxyEnvWithUpstream(t, upstream)
-	ctx := context.Background()
-	if err := env.Handler.settingsRepo.Set(ctx, "failover_on_rate_limit", "false"); err != nil {
-		t.Fatalf("disable failover on 429: %v", err)
-	}
-	defer func() { _ = env.Handler.settingsRepo.Set(ctx, "failover_on_rate_limit", "true") }()
+	withRateLimitFailover(t, env.Handler, "false")
 	series := `modelhotel_upstream_rate_limit_total{class="exhausted",model="` + env.ModelName + `",provider="` + env.ProviderName + `"}`
 	before := metricValue(t, series)
 
+	// The 429 is answered as it was before the ledger existed: the status
+	// stands, and the gateway's own error text, never the provider's body.
 	w := chatRequest(t, env)
-	if w.Code != http.StatusTooManyRequests || !strings.Contains(w.Body.String(), "session usage limit") {
-		t.Fatalf("response = %d %q, want the upstream 429 forwarded with its body", w.Code, w.Body.String())
+	if w.Code != http.StatusTooManyRequests || strings.Contains(w.Body.String(), "session usage limit") {
+		t.Fatalf("response = %d %q, want the 429 with the gateway's text", w.Code, w.Body.String())
 	}
 	note, ok := env.Handler.CapLedger().Get(env.ProviderID)
 	if !ok || note.Phrase != "session usage limit" || note.Model != env.ModelName {
