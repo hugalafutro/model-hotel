@@ -29,6 +29,10 @@ type stubConfigMember struct {
 	gotImport   bool
 	gotDryRun   bool
 	gotBackup   bool
+	// gotExport records a read of this member's config. A test that claims a
+	// member was "not read from" must assert this, not gotImport, which only
+	// says it was not written to.
+	gotExport bool
 	// importHeld, when set, holds a real (non dry-run) import open: entry is
 	// announced on importEntered and the answer waits for importGate, so a test can
 	// park a sync mid-import and act while it is in flight. A caller that hangs up
@@ -64,6 +68,7 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 		}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
+			sm.gotExport = true
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			sm.gotImport = true
@@ -162,32 +167,41 @@ func TestConfigSyncRefusesUndesignatedSource(t *testing.T) {
 	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
+	t.Run("empty primary_id is a 400, not a designation refusal", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{}`, true)
+		if rec.Code != http.StatusBadRequest || errCode(t, rec) != "primary_required" {
+			t.Fatalf("sync with no primary_id = %d code=%q (%s), want 400 primary_required", rec.Code, errCode(t, rec), rec.Body.String())
+		}
+	})
+
 	t.Run("no primary designated", func(t *testing.T) {
 		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
-		if rec.Code != http.StatusConflict {
-			t.Fatalf("sync with no designation = %d (%s), want 409", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusConflict || errCode(t, rec) != primaryNotDesignatedCode {
+			t.Fatalf("sync with no designation = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), primaryNotDesignatedCode)
+		}
+		if primary.gotExport || other.gotExport {
+			t.Error("nothing may be read before a primary is designated")
 		}
 		if other.gotImport || replica.gotImport {
 			t.Error("nothing may be pushed before a primary is designated")
 		}
 	})
 
-	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
-		t.Fatalf("designate: %v", err)
-	}
+	enableAutoSync(t, store, pm.ID)
 
 	t.Run("source other than the designated primary", func(t *testing.T) {
 		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+om.ID+`"}`, true)
-		if rec.Code != http.StatusForbidden {
-			t.Fatalf("sync from a non-designated member = %d (%s), want 403", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusConflict || errCode(t, rec) != syncSourceNotPrimaryCode {
+			t.Fatalf("sync from a non-designated member = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), syncSourceNotPrimaryCode)
 		}
-		// The decisive assertion: no member was written to. A 403 that still
-		// pushed would be no protection at all.
-		if replica.gotImport || primary.gotImport {
+		// The decisive assertions: the rogue source was neither read from nor
+		// did anything get written anywhere. A refusal that had already fetched
+		// the export, or that still pushed, would be no protection at all.
+		if other.gotExport {
+			t.Error("the rogue source's config was read")
+		}
+		if replica.gotImport || primary.gotImport || other.gotImport {
 			t.Error("a refused sync must push nothing")
-		}
-		if other.gotImport {
-			t.Error("the rogue source must not be read from either")
 		}
 	})
 
@@ -196,10 +210,68 @@ func TestConfigSyncRefusesUndesignatedSource(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("sync from the designated primary = %d (%s), want 200", rec.Code, rec.Body.String())
 		}
-		if !replica.gotImport {
-			t.Error("the sanctioned path must still push to the replica")
+		if !primary.gotExport || !replica.gotImport {
+			t.Errorf("sanctioned path: exported=%v replica imported=%v, want both", primary.gotExport, replica.gotImport)
 		}
 	})
+}
+
+// errCode reads the machine code off a coded error body; "" for a bare one.
+func errCode(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	return body.Code
+}
+
+// TestConfigSyncStopsWhenPrimaryRepointedMidRun: the guard is a property of the
+// whole run, not of admission. A run can last minutes, and an admin repointing
+// the primary in the meantime (admin token confirmed) has made a decision the
+// operator-tier run in flight must not undo. The run reads the designation with
+// the generation it was admitted under and stops the moment either moves:
+// members not yet reached are left alone, the run reports itself repointed
+// rather than complete, and the fleet's sync marker is not stamped.
+func TestConfigSyncStopsWhenPrimaryRepointedMidRun(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	first := newStubConfigMember(t, "r1token")
+	second := newStubConfigMember(t, "r2token")
+	entered, releaseImport := first.holdRealImport()
+	defer releaseImport()
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "first", first.srv.URL, "r1token")
+	sm, _ := store.CreateMember(t.Context(), "second", second.srv.URL, "r2token")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	syncDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		syncDone <- do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	}()
+	<-entered // the run is parked inside the first replica's real import
+
+	// The admin repoints to the second member while the run is in flight: the
+	// store write bumps the generation, and the rearm broadcast is what
+	// putAutoSync fires right after it.
+	if err := store.SetAutoSync(t.Context(), true, sm.ID); err != nil {
+		t.Fatalf("repoint: %v", err)
+	}
+	srv.signalRearm()
+	releaseImport()
+
+	rec := <-syncDone
+	if rec.Code != http.StatusConflict || errCode(t, rec) != primaryRepointedCode {
+		t.Fatalf("sync = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), primaryRepointedCode)
+	}
+	if second.gotImport {
+		t.Error("a member not yet reached was pushed to after the repoint")
+	}
+	if !strings.Contains(rec.Body.String(), "1 member(s) were not attempted") {
+		t.Errorf("answer must say how much of the fleet the stopped run never reached, got %s", rec.Body.String())
+	}
 }
 
 // TestConfigSyncAttributesInitiator proves a manual sync stamps who ran it on
@@ -424,10 +496,14 @@ func TestConfigSyncConvergedMemberNotImported(t *testing.T) {
 }
 
 func TestConfigSyncUnknownPrimary(t *testing.T) {
-	srv, _ := newTestServer(t)
+	srv, store := newTestServer(t)
+	// Designated but gone (removed after designation, say): the guard passes and
+	// the run must fail on the member lookup, not on the guard. Designating it
+	// is what keeps this test on the branch it is named for.
 	const missing = "00000000-0000-0000-0000-000000000000"
-	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code < 400 {
-		t.Fatalf("sync unknown primary should error, got %d", rec.Code)
+	enableAutoSync(t, store, missing)
+	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code != http.StatusNotFound {
+		t.Fatalf("sync from an unknown designated primary = %d (%s), want 404", rec.Code, rec.Body.String())
 	}
 }
 

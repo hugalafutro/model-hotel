@@ -174,7 +174,6 @@ func TestConfigSyncRefusedOnceShutdownBegins(t *testing.T) {
 	if _, err := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken"); err != nil {
 		t.Fatalf("create replica: %v", err)
 	}
-	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 
 	if err := srv.Shutdown(t.Context()); err != nil {
