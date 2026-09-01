@@ -343,32 +343,30 @@ func newRelyingParty(publicOrigin string) (*gowa.WebAuthn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme == "" || u.Hostname() == "" {
+	host := u.Hostname()
+	if u.Scheme == "" || host == "" {
 		return nil, errInvalidOrigin
+	}
+	// A WebAuthn RP ID must be a domain: the spec forbids an IP literal, browsers
+	// never mint a passkey for one, and go-webauthn refuses it at construction.
+	// Naming that here beats surfacing the library's generic config error.
+	if net.ParseIP(host) != nil {
+		return nil, errIPOrigin
 	}
 	// HTTPS-only ingress: refuse a plain-http origin so a misconfigured deploy
 	// fails loudly instead of starting WebAuthn with an insecure expected origin.
-	// http is allowed only for loopback hosts (localhost / 127.0.0.1 / ::1), which
-	// browsers already treat as a secure context for WebAuthn, so local testing
-	// without a TLS proxy still works.
-	if u.Scheme != "https" && !isLoopbackHost(u.Hostname()) {
+	// http is allowed only for localhost, which browsers already treat as a
+	// secure context for WebAuthn, so local testing without a TLS proxy still works.
+	if u.Scheme != "https" && host != "localhost" {
 		return nil, errInsecureOrigin
 	}
-	return webauthn.NewRelyingParty(u.Hostname(), "Front Desk", []string{u.Scheme + "://" + u.Host})
-}
-
-// isLoopbackHost reports whether host is localhost or a loopback IP literal.
-func isLoopbackHost(host string) bool {
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return webauthn.NewRelyingParty(host, "Front Desk", []string{u.Scheme + "://" + u.Host})
 }
 
 var (
 	errInvalidOrigin  = &originError{}
 	errInsecureOrigin = errors.New("PUBLIC_ORIGIN must be https:// (http is allowed only for localhost); HTTPS-only ingress is required")
+	errIPOrigin       = errors.New("PUBLIC_ORIGIN must use a hostname, not an IP address: a WebAuthn relying party ID has to be a domain")
 )
 
 type originError struct{}
