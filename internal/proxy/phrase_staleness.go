@@ -92,7 +92,11 @@ func ReportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) 
 // ctx ends. Started from the server's background loops beside the stale-log
 // sweep.
 func PhraseStalenessLoop(ctx context.Context, pool *pgxpool.Pool) {
-	timer := time.NewTimer(10 * time.Minute)
+	phraseStalenessLoop(ctx, pool, 10*time.Minute, 24*time.Hour)
+}
+
+func phraseStalenessLoop(ctx context.Context, pool *pgxpool.Pool, first, every time.Duration) {
+	timer := time.NewTimer(first)
 	defer timer.Stop()
 	for {
 		select {
@@ -101,6 +105,6 @@ func PhraseStalenessLoop(ctx context.Context, pool *pgxpool.Pool) {
 			return
 		}
 		ReportStalePhrases(ctx, pool, time.Now())
-		timer.Reset(24 * time.Hour)
+		timer.Reset(every)
 	}
 }

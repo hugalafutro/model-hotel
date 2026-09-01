@@ -98,8 +98,19 @@ func TestAttemptRecord_Lifecycle(t *testing.T) {
 	none.noteBreaker(breakerCharge)
 	none.closeAttemptRecord(0, "", "", "", 0)
 	none.appendBreakerSkip(cand.provider.ID, "p", "m")
+	none.appendAttemptRecord(attemptRecord{})
 	if none.attemptsJSON() != nil {
 		t.Error("nil log produced JSON")
+	}
+
+	// A hedged loser's detail prefers the classifier's body excerpt for a 429,
+	// then the error's own text, then its detail.
+	loser := hedgeResult{idx: 2, reqErr: reqError{Kind: KindProviderSaturated, Detail: "HTTP 429"}, rateLimit: rateLimitVerdict{detail: "concurrent_budget_exceeded", phrase: "concurrent_budget_exceeded"}, status: 429, breaker: breakerNoop}
+	if rec := hedgeLoserRecord(loser, cand, time.Now()); rec.Detail != "concurrent_budget_exceeded" || rec.Phrase != "concurrent_budget_exceeded" || rec.Status != 429 || !rec.Hedged || rec.Attempt != 2 {
+		t.Errorf("hedged 429 loser = %+v", rec)
+	}
+	if rec := hedgeLoserRecord(hedgeResult{reqErr: reqError{Kind: KindProviderError, Detail: "HTTP 503"}}, cand, time.Now()); rec.Detail != "HTTP 503" {
+		t.Errorf("hedged loser without a body falls back to the error detail, got %+v", rec)
 	}
 }
 
@@ -415,4 +426,72 @@ func TestStalePhrases(t *testing.T) {
 	}
 	// The report itself runs without error either way.
 	ReportStalePhrases(context.Background(), pool, now)
+}
+
+// The report's other two outcomes, and the loop that schedules it: a healthy
+// table logs nothing above Debug, a failing query is reported rather than
+// swallowed, and the loop runs the report on its tick until its context ends.
+func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
+	saved := rateLimitPhrases
+	rateLimitPhrases = []rateLimitPhrase{
+		{phrase: "fresh-entry", class: rateLimitSaturated, provider: "P", observed: "2026-08-31"},
+	}
+	t.Cleanup(func() { rateLimitPhrases = saved })
+	capt := captureProxyLogs(t)
+	pool := testDB.Pool()
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+
+	// Every entry inside the horizon by its own date: nothing to query, nothing
+	// stale, a Debug line only.
+	ReportStalePhrases(context.Background(), pool, now)
+	if len(capt.find("rate-limit phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) > 0 {
+		t.Error("a fresh table was reported stale")
+	}
+
+	// A query that cannot run (cancelled context) is reported, not swallowed.
+	rateLimitPhrases = []rateLimitPhrase{{phrase: "old-entry", class: rateLimitSaturated, provider: "P", observed: "2026-01-01"}}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := StalePhrases(cancelled, pool, now); err == nil {
+		t.Error("StalePhrases on a cancelled context returned no error")
+	}
+	ReportStalePhrases(cancelled, pool, now)
+	if len(capt.find("rate-limit phrases: staleness check failed")) == 0 {
+		t.Error("the failed check was not logged")
+	}
+
+	// The loop: first tick fires the report, cancel stops it.
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		phraseStalenessLoop(ctx, pool, 5*time.Millisecond, time.Hour)
+		close(done)
+	}()
+	deadline := time.After(2 * time.Second)
+	for len(capt.find("rate-limit phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("the loop never ran the report")
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+	stop()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the loop did not stop on context cancel")
+	}
+}
+
+// The deferred answer verdict fires exactly once: the terminal write takes
+// it, and the attempt path's fallback finds nothing left to run.
+func TestJudgeAnswerNow_ExactlyOnce(t *testing.T) {
+	runs := 0
+	l := &requestLogData{judgeAnswer: func() { runs++ }}
+	judgeAnswerNow(l)
+	judgeAnswerNow(l)
+	if runs != 1 || l.judgeAnswer != nil {
+		t.Errorf("runs = %d, judgeAnswer nil = %v; want one run and the hook cleared", runs, l.judgeAnswer == nil)
+	}
+	judgeAnswerNow(&requestLogData{}) // nothing deferred: a no-op
 }
