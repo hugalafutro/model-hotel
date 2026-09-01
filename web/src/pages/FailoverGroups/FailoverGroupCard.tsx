@@ -271,8 +271,7 @@ export function FailoverGroupCard({
 					{formatTokens(group.total_tokens)} {t("common.tokens")}
 					{group.group_enabled && summary.total > 0 && (
 						<>
-							{" "}
-							•{" "}
+							<br />
 							{summary.allDark ? (
 								<span
 									className="text-red-400 font-medium"
